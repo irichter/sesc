@@ -29,6 +29,14 @@
 #include "opcodes.h"
 #include "non_mips.h"
 
+#ifdef SUNOS
+#define trunc(a) ((long)(a))
+#define truncf(a) ((long)(a))
+#elif AIX
+#define truncf(a) (trunc(a))
+#endif
+
+
 #ifndef isunordered
 #define isunordered(u, v) ( isnan(u) || isnan(v) )
 #endif

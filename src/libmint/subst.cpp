@@ -1338,11 +1338,13 @@ OP(mint_ioctl)
   case I_SENDFD:
     break;
 #endif
+#ifndef SUNOS
   case FIONREAD:
   case FIONBIO:
   case FIOASYNC:
   case FIOSETOWN:
   case FIOGETOWN:
+#endif
 #ifndef DARWIN
   case I_PUSH:
   case I_POP:
@@ -2873,6 +2875,9 @@ OP(mint_getdomainname)
     r4 = REGNUM(4);
     r5 = REGNUM(5);
 
+#ifdef SUNOS
+    fatal("getdomainname not supported on SUN\n");
+#else
 #ifdef TASKSCALAR
     {
       char *cad1 = (char *)alloca(r5);
@@ -2887,6 +2892,7 @@ OP(mint_getdomainname)
         r4 = pthread->virt2real(r4);
 
     err = getdomainname((char *) r4, r5);
+#endif
 #endif
 
     REGNUM(2) = err;
@@ -2909,6 +2915,9 @@ OP(mint_setdomainname)
     r4 = REGNUM(4);
     r5 = REGNUM(5);
 
+#ifdef SUNOS
+    fatal("setdomainname not supported on SUN\n");
+#else
 #ifdef TASKSCALAR
     {
       char *cad1 = (char *)alloca(r5);
@@ -2926,6 +2935,8 @@ OP(mint_setdomainname)
 
     err = setdomainname((char *) r4, r5);
 #endif
+#endif
+
     REGNUM(2) = err;
     if (err == -1)
         pthread->setperrno(errno);

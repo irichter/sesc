@@ -1,7 +1,7 @@
 #cleaning up some messy environment variables around ;-)
-unexport TASKSCALAR
-unexport VALUEPRED
-unexport TS_VMEM
+#unexport TASKSCALAR
+#unexport VALUEPRED
+#unexport TS_VMEM
 
 CP=cp
 

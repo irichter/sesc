@@ -36,3 +36,4 @@ M4	=m4
 MAKE	=gmake
 RANLIB	=granlib
 FIND	=gfind
+SED	=sed

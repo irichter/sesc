@@ -1,11 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#if (defined LINUX) || (defined DARWIN)
 #include <stdarg.h>
-#else
-#include <varargs.h>
-#endif
 
 /* The default maximum number of error and warning messages. If these limits
  * are reached, then the program will exit. This prevents long-running
@@ -28,13 +24,7 @@ int Max_warnings = MAX_WARNINGS;
 void mint_termination(int);
 
 /*VARARGS1*/
-#if (defined LINUX) || (defined DARWIN)
 void fatal(char *fmt, ...)
-#else
-void fatal(fmt, va_alist)
-    char *fmt;
-    va_dcl
-#endif
 {
     va_list ap;
 #if 0
@@ -43,13 +33,8 @@ void fatal(fmt, va_alist)
 
     fflush(stdout);
     fprintf(stderr, "\nERROR: ");
-#if (defined LINUX) || (defined DARWIN)
     va_start(ap, fmt);
     vfprintf(stderr,fmt,ap);
-#else
-    va_start(ap);
-    _doprnt(fmt, ap, stderr);
-#endif
     va_end(ap);
 
     /* should be passed the pid of the thread that generated the fatal, but... */
@@ -66,13 +51,7 @@ void fatal(fmt, va_alist)
  */
 
 /*VARARGS1*/
-#if (defined LINUX) || (defined DARWIN)
 void error(char *fmt, ...)
-#else
-void error(fmt, va_alist)
-    char *fmt;
-    va_dcl
-#endif
 {
     va_list ap;
 #if 0
@@ -82,13 +61,8 @@ void error(fmt, va_alist)
 
     fflush(stdout);
     fprintf(stderr, "\nERROR: ");
-#if (defined LINUX) || (defined DARWIN)
     va_start(ap, fmt);
     vfprintf(stderr,fmt,ap);
-#else
-    va_start(ap);
-    _doprnt(fmt, ap, stderr);
-#endif
     va_end(ap);
 
     if (Max_errors > 0 && total_errors++ >= Max_errors) {
@@ -107,14 +81,7 @@ void error(fmt, va_alist)
  */
 
 /*VARARGS1*/
-#if (defined LINUX) || (defined DARWIN)
 void warning(char *fmt, ...)
-#else
-void
-warning(fmt, va_alist)
-    char *fmt;
-    va_dcl
-#endif
 {
     va_list ap;
 #if 0
@@ -124,13 +91,8 @@ warning(fmt, va_alist)
 
     fflush(stdout);
     fprintf(stderr, "\nWarning: ");
-#if (defined LINUX) || (defined DARWIN)
     va_start(ap, fmt);
     vfprintf(stderr,fmt,ap);
-#else
-    va_start(ap);
-    _doprnt(fmt, ap, stderr);
-#endif
     va_end(ap);
 
     if (Max_warnings > 0 && total_warnings++ >= Max_warnings) {

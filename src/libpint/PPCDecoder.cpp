@@ -25,7 +25,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "PPCDecoder.h"
 
 PPCInstDef PPCDecoder::ppcInstTable[] = {
-#define PPCINST(i, mop, eop, f, t, st) { #i, i ## _inst, mop, eop, f ## _form, t, st}
+#define SESCPPCINST(i, mop, eop, f, t, st) { #i, i ## _inst, mop, eop, f ## _form, t, st}
 #include "PPCInsts.def"
 };
 

@@ -149,8 +149,9 @@ typedef enum PPCInstFormEnum {
 
 //enumeration with instruction names
 typedef enum PPCInstEnum {
-#define PPCINST(i, mop, eop, f, t, st) i ## _inst
+#define SESCPPCINST(i, mop, eop, f, t, st) i ## _inst
 #include "PPCInsts.def"
+#undef SESCPPCINST
 } PPCInst;
 
 typedef struct _PPCInstDef {

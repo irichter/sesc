@@ -32,9 +32,9 @@ endif
 	@echo -n "\$$(OBJ)/$(SIGNATURE).a:" >$(OBJ)/.depend1.$(SIGNATURE)
 	@echo $(patsubst %.o,$$\(OBJ\)/%.o,$(OBJS)) >>$(OBJ)/.depend1.$(SIGNATURE)
 	$(OBJ_DIR)/$(ABINAME)_obj/mkdep  $(INC) $(DEFS) -- $(wildcard *.cpp *.c) $(wildcard tests/*.cpp tests/*.c) $(patsubst %.m4,$(OBJ)/%.cpp,$(wildcard *.m4)) >>$(OBJ)/.depend1.$(SIGNATURE)
-	@sed -e 's/ $(OBJPAT)/ \$$\(OBJ\)/g' $(OBJ)/.depend1.$(SIGNATURE) > $(OBJ)/.depend2.$(SIGNATURE)
-	@sed -e 's/ $(SRCPAT)/ \$$\(SRC_DIR\)/g' $(OBJ)/.depend2.$(SIGNATURE) >>$(DOTDEPEND)
-	-@rm $(OBJ)/.depend1.$(SIGNATURE) $(OBJ)/.depend2.$(SIGNATURE)
+	@$(SED) -e 's/ $(OBJPAT)/ \$$\(OBJ\)/g' $(OBJ)/.depend1.$(SIGNATURE) > $(OBJ)/.depend2.$(SIGNATURE)
+	@$(SED) -e 's/ $(SRCPAT)/ \$$\(SRC_DIR\)/g' $(OBJ)/.depend2.$(SIGNATURE) >>$(DOTDEPEND)
+#	-@rm $(OBJ)/.depend1.$(SIGNATURE) $(OBJ)/.depend2.$(SIGNATURE)
 	-@echo $(DOTDEPENDEXTRA1) >> $(DOTDEPEND)
 	-@echo $(DOTDEPENDEXTRA2) >> $(DOTDEPEND)
 	-@echo $(DOTDEPENDEXTRA3) >> $(DOTDEPEND)
@@ -72,7 +72,8 @@ $(OBJ)/lib%.a:
 	$(RANLIB) $@
 
 $(OBJ)/%.cpp: %.m4 $(M4_MACROS)
-	$(M4) -B20000 $(M4_MACROS) $*.m4 > $(OBJ)/$*.cpp
+	echo `pwd`
+	$(M4) -B20000 $(M4_MACROS) $< > $(OBJ)/$*.cpp
 
 .PHONY	: clean distclean
 distclean	:	clean edistclean

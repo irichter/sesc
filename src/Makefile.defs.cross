@@ -43,4 +43,5 @@ SHELL	=/bin/sh
 M4	=m4
 MAKE	=make
 FIND	=find
+SED	=sed
 
