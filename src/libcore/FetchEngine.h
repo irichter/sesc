@@ -36,6 +36,10 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "TaskContext.h"
 #endif
 
+#ifdef SESC_INORDER
+#include <stdio.h>
+#endif
+
 class GMemorySystem;
 class IBucket;
 
@@ -80,7 +84,30 @@ private:
 #endif
   bool enableICache;
 
+#ifdef SESC_INORDER
+  FILE *energyInstFile;
+  long instrCount;
+  long previousClockCount;
+  int intervalCount;
+  double previousTotEnergy;
+  
+#endif
+
+ 
 protected:
+  void instFetched(DInst *dinst) {
+#ifdef SESC_BAAD
+    dinst->setFetchTime();
+#endif
+    
+#ifdef TASKSCALAR
+    dinst->setLVID(lvid, lvidVersion);
+#endif //TASKSCALAR
+
+#ifdef TS_PARANOID
+    fetchDebugRegisters(dinst);
+#endif
+  }
   bool processBranch(DInst *dinst, ushort n2Fetched);
 
   // ******************* Statistics section

@@ -25,6 +25,10 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "Instruction.h"
 #include "Resource.h"
 
+#ifdef SESC_NO_LDQ2
+#define LDSTBUFFER_IGNORE_DEPS 1
+#endif
+
 LDSTBuffer::EntryType      LDSTBuffer::stores;
 LDSTBuffer::FenceEntryType LDSTBuffer::fences;
 
@@ -81,25 +85,10 @@ void LDSTBuffer::getFenceEntry(DInst *dinst)
   I(inst->isFence());
 
 #ifdef LDSTBUFFER_IGNORE_DEPS
-  return true;
+  return;
 #endif
 
   fences[cid] = dinst;
-
-#if 0
-  // TODO: not implemented
-  I(0);
-
-  if( pendingBarrier ) {
-    MSG("Not working");
-    pendingBarrier->addSrc2(dinst);
-    // TODO:
-    if( inst->isEvent() )
-      return false;
-  }
-
-  return true;
-#endif
 }
 
 void LDSTBuffer::fenceLocallyPerformed(DInst *dinst)
@@ -123,6 +112,7 @@ void LDSTBuffer::getStoreEntry(DInst *dinst)
   EntryType::iterator sit = stores.find(calcWord(dinst));
   if (sit != stores.end()) {
     DInst *pdinst = sit->second;
+    I(pdinst->getInst()->isStore());
     if (!pdinst->hasPending() && dinst->getContextId() == pdinst->getContextId())
       pdinst->setDeadStore();
   }
@@ -157,7 +147,7 @@ void LDSTBuffer::getLoadEntry(DInst *dinst)
     // Different processor or window. Queue the instruction even if executed
     dinst->setDepsAtRetire();
     I(pdinst->getInst()->getAddr() != dinst->getInst()->getAddr());
-    pdinst->addSrc2(dinst);
+    pdinst->addFakeSrc(dinst);
 
     GLOG(DEBUG2, "FORWARD pc=0x%x [addr=0x%x] (%p)-> pc=0x%x [addr=0x%x] (%p)"
 	,(int)pdinst->getInst()->getAddr() , (int)pdinst->getVaddr(), pdinst
@@ -169,8 +159,24 @@ void LDSTBuffer::getLoadEntry(DInst *dinst)
   dinst->setLoadForwarded();
   if (!pdinst->isExecuted()) {
     I(pdinst->getInst()->getAddr() != dinst->getInst()->getAddr());
-    pdinst->addSrc2(dinst);
+    pdinst->addFakeSrc(dinst);
   }
+}
+
+void LDSTBuffer::storeLocallyPerformed(DInst *dinst) 
+{
+  I(dinst->getInst()->isStore());
+
+#ifdef LDSTBUFFER_IGNORE_DEPS
+  return;
+#endif
+
+  EntryType::iterator sit = stores.find(calcWord(dinst));
+  if (sit == stores.end()) 
+    return; // accross processors stores can be removed out-of-order
+ 
+  if (sit->second == dinst)
+    stores.erase(sit);
 }
 
 void LDSTBuffer::dump(const char *str)

@@ -145,7 +145,7 @@ EXTERN int Max_nprocs;
 /* the number of function pointers we need to allocate */
 extern int Nfuncs;
 
-#define SESC_MAXEVENT 16
+#define SESC_MAXEVENT 48
 
 /* Extra icode pointers allocated at the end of Itext[]. */
 enum {

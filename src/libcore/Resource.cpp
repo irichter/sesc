@@ -84,14 +84,20 @@ MemResource::MemResource(Cluster *cls
   char cadena[100];
   sprintf(cadena,"%s(%d)", cad, id);
   
+#ifdef SESC_NO_LDQ2
+  ldqCheckEnergy = 0;
+  ldqRdWrEnergy  = 0;
+#else
   ldqCheckEnergy = new GStatsEnergy("ldqCheckEnergy",cadena,id,LDQCheckEnergy
 				    ,EnergyMgr::get("ldqCheckEnergy",id),"LSQ");
+
+  ldqRdWrEnergy = new GStatsEnergy("ldqRdWrEnergy",cadena,id,LDQRdWrEnergy
+				   ,EnergyMgr::get("ldqRdWrEnergy",id),"LSQ");
+#endif
 
   stqCheckEnergy = new GStatsEnergy("stqCheckEnergy",cadena,id,STQCheckEnergy
 				    ,EnergyMgr::get("stqCheckEnergy",id),"LSQ");
 
-  ldqRdWrEnergy = new GStatsEnergy("ldqRdWrEnergy",cadena,id,LDQRdWrEnergy
-				   ,EnergyMgr::get("ldqRdWrEnergy",id),"LSQ");
 
   stqRdWrEnergy = new GStatsEnergy("stqRdWrEnergy",cadena,id,STQRdWrEnergy
 				   ,EnergyMgr::get("stqRdWrEnergy",id),"LSQ");
@@ -382,7 +388,6 @@ void FUStore::simTime(DInst *dinst)
 
 void FUStore::executed(DInst *dinst)
 {
-  iAluEnergy->inc();
   stqRdWrEnergy->inc(); // Update fields
   
   ldqCheckEnergy->inc(); // Check st-ld replay traps

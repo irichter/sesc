@@ -462,7 +462,7 @@ public:
     I(inst->isBranch());
 
     nBranches.cinc(doUpdate);
-    nTaken.cinc(inst->calcNextInstID() == oracleID);
+    nTaken.cinc(inst->calcNextInstID() != oracleID);
   
     PredType p= ras.doPredict(inst, oracleID, doUpdate);
     if( p != NoPrediction ) {

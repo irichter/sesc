@@ -50,6 +50,10 @@ typedef HASH_MAP<const char *,UnitEntry, HASH<const char*>, eqstr> UnitMapType;
 
 static UnitMapType unitMap;
 
+#ifdef SESC_DDIS1
+GStatsCntr  *nDeps[4];
+#endif
+
 Cluster::~Cluster()
 {
     // Nothing to do
@@ -62,7 +66,19 @@ Cluster::Cluster(const char *clusterName, GProcessor *gp)
   ,gproc(gp)
   ,winNotUsed("Proc(%d)_%s_winNotUsed",gp->getId(), clusterName)
 {
-    bzero(res,sizeof(Resource *)*MaxInstType);
+  bzero(res,sizeof(Resource *)*MaxInstType);
+
+#ifdef SESC_DDIS1
+  static bool initialized = false;
+  if (!initialized) {
+    initialized = true;
+    nDeps[0] = new GStatsCntr("nLDQ_nDeps0");
+    nDeps[1] = new GStatsCntr("nLDQ_nDeps1");
+    nDeps[2] = new GStatsCntr("nLDQ_nDeps2");
+    nDeps[3] = new GStatsCntr("nLDQ_nDeps3");
+  }
+#endif
+
 }
 
 void Cluster::buildUnit(const char *clusterName
@@ -242,6 +258,39 @@ Cluster *Cluster::create(const char *clusterName, GMemorySystem *ms, GProcessor 
   return cluster;
 }
 
+void Cluster::addInst(DInst *dinst) 
+{
+#ifdef SESC_DDIS1
+  nDeps[dinst->nDeps]->inc();
+  if (dinst->nDeps > 1) {
+    // Predict the latest dependence
+    DInst *src1 = dinst->getParentSrc1();
+    DInst *src2 = dinst->getParentSrc2();
+    DInst *latest = 0;
+    if (src1)
+      latest = src1;
+    else if (src2)
+      latest = src2;
+    I(latest);
+    
+    if (src1)
+      if (latest->ID < src1->ID)
+	latest = src1;
+    if (src2)
+      if (latest->ID < src2->ID)
+	latest = src2;
+
+    dinst->predParent = latest;
+  }else{
+    dinst->predParent = 0;
+  }
+#endif
+
+  window.addInst(dinst);
+}
+
+//************ ExecutedCluster
+
 void ExecutedCluster::executed(DInst *dinst)
 {
   dinst->markExecuted();
@@ -261,6 +310,8 @@ void ExecutedCluster::retire(DInst *dinst)
   // Nothing
 }
 
+//************ RetiredCluster
+
 void RetiredCluster::executed(DInst *dinst)
 {
   dinst->markExecuted();
@@ -276,6 +327,8 @@ void RetiredCluster::retire(DInst *dinst)
   winNotUsed.sample(windowSize);
   delEntry();
 }
+
+//************ ClusterManager
 
 ClusterManager::ClusterManager(GMemorySystem *ms, GProcessor *gproc)
 {

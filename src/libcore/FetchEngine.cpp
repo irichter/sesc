@@ -35,6 +35,11 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "MemRequest.h"
 #include "Pipeline.h"
 
+#ifdef SESC_INORDER
+#include <time.h>
+#include "GEnergy.h"
+#endif
+
 long long FetchEngine::nInst2Sim=0;
 long long FetchEngine::totalnInst=0;
 
@@ -59,8 +64,10 @@ FetchEngine::FetchEngine(int cId
   ,nBTAC("FetchEngine(%d):nBTAC", i) // BTAC corrections to BTB
   ,unBlockFetchCB(this)
 {
-  // Constraints
+  
 
+
+  // Constraints
   SescConf->isLong("cpucore", "fetchWidth",cId);
   SescConf->isBetween("cpucore", "fetchWidth", 1, 1024, cId);
   FetchWidth = SescConf->getLong("cpucore", "fetchWidth", cId);
@@ -107,6 +114,27 @@ FetchEngine::FetchEngine(int cId
       IL1HitDelay = 1; // 1 cycle if impossible to find the information required
     }
   }
+
+#ifdef SESC_INORDER
+  char strTime[16], fileName[32];
+  time_t rawtime;
+  struct tm * timeinfo;
+
+  time ( &rawtime );
+  timeinfo = localtime ( &rawtime );
+  strftime(strTime, 16, "%H%M",timeinfo);
+  strcpy(fileName,"delta_e_inst");
+  strncat(fileName,strTime,strlen(strTime));
+
+  if((energyInstFile = fopen(fileName, "w")) == NULL){
+    printf("Error, could not open file energy_instr file for writing\n");
+  }
+
+  instrCount = 0;
+  intervalCount = 0;
+  previousTotEnergy = 0.0;
+  previousClockCount = 0;
+#endif
 }
 
 FetchEngine::~FetchEngine()
@@ -115,6 +143,11 @@ FetchEngine::~FetchEngine()
   I(nGradInsts  == 0);
   I(nWPathInsts == 0);
 
+#ifdef SESC_INORDER
+  if(energyInstFile != NULL)
+    fclose(energyInstFile);
+#endif
+  
   delete bpred;
 }
 
@@ -176,6 +209,9 @@ bool FetchEngine::processBranch(DInst *dinst, ushort n2Fetched)
     return true;
   }
 
+
+
+
 #ifdef SESC_MISPATH
   if (missInstID==0 && !dinst->isFake()) { // Only first mispredicted instruction
     I(missFetchTime == 0);
@@ -207,7 +243,7 @@ bool FetchEngine::processBranch(DInst *dinst, ushort n2Fetched)
 
 void FetchEngine::realFetch(IBucket *bucket, int fetchMax)
 {
-  ushort n2Fetched=fetchMax > 0 ? fetchMax : FetchWidth;
+  long n2Fetched=fetchMax > 0 ? fetchMax : FetchWidth;
   maxBB = BB4Cycle; // Reset the max number of BB to fetch in this cycle (decreased in processBranch)
 
   // This method only can be called once per cycle or the restriction of the
@@ -232,42 +268,37 @@ void FetchEngine::realFetch(IBucket *bucket, int fetchMax)
   HVersion *lvidVersion = tc->getVersion(); // no duplicate
 #endif
 
+  
   do {
     nGradInsts++; // Before executePC because it can trigger a context switch
 
     DInst *dinst = flow.executePC();
-
     if (dinst == 0)
       break;
 
-#ifdef SESC_BAAD
-    // FIXME: Instruction fetched. Use dinst to create the depQ BW function
-    dinst->setFetchTime();
-#endif
+    const Instruction *inst = dinst->getInst();
 
-#ifdef TASKSCALAR
-    dinst->setLVID(lvid, lvidVersion);
-#endif //TASKSCALAR
+    if (inst->isStore()) {
+      // Break in two instructions. Address calculation, and store
+      DInst *fakeALU = DInst::createInst(Instruction::getEventID(static_cast<EventType>(FakeInst + inst->getSrc1()))
+					 ,0
+					 ,dinst->getContextId());
 
-    n2Fetched--;
-    
+      I(fakeALU->getInst()->isStoreAddr());
+      instFetched(fakeALU);
+      bucket->push(fakeALU);
+      n2Fetched--;
+    }
+    instFetched(dinst);
     bucket->push(dinst);
-
-#ifdef TS_PARANOID
-    fetchDebugRegisters(dinst);
-#endif
-
-    //    dinst->setCPUId(cpuId);
+    n2Fetched--;
   
-    if(dinst->getInst()->isBranch()) {
+    if(inst->isBranch()) {
       if (!processBranch(dinst, n2Fetched))
 	break;
-      //    }else if(dinst->getInst()->isStore()) {
-      // FIXME: add a getFetchStoreEntry
-      //      LDSTBuffer::getStoreEntry(dinst);
     }
 
-  }while(n2Fetched && flow.currentPid()==myPid);
+  }while(n2Fetched>0 && flow.currentPid()==myPid);
 
 #ifdef TASKSCALAR
   if (!bucket->empty())
@@ -285,6 +316,45 @@ void FetchEngine::realFetch(IBucket *bucket, int fetchMax)
   nFetched.add(tmp);
 }
 
+
+void FetchEngine::fetch(IBucket *bucket, int fetchMax)
+{
+  if(missInstID) {
+    fakeFetch(bucket, fetchMax);
+  }else{
+    realFetch(bucket, fetchMax);
+    
+#ifdef SESC_INORDER  
+    instrCount++;
+    if(instrCount == 10000) {
+      intervalCount++;
+
+      if(energyInstFile != NULL) {
+        double energy =  GStatsEnergy::getTotalEnergy();
+	//fprintf(energyInstFile,"%f \n", energy);
+	 fprintf(energyInstFile,"%d\t%f\t%d\n", intervalCount,  energy -previousTotEnergy, globalClock - previousClockCount);
+	 //printf("EE:%f\n",  energy);
+      }
+      previousTotEnergy =  GStatsEnergy::getTotalEnergy();
+      previousClockCount = globalClock;
+     
+      instrCount = 0;
+    }
+#endif   
+  }
+
+  if(enableICache && !bucket->empty()) {
+    if (bucket->top()->getInst()->isStoreAddr())
+      IMemRequest::create(bucket->topNext(), gms, bucket);
+    else
+      IMemRequest::create(bucket->top(), gms, bucket);
+  }else{
+    // Even if there are no inst to fetch, bucket.empty(), it should
+    // be markFetched. Otherwise, we would loose count of buckets
+    bucket->markFetchedCB.schedule(IL1HitDelay);
+  }
+}
+
 void FetchEngine::fakeFetch(IBucket *bucket, int fetchMax)
 {
   I(missInstID);
@@ -300,7 +370,6 @@ void FetchEngine::fakeFetch(IBucket *bucket, int fetchMax)
     I(dinst);
 
     dinst->setFake();
-
     n2Fetched--;
     bucket->push(dinst);
 
@@ -319,22 +388,6 @@ void FetchEngine::fakeFetch(IBucket *bucket, int fetchMax)
 #endif // SESC_MISPATH
 }
 
-void FetchEngine::fetch(IBucket *bucket, int fetchMax)
-{
-  if(missInstID) {
-    fakeFetch(bucket, fetchMax);
-  }else{
-    realFetch(bucket, fetchMax);
-  }
-
-  if(enableICache && !bucket->empty()) {
-    IMemRequest::create(bucket->top(), gms, bucket);
-  }else{
-    // Even if there are no inst to fetch, bucket.empty(), it should
-    // be markFetched. Otherwise, we would loose count of buckets
-    bucket->markFetchedCB.schedule(IL1HitDelay); 
-  }
-}
 
 void FetchEngine::dump(const char *str) const
 {

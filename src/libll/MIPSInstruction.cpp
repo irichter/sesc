@@ -155,7 +155,9 @@ void Instruction::initializeMINT(int argc,
     
     // In case that a iLoad has two dependences, the
     // MAX_PENDING_SOURCES from DInst should be increased.
+#ifndef SESC_NO_LDQ2
     GI(opcode == iLoad,  src2 == NoDependence);
+#endif
     
     if( subCode == BJCond && !gTaken ) {
       if( picode->target < picode )
@@ -290,6 +292,27 @@ void Instruction::initializeMINT(int argc,
   InstTable[codeSize + UnlockEvent].dest   = InvalidOutput;
   InstTable[codeSize + UnlockEvent].uEvent = ReleaseEvent;
 
+  for(int i=0;i<32;i++) {
+    // Fake Instructions (address calculation for stores)
+    InstTable[codeSize + FakeInst + i].opcode = iALU;
+    InstTable[codeSize + FakeInst + i].subCode= iFake;
+    InstTable[codeSize + FakeInst + i].src1   = (RegType)i;
+#ifdef SESC_NO_LDQ2
+    InstTable[codeSize + FakeInst + i].src2   = InternalReg; // Fake dep
+#else
+    InstTable[codeSize + FakeInst + i].src2   = NoDependence;
+#endif
+    InstTable[codeSize + FakeInst + i].dest   = InternalReg;
+    InstTable[codeSize + FakeInst + i].uEvent = NoEvent;
+
+    InstTable[codeSize + FakeInst + i].guessTaken = false;
+    InstTable[codeSize + FakeInst + i].condLikely = false;
+    InstTable[codeSize + FakeInst + i].jumpLabel  = false;
+
+    InstTable[codeSize + FakeInst + i].src1Pool = whichPool(InstTable[codeSize + FakeInst + i].src1);
+    InstTable[codeSize + FakeInst + i].src2Pool = whichPool(InstTable[codeSize + FakeInst + i].src2);
+    InstTable[codeSize + FakeInst + i].dstPool  = whichPool(InternalReg);
+  }
 }
 
 void Instruction::finalize()
@@ -493,6 +516,9 @@ void Instruction::MIPSDecodeInstruction(size_t        index
     subCode = iMemory;
     dest    = static_cast < RegType > (picode->getRN(RT));
     src1    = static_cast < RegType > (picode->getRN(RS));
+#ifdef SESC_NO_LDQ2
+    src2    = InternalReg;
+#endif
     break;
   case sb_opn:
   case sc_opn:
@@ -512,6 +538,9 @@ void Instruction::MIPSDecodeInstruction(size_t        index
     subCode = iMemory;
     dest = static_cast < RegType > (picode->getDPN(RT) + static_cast < int >(IntFPBoundary));
     src1 = static_cast < RegType > (picode->getRN(RS));
+#ifdef SESC_NO_LDQ2
+    src2    = InternalReg;
+#endif
     break;
   case lwc1_opn:
   case lwc2_opn:
@@ -520,6 +549,9 @@ void Instruction::MIPSDecodeInstruction(size_t        index
     subCode = iMemory;
     dest = static_cast < RegType > (picode->getFPN(RT) + static_cast < int >(IntFPBoundary));
     src1 = static_cast < RegType > (picode->getRN(RS));
+#ifdef SESC_NO_LDQ2
+    src2    = InternalReg;
+#endif
     break;
   case sdc1_opn:
   case sdc2_opn:

@@ -102,7 +102,7 @@ public:
   }
 
   unsigned int getIdFromTop(int i) const {
-    I(nElems > i);
+    I(nElems > (unsigned int)i);
     return (start+i) & pipeMask;
   }
 
@@ -114,6 +114,8 @@ public:
     I(id != end);
     return pipe[id];
   }
+
+  Data topNext() const { return getData(getIdFromTop(1)); }
 
   size_t size() const { return nElems; }
   bool empty()  const { return nElems == 0; }

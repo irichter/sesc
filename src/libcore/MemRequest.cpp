@@ -194,8 +194,6 @@ void IMemRequest::create(DInst *dinst, GMemorySystem *gmem, IBucket *bb)
   r->msg = 0;
 #endif   
 
-
-
   long old_addr = dinst->getInst()->getAddr();
   long ph_addr = gmem->getMemoryOS()->ITLBTranslate(old_addr);
   if (ph_addr == -1) {

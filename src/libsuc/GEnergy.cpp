@@ -179,6 +179,24 @@ void GStatsEnergy::dump()
 
 }
 
+double GStatsEnergy::getTotalEnergy()
+{
+  volatile double totalEnergy = 0.0;
+  double energy;
+ 
+  // calculate the values
+  for(size_t i=1;i< MaxEnergyGroup ;i++) {
+    energy = GStatsEnergy::getTotalGroup(static_cast<EnergyGroup>(i));
+   
+    totalEnergy += energy;
+  }
+
+  // printf("E:%f\n", totalEnergy);
+  return totalEnergy;
+
+}
+
+
 void GStatsEnergy::reportValue() const
 {
   Report::field("%s=%g", name, getDouble());

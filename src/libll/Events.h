@@ -40,6 +40,8 @@ enum EventType {
   FastSimBeginEvent,
   FastSimEndEvent,
   LibCallEvent,
+  FakeInst,
+  FakeInstMax = FakeInst+32,
   MaxEvent
 };
 // I(MaxEvent < SESC_MAXEVENT);

@@ -232,6 +232,8 @@ public:
   
   static void dump(int procId);
   static void dump();
+  static double getTotalEnergy();
+
 #ifdef SESC_THERM
   static void setupDump(int procId);
   static void printDump(int procId, int cycle);

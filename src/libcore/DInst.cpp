@@ -28,7 +28,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "Resource.h"
 
 pool<DInst> DInst::dInstPool(512);
-#ifdef DEBUG
+#ifdef DINST_NDEPS
 long DInst::currentID=0;
 #endif
 
@@ -47,7 +47,9 @@ DInst::DInst()
   pend[0].init(this);
   pend[1].init(this);
   I(MAX_PENDING_SOURCES==2);
-  IS(nDeps = 0);
+#ifdef DINST_NDEPS
+  nDeps = 0;
+#endif
 
 #ifdef SESC_BAAD
   if (avgFetchQTime == 0) {
@@ -133,7 +135,7 @@ DInst *DInst::createDInst(const Instruction *inst, VAddr va, int cId)
   i->wakeUpTime = 0;
   i->vaddr = va;
   i->first = 0;
-#ifdef DEBUG
+#ifdef DINST_NDEPS
   i->ID = currentID++;
 #endif
   i->resource  = 0;
@@ -174,6 +176,8 @@ DInst *DInst::createDInst(const Instruction *inst, VAddr va, int cId)
 #ifdef SESC_DDIS
   i->presched = false;
   i->bank     = 0;
+#endif
+#ifdef DINST_PARENT
   i->pend[0].setParentDInst(0);
   i->pend[1].setParentDInst(0);
 #endif

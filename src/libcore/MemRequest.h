@@ -225,21 +225,9 @@ public:
     currentClockStamp = cs;
   }
 
-  Time_t getClockStamp() {
-    return currentClockStamp;
-  }
+  Time_t getClockStamp() const {  return currentClockStamp; }
 
-#if 0
-  //  use getVersionRef
-  Pid_t getPid() const {
-    I(dinst);
-    return dinst->getPid();
-  }
-#endif
-
-  DInst *getDInst() {
-    return dinst;
-  }
+  DInst *getDInst() {  return dinst; }
 
   MemObj *getCurrentMemObj() const { return currentMemObj; }
 

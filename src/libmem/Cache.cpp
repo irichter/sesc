@@ -120,6 +120,7 @@ Cache::~Cache()
 
 void Cache::access(MemRequest *mreq) 
 {
+  I(mreq->getPAddr() > 1024);
   GMSG(mreq->getPAddr() <= 1024
        ,"mreq dinst=%p paddr=0x%x vaddr=0x%x memOp=%d ignored"
        ,mreq->getDInst()
@@ -484,7 +485,8 @@ void Cache::doInvalidate(PAddr addr, ushort size)
      pendInvTable.erase(addr);
   }
 
-  while (size) {
+  signed long leftSize = size; // use signed because cacheline can be bigger
+  while (leftSize > 0) {
     Line *l = cache->readLine(addr);
     
     if(l){
@@ -496,8 +498,8 @@ void Cache::doInvalidate(PAddr addr, ushort size)
       }
       l->invalidate();
     } 
-    addr += cache->getLineSize();
-    size -= cache->getLineSize();
+    addr     += cache->getLineSize();
+    leftSize -= cache->getLineSize();
   }
 
   // finished sending dirty lines to lower level, 

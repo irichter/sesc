@@ -22,8 +22,6 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #ifndef LDSTBUFFER_H
 #define LDSTBUFFER_H
 
-//#define LDSTBUFFER_IGNORE_DEPS 1
-
 #include "estl.h"
 #include "nanassert.h"
 
@@ -39,6 +37,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *
  * Acquire, Release, and MemFence dependences are also enforced in this class.
  */
+
 class LDSTBuffer {
 private:
   typedef HASH_MAP<VAddr,DInst *> EntryType;
@@ -49,7 +48,11 @@ private:
   // pendingBarrier can be an Acquire or a MemFence, NOT a Release. Releases are
   // like a store.
   static DInst *pendingBarrier;
-  
+
+  static VAddr calcWord(const DInst *dinst) {
+    // Just remove the two lower bits
+    return (dinst->getVaddr()) >> 2;
+  }
 public:
 
   /** Get an entry from the LDSTQueue
@@ -78,25 +81,7 @@ public:
    */
   static void getLoadEntry(DInst *dinst);
 
-  static VAddr calcWord(const DInst *dinst) {
-    // Just remove the two lower bits
-    return (dinst->getVaddr()) >> 2;
-  }
-
-  static void storeLocallyPerformed(DInst *dinst) {
-    I(dinst->getInst()->isStore());
-
-#ifdef LDSTBUFFER_IGNORE_DEPS
-    return;
-#endif
-
-    EntryType::iterator sit = stores.find(calcWord(dinst));
-    if (sit == stores.end()) 
-      return; // accross processors stores can be removed out-of-order
- 
-    if (sit->second == dinst)
-      stores.erase(sit);
-  }
+  static void storeLocallyPerformed(DInst *dinst);
 
   static void dump(const char *str);
 };

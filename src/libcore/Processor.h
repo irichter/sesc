@@ -39,7 +39,24 @@ private:
   
   DInst *RAT[NumArchRegs];
 
+
 protected:
+
+#ifdef SESC_INORDER  
+  Time_t RATTIME[NumArchRegs];
+  long latencyVal[MaxInstType];
+
+  //  long  latiALU;          
+  // long  latiMult;              
+  //long  latiDiv;               
+  //long  latiBJ;                
+  //long  latiLoad;              
+  //long  latiStore;            
+  //long  latfpALU;              
+  //long  latfpMult;           
+  //long  latfpDiv; 
+#endif             
+
   // BEGIN VIRTUAL FUNCTIONS of GProcessor
   DInst **getRAT(const DInst *dinst);
   FetchEngine *currentFlow();

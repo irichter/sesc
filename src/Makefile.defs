@@ -185,6 +185,8 @@ endif
 
 ################################################
 # Decoupled Instruction Schedule
+#DEFS    += -DSESC_NO_LDQ2
+#DEFS	+= -DSESC_DDIS1
 ifdef SESC_DDIS
 DEFS    += -DSESC_DDIS
 endif
@@ -194,6 +196,13 @@ endif
 ifdef SESC_BAAD
 DEFS    += -DSESC_BAAD
 endif
+
+################################################
+# Optimized Inorder Pipeline
+ifdef SESC_INORDER
+DEFS    += -DSESC_INORDER
+endif
+
 
 ################################################
 # HVersion (TaskScalar)

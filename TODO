@@ -1,49 +1,9 @@
 8) reorganize for multiple-isa support
+
+  move MIPSInstruction.cpp to libmint
+
+  create libos for all the system calls that mint simulates
    
-   break libmint in libll and libmintmips
-
-   libll.     should contain only generic stuff, nothing here should be
-   simulation platform specific.
-
-   libmintmips should contain the MIPS-specific stuff for the function
-   simulation.
-
-   libmintppc is coming.... not sure when! ;-)
-
-_______________________________________________________________________
-
-RCS file: /cvsroot/sesc/sesc/src/libmem/Cache.cpp,v
-retrieving revision 1.4
-diff -u -r1.4 Cache.cpp
---- src/libmem/Cache.cpp	12 Nov 2004 02:54:23 -0000	1.4
-+++ src/libmem/Cache.cpp	24 Nov 2004 04:43:20 -0000
-@@ -415,7 +415,10 @@
-      pendInvTable.erase(addr);
-   }
-
--  while (size) {
-+  // patch to fix overflow error on size
-+  short fixedsize=size;
-+
-+  while (fixedsize > 0) {
-     Line *l = cache->readLine(addr);
-
-     if(l){
-@@ -427,7 +430,7 @@
-       l->invalidate();
-     }
-     addr += cache->getLineSize();
--    size -= cache->getLineSize();
-+    fixedsize -= cache->getLineSize();
-   }
-
-   // finished sending dirty lines to lower level,
-
-_______________________________________________________________________
-
-
-Move RAT to Processor and SMTProcessor (duplicated)
-
 _______________________________________________________________________
 
 
@@ -58,7 +18,6 @@ ________________________________________________________________________
 ________________________________________________________________________
 
 All the includes should be placed in alphabetical order.
-
 
 _______________________________________________________________________
 

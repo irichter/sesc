@@ -187,7 +187,7 @@ StallCause GProcessor::sharedAddInst(DInst *dinst)
 #endif
 
   Resource *res = clusterManager.getResource(inst->getOpcode());
-
+  I(res);
 #ifdef SESC_DDIS
   {
     DInst **RAT = getRAT(dinst);

@@ -187,7 +187,7 @@ sub runBench {
     runIt("${sesc} -h0xc00000 ${marks} ${executable} ${opt} ${output}");
 
   }elsif( $param{bench} eq 'gcc' ) {
-    my $marks = getMarks("-14 -26", "-15 -214");
+    my $marks = getMarks("-14 -26", "-16 -219");
     runIt("${sesc} -k0x80000 ${marks} ${executable} ${BHOME}/CINT2000/176.gcc/${dataset}/200.i -o gcc1.s ${output}");
   }elsif( $param{bench} eq 'mcf' ) {
     my $marks = getMarks("-11 -26", "-11 -250");

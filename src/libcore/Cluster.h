@@ -81,9 +81,7 @@ class Cluster {
     return res[type];
   }
 
-  void addInst(DInst *dinst) {
-    window.addInst(dinst);
-  }
+  void addInst(DInst *dinst);
 
 #ifdef SESC_DDIS
   bool hasDepTableSpace(const DInst *dinst) const { return window.hasDepTableSpace(dinst); }

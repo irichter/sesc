@@ -42,6 +42,7 @@ AC_SUBST(SESC_SMP_OPT)
 AC_SUBST(SESC_CHERRY_OPT)
 AC_SUBST(SESC_DDIS_OPT)
 AC_SUBST(SESC_BAAD_OPT)
+AC_SUBST(SESC_INORDER_OPT)
 
 #we are not defining compiler options yet, but we should
 #AC_PROG_CC
@@ -243,5 +244,12 @@ AC_HELP_STRING([--enable-baad],
 [if test "$enableval" = "yes"; then AC_COMPOPT(SESC_BAAD) fi],
 )
 
+### SESC_INORDER (optimized inorder)
+AC_NOCOMPOPT(SESC_INORDER)
+AC_ARG_ENABLE(inorder, 
+AC_HELP_STRING([--enable-inorder],
+               [Enables optimized inorder pipeline (default is no)]),
+[if test "$enableval" = "yes"; then AC_COMPOPT(SESC_INORDER) fi],
+)
 
 AC_OUTPUT

@@ -60,7 +60,7 @@ Pipeline::Pipeline(size_t s, size_t fetch, int maxReqs)
   I(bucketPool.empty());
   
   for(size_t i=0;i<bucketPoolMaxSize;i++) {
-    IBucket *ib = new IBucket(fetch, this);
+    IBucket *ib = new IBucket(fetch+1, this); // +1 fake instructions
     bucketPool.push_back(ib);
 
     ib = new IBucket(4, this, true);

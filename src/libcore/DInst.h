@@ -46,11 +46,18 @@ class FetchEngine;
 class FReg;
 class BPredictor;
 
+#if (defined SESC_DDIS) || (defined SESC_DDIS1)
+#define DINST_PARENT 1
+#endif
+#if (defined DEBUG)
+#define DINST_NDEPS 1
+#endif
+
 // FIXME: do a nice class. Not so public
 class DInstNext {
  private:
   DInst *dinst;
-#ifdef SESC_DDIS
+#ifdef DINST_PARENT
   DInst *parentDInst;
 #endif
  public:
@@ -73,7 +80,7 @@ class DInstNext {
 
   DInst *getDInst() const { return dinst; }
 
-#ifdef SESC_DDIS
+#ifdef DINST_PARENT
   DInst *getParentDInst() const { return parentDInst; }
   void setParentDInst(DInst *d) {
     GI(d,isUsed);
@@ -157,7 +164,6 @@ private:
   HVersion   *lvidVersion;
   GLVID      *lvid;
   SubLVIDType subLVID;
-
 #endif
 
   CallbackBase *pendEvent;
@@ -170,7 +176,7 @@ private:
   long bank;
 #endif
 
-#ifdef DEBUG
+#ifdef DINST_NDEPS
  public:
   char nDeps;              // 0, 1 or 2 for RISC processors
   static long currentID;
@@ -180,6 +186,10 @@ private:
 	
 protected:
 public:
+#ifdef SESC_DDIS1
+  DInst *predParent;
+#endif
+
   DInst();
 
   void doAtExecuted();
@@ -256,6 +266,8 @@ public:
   void setBank(long i) {
     bank = i;
   }
+#endif
+#ifdef DINST_PARENT
   DInst *getParentSrc1() const { return pend[0].getParentDInst(); }
   DInst *getParentSrc2() const { return pend[1].getParentDInst(); }
 #endif
@@ -285,9 +297,12 @@ public:
     DInst *n = first->getDInst();
 
     I(n);
-    I(n->nDeps > 0);
 
-    IS(n->nDeps--);
+#ifdef DINST_NDEPS
+    I(n->nDeps > 0);
+    n->nDeps--;
+#endif
+
     first->isUsed = false;
     first->setParentDInst(0);
     first = first->getNext();
@@ -296,8 +311,10 @@ public:
   }
 
   void addSrc1(DInst * d) {
+#ifdef DINST_NDEPS
     I(d->nDeps < MAX_PENDING_SOURCES);
-    IS(d->nDeps++);
+    d->nDeps++;
+#endif
     
     DInstNext *n = &d->pend[0];
     I(!n->isUsed);
@@ -316,7 +333,9 @@ public:
 
   void addSrc2(DInst * d) {
     I(d->nDeps < MAX_PENDING_SOURCES);
-    IS(d->nDeps++);
+#ifdef DINST_NDEPS
+    d->nDeps++;
+#endif
     
     DInstNext *n = &d->pend[1];
     I(!n->isUsed);
@@ -335,7 +354,9 @@ public:
 
   void addFakeSrc(DInst * d) {
     I(d->nDeps < MAX_PENDING_SOURCES);
-    IS(d->nDeps++);
+#ifdef DINST_NDEPS
+    d->nDeps++;
+#endif
     
     DInstNext *n = &d->pend[1];
     I(!n->isUsed);

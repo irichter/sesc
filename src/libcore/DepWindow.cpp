@@ -258,13 +258,12 @@ void DepWindow::executed(DInst *dinst)
 
       I(dstReady->isSrc2Ready());
       I(dstReady->getInst()->isLoad());
-      I(LDSTBuffer::calcWord(dinst) == LDSTBuffer::calcWord(dstReady));
 
       LOG("across cluster dependence enforcement pc=0x%x [addr=0x%x] vs pc=0x%x [addr=0x%x]"
 	  ,(int)dinst->getInst()->getAddr()   , (int)dinst->getVaddr()
 	  ,(int)dstReady->getInst()->getAddr(), (int)dstReady->getVaddr());
 
-      dinst->addSrc2(dstReady); // Requeue the instruction at the end
+      dinst->addFakeSrc(dstReady); // Requeue the instruction at the end
 
       if (stopAtDst == 0)
 	stopAtDst = dstReady;
@@ -289,7 +288,25 @@ void DepWindow::executed(DInst *dinst)
 	dstReady->setWakeUpTime(when);
       }
 #endif
-
+#ifdef SESC_DDIS1
+      {
+	static GStatsCntr  *nDepsCorrect=0;
+	static GStatsCntr  *nDepsMiss = 0;
+	if (nDepsMiss == 0) {
+	  nDepsCorrect = new GStatsCntr("nLDQ_nDepsCorrent");
+	  nDepsMiss    = new GStatsCntr("nLDQ_nDepsMiss");
+	}
+	
+	if (dstReady->predParent) {
+	  if (dstReady->predParent == dinst) {
+	    nDepsCorrect->inc();
+	  }else{
+	    nDepsMiss->inc();
+	  }
+	  dstReady->predParent = 0;
+        }
+      }
+#endif
       select(dstReady);
     }
   }

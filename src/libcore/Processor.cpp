@@ -31,14 +31,32 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "ExecutionFlow.h"
 #include "OSSim.h"
 
+
+//#define SESC_INORDER
+
 Processor::Processor(GMemorySystem *gm, CPU_t i)
   :GProcessor(gm, i, 1)
   ,IFID(i, i, gm)
-  ,pipeQ(i)
+   ,pipeQ(i)
 {
   spaceInInstQueue = InstQueueSize;
 
   bzero(RAT,sizeof(DInst*)*NumArchRegs);
+
+#ifdef SESC_INORDER
+  bzero(RATTIME,sizeof(Time_t*)*NumArchRegs);
+
+  latencyVal[iALU]       = SescConf->getLong("FXClusterIssueX", "iALULat");    
+  latencyVal[iMult]      = SescConf->getLong("FXClusterIssueX", "iMultLat");          
+  latencyVal[iDiv]       = SescConf->getLong("FXClusterIssueX", "iDivLat");          
+  latencyVal[iBJ]        = SescConf->getLong("FXClusterIssueX", "iBJLat");        
+  latencyVal[iLoad]      = SescConf->getLong("FXClusterIssueX", "iLoadLat");        
+  latencyVal[iStore]     = SescConf->getLong("FXClusterIssueX", "iStorelat");       
+  latencyVal[fpALU]      = SescConf->getLong("FPClusterIssueX", "fpALULat");        
+  latencyVal[fpMult]     = SescConf->getLong("FPClusterIssueX", "fpMultLat");       
+  latencyVal[fpDiv]      = SescConf->getLong("FPClusterIssueX", "fpDivLat");         
+#endif
+
 }
 
 Processor::~Processor()
@@ -170,12 +188,51 @@ StallCause Processor::addInst(DInst *dinst)
 {
   const Instruction *inst = dinst->getInst();
 
-  if( InOrderCore ) {
-    if(RAT[inst->getSrc1()] != 0 || RAT[inst->getSrc2()] != 0) {
+#ifdef SESC_INORDER
+  if (InOrderCore) {
+    // Update the RATTIME for the destiantion register
+    Time_t newtime = globalClock;
+    newtime += latencyVal[inst->getOpcode()];
+    
+    if (RAT[inst->getSrc1()] != 0) {
+     const Instruction *tempinst = RAT[inst->getSrc1()]->getInst();
+     if (tempinst->getOpcode() == iLoad)
+       return SmallWinStall;
+    }	
+      
+    if (RAT[inst->getSrc2()] != 0) {
+      const Instruction  *tempinst = RAT[inst->getSrc2()]->getInst();
+     if (tempinst->getOpcode() == iLoad)
+       return SmallWinStall;
+    }
+
+    if (RAT[inst->getDest()] != 0) {
+     const Instruction  *tempinst = RAT[inst->getDest()]->getInst();
+     if(tempinst->getOpcode() == iLoad)
+       return SmallWinStall;
+    } 
+    
+    if (RATTIME[inst->getSrc1()] > globalClock
+       || RATTIME[inst->getSrc2()] > globalClock
+       || RATTIME[inst->getDest()] > globalClock 
+	) {
+      I(RAT[inst->getSrc1()] != 0 || RAT[inst->getSrc2()] != 0 || RAT[inst->getDest()] != 0);
+      return SmallWinStall;
+    }
+
+    // No Stalls occured  
+    RATTIME[inst->getDest()] = newtime;
+  } 
+ 
+#else
+  if (InOrderCore) {
+    if(RAT[inst->getSrc1()] != 0 || RAT[inst->getSrc2()] != 0 
+       || RAT[inst->getDest()] != 0
+       ) {
       return SmallWinStall;
     }
   }
-
+#endif
 
   StallCause sc = sharedAddInst(dinst);
   if (sc != NoStall)

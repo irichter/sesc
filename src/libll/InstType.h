@@ -56,6 +56,7 @@ enum InstSubType {
   BJCall,      // iBJ opcode
   BJRet,       // iBJ opcode
   BJCond,      // iBJ opcode
+  iFake,       // Internally generated instruction (store-address...)
   InstSubTypeMax
 };
 

@@ -45,9 +45,10 @@ typedef ulong InstID;
 enum RegType {
     NoDependence = 0,
     ReturnReg = 31,
-    IntFPBoundary = 32,
-    HiReg = 65,
-    CoprocStatReg = 66,         
+    InternalReg,
+    IntFPBoundary = 32+1,
+    HiReg = 65+1,
+    CoprocStatReg,
     InvalidOutput,
     NumArchRegs // = BaseInstTypeReg +MaxInstType old times
 };
@@ -247,6 +248,7 @@ public:
   // In the stores the src1 is the address where the data is going to
   // be stored.  src2 is the data to be stored
   bool isStore() const { return opcode == iStore; }
+  bool isStoreAddr() const { return subCode == iFake; } // opcode == iALU 
 
   bool isType(InstType t) const { return t == opcode;  }
 
