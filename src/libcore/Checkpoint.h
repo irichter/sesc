@@ -1,8 +1,6 @@
 #if !(defined _Checkpoint_hpp_)
 #define _Checkpoint_hpp_
 
-#include "estl.h"
-
 #include "ExecutionFlow.h"
 #include "Epoch.h"
 
@@ -14,8 +12,6 @@ namespace tls{
     // Number of epoch that have started but not completed
     // their merge into this checkpoint
     size_t mergingEpochs;
-    // Checkpoint is complete if there will be no more additions to its state
-    bool complete;
     // List of all active checkpoints, most recent at front
     typedef std::list<class Checkpoint *> CheckpointList;
     static CheckpointList allCheckpoints;
@@ -27,7 +23,7 @@ namespace tls{
     // Execution sequences of all threads
     class ExeOrder{
       class ThreadExeOrder;
-      typedef HASH_MAP<ThreadID,ThreadExeOrder *> ThreadExeOrders;
+      typedef std::vector<ThreadExeOrder *> ThreadExeOrders;
       ThreadExeOrders threadExeOrders;
       ThreadExeOrder *lookupThreadExeOrder(ThreadID tid);
     public:
@@ -41,6 +37,7 @@ namespace tls{
       void mergeEpochDone(ThreadID tid, ClockValue myClk, size_t iCount, SysCallLog &myLog);
       void spliceIntoPrevious(ExeOrder &prev);
       void rewind(void);
+      bool empty(void) const;
     };
 
     ExeOrder exeOrder;

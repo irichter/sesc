@@ -2,25 +2,26 @@
 
 namespace tls{
 
+  // A record of an epoch - a single atomic block of execution in one thread
+  struct ExeOrderEntry{
+    ClockValue myClk;      // Global clock of this epoch
+    size_t     iCount;     // Number of instructions in this epoch
+    ClockValue parClk;     // Global clock of parent of this epoch
+    SysCallLog sysCallLog; // System call record during this epoch
+    // Constructor for a new epoch
+    ExeOrderEntry(ClockValue myClk, ClockValue parClk)
+      : myClk(myClk), iCount(0), parClk(parClk), sysCallLog(){
+    }
+    ExeOrderEntry(const ExeOrderEntry &other){
+      I(0);
+    }
+  };
+  typedef std::list<ExeOrderEntry *> ExeOrderList;
+
   // A record of the execution sequence of one thread
   class Checkpoint::ExeOrder::ThreadExeOrder{
-    // A record of an epoch - a single atomic block of execution in one thread
-    struct ExeOrderEntry{
-      ClockValue myClk;  // Global clock of this epoch
-      size_t     iCount; // Number of instructions in this epoch
-      ClockValue parClk; // Global clock of parent of this epoch
-      SysCallLog sysCallLog; // System call record during this epoch
-      // Constructor for a new epoch
-      ExeOrderEntry(ClockValue myClk, ClockValue parClk)
-	: myClk(myClk), iCount(0), parClk(parClk), sysCallLog(){
-      }
-      ExeOrderEntry(const ExeOrderEntry &other){
-	I(0);
-      }
-    };
     // Context of this thread just before checkpoint time
     ThreadContext *initialContext;
-    typedef std::list<ExeOrderEntry *> ExeOrderList;
     // Sequence of epochs in this thread
     ExeOrderList orderList;
     // Position of next epoch to be started
@@ -36,14 +37,30 @@ namespace tls{
     ThreadExeOrder(const ThreadExeOrder &other){
       I(0);
     }
+    void mergeIntoOrderList(ExeOrderList &mergeList){
+      I(startOrderPos==orderList.end());
+      I(mergeOrderPos==orderList.end());
+      ExeOrderList::iterator mergeIt=mergeList.begin();
+      while(!orderList.empty()){
+	if(mergeIt==mergeList.end()){
+	  // All remaining elements in orderList go to the end of mergeList
+	  mergeList.splice(mergeIt,orderList);
+	}else if(orderList.front()->myClk<(*mergeIt)->myClk){
+	  mergeList.splice(mergeIt,orderList,orderList.begin());
+	}else{
+	  mergeIt++;
+	}
+      }
+      I(startOrderPos==orderList.end());
+      I(mergeOrderPos==orderList.end());
+    }
+
     ~ThreadExeOrder(void){
+      I(orderList.empty());
       I(startOrderPos==orderList.end());
       I(mergeOrderPos==orderList.end());
       if(initialContext)
 	delete initialContext;
-      for(ExeOrderList::iterator listIt=orderList.begin();
-	  listIt!=orderList.end();listIt++)
-	delete *listIt;
     }
     void spliceIntoPrevious(ThreadExeOrder &prev){
       I(startOrderPos==orderList.end());
@@ -119,29 +136,56 @@ namespace tls{
       startOrderPos=orderList.begin();
       mergeOrderPos=orderList.begin();
     }
+    bool empty(void) const{
+      return orderList.empty();
+    }
   };
   
   Checkpoint::ExeOrder::ThreadExeOrder *Checkpoint::ExeOrder::lookupThreadExeOrder(ThreadID tid){
-    ThreadExeOrders::iterator threadIt=threadExeOrders.find(tid);
-    if(threadIt==threadExeOrders.end())
-      return threadExeOrders[tid]=new ThreadExeOrder();
-    I(threadIt->second);
-    return threadIt->second;
+    I(tid>=0);
+    if(threadExeOrders.size()<=(size_t)tid)
+      threadExeOrders.resize(tid+1,0);
+    if(!threadExeOrders[tid])
+      threadExeOrders[tid]=new ThreadExeOrder();
+    I(threadExeOrders[tid]);
+    return threadExeOrders[tid];
   }
   
   Checkpoint::ExeOrder::~ExeOrder(void){
-    for(ThreadExeOrders::iterator threadIt=threadExeOrders.begin();
-	threadIt!=threadExeOrders.end();threadIt++){
-      delete threadIt->second;
+    // Combined ExeOrderList for this checkpoint
+    ExeOrderList allList;
+    // Delete threadExeOrder elements, but merge each ExeOrderList into allList
+    while(!threadExeOrders.empty()){
+      ThreadExeOrder *threadExeOrder=threadExeOrders.back();
+      threadExeOrders.pop_back();
+      if(threadExeOrder){
+	threadExeOrder->mergeIntoOrderList(allList);
+	delete threadExeOrder;
+      }
+    }
+#if (defined DEBUG)
+    {
+      // Check if all list is properly sorted
+      ClockValue lastClk=0;
+      for(ExeOrderList::iterator allIt=allList.begin();allIt!=allList.end();allIt++){
+	I((*allIt)->myClk>=lastClk);
+	lastClk=(*allIt)->myClk;
+      }
+    }
+#endif
+    while(!allList.empty()){
+      ExeOrderEntry *orderEntry=allList.front();
+      allList.pop_front();
+      delete orderEntry;
     }
   }
   
   bool Checkpoint::ExeOrder::hasNextEpoch(ThreadID tid, ClockValue parClk){
-    ThreadExeOrders::iterator threadIt=threadExeOrders.find(tid);
-    if(threadIt==threadExeOrders.end())
+    if(threadExeOrders.size()<=(size_t)tid)
       return false;
-    I(threadIt->second);
-    return threadIt->second->hasNextEpoch(parClk);
+    if(!threadExeOrders[tid])
+      return false;
+    return threadExeOrders[tid]->hasNextEpoch(parClk);
   }
   
   void Checkpoint::ExeOrder::getNextEpoch(ThreadID tid, ClockValue parClk,
@@ -165,21 +209,27 @@ namespace tls{
   }
   
   void Checkpoint::ExeOrder::spliceIntoPrevious(ExeOrder &prev){
-    for(ThreadExeOrders::iterator threadIt=threadExeOrders.begin();
-	threadIt!=threadExeOrders.end();threadIt++){
-      ThreadID tid=threadIt->first;
-      threadIt->second->spliceIntoPrevious(*(prev.threadExeOrders[tid]));
-      delete threadIt->second;
-      threadIt->second=0;
+    while(!threadExeOrders.empty()){
+      ThreadExeOrder *myOrder=threadExeOrders.back();
+      threadExeOrders.pop_back();
+      if(myOrder)
+	myOrder->spliceIntoPrevious(*(prev.lookupThreadExeOrder(threadExeOrders.size())));
     }
-    threadExeOrders.clear();
   }
 
   void Checkpoint::ExeOrder::rewind(void){
-    for(ThreadExeOrders::iterator threadIt=threadExeOrders.begin();
-	threadIt!=threadExeOrders.end();threadIt++){
-      threadIt->second->rewind();
+    for(ThreadID tid=0;(size_t)tid<threadExeOrders.size();tid++){
+      if(threadExeOrders[tid])
+	threadExeOrders[tid]->rewind();
     }
+  }
+
+  bool Checkpoint::ExeOrder::empty() const{
+    for(ThreadID tid=0;(size_t)tid<threadExeOrders.size();tid++)
+      if(threadExeOrders[tid])
+	if(!threadExeOrders[tid]->empty())
+	  return false;
+    return true;
   }
 
   class Checkpoint::BlockData{
@@ -234,21 +284,24 @@ namespace tls{
 
   void Checkpoint::staticDestructor(void){
     I(!allCheckpoints.empty());
-    //#if (defined DEBUG)
     size_t cpCount=0;
-    size_t cpBlocks=0;
-    for(CheckpointList::iterator listIt=allCheckpoints.begin();
-	listIt!=allCheckpoints.end();listIt++){
+    size_t cpAllBlocks=0;
+    size_t cpMostBlocks=0;
+    while(!allCheckpoints.empty()){
+      Checkpoint *cp=allCheckpoints.back();
       cpCount++;
-      cpBlocks+=(*listIt)->myBlocks.size();
+      cpAllBlocks+=cp->myBlocks.size();
+      if(cp->myBlocks.size()>cpMostBlocks)
+	cpMostBlocks=cp->myBlocks.size();
+      // Destructor for a checkpoint removes it from allCheckpoints
+      delete cp;
     }
-    printf("Checkpoints %d, buffer size: earliest %d all %d\n",
-	   cpCount,blockSize*allCheckpoints.front()->myBlocks.size(),blockSize*cpBlocks);
-    //#endif // (defined DEBUG)
+    printf("Checkpoints %d, buffer size: largest %d all %d\n",
+	   cpCount,blockSize*cpMostBlocks,blockSize*cpAllBlocks);
   }
 
   Checkpoint::Checkpoint(ClockValue myClock)
-    : myClock(myClock), mergingEpochs(0), complete(false),
+    : myClock(myClock), mergingEpochs(0),
       myPos(allCheckpoints.insert(allCheckpoints.begin(),this)),
       exeOrder(){
     // My clock must be larger than that of the previous checkpoint
@@ -260,7 +313,7 @@ namespace tls{
   void Checkpoint::write(Address addr){
     Address blockBase=addr&blockBaseMask;
     if(myBlocks.find(blockBase)==myBlocks.end()){
-      I(!complete);
+      I(mergingEpochs);
       myBlocks.insert(BlocksMap::value_type(blockBase,new BlockData(blockBase)));
     }
   }
@@ -279,9 +332,16 @@ namespace tls{
     Checkpoint *retVal=getCheckpoint(epoch->getClock());
     I(epoch->getClock()>=retVal->myClock);
     retVal->exeOrder.mergeEpochInit(epoch->getTid(),
-				    epoch->parentSClock,epoch->getClock(),
+				    epoch->parentClock,epoch->getClock(),
 				    &(epoch->myContext));
-    I(!retVal->complete);
+#if (defined DEBUG)
+    CheckpointList::iterator nextPos=retVal->myPos;
+    if(nextPos!=allCheckpoints.begin()){
+      nextPos--;
+      I((*nextPos)->mergingEpochs==0);
+      I((*nextPos)->exeOrder.empty());
+    }
+#endif
     retVal->mergingEpochs++;
     return retVal;
   }
@@ -297,7 +357,7 @@ namespace tls{
     predPos++;
     I(predPos!=allCheckpoints.end());
     Checkpoint *pred=*predPos;
-    I(complete&&pred->complete);
+    I(!mergingEpochs&&!pred->mergingEpochs);
     I(pred->myClock<myClock);
     // Destroy my blocks, merging those pred doesn't have already
     BlocksMap &predBlocks=pred->myBlocks;
@@ -338,13 +398,13 @@ namespace tls{
   }
 
   Checkpoint::~Checkpoint(void){
-    I(complete);
+    I(!mergingEpochs);
     // Free all the memory blocks
     for(BlocksMap::iterator blocksIt=myBlocks.begin();
 	blocksIt!=myBlocks.end();blocksIt++)
       delete blocksIt->second;
     // Remove from list of checkpoints
     allCheckpoints.erase(myPos);
-    // Excution order is destroyed automatically, so we do nothing about it
+    // Excution order is destroyed automatically
   }
 }
