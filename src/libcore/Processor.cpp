@@ -126,6 +126,9 @@ void Processor::advanceClock()
 {
   clockTicks++;
   
+  //  GMSG(!ROB.empty(),"robTop %d Ul %d Us %d Ub %d",ROB.getIdFromTop(0)
+  //       ,unresolvedLoad, unresolvedStore, unresolvedBranch);
+
   // Fetch Stage
   if (IFID.hasWork()) {
     IBucket *bucket = pipeQ.pipeLine.newItem();

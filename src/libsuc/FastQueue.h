@@ -55,7 +55,7 @@ private:
 
   ushort pipeMask;
   ushort start; 
-//  ushort end;
+  ushort end;
   ushort nElems;
 
 protected:
@@ -73,7 +73,7 @@ public:
     
     pipeMask--;
     start  = 0;
-//    end    = 0;
+    end    = 0;
     nElems = 0;
   }
   
@@ -84,10 +84,10 @@ public:
   void push(Data d) {
     I(nElems<=pipeMask);
       
-    pipe[(start+nElems) & pipeMask]=d;
-//    pipe[end]=d;
-//    I(end == ((start+nElems) & pipeMask));
-//    end = (end+1) & pipeMask;
+    //    pipe[(start+nElems) & pipeMask]=d;
+    pipe[end]=d;
+    I(end == ((start+nElems) & pipeMask));
+    end = (end+1) & pipeMask;
     nElems++;
   }
 
@@ -99,6 +99,20 @@ public:
   void pop() {
     nElems--;
     start = (start+1) & pipeMask;
+  }
+
+  ushort getIdFromTop(int i) const {
+    I(nElems > i);
+    return (start+i) & pipeMask;
+  }
+
+  ushort getNextId(ushort id) const { return (id+1) & pipeMask; }
+  bool isEnd(ushort id) const { return id == end; }
+
+  Data getData(ushort id) const {
+    I(id <= pipeMask);
+    I(id != end);
+    return pipe[id];
   }
 
   size_t size() const { return nElems; }

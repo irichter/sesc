@@ -65,7 +65,7 @@ public:
   // structures (like the LD/ST queue entry) also have enough resources.
   //
   // 2nd) The timing to calculate when the inputs are ready is done at
-  // simTime. It also requires the additinal forwarding latency (intra/inter)
+  // simTime.
   //
   // 3rd) executed is called the instructions has been executed. It may be
   // called through DInst::doAtExecuted
@@ -73,9 +73,10 @@ public:
   // 4th) When the instruction is retired from the ROB retire is called
 
   virtual StallCause schedule(DInst *dinst) = 0;
-  virtual void simTime(DInst *dinst, TimeDelta_t fwdLat) = 0;
+  virtual void simTime(DInst *dinst) = 0;
   virtual void executed(DInst *dinst);
   virtual bool retire(DInst *dinst);
+
 };
 
 class GMemorySystem;
@@ -97,8 +98,9 @@ public:
   FUMemory(Cluster *cls, GMemorySystem *ms);
 
   StallCause schedule(DInst *dinst);
-  void simTime(DInst *dinst, TimeDelta_t fwdLat);
+  void simTime(DInst *dinst);
   bool retire(DInst *dinst);
+
 };
 
 class FULoad : public MemResource {
@@ -122,10 +124,13 @@ public:
 	 ,int id);
 
   StallCause schedule(DInst *dinst);
-  void simTime(DInst *dinst, TimeDelta_t fwdLat);
+  void simTime(DInst *dinst);
   bool retire(DInst *dinst);
+
   void executed(DInst *dinst);
   int freeEntries() const { return freeLoads; }
+
+
 #ifdef SESC_MISPATH
   void misBranchRestore();
 #endif
@@ -152,11 +157,13 @@ public:
 	  ,int id);
 
   StallCause schedule(DInst *dinst);
-  void simTime(DInst *dinst, TimeDelta_t fwdLat);
+  void simTime(DInst *dinst);
   void executed(DInst *dinst);
   bool retire(DInst *dinst);
 
   int freeEntries() const { return freeStores; }
+
+
 #ifdef SESC_MISPATH
   void misBranchRestore();
 #endif
@@ -173,7 +180,7 @@ public:
   FUGeneric(Cluster *cls, PortGeneric *aGen, TimeDelta_t l, GStatsEnergyCG *eb);
 
   StallCause schedule(DInst *dinst);
-  void simTime(DInst *dinst, TimeDelta_t fwdLat);
+  void simTime(DInst *dinst);
   void executed(DInst *dinst);
 };
 
@@ -189,8 +196,9 @@ public:
   FUBranch(Cluster *cls, PortGeneric *aGen, TimeDelta_t l, int mb);
 
   StallCause schedule(DInst *dinst);
-  void simTime(DInst * dinst, TimeDelta_t fwdLat);
+  void simTime(DInst * dinst);
   void executed(DInst *dinst);
+
 };
 
 class FUEvent : public Resource {
@@ -200,7 +208,8 @@ public:
   FUEvent(Cluster *cls);
 
   StallCause schedule(DInst *dinst);
-  void simTime(DInst * dinst, TimeDelta_t fwdLat);
+  void simTime(DInst * dinst);
+
 };
 
 #endif   // RESOURCE_H

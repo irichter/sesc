@@ -32,7 +32,8 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 DepWindow::DepWindow(int i, const char *clusterName)
   :Id(i)
   ,InterClusterLat(SescConf->getLong("cpucore", "interClusterLat",i))
-  ,IntraClusterLat(SescConf->getLong("cpucore", "intraClusterLat",i))
+  ,WakeUpDelay(SescConf->getLong(clusterName, "wakeupDelay"))
+  ,SchedDelay(SescConf->getLong(clusterName, "schedDelay"))
   ,InOrderCore(SescConf->getBool("cpucore","inorder",i))
 {
   char cadena[100];
@@ -53,12 +54,26 @@ DepWindow::DepWindow(int i, const char *clusterName)
   wakeupEnergy = new GStatsEnergy("wakeupEnergy", cadena, i, WakeupEnergy
 				  ,EnergyMgr::get("wakeupEnergy",i));
 
+
+  sprintf(cadena,"Proc(%d)_%s_wakeUp", i, clusterName);
+  wakeUpPort = PortGeneric::create(cadena
+				 ,SescConf->getLong(clusterName, "wakeUpNumPorts")
+				 ,SescConf->getLong(clusterName, "wakeUpPortOccp"));
+
+  sprintf(cadena,"Proc(%d)_%s_sched", i, clusterName);
+  schedPort = PortGeneric::create(cadena
+				  ,SescConf->getLong(clusterName, "SchedNumPorts")
+				  ,SescConf->getLong(clusterName, "SchedPortOccp"));
+
   // Constraints
+  SescConf->isLong(clusterName, "wakeupDelay");
+  SescConf->isBetween(clusterName, "wakeupDelay", 1, 64);
+
+  SescConf->isLong(clusterName    , "schedDelay");
+  SescConf->isBetween(clusterName , "schedDelay", 0, 1024);
+
   SescConf->isLong("cpucore"    , "interClusterLat",Id);
   SescConf->isBetween("cpucore" , "interClusterLat", 0, 1024,Id);
-
-  SescConf->isLong("cpucore"    , "intraClusterLat",Id);
-  SescConf->isBetween("cpucore" , "intraClusterLat", 0, 1024,Id);
 
   bzero(RAT, sizeof(DInst *) * NumArchRegs);
 }
@@ -67,17 +82,24 @@ DepWindow::~DepWindow()
 {
 }
 
-void DepWindow::addInst(DInst *dinst)
+bool DepWindow::canIssue(DInst *dinst) const
 {
   const Instruction *inst = dinst->getInst();
 
-#if 0
   if( InOrderCore ) {
     if(RAT[inst->getSrc1()] != 0 || RAT[inst->getSrc2()] != 0) {
       return false;
     }
   }
-#endif
+
+
+  return true;
+}
+
+
+void DepWindow::addInst(DInst *dinst)
+{
+  const Instruction *inst = dinst->getInst();
 
   renameEnergy->inc();
 
@@ -107,7 +129,7 @@ void DepWindow::addInst(DInst *dinst)
   RAT[inst->getDest()] = dinst;
   I(!dinst->hasDeps());
   
-  dinst->getResource()->simTime(dinst, IntraClusterLat);
+  dinst->doAtSimTimeCB.scheduleAbs(wakeUpPort->nextSlot() + WakeUpDelay);
 }
 
 void DepWindow::simTimeAck(DInst *dinst) 
@@ -116,8 +138,6 @@ void DepWindow::simTimeAck(DInst *dinst)
 
   I(!dinst->hasDeps());
 
-  dinst->markExecuted();
-    
   RegType dest = inst->getDest();
   if(RAT[dest] == dinst)
     RAT[dest] = 0;
@@ -125,6 +145,8 @@ void DepWindow::simTimeAck(DInst *dinst)
   resultBusEnergy->inc();
   windowPregEnergy->inc();
   wakeupEnergy->inc();
+
+  Time_t wakeUpTime = wakeUpPort->nextSlot();
 
   if (!dinst->hasPending())
     return;
@@ -186,6 +208,13 @@ void DepWindow::simTimeAck(DInst *dinst)
     }
     GI(dstReady->hasDepsAtRetire(),!dstReady->isSrc2Ready());
 
+    Time_t schedTime = schedPort->nextSlot();
+    schedTime = schedTime > wakeUpTime ? schedTime : wakeUpTime; // max sched, wakeUp
+#ifdef BFWIN
+    Time_t bfwinTime = bfwin.wakeUp(dstReady);
+    schedTime = schedTime > bfwinTime ? schedTime : bfwinTime; // max time
+#endif
+
     if (!dstReady->hasDeps()) {
       // Check dstRes because dstReady may not be issued
       Resource *dstRes = dstReady->getResource();
@@ -194,13 +223,13 @@ void DepWindow::simTimeAck(DInst *dinst)
       I(dstCluster);
 
       if (dstCluster == srcCluster) {
-	// CDB for the cluster
-	dstRes->simTime(dstReady, IntraClusterLat);
+	schedTime += SchedDelay;
       }else{
-	// Forward data to another cluster
-	dstRes->simTime(dstReady, InterClusterLat );
+	schedTime += InterClusterLat;	// Forward data to another cluster
 	forwardBusEnergy->inc();
       }
+
+      dstReady->doAtSimTimeCB.scheduleAbs(schedTime);
     }
   }
 }

@@ -592,15 +592,15 @@ PredType BPHybrid::predict(const Instruction *inst, InstID oracleID, bool doUpda
 
   bool metaOut;
   if (!doUpdate) {
-    metaOut = metaTable.predict(iID); // do not update meta
+    metaOut = metaTable.predict(l2Index); // do not update meta
   }else if( globalTaken == taken && localTaken != taken) {
     // global is correct, local incorrect
-    metaOut = metaTable.predict(iID, false);
+    metaOut = metaTable.predict(l2Index, false);
   }else if( globalTaken != taken && localTaken == taken) {
     // global is incorrect, local correct
-    metaOut = metaTable.predict(iID, true);
+    metaOut = metaTable.predict(l2Index, true);
   }else{
-    metaOut = metaTable.predict(iID); // do not update meta
+    metaOut = metaTable.predict(l2Index); // do not update meta
     globalTable.predict(l2Index, taken);
   }
 

@@ -22,10 +22,11 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #ifndef DEPWINDOW_H
 #define DEPWINDOW_H
 
-#include "nanassert.h"
-
 #include "Instruction.h"
 #include "EnergyMgr.h"
+#include "nanassert.h"
+#include "Port.h"
+#include "Snippets.h"
 
 class DInst;
 
@@ -34,7 +35,10 @@ private:
   const int Id;
 
   const TimeDelta_t InterClusterLat;
-  const TimeDelta_t IntraClusterLat;
+  const TimeDelta_t WakeUpDelay;
+  const TimeDelta_t SchedDelay;
+
+  const bool InOrderCore;
 
   GStatsEnergy *renameEnergy;
   GStatsEnergy *resultBusEnergy;
@@ -43,9 +47,11 @@ private:
   GStatsEnergy *windowPregEnergy;
   GStatsEnergy *wakeupEnergy;
 
-  const bool InOrderCore;
-
   DInst *RAT[NumArchRegs];
+
+  PortGeneric *wakeUpPort;
+  PortGeneric *schedPort;
+
 protected:
 public:
   ~DepWindow();
@@ -53,6 +59,8 @@ public:
 
   void addInst(DInst *dinst);
   void simTimeAck(DInst *dinst);
+
+  bool canIssue(DInst *dinst) const;
 };
 
 #endif // DEPWINDOW_H

@@ -336,7 +336,7 @@ void FetchEngine::unBlockFetch()
   I(missInstID);
   missInstID = 0;
 
-  long long n = (globalClock-missFetchTime);
+  Time_t n = (globalClock-missFetchTime);
 
   avgBranchTime.sample(n);
   n *= FetchWidth;

@@ -47,17 +47,21 @@ void restoreFPUControl(NativeFPUControlType ppcFlag)
 #elif defined(AIX)
 #include <float.h>
 
+#if 0
 static unsigned short FloatValue [] ={FP_RND_RN, /* 1 */
 				      FP_RND_RZ, /* 0 */
 				      FP_RND_RP, /* 2 */
 				      FP_RND_RM  /* 3 */
 };
+#endif
 
 void setFPUControl(unsigned long mipsFlag)
 {
+#if 0
   fprnd_t val= FloatValue[mipsFlag & 0x3];
   
   fp_swap_rnd(val);
+#endif
 }
 #elif __i386__
 void setFPUControl(unsigned long mipsFlag)

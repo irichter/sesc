@@ -216,6 +216,9 @@ Cluster *Cluster::create(const char *clusterName, GMemorySystem *ms, GProcessor 
   if( strcasecmp(recycleAt,"retire") == 0) {
     cluster = new RetiredCluster(clusterName, gproc);
   }else{
+#ifdef BFWIN
+    I(0); // retire is the only valid
+#endif
     I( strcasecmp(recycleAt,"execute") == 0);
     cluster = new ExecutedCluster(clusterName, gproc);
   }
@@ -243,6 +246,8 @@ Cluster *Cluster::create(const char *clusterName, GMemorySystem *ms, GProcessor 
 
 void ExecutedCluster::entryExecuted(DInst *dinst)
 {
+  dinst->markExecuted();
+
   delEntry();
   window.simTimeAck(dinst);
 }
@@ -254,6 +259,8 @@ void ExecutedCluster::entryRetired()
 
 void RetiredCluster::entryExecuted(DInst *dinst)
 {
+  dinst->markExecuted();
+
   window.simTimeAck(dinst);
 }
 

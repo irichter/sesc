@@ -1,6 +1,6 @@
 /* 
    SESC: Super ESCalar simulator
-   Copyright (C) 2003 University of Illinois.
+   Copyright (C) 2004 University of Illinois.
 
    Contributed by Luis Ceze
                   Jose Renau

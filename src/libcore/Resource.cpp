@@ -89,7 +89,7 @@ FUMemory::FUMemory(Cluster *cls, GMemorySystem *ms)
 
 StallCause FUMemory::schedule(DInst *dinst)
 {
-  if (!cluster->canIssue())
+  if (!cluster->canIssue(dinst))
     return SmallWinStall;
 
   cluster->newEntry();
@@ -100,9 +100,8 @@ StallCause FUMemory::schedule(DInst *dinst)
   return NoStall;
 }
 
-void FUMemory::simTime(DInst *dinst, TimeDelta_t fwdLat)
+void FUMemory::simTime(DInst *dinst)
 {
-  // Ignore fwdLat for this type of instructions (laziness)
   const Instruction *inst = dinst->getInst();
   I(inst->isFence());
   I(!inst->isLoad() );
@@ -122,10 +121,6 @@ bool FUMemory::retire(DInst *dinst)
 
 
   if( inst->getSubCode() == iFetchOp ) {
-#ifdef TS_CHERRY
-    dinst->setCanBeRecycled();
-    dinst->setMemoryIssued();
-#endif
     DMemRequest::create(dinst, memorySystem, MemWrite);
   }else if( inst->getSubCode() == iMemFence ) {
     // TODO: Consistency in LDST
@@ -141,6 +136,7 @@ bool FUMemory::retire(DInst *dinst)
 
   return true;
 }
+
 
 /***********************************************/
 
@@ -181,7 +177,7 @@ StallCause FULoad::schedule(DInst *dinst)
     return OutsLoadsStall;
   }
 
-  if (!cluster->canIssue())
+  if (!cluster->canIssue(dinst))
     return SmallWinStall;
 
   cluster->newEntry();
@@ -197,7 +193,7 @@ StallCause FULoad::schedule(DInst *dinst)
   return NoStall;
 }
 
-void FULoad::simTime(DInst *dinst, TimeDelta_t fwdLat)
+void FULoad::simTime(DInst *dinst)
 {
   Time_t when = gen->nextSlot()+lat;
 
@@ -206,12 +202,12 @@ void FULoad::simTime(DInst *dinst, TimeDelta_t fwdLat)
   iAluEnergy->inc();
   
   if (dinst->isLoadForwarded()) {
-    // No fwdLat because inside the same LDSTUnit
+
     dinst->doAtExecutedCB.scheduleAbs(when+LSDelay);
     // forwardEnergy->inc(); // TODO: CACTI == a read in the STQ
     nForwarded.inc();
   }else{
-    cacheDispatchedCB::scheduleAbs(when+fwdLat, this, dinst);
+    cacheDispatchedCB::scheduleAbs(when, this, dinst);
   }
 }
 
@@ -222,6 +218,7 @@ void FULoad::executed(DInst* dinst)
 
 void FULoad::cacheDispatched(DInst *dinst)
 {
+
   I( !dinst->isLoadForwarded() );
   // LOG("[0x%p] %lld 0x%lx read", dinst, globalClock, dinst->getVaddr());
   DMemRequest::create(dinst, memorySystem, MemRead);
@@ -229,16 +226,16 @@ void FULoad::cacheDispatched(DInst *dinst)
 
 bool FULoad::retire(DInst *dinst)
 {
-
   cluster->entryRetired();
 
-  if (!dinst->isFake())
+  if (!dinst->isFake() && !dinst->isEarlyRecycled())
     freeLoads++;
 
   dinst->destroy();
 
   return true;
 }
+
 
 #ifdef SESC_MISPATH
 void FULoad::misBranchRestore()
@@ -286,7 +283,7 @@ StallCause FUStore::schedule(DInst *dinst)
     return OutsStoresStall;
   }
 
-  if( !cluster->canIssue() )
+  if( !cluster->canIssue(dinst) )
     return SmallWinStall;
 
   cluster->newEntry();
@@ -303,9 +300,9 @@ StallCause FUStore::schedule(DInst *dinst)
   return NoStall;
 }
 
-void FUStore::simTime(DInst *dinst, TimeDelta_t fwdLat)
+void FUStore::simTime(DInst *dinst)
 {
-  dinst->doAtExecutedCB.schedule(lat+fwdLat);
+  dinst->doAtExecutedCB.scheduleAbs(gen->nextSlot()+lat);
 }
 
 void FUStore::executed(DInst *dinst)
@@ -315,29 +312,9 @@ void FUStore::executed(DInst *dinst)
   lsqWakeupEnergy->inc();
   iAluEnergy->inc();
 
+  
   cluster->entryExecuted(dinst);
-
-#ifdef TS_CHERRY
-  I(!dinst->isEarlyRecycled());
-
-  if (dinst->isDeadStore() && !dinst->isFake()) {
-    freeStores++;
-    dinst->setEarlyRecycled();
-    return;
-  }
-
-  if (!L1DCache->canAcceptStore(static_cast<PAddr>(dinst->getVaddr()))) 
-    return;
   
-  if (!dinst->isFake()) {
-    freeStores++;
-    dinst->setEarlyRecycled();
-  }
-  
-  dinst->setMemoryIssued();
-
-  DMemRequest::create(dinst, memorySystem, MemWrite);
-#endif
 }
 
 void FUStore::doRetire(DInst *dinst)
@@ -352,27 +329,15 @@ void FUStore::doRetire(DInst *dinst)
 bool FUStore::retire(DInst *dinst)
 {
   if (dinst->isFake() || dinst->isEarlyRecycled()
-#ifdef TS_CHERRY
-      || dinst->isMemoryIssued()
-#endif
       ) {
     doRetire(dinst);
 
     if (dinst->isDeadStore())
       nDeadStore.inc();
 
-#ifdef TS_CHERRY
-    if (dinst->isMemoryIssued() && !dinst->hasCanBeRecycled())
-      dinst->setCanBeRecycled();
-    else
-      dinst->destroy();
-#else
     dinst->destroy();
-#endif
     return true;
   }
-
-  //  I(!dinst->isDeadStore());
 
   if( L1DCache->getNextFreeCycle() > globalClock)
     return false;
@@ -383,10 +348,6 @@ bool FUStore::retire(DInst *dinst)
   // Note: The store is retired from the LDSTQueue as soon as it is send to the
   // L1 Cache. It does NOT wait until the ack from the L1 Cache is received
 
-#ifdef TS_CHERRY
-  dinst->setCanBeRecycled();
-  dinst->setMemoryIssued();
-#endif
 
   gen->nextSlot();
   DMemRequest::create(dinst, memorySystem, MemWrite);
@@ -395,6 +356,7 @@ bool FUStore::retire(DInst *dinst)
 
   return true;
 }
+
 
 #ifdef SESC_MISPATH
 void FUStore::misBranchRestore() 
@@ -418,7 +380,7 @@ FUGeneric::FUGeneric(Cluster *cls
 
 StallCause FUGeneric::schedule(DInst *dinst)
 {
-  if( !cluster->canIssue() )
+  if( !cluster->canIssue(dinst) )
     return SmallWinStall;
 
   cluster->newEntry();
@@ -427,9 +389,9 @@ StallCause FUGeneric::schedule(DInst *dinst)
   return NoStall;
 }
 
-void FUGeneric::simTime(DInst *dinst, TimeDelta_t fwdLat)
+void FUGeneric::simTime(DInst *dinst)
 {
-  dinst->doAtExecutedCB.scheduleAbs(gen->nextSlot()+lat+fwdLat);
+  dinst->doAtExecutedCB.scheduleAbs(gen->nextSlot()+lat);
 }
 
 void FUGeneric::executed(DInst *dinst)
@@ -437,6 +399,7 @@ void FUGeneric::executed(DInst *dinst)
   fuEnergy->inc();
   cluster->entryExecuted(dinst);
 }
+
 
 /***********************************************/
 
@@ -453,7 +416,7 @@ StallCause FUBranch::schedule(DInst *dinst)
   if (freeBranches == 0)
     return OutsBranchesStall;
 
-  if (!cluster->canIssue())
+  if (!cluster->canIssue(dinst))
     return SmallWinStall;
 
   cluster->newEntry();
@@ -464,9 +427,9 @@ StallCause FUBranch::schedule(DInst *dinst)
   return NoStall;
 }
 
-void FUBranch::simTime(DInst *dinst, TimeDelta_t fwdLat)
+void FUBranch::simTime(DInst *dinst)
 {
-  dinst->doAtExecutedCB.scheduleAbs(gen->nextSlot()+lat+fwdLat);
+  dinst->doAtExecutedCB.scheduleAbs(gen->nextSlot()+lat);
 }
 
 void FUBranch::executed(DInst *dinst)
@@ -482,8 +445,10 @@ void FUBranch::executed(DInst *dinst)
 
   freeBranches++;
 
+
   cluster->entryExecuted(dinst);
 }
+
 
 /***********************************************/
 
@@ -494,16 +459,15 @@ FUEvent::FUEvent(Cluster *cls)
 
 StallCause FUEvent::schedule(DInst *dinst)
 {
-  if( !cluster->canIssue() )
+  if( !cluster->canIssue(dinst) )
     return SmallWinStall;
 
   dinst->setResource(this);
   return NoStall;
 }
 
-void FUEvent::simTime(DInst *dinst, TimeDelta_t fwdLat)
+void FUEvent::simTime(DInst *dinst)
 {
-  // Ignore fwdLat for this type of instructions (laziness)
   dinst->setResource(this);
 
   I(dinst->getInst()->getEvent() == PostEvent);
@@ -521,3 +485,4 @@ void FUEvent::simTime(DInst *dinst, TimeDelta_t fwdLat)
 
   cluster->entryExecuted(dinst);
 }
+

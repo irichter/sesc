@@ -49,9 +49,15 @@
  * INTERNET: dburger@cs.wisc.edu
  * US Mail:  1210 W. Dayton Street, Madison, WI 53706
  *
- * $Id: machine.h,v 1.1 2003/03/07 21:02:28 sarangi Exp $
+ * $Id: machine.h,v 1.1.1.1 2004/10/18 17:27:36 renau Exp $
  *
  * $Log: machine.h,v $
+ * Revision 1.1.1.1  2004/10/18 17:27:36  renau
+ * Super eScalar Santa Cruz
+ *
+ * Revision 1.1.1.1  2004/09/24 19:40:21  jrenau
+ * Original SESC
+ *
  * Revision 1.1  2003/03/07 21:02:28  sarangi
  * libpower : contains the wattchify script
  *

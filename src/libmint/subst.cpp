@@ -2875,8 +2875,8 @@ OP(mint_getdomainname)
     r4 = REGNUM(4);
     r5 = REGNUM(5);
 
-#ifdef SUNOS
-    fatal("getdomainname not supported on SUN\n");
+#if (defined SUNOS) || (defined AIX)
+    fatal("getdomainname not supported\n");
 #else
 #ifdef TASKSCALAR
     {
@@ -2915,8 +2915,8 @@ OP(mint_setdomainname)
     r4 = REGNUM(4);
     r5 = REGNUM(5);
 
-#ifdef SUNOS
-    fatal("setdomainname not supported on SUN\n");
+#if (defined SUNOS) || (defined AIX)
+    fatal("setdomainname not supported\n");
 #else
 #ifdef TASKSCALAR
     {

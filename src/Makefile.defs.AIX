@@ -1,10 +1,7 @@
 #################
 # AIX specific
-MMAP	:=1
-SHARED_START :=0x30000000
-PRIVATE_START:=0x40000000
 
-# It is a BIG endian so DO NOT USE -DLENDIAN
+# PowerPC is big endian so DO NOT USE -DLENDIAN
 DEFS	+=-DAIX -D_BSD
 AABI    :=
 ABI     :=
@@ -26,8 +23,10 @@ PDEFS	:=
 ARFLAGS	:=cr
 
 ##############################################################################
-SHELL	=/bin/sh
+SHELL=bash
 ifdef USEXLC
+COPTS  :=-O2
+LOPTS  :=-O2
 LD	=ld
 CXX	=gcc
 CC	=xlc
@@ -39,7 +38,7 @@ CC	=gcc
 AS	=gcc
 endif
 AR	=ar
-M4	=m4
+M4	=gm4
 MAKE	=gmake
 RANLIB	=ranlib
 FIND	=gfind

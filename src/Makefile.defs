@@ -149,6 +149,18 @@ endif
 #DEFS	 +=-DBPRED_UPDATE_RETIRE
 
 ################################################
+# Cherry
+ifdef SESC_CHERRY
+DEFS    += -DSESC_CHERRY
+endif
+
+################################################
+# Broadcast-Free WINdow
+ifdef SESC_BFWIN
+DEFS    += -DSESC_BFWIN
+endif
+
+################################################
 # HVersion (TaskScalar)
 
 ifdef TASKSCALAR 

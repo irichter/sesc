@@ -112,8 +112,9 @@ GProcessor::GProcessor(GMemorySystem *gm, CPU_t i, size_t numFlows)
 
   I(ROB.size() == 0);
 
-  // TODO? "PendingWindow" instead of "Proc" for script compatibility reasons
+  // CHANGE "PendingWindow" instead of "Proc" for script compatibility reasons
   buildInstStats(nInst, "PendingWindow");
+  
   
 #ifdef SESC_MISPATH
   buildInstStats(nInstFake, "FakePendingWindow");
@@ -210,10 +211,11 @@ StallCause GProcessor::addInst(DInst *dinst)
   rdRegEnergy[inst->getSrc2Pool()]->inc();
   wrRegEnergy[inst->getDstPool()]->inc();
 
+  ROB.push(dinst);
+
+
   I(dinst->getResource() == res);
   res->getCluster()->addInst(dinst);
-
-  ROB.push(dinst);
 
   return NoStall;
 }
@@ -283,12 +285,17 @@ void GProcessor::addEvent(EventType ev, CallbackBase *cb, long vaddr)
 
 void GProcessor::retire()
 {
-  for(ushort i=0;i<RetireWidth && !ROB.empty();i++) {
-    DInst *dinst = ROB.top();
-
 #ifdef DEBUG
     // Check for progress. When a processor gets stuck, it sucks big time
     if ((((long)globalClock) & 0x1FFFFFL) == 0) {
+    if (ROB.empty()) {
+      // ROB should not be empty for lots of time
+      if (prevDInstID == 1) {
+	MSG("ExeEngine::retire CPU[%d] ROB empty for long time @%lld", globalClock);
+      }
+      prevDInstID = 1;
+    }else{
+      DInst *dinst = ROB.top();
       if (prevDInstID == dinst->getID()) {
 	I(0);
 	MSG("ExeEngine::retire CPU[%d] no forward progress from pc=0x%x with %d @%lld"
@@ -299,22 +306,25 @@ void GProcessor::retire()
       }
       prevDInstID = dinst->getID();
     }
+  }
 #endif
 
-    if( !dinst->isExecuted() ){
+  for(ushort i=0;i<RetireWidth && !ROB.empty();i++) {
+    DInst *dinst = ROB.top();
+
+    if( !dinst->isExecuted() )
       return;
-    }
 
     // save it now because retire can destroy DInst
     int rp = dinst->getInst()->getDstPool();
 
     I(dinst->getResource());
-    if( !dinst->getResource()->retire(dinst) ){
+    if( !dinst->getResource()->retire(dinst) )
       return;
-    }
 
     if (! dinst->isFake())
       regPool[rp]++;
+
 
     ROB.pop();
 

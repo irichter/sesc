@@ -49,9 +49,15 @@
  * INTERNET: dburger@cs.wisc.edu
  * US Mail:  1210 W. Dayton Street, Madison, WI 53706
  *
- * $Id: wattch_cache.h,v 1.2 2004/03/22 23:24:09 sarangi Exp $
+ * $Id: wattch_cache.h,v 1.1.1.1 2004/10/18 17:27:36 renau Exp $
  *
  * $Log: wattch_cache.h,v $
+ * Revision 1.1.1.1  2004/10/18 17:27:36  renau
+ * Super eScalar Santa Cruz
+ *
+ * Revision 1.1.1.1  2004/09/24 19:40:22  jrenau
+ * Original SESC
+ *
  * Revision 1.2  2004/03/22 23:24:09  sarangi
  * warnings removed
  *

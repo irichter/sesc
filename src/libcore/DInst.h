@@ -72,14 +72,9 @@ private:
   bool depsAtRetire;
   bool deadStore;
 
+
 #ifdef SESC_MISPATH
   bool fake;
-#endif
-
-#ifdef TS_CHERRY
-  bool earlyRecycled;
-  bool canBeRecycled;
-  bool memoryIssued;
 #endif
 
 #ifdef BPRED_UPDATE_RETIRE
@@ -120,6 +115,9 @@ public:
 
   void doAtExecuted();
   StaticCallbackMember0<DInst,&DInst::doAtExecuted> doAtExecutedCB;
+
+  void doAtSimTime();
+  StaticCallbackMember0<DInst,&DInst::doAtSimTime>  doAtSimTimeCB;
 
   static DInst *createInst(InstID pc, VAddr va, int cpuId);
   static DInst *createDInst(const Instruction *inst, VAddr va, int cpuId);
@@ -297,6 +295,8 @@ public:
     depsAtRetire = false;
   }
 
+  bool isEarlyRecycled() const { return false; }
+
 #ifdef SESC_MISPATH
   void setFake() { 
     I(!fake);
@@ -307,18 +307,6 @@ public:
   bool isFake() const  { return false; }
 #endif
 
-#ifdef TS_CHERRY
-  bool isEarlyRecycled() const { return earlyRecycled; }
-  void setEarlyRecycled() { earlyRecycled = true; }
-
-  bool hasCanBeRecycled() const { return canBeRecycled; }
-  void setCanBeRecycled() { canBeRecycled = true; }
-
-  bool isMemoryIssued() const { return memoryIssued; }
-  void setMemoryIssued() {  memoryIssued  = true; }
-#else
-  bool isEarlyRecycled() const { return false; }
-#endif
 
   void awakeRemoteInstructions();
 

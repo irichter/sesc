@@ -233,7 +233,6 @@ PipeQueue::PipeQueue(CPU_t i)
   :pipeLine(
 	    SescConf->getLong("cpucore", "decodeDelay",i)
 	    +SescConf->getLong("cpucore", "renameDelay",i)
-	    +SescConf->getLong("cpucore", "wakeupDelay",i)
 	    ,SescConf->getLong("cpucore", "fetchWidth",i)
 	    ,SescConf->getLong("cpucore", "maxIRequests",i))
   ,instQueue(SescConf->getLong("cpucore", "instQueueSize",i))
@@ -243,9 +242,6 @@ PipeQueue::PipeQueue(CPU_t i)
 
   SescConf->isLong("cpucore", "renameDelay", i);
   SescConf->isBetween("cpucore", "renameDelay", 1, 64, i);
-
-  SescConf->isLong("cpucore", "wakeupDelay", i);
-  SescConf->isBetween("cpucore", "wakeupDelay", 1, 64, i);
 
   SescConf->isLong("cpucore", "maxIRequests",i);
   SescConf->isBetween("cpucore", "maxIRequests", 0, 32000,i);

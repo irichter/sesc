@@ -32,6 +32,7 @@ long DInst::currentID=0;
 
 DInst::DInst()
   :doAtExecutedCB(this)
+  ,doAtSimTimeCB(this)
 {
   pend[0].dinst = this;
   pend[1].dinst = this;
@@ -65,6 +66,15 @@ void DInst::doAtExecuted()
   resource->executed(this);
 }
 
+void DInst::doAtSimTime()
+{
+  I( resource );
+
+  I(!isExecuted());
+
+  resource->simTime(this);
+}
+
 DInst *DInst::createDInst(const Instruction *inst, VAddr va, int cpuId)
 {
 #ifdef SESC_MISPATH
@@ -92,11 +102,6 @@ DInst *DInst::createDInst(const Instruction *inst, VAddr va, int cpuId)
   i->deadStore    = false;
 #ifdef SESC_MISPATH
   i->fake         = false;
-#endif
-#ifdef TS_CHERRY
-  i->earlyRecycled= false;
-  i->canBeRecycled= false;
-  i->memoryIssued = false;
 #endif
 
 #ifdef BPRED_UPDATE_RETIRE
@@ -164,7 +169,7 @@ void DInst::killSilently()
       I(!dstReady->isExecuted());
       Resource *dstRes = dstReady->getResource();
       I(dstRes);
-      dstRes->simTime(dstReady, 0);
+      dstRes->simTime(dstReady);
     }
   }
 
@@ -356,7 +361,7 @@ void DInst::awakeRemoteInstructions()
       // Coherence would add the latency because the cache line must be brought
       // again (in theory it must be local to dinst processor and marked dirty
       I(dstRes); // since isIssued it should have a resource
-      dstRes->simTime(dstReady, 0);
+      dstRes->simTime(dstReady);
     }
   }
 }

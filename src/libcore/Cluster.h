@@ -64,7 +64,11 @@ class Cluster {
     windowSize--;
     I(windowSize>=0);
   }
-  bool canIssue() const { return windowSize>0; }
+  bool canIssue(DInst *dinst) const { 
+    if( windowSize>0 )
+      return window.canIssue(dinst);
+    return false;
+  }
 
   virtual void entryExecuted(DInst *dinst) = 0;
   virtual void entryRetired() = 0;

@@ -63,6 +63,7 @@ protected:
 
   FastQueue<DInst *> ROB;
 
+
   ClusterManager clusterManager;
 
   // Energy Counters
@@ -165,6 +166,7 @@ public:
   static void setnInst2Sim(long long a) {
     nInst2Sim = a;
   }
+
 
 #ifdef SESC_MISPATH
   virtual void misBranchRestore(DInst *dinst)= 0;

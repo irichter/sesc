@@ -833,6 +833,7 @@ int main(int argc, char **argv)
     }
   }
 
+  {
   char path[4096];
   getcwd(path,4096);
 
@@ -869,6 +870,7 @@ int main(int argc, char **argv)
       j++;
     }
     printf("\n");
+  }
   }
 
   return 0;

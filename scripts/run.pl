@@ -495,8 +495,12 @@ sub processParams {
       unlink 'bendian.rnv';
       unlink 'bendian.wnv';
       unlink 'persons.1k';
+      unlink 'lenums';
       unlink 'vortex1.out';
+      unlink 'vortex2.out';
       unlink 'vortex.msg';
+      unlink 'lib';
+      unlink <fort*>;
       unlink <input/*> ;
       rmdir 'input' ;
       unlink <words/CVS/*>;
