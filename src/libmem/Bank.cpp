@@ -290,7 +290,7 @@ Time_t Bank::getNextFreeCycle() const
   return busyUntil; 
 }
 
-bool Bank::canAcceptStore(PAddr addr) const
+bool Bank::canAcceptStore(PAddr addr)
 {
   return true;
 }

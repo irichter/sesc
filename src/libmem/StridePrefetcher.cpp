@@ -304,7 +304,7 @@ void StridePrefetcher::processAck(PAddr addr)
   pendingFetches.erase(paddr);
 }
 
-bool StridePrefetcher::canAcceptStore(PAddr addr) const 
+bool StridePrefetcher::canAcceptStore(PAddr addr)
 {
   return true;
 }

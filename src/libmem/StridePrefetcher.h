@@ -35,10 +35,10 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "MemRequest.h"
 #include "Port.h"
 
-class BState : public StateGeneric<BState> {
+class BState : public StateGeneric<> {
 };
 
-class PfState : public StateGeneric<PfState> {
+class PfState : public StateGeneric<> {
  public:
   ulong stride;
   bool goingUp;
@@ -103,7 +103,7 @@ public:
   void access(MemRequest *mreq);
   void read(MemRequest *mreq);
   void returnAccess(MemRequest *mreq);
-  bool canAcceptStore(PAddr addr) const;
+  bool canAcceptStore(PAddr addr);
   void invalidate(PAddr addr,ushort size,MemObj *oc);
   Time_t getNextFreeCycle() const;
   

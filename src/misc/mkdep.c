@@ -767,6 +767,7 @@ int main(int argc, char **argv)
 {
   int len;
   int i;
+  char path[4096];
 
   add_path(".");		/* for #include "..." */
 
@@ -833,8 +834,6 @@ int main(int argc, char **argv)
     }
   }
 
-  {
-  char path[4096];
   getcwd(path,4096);
 
 #if 0
@@ -870,7 +869,6 @@ int main(int argc, char **argv)
       j++;
     }
     printf("\n");
-  }
   }
 
   return 0;

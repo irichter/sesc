@@ -146,12 +146,16 @@ void GMemorySystem::buildMemorySystem()
   const char *def_block = SescConf->getCharPtr("", "cpucore", Id);
 
   dataSource = declareMemoryObj(def_block, "dataSource");
-  if (dataSource)
+  if (dataSource) {
     dataSource->setHighestLevel();
+    dataSource->computenUpperCaches();
+  }
 
   instrSource = declareMemoryObj(def_block, "instrSource");
-  if (instrSource && dataSource != instrSource)
+  if (instrSource && dataSource != instrSource) {
     instrSource->setHighestLevel();
+    instrSource->computenUpperCaches();
+  }
 
   memoryOS = buildMemoryOS(def_block);
 }
@@ -182,7 +186,7 @@ char *GMemorySystem::privatizeDeviceName(char *given_name, int num)
 
   sprintf(ret,"P(%i)_%s", num, given_name);
 
-  free(given_name);
+  delete[] given_name;
 
   return ret;
 }
@@ -225,7 +229,7 @@ MemObj *GMemorySystem::declareMemoryObj(const char *block, const char *field)
 
       I(vPars.size() == 4);
       int sharedBy = atoi(vPars[3]);
-      free(vPars[3]);
+      delete[] vPars[3];
       GMSG(sharedBy <= 0,
 	   "SharedBy should be bigger than zero (field %s)",
 	   device_name);
@@ -235,12 +239,12 @@ MemObj *GMemorySystem::declareMemoryObj(const char *block, const char *field)
       shared = true;
     }
 
-    free(vPars[2]);
+    delete[] vPars[2];
 
   } else if (device_name) {
 
     if (strcasecmp(device_name, "shared") == 0) {
-      free(device_name);
+      delete[] device_name;
       device_name = 0;
       shared = true;
     }
@@ -265,8 +269,8 @@ MemObj *GMemorySystem::declareMemoryObj(const char *block, const char *field)
     MemObj *memdev = searchMemoryObj(shared, device_descr_section, device_name);
 
     if (memdev) {
-      free(device_name);
-      free((char*)device_descr_section);
+      delete[] device_name;
+      delete[] device_descr_section;
       return memdev;
     }
 

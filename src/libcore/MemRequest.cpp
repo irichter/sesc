@@ -30,6 +30,8 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "MemRequest.h"
 #include "MemObj.h"
 #include "Pipeline.h"
+#include "Resource.h"
+#include "Cluster.h"
 
 ID(int MemRequest::numMemReqs = 0;);
 
@@ -58,11 +60,7 @@ void MemRequest::access()
 
 void MemRequest::returnAccess()
 {
-  if (wToRLevel == (short)memStack.size()) {
-    memOp = MemWrite;
-    wToRLevel = -1;
-  }
-  
+  mutateReadToWrite();
   currentMemObj->returnAccess(this);
 }
 
@@ -87,6 +85,9 @@ void DMemRequest::dinstAck(DInst *dinst, MemOperation memOp, TimeDelta_t lat)
   
   I( !dinst->isLoadForwarded() );
   if (memOp == MemWrite) {
+    Cluster* c = dinst->getResource()->getCluster();
+    FUStore* r = (FUStore*) c->getResource(iStore);
+    r->storeCompleted();
     I(dinst->isExecuted());
 #ifdef SESC_CHERRY
     if (dinst->hasCanBeRecycled())
@@ -119,6 +120,7 @@ void DMemRequest::create(DInst *dinst, GMemorySystem *gmem, MemOperation mop)
 
   IS(r->acknowledged = false);
   I(r->memStack.empty());
+  r->currentClockStamp = (Time_t) -1;
 
   r->setFields(dinst, mop, gmem->getDataSource());
   r->dataReq = true;
@@ -180,6 +182,7 @@ void IMemRequest::create(DInst *dinst, GMemorySystem *gmem, IBucket *bb)
 
   IS(r->acknowledged = false);
   I(r->memStack.empty());
+  r->currentClockStamp = (Time_t) -1;
 
   r->setFields(dinst, MemRead, gmem->getInstrSource());
   r->buffer  = bb;
@@ -246,6 +249,7 @@ CBMemRequest *CBMemRequest::create(TimeDelta_t lat, MemObj *m
 
   IS(r->acknowledged = false);
   I(r->memStack.empty());
+  r->currentClockStamp = (Time_t) -1;
 
   r->setFields(0, mop, m);
   r->setPAddr(addr);

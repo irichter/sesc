@@ -4,6 +4,7 @@
 
    Contributed by Jose Renau
                   Basilio Fraguela
+		  Luis Ceze
 
 This file is part of SESC.
 
@@ -71,6 +72,10 @@ public:
 
   void dump() const;
 
+  static void schedule(Time_t tim, EventScheduler *cb) {
+    MSG("BOG ALERT! BUGABUGABUG.\nPerhaps you meant to use scheduleAbs");
+    exit(1);
+  }
   static void schedule(TimeDelta_t delta, EventScheduler *cb) {
     I( delta );  // Only for performance reasons
 #ifdef DEBUG
@@ -85,6 +90,10 @@ public:
     cbQ.insert(cb,globalClock+delta);
   }
 
+  static void scheduleAbs(TimeDelta_t tim, EventScheduler *cb) {
+    MSG("BOG ALERT! BUGABUGABUG.\nPerhaps you meant to use schedule");
+    exit(1);
+  }
   static void scheduleAbs(Time_t tim, EventScheduler *cb) {
     I(tim > globalClock); // Only for performance reasons
 #ifdef DEBUG
@@ -1002,6 +1011,10 @@ public:
 
   bool empty() const {
     return first == 0;
+  }
+
+  void makeEmpty() {
+    first = 0;
   }
 };
 

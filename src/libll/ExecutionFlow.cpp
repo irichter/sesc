@@ -173,9 +173,6 @@ void ExecutionFlow::exeInstFast()
   // threads (TLS, or TASKSCALAR)
   int iAddr   =picodePC->addr;
   short iFlags=picodePC->opflags;
-#ifdef PARPROF
-  unsigned dvAddr = 0;
-#endif
 
 
   if (trainCache) {
@@ -194,9 +191,6 @@ void ExecutionFlow::exeInstFast()
   if(iFlags&E_MEM_REF) {
     // Get the Logical address
     VAddr vaddr = (*(long *)((long)(thread.reg) + picodePC->args[RS])) + picodePC->immed;
-#ifdef PARPROF
-    dvAddr = vaddr;
-#endif
     // Get the Real address
     thread.setRAddr(thread.virt2real(vaddr, iFlags));
     if (trainCache)
@@ -220,11 +214,6 @@ void ExecutionFlow::exeInstFast()
     }
 #endif    
   }
-
-#ifdef PARPROF
-  const Instruction *eInst = Instruction::getInst(picodePC->instID);
-  osSim->getParProf()->processInst(eInst, dvAddr);
-#endif  
 
   do{
     picodePC=(picodePC->func)(picodePC, &thread);
@@ -436,6 +425,7 @@ DInst *ExecutionFlow::executePC()
   // and its delay slot, and first return the delay slot. The branch is still in
   // "pendingDInst".
   pendingDInst=dinst;
+  I(pendingDInst->getInst()->getAddr());
   dinst = DInst::createInst(cPC, vaddr, origPid);
 
 #if (defined TLS)
@@ -511,8 +501,10 @@ DInst *ExecutionFlow::executePC()
 #if (defined TLS)
   pendingDInst->setEpoch(epoch);
 #endif // (defined TLS)
-  if( evCB )
+  if( evCB ) {
     pendingDInst->addEvent(evCB);
+    evCB = NULL;
+  }
   ev=NoEvent;
   // Return the delay slot instruction. The fake event instruction will come next.
 #if (defined TLS)
@@ -582,6 +574,10 @@ void ExecutionFlow::goRabbitMode(long long n2skip)
       }
     }
 
+#ifndef OLDMARKS
+    if( osSim->enoughMTMarks1(thread.getPid(),true) )
+      break;
+#endif
     if( n2skip == 0 && goingRabbit && osSim->enoughMarks1() && nFastSims == 0 )
       break;
 

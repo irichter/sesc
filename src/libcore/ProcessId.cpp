@@ -267,6 +267,17 @@ ProcessId *ProcessId::create(Pid_t ppid, Pid_t id, long flags)
   return proc;
 }
 
+void ProcessId::destroyAll() 
+{
+  for(ProcessQueue::iterator queueIt=processQueue.begin();queueIt!=processQueue.end();queueIt++) {
+    ProcessId *queueProc=*queueIt;
+    if (queueProc->getState() == RunningState) {
+      osSim->switchOut(queueProc->getCPU(), queueProc);
+    }
+    queueProc->destroy();
+  }
+}
+
 void ProcessId::destroy()
 {
   // Should not be in the process queue

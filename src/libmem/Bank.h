@@ -96,7 +96,7 @@ public:
 
   Time_t getNextFreeCycle() const;
 
-  bool canAcceptStore(PAddr addr) const;
+  bool canAcceptStore(PAddr addr);
 
   virtual void invalidate(PAddr addr,ushort size,MemObj *oc);
 };

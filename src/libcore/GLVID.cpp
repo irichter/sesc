@@ -14,7 +14,7 @@ SubLVIDType GLVIDDummy::getSubLVID() const
 
 void GLVIDDummy::garbageCollect() 
 {
-  TaskContext::tryPropagateSafeToken();
+  HVersionDomain::tryPropagateSafeTokenAll();
 }
 
 bool GLVIDDummy::isKilled() const

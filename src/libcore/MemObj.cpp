@@ -42,6 +42,7 @@ MemObj::MemObj(const char *section, const char *sName)
   ,symbolicName(sName)
 {
   highest = false;
+  nUpperCaches = 0;
   
 #ifdef DEBUG
   static std::set<const char *, Setltstr> usedNames;
@@ -62,6 +63,23 @@ MemObj::~MemObj()
     delete descrSection;
   if(symbolicName != 0) 
     delete symbolicName;
+}
+
+void MemObj::computenUpperCaches() 
+{
+  nUpperCaches = 0;
+
+  for(ulong j=0; j < upperLevel.size(); j++) {
+    if(upperLevel[j]->isCache())
+      nUpperCaches++;
+    else 
+      nUpperCaches += upperLevel[j]->getUpperCacheLevelSize();
+  }
+
+  // top-down traversal of the memory objects
+  for(ulong i=0; i < lowerLevel.size(); i++) {
+    lowerLevel[i]->computenUpperCaches();
+  }
 }
 
 void MemObj::dump() const
@@ -91,7 +109,7 @@ void DummyMemObj::access(MemRequest *req)
   req->goUp(1); 
 }
 
-bool DummyMemObj::canAcceptStore(PAddr addr) const
+bool DummyMemObj::canAcceptStore(PAddr addr)
 { 
   return true;  
 }

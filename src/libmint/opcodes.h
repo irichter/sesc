@@ -154,6 +154,7 @@ typedef enum ud_class_e {
 
 /* function prototypes */
   OP(mint_sesc_fetch_op);
+  OP(mint_sesc_unlock_op);
   OP(mint_sesc_spawn);
   OP(mint_sesc_sysconf);
   OP(mint_sesc_wait);
@@ -161,6 +162,7 @@ typedef enum ud_class_e {
   OP(mint_sesc_suspend);
   OP(mint_sesc_resume);
   OP(mint_sesc_simulation_mark);
+  OP(mint_sesc_simulation_mark_id);
   OP(mint_sesc_fast_sim_begin);
   OP(mint_sesc_fast_sim_end);
   OP(mint_sesc_preevent);

@@ -423,6 +423,7 @@ func_desc_t Func_subst[] = {
   {"exit",                    mint_exit,                       1, OpNoReplay},
 #endif
   {"sesc_fetch_op",           mint_sesc_fetch_op,              1, OpExposed},
+  {"sesc_unlock_op",          mint_sesc_unlock_op,             1, OpExposed},
   {"sesc_spawn",              mint_sesc_spawn,                 1, OpExposed},
   {"sesc_spawn_",             mint_sesc_spawn,                 1, OpExposed},
   {"sesc_sysconf",            mint_sesc_sysconf,               1, OpExposed},
@@ -439,6 +440,7 @@ func_desc_t Func_subst[] = {
   {"sesc_resume",             mint_sesc_resume,                1, OpExposed},
   {"sesc_resume_",            mint_sesc_resume,                1, OpExposed},
   {"sesc_simulation_mark",    mint_sesc_simulation_mark,       1, OpExposed},
+  {"sesc_simulation_mark_id", mint_sesc_simulation_mark_id,    1, OpExposed},
   {"sesc_fast_sim_begin",     mint_sesc_fast_sim_begin,        1, OpExposed},
   {"sesc_fast_sim_begin_",    mint_sesc_fast_sim_begin,        1, OpExposed},
   {"sesc_fast_sim_end",       mint_sesc_fast_sim_end,          1, OpExposed},
@@ -1215,6 +1217,17 @@ OP(mint_sesc_fetch_op)
 
   REGNUM(2) = rsesc_fetch_op(pthread->getPid(),(enum FetchOpType)op,addr,data,val);
   
+  return addr2icode(REGNUM(31));
+}
+
+void rsesc_unlock_op(int pid, long addr, long *data, int val);
+OP(mint_sesc_unlock_op)
+{
+  long addr = REGNUM(4);
+  long val  = REGNUM(5);
+  long *data = (long *)pthread->virt2real(addr);
+  rsesc_unlock_op(pthread->getPid(), addr, data, val);
+
   return addr2icode(REGNUM(31));
 }
 

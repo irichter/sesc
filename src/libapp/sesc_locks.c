@@ -66,7 +66,8 @@ void sesc_unlock(slock_t * lock)
   sesc_memfence((long)lock);
 
   lock->dummy = 5;
-  sesc_fetch_op(FetchSwapOp, &lock->spin, UNLOCKED);
+  sesc_unlock_op(&lock->spin, UNLOCKED);
+  /*  sesc_fetch_op(FetchSwapOp, &lock->spin, UNLOCKED);*/
 #ifdef NOSPIN_DOSUSPEND
   while(sesc_fetch_op(FetchSwapOp, &lock->waitSpin, LOCKED) == LOCKED)
       lock->dummy = 5;

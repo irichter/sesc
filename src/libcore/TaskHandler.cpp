@@ -58,7 +58,7 @@ bool TaskHandler::restart(const HVersion *ver)
 
   ver->getTaskContext()->localRestart();
 
-  TaskContext::tryPropagateSafeToken();
+  TaskContext::tryPropagateSafeToken(ver->getVersionDomain());
 
   return true;
 }

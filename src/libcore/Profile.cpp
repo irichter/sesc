@@ -350,16 +350,15 @@ void Profile::reportValue() const
   fclose(takeFp);
 
   // Report
-  int i = 0;
+  int ii = 0;
   for (TaskInfoType::const_iterator it = tasks.begin();
        it != tasks.end(); it++) {
     int taskID = (*it).first;
     const TaskInfo &tInfo = (*it).second;
-    i++;
    
     I(tInfo.nExec);
-    Report::field("Profile_%d:taskID=%d:startAddr=0x%lx:nExec=%d:nSpawn=%d:nInst=%lld:occInst=%.2f:nStaticHoist=%.2f:nDynHoist=%.2f:nViolations=%.2f:eliminated=%d:nRdHit=%ld:nRdMiss=%ld:nWrHit=%ld:nWrMiss=%ld:occStaticHoist=%.2f:occL2Miss=%.2f:note=%d",
-                  i, taskID, tInfo.startAddr, tInfo.nExec, tInfo.nSpawn,
+    Report::field("Profile_(%d):taskID=%d:startAddr=0x%lx:nExec=%d:nSpawn=%d:nInst=%lld:occInst=%.2f:nStaticHoist=%.2f:nDynHoist=%.2f:nViolations=%.2f:eliminated=%d:nRdHit=%ld:nRdMiss=%ld:nWrHit=%ld:nWrMiss=%ld:occStaticHoist=%.2f:occL2Miss=%.2f:note=%d",
+                  ii++, taskID, tInfo.startAddr, tInfo.nExec, tInfo.nSpawn,
                   tInfo.nInst/tInfo.nExec, (float)tInfo.nInst/sumInst,
                   (float)tInfo.nStaticHoist/tInfo.nExec, (float)tInfo.nDynHoist/tInfo.nExec,
                   (float)tInfo.nViolations/tInfo.nExec, tInfo.eliminated,

@@ -202,6 +202,7 @@ public:
 
   static ProcessId *create(Pid_t ppid, Pid_t id, long flags);
   void destroy();
+  static void destroyAll();
 
   void incSuspendedCounter() { suspendedCounter++; }
   void decSuspendedCounter();

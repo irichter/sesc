@@ -156,6 +156,7 @@ private:
 #endif
 
 #ifdef DEBUG
+ public:
   char nDeps;              // 0, 1 or 2 for RISC processors
   static long currentID;
   long ID; // static ID, increased every create (currentID). pointer to the

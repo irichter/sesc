@@ -14,6 +14,9 @@ all: $(OBJ)/mtst1.o $(OBJ)/libmem.a
 OBJS	:= MemorySystem.o Cache.o Bank.o MemCtrl.o Bus.o MemoryOS.o  \
            TLB.o StridePrefetcher.o UglyMemRequest.o AddressPrefetcher.o
 
+ifdef TS_PREDMISS
+OBJS	+= MValuePredictor.o
+endif
 ##############################################################################
 #                             Change Rules                                   # 
 ##############################################################################

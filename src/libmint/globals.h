@@ -97,7 +97,7 @@ EXTERN unsigned long Sdata_seek;		/* seek offset in file for sdata section */
 
 /* default heap size (for private malloc) */
 #ifndef HEAP_SIZE
-#define HEAP_SIZE (64 * 1024)
+#define HEAP_SIZE 0x8000000
 #endif
 
 /* leave some space at the top of the stack for sproc() children */
@@ -145,7 +145,7 @@ EXTERN int Max_nprocs;
 /* the number of function pointers we need to allocate */
 extern int Nfuncs;
 
-#define SESC_MAXEVENT 12
+#define SESC_MAXEVENT 16
 
 /* Extra icode pointers allocated at the end of Itext[]. */
 enum {

@@ -203,7 +203,7 @@ sub runBench {
     runIt("${sesc} -k0x80000 -h0x3C00000 ${marks} ${executable} ${common} <${BHOME}/CINT2000/197.parser/${dataset}/${op_data}.in ${output}");
 
   }elsif( $param{bench} eq 'gap' ) {
-    my $marks = getMarks("-1122 -2123", "-1114 -2126");
+    my $marks = getMarks("-1122 -2123", "-1141 -2145");
     my $opt = "-l ${BHOME}/CINT2000/254.gap/data/all/input  -q -n -m ";
     if ($op_data eq 'test') {
       $opt .= "64M";
@@ -257,7 +257,7 @@ sub runBench {
     my $opt;
     if ($op_data eq 'ref') {
       system("cp ${BHOME}/CINT2000/253.perlbmk/data/all/input/lenums .");
-      $opt = "-Ilib ${BHOME}/CINT2000/253.perlbmk/data/all/input/diffmail.pl 2 550 15 24 23 100"
+      $opt = "-Ilib ${BHOME}/CINT2000/253.perlbmk/data/all/input/diffmail.pl 2 550 15 24 23 100";
     }
     runIt("${sesc} -h0x8000000 ${marks} ${executable} ${opt} ${output}");
 
@@ -269,6 +269,7 @@ sub runBench {
     my $marks = getMarks("-11 -22", "-11 -24");
     system("cp ${BHOME}/CFP2000/168.wupwise/${dataset}/wupwise.in .");
     runIt("${sesc} -h0xbc00000 ${marks} ${executable} ${output}");
+
   }elsif( $param{bench} eq 'swim' ) {
     my $marks = getMarks("-12 -24", "-12 -26");
     runIt("${sesc} -h0xbc00000 ${marks} ${executable} <${BHOME}/CFP2000/171.swim/${dataset}/swim.in ${output}");
@@ -279,7 +280,7 @@ sub runBench {
 
   }elsif( $param{bench} eq 'applu' ) {
     my $marks = getMarks("-11 -2110", "-11 -2220");
-    runIt("${sesc} -h0xb000000  -k0x20000 ${marks} ${executable} <${BHOME}/CFP2000/173.applu/${dataset}/applu.in ${output}");
+    runIt("${sesc} -h0xb000000  -k0x20000 ${marks} ${executable} <${BHOME}/CFP2000/173.applu/${dataset}/applu.in${output}");
 
   }elsif( $param{bench} eq 'mesa' ) {
     my $params;
@@ -360,6 +361,283 @@ sub runBench {
 
   }
 
+  ############################################################
+  # SMTmix - both CINT and CFP together
+  ############################################################
+
+  elsif( $param{bench} eq 'wupwisemcf' ) {
+    my $mcfMarks = getMarks("-11 -26", "-11 -250");
+    my $wwMarks = getMarks("-11 -22", "-11 -24");
+    my $marks = "-m181 $mcfMarks -m168 $wwMarks";
+
+    my $mcfParm = "--begin=mcf ${BHOME}/CINT2000/181.mcf/${dataset}/inp.in";
+    my $wwParm = "--begin=wupwise";
+
+    system("cp ${BHOME}/CFP2000/168.wupwise/${dataset}/wupwise.in .");
+    runIt("${sesc} -h0x10000000 $marks ${executable} $mcfParm $wwParm ${output}");
+  }
+
+  elsif( $param{bench} eq 'mcfart' ) {
+    my $mcfMarks = getMarks("-11 -26", "-11 -250");
+    my $artMarks = getMarks("-12 -23", "-12 -25");
+
+    my $marks = "-m181 $mcfMarks -m179 $artMarks";
+
+    my $mcfParm = "${BHOME}/CINT2000/181.mcf/${dataset}/inp.in";
+
+    my $artParm;
+    if ($op_data eq 'test') {
+      $artParm = "-stride 2 -startx 134 -starty 220 -endx 139 -endy 225 -objects 1";
+    } elsif ($op_data eq 'train') {
+      $artParm = "-stride 2 -startx 134 -starty 220 -endx 184 -endy 240 -objects 3";
+    } elsif ($op_data eq 'ref') {
+      $artParm = "-trainfile2 ${BHOME}/CFP2000/179.art/${dataset}/hc.img";
+      $artParm = "-stride 2 -startx 110 -starty 200 -endx 160 -endy 240 -objects 10";
+    }
+
+    $artParm = "-scanfile ${BHOME}/CFP2000/179.art/${dataset}/c756hel.in -trainfile1 ${BHOME}/CFP2000/179.art/${dataset}/a10.img $artParm";
+
+    runIt("${sesc} -h0x20000000 ${marks} ${executable} --begin=mcf $mcfParm --begin=art $artParm ${output}");
+  }
+
+  elsif( $param{bench} eq 'artequake' ) {
+    my $equakeMarks = getMarks("-13 -25", "-13 -213");
+    my $artMarks = getMarks("-12 -23", "-12 -25");
+
+    my $marks = "-m183 $equakeMarks -m179 $artMarks";
+
+    my $artParm;
+    if ($op_data eq 'test') {
+      $artParm = "-stride 2 -startx 134 -starty 220 -endx 139 -endy 225 -objects 1";
+    } elsif ($op_data eq 'train') {
+      $artParm = "-stride 2 -startx 134 -starty 220 -endx 184 -endy 240 -objects 3";
+    } elsif ($op_data eq 'ref') {
+      $artParm = "-trainfile2 ${BHOME}/CFP2000/179.art/${dataset}/hc.img";
+      $artParm = "-stride 2 -startx 110 -starty 200 -endx 160 -endy 240 -objects 10";
+    }
+
+    $artParm = "-scanfile ${BHOME}/CFP2000/179.art/${dataset}/c756hel.in -trainfile1 ${BHOME}/CFP2000/179.art/${dataset}/a10.img $artParm";
+
+    runIt("${sesc} -h0x20000000 ${marks} ${executable} --begin=equake --begin=art $artParm <${BHOME}/CFP2000/183.equake/${dataset}/inp.in ${output}");
+  }
+
+  elsif( $param{bench} eq 'craftyperlbmk' ) {
+      my $craftyMarks = getMarks("-18 -212", "-18 -215");
+      my $perlbmkMarks = getMarks("-11 -22", "-11 -22");
+      
+      my $marks = "-m186 $craftyMarks -m253 $perlbmkMarks";
+      
+      #for perlbmk
+      my $perlbmkParm;
+      if ($op_data eq 'ref') {
+	  system("cp ${BHOME}/CINT2000/253.perlbmk/data/all/input/lenums .");
+	  $perlbmkParm = "-Ilib ${BHOME}/CINT2000/253.perlbmk/data/all/input/diffmail.pl 2 550 15 24 23 100";
+      }
+
+      runIt("${sesc} -h0x10000000  ${marks} ${executable} --begin=crafty --begin=perlbmk $perlbmkParm <${BHOME}/CINT2000/186.crafty/${dataset}/crafty.in ${output}");
+  }
+
+
+  elsif( $param{bench} eq 'mesaart' ) {
+    my $mesaMarks = getMarks("-11 -22", "-11 -23");
+    my $artMarks = getMarks("-12 -23", "-12 -25");
+
+    my $marks = "-m177 $mesaMarks -m179 $artMarks";
+
+    #parms for mesa
+    my $mesaParm;
+    system("cp ${BHOME}/CFP2000/177.mesa/${dataset}/numbers .");
+    if ($op_data eq 'test') {
+      $mesaParm = "-frames 10 -meshfile ${BHOME}/CFP2000/177.mesa/${dataset}/mesa.in -ppmfile mesa.ppm ";
+    } elsif ($op_data eq 'train') {
+      $mesaParm = "-frames 500 -meshfile ${BHOME}/CFP2000/177.mesa/${dataset}/mesa.in -ppmfile mesa.ppm";
+    } elsif ($op_data eq 'ref') {
+      $mesaParm = "-frames 1000 -meshfile ${BHOME}/CFP2000/177.mesa/${dataset}/mesa.in -ppmfile mesa.ppm";
+    }
+
+    #parms for art
+    my $artParm;
+    if ($op_data eq 'test') {
+      $artParm = "-stride 2 -startx 134 -starty 220 -endx 139 -endy 225 -objects 1";
+    } elsif ($op_data eq 'train') {
+      $artParm = "-stride 2 -startx 134 -starty 220 -endx 184 -endy 240 -objects 3";
+    } elsif ($op_data eq 'ref') {
+      $artParm = "-trainfile2 ${BHOME}/CFP2000/179.art/${dataset}/hc.img";
+      $artParm = "-stride 2 -startx 110 -starty 200 -endx 160 -endy 240 -objects 10";
+    }
+    $artParm = "-scanfile ${BHOME}/CFP2000/179.art/${dataset}/c756hel.in -trainfile1 ${BHOME}/CFP2000/179.art/${dataset}/a10.img $artParm";
+
+    runIt("${sesc}  -k0x80000 -h0x20000000 ${marks} ${executable} --begin=mesa $mesaParm --begin=art $artParm ${output}");
+  }
+
+  elsif( $param{bench} eq 'mcfparser' ) {
+    my $mcfMarks = getMarks("-11 -26", "-11 -250");
+    my $parserMarks = getMarks("-135 -238", "-133 -238");
+
+    my $marks = "-m181 $mcfMarks -m197 $parserMarks";
+
+    my $mcfParm = "${BHOME}/CINT2000/181.mcf/${dataset}/inp.in";
+    my $parserParm = "${BHOME}/CINT2000/197.parser/data/all/input/2.1.dict -batch ";
+    $parserParm .= " <${BHOME}/CINT2000/197.parser/${dataset}/${op_data}.in ${output}";
+
+    runIt("${sesc} -k0x80000 -h0x20000000 ${marks} ${executable} --begin=mcf $mcfParm --begin=parser $parserParm ${output}");
+  }
+
+  elsif( $param{bench} eq 'wupwiseperlbmk' ) {
+    my $wwMarks = getMarks("-11 -22", "-11 -24");
+    my $perlbmkMarks = getMarks("-11 -22", "-11 -22");
+    my $marks = "-m168 $wwMarks -m253 $perlbmkMarks";
+
+    #for perlbmk
+    my $perlbmkParm;
+    if ($op_data eq 'ref') {
+	system("cp ${BHOME}/CINT2000/253.perlbmk/data/all/input/lenums .");
+	  $perlbmkParm = "-Ilib ${BHOME}/CINT2000/253.perlbmk/data/all/input/diffmail.pl 2 550 15 24 23 100";
+    }
+    
+    system("cp ${BHOME}/CFP2000/168.wupwise/${dataset}/wupwise.in .");
+    runIt("${sesc} -h0x10000000 $marks ${executable} --begin=wupwise  --begin=perlbmk $perlbmkParm ${output}");
+  }
+
+  elsif( $param{bench} eq 'bzip2vpr' ) {
+    my $bzipMarks = getMarks("-11 -22", "-11 -22");
+    my $vprMarks = getMarks("-11 -22", "-11 -22");
+
+    my $marks = "-m256 $bzipMarks -m175 $vprMarks";
+
+    my $bzipParm = "${BHOME}/CINT2000/256.bzip2/${dataset}/";
+
+    if ($op_data eq 'test') {
+      $bzipParm .= "input.random 2";
+    } elsif ($op_data eq 'train') {
+      $bzipParm .= "input.compressed 8";
+    } else {
+      $bzipParm .= "input.source 58";
+    }
+
+    my $vprParm = "${BHOME}/CINT2000/175.vpr/${dataset}/net.in ";
+    $vprParm .= "${BHOME}/CINT2000/175.vpr/${dataset}/arch.in ";
+    $vprParm .= "place.out dum.out -nodisp -place_only -init_t 5 -exit_t 0.005 ";
+    $vprParm .= "-alpha_t 0.9412 -inner_num 2";
+
+    runIt("${sesc} -h0x10000000 ${marks} ${executable} --begin=bzip2 $bzipParm --begin=vpr $vprParm ${output}");
+  }
+
+  elsif( $param{bench} eq 'swimmcf' ) {
+    my $swimMarks = getMarks("-12 -24", "-12 -26");
+    my $mcfMarks = getMarks("-11 -26", "-11 -250");
+    my $marks = "-m181 $mcfMarks -m171 $swimMarks";
+
+    my $mcfParm = "--begin=mcf ${BHOME}/CINT2000/181.mcf/${dataset}/inp.in";
+    my $swimParm = "--begin=swim  <${BHOME}/CFP2000/171.swim/${dataset}/swim.in ${output}";
+
+    runIt("${sesc} -h0x10000000 $marks ${executable} $mcfParm $swimParm ${output}");
+  }
+  
+  elsif( $param{bench} eq 'mgridmcf' ) {
+    my $mgridMarks = getMarks("-11 -22", "-11 -23");
+    my $mcfMarks = getMarks("-11 -26", "-11 -250");
+    my $marks = "-m181 $mcfMarks -m172 $mgridMarks";
+
+    my $mcfParm = "--begin=mcf ${BHOME}/CINT2000/181.mcf/${dataset}/inp.in";
+    my $mgridParm = "--begin=mgrid <${BHOME}/CFP2000/172.mgrid/${dataset}/mgrid.in ${output}";
+
+    runIt("${sesc} -h0x10000000 $marks ${executable} $mcfParm $mgridParm ${output}");
+  }
+
+  elsif( $param{bench} eq 'equakeswim' ) {
+    my $equakeMarks = getMarks("-13 -25", "-13 -213");
+    my $swimMarks = getMarks("-12 -24", "-12 -26");
+
+    my $marks = "-m183 $equakeMarks -m171 $swimMarks";
+
+    my $swimParm = "--begin=swim  <${BHOME}/CFP2000/171.swim/${dataset}/swim.in ${output}";
+
+    runIt("${sesc} -h0x20000000 ${marks} ${executable} --begin=equake $swimParm ${output}");
+  }
+
+  elsif( $param{bench} eq 'equakeperlbmk' ) {
+    my $equakeMarks = getMarks("-13 -25", "-13 -213");
+    my $perlbmkMarks = getMarks("-11 -22", "-11 -22");
+
+    my $marks = "-m183 $equakeMarks -m253 $perlbmkMarks";
+
+    #for perlbmk
+    my $perlbmkParm = "--begin=perlbmk ";
+    if ($op_data eq 'ref') {
+	system("cp ${BHOME}/CINT2000/253.perlbmk/data/all/input/lenums .");
+	$perlbmkParm .= "-Ilib ${BHOME}/CINT2000/253.perlbmk/data/all/input/diffmail.pl 2 550 15 24 23 100";
+    }
+
+    my $equakeParm = "--begin=equake <${BHOME}/CFP2000/183.equake/${dataset}/inp.in";
+
+    runIt("${sesc} -h0x18000000  ${marks} ${executable} $perlbmkParm $equakeParm ${output}");
+  }  
+
+  elsif( $param{bench} eq 'artgap' ) {
+    my $artMarks = getMarks("-12 -23", "-12 -25");
+    my $gapMarks = getMarks("-1122 -2123", "-1141 -2145");
+
+    my $marks = "-m179 $artMarks -m254 $gapMarks";
+
+    #for art
+    my $artParm;
+    if ($op_data eq 'test') {
+      $artParm = "-stride 2 -startx 134 -starty 220 -endx 139 -endy 225 -objects 1";
+    } elsif ($op_data eq 'train') {
+      $artParm = "-stride 2 -startx 134 -starty 220 -endx 184 -endy 240 -objects 3";
+    } elsif ($op_data eq 'ref') {
+      $artParm = "-trainfile2 ${BHOME}/CFP2000/179.art/${dataset}/hc.img";
+      $artParm = "-stride 2 -startx 110 -starty 200 -endx 160 -endy 240 -objects 10";
+    }
+
+    $artParm = "--begin=art -scanfile ${BHOME}/CFP2000/179.art/${dataset}/c756hel.in -trainfile1 ${BHOME}/CFP2000/179.art/${dataset}/a10.img $artParm";
+
+    #for gap
+    my $gapParm = "--begin=gap -l ${BHOME}/CINT2000/254.gap/data/all/input  -q -n -m ";
+    if ($op_data eq 'test') {
+      $gapParm .= "64M";
+    } elsif ($op_data eq 'train') {
+      $gapParm .= "128M";
+    } else {
+      $gapParm .= "128M";
+    }
+
+    $gapParm .= " <${BHOME}/CINT2000/254.gap/${dataset}/${op_data}.in";
+
+    runIt("${sesc} -h0x20000000 ${marks} ${executable} $artParm $gapParm ${output}");
+  }
+
+  elsif( $param{bench} eq 'artperlbmk' ) {
+    my $artMarks = getMarks("-12 -23", "-12 -25");
+    my $perlbmkMarks = getMarks("-11 -22", "-11 -22");
+
+    my $marks = "-m179 $artMarks -m253 $perlbmkMarks";
+
+    #for art
+    my $artParm;
+    if ($op_data eq 'test') {
+      $artParm = "-stride 2 -startx 134 -starty 220 -endx 139 -endy 225 -objects 1";
+    } elsif ($op_data eq 'train') {
+      $artParm = "-stride 2 -startx 134 -starty 220 -endx 184 -endy 240 -objects 3";
+    } elsif ($op_data eq 'ref') {
+      $artParm = "-trainfile2 ${BHOME}/CFP2000/179.art/${dataset}/hc.img";
+      $artParm = "-stride 2 -startx 110 -starty 200 -endx 160 -endy 240 -objects 10";
+    }
+
+    $artParm = "--begin=art -scanfile ${BHOME}/CFP2000/179.art/${dataset}/c756hel.in -trainfile1 ${BHOME}/CFP2000/179.art/${dataset}/a10.img $artParm";
+
+    #for perlbmk
+    my $perlbmkParm = "--begin=perlbmk ";
+    if ($op_data eq 'ref') {
+	system("cp ${BHOME}/CINT2000/253.perlbmk/data/all/input/lenums .");
+	$perlbmkParm .= "-Ilib ${BHOME}/CINT2000/253.perlbmk/data/all/input/diffmail.pl 2 550 15 24 23 100";
+    }
+
+    runIt("${sesc} -h0x20000000 ${marks} ${executable} $artParm $perlbmkParm ${output}");
+  }
+
+  
   ###########################################################
   #  splash2
   ###########################################################
@@ -566,6 +844,7 @@ sub processParams {
     print "CINT2000: crafty mcf parser gzip vpr bzip2 gcc gap twolf vortex perlbmk\n";
     print "CFP2000 : wupwise swim mgrid applu apsi equake ammp art mesa\n";
     print "SPLASH2: cholesky fft lu radix barnes fmm ocean radiosity  \n";
+    print "SMTmix: wupwisemcf\n";
     print "         raytrace volrend water-nsquared water-spatial     \n";
     print "Misc   : mp3dec mp3enc smatrix\n";
     print "\t-sesc=s          ; Simulator executable (default is $ENV{'SESCBUILDDIR'}/sesc)\n";

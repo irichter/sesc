@@ -34,6 +34,12 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 GStats::Container *GStats::store=0;
 
+GStats::~GStats()
+{
+  unsubscribe();
+  free(name);
+}
+
 /*********************** GStatsCntr */
 
 GStatsCntr::GStatsCntr(const char *format,
@@ -53,12 +59,6 @@ GStatsCntr::GStatsCntr(const char *format,
 
   name = str;
   subscribe();
-}
-
-GStatsCntr::~GStatsCntr()
-{
-  unsubscribe();
-  free(name);
 }
 
 double GStatsCntr::getDouble() const
@@ -87,12 +87,6 @@ GStatsAvg::GStatsAvg(const char *format,...)
 
   name = str;
   subscribe();
-}
-
-GStatsAvg::~GStatsAvg()
-{
-  unsubscribe();
-  free(name);
 }
 
 double GStatsAvg::getDouble() const
@@ -184,12 +178,6 @@ GStatsProfiler::GStatsProfiler(const char *format, ...)
   subscribe();
 }
 
-GStatsProfiler::~GStatsProfiler()
-{
-  unsubscribe();
-  free(name);
-}
-
 void GStatsProfiler::sample(ulong key)
 {
   ProfHash::iterator it = p.find(key);
@@ -230,13 +218,111 @@ GStatsMax::GStatsMax(const char *format,...)
   subscribe();
 }
 
-GStatsMax::~GStatsMax()
-{
-  unsubscribe();
-  free(name);
-}
-
 void GStatsMax::reportValue() const
 {
   Report::field("%s:max=%ld:n=%lld", name, maxValue, nData);
+}
+
+/*********************** GStatsHist */
+
+GStatsHist::GStatsHist(const char *format,...)
+{
+  char *str;
+  va_list ap;
+
+  va_start(ap, format);
+  str = getText(format, ap);
+  va_end(ap);
+
+  name = str;
+  subscribe();
+}
+
+void GStatsHist::reportValue() const
+{
+  Histogram::const_iterator it;
+  
+  for(it=H.begin();it!=H.end();it++) {
+    Report::field("%s(%lu)=%llu",name,(*it).first,(*it).second);
+  }
+}
+
+void GStatsHist::sample(unsigned long key, unsigned long long weight)
+{
+  if(H.find(key)==H.end())
+    H[key]=0;
+
+  H[key]+=weight;
+}
+
+/*********************** GStatsTimingAvg */
+
+GStatsTimingAvg::GStatsTimingAvg(const char *format,...)
+{
+  char *str;
+  va_list ap;
+
+  va_start(ap, format);
+  str = getText(format, ap);
+  va_end(ap);
+
+  data = 0;
+  nData = 0;
+  lastUpdate = 0;
+  lastValue = 0;
+
+  name = str;
+  subscribe();
+}
+
+void GStatsTimingAvg::sample(const long v) 
+{
+  if(lastUpdate != globalClock && lastUpdate != 0) {
+    data += lastValue;
+    nData++;
+  }
+
+  lastValue = v;
+  lastUpdate = globalClock;
+}
+
+/*********************** GStatsTimingHist */
+
+GStatsTimingHist::GStatsTimingHist(const char *format,...)
+{
+  char *str;
+  va_list ap;
+
+  va_start(ap, format);
+  str = getText(format, ap);
+  va_end(ap);
+
+  name = str;
+  subscribe();
+  
+  lastUpdate = 0;
+  lastKey = 0;
+}
+
+void GStatsTimingHist::reportValue() const
+{
+  Histogram::const_iterator it;
+  unsigned long long w=0;
+
+  for(it=H.begin();it!=H.end();it++) {
+
+    if((*it).first == lastKey)
+      w = globalClock-lastUpdate;
+    else
+      w = 0;
+
+    Report::field("%s(%lu)=%llu",name,(*it).first,(*it).second+w);
+  }
+}
+
+void GStatsTimingHist::sample(unsigned long key)
+{
+  GStatsHist::sample(lastKey, (unsigned long long) (globalClock-lastUpdate));
+  lastUpdate = globalClock;
+  lastKey = key;
 }

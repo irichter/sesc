@@ -31,6 +31,8 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "GStats.h"
 #include "pool.h"
 
+#include "BloomFilter.h"
+
 // This is an extremly fast MSHR implementation.  Given a number of
 // outstanding MSHR entries, it does a hash function to find a random
 // entry (always the same for a given address).
@@ -38,6 +40,16 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 // This can have a little more contention than a fully associative
 // structure because it can serialize requests, but it should not
 // affect performance much.
+
+
+template<class Addr_t>
+class OverflowFieldT {
+ public:
+  Addr_t paddr;
+  CallbackBase *cb;
+  CallbackBase *ovflwcb;
+  MemOperation mo;
+};
 
 //
 // base MSHR class
@@ -47,34 +59,55 @@ template<class Addr_t>
 class MSHR {
  private:
  protected:
-  const int MaxEntries;
+  const int nEntries;
   int nFreeEntries; 
 
   const size_t Log2LineSize;
 
   GStatsCntr nUse;
-  GStatsCntr nStallFull;
+  GStatsCntr nUseReads;
+  GStatsCntr nUseWrites;
+  GStatsCntr nOverflows;
   GStatsMax  maxUsedEntries;
+  GStatsCntr nCanAccept;
+  GStatsCntr nCanNotAccept;
+  GStatsTimingHist occupancyHistogram;
+  GStatsTimingHist pendingReqsTimingHist;
+  GStatsHist       entriesOnReqHist;      
 
  public:
   virtual ~MSHR() { }
   MSHR(const char *name, int size, int lineSize);
 
-  static MSHR<Addr_t> *create(const char *name, const char *type, int size, int lineSize);
+  static MSHR<Addr_t> *create(const char *name, const char *type, 
+			      int size, int lineSize, int nse = 16);
+
+  static MSHR<Addr_t> *create(const char *name, const char *section);
 
   void destroy() {
     delete this;
   }
 
-  virtual bool canIssue(Addr_t paddr) const = 0;
-
-  virtual bool canIssue() const = 0;
+  virtual bool canAcceptRequest(Addr_t paddr) = 0;
 
   virtual bool issue(Addr_t paddr, MemOperation mo = MemRead) = 0;
 
-  virtual void addEntry(Addr_t paddr, CallbackBase *c, CallbackBase *ovflwc = 0) = 0;
+  virtual void addEntry(Addr_t paddr, CallbackBase *c, 
+			CallbackBase *ovflwc = 0, MemOperation mo = MemRead) = 0;
 
   virtual void retire(Addr_t paddr) = 0;
+
+  Addr_t calcLineAddr(Addr_t paddr) const { return paddr >> Log2LineSize; }
+
+  void updateOccHistogram() 
+  { 
+    occupancyHistogram.sample(nEntries-nFreeEntries); 
+  }
+  void updatePendingReqsHistogram(int pendingReqs)
+  {
+    //pendingReqsTimingHist.sample(pendingReqs);
+  }
+
 };
 
 //
@@ -89,12 +122,12 @@ class NoMSHR : public MSHR<Addr_t> {
 
  public:
   virtual ~NoMSHR() { }
-  bool canIssue(Addr_t paddr) const { return true; }
-  bool canIssue()             const { return true; }
+  bool canAcceptRequest(Addr_t paddr) { return true; }
 
   bool issue(Addr_t paddr, MemOperation mo = MemRead) { nUse.inc(); return true; }
 
-  void addEntry(Addr_t paddr, CallbackBase *c, CallbackBase *ovflwc = 0) { I(0); }
+  void addEntry(Addr_t paddr, CallbackBase *c, 
+		CallbackBase *ovflwc = 0, MemOperation mo = MemRead) { I(0); }
 
   void retire(Addr_t paddr) { }
 };
@@ -105,15 +138,7 @@ class NoMSHR : public MSHR<Addr_t> {
 template<class Addr_t>
 class NoDepsMSHR : public MSHR<Addr_t> {
  private:  
-  class OverflowField {
-  public:
-    Addr_t paddr;
-    CallbackBase *cb;
-    CallbackBase *ovflwcb;
-  };
-
-
-
+  typedef OverflowFieldT<Addr_t> OverflowField;
   typedef std::deque<OverflowField> Overflow;
   Overflow overflow;
  protected:
@@ -123,13 +148,12 @@ class NoDepsMSHR : public MSHR<Addr_t> {
  public:
   virtual ~NoDepsMSHR() { }
 
-  bool canIssue(Addr_t paddr) const { return canIssue(); }
+  bool canAcceptRequest(Addr_t paddr) { return (nFreeEntries > 0); }
 
-  bool canIssue() const { return (nFreeEntries > 0); }
-  
   bool issue(Addr_t paddr, MemOperation mo = MemRead); 
 
-  void addEntry(Addr_t paddr, CallbackBase *c, CallbackBase *ovflwc = 0);
+  void addEntry(Addr_t paddr, CallbackBase *c, 
+		CallbackBase *ovflwc = 0, MemOperation mo = MemRead);
 
   void retire(Addr_t paddr);
 
@@ -169,13 +193,7 @@ class FullMSHR : public MSHR<Addr_t> {
 
   EntryType *entry;
 
-  class OverflowField {
-  public:
-    Addr_t paddr;
-    CallbackBase *cb;
-    CallbackBase *ovflwcb;
-  };
-
+  typedef OverflowFieldT<Addr_t> OverflowField;
   typedef std::deque<OverflowField> Overflow;
   Overflow overflow;
 
@@ -186,18 +204,197 @@ class FullMSHR : public MSHR<Addr_t> {
  public:
   virtual ~FullMSHR() { delete entry; }
 
-  bool canIssue(Addr_t paddr) const { 
-    return (!entry[calcEntry(paddr)].inUse); 
-  }
-
-  bool canIssue() const             { return (nFreeEntries>0); }
+  bool canAcceptRequest(Addr_t paddr) { return (nFreeEntries>0); }
 
   bool issue(Addr_t paddr, MemOperation mo = MemRead);
 
-  void addEntry(Addr_t paddr, CallbackBase *c, CallbackBase *ovflwc = 0);
+  void addEntry(Addr_t paddr, CallbackBase *c, 
+		CallbackBase *ovflwc = 0, MemOperation mo = MemRead);
 
   void retire(Addr_t paddr);
 
+};
+
+
+template<class Addr_t>
+class MSHRentry {
+ private:
+  int nSubEntries;
+  int nFreeSubEntries;
+  int maxUsedSubEntries;
+  CallbackContainer cc;
+  Addr_t reqLineAddr;
+  bool displaced;
+  Time_t whenAllocated;
+ public:
+  MSHRentry() {
+    reqLineAddr = 0;
+    nFreeSubEntries = 0; 
+    nSubEntries = 0;
+    maxUsedSubEntries = 0;
+    displaced = false;
+    whenAllocated = globalClock;
+  }
+
+  ~MSHRentry() {
+    if(displaced)
+      cc.makeEmpty();
+
+    GI(!displaced, nFreeSubEntries == nSubEntries);
+  }
+
+  PAddr getLineAddr() { return reqLineAddr; }
+
+  bool addRequest(Addr_t reqAddr, CallbackBase *rcb, MemOperation mo);
+  void firstRequest(Addr_t addr, int nse) { 
+    I(nFreeSubEntries == 0);
+    I(nSubEntries == 0);
+
+    nSubEntries = nse;
+    nFreeSubEntries = nSubEntries - 1;
+    maxUsedSubEntries = 1;
+    reqLineAddr = addr;
+  }
+
+  bool canAcceptRequest() const { return nFreeSubEntries > 0; }
+
+  bool retire();
+  int getMaxUsedSubEntries() { return maxUsedSubEntries; }
+  int getUsedSubEntries()    { return (nSubEntries - nFreeSubEntries); }
+
+  void adjustSubEntries(int nse) {
+    nFreeSubEntries += (nse - nSubEntries);
+    nSubEntries = nse;
+  }
+  
+  void displace() { displaced = true; }
+  Time_t getWhenAllocated() { return whenAllocated; }
+};
+
+template<class Addr_t> class HrMSHR;
+
+//
+// SingleMSHR
+//
+
+#include "Cache.h"
+class Cache;
+
+template<class Addr_t>
+class SingleMSHR : public MSHR<Addr_t> {
+ private:  
+  const int nSubEntries;
+  int nOutsReqs;
+  BloomFilter bf;
+
+  bool checkingOverflow;
+
+  typedef OverflowFieldT<Addr_t> OverflowField;
+  typedef std::deque<OverflowField> Overflow;
+  Overflow overflow;
+
+  typedef HASH_MAP<Addr_t, MSHRentry<Addr_t> > MSHRstruct;
+  typedef typename MSHRstruct::iterator MSHRit;
+  typedef typename MSHRstruct::const_iterator const_MSHRit;
+  
+  MSHRstruct ms;
+  GStatsAvg avgOverflowConsumptions;
+  GStatsMax maxOutsReqs;
+  GStatsAvg avgReqsPerLine;
+  GStatsCntr nIssuesNewEntry;
+  GStatsCntr nL2HitsNewEntry;
+  GStatsHist subEntriesHist;      
+  GStatsCntr nCanNotAcceptSubEntryFull;
+
+  static Cache *L2Cache;
+
+ protected:
+  friend class MSHR<Addr_t>;
+  friend class HrMSHR<Addr_t>;
+  
+  void toOverflow(Addr_t paddr, CallbackBase *c, CallbackBase *ovflwc, 
+		  MemOperation mo);
+
+  void checkOverflow();
+
+  bool hasEntry(Addr_t paddr) { return (ms.find(calcLineAddr(paddr)) != ms.end()); }
+  bool hasLineReq(Addr_t paddr)  { return (ms.find(paddr) != ms.end()); }
+
+  void dropEntry(Addr_t paddr);
+  void putEntry(MSHRentry<Addr_t> &me);
+
+  void updateL2HitStat(Addr_t paddr) 
+    {
+      if (L2Cache && L2Cache->isInCache(paddr))
+	nL2HitsNewEntry.inc();
+    }
+
+ public:
+  SingleMSHR(const char *name, int size, int lineSize, int nse = 16);
+
+  virtual ~SingleMSHR() { }
+
+  bool canAcceptRequest(Addr_t paddr);
+
+  bool issue(Addr_t paddr, MemOperation mo = MemRead); 
+
+  void addEntry(Addr_t paddr, CallbackBase *c, 
+		CallbackBase *ovflwc = 0, MemOperation mo = MemRead);
+
+  void retire(Addr_t paddr);
+
+  static void setL2Cache(Cache *l2Cache) { L2Cache = l2Cache; }
+
+  int getnSubEntries() { return nSubEntries; }
+
+};
+
+//
+// BankedMSHR
+//
+
+template<class Addr_t>
+class BankedMSHR : public MSHR<Addr_t> {
+ private:  
+  const int nBanks;
+  SingleMSHR<Addr_t> **mshrBank;
+
+  GStatsMax maxOutsReqs;
+  GStatsAvg avgOverflowConsumptions;
+
+  int nOutsReqs;
+  bool checkingOverflow;
+  
+  int calcBankIndex(Addr_t paddr) const { 
+    paddr = calcLineAddr(paddr);
+    Addr_t idx = (paddr >> (16 - Log2LineSize/2)) ^ (paddr & 0x0000ffff);
+    return  idx % nBanks;  // TODO:move to a mask
+  }
+
+  typedef OverflowFieldT<Addr_t> OverflowField;
+  typedef std::deque<OverflowField> Overflow;
+  Overflow overflow;
+
+  void toOverflow(Addr_t paddr, CallbackBase *c, CallbackBase *ovflwc, 
+		  MemOperation mo);
+
+  void checkOverflow();
+  
+ protected:
+  friend class MSHR<Addr_t>;
+  BankedMSHR(const char *name, int size, int lineSize, int nb, int nse = 16);
+  
+ public:
+  virtual ~BankedMSHR() { }
+
+  bool canAcceptRequest(Addr_t paddr);
+
+  bool issue(Addr_t paddr, MemOperation mo = MemRead); 
+
+  void addEntry(Addr_t paddr, CallbackBase *c, 
+		CallbackBase *ovflwc = 0, MemOperation mo = MemRead);
+
+  void retire(Addr_t paddr);
 };
 
 

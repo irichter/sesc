@@ -86,6 +86,8 @@ protected:
   void returnAccess();
   std::stack<MemObj*> memStack;
 
+  std::stack<Time_t>  clockStack;
+  Time_t currentClockStamp;
 
   DInst *dinst;
   MemObj *currentMemObj;
@@ -135,6 +137,13 @@ public:
     }
   }
 
+  void mutateReadToWrite() { // Justification for this in SMPCache.cpp
+    if (wToRLevel == (short)memStack.size()) {
+      memOp = MemWrite;
+      wToRLevel = -1;
+    }
+  }
+
   bool isDataReq() const { return dataReq; }
   bool isPrefetch() const {return prefetch; }
   void markPrefetch() {
@@ -166,12 +175,14 @@ public:
 
   void goDown(TimeDelta_t lat, MemObj *newMemObj) {
     memStack.push(currentMemObj);
+    clockStack.push(globalClock);
     currentMemObj = newMemObj;
     accessCB.schedule(lat);
   }
 
   void goDownAbs(Time_t time, MemObj *newMemObj) {
     memStack.push(currentMemObj);
+    clockStack.push(globalClock);
     currentMemObj = newMemObj;
     accessCB.scheduleAbs(time);
   }
@@ -186,6 +197,10 @@ public:
     }
     currentMemObj = memStack.top();
     memStack.pop();
+
+    I(!clockStack.empty());
+    currentClockStamp = clockStack.top();
+    clockStack.pop();
     
     returnAccessCB.schedule(lat);
   }
@@ -198,8 +213,20 @@ public:
     }
     currentMemObj = memStack.top();
     memStack.pop();
+
+    I(!clockStack.empty());
+    currentClockStamp = clockStack.top();
+    clockStack.pop();
     
     returnAccessCB.scheduleAbs(time);
+  }
+
+  void setClockStamp(Time_t cs) {
+    currentClockStamp = cs;
+  }
+
+  Time_t getClockStamp() {
+    return currentClockStamp;
   }
 
 #if 0

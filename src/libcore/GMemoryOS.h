@@ -52,7 +52,7 @@ public:
 
 class DummyMemoryOS : public GMemoryOS {
 private:
-  class DTLBState : public StateGeneric<DTLBState> {
+  class DTLBState : public StateGeneric<> {
   public:
     long  physicalPage;
 

@@ -110,7 +110,7 @@ void MemCtrl::invalidate(PAddr addr,ushort size,MemObj *oc)
   invUpperLevel(addr,size,oc); 
 }
 
-bool MemCtrl::canAcceptStore(PAddr addr) const
+bool MemCtrl::canAcceptStore(PAddr addr)
 {
   return true;
 }

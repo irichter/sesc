@@ -113,6 +113,10 @@ protected:
 
   virtual FetchEngine *currentFlow() = 0;
 public:
+  //Lock counters
+  GStatsCntr nLocks;
+  GStatsCntr nLockContCycles;
+
   virtual ~GProcessor();
   CPU_t getId() const { return Id; }
 

@@ -5,6 +5,7 @@
    Contributed by Jose Renau
                   Basilio Fraguela
                   Milos Prvulovic
+		  Luis Ceze
 
 This file is part of SESC.
 
@@ -203,6 +204,7 @@ Pid_t SMTProcessor::findVictimPid() const
 void SMTProcessor::goRabbitMode(long long n2Skip)
 {
   flow[cFetchId]->IFID.goRabbitMode(n2Skip);
+  selectFetchFlow();
 }
 
 void SMTProcessor::selectFetchFlow()

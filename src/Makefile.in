@@ -15,8 +15,8 @@ SUBDIRS+=libapp
 ifdef MPCOH
 SUBDIRS+=libcc
 endif
-ifdef SESC_DSM
-SUBDIRS+=libdsm
+ifdef SESC_SMP
+SUBDIRS+=libsmp
 endif
 ifdef TS_VMEM
 SUBDIRS+=libvmem
@@ -58,33 +58,33 @@ config.h: Make.defs
 
 ##############################################################################
 #rules for final sesc executables
-EXECS=sesc.tst sesc.mem sesc.ncc sesc.tls sesc.cc sesc.dsm
+EXECS=sesc.tst sesc.mem sesc.ncc sesc.tls sesc.cc sesc.smp 
 
-TSTLIBS =$(OBJ)/libcore.a $(OBJ)/libll.a $(OBJ)/libmint.a 
+TSTLIBS =$(OBJ)/libcore.a $(OBJ)/libmint.a $(OBJ)/libll.a
 TSTLIBS+=$(OBJ)/libpint.a $(OBJ)/libsuc.a
 ifdef SESC_ENERGY
 TSTLIBS += $(OBJ)/libpower.a
 endif
 NETLIBS =$(OBJ)/libnet.a 
 CCLIBS  =$(OBJ)/libcc.a
-DSMLIBS =$(OBJ)/libdsm.a 
+SMPLIBS=$(OBJ)/libsmp.a
 MEMLIBS =$(OBJ)/libmem.a 
 TLSLIBS =$(OBJ)/libvmem.a
 
 sesc.tst : $(OBJ)/main.o $(TSTLIBS)
-	$(CXX) $(CFLAGS) $(LDFLAGS) -o $@  $^ $(OBJ)/libll.a $(LIBS) $(STDLIBS) 
+	$(CXX) $(CFLAGS) $(LDFLAGS) -o $@  $^  $(LIBS) -lm 
 
-sesc.mem : $(OBJ)/mtst1.o $(TSTLIBS) $(MEMLIBS)
-	$(CXX) $(CFLAGS) $(LDFLAGS) -o $@ $^ $(OBJ)/libll.a $(LIBS) $(STDLIBS)
+sesc.mem : $(OBJ)/mtst1.o $(MEMLIBS) $(TSTLIBS)
+	$(CXX) $(CFLAGS) $(LDFLAGS) -o $@ $^  $(LIBS) -lm
 
 sesc.cc:  $(OBJ)/nkcc1.o $(TSTLIBS) $(CCLIBS) $(NETLIBS) $(MEMLIBS)
-	$(CXX) $(CFLAGS) $(LDFLAGS) -o $@ $^ $(OBJ)/libll.a $(LIBS) $(STDLIBS)
+	$(CXX) $(CFLAGS) $(LDFLAGS) -o $@ $^  $(LIBS) -lm
 
-sesc.tls: $(OBJ)/tls.o $(TSTLIBS) $(TLSLIBS) $(MEMLIBS)
-	$(CXX) $(CFLAGS) $(LDFLAGS) -o $@ $^ $(OBJ)/libll.a $(LIBS) $(STDLIBS)
+sesc.tls: $(OBJ)/tls.o $(TLSLIBS) $(MEMLIBS) $(TSTLIBS) 
+	$(CXX) $(CFLAGS) $(LDFLAGS) -o $@ $^  $(LIBS) -lm
 
-sesc.dsm: $(OBJ)/dsm.o $(TSTLIBS) $(DSMLIBS) $(NETLIBS) $(MEMLIBS)  
-	$(CXX) $(CFLAGS) $(LDFLAGS) -o $@ $^ $(OBJ)/libll.a $(LIBS) $(STDLIBS)
+sesc.smp: $(OBJ)/smp.o $(SMPLIBS) $(MEMLIBS) $(TSTLIBS)
+	$(CXX) $(CFLAGS) $(LDFLAGS) -o $@ $^ $(LIBS) -lm
 
 
 ############ Simulator Benchmarking (bench the simulator, not the architecture)
@@ -200,7 +200,7 @@ eclean: sharedclean
 
 edistclean:
 	-@rm -f config.status config.log cactify wattchify
-	-@rm -f config.h Make.defs Makefile sesc.mem sesc.vmem sesc.cc sesc.dsm
+	-@rm -f config.h Make.defs Makefile sesc.mem sesc.vmem sesc.cc sesc.smp 
 	-@rm -rf obj
 
 size:

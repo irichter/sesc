@@ -177,10 +177,20 @@ void OSSim::processParams(int argc, char **argv, char **envp)
   nInst2Skip=0;
   nInst2Sim=0;
 
+#ifdef OLDMARKS
   simulationMarks = 0;
   simulationMark1 = 0;
   simulationMark2 = (~0UL)-1;
-  
+#else
+  bool useMTMarks = false;
+  int  mtId;
+
+  simMarks.total = 0;
+  simMarks.begin = 0;
+  simMarks.end = (~0UL)-1;
+  simMarks.mtMarks=false;
+#endif  
+
   const char *xtraPat=0;
   const char *reportTo=0;
   const char *confName=0;
@@ -207,7 +217,7 @@ void OSSim::processParams(int argc, char **argv, char **envp)
     fprintf(stderr,"\t-T          ; Generate trace-file\n");
     fprintf(stderr,"\n\nExamples:\n");
     fprintf(stderr,"%s -k65536 -dreportName ./simulation \n",argv[0]);
-    fprintf(stderr,"%s -h0x8000000 -xtest ../benchs/crafty <../benchs/tt.in\n",argv[0]);
+    fprintf(stderr,"%s -h0x8000000 -xtest ../tests/crafty <../tests/tt.in\n",argv[0]);
     exit(0);
   }
   
@@ -234,6 +244,52 @@ void OSSim::processParams(int argc, char **argv, char **envp)
 	  i++;
 	  xtraPat = argv[i];
 	}
+#ifndef OLDMARKS
+      }else if( argv[i][1] == 'm' ) {
+	useMTMarks=true;
+	simMarks.mtMarks=true;
+	if( argv[i][2] != 0 ) 
+	  mtId = strtol(&argv[i][2], 0, 0 );
+	else {
+	  i++;
+	  mtId = strtol(argv[i], 0, 0 );
+	}
+	idSimMarks[mtId].total = 0;
+	idSimMarks[mtId].begin = 0;
+	idSimMarks[mtId].end = (~0UL)-1;
+	idSimMarks[mtId].mtMarks=false;
+      }else if( argv[i][1] == '1' ) {
+	if( argv[i][2] != 0 ) {
+	  if( useMTMarks )
+	    idSimMarks[mtId].begin = strtol(&argv[i][2], 0, 0);
+	  else
+	    simMarks.begin = strtol(&argv[i][2], 0, 0 );
+	} else {
+	  i++;
+	  if( useMTMarks )
+	    idSimMarks[mtId].begin = strtol(argv[i], 0, 0 );
+	  else
+	    simMarks.begin = strtol(argv[i], 0, 0 );
+	}
+	if(!useMTMarks)
+	  simMarks.total = 0;
+
+      }else if( argv[i][1] == '2' ) {
+	if( argv[i][2] != 0 ) {
+	  if( useMTMarks)
+	    idSimMarks[mtId].end = strtol(&argv[i][2], 0, 0 );
+	  else
+	    simMarks.end = strtol(&argv[i][2], 0, 0 );
+	} else {
+	  i++;
+	  if( useMTMarks )
+	    idSimMarks[mtId].end = strtol(argv[i], 0, 0 );
+	  else
+	    simMarks.end = strtol(argv[i], 0, 0 );
+	}
+	if(!useMTMarks)
+	  simMarks.total = 0;
+#else
       }else if( argv[i][1] == '1' ) {
 	if( argv[i][2] != 0 )
 	  simulationMark1 = strtol(&argv[i][2], 0, 0 );
@@ -250,6 +306,7 @@ void OSSim::processParams(int argc, char **argv, char **envp)
 	  simulationMark2 = strtol(argv[i], 0, 0 );
 	}
 	simulationMarks = 0;
+#endif
 #ifdef TS_PROFILING        
       }else if( argv[i][1] == 'r' ) {
 	if( argv[i][2] != 0 )
@@ -793,6 +850,7 @@ void OSSim::preBoot()
   SescConf->lock();       // All the objects should be loaded
 
   Report::field("OSSim:bench=%s", benchRunning);
+  Report::field("OSSim:benchName=%s", benchName);
   if( nInst2Skip ) 
     Report::field("OSSim:rabbit=%lld",nInst2Skip);
 
@@ -831,18 +889,65 @@ void OSSim::preBoot()
     GProcessor *proc = pid2GProcessor(0);
     proc->goRabbitMode(nInst2Skip);
     MSG("...End Skipping Initialization (Rabbit mode)");
+#ifdef OLDMARKS
   }else if( simulationMark1 ) {
     MSG("Start Skipping Initialization (skipping %ld simulation marks)...", simulationMark1);
     GProcessor *proc = pid2GProcessor(0);
     proc->goRabbitMode(1);
     MSG("...End Skipping Initialization (Rabbit mode)");
   }
+#else
+  }else if( simMarks.begin || simMarks.mtMarks ) {
+    unsigned i=0;
+
+    MSG("Start Skipping Initialization (multithreaded mode)...");
+    
+    GProcessor *proc = pid2GProcessor(0);
+    proc->goRabbitMode(1);
+    
+    I(cpus.getProcessor(0)==proc);
+    
+    I( idSimMarks.size() < cpus.size() );
+
+#if 0
+    if(idSimMarks.size() > cpus.size()) {
+      MSG("Rabbit mode will never end! Increase the number of CPUs");
+      exit(1);
+    }
+#endif
+
+    MSG("Rabbit mode preempted by new thread.");
+
+    while(!enoughMTMarks1()) {
+      MSG("Rabbit mode preempted by new thread.");
+
+      if( !cpus.getProcessor(i)->availableFlows() ) {
+	cpus.getProcessor(i)->goRabbitMode(1);
+      }
+
+      i++;
+      if(i==cpus.size())
+	i=0;
+    }
+    MSG("...End Skipping Initialization (Rabbit mode)");
+    //MSG("Start Skipping Initialization (skipping %ld simulation marks)...", simMarks.begin);
+    //GProcessor *proc = pid2GProcessor(0);
+    //proc->goRabbitMode(1);
+    //MSG("...End Skipping Initialization (Rabbit mode)");
+  }
+#endif
 }
+
 void OSSim::postBoot()
 {
   // Launch threads
   cpus.run();
 
+  simFinish();
+}
+
+void OSSim::simFinish()
+{
   // Work finished, dump statistics
   report("Final");
 

@@ -50,8 +50,7 @@ public:
 
   GStats() {
   }
-  virtual ~GStats() {
-  }
+  virtual ~GStats();
 
   virtual void reportValue() const =0;
   virtual double getDouble() const {
@@ -69,8 +68,6 @@ private:
 protected:
 public:
   GStatsCntr(const char *format,...);
-
-  ~GStatsCntr();
 
   GStatsCntr & operator += (const long v) {
     data += v;
@@ -100,12 +97,12 @@ public:
 
 class GStatsAvg : public GStats {
 private:
+protected:
   long long data;
   long long nData;
-protected:
 public:
   GStatsAvg(const char *format,...);
-  ~GStatsAvg();
+  GStatsAvg() { }
 
   void sample(const long v) {
     data += v;
@@ -137,8 +134,6 @@ protected:
 public:
   GStatsProfiler(const char *format,...);
 
-  ~GStatsProfiler();
-
   void reportValue() const;
 
   void sample(ulong key);  
@@ -146,12 +141,11 @@ public:
 
 class GStatsMax : public GStats {
  private:
+ protected:
   long maxValue;
   long long nData;
- protected:
  public:
   GStatsMax(const char *format,...);
-  ~GStatsMax();
 
   void sample(const long v) {
     maxValue = v > maxValue ? v : maxValue;
@@ -159,6 +153,49 @@ class GStatsMax : public GStats {
   }
 
   void reportValue() const;
+};
+
+
+class GStatsTimingAvg : public GStatsAvg {
+private:
+  Time_t lastUpdate;
+  long lastValue;
+protected:
+public:
+  GStatsTimingAvg(const char *format,...);
+
+  void sample(const long v);
+};
+
+class GStatsHist : public GStats {
+private:
+protected:
+  
+  typedef HASH_MAP<unsigned long, unsigned long long> Histogram;
+
+  Histogram H;
+
+public:
+  GStatsHist(const char *format,...);
+  GStatsHist() { }
+
+  void reportValue() const;
+
+  void sample(unsigned long key, unsigned long long weight);
+};
+
+class GStatsTimingHist : public GStatsHist {
+private:
+  Time_t lastUpdate;
+  unsigned long lastKey;
+public:
+  GStatsTimingHist(const char *format,...);
+
+  void reportValue() const;
+
+  //Call on each update, it remembes what the last (key,time) pair was
+  //and uses that to update the histogram.
+  void sample(unsigned long key);
 };
 
 #endif   // GSTATSD_H

@@ -218,8 +218,6 @@ CacheAssoc<State, Addr_t, Energy>::CacheAssoc(int size, int assoc, int blksize, 
   content = new Line* [numLines + 1];
 
   for(ulong i = 0; i < numLines; i++) {
-    mem[i].initialize(this);
-    mem[i].invalidate();
     content[i] = &mem[i];
   }
   
@@ -247,7 +245,7 @@ typename CacheAssoc<State, Addr_t, Energy>::Line *CacheAssoc<State, Addr_t, Ener
 
   // Check most typical case
   if ((*theSet)->getTag() == tag) {
-    I(!(*theSet)->isInvalid());
+    I((*theSet)->isValid());
     return *theSet;
   }
 
@@ -269,7 +267,7 @@ typename CacheAssoc<State, Addr_t, Energy>::Line *CacheAssoc<State, Addr_t, Ener
   if (lineHit == 0)
     return 0;
 
-  I(!(*lineHit)->isInvalid());
+  I((*lineHit)->isValid());
 
   // No matter what is the policy, move lineHit to the *theSet. This
   // increases locality
@@ -296,7 +294,7 @@ typename CacheAssoc<State, Addr_t, Energy>::Line
 
   // Check most typical case
   if ((*theSet)->getTag() == tag) {
-    GI(tag,!(*theSet)->isInvalid());
+    GI(tag,(*theSet)->isValid());
     return *theSet;
   }
 
@@ -313,17 +311,17 @@ typename CacheAssoc<State, Addr_t, Energy>::Line
 	lineHit = l;
 	break;
       }
-      if ((*l)->isInvalid())
+      if (!(*l)->isValid())
 	lineFree = l;
       else if (lineFree == 0 && !(*l)->isLocked())
 	lineFree = l;
 
       // If line is invalid, isLocked must be false
-      GI((*l)->isInvalid(), !(*l)->isLocked()); 
+      GI(!(*l)->isValid(), !(*l)->isLocked()); 
       l--;
     }
   }
-  GI(lineFree, (*lineFree)->isInvalid() || !(*lineFree)->isLocked());
+  GI(lineFree, !(*lineFree)->isValid() || !(*lineFree)->isLocked());
 
   if (lineHit)
     return *lineHit;
@@ -344,7 +342,7 @@ typename CacheAssoc<State, Addr_t, Energy>::Line
       lineFree = setEnd-1;
     }
   }else if(ignoreLocked) {
-    if (policy == RANDOM && !(*lineFree)->isInvalid()) {
+    if (policy == RANDOM && (*lineFree)->isValid()) {
       lineFree = &theSet[irand];
       irand = (irand + 1) & maskAssoc;
     }else{
@@ -354,7 +352,7 @@ typename CacheAssoc<State, Addr_t, Energy>::Line
   }
 
   I(lineFree);
-  GI(!ignoreLocked, (*lineFree)->isInvalid() || !(*lineFree)->isLocked());
+  GI(!ignoreLocked, !(*lineFree)->isValid() || !(*lineFree)->isLocked());
 
   if (lineFree == theSet)
     return *lineFree; // Hit in the first possition
@@ -389,8 +387,6 @@ CacheDM<State, Addr_t, Energy>::CacheDM(int size, int blksize, const char *pStr)
   content = new Line* [numLines + 1];
 
   for(ulong i = 0; i < numLines; i++) {
-    mem[i].initialize(this);
-    mem[i].invalidate();
     content[i] = &mem[i];
   }
 }
@@ -414,7 +410,7 @@ typename CacheDM<State, Addr_t, Energy>::Line *CacheDM<State, Addr_t, Energy>::f
   Line *line = content[calcIndex4Tag(tag)];
 
   if (line->getTag() == tag) {
-    I(!line->isInvalid());
+    I(line->isValid());
     return line;
   }
 
@@ -432,7 +428,7 @@ typename CacheDM<State, Addr_t, Energy>::Line
     return line;
 
   if (line->getTag() == tag) {
-    GI(tag,!line->isInvalid());
+    GI(tag,line->isValid());
     return line;
   }
 

@@ -219,7 +219,7 @@ void MPCache::invalidate(PAddr addr, ushort size, MemObj *oc)
   } 
 }
 
-bool MPCache::canAcceptStore(PAddr addr) const 
+bool MPCache::canAcceptStore(PAddr addr) 
 {
   return !isStalled();
 }

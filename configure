@@ -272,7 +272,7 @@ PACKAGE_VERSION='2'
 PACKAGE_STRING='esesc 2'
 PACKAGE_BUGREPORT='renau@soe.ucsc.edu luisceze@cs.uiuc.edu'
 
-ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS $1_OPT BUILD_DIR SRC_DIR TOPSRC_DIR DEFEXEC DEFCONF TASKSCALAR_OPT VALUEPRED_OPT SESC_ENERGY_OPT SESC_MISPATH_OPT TS_VMEM_OPT DEBUG_OPT DEBUG_SILENT_OPT DIRECTORY_OPT TS_PROFILING_OPT TS_RISKLOADPROF_OPT NO_MERGELAST_OPT TS_SPAWN_OPT SESC_SLICE_OPT NO_MERGENEXT_OPT ATOMIC_OPT MPCOH_OPT SESC_DSM_OPT SESC_CHERRY_OPT SESC_DDIS_OPT LIBOBJS LTLIBOBJS'
+ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS $1_OPT BUILD_DIR SRC_DIR TOPSRC_DIR DEFEXEC DEFCONF TASKSCALAR_OPT VALUEPRED_OPT SESC_ENERGY_OPT SESC_MISPATH_OPT TS_VMEM_OPT DEBUG_OPT DEBUG_SILENT_OPT DIRECTORY_OPT TS_PROFILING_OPT TS_RISKLOADPROF_OPT NO_MERGELAST_OPT TS_SPAWN_OPT SESC_SLICE_OPT NO_MERGENEXT_OPT ATOMIC_OPT MPCOH_OPT SESC_DSM_OPT SESC_SMP_OPT SESC_CHERRY_OPT SESC_DDIS_OPT LIBOBJS LTLIBOBJS'
 ac_subst_files=''
 
 # Initialize some variables set by options.
@@ -806,6 +806,7 @@ Optional Features:
   --enable-atomic         Enables atomic sections in TaskScalar (default is
                           no)
   --enable-cc             Enables Cache Coherence (default is no)
+  --enable-smp            Enables SMP System (default is no)
   --enable-dsm            Enables DSM System (default is no)
   --enable-cherry         Enabes cherry (default is no)
   --enable-ddis           Enables Decoupled Instruction Scheduling (default is
@@ -1268,6 +1269,7 @@ DEFCONF=mem.conf
 
 
 
+
 #we are not defining compiler options yet, but we should
 #AC_PROG_CC
 
@@ -1455,6 +1457,22 @@ if test "${enable_cc+set}" = set; then
   if test "$enableval" = "yes"; then MPCOH_OPT=MPCOH=1
  DEFEXEC=sesc.cc
  DEFCONF=nkcc1.conf
+ fi
+fi;
+
+### Symmetric MultiProcessor
+
+SESC_SMP_OPT=#SESC_SMP=1
+
+# Check whether --enable-smp or --disable-smp was given.
+if test "${enable_smp+set}" = set; then
+  enableval="$enable_smp"
+  if test "$enableval" = "yes"; then SESC_SMP_OPT=SESC_SMP=1
+ DEFEXEC=sesc.smp
+ DEFCONF=smp.conf
+ cat >>confdefs.h <<\_ACEOF
+#define SMP 1
+_ACEOF
  fi
 fi;
 
@@ -2151,6 +2169,7 @@ s,@NO_MERGENEXT_OPT@,$NO_MERGENEXT_OPT,;t t
 s,@ATOMIC_OPT@,$ATOMIC_OPT,;t t
 s,@MPCOH_OPT@,$MPCOH_OPT,;t t
 s,@SESC_DSM_OPT@,$SESC_DSM_OPT,;t t
+s,@SESC_SMP_OPT@,$SESC_SMP_OPT,;t t
 s,@SESC_CHERRY_OPT@,$SESC_CHERRY_OPT,;t t
 s,@SESC_DDIS_OPT@,$SESC_DDIS_OPT,;t t
 s,@LIBOBJS@,$LIBOBJS,;t t

@@ -281,6 +281,15 @@ void Instruction::initializeMINT(int argc,
   InstTable[codeSize + ReleaseEvent].src2   = NoDependence;
   InstTable[codeSize + ReleaseEvent].dest   = InvalidOutput;
   InstTable[codeSize + ReleaseEvent].uEvent = ReleaseEvent;
+
+  // Fake entry for Unlock
+  InstTable[codeSize + UnlockEvent].opcode = iStore;
+  InstTable[codeSize + UnlockEvent].subCode= iRelease;
+  InstTable[codeSize + UnlockEvent].src1   = (RegType)4;
+  InstTable[codeSize + UnlockEvent].src2   = NoDependence;
+  InstTable[codeSize + UnlockEvent].dest   = InvalidOutput;
+  InstTable[codeSize + UnlockEvent].uEvent = ReleaseEvent;
+
 }
 
 void Instruction::finalize()

@@ -27,7 +27,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 // MemBufferEntry (Read & Write)
 
-MemOpsType MemBuffer::memOps;
+//MemOpsType MemBuffer::memOps;
 
 pool<MemBuffer,true>      MemBuffer::mPool(32768);
 pool<MemBufferEntry,true> MemBufferEntry::mePool(32768);
@@ -200,13 +200,17 @@ bool MemBufferEntryLessThan::operator()(const MemBufferEntry *v1, const MemBuffe
 	   (*(v1->getVersionRef()) < *(v2->getVersionRef()))));
 }
 
-void MemBuffer::boot()
+MemBufferDomain* MemBuffer::createMemBufferDomain()
 {
+  MemBufferDomain *mbd = new MemBufferDomain();
+
   // JUNK entry at the beginning (address 0 so that it is the first)
-  memOps.insert(MemBufferEntry::create(0,0,0));
+  mbd->memOps.insert(MemBufferEntry::create(0,0,0));
 
   // JUNK entry at the end (address 0xFFFFFFFF so that it is the first)
-  memOps.insert(MemBufferEntry::create(0,0xFFFFFFFF,0));
+  mbd->memOps.insert(MemBufferEntry::create(0,0xFFFFFFFF,0));
+
+  return mbd;
 }
 
 
@@ -215,6 +219,7 @@ MemBuffer *MemBuffer::create(const HVersion *ver)
   MemBuffer *mb = mPool.out();
   
   mb->memVer = ver;
+  mb->mbd = ver->getMemBufferDomain();
 #ifdef ATOMIC
   mb->stallTime = 0;
   mb->tLastSquash = globalClock;
@@ -230,7 +235,7 @@ void MemBuffer::justDestroy()
   
   while(it != mapMemOps.end()) {
     MemOpsType::iterator mit = it->second;
-    memOps.erase(mit);
+    mbd->memOps.erase(mit);
     (*mit)->justDestroy();
     
     MapMemOpsType::iterator dit = it;
@@ -248,7 +253,7 @@ void MemBuffer::mergeDestroy()
   
   while(it != mapMemOps.end()) {
     MemOpsType::iterator mit = it->second;
-    memOps.erase(mit);
+    mbd->memOps.erase(mit);
     (*mit)->mergeDestroy();
 
     MapMemOpsType::iterator dit = it;
@@ -258,6 +263,22 @@ void MemBuffer::mergeDestroy()
   // mapMemOps.clear();
   
   mPool.in(this);
+}
+
+void MemBuffer::mergeOps()
+{
+  I(memVer->isSafe());
+  MapMemOpsType::iterator it = mapMemOps.begin();
+  
+  while(it != mapMemOps.end()) {
+    MemOpsType::iterator mit = it->second;
+    mbd->memOps.erase(mit);
+    (*mit)->mergeDestroy();
+    
+    MapMemOpsType::iterator dit = it;
+    it++;
+    mapMemOps.erase(dit);
+  }
 }
 
 #ifdef ATOMIC
@@ -280,7 +301,7 @@ RAddr MemBuffer::read(ulong iaddr, short opflags, RAddr addr)
   if (hit == mapMemOps.end()) {
     e = MemBufferEntry::create(memVer, cIndex, addr, iaddr);
 
-    mit = memOps.insert(e).first;
+    mit = mbd->memOps.insert(e).first;
     mapMemOps[cIndex] = mit;
 
     e->initializeData(mit);
@@ -297,7 +318,7 @@ RAddr MemBuffer::read(ulong iaddr, short opflags, RAddr addr)
 #ifdef ATOMIC
   checkDependencies(e, mit, cIndex);
   if (! memVer->isAtomic()) {
-    memOps.erase(e);
+    mbd->memOps.erase(e);
     mapMemOps.erase(cIndex);
     e->mergeDestroy();
   }
@@ -332,7 +353,7 @@ const HVersion *MemBuffer::postWrite(const unsigned long long *writeData,
   if (hit == mapMemOps.end()) {
     e = MemBufferEntry::create(memVer, cIndex, addr);
       
-    mit = memOps.insert(e).first;
+    mit = mbd->memOps.insert(e).first;
     mapMemOps[cIndex] = mit;
     
     e->initializeData(mit);
@@ -354,7 +375,7 @@ const HVersion *MemBuffer::postWrite(const unsigned long long *writeData,
 #ifdef ATOMIC
   checkDependencies(e, mit, cIndex);
   if (! memVer->isAtomic()) {
-    memOps.erase(e);
+    mbd->memOps.erase(e);
     mapMemOps.erase(cIndex);
     e->mergeDestroy();
   }

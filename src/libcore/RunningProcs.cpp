@@ -82,14 +82,20 @@ void RunningProcs::run()
     }
 
 #ifdef TASKSCALAR
-    TaskContext::tryPropagateSafeToken();
+    HVersionDomain::tryPropagateSafeTokenAll();
 #endif
     
     while (hasWork()) {
       stayInLoop=true;
-   
+
+      GProcCont::iterator startProc = workingList.begin();
+
       do{
-	for(GProcCont::iterator it=workingList.begin()
+
+	// Loop duplicated so round-robin fetch starts on different
+	// processor each cycle <><>
+
+	for(GProcCont::iterator it=startProc
 	      ;it!=workingList.end() && stayInLoop
 	      ;it++) {
 	  // If you want to remove processors on the fly, when
@@ -103,7 +109,22 @@ void RunningProcs::run()
 	    workingListRemove(*it);
 	  }
 	}
-      
+	for(GProcCont::iterator it=workingList.begin()
+	      ;it!=startProc && stayInLoop
+	      ;it++) {
+	  I( *it );
+	  if ((*it)->hasWork()) {
+	    currentCPU = *it;
+	    currentCPU->advanceClock();
+	  }else{
+	    workingListRemove(*it);
+	  }
+	}
+
+	startProc++;
+	if (startProc == workingList.end())
+	  startProc = workingList.begin();
+
 	IS(currentCPU = 0);
 	EventScheduler::advanceClock();
       }while(stayInLoop);

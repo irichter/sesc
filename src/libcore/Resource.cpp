@@ -148,21 +148,21 @@ bool FUMemory::retire(DInst *dinst)
 {
   const Instruction *inst = dinst->getInst();
 
-  if( inst->getSubCode() == iFetchOp 
-      && !L1DCache->canAcceptStore(static_cast<PAddr>(dinst->getVaddr())) )
-    return false;
-
-  ldqRdWrEnergy->inc();
-  stqRdWrEnergy->inc();
-
   if( inst->getSubCode() == iFetchOp ) {
-#ifdef SESC_CHERRY
+    if (L1DCache->canAcceptStore(static_cast<PAddr>(dinst->getVaddr())) == false)
+      return false;
+    FUStore* r = (FUStore*) getCluster()->getResource(iStore);
+#ifdef TS_CHERRY
     dinst->setCanBeRecycled();
     dinst->setMemoryIssued();
 #endif
+    if ( r->waitingOnFence() == true)
+      return false;
+    else
+      r->storeSent();
     DMemRequest::create(dinst, memorySystem, MemWrite);
   }else if( inst->getSubCode() == iMemFence ) {
-    // TODO: Consistency in LDST
+    ((FUStore*)(getCluster()->getResource(iStore)))->doFence();
     dinst->destroy();
   }else if( inst->getSubCode() == iAcquire ) {
     // TODO: Consistency in LDST
@@ -199,6 +199,9 @@ FULoad::FULoad(Cluster *cls, PortGeneric *aGen
   ,freeLoads(maxLoads)
   ,misLoads(0)
 {
+  char cadena[100];
+  sprintf(cadena,"FULoad(%d)", id);
+  
   I(ms);
   I(freeLoads>0);
 
@@ -275,7 +278,15 @@ void FULoad::cacheDispatched(DInst *dinst)
 
   I( !dinst->isLoadForwarded() );
   // LOG("[0x%p] %lld 0x%lx read", dinst, globalClock, dinst->getVaddr());
-  DMemRequest::create(dinst, memorySystem, MemRead);
+  if(!L1DCache->canAcceptLoad(static_cast<PAddr>(dinst->getVaddr()))) {
+    Time_t when = gen->nextSlot();
+    //try again
+    // +1 because when we have unilimited ports (or occ) 0, this will be an
+    // infinite loop
+    cacheDispatchedCB::scheduleAbs(when+1, this, dinst);
+  } else {
+    DMemRequest::create(dinst, memorySystem, MemRead);
+  }
 }
 
 bool FULoad::retire(DInst *dinst)
@@ -328,6 +339,10 @@ FUStore::FUStore(Cluster *cls, PortGeneric *aGen
   ,lat(l)
   ,freeStores(maxStores)
   ,misStores(0)
+  ,pendingFence(false)
+  ,nOutsStores(0)
+  ,nFences("FUStore(%d):nFences", id)
+  ,fenceStallCycles("FUStore(%d):fenceStallCycles", id)
 {
 
   I(freeStores>0);
@@ -430,8 +445,10 @@ bool FUStore::retire(DInst *dinst)
   if( L1DCache->getNextFreeCycle() > globalClock)
     return false;
 
-  if (!L1DCache->canAcceptStore(static_cast<PAddr>(dinst->getVaddr())) )
+  if (!L1DCache->canAcceptStore(static_cast<PAddr>(dinst->getVaddr())) ) {
     return false;
+  }
+
 
   // Note: The store is retired from the LDSTQueue as soon as it is send to the
   // L1 Cache. It does NOT wait until the ack from the L1 Cache is received
@@ -442,6 +459,15 @@ bool FUStore::retire(DInst *dinst)
 #endif
 
   gen->nextSlot();
+
+  // used for updating mint on unlock
+  if (dinst->getPendEvent())
+    dinst->getPendEvent()->call();
+  if (waitingOnFence() == true)
+    return false;
+  else
+    storeSent();
+
   DMemRequest::create(dinst, memorySystem, MemWrite);
 
   doRetire(dinst);
@@ -471,6 +497,19 @@ void FUStore::earlyRecycle(DInst *dinst)
   }
 }
 #endif
+
+void FUStore::storeCompleted()
+{
+  I(nOutsStores > 0);
+  nOutsStores--;
+  if (nOutsStores == 0)
+    pendingFence = false;
+}
+
+void FUStore::doFence() {
+  if (nOutsStores > 0) pendingFence = true; 
+  nFences.inc(); 
+}
 
 #ifdef SESC_MISPATH
 void FUStore::misBranchRestore() 

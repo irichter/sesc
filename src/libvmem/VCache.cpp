@@ -147,9 +147,9 @@ Time_t VCache::getNextFreeCycle() const
   return cachePort->calcNextSlot();
 }
 
-bool VCache::canAcceptStore(PAddr paddr) const
+bool VCache::canAcceptStore(PAddr paddr)
 {
   // If there are no pending entries for that address
-  return mshr->canIssue();
+  return mshr->canAcceptRequest(paddr);
 }
 

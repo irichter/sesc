@@ -139,7 +139,7 @@ public:
   Time_t getNextFreeCycle() const;
 
   void invalidate(PAddr addr, ushort size, MemObj *oc);
-  bool canAcceptStore(PAddr addr) const;
+  bool canAcceptStore(PAddr addr);
 
   LVIDTable *getLVIDTable() { return &lvidTable; }
 };

@@ -36,6 +36,7 @@ enum EventType {
   MemFenceEvent,   // Release Consistency Barrier or memory fence
   AcquireEvent,    // Release Consistency Release
   ReleaseEvent,    // Release Consistency Ackquire
+  UnlockEvent,     // Like above, but implemented
   FastSimBeginEvent,
   FastSimEndEvent,
   LibCallEvent,

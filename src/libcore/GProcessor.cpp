@@ -45,6 +45,8 @@ GProcessor::GProcessor(GMemorySystem *gm, CPU_t i, size_t numFlows)
   ,ROB(MaxROBSize)
   ,clusterManager(gm, this)
   ,robUsed("Proc(%d)_robUsed", i)
+  ,nLocks("Processor(%d):nLocks", i)
+  ,nLockContCycles("Processor(%d):nLockContCycles", i)
 {
   // osSim should be already initialized
   I(osSim);
@@ -329,14 +331,15 @@ void GProcessor::retire()
     }
   }
 #endif
-
+  
   robUsed.sample(ROB.size());
-
+  
   for(ushort i=0;i<RetireWidth && !ROB.empty();i++) {
     DInst *dinst = ROB.top();
 
-    if( !dinst->isExecuted() )
+    if( !dinst->isExecuted() ) {
       return;
+    }
 
     // save it now because retire can destroy DInst
     int rp = dinst->getInst()->getDstPool();

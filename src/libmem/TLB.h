@@ -8,7 +8,7 @@
 
 class TLB {
 private:
-  class TLBState : public StateGeneric<TLBState> {
+  class TLBState : public StateGeneric<> {
   public:
     long  physicalPage;
 

@@ -12,6 +12,7 @@ void rsesc_spawn(Pid_t ppid, Pid_t cpid, long flags);
 
 int  rsesc_exit(int pid, int err);
 void rsesc_simulation_mark(int pid);
+void rsesc_simulation_mark_id(int pid,int id);
 void rsesc_fast_sim_begin(int pid);
 void rsesc_fast_sim_end(int pid);
 int  rsesc_suspend(int pid, int tid);

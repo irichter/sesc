@@ -61,6 +61,17 @@ OP(mint_sesc_simulation_mark)
   return addr2icode(pthread->getGPR(RetAddrGPR));
 }
 
+OP(mint_sesc_simulation_mark_id)
+{
+  int id = pthread->getGPR(Arg1stGPR);
+  // Do the actual call (should not context-switch)
+  ID(Pid_t thePid=pthread->getPid());
+  rsesc_simulation_mark_id(pthread->getPid(),id);
+  I(pthread->getPid()==thePid);
+  // Return from the call
+  return addr2icode(pthread->getGPR(RetAddrGPR));
+}
+
 OP(mint_sesc_fast_sim_begin)
 {
   // Do the actual call (should not context-switch)

@@ -191,7 +191,7 @@ public:
   void returnAccess(MemRequest *mreq);
 
   void invalidate(PAddr addr, ushort size, MemObj *oc);
-  bool canAcceptStore(PAddr addr) const;
+  bool canAcceptStore(PAddr addr);
 
   Line *findLine(PAddr addr) {
     return cache->findLine(addr);

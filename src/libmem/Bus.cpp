@@ -69,7 +69,7 @@ void Bus::returnAccess(MemRequest *mreq)
   }
 }
 
-bool Bus::canAcceptStore(PAddr addr) const 
+bool Bus::canAcceptStore(PAddr addr)
 {
   return true;
 }

@@ -91,7 +91,7 @@ protected:
 #ifdef SESC_MEMBF
   const int LSQBanks;
 #endif
-  const MemObj  *L1DCache;
+  MemObj  *L1DCache;
   GMemorySystem *memorySystem;
 
   GStatsEnergy *ldqCheckEnergy; // Check for data dependence
@@ -168,6 +168,12 @@ private:
   const TimeDelta_t lat;
   int               freeStores;
   int               misStores;
+
+  bool pendingFence;
+  int  nOutsStores;
+
+  GStatsCntr   nFences;
+  GStatsCntr   fenceStallCycles;
   
 protected:
   void doRetire(DInst *dinst);
@@ -193,6 +199,15 @@ public:
 #ifdef SESC_MISPATH
   void misBranchRestore();
 #endif
+
+  bool waitingOnFence() {
+    if (pendingFence)
+      fenceStallCycles.inc();
+    return pendingFence;
+  }
+  void storeCompleted();
+  void storeSent() { nOutsStores++; }
+  void doFence();
 };
 
 class FUGeneric : public Resource {

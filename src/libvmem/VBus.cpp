@@ -496,7 +496,7 @@ void VBus::invalidate(PAddr addr, ushort size, MemObj *oc)
   return;
 }
 
-bool VBus::canAcceptStore(PAddr addr) const
+bool VBus::canAcceptStore(PAddr addr)
 {
   return true;
 }

@@ -107,9 +107,9 @@ Time_t DSMCache::getNextFreeCycle() const
   return cachePort->calcNextSlot();
 }
 
-bool DSMCache::canAcceptStore(PAddr addr) const
+bool DSMCache::canAcceptStore(PAddr addr)
 {
-  return mshrIN->canIssue(); // TODO: do something similar with mshrOUT
+  return mshrIN->canAcceptRequest(addr);
 }
 
 void DSMCache::access(MemRequest *mreq)
@@ -134,13 +134,37 @@ void DSMCache::access(MemRequest *mreq)
 
 void DSMCache::read(MemRequest *mreq)
 {
-  // TODO: put in mshr
+  PAddr addr = mreq->getPAddr();
+
+  if (!mshrIN->issue(addr)) {
+    mshrIN->addEntry(addr, doReadCB::create(this, mreq));
+    return;
+  }
+  
+  doReadCB::scheduleAbs(globalClock + hitDelay, this, mreq);
+  // TODO: make sure both this call and mshr callback happen after a hit delay
+}
+
+void DSMCache::doRead(MemRequest *mreq)
+{
   protocolHolder[0]->read(mreq); // TODO: check timing
 }
 
 void DSMCache::write(MemRequest *mreq)
 {
-  // TODO: put in mshr
+  PAddr addr = mreq->getPAddr();
+
+  if (!mshrIN->issue(addr)) {
+    mshrIN->addEntry(addr, doWriteCB::create(this, mreq));
+    return;
+  }
+  
+  doWriteCB::scheduleAbs(globalClock + hitDelay, this, mreq);
+  // TODO: make sure both this call and mshr callback happen after a hit delay
+}
+
+void DSMCache::doWrite(MemRequest *mreq)
+{
   protocolHolder[0]->write(mreq); // TODO: check timing
 }
  
@@ -149,18 +173,17 @@ void DSMCache::specialOp(MemRequest *mreq)
   mreq->goUp(1); // TODO: implement atomic ops?
 }
 
-void DSMCache::invalidate(PAddr addr, ushort size, CallbackBase *cb)
+void DSMCache::invalidate(PAddr addr, ushort size, MemObj *oc)
 {
-  // TODO: check this code
-  invUpperLevel(addr, size, cb);
-
-  nextSlot();
-
+  invUpperLevel(addr, size, oc);
   while (size) {
+
+    nextSlot(); // counts for occupancy to invalidate line
+
     Line *l = cache->findLine(addr);
 
     if (l) {
-      I(l->isValid());
+      I(!l->isInvalid());
       if (l->isDirty())
 	doWriteBack(addr);
       l->invalidate();
@@ -170,89 +193,100 @@ void DSMCache::invalidate(PAddr addr, ushort size, CallbackBase *cb)
   }
 }
 
+void DSMCache::doInvalidate(PAddr addr, ushort size)
+{
+  I(0);
+}
+
 void DSMCache::returnAccess(MemRequest *mreq)
 {
+  PAddr addr = mreq->getPAddr();
+
   GLOG(DSMDBG_MSGS, "DSMCache::returnAccess for address 0x%x", 
        (uint) mreq->getPAddr());
-
-  // TODO: retire mshrOUT
-
-  /*
-   if (mreq->getMemOperation() == MemRead)
-     protocolHolder[0]->sendMemReadAck(mreq, globalClock);
-   else if (mreq->getMemOperation() == MemWrite)
-     protocolHolder[0]->sendMemWriteAck(mreq, globalClock);
-   else I(0); // request should be one of types above  
-  */
 
   protocolHolder[0]->returnAccessBelow(mreq);
 }
 
 void DSMCache::doWriteBack(PAddr addr) const
 {
-  // TODO: implement this
+  //I(getLineSize() == (lowerLevel[0])->getLineSize());
+  CBMemRequest::create(1, lowerLevel[0], MemPush, addr, 0);
+  // TODO: assumed this cache and lowerLevel have same line size, fix it
 }
 
 // interface with protocol
 void DSMCache::readBelow(MemRequest *mreq)
 {
-  PAddr paddr = mreq->getPAddr();
+  PAddr addr = mreq->getPAddr();
 
-  // TODO: put mshr here
+  GLOG(DSMDBG_MSGS, "DSMCache::readBelow pushing req down for addr 0x%x",
+       (uint) addr);
 
-  doReadBelowCB::scheduleAbs(nextSlot(), this, mreq, false);
-}
-
-void DSMCache::doReadBelow(MemRequest *mreq, bool queued)
-{
-  GLOG(DSMDBG_MSGS, "DSMCache::doReadBelow pushing request down for address 0x%x",
-       (uint) mreq->getPAddr());
-
-  mreq->goDown(0, lowerLevel[0]);
+  mreq->goDown(missDelay, lowerLevel[0]);
+  // TODO: make sure missDelay is the time to generate a request to lower level
 }
 
 void DSMCache::writeBelow(MemRequest *mreq)
 {
-  PAddr paddr = mreq->getPAddr();
+  PAddr addr = mreq->getPAddr();
 
-  // TODO: put mshr here
+  GLOG(DSMDBG_MSGS, "DSMCache::writeBelow pushing req down for addr 0x%x",
+       (uint) addr);
 
-  doWriteBelowCB::scheduleAbs(nextSlot(), this, mreq, false);
-}
-
-void DSMCache::doWriteBelow(MemRequest *mreq, bool queued)
-{
-  GLOG(DSMDBG_MSGS, "DSMCache::doWriteBelow pushing request down for address 0x%x",
-       (uint) mreq->getPAddr());
-
-  mreq->goDown(0, lowerLevel[0]);
+  mreq->goDown(missDelay, lowerLevel[0]);
+  // TODO: make sure missDelay is the time to generate a request to lower level
 }
 
 void DSMCache::concludeAccess(MemRequest *mreq)
 {
-  // TODO: release mshr entry
-  // TODO: this guy will do the goUp()
-  mreq->goUp(1);
+  mshrIN->retire(mreq->getPAddr());
+  mreq->goUp(0); // TODO: timing
 }
 
 DSMCache::Line *DSMCache::allocateLine(PAddr addr)
 {
-  return NULL; // TODO: implement this
+  PAddr rpl_addr = 0;
+  I(cache->findLine(addr) == 0);
+  Line *l = cache->fillLine(addr, rpl_addr);
+
+  nextSlot(); // have to do an access to check which line is free
+
+  if(l->isInvalid())
+    return l;
+  
+  invUpperLevel(rpl_addr, cache->getLineSize(), this);
+
+  if(l->isDirty())
+    doWriteBack(rpl_addr);
+  
+  l->invalidate();
+
+  return l;
 }
 
 DSMCache::Line *DSMCache::getLine(PAddr addr)
 {
-  return NULL; // TODO: implement this
+  nextSlot(); 
+  //return cache->readLine(addr); // TODO: this should only be an access to tag
+  return cache->findLine(addr);
 }
 
-void DSMCache::updateLine(PAddr addr, Line *line)
+void DSMCache::updateLine(PAddr addr)
 {
-  // TODO: implement this
-  // TODO: copy state
+  nextSlot();
+  cache->writeLine(addr);  // TODO: this should only be an access to tag
 }
 
-void DSMCache::invalidateLine(PAddr addr, Line *line)
+void DSMCache::invalidateLine(PAddr addr)
 {
-  // TODO: implement this
-  // TODO: propagate invalidate up
+  Line *l = cache->findLine(addr);
+
+  I(!l->isLocked());
+
+  nextSlot();
+  l->invalidate();
+  cache->writeLine(addr);  // TODO: this should only be an access to tag
+  invUpperLevel(addr, cache->getLineSize(), this);
 }
+

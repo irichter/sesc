@@ -35,12 +35,6 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 #ifdef DEBUG
 //#define POOL_TIMEOUT 1
-// Pool size checking results in too many assertion failures
-// when running multiple processors. The warn_psize must take the number
-// of processors into account (more processors need more things). However,
-// currently we must set the warn_psize at construction time, when the
-// number fo processors is not yet availalbe. Until this is fixed, please
-// do not commit pool.h with POOL_SIZE_CHECK enabled.
 //#define POOL_SIZE_CHECK
 #endif
 

@@ -1,3 +1,4 @@
+
 /* 
    SESC: Super ESCalar simulator
    Copyright (C) 2003 University of Illinois.
@@ -48,6 +49,7 @@ private:
 
 protected:
   
+  ulong nUpperCaches;
   LevelType upperLevel;
   LevelType lowerLevel;
 
@@ -88,27 +90,17 @@ public:
   const char *getSymbolicName() const { return symbolicName; }
 
   const LevelType *getLowerLevel() const { return &lowerLevel; }
+  const LevelType *getUpperLevel() const { return &upperLevel; }
 
   const ulong getUpperLevelSize() const { return upperLevel.size(); }
 
   virtual const bool isCache() const { return false; }
 
   const ulong getUpperCacheLevelSize() const {
-
-    ulong count = 0;
-
-    if(upperLevel.size() == 0)
-      return 0;
-
-    for(ulong i=0; i<upperLevel.size(); i++) {
-      if(upperLevel[i]->isCache())
-	count++;
-      else 
-	count += upperLevel[i]->getUpperCacheLevelSize();
-    }
-
-    return count;
+    return nUpperCaches;
   }
+
+  void computenUpperCaches();
 
   //This assumes single entry point for object, which I do not like,
   //but it is still something that is worthwhile.
@@ -124,7 +116,8 @@ public:
                          &MemObj::doInvalidate> doInvalidateCB;
 
   // When the buffers in the cache are full and it does not accept more requests
-  virtual bool canAcceptStore(PAddr addr) const = 0;
+  virtual bool canAcceptStore(PAddr addr) = 0;
+  virtual bool canAcceptLoad(PAddr addr) { return true; }
 
   // Print stats
   virtual void dump() const;
@@ -135,7 +128,7 @@ private:
 protected:
   Time_t getNextFreeCycle() const;
   void access(MemRequest *req);
-  bool canAcceptStore(PAddr addr) const;
+  bool canAcceptStore(PAddr addr);
   void invalidate(PAddr addr, ushort size, MemObj *oc);
   void doInvalidate(PAddr addr, ushort size);
   void returnAccess(MemRequest *req);

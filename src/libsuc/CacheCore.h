@@ -62,14 +62,16 @@ template<class State, class Addr_t = ulong, bool Energy=true>
   public:
   class CacheLine : public State {
   public:
+    // Pure virtual class defines interface
+    //
     // Tag included in state. Accessed through:
     //
     // Addr_t getTag() const;
     // void setTag(Addr_t a);
+    // void clearTag();
+    // 
     //
-    // void initialize(CacheGeneric *)
-    //
-    // bool isInvalid() const;
+    // bool isValid() const;
     // void invalidate();
     //
     // bool isLocked() const;
@@ -188,11 +190,12 @@ template<class State, class Addr_t = ulong, bool Energy=true>
 
   CacheLine *fillLine(Addr_t addr, Addr_t &rplcAddr, bool ignoreLocked=false) {
     CacheLine *l = findLine2Replace(addr, ignoreLocked);
+    rplcAddr = 0;
     if (l==0)
       return 0;
     
     Addr_t newTag = calcTag(addr);
-    if (!l->isInvalid()) {
+    if (l->isValid()) {
       Addr_t curTag = l->getTag();
       if (curTag != newTag) {
 	rplcAddr = calcAddr4Tag(curTag);
@@ -291,54 +294,33 @@ public:
 };
 
 
-#ifdef SESC_ENERGY
-template<class State, class Addr_t = ulong, bool Energy=true>
-#else
-template<class State, class Addr_t = ulong, bool Energy=false>
-#endif
+template<class Addr_t=ulong>
 class StateGeneric {
 private:
-  typedef CacheGeneric<State, Addr_t, Energy> CacheGenericType;
-  
   Addr_t tag;
-#ifdef DEBUG
-  bool invalid;
-#endif
-  
-//  CacheGenericType *cache;
 public:
   virtual ~StateGeneric() {
+    tag = 0;
   }
  
-  void initialize(CacheGenericType *c) { 
-    tag     = 0;
-    //    cache   = c; 
-    IS(invalid = true);
-  }
+ Addr_t getTag() const { return tag; }
+ void setTag(Addr_t a) {
+   I(a);
+   tag = a; 
+ }
+ void clearTag() { tag = 0; }
+ void initialize() { clearTag(); }
 
-  Addr_t getTag() const { return tag; }
-  void setTag(Addr_t a) {
-    I(a);
-    tag = a; 
-    IS(invalid = false);
-  }
+ virtual bool isValid() { return tag; }
 
-  bool isInvalid() const { 
-    GI(tag==0, invalid);
-    GI(tag, !invalid);
-    return tag==0; 
-  }
-  void invalidate() { 
-    tag = 0;
-    IS(invalid = true);
-  }
+ virtual void invalidate() { clearTag(); }
 
-  virtual bool isLocked() const {
-    return false;
-  }
+ virtual bool isLocked() const {
+   return false;
+ }
 
-  virtual void dump(const char *str) {
-  }
+ virtual void dump(const char *str) {
+ }
 };
 
 #ifndef CACHECORE_CPP

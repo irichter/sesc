@@ -42,14 +42,15 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 class LDSTBuffer {
 private:
   typedef HASH_MAP<VAddr,DInst *> EntryType;
-
+  typedef HASH_MAP<int, DInst*>   FenceEntryType;
   static EntryType stores;
+  static FenceEntryType fences;
 
   // pendingBarrier can be an Acquire or a MemFence, NOT a Release. Releases are
   // like a store.
   static DInst *pendingBarrier;
   
-protected:
+public:
 
   /** Get an entry from the LDSTQueue
    *
@@ -60,9 +61,9 @@ protected:
   /* getEntry called at rename time for FetchOp, memFence, Acquire, and
    * Release 
    */
-  bool getFenceEntry(DInst *dinst);
+  static void getFenceEntry(DInst *dinst);
+  static void fenceLocallyPerformed(DInst *dinst);
 
-public:
   /** Store gets an entry in the LDSTBuffer
    *
    * The request is in the same order than the instructions are fetched.

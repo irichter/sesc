@@ -72,7 +72,7 @@ public:
   void access(MemRequest *mreq);
 
   virtual void invalidate(PAddr addr,ushort size,MemObj *oc);
-  bool canAcceptStore(PAddr addr) const;
+  bool canAcceptStore(PAddr addr);
 };
 
 

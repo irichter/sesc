@@ -25,56 +25,77 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "CacheCore.h"
 
 enum DSMState_t {
-  DSM_INVALID     = 0x00000000,
-  DSM_TRANS_READ  = 0x00000002,
-  DSM_TRANS_WRITE = 0x00000003,
-  // TODO: complete list
+  DSM_INVALID            = 0x00000000, // data is invalid
+  DSM_TRANS              = 0x10000000, // all transient states start w/ 0x1
+  DSM_TRANS_RD           = 0x12000000, // transient state, just started rd
+  DSM_TRANS_WR           = 0x13000000, // transient state, just started wr
+  DSM_TRANS_RD_NEED_DATA = 0x14000000, // transient state, rd ack was received
+  DSM_TRANS_WR_NEED_DATA = 0x15000000, // transient state, wr ack was received
+  DSM_TRANS_RD_NEED_ACK  = 0x16000000, // transient state, rd data was received
+  DSM_TRANS_WR_NEED_ACK  = 0x17000000, // transient state, wr data was received
+  DSM_TRANS_RD_RETRY     = 0x18000000, // transient state, need to retry later
+  DSM_TRANS_WR_RETRY     = 0x19000000, // transient state, need to retry later
+  DSM_TRANS_RD_MEM       = 0x1a000000, // transient state, read from memory
+  DSM_TRANS_WR_MEM       = 0x1b000000, // transient state, write to memory
+  DSM_VALID              = 0x00100000, // data is valid
+  DSM_EXCLUSIVE          = 0x00100001, // data is only present in local cache
+  DSM_DIRTY              = 0x00100010, // data is different from memory
+  DSM_OWNED              = 0x00100100  // cache is responsible for data
 };
 
 class DSMCacheState : public StateGeneric<DSMCacheState> {
 
 private:
-  unsigned int state;
-  bool locked;
+  DSMState_t state;
 protected:
 public:
-  DSMCacheState() {
+  DSMCacheState() 
+    : StateGeneric<DSMCacheState>()
+  {
     state = DSM_INVALID;
-    locked = false;
   }
   ~DSMCacheState() { }
   
   // BEGIN CacheCore interface
   bool isInvalid() const {
-    if (state == DSM_INVALID)
-      return true;
-    
-    return false;
+    return (state == DSM_INVALID);
   }
   
   void invalidate() {
-    I(!locked);
+    I(!isLocked()); // cannot invalidate if line is locked
+    StateGeneric<DSMCacheState>::invalidate();
     state = DSM_INVALID;
-    locked = false;
   }
 
   bool isLocked() const {
-    return locked;
-  }
-
-  bool isValid() const {
-    return !(state == DSM_INVALID);
+    return (state & DSM_TRANS); // state has to be transient to be locked
   }
 
   bool isDirty() const {
-    return false; // TODO: implement the real dirty state and behavior
-  }
-  void setDirty() {
-  }
-  void setClean() {
+    return (state & DSM_DIRTY);
   }
 
   // END CacheCore interface
+
+  bool canBeRead() {
+    return (state & DSM_VALID);
+  }
+
+  bool canBeWritten() {
+    return (state & DSM_EXCLUSIVE);
+  }
+
+  bool isTransient() {
+    return (state & DSM_TRANS);
+  }
+
+  DSMState_t getState() {
+    return state;
+  }
+  void changeStateTo(DSMState_t newstate) {
+    I(newstate != DSM_INVALID);
+    state = newstate;
+  }
 
 };
 

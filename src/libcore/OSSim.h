@@ -86,10 +86,27 @@ private:
   long long nInst2Sim;
   long long nInstCommited2Sim;
 
+#ifdef OLDMARKS
   ulong simulationMarks;
   ulong simulationMark1;
   ulong simulationMark2;
-  
+#else
+  typedef struct { 
+    Pid_t pid;
+    ulong total;
+    ulong begin;
+    ulong end;
+    bool  mtMarks;
+  } SimulationMark_t;
+
+  SimulationMark_t simMarks;
+  std::map<int,SimulationMark_t> idSimMarks;
+
+  long numIdSimMarks;
+  long waitBeginIdSimMarks;
+  long waitEndIdSimMarks;
+#endif  
+
 #ifdef TS_PROFILING  
   Profile *profiler;
   int profPhase;
@@ -166,6 +183,7 @@ public:
   void eventSetPPid(Pid_t pid, Pid_t ppid);
   Pid_t eventGetPPid(Pid_t pid);
 
+#ifdef OLDMARKS
   void eventSimulationMark() {
     simulationMarks++;
   }
@@ -174,6 +192,75 @@ public:
   ulong getSimulationMark2() const { return simulationMark2; }
   bool enoughMarks1() const { return simulationMarks > simulationMark1; }
   bool enoughMarks2() const { return simulationMarks > simulationMark2; }
+#else
+  void eventSimulationMark() {
+    simMarks.total++;
+  }
+  void eventSimulationMark(int id,Pid_t pid) {
+    if(idSimMarks.find(id)==idSimMarks.end()) {
+      idSimMarks[id].total = 0;
+      idSimMarks[id].begin = 0;
+      idSimMarks[id].end = (~0UL)-1;
+    }
+
+    idSimMarks[id].total++;
+    idSimMarks[id].pid=pid;
+    idSimMarks[id].mtMarks=true;
+  }
+  ulong getSimulationMark() const { return simMarks.total; }
+  ulong getSimulationMark1() const { return simMarks.begin; }
+  ulong getSimulationMark2() const { return simMarks.end; }
+  bool enoughMarks1() const { return simMarks.total > simMarks.begin; }
+  bool enoughMarks2() const { return simMarks.total > simMarks.end; }
+#endif
+
+#ifndef OLDMARKS
+  ulong getSimulationMark(int id) const { 
+    std::map<int,SimulationMark_t>::const_iterator it = idSimMarks.find(id);
+    return (*it).second.total; 
+  }
+  ulong getSimulationMark1(int id) const { 
+    std::map<int,SimulationMark_t>::const_iterator it = idSimMarks.find(id);
+    return (*it).second.begin; 
+  }
+  ulong getSimulationMark2(int id) const { 
+    std::map<int,SimulationMark_t>::const_iterator it = idSimMarks.find(id);
+    return (*it).second.end;
+  }
+  bool enoughMarks1(int id) const {
+    std::map<int,SimulationMark_t>::const_iterator it = idSimMarks.find(id);
+    return (*it).second.total > (*it).second.begin; 
+  }
+  bool enoughMarks2(int id) const {
+    std::map<int,SimulationMark_t>::const_iterator it = idSimMarks.find(id); 
+    return (*it).second.total > (*it).second.end; 
+  }
+  bool enoughMTMarks1() const {
+    std::map<int,SimulationMark_t>::const_iterator it = idSimMarks.begin();
+
+    bool ret=true;
+    for(it=idSimMarks.begin(); it!=idSimMarks.end(); it++) {
+      ret = (ret && enoughMarks1( (*it).first ));
+    }
+
+    return ret;
+  }
+  bool enoughMTMarks1(int pid,bool justMe) const {
+    std::map<int,SimulationMark_t>::const_iterator it = idSimMarks.begin();
+    bool me=false;
+    bool ret=true;
+    for(it=idSimMarks.begin(); it!=idSimMarks.end(); it++) {
+      if( (*it).second.pid != pid )
+	ret = (ret && enoughMarks1( (*it).first ));
+      else if( (*it).second.mtMarks )
+	me = enoughMarks1( (*it).first );
+    }
+    if(justMe)
+      ret=me;
+
+    return ret;
+  }
+#endif
 
 #ifdef TS_PROFILING
   Profile *getProfiler() const {
@@ -240,6 +327,8 @@ public:
   void initBoot();
   void preBoot();
   void postBoot();
+
+  void simFinish();
   
   // Boot the whole simulator. Restart is set to true by the exception
   // handler. This may happen in a misspeculation, the simulator would be
@@ -258,6 +347,7 @@ public:
   size_t getNumCPUs() const { return cpus.size(); }
 
   void stopSimulation() { cpus.finishWorkNow(); }
+  void switchOut(CPU_t id, ProcessId *procId) { cpus.switchOut(id, procId); }
 
   long long getnInst2Sim() const { return nInst2Sim;  }
   long long getnInstCommited2Sim() const { return nInstCommited2Sim; }

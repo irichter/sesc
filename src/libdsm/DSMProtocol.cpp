@@ -22,6 +22,10 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "DSMProtocol.h"
 #include "DSMCache.h"
 
+pool<MsgRecord> DSMProtocol::recordPool(32);
+DSMProtocol::MsgRecByAddrType DSMProtocol::msgsInService;
+DSMProtocol::MsgRecByMsgType  DSMProtocol::msgsToCancel;
+
 DSMProtocol::~DSMProtocol() 
 {
   // nothing to do
@@ -59,6 +63,56 @@ void DSMProtocol::sendMemMsg(MemRequest *mreq, Time_t when, MessageType msgType)
   mreq->setMessage(msg);
   
   sendMsgAbs(when, msg);  
+}
+
+void DSMProtocol::addToActiveList(Message* message)
+{
+  I(message);
+  MemRequest *mreq = static_cast<PMessage *>(message)->getMemRequest();
+  PAddr addr = mreq->getPAddr();
+
+  MsgRecord *mr = recordPool.out();
+  mr->setMessage(message, mreq->getMemOperation());
+
+  msgsInService[addr] = mr; 
+}
+
+void DSMProtocol::addToCancelList(MsgRecord *msgRec)
+{
+  I(msgRec);
+  
+  msgRec->cancel();
+  msgsToCancel[msgRec->getMessage()] = msgRec;
+}
+
+void DSMProtocol::removeFromActiveList(Message *message)
+{
+  I(message);
+  PAddr addr = static_cast<PMessage *>(message)->getMemRequest()->getPAddr();
+
+  I(msgsInService.find(addr) != msgsInService.end());
+
+  msgsInService.erase(addr);
+}
+
+void DSMProtocol::removeFromCancelList(Message *message)
+{
+  I(message);
+  I(msgsToCancel.find(message) != msgsToCancel.end());
+  
+  msgsToCancel.erase(message);
+}
+
+bool DSMProtocol::isInActiveList(Message *message)
+{
+  I(message);
+  PAddr addr = static_cast<PMessage *>(message)->getMemRequest()->getPAddr();
+  return (msgsInService.find(addr) != msgsInService.end());
+}
+
+bool DSMProtocol::isInCancelList(Message *message) 
+{
+  return (msgsToCancel.find(message) != msgsToCancel.end());
 }
 
 void DSMProtocol::sendMemRead(MemRequest *mreq, Time_t when) 
@@ -123,14 +177,65 @@ DSMControlProtocol::~DSMControlProtocol()
 
 void DSMControlProtocol::read(MemRequest *mreq)
 {
+  // time for this has already been accounted in DSMCache::read
+  DSMCache::Line *cl = pCache->getLine(mreq->getPAddr());
+
+  // if line is in transient state, read should not have been called
+  GI(cl, !cl->isTransient()); 
+
+  // hit - common case (hopefully)
+  if(cl && cl->canBeRead()) {
+    pCache->concludeAccess(mreq);
+    return;
+  }
+
+  // miss - check other caches
+  if (!cl) {
+    cl = pCache->allocateLine(mreq->getPAddr());
+  }
+
+  I(cl->isInvalid());
+  //cl->changeStateTo(DSM_TRANS_RD);
+  //sendReadMiss(mreq, globalClock); // TODO: uncomment this
+  
+  // then ask data to memory (this will be done by readMissNackHandler)
+  cl->changeStateTo(DSM_TRANS_RD_MEM);
   sendMemRead(mreq, globalClock); 
-  // TODO: make it a real protocol decision + timing
+  
+  // TODO: timing: should the protocol decision take any time?
 }
 
 void DSMControlProtocol::write(MemRequest *mreq)
 {
+  DSMCache::Line *cl = pCache->getLine(mreq->getPAddr());
+
+  // if line is in transient state, write should not have been called
+  GI(cl, !cl->isTransient()); 
+
+  // hit in exclusive state
+  if (cl) {
+    if (cl->canBeWritten()) 
+      pCache->concludeAccess(mreq);
+    else
+      sendInvalidate(mreq, globalClock);
+    return;
+  }
+
+  // miss - check other caches
+  if (!cl) {
+    cl = pCache->allocateLine(mreq->getPAddr());
+  }
+
+  I(cl->isInvalid());
+
+  //cl->changeStateTo(DSM_TRANS_WR);
+  //sendWriteMiss(mreq, globalClock); // TODO: uncomment this
+  
+  // then ask data to memory (this will be done by writeMissNackHandler)
+  cl->changeStateTo(DSM_TRANS_WR_MEM);
   sendMemWrite(mreq, globalClock); 
-  // TODO: make it a real protocol decision + timing  
+
+  // TODO: timing: should the protocol decision take any time?
 }
 
 void DSMControlProtocol::writeBack(MemRequest *mreq)
@@ -189,30 +294,63 @@ void DSMControlProtocol::memReadHandler(Message *msg)
 {
   GLOG(DSMDBG_MSGS, "DSMControlProtocol::memReadHandler invoked");
   
-  pCache->readBelow((static_cast<PMessage *>(msg))->getMemRequest());
+  if(isInActiveList(msg)) {
+    // TODO: arbitrate and also get entry out of list once arbitration is done
+    // and also send NACK if new message has lost.
+  } else {
+    addToActiveList(msg);
+    pCache->readBelow((static_cast<PMessage *>(msg))->getMemRequest());
+  }
 }
 
 void DSMControlProtocol::memWriteHandler(Message *msg) 
 {
   GLOG(DSMDBG_MSGS, "DSMControlProtocol::memWriteHandler invoked.");
   
-  pCache->writeBelow((static_cast<PMessage *>(msg))->getMemRequest());
+  if(isInActiveList(msg)) {
+    // TODO: arbitrate
+  } else {
+    addToActiveList(msg);
+    pCache->writeBelow((static_cast<PMessage *>(msg))->getMemRequest());
+  }
 }
 
 void DSMControlProtocol::memReadAckHandler(Message *msg)
 {
-  GLOG(DSMDBG_MSGS, "DSMControlProtocol::memReadAckHandler invoked.");
-  
-  pCache->concludeAccess((static_cast<PMessage *>(msg))->getMemRequest());
-  msg->garbageCollect();
+  MemRequest *mreq = static_cast<PMessage *>(msg)->getMemRequest();
+  I(mreq);
+  PAddr addr = mreq->getPAddr();
+
+  DSMCache::Line *cl = pCache->getLine(addr);
+  I(cl);
+  I(cl->isTransient());
+  if(cl->getState() == DSM_TRANS_RD_MEM) {
+
+    cl->changeStateTo(DSM_VALID);
+    
+    GLOG(DSMDBG_MSGS, "DSMControlProtocol::memReadAckHandler invoked.");
+    
+    pCache->concludeAccess(mreq);
+    msg->garbageCollect();
+  }
 }
 
 void DSMControlProtocol::memWriteAckHandler(Message *msg)
 {
-  GLOG(DSMDBG_MSGS, "DSMControlProtocol::memWriteAckHandler invoked.");
+  MemRequest *mreq = static_cast<PMessage *>(msg)->getMemRequest();
+  DSMCache::Line *cl = pCache->getLine(mreq->getPAddr());
 
-  pCache->concludeAccess((static_cast<PMessage *>(msg))->getMemRequest());
-  msg->garbageCollect();
+  I(cl);
+  I(cl->isTransient());
+
+  if(cl->getState() == DSM_TRANS_RD_MEM) {
+    cl->changeStateTo(DSM_DIRTY);
+    
+    GLOG(DSMDBG_MSGS, "DSMControlProtocol::memWriteAckHandler invoked.");
+    
+    pCache->concludeAccess(mreq);
+    msg->garbageCollect();
+  }
 }
 
 void DSMControlProtocol::sendReadMiss(MemRequest *mreq, Time_t when)

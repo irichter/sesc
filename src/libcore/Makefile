@@ -17,6 +17,10 @@ OBJS	:=Processor.o GProcessor.o SMTProcessor.o DInst.o Pipeline.o FetchEngine.o 
 	ProcessId.o RunningProcs.o GMemorySystem.o ValueTable.o \
 	GMemoryOS.o
 
+ifdef TS_PREDMISS
+OBJS += ValueProfiler.o
+endif
+
 ifdef TLS
 OBJS	+=Epoch.o Checkpoint.o AdvancedStats.o SysCall.o
 endif

@@ -121,7 +121,7 @@ class BPBTB:public BPred {
 private:
   GStatsEnergy *btbEnergy;
 
-  class BTBState : public StateGeneric<BTBState, ulong ,false> {
+  class BTBState : public StateGeneric<> {
   public:
     BTBState() {
       inst = 0;
@@ -376,7 +376,7 @@ public:
 class BPCRap : public BPred {
 private:
   BPBTB btb;
-  class PathEntry : public StateGeneric<PathEntry, HistoryType> {
+  class PathEntry : public StateGeneric<HistoryType> {
   public:
     bool ptaken;
     char correct;
@@ -384,7 +384,7 @@ private:
     void initialize(CacheGeneric<PathEntry, HistoryType>* c) { 
       ptaken = false;
       correct = 0;
-      StateGeneric<PathEntry, HistoryType>::initialize(c);
+      clearTag();
     }
     bool operator==(PathEntry b) const {
       return ( ptaken == b.ptaken && correct == b.correct );

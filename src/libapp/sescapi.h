@@ -156,8 +156,12 @@ extern "C" {
   void sesc_wait(void);
 
   long sesc_fetch_op(enum FetchOpType op, volatile long *addr, long val); 
+  void sesc_unlock_op(volatile long *addr, long val);
+
   void sesc_simulation_mark(void);
   void sesc_simulation_mark_(void);
+  void sesc_simulation_mark_id(int id);
+  void sesc_simulation_mark_id_(int id);
   void sesc_fast_sim_begin(void);
   void sesc_fast_sim_begin_(void);
   void sesc_fast_sim_end(void);

@@ -227,12 +227,13 @@ public:
   static void preBoot();
   static void postBoot();
 
-  static void tryPropagateSafeToken();
+  static void tryPropagateSafeToken(const HVersionDomain *vd);
 
   // Spawn a successor for current version: versionmem interface
   void spawnSuccessor(Pid_t chilPid, PAddr childAddr);
 
   void normalFork(Pid_t cpid);
+  static void normalForkNewDomain(Pid_t cpid);
 
   void endTaskExecuted(Pid_t fpid);
 
@@ -264,13 +265,26 @@ public:
   void localKill(bool inv);
 
   RAddr read(ulong iAddr, short iFlags, RAddr addr) {
+#ifdef TC_PARTIALORDER
+    if(memVer->isOnly()) 
+      return addr;
+#endif
     return memBuffer->read(iAddr, iFlags, addr);
   }
   // Prepare to write to this version. Returns the address to write to.
   RAddr preWrite(RAddr addr) {
+#ifdef TC_PARTIALORDER
+    // no need to put the stuff in the membuffer, go straight to memory
+    if(memVer->isOnly()) 
+      return addr;
+#endif
     return (RAddr)(&writeData)+MemBufferEntry::calcChunkOffset(addr);
   }
   const HVersion *postWrite(ulong iAddr, short iFlags, RAddr addr) {
+#ifdef TC_PARTIALORDER
+    if(memVer->isOnly()) 
+      return 0;
+#endif
     return memBuffer->postWrite(&writeData, iAddr, iFlags, addr);
   }
 

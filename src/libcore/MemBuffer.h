@@ -149,13 +149,20 @@ public:
 #endif
 };
 
+// to support partial ordering, we need different comparison domains,
+// this is done by having one memOps set per domain
+class MemBufferDomain {
+ public:
+  MemOpsType memOps;
+};
 
 class MemBuffer {
 private:
   static pool<MemBuffer, true> mPool;
   friend class pool<MemBuffer, true>;
 
-  static MemOpsType memOps; // all the read/writes performed
+  //static MemOpsType memOps; // all the read/writes performed
+  MemBufferDomain *mbd;
 
   MapMemOpsType mapMemOps;
 
@@ -171,13 +178,14 @@ private:
 #endif
 protected:
 public:
-  static void boot();
+  static MemBufferDomain* createMemBufferDomain();
 
   const HVersion *getVersionRef() const { return memVer; }
 
   // Create a new clean MemBuffer using newMemVer as the current version
   static MemBuffer *create(const HVersion *ver);
 
+  void mergeOps();
   void mergeDestroy();
   void justDestroy();
 

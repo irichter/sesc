@@ -42,18 +42,51 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "VMemReq.h"
 #endif
 
-class CState : public StateGeneric<CState> {
-public:
+#ifdef SMP
+#include "MESICacheState.h"
+#endif
+
+class CState : public StateGeneric<> {
+private:
   bool valid;
   bool dirty;
   bool locked;
+public:
   CState() {
     valid = false;
     dirty = false;
     locked = false;
+    clearTag();
   }
   bool isLocked() const {
     return (locked == true);
+  }
+  void lock() {
+    I(valid);
+    locked = true;
+  }
+  bool isDirty() const {
+    return dirty;
+  }
+  void makeDirty() {
+    dirty = true;
+  }
+  void makeClean() {
+    dirty = false;
+  }
+  bool isValid() const {
+    return valid;
+  }
+  void validate() {
+    I(getTag());
+    valid = true;
+    locked = false;
+  }
+  void invalidate() {
+    valid = false;
+    dirty = false;
+    locked = false;
+    clearTag();
   }
 };
 
@@ -66,6 +99,7 @@ protected:
 
   const bool inclusiveCache;
 
+
   CacheType *cache;
 
   MSHR<PAddr> *mshr;
@@ -73,6 +107,8 @@ protected:
   typedef HASH_MAP<PAddr, int> WBuff; 
 
   WBuff wbuff;  // write buffer
+  int maxPendingWrites;
+  int pendingWrites;
 
   class Entry {
   public:
@@ -94,6 +130,7 @@ protected:
   long defaultMask;
   TimeDelta_t missDelay;
   TimeDelta_t hitDelay;
+  TimeDelta_t fwdDelay;
 
   // BEGIN Statistics
   GStatsCntr readHalfMiss;
@@ -106,6 +143,10 @@ protected:
   GStatsCntr lineFill;
   GStatsCntr linePush;
   GStatsCntr nForwarded;
+  GStatsCntr nWBFull;
+  GStatsTimingAvg avgPendingWrites;
+  GStatsAvg  avgMissLat;
+  GStatsCntr rejectedHits;
   // END Statistics
 
   Time_t nextSlot() {
@@ -128,6 +169,8 @@ protected:
   bool isInWBuff(PAddr addr);
   
   virtual void doWriteBack(PAddr addr) = 0;
+
+  virtual void inclusionCheck(PAddr addr) { }
 
   typedef CallbackMember1<Cache, MemRequest *, &Cache::doRead> 
     doReadCB;
@@ -164,7 +207,9 @@ public:
   typedef CallbackMember3<Cache, PAddr, PAddr, CallbackBase *,
                          &Cache::doAllocateLine> doAllocateLineCB;
 
-  virtual bool canAcceptStore(PAddr addr) const;
+  virtual bool canAcceptStore(PAddr addr);
+  virtual bool canAcceptLoad(PAddr addr);
+  
   bool isInCache(PAddr addr) const;
 
   // same as above plus schedule callback to doInvalidate
@@ -198,9 +243,12 @@ protected:
   void doWriteBack(PAddr addr);
   void writePropagateHandler(MemRequest *mreq);
   void propagateDown(MemRequest *mreq);
+  void reexecuteDoWrite(MemRequest *mreq);
   
-  typedef CallbackMember1<WTCache, MemRequest *, &WTCache::propagateDown> 
-    propagateDownCB;
+  typedef CallbackMember1<WTCache, MemRequest *, &WTCache::reexecuteDoWrite> 
+    reexecuteDoWriteCB;
+
+  void inclusionCheck(PAddr addr);
 
 public:
   WTCache(MemorySystem *gms, const char *descr_section, 

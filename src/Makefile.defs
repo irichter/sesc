@@ -78,15 +78,16 @@ ifdef MPCOH
 DEFS += -DMPCOH
 endif
 
-ifdef SESC_DSM
-DEFS += -DSESC_DSM
+ifdef VALUEPROF
+DEFS += -DVALUEPROF
 endif
 
 #####################################
 INC	= -I. -I$(OBJ) -I$(SRC_DIR)/libapp -I$(SRC_DIR)/libsuc 
 INC	+= -I$(SRC_DIR)/libcore -I$(SRC_DIR)/libnet -I$(SRC_DIR)/libmem 
-INC	+= -I$(SRC_DIR)/libvmem -I$(SRC_DIR)/libcc -I$(SRC_DIR)/libdsm 
+INC	+= -I$(SRC_DIR)/libvmem 
 INC     += -I$(SRC_DIR)/libll -I$(SRC_DIR)/libmint -I$(SRC_DIR)/libpint 
+INC     += -I$(SRC_DIR)/libsmp
 ##############################################################################
 ifeq ($(findstring IRIX,$(ABINAME)),IRIX)
 LIBS	= -L$(OBJ) -L$(OBJ)/ -lgen -lsesc
@@ -286,6 +287,10 @@ DEFS	+=-DVMEM_PRED_FORWARD
 DEFS	+=-DTS_USE_SPECBITS
 
 endif # TS_VMEM
+
+ifdef TS_PREDMISS
+DEFS    +=-DTS_PREDMISS -DVALUEPROF -DTC_PARTIALORDER
+endif
 
 # Generate a task trace
 ifdef TS_TIMELINE

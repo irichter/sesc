@@ -98,7 +98,7 @@ public:
   void returnAccess(MemRequest *mreq);
   Time_t getNextFreeCycle() { return globalClock; } //FIXME: model correctly
   void invalidate(PAddr addr,ushort size,MemObj *oc) {}
-  bool canAcceptStore(PAddr addr) const { return true; }
+  bool canAcceptStore(PAddr addr) { return true; }
 
   void readHandler(Message *m);
   void writeHandler(Message *m);

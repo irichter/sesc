@@ -29,7 +29,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 class AddressPrefetcher : public MemObj {
 protected:
-  class BState : public StateGeneric<BState> {
+  class BState : public StateGeneric<> {
   };
 
   typedef CacheGeneric<BState,PAddr> CacheType;
@@ -52,7 +52,7 @@ public:
   ~AddressPrefetcher() {}
   void access(MemRequest *mreq);
   void returnAccess(MemRequest *mreq);
-  bool canAcceptStore(PAddr addr) const;
+  bool canAcceptStore(PAddr addr);
   virtual void invalidate(PAddr addr,ushort size,MemObj *oc);
   Time_t getNextFreeCycle() const;
 };

@@ -468,7 +468,7 @@ void TaskContext::mergeLast(bool inv)
 
   nMergeLast->inc();
 
-  const HVersion *last = HVersion::getNewestRef();
+  const HVersion *last = HVersion::getNewestRef(memVer->getVersionDomain());
   I(last);
   I(last->getNextRef() == 0);
   const HVersion *prev = last->getPrevRef();
@@ -557,8 +557,10 @@ void TaskContext::syncBecomeSafe(bool earlyAwake)
   osSim->suspend(tid);
 }
 
-void TaskContext::tryPropagateSafeToken()
+void TaskContext::tryPropagateSafeToken(const HVersionDomain *vd)
 {
+  bool doMergeOps = false;
+  
 #ifdef ATOMIC
   return;
 #endif
@@ -566,7 +568,7 @@ void TaskContext::tryPropagateSafeToken()
 
   //LOG("TC::tryPropagateSafeToken()"); // way too often to be useful
   // Advance for all the continuously already finished TaskContext
-  const HVersion *v = HVersion::getOldestTaskContextRef();
+  const HVersion *v = HVersion::getOldestTaskContextRef(vd);
   while(v) {
     TaskContext *tc = v->getTaskContext();
     I(tc);
@@ -585,7 +587,9 @@ void TaskContext::tryPropagateSafeToken()
 
     if (!v->isSafe()) {
       osSim->setPriority(tc->getPid(), -1);
+      LOG("TaskContext(%d)::setSafe", tc->getPid());
       taskHandler->setSafe(tc->memVer);
+      doMergeOps = true;
     }
 
     I(v->isSafe());
@@ -622,7 +626,7 @@ void TaskContext::tryPropagateSafeToken()
   }
 
   while (nCommited) {
-    v = HVersion::getOldestTaskContextRef();
+    v = HVersion::getOldestTaskContextRef(vd);
     I(v);
     TaskContext *tc = v->getTaskContext();
     I(tc);
@@ -636,9 +640,21 @@ void TaskContext::tryPropagateSafeToken()
     tc->mergeDestroy();
     
     // mergeDestroy advanced the oldest TaskContext
-    I(HVersion::getOldestTaskContextRef() != v);
+    I(HVersion::getOldestTaskContextRef(vd) != v);
     nCommited--;
   }
+
+#ifdef TC_PARTIALORDER
+  if(doMergeOps) {
+    v = HVersion::getOldestTaskContextRef(vd);
+    I(v);
+    TaskContext *tc = v->getTaskContext();
+    //LOG("merging data to memory tc=%d", tc->getPid());
+    I(tc);
+    I(tc->memVer->isSafe());
+    tc->memBuffer->mergeOps();
+  }
+#endif
 }
 
 void TaskContext::collect()
@@ -735,12 +751,14 @@ void TaskContext::preBoot()
   }
   I(tid2TaskContext.size() == MAXPROC);
 
-  MemBuffer::boot();
+  MemBufferDomain *mbd = MemBuffer::createMemBufferDomain();
 
   TaskContext *tc = tcPool.out();
 
   tc->spawnAddr       = (ulong) -1;
   tc->memVer          = HVersion::boot(tc);
+  tc->memVer->getVersionDomain()->setMemBufferDomain(mbd);
+
   tid2TaskContext[0]  = tc;
   tc->wasSpawnedOO    = false;
   tc->ooTask          = false;
@@ -860,6 +878,28 @@ void TaskContext::normalFork(Pid_t cpid)
   tid2TaskContext[cpid] = this;
 }
 
+void TaskContext::normalForkNewDomain(Pid_t cpid)
+{
+  MSG("normal fork. new pid: %d", cpid);
+  TaskContext *nTC = tcPool.out();
+
+  nTC->spawnAddr       = (ulong) -1;
+  nTC->memVer          = HVersion::newFirstVersion(nTC);
+
+  MemBufferDomain *mbd = MemBuffer::createMemBufferDomain();
+  nTC->memVer->getVersionDomain()->setMemBufferDomain(mbd);
+
+  nTC->wasSpawnedOO    = false;
+  nTC->ooTask          = false;
+
+
+  nTC->setFields(cpid, nTC->memVer);
+  I(!nTC->memVer->isSafe());
+  taskHandler->setSafe(nTC->memVer);
+  I(nTC->memVer->isOldest());
+  I(nTC->memVer->isOldestTaskContext());
+}
+
 // fpid is finishing pid
 void TaskContext::endTaskExecuted(Pid_t fpid)
 {
@@ -901,12 +941,12 @@ void TaskContext::endTaskExecuted(Pid_t fpid)
   taskHandler->setFinished(memVer);
 
   if (memVer->isOldestTaskContext()) {
-    tryPropagateSafeToken();
+    tryPropagateSafeToken(memVer->getVersionDomain());
   }else{
 #ifdef DEBUG
     // Fail when all the previous versions have finished, they should be
     // commited by now
-    for (const HVersion *v = HVersion::getOldestRef() 
+    for (const HVersion *v = HVersion::getOldestRef(memVer->getVersionDomain()) 
 	   ; v!=memVer 
 	   ; v = v->getNextRef()) {
       if (v->getTaskContext()) {
@@ -1065,33 +1105,37 @@ void TaskContext::dumpAll()
   printf("TC[%3d:%3d]%10lld:", ProcessId::getNumThreads(), ProcessId::getNumRunningThreads(), globalClock);
 
 #ifndef ATOMIC
-  v = HVersion::getOldestRef();
-  int numL=0;
-  while(v) {
-    const TaskContext *tc = v->getTaskContext();
-    if (tc==0) {
-      numL++;
+  for(int i = 0; i < HVersionDomain::getNDomains(); i++) {
+    HVersionDomain *vd = HVersionDomain::getVDomain(i);
+    v = HVersion::getOldestRef(vd);
+    int numL=0;
+    while(v) {
+      const TaskContext *tc = v->getTaskContext();
+      if (tc==0) {
+	numL++;
+	v = v->getNextRef();
+	continue;
+      }
+      if (numL) {
+	printf("%3dxL",numL); // Lazy Commit
+	numL=0;
+      }
+
+      I(tc->tid>=0);
+
+      for(Pid_tSet::const_iterator it = tc->usedThreads.begin(); it != tc->usedThreads.end(); it++) {
+	const ProcessId *proc = ProcessId::getProcessId(*it);
+
+	if(proc->isExecuted())
+	  printf("X"); // Executed, waiting for predecessors to finish
+	else if(proc->isWaiting())
+	  printf("W"); // Waiting to become safe
+	else
+	  printf("_"); // Executing or waiting to execute
+      }
       v = v->getNextRef();
-      continue;
     }
-    if (numL) {
-      printf("%3dxL",numL); // Lazy Commit
-      numL=0;
-    }
-
-    I(tc->tid>=0);
-
-    for(Pid_tSet::const_iterator it = tc->usedThreads.begin(); it != tc->usedThreads.end(); it++) {
-      const ProcessId *proc = ProcessId::getProcessId(*it);
-
-      if(proc->isExecuted())
-	printf("X"); // Executed, waiting for predecessors to finish
-      else if(proc->isWaiting())
-	printf("W"); // Waiting to become safe
-      else
-	printf("_"); // Executing or waiting to execute
-    }
-    v = v->getNextRef();
+    printf(" \t");
   }
 #endif
 

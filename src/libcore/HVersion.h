@@ -27,6 +27,8 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "ASVersion.h"
 #else
 
+#include <vector>
+
 #include <limits.h>
 
 #include "nanassert.h"
@@ -40,6 +42,47 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 // updating a single version. A TaskContext can read multiple versions
 // (but only update one).
 class TaskContext;
+
+class HVersion;
+class MemBufferDomain;
+
+class HVersionDomain {
+ private:
+  typedef std::vector<HVersionDomain *> VDomainVectorType;
+  static VDomainVectorType vdVec;
+
+  MemBufferDomain *mbd;
+
+  
+ public:
+  HVersion *oldestTC; 
+  HVersion *oldest;
+  HVersion *newest;
+
+  HVersionDomain() {
+    oldestTC = 0;
+    oldest = 0;
+    newest = 0;
+    mbd = 0;
+  }
+
+  static HVersionDomain *create();
+  static void tryPropagateSafeTokenAll();
+
+  static int getNDomains() { return vdVec.size(); }
+  static HVersionDomain* getVDomain(int id) { return vdVec[id]; }
+
+  void setMemBufferDomain(MemBufferDomain *m) {
+    I(m);
+    mbd = m;
+  }
+
+  MemBufferDomain* getMemBufferDomain() {
+    I(mbd);
+    return mbd;
+  }
+
+};
 
 class HVersion {
  private:
@@ -79,7 +122,7 @@ class HVersion {
 	return false;
       }
       
-      bool isInvalid() const { return tag == 0; }
+      bool isValid() const { return tag; }
       void invalidate() { tag = 0; }
 
       size_t getnChild() const { return nChild; }
@@ -130,9 +173,13 @@ class HVersion {
   static GStatsCntr *nClaim;
   static GStatsCntr *nRelease;
 
+  HVersionDomain *vDomain;
+
+#if 0
   static HVersion *oldestTC; 
   static HVersion *oldest;
   static HVersion *newest;
+#endif
   
   VType base;
   VType maxi;
@@ -164,6 +211,22 @@ class HVersion {
  protected:
  public:
   static HVersion *boot(TaskContext *t);
+  static HVersion *newFirstVersion(TaskContext *t);
+
+  void setVersionDomain(HVersionDomain *vd) {
+    I(vd);
+    vDomain = vd;
+  }
+
+  HVersionDomain* getVersionDomain() const {
+    I(vDomain);
+    return vDomain;
+  }
+
+  MemBufferDomain* getMemBufferDomain() const {
+    I(vDomain->getMemBufferDomain());
+    return vDomain->getMemBufferDomain();
+  }
 
 #ifdef TS_TIMELINE
   int getId() const { return id; }
@@ -182,9 +245,10 @@ class HVersion {
 
   void garbageCollect(bool noTC=false);
 
-  bool isOldestTaskContext() const { return oldestTC == this; }
+  bool isOldestTaskContext() const { return vDomain->oldestTC == this; }
   bool isOldest() const { return prev == 0; }
   bool isNewest() const { return next == 0; }
+  bool isOnly() const { GI(isOldest() && isNewest(), isSafe()); return (isOldest() && isNewest()); }
 
   // Safe token can not be propagate while previous instructions have
   // hasOutsReqs()
@@ -196,20 +260,55 @@ class HVersion {
   const HVersion *getNextRef() const { return next; }
   const HVersion *getPrevRef() const { return prev; }
 
-  static const HVersion *getOldestTaskContextRef() { return oldestTC; }
-  static HVersion *getOldestDuplicate() { return oldest->duplicate(); }
-  static const HVersion *getOldestRef() { return oldest; }
-  static const HVersion *getNewestRef() { return newest; }
+  static const HVersion *getOldestTaskContextRef(const HVersionDomain *vd) { 
+    return vd->oldestTC; 
+  }
+
+  static HVersion *getOldestDuplicate(const HVersionDomain *vd) { 
+    return vd->oldest->duplicate(); 
+  }
+
+  static const HVersion *getOldestRef(const HVersionDomain *vd) { 
+    return vd->oldest; 
+  }
+
+  static const HVersion *getNewestRef(const HVersionDomain *vd) { 
+    return vd->newest; 
+  }
 
   // If the task already commited, there may be no TC associated
   TaskContext *getTaskContext() const { return tc; }
 
-  bool operator< (const HVersion &v) const { return base <  v.base; }
-  bool operator<=(const HVersion &v) const { return base <= v.base; }
-  bool operator> (const HVersion &v) const { return base >  v.base; }
-  bool operator>=(const HVersion &v) const { return base >= v.base; }
-  bool operator==(const HVersion &v) const { return base == v.base; }
-  bool operator!=(const HVersion &v) const { return base != v.base; }
+
+  bool operator< (const HVersion &v) const { 
+    I(vDomain == v.vDomain);
+    return base <  v.base;
+  }
+
+  bool operator<=(const HVersion &v) const { 
+    I(vDomain == v.vDomain);
+    return base <= v.base; 
+  }
+
+  bool operator> (const HVersion &v) const { 
+    I(vDomain == v.vDomain);
+    return base >  v.base; 
+  }
+  
+  bool operator>=(const HVersion &v) const { 
+    I(vDomain == v.vDomain);
+    return base >= v.base; 
+  }
+
+  bool operator==(const HVersion &v) const { 
+    I(vDomain == v.vDomain);
+    return base == v.base; 
+  }
+
+  bool operator!=(const HVersion &v) const { 
+    I(vDomain == v.vDomain);
+    return base != v.base; 
+  }
 
   VType getBase() const { return base; }
     
@@ -217,8 +316,8 @@ class HVersion {
   void dumpAll() const;
 
   int  getPrio() const { 
-    I(oldest);
-    return (int)(base - oldest->base);
+    I(vDomain->oldest);
+    return (int)(base - vDomain->oldest->base);
   }
 
   void restarted() {

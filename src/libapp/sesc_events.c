@@ -78,6 +78,27 @@ void sesc_simulation_mark()
   mark++;
 }
 
+void sesc_simulation_mark_id_(int id)
+{
+  sesc_simulation_mark_id(id);
+}
+
+void sesc_simulation_mark_id(int id)
+{
+  static int marks[256];
+  static int first=1;
+  int i;
+
+  if(first) {
+    for(i=0;i<256;i++)
+      marks[i]=0;
+    first=0;
+  }
+
+  fprintf(stderr,"sesc_simulation_mark(%d) %d (native)", id, marks[id%256]);
+  marks[id%256]++;
+}
+
 void sesc_finish()
 {
   fprintf(stderr,"sesc_finish called (end of simulation in native)");
@@ -144,3 +165,14 @@ void sesc_verify_value(int rval, int pval)
 }
 #endif
 
+#ifdef VALUEPROF
+void sesc_delinquent_load_begin (int id)
+{
+
+}
+
+void sesc_delinquent_load_end ()
+{
+
+}
+#endif

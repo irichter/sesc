@@ -89,7 +89,7 @@ class SlaveMPCoh : public MPCacheCoherence, public MemObj {
   Time_t getNextFreeCycle() const;
 
   void invalidate(PAddr addr, ushort size, MemObj *oc);
-  bool canAcceptStore(PAddr addr) const;
+  bool canAcceptStore(PAddr addr);
 
   void readReq(MemRequest *mreq);
   void writeReq(MemRequest *mreq);

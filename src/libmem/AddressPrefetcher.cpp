@@ -104,7 +104,7 @@ void AddressPrefetcher::access(MemRequest *mreq)
     MSG("test[0x%x] op[%d]", (uint) mreq->getPAddr(), mreq->getMemOperation());
     if (mreq->getMemOperation() == MemRead) {
       MSG("hit[0x%x", (uint) mreq->getPAddr());
-      mreq->goUp(when);
+      mreq->goUpAbs(when);
       return;
     }
     // on displacements, invalidate the line
@@ -122,7 +122,7 @@ void AddressPrefetcher::returnAccess(MemRequest *mreq)
   mreq->goUp(0);
 }
 
-bool AddressPrefetcher::canAcceptStore(PAddr addr) const 
+bool AddressPrefetcher::canAcceptStore(PAddr addr)
 {
   return true;
 }

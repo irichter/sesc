@@ -31,10 +31,13 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "SescConf.h"
 #include "MemorySystem.h"
 #include "Cache.h"
+#include "OSSim.h"
 #ifdef TS_TIMELINE
 #include "TraceGen.h"
 #include "HVersion.h"
 #endif
+
+#include "SMPCache.h"
 
 static const char 
   *k_numPorts="numPorts", *k_portOccp="portOccp",
@@ -54,19 +57,26 @@ Cache::Cache(MemorySystem *gms, const char *section, const char *name)
   ,lineFill("%s:lineFill", name)
   ,linePush("%s:linePush", name)
   ,nForwarded("%s:nForwarded", name)
+  ,nWBFull("%s:nWBFull", name)
+  ,avgPendingWrites("%s:avgPendingWrites", name)
+  ,avgMissLat("%s_avgMissLat", name)
+  ,rejectedHits("%s:rejectedHits", name)
 {
   MemObj *lower_level = NULL;
   char busName[512];
   
   cache = CacheType::create(section, "", name);
   
-  mshr = MSHR<PAddr>::create(name, 
-			     SescConf->getCharPtr(section, "MSHRtype"),
-			     SescConf->getLong(section, "MSHRsize"),
-			     SescConf->getLong(section, "bsize"));
+  mshr = MSHR<PAddr>::create(name, section);
   
   I(gms);
   lower_level = gms->declareMemoryObj(section, k_lowerLevel);
+
+  if(SescConf->checkBool(section,"SetMSHRL2")) {
+    const char *cName = SescConf->getCharPtr(section,"l2cache");
+    Cache *temp = dynamic_cast<Cache*>(gms->searchMemoryObj(true,cName));
+    SingleMSHR<PAddr>::setL2Cache(temp);
+  }
 
   if (lower_level != NULL)
       addLowerLevel(lower_level);
@@ -87,6 +97,17 @@ Cache::Cache(MemorySystem *gms, const char *section, const char *name)
   SescConf->isLong(section, k_missDelay);
   missDelay = SescConf->getLong(section, k_missDelay);
 
+  if (SescConf->checkLong(section, "fwdDelay")) 
+    fwdDelay = SescConf->getLong(section, "fwdDelay");
+  else
+    fwdDelay = missDelay;
+
+  pendingWrites = 0;
+  if (SescConf->checkLong(section, "maxWrites")) 
+    maxPendingWrites = SescConf->getLong(section, "maxWrites");
+  else
+    maxPendingWrites = -1;
+  
   defaultMask  = ~(cache->getLineSize()-1);
 
 }
@@ -105,8 +126,12 @@ void Cache::access(MemRequest *mreq)
        ,(uint) mreq->getVaddr()
        ,mreq->getMemOperation()
        );
-       
-  I(mreq->getPAddr() > 1024);
+
+  mreq->setClockStamp((Time_t) - 1);
+  if(mreq->getPAddr() <= 1024) { // TODO: need to implement support for fences
+    mreq->goUp(0); 
+    return;
+  }
 
   switch(mreq->getMemOperation()){
   case MemReadW:
@@ -119,12 +144,6 @@ void Cache::access(MemRequest *mreq)
 
 void Cache::read(MemRequest *mreq)
 { 
-  if(isInWBuff(mreq->getPAddr())) {
-    nForwarded.inc();
-    mreq->goUp(hitDelay);
-    return;
-  }
-
   doReadCB::scheduleAbs(nextSlot(), this, mreq);
 }
 
@@ -133,6 +152,11 @@ void Cache::doRead(MemRequest *mreq)
   Line *l = cache->readLine(mreq->getPAddr());
 
   if (l == 0) {
+    if(isInWBuff(mreq->getPAddr())) {
+      nForwarded.inc();
+      mreq->goUp(fwdDelay);
+      return;
+    }
     readMissHandler(mreq);
     return;
   }
@@ -146,23 +170,31 @@ void Cache::readMissHandler(MemRequest *mreq)
 {
   PAddr addr = mreq->getPAddr();
 
-  if(!mshr->issue(addr)) {
+
+
+  if(!mshr->issue(addr, MemRead)) {
+    mreq->setClockStamp(globalClock);
     mshr->addEntry(addr, doReadQueuedCB::create(this, mreq), 
-		   activateOverflowCB::create(this, mreq));
+		   activateOverflowCB::create(this, mreq), MemRead);
     return;
   }
 
+  // Added a new MSHR entry, now send request to lower level
   readMiss.inc();
   sendMiss(mreq);
 }
 
 void Cache::doReadQueued(MemRequest *mreq)
 {
+  PAddr paddr = mreq->getPAddr();
   readHalfMiss.inc();
+
+
+  avgMissLat.sample(globalClock - mreq->getClockStamp());
   mreq->goUp(hitDelay);
 
   // the request came from the MSHR, we need to retire it
-  mshr->retire(mreq->getPAddr());
+  mshr->retire(paddr);
 }
 
 // this is here just because we have no feedback from the memory
@@ -185,11 +217,13 @@ void Cache::activateOverflow(MemRequest *mreq)
       return;
     }
 
+
     readHit.inc();
+    PAddr paddr = mreq->getPAddr();
     mreq->goUp(hitDelay);
     
     // the request came from the MSHR overflow, we need to retire it
-    mshr->retire(mreq->getPAddr());
+    mshr->retire(paddr);
     
     return;
   }
@@ -207,13 +241,16 @@ void Cache::activateOverflow(MemRequest *mreq)
   }
 
   writeHit.inc();
-  l->dirty = true;
+#ifndef SMP
+  l->makeDirty();
+#endif
 
+  PAddr paddr = mreq->getPAddr();
   mreq->goUp(hitDelay);
   
   // the request came from the MSHR overflow, we need to retire it
-  wbuffRemove(mreq->getPAddr());
-  mshr->retire(mreq->getPAddr());
+  wbuffRemove(paddr);
+  mshr->retire(paddr);
 }
 
 void Cache::write(MemRequest *mreq)
@@ -231,8 +268,7 @@ void Cache::doWrite(MemRequest *mreq)
   }
 
   writeHit.inc();
-
-  l->dirty = true;
+  l->makeDirty();
 
   mreq->goUp(hitDelay);
 }
@@ -241,26 +277,31 @@ void Cache::writeMissHandler(MemRequest *mreq)
 {
   PAddr addr = mreq->getPAddr();
 
-  wbuffAdd(addr);
-  if(!mshr->issue(addr)) {
+  if(!mshr->issue(addr, MemWrite)) {
+    mreq->setClockStamp(globalClock);
     mshr->addEntry(addr, doWriteQueuedCB::create(this, mreq),
-		   activateOverflowCB::create(this, mreq));
+		   activateOverflowCB::create(this, mreq), MemWrite);
     return;
   }
 
+  wbuffAdd(addr);
   writeMiss.inc();
   sendMiss(mreq);
 }
 
 void Cache::doWriteQueued(MemRequest *mreq)
 {
+  PAddr paddr = mreq->getPAddr();
+
   writeHalfMiss.inc();
+
+  avgMissLat.sample(globalClock - mreq->getClockStamp());
   mreq->goUp(hitDelay);
 
-  wbuffRemove(mreq->getPAddr());
+  wbuffRemove(paddr);
 
   // the request came from the MSHR, we need to retire it
-  mshr->retire(mreq->getPAddr());
+  mshr->retire(paddr);
 }
 
 void Cache::specialOp(MemRequest *mreq)
@@ -275,6 +316,7 @@ void Cache::returnAccess(MemRequest *mreq)
     return;
   }
 
+
   PAddr addr = mreq->getPAddr();
 
   Line *l = cache->writeLine(addr);
@@ -287,19 +329,7 @@ void Cache::returnAccess(MemRequest *mreq)
       return;
     }
   }
-
-  l->valid = true;
-      
-  if(mreq->getMemOperation() == MemRead)
-    l->dirty = false;
-  else {
-    l->dirty = true;
-    wbuffRemove(addr);
-  }
-  
-  mreq->goUp(0);
-  
-  mshr->retire(addr);
+  doReturnAccess(mreq);
 }
 
 void Cache::doReturnAccess(MemRequest *mreq)
@@ -308,18 +338,17 @@ void Cache::doReturnAccess(MemRequest *mreq)
   Line *l = cache->findLineTagNoEffect(addr);
   I(l);
 
-  l->valid = true;
-      
-  if(mreq->getMemOperation() == MemRead)
-    l->dirty = false;
-  else {
-    l->dirty = true;
+  if(mreq->getMemOperation() != MemRead) {
+#ifndef SMP
+    l->makeDirty();
+#endif
     wbuffRemove(addr);
   }
   
+  avgMissLat.sample(globalClock - mreq->getClockStamp());
   mreq->goUp(0);
   
-  mshr->retire(addr);   
+  mshr->retire(addr);
 }
 
 Cache::Line *Cache::allocateLine(PAddr addr, CallbackBase *cb)
@@ -329,26 +358,38 @@ Cache::Line *Cache::allocateLine(PAddr addr, CallbackBase *cb)
   Line *l = cache->fillLine(addr, rpl_addr);
   lineFill.inc();
 
-  if(!l->valid) {
+  if(l == 0) {
+    // very rare case
+    MSG("all cache lines locked! screwed");
+    I(0);
+    exit(1);
+    // TODO: schedule retry
+    return 0;
+  }
+
+  if(!l->isValid()) {
     cb->destroy();
+    l->validate();
     return l;
   }
 
-  if(isHighestLevel()) {
-    if(l->dirty)
+  // line was valid
+  if(isHighestLevel()) { // at the L1, just write back if dirty and use line
+    if(l->isDirty()) {
       doWriteBack(rpl_addr);
+      l->makeClean();
+    }
     cb->destroy();
+    l->validate();
     return l;
   }
 
+  // not highest level, must invalidate old line, which may take a while
+  l->lock();
   I(pendInvTable.find(rpl_addr) == pendInvTable.end());
   pendInvTable[rpl_addr].outsResps = getUpperCacheLevelSize();
   pendInvTable[rpl_addr].cb = doAllocateLineCB::create(this, addr, rpl_addr, cb);
-  
-  l->valid = false;
-  l->locked = true;
   invUpperLevel(rpl_addr, cache->getLineSize(), this);
-  
   return 0;
 }
 
@@ -357,21 +398,39 @@ void Cache::doAllocateLine(PAddr addr, PAddr rpl_addr, CallbackBase *cb)
   Line *l = cache->findLineTagNoEffect(addr);
   I(l);
 
-  if(l->dirty)
+  if(l->isDirty()) {
     doWriteBack(rpl_addr);
-  
-  l->locked = false;
-  
+    l->makeClean();
+  }
   I(cb);
   cb->call();
 }
 
-bool Cache::canAcceptStore(PAddr addr) const 
+bool Cache::canAcceptStore(PAddr addr)
 {
-  if(isInCache(addr))
-    return true;
+  if(maxPendingWrites > 0 && pendingWrites >= maxPendingWrites) {
+    nWBFull.inc();
+    return false;
+  }
 
-  return mshr->canIssue();
+  bool canAcceptReq = mshr->canAcceptRequest(addr);
+
+  if(!canAcceptReq && isInCache(addr)) {
+    rejectedHits.inc();
+  }
+
+  return canAcceptReq;
+}
+
+bool Cache::canAcceptLoad(PAddr addr) 
+{
+  bool canAcceptReq = mshr->canAcceptRequest(addr);
+
+  if(!canAcceptReq && isInCache(addr)) {
+    rejectedHits.inc();
+  }
+
+  return canAcceptReq;
 }
 
 bool Cache::isInCache(PAddr addr) const
@@ -388,19 +447,19 @@ bool Cache::isInCache(PAddr addr) const
   return false;
 }
 
-void Cache::invalidate(PAddr addr, ushort size, MemObj *oc)
+void Cache::invalidate(PAddr addr, ushort size, MemObj *lowerCache)
 { 
-  I(oc);
+  I(lowerCache);
   I(pendInvTable.find(addr) == pendInvTable.end());
   pendInvTable[addr].outsResps = getUpperCacheLevelSize(); 
-  pendInvTable[addr].cb = doInvalidateCB::create(oc, addr, size);
-  
-  if (!isHighestLevel()) {
-    invUpperLevel(addr, size, this);
+  pendInvTable[addr].cb = doInvalidateCB::create(lowerCache, addr, size);
+
+  if (isHighestLevel()) {     // highest level, we have only to 
+    doInvalidate(addr, size); // invalidate the current cache
     return;
   }
-
-  doInvalidate(addr, size);
+    
+  invUpperLevel(addr, size, this);
 }
 
 void Cache::doInvalidate(PAddr addr, ushort size)
@@ -410,7 +469,9 @@ void Cache::doInvalidate(PAddr addr, ushort size)
 
   PendInvTable::iterator it = pendInvTable.find(addr);
   Entry *record = &(it->second);
-  if(--(record->outsResps) <= 0) {
+  record->outsResps--;
+
+  if(record->outsResps <= 0) {
      cb = record->cb;
      pendInvTable.erase(addr);
   }
@@ -420,10 +481,11 @@ void Cache::doInvalidate(PAddr addr, ushort size)
     
     if(l){
       nextSlot();
-      I(l->valid);
-      if(l->dirty) 
+      I(l->isValid());
+      if(l->isDirty()) {
 	doWriteBack(addr);
-      l->valid = false;
+	l->makeClean();
+      }
       l->invalidate();
     } 
     addr += cache->getLineSize();
@@ -434,7 +496,7 @@ void Cache::doInvalidate(PAddr addr, ushort size)
   // wake up callback
   // should take at least as much as writeback (1)
   if(cb)
-    EventScheduler::schedule(2,cb);
+    EventScheduler::schedule((TimeDelta_t) 2,cb);
 }
 
 Time_t Cache::getNextFreeCycle() const // TODO: change name to calcNextFreeCycle
@@ -457,6 +519,8 @@ void Cache::wbuffAdd(PAddr addr)
   ID2(WBuff::const_iterator it =wbuff.find(addr));
 
   wbuff[addr]++;
+  pendingWrites++;
+  avgPendingWrites.sample(pendingWrites);
 
   GI(it == wbuff.end(), wbuff[addr] == 1);
 }
@@ -466,6 +530,9 @@ void Cache::wbuffRemove(PAddr addr)
   WBuff::iterator it = wbuff.find(addr);
   if(it == wbuff.end())
     return;
+
+  pendingWrites--;
+  I(pendingWrites >= 0);
 
   I(it->second > 0);
   it->second--;
@@ -527,8 +594,8 @@ void WBCache::pushLine(MemRequest *mreq)
   // l == 0 if the upper level is sending a push due to a
   // displacement of the lower level
   if (l != 0) {
-    l->valid = true;
-    l->dirty = true;
+    l->validate();
+    l->makeDirty();
   }
   
   nextSlot();
@@ -589,7 +656,8 @@ void WTCache::doWrite(MemRequest *mreq)
 
   writeHit.inc();
 
-  l->dirty = true;
+  //  GLOG(SMPDBG_MSGS, "WTCache::doWrite cache %s addr = 0x%08x, state = %d", 
+  //     getSymbolicName(), (uint) mreq->getPAddr(), l->isInvalid());
 
   writePropagateHandler(mreq); // this is not a proper miss, but a WT cache 
                                // always propagates writes down
@@ -600,13 +668,28 @@ void WTCache::writePropagateHandler(MemRequest *mreq)
   PAddr addr = mreq->getPAddr();
 
   wbuffAdd(addr);
-  if(!mshr->issue(addr)) {
-    mshr->addEntry(addr, doWriteQueuedCB::create(this, mreq),
-		   propagateDownCB::create(this, mreq));
-    return;
-  }
+  if(!mshr->issue(addr))
+    mshr->addEntry(addr, reexecuteDoWriteCB::create(this, mreq),
+		   /*doWriteQueuedCB::create(this, mreq)*/
+		   reexecuteDoWriteCB::create(this, mreq));
+  else
+    propagateDown(mreq);
 
-  propagateDown(mreq);
+  //GLOG(SMPDBG_MSGS, "WTCache::writePropagateHandler cache %s addr = 0x%08x", 
+  //     getSymbolicName(), (uint) mreq->getPAddr());
+}
+
+void WTCache::reexecuteDoWrite(MemRequest *mreq)
+{
+  Line *l = cache->findLine(mreq->getPAddr());
+
+  if(l == 0)
+    sendMiss(mreq);
+  else
+    propagateDown(mreq);
+
+  //GLOG(SMPDBG_MSGS, "WTCache::reexecuteDoWrite cache %s addr = 0x%08x", 
+  //     getSymbolicName(), (uint) mreq->getPAddr());
 }
 
 void WTCache::propagateDown(MemRequest *mreq)
@@ -616,18 +699,32 @@ void WTCache::propagateDown(MemRequest *mreq)
 
 void WTCache::sendMiss(MemRequest *mreq)
 {
-  mreq->mutateWriteToRead();
+  Line *l = cache->readLine(mreq->getPAddr());
+  if (!l)
+    mreq->mutateWriteToRead();
   mreq->goDown(missDelay, lowerLevel[0]);
+
+  //GLOG(SMPDBG_MSGS, "WTCache::sendMiss cache %s addr = 0x%08x", 
+  //     getSymbolicName(), (uint) mreq->getPAddr());
 }
 
 void WTCache::doWriteBack(PAddr addr) 
 {
+  I(0);
   // nothing to do
 }
 
 void WTCache::pushLine(MemRequest *mreq)
 {
   I(0); // should never be called
+}
+
+void WTCache::inclusionCheck(PAddr addr) {
+  const LevelType* la  = getLowerLevel();
+  MemObj*    c  = (*la)[0];
+  const LevelType* lb = c->getLowerLevel();
+  MemObj*    cc = (*lb)[0];
+  I(((SMPCache*)cc)->findLine(addr));
 }
 
 // NICECache is a cache that always hits

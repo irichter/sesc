@@ -490,7 +490,7 @@ void BP2level::switchIn(Pid_t pid)
 {
 #ifdef TASKSCALAR
   TaskContext *tc = TaskContext::getTaskContext(pid);
-  if (tc==0)
+  if (tc==0 || tc->getPid()==-1)
     return;
 
   historyTable[0] = tc->getBPHistory(historyTable[0]);
@@ -501,7 +501,7 @@ void BP2level::switchOut(Pid_t pid)
 {
 #ifdef TASKSCALAR
   TaskContext *tc = TaskContext::getTaskContext(pid);
-  if (tc==0)
+  if (tc==0 || tc->getPid()==-1)
     return;
 
   tc->setBPHistory(historyTable[0]);
@@ -619,7 +619,7 @@ void BPHybrid::switchIn(Pid_t pid)
 {
 #ifdef TASKSCALAR
   TaskContext *tc = TaskContext::getTaskContext(pid);
-  if (tc==0)
+  if (tc==0 || tc->getPid()==-1)
     return;
 
   historyTable[0] = tc->getBPHistory(historyTable[0]);
@@ -630,7 +630,7 @@ void BPHybrid::switchOut(Pid_t pid)
 {
 #ifdef TASKSCALAR
   TaskContext *tc = TaskContext::getTaskContext(pid);
-  if (tc==0)
+  if (tc==0 || tc->getPid()==-1)
     return;
 
   tc->setBPHistory(historyTable[0]);
@@ -774,7 +774,7 @@ void BP2BcgSkew::switchIn(Pid_t pid)
 {
 #ifdef TASKSCALAR
   TaskContext *tc = TaskContext::getTaskContext(pid);
-  if (tc==0)
+  if (tc==0 || tc->getPid()==-1)
     return;
 
   history = tc->getBPHistory(history);
@@ -785,7 +785,7 @@ void BP2BcgSkew::switchOut(Pid_t pid)
 {
 #ifdef TASKSCALAR
   TaskContext *tc = TaskContext::getTaskContext(pid);
-  if (tc==0)
+  if (tc==0 || tc->getPid()==-1)
     return;
 
   tc->setBPHistory(history);
@@ -982,7 +982,7 @@ void BPRap::switchIn(Pid_t pid)
 {
 #ifdef TASKSCALAR
   TaskContext *tc = TaskContext::getTaskContext(pid);
-  if (tc==0)
+  if (tc==0 || tc->getPid()==-1)
     return;
 
   history = tc->getBPHistory(history);
@@ -993,7 +993,7 @@ void BPRap::switchOut(Pid_t pid)
 {
 #ifdef TASKSCALAR
   TaskContext *tc = TaskContext::getTaskContext(pid);
-  if (tc==0)
+  if (tc==0 || tc->getPid()==-1)
     return;
 
   tc->setBPHistory(history);
@@ -1119,7 +1119,7 @@ void BPCRap::switchIn(Pid_t pid)
 {
 #ifdef TASKSCALAR
   TaskContext *tc = TaskContext::getTaskContext(pid);
-  if (tc==0)
+  if (tc==0 || tc->getPid()==-1)
     return;
 
   history = tc->getBPHistory(history);
@@ -1130,7 +1130,7 @@ void BPCRap::switchOut(Pid_t pid)
 {
 #ifdef TASKSCALAR
   TaskContext *tc = TaskContext::getTaskContext(pid);
-  if (tc==0)
+  if (tc==0 || tc->getPid()==-1)
     return;
 
   tc->setBPHistory(history);

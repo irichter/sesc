@@ -101,9 +101,6 @@ void rsesc_postevent(int pid, long vaddr, long type, void *sptr)
  */
 void rsesc_memfence(int pid, long vaddr)
 {
-#ifndef JOE_MUST_DO_IT_OR_ELSE
-  return;
-#endif
   osSim->pid2GProcessor(pid)->addEvent(MemFenceEvent, 0, vaddr);
 }
 
@@ -142,7 +139,7 @@ void rsesc_release(int pid, long vaddr)
  * Called each time that mint has created a new thread. Currently only
  * spawn is supported.
  *
- * pid is the Thread[pid] where the new context have been created. ExecutionFlow
+ * pid is the Thread[pid] where the new context have been created.ExecutionFlow
  * constructor must use this parameter. ppid is the parent thread
  */
 #if (!defined TASKSCALAR)
@@ -160,6 +157,8 @@ int rsesc_exit(int cpid, int err)
 
 void rsesc_finish(int pid)
 {
+
+#if 0
   ProcessId *proc = ProcessId::getProcessId(pid);
   if (proc) {
     if (proc->getState() == RunningState) {
@@ -167,9 +166,12 @@ void rsesc_finish(int pid)
       proc->destroy();
     }
   }
-    
+#else
+  ProcessId::destroyAll();
+#endif
+
   osSim->stopSimulation();
-  osSim->postBoot();
+  osSim->simFinish();
 
   exit(0);
 }
@@ -256,6 +258,30 @@ void rsesc_simulation_mark(int pid)
   }
 }
 
+void rsesc_simulation_mark_id(int pid, int id)
+{
+  if (GFlow::isGoingRabbit()) {
+    MSG("sesc_simulation_mark(%d) %ld (rabbit) inst=%lld", id, osSim->getSimulationMark(id), GFlow::getnExecRabbit());
+    GFlow::dump();
+  }else
+    MSG("sesc_simulation_mark(%d) %ld (simulated) @%lld", id, osSim->getSimulationMark(id), globalClock);
+
+  osSim->eventSimulationMark(id,pid);
+
+#ifdef TS_PROFILING
+  if (ExecutionFlow::isGoingRabbit()) {
+    if (osSim->enoughMarks1() && osSim->getProfiler()->notStart()) {
+      osSim->getProfiler()->recStartInst();
+      osSim->getProfiler()->recInitial(pid);
+    }  
+  }
+#endif  
+
+  if (osSim->enoughMarks2(id)) {
+    mint_termination(pid);
+  }
+}
+
 void rsesc_fast_sim_end(int pid)
 {
   osSim->pid2GProcessor(pid)->addEvent(FastSimEndEvent, 0, 0);
@@ -268,7 +294,10 @@ long rsesc_fetch_op(int pid, enum FetchOpType op, long addr, long *data, long va
 
   osSim->pid2GProcessor(pid)->addEvent(FetchOpEvent, 0, addr);
   long odata = SWAP_WORD(*data);
-  
+
+  if (odata)
+    osSim->pid2GProcessor(pid)->nLockContCycles.inc();
+
   switch(op){
   case FetchIncOp:
     *data = SWAP_WORD(odata+1);
@@ -287,6 +316,22 @@ long rsesc_fetch_op(int pid, enum FetchOpType op, long addr, long *data, long va
 /*  MSG("%d. sesc_fetch_op: %d@0x%lx [%ld]->[%ld] ",pid, (int)op,addr, odata,SWAP_WORD(*data)); */
  
   return odata;
+}
+
+void rsesc_do_unlock(long* data, int val)
+{
+  I(data);
+  *data = SWAP_WORD(val);
+}
+
+typedef CallbackFunction2<long*, int, &rsesc_do_unlock> do_unlockCB;
+
+void rsesc_unlock_op(int pid, long addr, long *data, int val)
+{
+  I(addr);
+  osSim->pid2GProcessor(pid)->addEvent(UnlockEvent, 
+				       do_unlockCB::create(data, val), addr);
+  osSim->pid2GProcessor(pid)->nLocks.inc();
 }
 
 ThreadContext *rsesc_get_thread_context(int pid)
@@ -667,18 +712,23 @@ void rsesc_exception(int pid)
 
 void rsesc_spawn(int ppid, int cpid, long flags)
 {
-  if (ExecutionFlow::isGoingRabbit()) {
-    MSG("spawn not supported in rabbit mode. Sorry");
-    exit(-1);
-  }
+  //if (ExecutionFlow::isGoingRabbit()) {
+  //  MSG("spawn not supported in rabbit mode. Sorry");
+  //  exit(-1);
+  //}
 
 #ifdef ATOMIC
   osSim->eventSpawn(ppid, cpid, flags);
   TaskContext::getTaskContext(ppid)->spawn(cpid);
 #else
+#ifdef TC_PARTIALORDER
+  osSim->eventSpawn(ppid, cpid, flags);
+  TaskContext::normalForkNewDomain(cpid);
+#else
   // New thread must share the same TaskContext
   TaskContext::getTaskContext(ppid)->normalFork(cpid);
   osSim->eventSpawn(ppid, cpid, flags);
+#endif
 #endif
 }
 

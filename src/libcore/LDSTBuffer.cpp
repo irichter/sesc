@@ -25,14 +25,13 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "Instruction.h"
 #include "Resource.h"
 
-LDSTBuffer::EntryType LDSTBuffer::stores;
+LDSTBuffer::EntryType      LDSTBuffer::stores;
+LDSTBuffer::FenceEntryType LDSTBuffer::fences;
 
 DInst *LDSTBuffer::pendingBarrier=0;
 
-bool LDSTBuffer::getFenceEntry(DInst *dinst) 
+void LDSTBuffer::getFenceEntry(DInst *dinst) 
 {
-  const Instruction *inst = dinst->getInst();
-
   /* TODO: My suggestion of implementation for whoever is the nice guy to do
    * it (James?) 
    *
@@ -75,13 +74,19 @@ bool LDSTBuffer::getFenceEntry(DInst *dinst)
    * Acquires.
    * 
    */
-    
+
+  const Instruction *inst = dinst->getInst();
+  int pid = dinst->getCPUId();
+
   I(inst->isFence());
 
 #ifdef LDSTBUFFER_IGNORE_DEPS
   return true;
 #endif
 
+  fences[pid] = dinst;
+
+#if 0
   // TODO: not implemented
   I(0);
 
@@ -94,7 +99,18 @@ bool LDSTBuffer::getFenceEntry(DInst *dinst)
   }
 
   return true;
+#endif
 }
+
+void LDSTBuffer::fenceLocallyPerformed(DInst *dinst)
+{
+  int pid = dinst->getCPUId();
+  FenceEntryType::iterator it = fences.find(pid);
+
+  if (it->second == dinst)
+    fences.erase(it);
+}
+
 
 void LDSTBuffer::getStoreEntry(DInst *dinst) 
 {
@@ -130,7 +146,7 @@ void LDSTBuffer::getLoadEntry(DInst *dinst)
   DInst *pdinst = sit->second;
   I(pdinst->getInst()->isStore());
 
-#ifdef TASKSCALAR
+#if defined(TASKSCALAR) && !defined(TS_PREDMISS)
   if (dinst->getVersionRef() != pdinst->getVersionRef())
     return;
 #else

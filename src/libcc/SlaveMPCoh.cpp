@@ -119,7 +119,7 @@ void SlaveMPCoh::invalidate(PAddr addr, ushort size, MemObj *oc)
 {
 }
 
-bool SlaveMPCoh::canAcceptStore(PAddr addr) const 
+bool SlaveMPCoh::canAcceptStore(PAddr addr)
 { 
   return true; 
 }

@@ -1,25 +1,25 @@
 #the following line has to be before the include
-SIGNATURE=libdsm
+SIGNATURE=libsmp
 include	../Makefile.defs
 ##############################################################################
 .PHONY: all clean
 
 default : all
 
-all: $(OBJ)/dsm.o $(OBJ)/libdsm.a
+all: $(OBJ)/smp.o $(OBJ)/libsmp.a
 
 ##############################################################################
 #                Objects
 ##############################################################################
-OBJS	:= DSMCache.o DMemorySystem.o DSMProtocol.o
+OBJS	:= SMPCache.o SMPSystemBus.o SMemorySystem.o SMPProtocol.o SMPMemRequest.o 
 
 ##############################################################################
 #                             Change Rules                                   # 
 ##############################################################################
 # eclean is called by clean
 eclean:
-	-@rm -f $(OBJ)/libdsm.a
-	-@rm -f $(OBJ)/dsm.o
+	-@rm -f $(OBJ)/libsmp.a
+	-@rm -f $(OBJ)/smp.o
 
 size:
 	-@wc *.cpp *.h

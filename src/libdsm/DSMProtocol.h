@@ -25,8 +25,11 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "MemRequest.h"
 #include "NetAddrMap.h"
 #include "PMessage.h"
+#include "estl.h"
 
 #include "DSMDebug.h"
+
+#include "pool.h"
 
 class DSMCache;
 
@@ -35,11 +38,62 @@ enum Protocol_t {
   DSMData
 }; 
 
+class MsgRecord {
+ private:
+   Time_t startTime;
+   bool cancelled;
+   Message *msg;
+   MemOperation reqType;
+ public:
+   MsgRecord() {
+     cancelled = false;
+     msg = 0;
+   }
+   ~MsgRecord() { // nothing to do 
+   }
+   Time_t getStartTime() {
+     return startTime;
+   }
+   void setStartTime(Time_t time) {
+     startTime = time;
+   }
+   bool isCancelled() {
+     return cancelled;
+   }
+   void cancel() {
+     cancelled = true;
+   }
+   Message *getMessage() {
+     return msg;
+   }
+   void setMessage(Message *message, MemOperation memop) {
+     I(message);
+     startTime = globalClock;
+     cancelled = false;
+     msg       = message;
+     reqType   = memop;
+   }
+   MemOperation getReqType() {
+     return reqType;
+   }
+   void setMemOperation(MemOperation memop) {
+     reqType = memop;
+   }
+};
+
 class DSMProtocol : public ProtocolBase {
 private:
-
 protected:
   
+  static pool<MsgRecord> recordPool;
+  friend class pool<MsgRecord>;
+
+  typedef HASH_MAP<PAddr, MsgRecord *> MsgRecByAddrType;
+  static MsgRecByAddrType msgsInService;
+
+  typedef HASH_MAP<Message *, MsgRecord *, MsgPtrHashFunc> MsgRecByMsgType;
+  static MsgRecByMsgType msgsToCancel;
+
   Protocol_t protocolType;
   
   DSMCache *pCache;
@@ -67,7 +121,14 @@ public:
   virtual void returnAccessBelow(MemRequest *mreq);
   // END interface with cache
 
+  // general purpose routines
   void sendMemMsg(MemRequest *mreq, Time_t when, MessageType msgType);
+  void addToActiveList(Message *message);
+  void addToCancelList(MsgRecord *msgRec);
+  void removeFromActiveList(Message *message);
+  void removeFromCancelList(Message *message);
+  bool isInActiveList(Message *message);
+  bool isInCancelList(Message *message);
 
   // BEGIN interface of ControlProtocol
 

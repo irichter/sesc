@@ -101,9 +101,9 @@ DInst *DInst::createDInst(const Instruction *inst, VAddr va, int cpuId)
   i->first = 0;
 #ifdef DEBUG
   i->ID = currentID++;
+#endif
   i->resource  = 0;
   i->pendEvent = 0;
-#endif
   i->fetch = 0;
   i->loadForwarded= false;
   i->issued       = false;
@@ -130,6 +130,7 @@ DInst *DInst::createDInst(const Instruction *inst, VAddr va, int cpuId)
   i->lvid       = 0;
   IS(i->lvidVersion=0); // not necessary to set to null (Goes together with LVID)
   i->restartVer = 0;
+
 #endif //TASKSCALAR
 
 #if (defined TLS)

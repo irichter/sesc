@@ -38,9 +38,14 @@ GStatsCntr *HVersion::nShift=0;
 GStatsCntr *HVersion::nClaim=0;
 GStatsCntr *HVersion::nRelease=0;
 
+#if 0 //migrating to partial-ordering support
 HVersion *HVersion::oldestTC=0;
 HVersion *HVersion::oldest=0;
 HVersion *HVersion::newest=0;
+#endif
+
+HVersionDomain::VDomainVectorType HVersionDomain::vdVec;
+
 
 GStatsCntr *HVersion::nChildren[HVersion::nChildrenStatsMax];
 
@@ -126,9 +131,9 @@ void HVersion::shiftAllVersions()
 {
   // Shift all the versions (avoid VType overflow)
 
-  I(oldest);
-  HVersion *t   = oldest;
-  VType minBase = oldest->base;
+  I(vDomain->oldest);
+  HVersion *t   = vDomain->oldest;
+  VType minBase = vDomain->oldest->base;
 
   while(t) {
     t->base -= minBase;
@@ -136,7 +141,7 @@ void HVersion::shiftAllVersions()
     t = t->next;
   }
 
-  verify(oldest);
+  verify(vDomain->oldest);
 }
 
 void HVersion::claim()
@@ -249,8 +254,8 @@ HVersion *HVersion::create(TaskContext *t)
   if (cont->next)
     cont->next->prev = cont;
   else {
-    I(newest == this);
-    newest = cont;
+    I(vDomain->newest == this);
+    vDomain->newest = cont;
   }
   
   next = cont;
@@ -316,8 +321,15 @@ HVersion *HVersion::boot(TaskContext *t)
 
   IDP::boot();
 
+  return newFirstVersion(t);
+}
+
+HVersion *HVersion::newFirstVersion(TaskContext *t)
+{
   HVersion *vc = vPool.out();
+  vc->vDomain = HVersionDomain::create();
    
+
   vc->nChild = 0;
   vc->nUsers = 1;
 
@@ -333,14 +345,12 @@ HVersion *HVersion::boot(TaskContext *t)
   vc->killed   = false;
   vc->nOutsReqs = 0;
 
-  oldestTC = vc;
-
-  oldest = vc;
-  newest = vc;
+  vc->vDomain->oldestTC = vc;
+  vc->vDomain->oldest = vc;
+  vc->vDomain->newest = vc;
 
   return vc;
 }
-
 
 void HVersion::garbageCollect(bool noTC)
 {
@@ -360,22 +370,22 @@ void HVersion::garbageCollect(bool noTC)
       I(tc);
       tc = 0;
 
-      if (oldestTC != this && oldestTC->base < base) {
+      if (vDomain->oldestTC != this && vDomain->oldestTC->base < base) {
 	// There are still in-flight instructions or structures pointing to that
 	// version. To avoid to have holes of TC, the HVersion got dequeued
 
 	if (prev) {
 	  prev->next = next;
 	}else{
-	  I(oldest == this);
-	  oldest = next;
+	  I(vDomain->oldest == this);
+	  vDomain->oldest = next;
 	}
 	
 	if (next) {
 	  next->prev = prev;
 	}else{
-	  I(newest == this);
-	  newest = prev;
+	  I(vDomain->newest == this);
+	  vDomain->newest = prev;
 	}
 
 	next = 0;
@@ -385,10 +395,10 @@ void HVersion::garbageCollect(bool noTC)
       }
     }
 
-    if (tc == 0 && oldestTC == this) {
-      oldestTC = next;
-      I(oldestTC);
-      I(oldestTC->tc); // There can be no holes in commited TCs because
+    if (tc == 0 && vDomain->oldestTC == this) {
+      vDomain->oldestTC = next;
+      I(vDomain->oldestTC);
+      I(vDomain->oldestTC->tc); // There can be no holes in commited TCs because
 		       // garbageCollect(true) is called in order
     }
     return;
@@ -407,15 +417,15 @@ void HVersion::garbageCollect(bool noTC)
     I(tc);
     tc = 0;
   }
-  if (oldestTC == this && tc == 0)
-    oldestTC = next;
+  if (vDomain->oldestTC == this && tc == 0)
+    vDomain->oldestTC = next;
 
-  I(oldestTC!= this);
+  I(vDomain->oldestTC!= this);
 
   if (next) {
     next->prev = prev;
   }else{
-    newest = prev;
+    vDomain->newest = prev;
   }
   
   // Remove from link list
@@ -440,10 +450,11 @@ void HVersion::garbageCollect(bool noTC)
       prev->maxi = prev->base + HVersionReclaim;
     }
   }else{
-    oldest = next;
+    vDomain->oldest = next;
   }
 
-  GI(newest == 0 || oldest == 0, oldest == newest && next == 0 && prev == 0);
+  GI(vDomain->newest == 0 || vDomain->oldest == 0, 
+     vDomain->oldest == vDomain->newest && next == 0 && prev == 0);
 
 //  verify(prev);
 
@@ -464,12 +475,13 @@ void HVersion::decOutsReqs()
   nOutsReqs--; 
   I(nOutsReqs>=0);
   if (nOutsReqs == 0)
-    TaskContext::tryPropagateSafeToken();
+    TaskContext::tryPropagateSafeToken(vDomain);
 }
 
 HVersion *HVersion::createSuccessor(TaskContext *t)
 {
   HVersion *cont = create(t);
+  cont->vDomain = vDomain; // successor has the same vDomain
 
   nChild++;
 
@@ -605,4 +617,17 @@ void HVersion::report()
 {
   // The last one includes all the others
   Report::field("HVersion:nChildrenStatsMax=%d", nChildrenStatsMax); 
+}
+
+HVersionDomain *HVersionDomain::create() 
+{
+    HVersionDomain *nvd = new HVersionDomain();
+    vdVec.push_back(nvd);
+    return nvd;
+}
+
+void HVersionDomain::tryPropagateSafeTokenAll()
+{
+for (unsigned int i = 0; i < vdVec.size(); i++)
+  TaskContext::tryPropagateSafeToken(vdVec[i]);
 }

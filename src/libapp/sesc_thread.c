@@ -69,6 +69,13 @@ long sesc_fetch_op(enum FetchOpType op, volatile long *addr, long val){
   exit(-1);
   return 0l;
 }
+
+void sesc_unlock_op(volatile long *addr, long val)
+{
+  fprintf(stderr,"sesc_unlock_op shouldn't be called without a simulator\n");
+  exit(-1);
+}
+
 #else
 /* NOT compiled with -32 */
 
@@ -403,5 +410,9 @@ long sesc_fetch_op(enum FetchOpType op, volatile long *data, long val){
   }
 }
 
+void sesc_unlock_op(volatile long *addr, long val)
+{
+  *addr = val;
+}
 #endif
 

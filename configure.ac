@@ -36,6 +36,7 @@ AC_SUBST(NO_MERGENEXT_OPT)
 AC_SUBST(ATOMIC_OPT)
 AC_SUBST(MPCOH_OPT)
 AC_SUBST(SESC_DSM_OPT)
+AC_SUBST(SESC_SMP_OPT)
 AC_SUBST(SESC_CHERRY_OPT)
 AC_SUBST(SESC_DDIS_OPT)
 
@@ -184,6 +185,15 @@ AC_ARG_ENABLE(cc,
 AC_HELP_STRING([--enable-cc],
 	       [Enables Cache Coherence (default is no)]),
 [if test "$enableval" = "yes"; then AC_COMPOPT(MPCOH) AC_SUBST(DEFEXEC,[sesc.cc]) AC_SUBST(DEFCONF,[nkcc1.conf]) fi],
+)
+
+### Symmetric MultiProcessor
+
+AC_NOCOMPOPT(SESC_SMP)
+AC_ARG_ENABLE(smp,
+AC_HELP_STRING([--enable-smp],
+	       [Enables SMP System (default is no)]),
+[if test "$enableval" = "yes"; then AC_COMPOPT(SESC_SMP) AC_SUBST(DEFEXEC,[sesc.smp]) AC_SUBST(DEFCONF,[smp.conf]) AC_DEFINE(SMP) fi],
 )
 
 ### Distributed Shared Memory

@@ -1,6 +1,7 @@
 #ifndef _MESSAGE_H
 #define _MESSAGE_H
 
+#include "estl.h"
 #include <math.h>
 
 #include "nanassert.h"
@@ -172,6 +173,14 @@ public:
 
   virtual void setInterConnection(InterConnection *intercon);
   void dump();
+};
+
+class MsgPtrHashFunc {
+public: 
+  size_t operator()(const Message *msg) const {
+    HASH<const char *> H;
+    return H((const char *) msg);
+  }
 };
 
 

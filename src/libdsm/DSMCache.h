@@ -32,11 +32,12 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "vector"
 
 class DSMCache : public MemObj {
-private:
-protected:
+public:
   typedef CacheGeneric<DSMCacheState, PAddr, false>            CacheType;
   typedef CacheGeneric<DSMCacheState, PAddr, false>::CacheLine Line;
 
+private:
+protected:
   CacheType *cache;
 
   PortGeneric *cachePort;
@@ -64,19 +65,16 @@ protected:
   Time_t nextSlot() {
     return cachePort->nextSlot();
   }
-  
-  // local management - line displacement
+
+  // local routines
+  void doRead(MemRequest *mreq);
+  void doWrite(MemRequest *mreq);
   void doWriteBack(PAddr addr) const;
 
-  // interface with protocol
-  void doReadBelow(MemRequest *mreq, bool queued);
-  void doWriteBelow(MemRequest *mreq, bool queued);
-
-  typedef CallbackMember2<DSMCache, MemRequest *, bool, &DSMCache::doReadBelow> 
-    doReadBelowCB;
-  typedef CallbackMember2<DSMCache, MemRequest *, bool, &DSMCache::doWriteBelow> 
-    doWriteBelowCB;
-
+  typedef CallbackMember1<DSMCache, MemRequest *, 
+                         &DSMCache::doRead> doReadCB;
+  typedef CallbackMember1<DSMCache, MemRequest *,
+                         &DSMCache::doWrite> doWriteCB;
 
 public:
   DSMCache(DMemorySystem *gms, const char *section, const char *name);
@@ -96,9 +94,10 @@ public:
   Time_t getNextFreeCycle() const;
 
   // interface with upper level
-  bool canAcceptStore(PAddr addr) const;
+  bool canAcceptStore(PAddr addr);
   void access(MemRequest *mreq);
-  void invalidate(PAddr addr, ushort size, CallbackBase *cb);
+  void invalidate(PAddr addr, ushort size, MemObj *oc);
+  void doInvalidate(PAddr addr, ushort size);
   
   // interface with lower level
   void returnAccess(MemRequest *mreq);
@@ -118,8 +117,8 @@ public:
   // line management - actions protocol can perform on cache lines
   Line *allocateLine(PAddr addr);
   Line *getLine(PAddr addr);
-  void updateLine(PAddr addr, Line *line);
-  void invalidateLine(PAddr addr, Line *line);
+  void updateLine(PAddr addr);
+  void invalidateLine(PAddr addr);
 
   // interface to get pointer to another protocol
   // this should be extended for more complex protocols

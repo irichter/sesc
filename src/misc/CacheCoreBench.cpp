@@ -4,7 +4,7 @@
 #include "ReportGen.h"
 #include "CacheCore.h"
 
-class SampleState : public StateGeneric<SampleState, long ,false> {
+class SampleState : public StateGeneric<long> {
 public:
   int id;
 

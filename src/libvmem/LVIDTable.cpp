@@ -153,12 +153,12 @@ LVIDSafest::LVIDSafest(const char *section, LVIDTable *m, ushort i)
 
 const HVersion *LVIDSafest::getVersionRef() const 
 {
-  return HVersion::getOldestRef();
+  return HVersion::getOldestRef(clver->getVersionDomain());
 }
 
 HVersion *LVIDSafest::getVersionDuplicate() const 
 {
-  return HVersion::getOldestDuplicate();
+  return HVersion::getOldestDuplicate(clver->getVersionDomain());
 }
 
 void LVIDSafest::decLinesUsed()
