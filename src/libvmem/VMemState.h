@@ -71,21 +71,23 @@ protected:
 
 public:
 
-#ifdef TS_USE_MOSTSPEC
+#ifdef TS_USE_SPECBITS
   bool isMostSpecLine() const {  return mostSpecLine;  }
   void setMostSpecLine() { 
     mostSpecLine = true; 
+  }
+  bool isLeastSpecLine() const { return leastSpecLine; }
+  void setLeastSpecLine() { 
+    leastSpecLine = true;
   }
 #else
   bool isMostSpecLine() const {  return false;  }
   void setMostSpecLine() { 
   }
-#endif
-
-  bool isLeastSpecLine() const { return leastSpecLine; }
+  bool isLeastSpecLine() const { return false; }
   void setLeastSpecLine() { 
-    leastSpecLine = true;
   }
+#endif
 
   void clearState();
   void copyStateFrom(const VMemState *st);

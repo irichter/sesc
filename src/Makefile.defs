@@ -253,8 +253,8 @@ DEFS	+=-DVMEM_PRED_FORWARD
 # Implement a directory in the VBus
 #DEFS	+=-DVMEM_DIR
 
-# Use the most Speculative bit per cache line
-#DEFS	+=-DTS_USE_MOSTSPEC
+# Use the most/least Speculative bit per cache line
+DEFS	+=-DTS_USE_SPECBITS
 
 ifndef TS_BASELINE
 ################################################ 
