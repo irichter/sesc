@@ -375,17 +375,27 @@ static void create_addr_space()
 
   Mem_size = Mem_size+Stack_size*Max_nprocs;
 
+  // Data_end includes Bss (may or may not include Rdata)
+  Data_end  = Data_start  + Heap_start_rel;
+  Rdata_end = Rdata_start + Rdata_size;
+
   Private_start = (long)allocate2(Mem_size);
   Private_end   = Private_start + Mem_size;
+
+  if (((ulong)Private_end > (ulong)Data_start  && (ulong)Private_end < (ulong)Data_end)
+      || ((ulong)Private_start > (ulong)Data_start  && (ulong)Private_start < (ulong)Data_end)) {
+    long oldSpace = Private_start;
+    Private_start = (long)allocate2(Mem_size);
+    fprintf(stderr,"Overlap: Shifting address space [0x%x] -> [0x%x]\n",oldSpace, Private_start);
+    free((void *)oldSpace);
+    Private_end   = Private_start + Mem_size;
+  }
 
   pthread = ThreadContext::getMainThreadContext();
 
   signed long addrSpace = Private_start;
   signed long rdataMap  = Private_start - Rdata_start;
-  
-  // Data_end includes Bss (may or may not include Rdata)
-  Data_end  = Data_start  + Heap_start_rel;
-  Rdata_end = Rdata_start + Rdata_size;
+ 
 
   addr = (long *) addrSpace;
 

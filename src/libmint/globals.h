@@ -90,12 +90,6 @@ EXTERN unsigned long Rdata_seek;		/* seek offset in file for rdata section */
 EXTERN unsigned long Data_seek;		/* seek offset in file for data section */
 EXTERN unsigned long Sdata_seek;		/* seek offset in file for sdata section */
 
-/* default sizes for memory segments */
-
-#ifndef PRDA_START
-#define PRDA_START (PRIVATE_START - ((MAXPROC) * (PRDA_SIZE)))
-#endif
-
 /* default stack size */
 #ifndef STACK_SIZE
 #define STACK_SIZE (32 * 1024)
