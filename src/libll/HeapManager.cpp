@@ -1,5 +1,19 @@
-
 #include "HeapManager.h"
+#include "ReportGen.h"
+
+HeapManager::HeapManager(Address base, size_t size)
+  : refCount(0), begAddr(base), endAddr(base){
+  // The base and the size need to be non-zero multiples of MinBlockSize
+  I(base&&!(base&MinBlockMask));
+  I(size&&!(size&MinBlockMask));
+  BlockInfo *blockInfo=new BlockInfo(base,size);
+  freeByAddr.insert(BlockInfo(base,size));
+  freeBySize.insert(BlockInfo(base,size));
+}
+
+HeapManager::~HeapManager(void){
+  Report::field("HeapManager:maxHeapSize=0x%08lx",endAddr-begAddr);         
+}
 
 Address HeapManager::allocate(size_t size)
 {
@@ -13,11 +27,13 @@ Address HeapManager::allocate(size_t size)
   BlocksByAddr::iterator addrIt=freeByAddr.find(BlockInfo(blockBase,foundSize));
   freeBySize.erase(sizeIt);
   freeByAddr.erase(addrIt);
-  busyByAddr.insert(BlockInfo(blockBase,blockSize));
+  busyByAddr.insert(BlockInfo(blockBase,size));
   if(foundSize>blockSize){
     freeBySize.insert(BlockInfo(blockBase+blockSize,foundSize-blockSize));
     freeByAddr.insert(BlockInfo(blockBase+blockSize,foundSize-blockSize));
   }
+  if(blockBase+blockSize>(size_t)endAddr)
+    endAddr=blockBase+blockSize;
   return blockBase;
 }
 
@@ -62,6 +78,8 @@ Address HeapManager::allocate(Address addr, size_t size)
     I(foundSize==blockSize);
   }
   busyByAddr.insert(BlockInfo(addr,blockSize));
+  if(addr+blockSize>(size_t)endAddr)
+    endAddr=addr+blockSize;
   return addr;
 }
 
@@ -71,8 +89,8 @@ size_t HeapManager::deallocate(Address addr)
   BlocksByAddr::iterator busyIt=busyByAddr.find(BlockInfo(addr,0));
   I(busyIt!=busyByAddr.end());
   Address blockAddr=busyIt->addr;
-  size_t  blockSize=busyIt->size;
-  size_t oldBlockSize=blockSize;
+  size_t  oldBlockSize=busyIt->size;
+  size_t  blockSize=roundUp(oldBlockSize);
   I(blockAddr==addr);
   busyByAddr.erase(busyIt);
   BlocksByAddr::iterator addrIt=freeByAddr.upper_bound(BlockInfo(blockAddr,0));

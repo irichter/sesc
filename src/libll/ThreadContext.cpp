@@ -11,6 +11,10 @@
 
 #include "Events.h"
 
+#if (defined TLS)
+#include "Epoch.h"
+#endif
+
 extern icode_ptr Idone1;         /* calls terminator1() */
 // void malloc_share(thread_ptr child, thread_ptr parent);
 
@@ -344,6 +348,10 @@ void ThreadContext::shareAddrSpace(thread_ptr parent, int share_all, int copy_st
   fcr31 = parent->fcr31;
 
   if (copy_stack) {
+#if (defined TLS)
+    // Need to use TLS read/write methods to properly copy the stack
+    I(!copy_stack);
+#endif
     /* copy the stack */
     unsigned parent_sp = parent->reg[29];
 
@@ -488,4 +496,13 @@ void ThreadContext::newChild(ThreadContext *child)
  
   child->sibling = youngest;
   youngest = child;
+}
+
+Pid_t ThreadContext::getThreadPid(void) const{
+#if (defined TLS)
+  I(getEpoch());
+  return getEpoch()->getTid();
+#else
+  return getPid();
+#endif
 }

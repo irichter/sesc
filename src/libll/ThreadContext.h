@@ -34,6 +34,7 @@ enum NameGPR {
   Arg1stGPR  = 4,
   Arg2ndGPR  = 5,
   Arg3rdGPR  = 6,
+  Arg4thGPR  = 7,
   RetAddrGPR = 31
 };
 
@@ -142,12 +143,21 @@ public:
     picode=newIP;
   }
   
+  // Returns the pid of the thread (what would be returned by a getpid call)
+  // In TLS, many contexts can share the same actual thread pid
+  Pid_t getThreadPid(void) const;
+  // Returns the pid of the context
   Pid_t getPid(void) const { return pid; }
+  // Sets the pid of the context
   void setPid(Pid_t newPid){
     pid=newPid;
   }
 
-  void setErrno(int newErrno) {
+  int getErrno(void){
+    return *perrno;
+  }
+
+  void setErrno(int newErrno){
     I(perrno);
     *perrno=newErrno;
   }

@@ -10,6 +10,10 @@ class HeapManager {
 private:
   // Reference counter for garbage collection
   size_t refCount;
+  // Used to determine minimum required heap size
+  Address begAddr;
+  Address endAddr;
+
   // Minimum block size. Everything is aligned to this size
   enum {MinBlockSize=32, MinBlockMask=MinBlockSize-1};
   struct BlockInfo {
@@ -37,14 +41,8 @@ private:
   BlocksByAddr busyByAddr;
   BlocksByAddr freeByAddr;
   BlocksBySize freeBySize;
-  HeapManager(Address base, size_t size) {
-    // The base and the size need to be non-zero multiples of MinBlockSize
-    I(base&&!(base&MinBlockMask));   
-    I(size&&!(size&MinBlockMask));
-    BlockInfo *blockInfo=new BlockInfo(base,size);
-    freeByAddr.insert(BlockInfo(base,size));
-    freeBySize.insert(BlockInfo(base,size));
-  }
+  HeapManager(Address base, size_t size);
+  ~HeapManager(void);
 public:
   static HeapManager *create(Address base, size_t size){
     return new HeapManager(base,size);
@@ -63,7 +61,6 @@ public:
   Address allocate(size_t size);
   Address allocate(Address addr, size_t size);
   size_t deallocate(Address addr);
-
 };
 
 #endif
