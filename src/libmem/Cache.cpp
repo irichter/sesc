@@ -583,7 +583,6 @@ void WTCache::doWrite(MemRequest *mreq)
   Line *l = cache->writeLine(mreq->getPAddr());
 
   if(l == 0) {
-    writeMiss.inc();
     writeMissHandler(mreq);
     return;
   }
