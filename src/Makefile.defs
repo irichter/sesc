@@ -33,6 +33,8 @@ endif # DEBUG
 
 VPATH	=$(OBJ):$(SRC_DIR):$(BUILD_DIR):.
 
+#DEFS	+=-DTRACE_DRIVEN
+
 ##############################################################################
 M4_MACROS = $(SRC_DIR)/libmint/m4.macros
 ##############################################################################
@@ -143,7 +145,7 @@ endif
 ################################################
 # Use Bloom Filter on the LD/ST Queue. Improve the efficiency.
 
-DEFS   +=-DSESC_MEMBF
+#DEFS   +=-DSESC_MEMBF
 
 ##############################################################################
 # Instruction Pre-Schedule (schedule the instruction once it has been
