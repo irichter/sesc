@@ -1,0 +1,50 @@
+#################
+# SUNOS specific
+#
+
+DEFS	+=-DSUNOS
+AABI	:=
+ABI	:=
+ABINAME :=SunOS
+##########################################################
+##############
+# gcc
+PDEFS	:=-Wall -W -Wno-unused 
+CXX	=g++
+CC	=gcc
+
+ifdef DEBUG
+COPTS	:=-O0 -g -fno-inline-functions $(PDEFS)
+LOPTS	:=-O0
+else
+# -fast does not work by default. Dissable some opts
+COPTS	:=-O3 -g1 -finline-functions -finline-limit=1800
+COPTS +=-funroll-loops -fsched-interblock -fomit-frame-pointer
+LOPTS	:=-O2
+endif
+
+# Shared COPTS (do not affect debugging)
+# Machine specific. G4 processor by default
+ifdef MINT_TARGET
+COPTS	+= -mcpu=$(MINT_TARGET)
+else
+COPTS	+= -msupersparc
+endif
+# Platform neutral
+COPTS +=-ffast-math -fno-exceptions -fno-strict-aliasing -freg-struct-return 
+##############################################################################
+
+##############################################################################
+
+ARFLAGS	:=cr
+SHELL	=/usr/bin/bash
+AS	=as
+LD	=ld
+AR	=ar
+M4	=m4
+MAKE	=gmake
+RANLIB	=ranlib
+FIND	=find
+# The default sed does not accept long lines (POJ of SUN)
+SED	=/usr/xpg4/bin/sed
+
