@@ -44,9 +44,9 @@ const char *NanassertID = "";
 
 void nanassertexit(){
 #if (defined TLS)
-  // Raising SIGNUSR1 here helps debugging a lot
-  // It is ignored in normal execution, but stop execution in gdb
-  raise(SIGUSR1);
+  // Raising SIGUSR2 here helps debugging a lot
+  // It is ignored in normal execution, but stops execution in gdb
+  raise(SIGUSR2);
 #endif
   return;
 }
