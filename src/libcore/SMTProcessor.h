@@ -49,7 +49,7 @@ private:
 
   class Fetch {
   public:
-    Fetch(GMemorySystem *gm, CPU_t cpuID, int cid, FetchEngine *fe=0);
+    Fetch(GMemorySystem *gm, CPU_t cpuID, int cid, GProcessor *gproc, FetchEngine *fe=0);
     ~Fetch();
 
     FetchEngine IFID;
@@ -69,7 +69,7 @@ private:
 
 protected:
   // BEGIN VIRTUAL FUNCTIONS of GProcessor
-  DInst **getRAT(const DInst *dinst);
+  DInst **getRAT(const int contextId);
   FetchEngine *currentFlow();
 
   void saveThreadContext(Pid_t pid);

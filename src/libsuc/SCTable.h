@@ -37,9 +37,14 @@ private:
  public:
   SCTable(int id, const char *str, size_t size, uchar bits=2);
 
+  void clear(ulong cid); // Bias to not-taken
   void reset(ulong cid, bool taken);
-  bool predict(ulong cid); // Only predict do not update
   bool predict(ulong cid, bool taken); // predict and update
+  void update(ulong cid, bool taken);
+
+  bool predict(ulong cid)  const;
+  bool isLowest(ulong cid) const;
+  bool isHighest(ulong cid) const;
 };
 
 #endif

@@ -6,7 +6,7 @@
                   Basilio Fraguela
                   James Tuck
                   Milos Prvulovic
-		  Luis Ceze
+                  Luis Ceze
 
 This file is part of SESC.
 
@@ -27,36 +27,56 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 #include "Processor.h"
 
+#include "Cache.h"
 #include "FetchEngine.h"
+#include "GMemorySystem.h"
 #include "ExecutionFlow.h"
 #include "OSSim.h"
 
-
-//#define SESC_INORDER
-
 Processor::Processor(GMemorySystem *gm, CPU_t i)
   :GProcessor(gm, i, 1)
-  ,IFID(i, i, gm)
-   ,pipeQ(i)
+  ,IFID(i, i, gm, this)
+  ,pipeQ(i)
 {
   spaceInInstQueue = InstQueueSize;
 
   bzero(RAT,sizeof(DInst*)*NumArchRegs);
 
+  l1Cache = gm->getDataSource();
+
 #ifdef SESC_INORDER
+  TimeDelta_t l1HitDelay = SescConf->getLong(l1Cache->getDescrSection(),"hitDelay");
+
   bzero(RATTIME,sizeof(Time_t*)*NumArchRegs);
+  const char *cpucore = SescConf->getCharPtr("","cpucore", i);
+  I(cpucore);
 
-  latencyVal[iALU]       = SescConf->getLong("FXClusterIssueX", "iALULat");    
-  latencyVal[iMult]      = SescConf->getLong("FXClusterIssueX", "iMultLat");          
-  latencyVal[iDiv]       = SescConf->getLong("FXClusterIssueX", "iDivLat");          
-  latencyVal[iBJ]        = SescConf->getLong("FXClusterIssueX", "iBJLat");        
-  latencyVal[iLoad]      = SescConf->getLong("FXClusterIssueX", "iLoadLat");        
-  latencyVal[iStore]     = SescConf->getLong("FXClusterIssueX", "iStorelat");       
-  latencyVal[fpALU]      = SescConf->getLong("FPClusterIssueX", "fpALULat");        
-  latencyVal[fpMult]     = SescConf->getLong("FPClusterIssueX", "fpMultLat");       
-  latencyVal[fpDiv]      = SescConf->getLong("FPClusterIssueX", "fpDivLat");         
+  int nClusters = SescConf->getRecordSize(cpucore,"cluster");
+  for(int i=0 ; i< nClusters; i++) {
+    const char *cluster = SescConf->getCharPtr(cpucore,"cluster", i);
+    I(cluster);
+
+    if (SescConf->checkLong(cluster, "iALULat"))
+      latencyVal[iALU]       = SescConf->getLong(cluster, "iALULat");
+    if (SescConf->checkLong(cluster, "iMultLat"))
+      latencyVal[iMult]      = SescConf->getLong(cluster, "iMultLat");
+    if (SescConf->checkLong(cluster, "iDivLat"))
+      latencyVal[iDiv]       = SescConf->getLong(cluster, "iDivLat");
+    if (SescConf->checkLong(cluster, "iBJLat"))
+      latencyVal[iBJ]        = SescConf->getLong(cluster, "iBJLat");
+    if (SescConf->checkLong(cluster, "iLoadLat"))
+      latencyVal[iLoad]      = SescConf->getLong(cluster, "iLoadLat") + l1HitDelay;
+    if (SescConf->checkLong(cluster, "iStorelat"))
+      latencyVal[iStore]     = SescConf->getLong(cluster, "iStorelat");
+    if (SescConf->checkLong(cluster, "fpALULat"))
+      latencyVal[fpALU]      = SescConf->getLong(cluster, "fpALULat");
+    if (SescConf->checkLong(cluster, "fpMultLat"))
+      latencyVal[fpMult]     = SescConf->getLong(cluster, "fpMultLat");
+    if (SescConf->checkLong(cluster, "fpDivLat"))
+      latencyVal[fpDiv]      = SescConf->getLong(cluster, "fpDivLat");
+  }
+
 #endif
-
 }
 
 Processor::~Processor()
@@ -64,8 +84,9 @@ Processor::~Processor()
   // Nothing to do
 }
 
-DInst **Processor::getRAT(const DInst *dinst)
+DInst **Processor::getRAT(const int contextId)
 {
+  I(contextId == Id);
   return RAT;
 }
 
@@ -184,6 +205,20 @@ void Processor::advanceClock()
   retire();
 }
 
+#ifdef SESC_INORDER
+bool Processor::isStall(DInst *dinst)
+{
+ if (dinst == 0)
+    return false;
+
+ const Instruction *tempinst = dinst->getInst();
+ if (tempinst->getOpcode() != iLoad)
+    return false;
+
+ return !static_cast<Cache *>(l1Cache)->isInCache(static_cast<PAddr>(dinst->getVaddr()));
+}
+#endif
+
 StallCause Processor::addInst(DInst *dinst) 
 {
   const Instruction *inst = dinst->getInst();
@@ -191,38 +226,40 @@ StallCause Processor::addInst(DInst *dinst)
 #ifdef SESC_INORDER
   if (InOrderCore) {
     // Update the RATTIME for the destiantion register
-    Time_t newtime = globalClock;
-    newtime += latencyVal[inst->getOpcode()];
+    Time_t newTime = globalClock;
+    newTime += latencyVal[inst->getOpcode()];
     
-    if (RAT[inst->getSrc1()] != 0) {
-     const Instruction *tempinst = RAT[inst->getSrc1()]->getInst();
-     if (tempinst->getOpcode() == iLoad)
-       return SmallWinStall;
-    }	
-      
-    if (RAT[inst->getSrc2()] != 0) {
-      const Instruction  *tempinst = RAT[inst->getSrc2()]->getInst();
-     if (tempinst->getOpcode() == iLoad)
-       return SmallWinStall;
+    if (isStall(RAT[inst->getSrc1()])
+        || isStall(RAT[inst->getSrc2()])
+#ifdef SESC_INORDER_OUT_DEPS
+        || isStall(RAT[inst->getDest()])
+#endif
+        ) {
+      return SmallWinStall;
     }
-
-    if (RAT[inst->getDest()] != 0) {
-     const Instruction  *tempinst = RAT[inst->getDest()]->getInst();
-     if(tempinst->getOpcode() == iLoad)
-       return SmallWinStall;
-    } 
-    
+      
     if (RATTIME[inst->getSrc1()] > globalClock
        || RATTIME[inst->getSrc2()] > globalClock
+#ifdef SESC_INORDER_OUT_DEPS
        || RATTIME[inst->getDest()] > globalClock 
-	) {
+#endif
+        ) {
       I(RAT[inst->getSrc1()] != 0 || RAT[inst->getSrc2()] != 0 || RAT[inst->getDest()] != 0);
       return SmallWinStall;
     }
 
+    {
+      // Instructions can not be issued out-of-order
+      static Time_t lastTime = 0;
+      if (lastTime > newTime) {
+        return SmallWinStall;
+      }
+      lastTime = newTime;
+    }
+
     // No Stalls occured  
-    RATTIME[inst->getDest()] = newtime;
-  } 
+    RATTIME[inst->getDest()] = newTime;
+  }
  
 #else
   if (InOrderCore) {
@@ -237,6 +274,7 @@ StallCause Processor::addInst(DInst *dinst)
   StallCause sc = sharedAddInst(dinst);
   if (sc != NoStall)
     return sc;
+
 
   I(dinst->getResource() != 0); // Resource::schedule must set the resource field
 

@@ -52,11 +52,10 @@ void SCTable::reset(ulong cid, bool taken)
   table[cid & sizeMask] = taken ? Saturate : Saturate-1;
 }
 
-bool SCTable::predict(ulong cid)
+void SCTable::clear(ulong cid)
 {
-  uchar *entry = &table[cid & sizeMask];
-
-  return (*entry >= Saturate);
+  // Bias to not-taken
+  table[cid & sizeMask] = 0;
 }
 
 bool SCTable::predict(ulong cid, bool taken)
@@ -74,4 +73,38 @@ bool SCTable::predict(ulong cid, bool taken)
   }
 
   return ptaken;
+}
+
+void SCTable::update(ulong cid, bool taken)
+{
+  uchar *entry = &table[cid & sizeMask];
+
+  if(taken) {
+    if(*entry < MaxValue)
+      *entry = (*entry) + 1;
+  } else {
+    if(*entry > 0)
+      *entry = (*entry) - 1;
+  }
+}
+
+bool SCTable::predict(ulong cid) const
+{
+  uchar *entry = &table[cid & sizeMask];
+
+  return (*entry >= Saturate);
+}
+
+bool SCTable::isLowest(ulong cid) const 
+{
+  uchar *entry = &table[cid & sizeMask];
+
+  return (*entry == 0);
+}
+
+bool SCTable::isHighest(ulong cid) const
+{
+  uchar *entry = &table[cid & sizeMask];
+
+  return (*entry == MaxValue);
 }

@@ -502,9 +502,7 @@ void BP2level::switchOut(Pid_t pid)
 
 BPHybrid::BPHybrid(int i, const char *section)
   :BPred(i,section,"Hybrid")
-   ,btb(i, section)
-   ,l1Size(SescConf->getLong(section,"l1Size"))
-   ,l1SizeMask(l1Size - 1)
+  ,btb(i, section)
    ,historySize(SescConf->getLong(section,"historySize"))
    ,historyMask((1 << historySize) - 1)
    ,globalTable(i,section
@@ -527,26 +525,16 @@ BPHybrid::BPHybrid(int i, const char *section)
   SescConf->isPower2(section  , "MetaSize");
   SescConf->isBetween(section , "MetaBits", 1, 7);
 
-  SescConf->isLong(section,     "l1Size");
-  SescConf->isPower2(section,   "l1Size");
-  SescConf->isBetween(section,  "l1Size", 0, 32768);
-
   SescConf->isLong(section,    "historySize");
   SescConf->isBetween(section, "historySize", 1, 63);
 
   SescConf->isLong(section,   "l2Size");
   SescConf->isPower2(section, "l2Size");
   SescConf->isBetween(section,"l2Bits", 1, 7);
-
-  I((l1Size & (l1Size - 1)) == 0);
-
-  historyTable = new HistoryType[l1Size];
-  I(historyTable);
 }
 
 BPHybrid::~BPHybrid()
 {
-  delete historyTable;
 }
 
 PredType BPHybrid::predict(const Instruction *inst, InstID oracleID, bool doUpdate)
@@ -558,12 +546,12 @@ PredType BPHybrid::predict(const Instruction *inst, InstID oracleID, bool doUpda
 
   bool taken = (inst->calcNextInstID() != oracleID);
   HistoryType iID     = calcInstID(inst);
-  ushort      l1Index = iID & l1SizeMask;
-  HistoryType l2Index = historyTable[l1Index];
+  HistoryType l2Index = ghr;
 
   // update historyTable statistics
-  if (doUpdate)
-    historyTable[l1Index] = ((l2Index << 1) | ((iID>>2 & 1)^(taken?1:0))) & historyMask;
+  if (doUpdate) {
+    ghr = ((ghr << 1) | ((iID>>2 & 1)^(taken?1:0))) & historyMask;
+  }
 
   // calculate Table possition
   l2Index = ((l2Index ^ iID) & historyMask ) | (iID<<historySize);
@@ -812,6 +800,8 @@ void BP2BcgSkew::switchOut(Pid_t pid)
 BPyags::BPyags(int i, const char *section)
   :BPred(i,section,"yags")
   ,btb(i,  section)
+  ,historySize(24)
+  ,historyMask((1 << 24) - 1)
   ,table(i,section
            ,SescConf->getLong(section,"size")
            ,SescConf->getLong(section,"bits"))
@@ -867,59 +857,61 @@ PredType BPyags::predict(const Instruction *inst, InstID oracleID,bool doUpdate)
     return btb.predict(inst, oracleID, doUpdate);
 
   bool taken = (inst->calcNextInstID() != oracleID);
+  HistoryType iID      = calcInstID(inst);
+  HistoryType iIDHist  = ghr;
+
+
+  bool choice;
+  if (doUpdate) {
+    ghr = ((ghr << 1) | ((iID>>2 & 1)^(taken?1:0))) & historyMask;
+    choice = table.predict(iID, taken);
+  }else
+    choice = table.predict(iID);
+
+  iIDHist = ((iIDHist ^ iID) & historyMask ) | (iID<<historySize);
 
   bool ptaken;
-  if (doUpdate)
-    ptaken = table.predict(calcInstID(inst), taken);
-  else
-    ptaken = table.predict(calcInstID(inst));
+  if (choice) {
+    ptaken = true;
 
-  bool cacheHit;
-
-  HistoryType tag;
-  HistoryType cacheIndex;
-
-  if (ptaken == true) {
     // Search the not taken cache. If we find an entry there, the
     // prediction from the cache table will override the choice table.
 
-    cacheIndex = calcInstID(inst) & CacheNotTakenMask;
-
-    tag = inst->currentID() & CacheNotTakenTagMask;
-
-    cacheHit = (CacheNotTaken[cacheIndex] == tag);
+    HistoryType cacheIndex = iIDHist & CacheNotTakenMask;
+    HistoryType tag        = iID & CacheNotTakenTagMask;
+    bool cacheHit          = (CacheNotTaken[cacheIndex] == tag);
 
     if (cacheHit) {
       if (doUpdate) {
         CacheNotTaken[cacheIndex] = tag;
-        ptaken = ctableNotTaken.predict(calcInstID(inst), taken);
+        ptaken = ctableNotTaken.predict(iIDHist, taken);
       } else {
-        ptaken = ctableNotTaken.predict(calcInstID(inst));
+        ptaken = ctableNotTaken.predict(iIDHist);
       }
     } else if ((doUpdate) && (taken == false)) {
       CacheNotTaken[cacheIndex] = tag;
-      (void)ctableNotTaken.predict(calcInstID(inst), taken);
+      (void)ctableNotTaken.predict(iID, taken);
     }
   } else {
+    ptaken = false;
     // Search the taken cache. If we find an entry there, the prediction
     // from the cache table will override the choice table.
 
-    cacheIndex = calcInstID(inst) & CacheTakenMask;
-
-    tag = inst->currentID() & CacheTakenTagMask;
-
-    cacheHit = (CacheTaken[cacheIndex] == tag);
+    HistoryType cacheIndex = iIDHist & CacheTakenMask;
+    HistoryType tag        = iID & CacheTakenTagMask;
+    bool cacheHit          = (CacheTaken[cacheIndex] == tag);
 
     if (cacheHit) {
       if (doUpdate) {
         CacheTaken[cacheIndex] = tag;
-        ptaken = ctableTaken.predict(calcInstID(inst), taken);
+        ptaken = ctableTaken.predict(iIDHist, taken);
       } else {
-        ptaken = ctableTaken.predict(calcInstID(inst));
+        ptaken = ctableTaken.predict(iIDHist);
       }
     } else if ((doUpdate) && (taken == true)) {
         CacheTaken[cacheIndex] = tag;
-        (void)ctableTaken.predict(calcInstID(inst), taken);
+        (void)ctableTaken.predict(iIDHist, taken);
+	ptaken = false;
     }
   }
 
@@ -942,350 +934,7 @@ void BPyags::switchOut(Pid_t pid)
 
 }
 
-/*****************************************
- * RAP Recent Address Predictor
- *
- */
 
-BPRap::BPRap(int i, const char *section)
-  : BPred(i,section,"Rap")
-#ifdef RAP_T_NT_ONLY
-  ,btb(i,section, "CBTB")
-#endif
-  ,historySize(SescConf->getLong(section,"historySize"))
-  ,historyMask((1LL << historySize) - 1)
-  ,BufferSize(SescConf->getLong(section,"size"))
-{
-  // Constraints
-/*
- * historySize, size, preType
- */
-
-  SescConf->isLong(section, "historySize");
-  SescConf->isBetween(section, "historySize", 1, 63);
-
-  SescConf->isLong(section, "size");
-  SescConf->isGT(section, "size", 1);
-
-  SescConf->isCharPtr(section, "preType");
-
-  prePred = BPredictor::getBPred(i, SescConf->getCharPtr(section,"preType"));
-  
-  // Init
-  history = 0x55555555;
-
-  buffer = new PathHistoryEntry[BufferSize];
-  bufferPos = 0;
-
-#ifdef RAP_T_NT_ONLY
-  Report::field("RAP:T/NT predictor (RAP_T_NT_ONLY=1 compile option)");
-#endif
-
-}
-
-BPRap::~BPRap()
-{
-  delete buffer;
-
-  delete prePred;
-}
-
-BPred::HistoryType BPRap::newHistory(HistoryType iID, bool taken)
-{
-//  return history<<1 | ((iID>>2 & 1)^(taken?1:0));
-  return ((history<<1) ^ (iID>>2 & 0xFE)) | (taken?1:0);
-}
-
-PredType BPRap::predict(const Instruction *inst, InstID oracleID, bool doUpdate)
-{
-  bpredEnergy->inc();
-
-  if (inst->isBranchTaken())
-    return prePred->predict(inst, oracleID, doUpdate);
-
-  bool taken  = (inst->calcNextInstID() != oracleID);
-
-  HistoryType iID = calcInstID(inst);
-  PredType iPred  = prePred->predict(inst, oracleID, doUpdate);
-  
-  // RAP Section
-  HistoryType nid = iID;
-  nid = nid<<48 ^ nid<<24 ^ iID;
-  HistoryType key = (nid^history) & historyMask;
-  if (key == 0)
-    key =1;
-
-  if (doUpdate)
-    history = newHistory(iID,(inst->calcNextInstID() != oracleID));
-
-  Key2PosType::iterator it = key2pos.find(key);
-
-  if (it != key2pos.end()) {
-    // RAP hit
-
-#ifdef RAP_T_NT_ONLY
-    bool ptaken    = buffer[it->second].ptaken;
-    bool incorrect = ptaken != taken;
-#else
-    InstID target  = buffer[it->second].target;
-    bool incorrect = buffer[it->second].target != oracleID;
-#endif
-
-    if (buffer[it->second].correct == 0) {
-      if (!doUpdate)
-	return iPred;
-      
-      // Not now. Maybe the next prediction
-      if (ptaken == taken)
-	buffer[it->second].correct=1;
-      else {
-#ifdef RAP_T_NT_ONLY
-	buffer[it->second].ptaken = taken;
-#else
-	buffer[it->second].target = oracleID;
-#endif
-      }
-      
-#ifdef RAP_T_NT_ONLY
-      I(doUpdate);
-      btb.updateOnly(inst,oracleID);
-#endif
-      return iPred;
-    }
-
-    if (incorrect && iPred == CorrectPrediction && doUpdate) {
-      // RAP is incorrect, and iPred is correct (delete it)
-
-      size_t pos = it->second;
-      key2pos.erase(it);
-
-      for(size_t i=0;i<BufferSize; i++) {
-	if (buffer[bufferPos].key) {
-	  buffer[pos].key     = buffer[bufferPos].key;
-#ifdef RAP_T_NT_ONLY
-	  buffer[pos].ptaken  = buffer[bufferPos].ptaken;
-#else
-	  buffer[pos].target  = buffer[bufferPos].target;
-#endif
-	  buffer[pos].correct = buffer[bufferPos].correct;
-
-	  key2pos[buffer[bufferPos].key]=pos;
-
-	  buffer[bufferPos].key = 0;
-	  
-	  break;
-	}
-      }
-    }
-
-#ifdef RAP_T_NT_ONLY
-    if (ptaken) {
-      PredType pred = btb.predict(inst, oracleID, doUpdate);
-      if (pred == CorrectPrediction) {
-	return CorrectPrediction;
-      }
-      
-      return MissPrediction;
-    }
-    
-    if (!doUpdate)
-      btb.updateOnly(inst, oracleID);
-#endif
-
-    return MissPrediction;
-  }
-
-  // RAP miss
-  if (!doUpdate)
-    return iPred;
-
-#ifdef RAP_T_NT_ONLY
-  btb.updateOnly(inst,oracleID);
-#endif
-
-  if (iPred == CorrectPrediction)// do not update RAP
-    return CorrectPrediction;
-    
-  // prePred was wrong, so create an entry in RAP
-    
-  if (buffer[bufferPos].key) {
-    it = key2pos.find(buffer[bufferPos].key);
-    I( it != key2pos.end() );
-    key2pos.erase(it);
-  }
-    
-  key2pos[key] = bufferPos;
-    
-  buffer[bufferPos].key    = key;
-#ifdef RAP_T_NT_ONLY
-  buffer[bufferPos].ptaken = taken;
-#else
-  buffer[bufferPos].target = oracleID;
-#endif
-  buffer[bufferPos].correct= 0;
-  bufferPos = (bufferPos+1) % BufferSize;
-
-  return iPred;
-}
-
-void BPRap::switchIn(Pid_t pid)
-{
-#ifdef TASKSCALAR
-  TaskContext *tc = TaskContext::getTaskContext(pid);
-  if (tc==0 || tc->getPid()==-1)
-    return;
-
-  history = tc->getBPHistory(history);
-#endif
-}
-
-void BPRap::switchOut(Pid_t pid)
-{
-#ifdef TASKSCALAR
-  TaskContext *tc = TaskContext::getTaskContext(pid);
-  if (tc==0 || tc->getPid()==-1)
-    return;
-
-  tc->setBPHistory(history);
-#endif
-}
-
-/*****************************************
- * CRAP Cache Recent Address Predictor
- *
- */
-
-BPCRap::BPCRap(int i, const char *section)
-  : BPred(i,section,"CRap")
-    ,btb(i,section, "CBTB")
-    ,historySize(SescConf->getLong(section,"historySize"))
-    ,historyMask((1LL << historySize) - 1)
-{
-  // Constraints
-
-  SescConf->isLong(section, "historySize");
-  SescConf->isBetween(section, "historySize", 1, 63);
-
-  SescConf->isCharPtr(section, "preType");
-
-  prePred = BPredictor::getBPred(i, SescConf->getCharPtr(section,"preType"));
-  
-  // Init
-  history = 0x55555555;
-
-  data = CacheType::create(section,"CRap","BPred_CRap(%d)",i);
-  bufferPos = 0;
-}
-
-BPCRap::~BPCRap()
-{
-  data->destroy();
-  delete prePred;
-}
-
-BPred::HistoryType BPCRap::newHistory(HistoryType iID, bool taken)
-{
-//  return history<<1 | ((iID>>2 & 1)^(taken?1:0));
-  return ((history<<1) ^ (iID>>2 & 0xFE)) | (taken?1:0);
-}
-
-PredType BPCRap::predict(const Instruction *inst, InstID oracleID, bool doUpdate)
-{
-  bpredEnergy->inc();
-
-  if (inst->isBranchTaken())
-    return prePred->predict(inst, oracleID, doUpdate);
-
-  bool taken     = (inst->calcNextInstID() != oracleID);
-  HistoryType iID= calcInstID(inst);
-  PredType iPred = prePred->predict(inst, oracleID, doUpdate);
-
-  // CRAP Section
-  HistoryType nid = iID;
-  nid = nid<<48 ^ nid<<24 ^ iID;
-  HistoryType key = (nid^history) & historyMask;
-  if (key == 0)
-    key =1;
-
-  if (doUpdate)
-    history = newHistory(iID,(inst->calcNextInstID() != oracleID));
-
-  CacheType::CacheLine *cl = data->readLine(key);
-
-  if (cl) {
-    // CRAP hit
-
-    bool ptaken = cl->ptaken;
-    PredType pred = btb.predict(inst, oracleID, doUpdate);
-
-    if (ptaken) {
-      if (pred == CorrectPrediction)
-	return CorrectPrediction;
-    }else{
-      I(!ptaken);
-      if (!taken)
-	return CorrectPrediction;
-    }
-    
-    if (doUpdate) {
-      if (cl->correct == 0) {
-	// Not now. Maybe the next prediction
-	if (ptaken == taken)
-	  cl->correct=1;
-	else
-	  cl->ptaken=taken;
-	
-	btb.updateOnly(inst, oracleID);
-	return iPred;
-      }
-      
-      if (ptaken != taken && iPred == CorrectPrediction)
-	cl->invalidate();
-    }
-    
-    return MissPrediction;
-  }
-    
-  // CRAP miss
-  if (!doUpdate)
-    return iPred;
-  
-  btb.updateOnly(inst,oracleID);
-
-  if (iPred == CorrectPrediction) // do not update CRAP
-    return CorrectPrediction;
-    
-  // prePred was wrong, so create an entry in RAP
-  cl = data->fillLine(key);
-  I(cl);
-
-  cl->ptaken  = taken;
-  cl->correct = 0;
-  
-  return iPred;
-}
-
-void BPCRap::switchIn(Pid_t pid)
-{
-#ifdef TASKSCALAR
-  TaskContext *tc = TaskContext::getTaskContext(pid);
-  if (tc==0 || tc->getPid()==-1)
-    return;
-
-  history = tc->getBPHistory(history);
-#endif
-}
-
-void BPCRap::switchOut(Pid_t pid)
-{
-#ifdef TASKSCALAR
-  TaskContext *tc = TaskContext::getTaskContext(pid);
-  if (tc==0 || tc->getPid()==-1)
-    return;
-
-  tc->setBPHistory(history);
-#endif
-}
 
 /*****************************************
  * BPredictor
@@ -1317,10 +966,6 @@ BPred *BPredictor::getBPred(int id, const char *sec)
     pred = new BPHybrid(id, sec);
   } else if (strcasecmp(type, "yags") == 0) {
     pred = new BPyags(id, sec);
-  } else if (strcasecmp(type, "Rap") == 0) {
-    pred = new BPRap(id, sec);
-  } else if (strcasecmp(type, "Crap") == 0) {
-    pred = new BPCRap(id, sec);
   } else {
     MSG("BPredictor::BPredictor Invalid branch predictor type [%s] in section [%s]", type,sec);
     exit(0);

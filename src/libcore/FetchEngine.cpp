@@ -5,7 +5,7 @@
    Contributed by Jose Renau
                   Milos Prvulovic
                   Smruti Sarangi
-		  Luis Ceze
+                  Luis Ceze
 
 This file is part of SESC.
 
@@ -51,10 +51,12 @@ FetchEngine::FetchEngine(int cId
 			 // FetchEngine (note that an SMT may have multiple
 			 // FetchEngine)
 			 ,GMemorySystem *gmem
+			 ,GProcessor *gp
 			 ,FetchEngine *fe)
   : Id(i)
   ,cpuId(cId)
   ,gms(gmem)
+  ,gproc(gp) 
   ,pid(-1)
   ,flow(cId, i, gmem)
   ,avgBranchTime("FetchEngine(%d)_avgBranchTime", i)
@@ -64,9 +66,6 @@ FetchEngine::FetchEngine(int cId
   ,nBTAC("FetchEngine(%d):nBTAC", i) // BTAC corrections to BTB
   ,unBlockFetchCB(this)
 {
-  
-
-
   // Constraints
   SescConf->isLong("cpucore", "fetchWidth",cId);
   SescConf->isBetween("cpucore", "fetchWidth", 1, 1024, cId);
@@ -105,7 +104,7 @@ FetchEngine::FetchEngine(int cId
       char *sec = strdup(iL1Section);
       char *end = strchr(sec, ' ');
       if (end) 
-	*end=0; // Get only the first word
+        *end=0; // Get only the first word
       // Must be the i-cache
       SescConf->isInList(sec,"deviceType","icache");
 
@@ -123,19 +122,61 @@ FetchEngine::FetchEngine(int cId
   time ( &rawtime );
   timeinfo = localtime ( &rawtime );
   strftime(strTime, 16, "%H%M",timeinfo);
-  strcpy(fileName,"delta_e_inst");
+  strcpy(fileName,"/home/masc/spkale/delta_e_inst");
   strncat(fileName,strTime,strlen(strTime));
 
-  if((energyInstFile = fopen(fileName, "w")) == NULL){
+#ifdef SESC_INORDER_ENERGY
+  energyInstFile = fopen(fileName, "w");
+  if(energyInstFile == NULL){
     printf("Error, could not open file energy_instr file for writing\n");
+  }else{
+     fprintf(energyInstFile,"#interval\tenergy\ttime\n");
   }
+#endif
 
   instrCount = 0;
   intervalCount = 0;
   previousTotEnergy = 0.0;
   previousClockCount = 0;
+
+#ifdef SESC_INORDER_SWITCH
+  switchFile = fopen("/home/masc/spkale/mcf/eddTally.dat", "r");
+  if(energyInstFile == NULL){
+    printf("Error, could not open file energy_instr file for writing\n");
+  }else{
+     int mode = getNextCoreMode();
+	 gproc->setMode(mode);	
+  }  
+#endif
+    
+
 #endif
 }
+
+#ifdef SESC_INORDER
+int FetchEngine::getNextCoreMode()
+{
+  char line[128];
+  char *c, *pch;
+  long interval;
+  int mode; 
+
+  if(switchFile == NULL)
+	  return -1;
+
+  c = fgets(line, 128, switchFile);
+  if(c == NULL)
+	  return -1;
+
+  pch = strtok(line,"\t");
+  interval = atol(pch);
+
+  pch = strtok(NULL, " ");
+  mode = atoi(pch);
+
+  return mode;
+}
+#endif
 
 FetchEngine::~FetchEngine()
 {
@@ -146,6 +187,7 @@ FetchEngine::~FetchEngine()
 #ifdef SESC_INORDER
   if(energyInstFile != NULL)
     fclose(energyInstFile);
+    fclose(switchFile);
 #endif
   
   delete bpred;
@@ -200,10 +242,10 @@ bool FetchEngine::processBranch(DInst *dinst, ushort n2Fetched)
       // Only when the branch is taken check maxBB
       maxBB--;
       if( maxBB == 0 ) {
-	// No instructions fetched (stall)
-	if (missInstID==0)
-	  nDelayInst2.add(n2Fetched);
-	return false;
+        // No instructions fetched (stall)
+        if (missInstID==0)
+          nDelayInst2.add(n2Fetched);
+        return false;
       }
     }
     return true;
@@ -281,13 +323,14 @@ void FetchEngine::realFetch(IBucket *bucket, int fetchMax)
     if (inst->isStore()) {
       // Break in two instructions. Address calculation, and store
       DInst *fakeALU = DInst::createInst(Instruction::getEventID(static_cast<EventType>(FakeInst + inst->getSrc1()))
-					 ,0
-					 ,dinst->getContextId());
+                                         ,0
+                                         ,dinst->getContextId());
 
       I(fakeALU->getInst()->isStoreAddr());
       instFetched(fakeALU);
       bucket->push(fakeALU);
       n2Fetched--;
+      nGradInsts++;
     }
     instFetched(dinst);
     bucket->push(dinst);
@@ -295,7 +338,7 @@ void FetchEngine::realFetch(IBucket *bucket, int fetchMax)
   
     if(inst->isBranch()) {
       if (!processBranch(dinst, n2Fetched))
-	break;
+        break;
     }
 
   }while(n2Fetched>0 && flow.currentPid()==myPid);
@@ -325,21 +368,73 @@ void FetchEngine::fetch(IBucket *bucket, int fetchMax)
     realFetch(bucket, fetchMax);
     
 #ifdef SESC_INORDER  
+#ifdef SESC_INORDER_ENERGY
     instrCount++;
-    if(instrCount == 10000) {
+
+#if 0
+    if(intervalCount > 2000 && intervalCount < 3000){
+      if(instrCount == 200){
+<<<<<<< FetchEngine.cpp
+        ++subIntervalCount;
+        
+        if(subIntervalCount % 10 == 0){
+          ++intervalCount;
+          subIntervalCount = 0;
+        }
+        
+        double energy = GStatsEnergy::getTotalEnergy();
+        double delta_energy = energy - previousTotEnergy;
+        long delta_time = globalClock - previousClockCount;
+=======
+	 ++subIntervalCount;
+>>>>>>> 1.13
+        
+<<<<<<< FetchEngine.cpp
+        fprintf(energyInstFile,"%d\t%.3f\t%ld\n", intervalCount * 10 + subIntervalCount, delta_energy, delta_time);
+=======
+      if(subIntervalCount % 10 == 0){
+	   ++intervalCount;
+	  subIntervalCount = 0;
+	}
+	
+	double energy = GStatsEnergy::getTotalEnergy();
+	double delta_energy = energy - previousTotEnergy;
+	long delta_time = globalClock - previousClockCount;
+	
+	fprintf(energyInstFile,"%d\t%.3f\t%ld\n", intervalCount * 10 + subIntervalCount, delta_energy, delta_time);
+>>>>>>> 1.13
+
+        previousTotEnergy =  GStatsEnergy::getTotalEnergy();
+        previousClockCount = globalClock;
+
+        instrCount = 0;
+
+      }/* End if instrCount == 200 */
+#endif
+
+   }
+
+   if(instrCount == 2000) {
       intervalCount++;
+     
+	  /* Get next core change */
+	  int mode = getNextCoreMode();
+	  gp->setMode(mode);	
 
       if(energyInstFile != NULL) {
         double energy =  GStatsEnergy::getTotalEnergy();
-	//fprintf(energyInstFile,"%f \n", energy);
-	 fprintf(energyInstFile,"%d\t%f\t%d\n", intervalCount,  energy -previousTotEnergy, globalClock - previousClockCount);
-	 //printf("EE:%f\n",  energy);
+        double delta_energy = energy - previousTotEnergy; 
+        long  delta_time = globalClock - previousClockCount;
+
+        fprintf(energyInstFile,"%d\t%.3f\t%ld\n", intervalCount * 10, delta_energy, delta_time);
+
       }
       previousTotEnergy =  GStatsEnergy::getTotalEnergy();
       previousClockCount = globalClock;
      
       instrCount = 0;
     }
+#endif
 #endif   
   }
 
@@ -376,7 +471,7 @@ void FetchEngine::fakeFetch(IBucket *bucket, int fetchMax)
     const Instruction *fakeInst = Instruction::getInst(missInstID);
     if (fakeInst->isBranch()) {
       if (!processBranch(dinst, n2Fetched))
-	break;
+        break;
     }else{
       missInstID = fakeInst->calcNextInstID();
     }

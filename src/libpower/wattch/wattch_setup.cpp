@@ -259,6 +259,19 @@ void wattch_setup()
   SescConf->updateRecord(proc,"btbEnergy",pp.btb/div) ;
   SescConf->updateRecord(proc,"rasEnergy",pp.ras/div) ;
   
+  if (pp.total_power < (5 * pp.clock_power)) {
+    double newClock = pp.total_power/5;
+    printf("Clock power to high %g -> %g\n",pp.clock_power/dfac1,newClock/dfac1);
+    pp.total_power -= pp.clock_power - newClock;
+    pp.clock_power = newClock;
+  }else if (pp.total_power > (10 * pp.clock_power)) {
+    double newClock = pp.total_power/10;
+    printf("Clock power to low %g -> %g\n",pp.clock_power/dfac1,newClock/dfac1);
+    pp.total_power += newClock - pp.clock_power;
+    pp.clock_power = newClock;
+  }else{
+    printf("Clock power is fine %g of %g\n",pp.clock_power/dfac1,pp.total_power/dfac1);
+  }
   SescConf->updateRecord(proc,"clockEnergy",pp.clock_power/dfac1) ;
   SescConf->updateRecord(proc,"totEnergy",pp.total_power/dfac1) ;
 

@@ -199,7 +199,7 @@ eclean: sharedclean
 	done
 
 edistclean:
-	-@rm -f config.status config.log cactify wattchify
+	-@rm -f config.status config.log cactify wattchify panalyze
 	-@rm -f config.h Make.defs Makefile sesc.mem sesc.tls sesc.smp 
 	-@rm -rf obj
 

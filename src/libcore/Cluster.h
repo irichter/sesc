@@ -67,9 +67,17 @@ class Cluster {
     windowSize--;
     I(windowSize>=0);
   }
-  bool canIssue(DInst *dinst) const { return windowSize>0; }
+  StallCause canIssue(DInst *dinst) const { 
+    if (windowSize>0)
+      return window.canIssue(dinst);
+    return SmallWinStall;
+  }
 
-  void wakeUpDeps(DInst *dinst) { window.wakeUpDeps(dinst); }
+  void wakeUpDeps(DInst *dinst) {
+    window.wakeUpDeps(dinst);
+  }
+
+  void select(DInst *dinst) { window.select(dinst); }
 
   virtual void executed(DInst *dinst) = 0;
   virtual void retire(DInst *dinst) = 0;
@@ -83,11 +91,14 @@ class Cluster {
 
   void addInst(DInst *dinst);
 
-#ifdef SESC_DDIS
-  bool hasDepTableSpace(const DInst *dinst) const { return window.hasDepTableSpace(dinst); }
+  GProcessor *getGProcessor() const { return gproc; }
+
+#ifdef SESC_INORDER
+  void setMode(bool mode) {
+    window.setMode(mode);
+  }
 #endif
 
-  GProcessor *getGProcessor() const { return gproc; }
 };
 
 class ExecutedCluster : public Cluster {
@@ -124,6 +135,10 @@ class ClusterManager {
   Resource *getResource(InstType type) const {
     return res[type];
   }
+
+#ifdef SESC_INORDER
+  void setMode(bool mode);
+#endif
 
 #ifdef SESC_MISPATH
   void misBranchRestore();

@@ -42,6 +42,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 class GMemorySystem;
 class IBucket;
+class GProcessor;
 
 class FetchEngine {
 private:
@@ -52,6 +53,7 @@ private:
   const int Id;
   const int cpuId;
   GMemorySystem *gms;
+  GProcessor *gproc;
 
   Pid_t pid;
 
@@ -85,12 +87,13 @@ private:
   bool enableICache;
 
 #ifdef SESC_INORDER
-  FILE *energyInstFile;
+  FILE *energyInstFile, *switchFile;
   long instrCount;
   long previousClockCount;
   int intervalCount;
   double previousTotEnergy;
   
+  int getNextCoreMode();  
 #endif
 
  
@@ -121,7 +124,10 @@ protected:
   // *******************
 
 public:
-  FetchEngine(int cId, int i, GMemorySystem *gms, FetchEngine *fe = 0);
+  FetchEngine(int cId, int i
+	      ,GMemorySystem *gms
+	      ,GProcessor *gp
+	      ,FetchEngine *fe = 0);
   ~FetchEngine();
 
   void addEvent(EventType ev, CallbackBase *cb, long vaddr) {

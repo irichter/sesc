@@ -29,8 +29,8 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "FetchEngine.h"
 #include "ExecutionFlow.h"
 
-SMTProcessor::Fetch::Fetch(GMemorySystem *gm, CPU_t cpuID, int cid, FetchEngine *fe)
-  : IFID(cpuID, cid, gm)
+SMTProcessor::Fetch::Fetch(GMemorySystem *gm, CPU_t cpuID, int cid, GProcessor *gproc, FetchEngine *fe)
+  : IFID(cpuID, cid, gm, gproc, fe)
   ,pipeQ(cpuID)
 {
 }
@@ -61,12 +61,12 @@ SMTProcessor::SMTProcessor(GMemorySystem *gm, CPU_t i)
 
   flow.resize(smtContexts);
 
-  Fetch *f = new Fetch(gm, Id, Id*smtContexts);
+  Fetch *f = new Fetch(gm, Id, Id*smtContexts, this);
   flow[0] = f;
   gRAT = (DInst ***) malloc(sizeof(DInst ***) * smtContexts);
 
   for(int i = 1; i < smtContexts; i++) {
-    flow[i] = new Fetch(gm, Id,Id*smtContexts+i, &(f->IFID));
+    flow[i] = new Fetch(gm, Id,Id*smtContexts+i, this, &(f->IFID));
   }
 
   for(int i = 0; i < smtContexts; i++) {
@@ -102,9 +102,12 @@ SMTProcessor::Fetch *SMTProcessor::findFetch(Pid_t pid) const
   return 0;
 }
 
-DInst **SMTProcessor::getRAT(const DInst *dinst)
+DInst **SMTProcessor::getRAT(const int contextId)
 {
-  return gRAT[dinst->getContextId()-firstContext];
+  I(firstContext >= contextId);
+  I(contextId <= firstContext+smtContexts);
+
+  return gRAT[contextId-firstContext];
 }
 
 FetchEngine *SMTProcessor::currentFlow()

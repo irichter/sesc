@@ -80,36 +80,59 @@ GProcessor::GProcessor(GMemorySystem *gm, CPU_t i, size_t numFlows)
     misRegPool[j] = 0;
 #endif
 
+  nStall[0] = 0 ; // crash if used
   nStall[SmallWinStall]     = new GStatsCntr("ExeEngine(%d):nSmallWin",i);
   nStall[SmallROBStall]     = new GStatsCntr("ExeEngine(%d):nSmallROB",i);
   nStall[SmallREGStall]     = new GStatsCntr("ExeEngine(%d):nSmallREG",i);
   nStall[OutsLoadsStall]    = new GStatsCntr("ExeEngine(%d):nOutsLoads",i);
   nStall[OutsStoresStall]   = new GStatsCntr("ExeEngine(%d):nOutsStores",i);
   nStall[OutsBranchesStall] = new GStatsCntr("ExeEngine(%d):nOutsBranches",i);
+  nStall[PortConflictStall] = new GStatsCntr("ExeEngine(%d):PortConflict",i);
   
   clockTicks=0;
 
   char cadena[100];
   sprintf(cadena, "Proc(%d)", (int)i);
   
+
+#ifdef SESC_INORDER
+  renameEnergyOutOrder = new GStatsEnergy("renameEnergy", cadena, i, RenameEnergy
+					  ,EnergyMgr::get("renameEnergy",i));
+  robEnergyOutOrder = new GStatsEnergy("ROBEnergy",cadena,i,ROBEnergy,EnergyMgr::get("robEnergy",i));
+
+  renameEnergyInOrder = new GStatsEnergyNull();
+  robEnergyInOrder = new GStatsEnergyNull();
+
+  renameEnergy = renameEnergyOutOrder;
+  robEnergy =  robEnergyOutOrder;
+
+  InOrderMode = true;
+  OutOrderMode = false;
+  currentMode = OutOrderMode;
+  switching = false;
+
+#else
   renameEnergy = new GStatsEnergy("renameEnergy", cadena, i, RenameEnergy
-				  ,EnergyMgr::get("renameEnergy",i));
+                                  ,EnergyMgr::get("renameEnergy",i));
 
   robEnergy = new GStatsEnergy("ROBEnergy",cadena,i,ROBEnergy,EnergyMgr::get("robEnergy",i));
+#endif
+
+
 
   wrRegEnergy[0] = new GStatsEnergy("wrIRegEnergy", cadena, i, WrRegEnergy
-				    ,EnergyMgr::get("wrRegEnergy",i));
+                                    ,EnergyMgr::get("wrRegEnergy",i));
 
   wrRegEnergy[1] = new GStatsEnergy("wrFPRegEnergy", cadena, i, WrRegEnergy
-				    ,EnergyMgr::get("wrRegEnergy",i));
+                                    ,EnergyMgr::get("wrRegEnergy",i));
 
   wrRegEnergy[2] = new GStatsEnergyNull();
   
   rdRegEnergy[0] = new GStatsEnergy("rdIRegEnergy", cadena , i, RdRegEnergy
-				    ,EnergyMgr::get("rdRegEnergy",i));
+                                    ,EnergyMgr::get("rdRegEnergy",i));
 
   rdRegEnergy[1] = new GStatsEnergy("rdFPRegEnergy", cadena , i, RdRegEnergy
-				    ,EnergyMgr::get("rdRegEnergy",i));
+                                    ,EnergyMgr::get("rdRegEnergy",i));
 
   rdRegEnergy[2] = new GStatsEnergyNull();
 
@@ -136,6 +159,31 @@ GProcessor::GProcessor(GMemorySystem *gm, CPU_t i, size_t numFlows)
 GProcessor::~GProcessor()
 {
 }
+
+#ifdef SESC_INORDER	 
+void GProcessor::setMode(bool mode)
+{
+  if(currentMode == mode)
+    return;
+
+  currentMode = mode;
+  switching   = true;
+
+  if(mode == InOrderMode){
+   renameEnergy = renameEnergyInOrder;
+   robEnergy =  robEnergyInOrder;
+   currentMode = InOrderMode;
+   InOrderCore = true;
+  }else{
+   renameEnergy = renameEnergyOutOrder;
+   robEnergy =  robEnergyOutOrder;
+   currentMode = OutOrderMode;
+   InOrderCore = false;
+  }
+
+  clusterManager.setMode(mode);	
+}
+#endif
 
 void GProcessor::buildInstStats(GStatsCntr *i[MaxInstType], const char *txt)
 {
@@ -170,9 +218,16 @@ StallCause GProcessor::sharedAddInst(DInst *dinst)
   //
   // 3-Try to schedule in Resource (window entry...)
 
-  if( ROB.size() >= MaxROBSize ) {
+  if( ROB.size() >= MaxROBSize )
     return SmallROBStall;
-  }
+
+#if SESC_INORDER
+  if (switching) {
+    if(!ROB.empty())
+        return SwitchStall; // New stall Type to add
+     switching = false;
+ } 
+#endif
 
   const Instruction *inst = dinst->getInst();
 
@@ -188,21 +243,13 @@ StallCause GProcessor::sharedAddInst(DInst *dinst)
 
   Resource *res = clusterManager.getResource(inst->getOpcode());
   I(res);
-#ifdef SESC_DDIS
-  {
-    DInst **RAT = getRAT(dinst);
-    const Cluster *cluster = res->getCluster();
 
-    if (RAT[inst->getSrc1()])
-      if (!cluster->hasDepTableSpace(RAT[inst->getSrc1()]))
-	return SmallWinStall;
-    
-    if (RAT[inst->getSrc2()])
-      if (!cluster->hasDepTableSpace(RAT[inst->getSrc2()]))
-	return SmallWinStall;
-  }
-#endif
-  StallCause sc = res->canIssue(dinst);
+  const Cluster *cluster = res->getCluster();
+  StallCause sc = cluster->canIssue(dinst);
+  if (sc != NoStall)
+    return sc;
+
+  sc = res->canIssue(dinst);
   if (sc != NoStall)
     return sc;
 
@@ -228,7 +275,6 @@ StallCause GProcessor::sharedAddInst(DInst *dinst)
 
   renameEnergy->inc(); // Rename RAT
   robEnergy->inc(); // one for insert
-  robEnergy->inc(); // Another for execution (update bits, status)
 
   rdRegEnergy[inst->getSrc1Pool()]->inc();
   rdRegEnergy[inst->getSrc2Pool()]->inc();
@@ -245,11 +291,11 @@ StallCause GProcessor::sharedAddInst(DInst *dinst)
   if (inst->isLoad()) {
     if (unresolvedLoad == -1) {
       if (!dinst->isResolved())
-	unresolvedLoad = ROB.getIdFromTop(ROB.size()-1);
+        unresolvedLoad = ROB.getIdFromTop(ROB.size()-1);
 
       // Early recycle Loads
       if (unresolvedStore == -1)
-	dinst->getResource()->earlyRecycle(dinst);
+        dinst->getResource()->earlyRecycle(dinst);
     }
   }else if (inst->isStore()) {
     if (unresolvedStore == -1 && !dinst->isResolved())
@@ -277,7 +323,7 @@ int GProcessor::issue(PipeQueue &pipeQ)
     do{
       I(!bucket->empty());
       if( i >= IssueWidth ) {
-	return i;
+        return i;
       }
 
       I(!bucket->empty());
@@ -285,24 +331,24 @@ int GProcessor::issue(PipeQueue &pipeQ)
       DInst *dinst = bucket->top();
 #ifdef TASKSCALAR
       if (!dinst->isFake()) {
-	if (dinst->getLVID()==0 || dinst->getLVID()->isKilled()) {
-	  // Task got killed. Just swallow the instruction
-	  dinst->killSilently();
-	  bucket->pop();
-	  j++;
-	  continue;
-	}
+        if (dinst->getLVID()==0 || dinst->getLVID()->isKilled()) {
+          // Task got killed. Just swallow the instruction
+          dinst->killSilently();
+          bucket->pop();
+          j++;
+          continue;
+        }
       }
 #endif
 
       StallCause c = addInst(dinst);
       if (c != NoStall) {
-	if (i < RealisticWidth)
-	  nStall[c]->add(RealisticWidth - i);
-	return i+j;
+        if (i < RealisticWidth)
+          nStall[c]->add(RealisticWidth - i);
+        return i+j;
       }
       i++;
-	
+        
       bucket->pop();
 
     }while(!bucket->empty());
@@ -333,18 +379,18 @@ void GProcessor::retire()
     if (ROB.empty()) {
       // ROB should not be empty for lots of time
       if (prevDInstID == 1) {
-	MSG("GProcessor::retire CPU[%d] ROB empty for long time @%lld", Id, globalClock);
+        MSG("GProcessor::retire CPU[%d] ROB empty for long time @%lld", Id, globalClock);
       }
       prevDInstID = 1;
     }else{
       DInst *dinst = ROB.top();
       if (prevDInstID == dinst->getID()) {
-	I(0);
-	MSG("ExeEngine::retire CPU[%d] no forward progress from pc=0x%x with %d @%lld"
-	    ,(int)Id, (uint)dinst->getInst()->getAddr() 
-	    ,(uint)dinst->getInst()->currentID(), globalClock );
-	dinst->dump("HEAD");
-	LDSTBuffer::dump("");
+        I(0);
+        MSG("ExeEngine::retire CPU[%d] no forward progress from pc=0x%x with %d @%lld"
+            ,(int)Id, (uint)dinst->getInst()->getAddr() 
+            ,(uint)dinst->getInst()->currentID(), globalClock );
+        dinst->dump("HEAD");
+        LDSTBuffer::dump("");
       }
       prevDInstID = dinst->getID();
     }
@@ -385,10 +431,8 @@ void GProcessor::retire()
     //    I(ROB.getIdFromTop(0) != unresolvedStore);
     //    I(ROB.getIdFromTop(0) != unresolvedBranch);
 #endif
-
     ROB.pop();
 
-    renameEnergy->inc(); // Retirement RAT
     robEnergy->inc(); // read ROB entry (finished?, update retirement rat...)
   }
 }
@@ -402,16 +446,16 @@ void GProcessor::checkRegisterRecycle()
     DInst *dinst = ROB.getData(robPos);
     
     if (!dinst->hasRegisterRecycled() 
-	&& dinst->isExecuted() 
-	&& !dinst->hasPending()
-	&& cherryRAT[dinst->getInst()->getDest()] != dinst) {
+        && dinst->isExecuted() 
+        && !dinst->hasPending()
+        && cherryRAT[dinst->getInst()->getDest()] != dinst) {
       dinst->setRegisterRecycled();
 
 #ifdef SESC_MISPATH
       if (dinst->isFake()) {
-	misRegPool[dinst->getInst()->getDstPool()]--;
+        misRegPool[dinst->getInst()->getDstPool()]--;
       }else{
-	regPool[dinst->getInst()->getDstPool()]++;
+        regPool[dinst->getInst()->getDstPool()]++;
       }
 #else
       regPool[dinst->getInst()->getDstPool()]++;
@@ -431,7 +475,7 @@ void GProcessor::propagateUnresolvedLoad()
     DInst *dinst = ROB.getData(unresolvedLoad);
     if (!dinst->isResolved() && dinst->getInst()->isLoad())
       break; // only stop advancing pointer for an unresolved load
-	     // (faster than waiting for an un-executed load)
+             // (faster than waiting for an un-executed load)
 
     ushort robPos = ROB.getNextId(unresolvedLoad);
     if (ROB.isEnd(robPos)) {
@@ -440,9 +484,9 @@ void GProcessor::propagateUnresolvedLoad()
       // Verify that all loads are resolved
       robPos = ROB.getIdFromTop(0);
       while(!ROB.isEnd(robPos)) {
-	DInst *dinst = ROB.getData(robPos);
-	I(!(dinst->getInst()->isLoad() && !dinst->isResolved()));
-	robPos = ROB.getNextId(robPos);
+        DInst *dinst = ROB.getData(robPos);
+        I(!(dinst->getInst()->isLoad() && !dinst->isResolved()));
+        robPos = ROB.getNextId(robPos);
       }
 #endif
       unresolvedLoad = -1;
@@ -460,7 +504,7 @@ void GProcessor::propagateUnresolvedLoad()
     if (recycleStore == unresolvedLoad) {
       dinst = ROB.getData(unresolvedLoad);
       if (dinst->getInst()->isStore() && !dinst->isEarlyRecycled())
-	dinst->getResource()->earlyRecycle(dinst);
+        dinst->getResource()->earlyRecycle(dinst);
     }
   }
 }
@@ -472,7 +516,7 @@ void GProcessor::propagateUnresolvedStore()
     DInst *dinst = ROB.getData(unresolvedStore);
     if (!dinst->isResolved() && dinst->getInst()->isStore())
       break; // only stop advancing pointer for an unresolved Store
-	     // (faster than waiting for an un-executed Store)
+             // (faster than waiting for an un-executed Store)
 
     ushort robPos = ROB.getNextId(unresolvedStore);
     if (ROB.isEnd(robPos)) {
@@ -481,9 +525,9 @@ void GProcessor::propagateUnresolvedStore()
       // Verify that all stores are resolved
       robPos = ROB.getIdFromTop(0);
       while(!ROB.isEnd(robPos)) {
-	DInst *dinst = ROB.getData(robPos);
-	I(!(dinst->getInst()->isStore() && !dinst->isResolved()));
-	robPos = ROB.getNextId(robPos);
+        DInst *dinst = ROB.getData(robPos);
+        I(!(dinst->getInst()->isStore() && !dinst->isResolved()));
+        robPos = ROB.getNextId(robPos);
       }
 #endif
       unresolvedStore = -1;
@@ -512,7 +556,7 @@ void GProcessor::propagateUnresolvedBranch()
     DInst *dinst = ROB.getData(unresolvedBranch);
     if (!dinst->isResolved() && dinst->getInst()->isBranch())
       break; // only stop advancing pointer for an unresolved branch
-	     // (faster than waiting for an un-executed branch)
+             // (faster than waiting for an un-executed branch)
 
     ushort robPos = ROB.getNextId(unresolvedBranch);
     if (ROB.isEnd(robPos)) {
@@ -521,9 +565,9 @@ void GProcessor::propagateUnresolvedBranch()
       // Verify that all stores are resolved
       robPos = ROB.getIdFromTop(0);
       while(!ROB.isEnd(robPos)) {
-	DInst *dinst = ROB.getData(robPos);
-	I(!(dinst->getInst()->isBranch() && !dinst->isResolved()));
-	robPos = ROB.getNextId(robPos);
+        DInst *dinst = ROB.getData(robPos);
+        I(!(dinst->getInst()->isBranch() && !dinst->isResolved()));
+        robPos = ROB.getNextId(robPos);
       }
 #endif
       unresolvedBranch = -1;
@@ -541,7 +585,7 @@ void GProcessor::propagateUnresolvedBranch()
     if (recycleStore == unresolvedBranch) {
       dinst = ROB.getData(unresolvedBranch);
       if (dinst->getInst()->isStore() && !dinst->isEarlyRecycled())
-	dinst->getResource()->earlyRecycle(dinst);
+        dinst->getResource()->earlyRecycle(dinst);
     }
   }
 

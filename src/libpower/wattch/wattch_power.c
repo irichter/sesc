@@ -899,7 +899,7 @@ double total_clockpower(double die_length)
   Cline2 = Cmetal * (.03 * die_length * die_length/BitlineSpacing) * 1e6 * 1e6;
 
   /* another estimate */
-#if 0
+#if 1
   clocklinelength = die_length*(.5 + 4 * (.25 + 2*(.25) + 4 * (.125)));
 #else
   if ( die_length > 0.072) {
@@ -920,7 +920,7 @@ double total_clockpower(double die_length)
   }
 #endif
 
-#if 0
+#if 1
   /* Original model does not include the 3% of die being clock metal */
   Cline = 20 * Cmetal * (clocklinelength) * 1e6;
 #else
@@ -952,11 +952,13 @@ double total_clockpower(double die_length)
     fprintf(stderr," Global Clock Buffers (W): %g (factor %g)\n",global_buffercap*Powerfactor,die_length/0.018);
     fprintf(stderr," Global Clock Cap (Explicit) (W): %g\n"
 	    ,global_clockcap*Powerfactor + res_ialu*I_ADD_CLOCK + res_fpalu*F_ADD_CLOCK);
+    fprintf(stderr," Global ALUs (Explicit) (W): %g\n"
+	    ,res_ialu*I_ADD_CLOCK + res_fpalu*F_ADD_CLOCK);
 
     fprintf(stderr," Global Clock Cap (Implicit) (W): %g\n",pipereg_clockcap*Powerfactor);
   }
-  return(Clockpower);
 
+  return(Clockpower);
 }
 
 /* very rough global clock power estimates */

@@ -196,7 +196,7 @@ double *NSubbanks;
          }
      }
 
-   if (C/(8*B*A)<=0 && !parameters->fully_assoc) {
+   if (C/(8*B*A)<0 && !parameters->fully_assoc) {
      printf("Number of sets is too small:\n  Need to either increase cache size, or decrease associativity or block size\n  (or use fully associative cache)\n");
        exit(0);
    }

@@ -26,55 +26,72 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "EnergyMgr.h"
 #include "nanassert.h"
 #include "Port.h"
+#include "Resource.h"
 #include "Snippets.h"
-#ifdef SESC_DDIS
-#include "DDIS.h"
-#endif
+#include "SCTable.h"
 
 class DInst;
 class GProcessor;
 
 class DepWindow {
 private:
-  const int Id;
+  GProcessor *gproc;
 
-  const TimeDelta_t InterClusterLat;
-#ifndef SESC_DDIS
-  const TimeDelta_t WakeUpDelay;
-#endif
-  const TimeDelta_t SchedDelay;
-  const TimeDelta_t RegFileDelay;
+  const int Id;
 
   const bool InOrderCore;
 
-#ifdef SESC_DDIS
-  DDIS ddis;
-  static GStatsCntr *nDeps[];
-#endif
+  const TimeDelta_t InterClusterLat;
+  const TimeDelta_t WakeUpDelay;
+  const TimeDelta_t SchedDelay;
+  const TimeDelta_t RegFileDelay;
+
 
   GStatsEnergy *resultBusEnergy;
   GStatsEnergy *forwardBusEnergy;
 
-  GStatsEnergy *windowRdWrEnergy;  // read/write on an individual window entry
-  GStatsEnergy *windowCheckEnergy; // Check for dependences on the window
-  GStatsEnergy *windowSelEnergy;   // instruction selection
+  GStatsEnergyBase *windowRdWrEnergy;  // read/write on an individual window entry
+  GStatsEnergyBase *windowCheckEnergy; // Check for dependences on the window
+  GStatsEnergyBase *windowSelEnergy;   // instruction selection
 
+#ifdef SESC_INORDER
+  GStatsEnergyBase *windowRdWrEnergyInOrder; 
+  GStatsEnergyBase *windowCheckEnergyInOrder;
+  GStatsEnergyBase *windowSelEnergyInOrder;  
+
+  GStatsEnergyBase *windowRdWrEnergyOutOrder;  
+  GStatsEnergyBase *windowCheckEnergyOutOrder;
+  GStatsEnergyBase *windowSelEnergyOutOrder;
+
+  bool InOrderMode;
+  bool OutOrderMode;
+  bool currentMode;
+  
+#endif
+  
   PortGeneric *wakeUpPort;
   PortGeneric *schedPort;
 
+
 protected:
+  void preSelect(DInst *dinst);
+
 public:
   ~DepWindow();
-  DepWindow(GProcessor *gproc, const char *clusterName);
+  DepWindow(GProcessor *gp, const char *clusterName);
 
-  void addInst(DInst *dinst);
   void wakeUpDeps(DInst *dinst);
+
   void select(DInst *dinst);
+
+  StallCause canIssue(DInst *dinst) const;
+  void addInst(DInst *dinst);
   void executed(DInst *dinst);
 
-#ifdef SESC_DDIS
-  bool hasDepTableSpace(const DInst *dinst) const { return ddis.hasDepTableSpace(dinst); }
+#ifdef SESC_INORDER
+  void setMode(bool mode);
 #endif
+
 };
 
 #endif // DEPWINDOW_H

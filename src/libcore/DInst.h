@@ -34,7 +34,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #ifdef TASKSCALAR
 #include "GLVID.h"
 enum DataDepViolationAt { DataDepViolationAtExe=0, DataDepViolationAtFetch, 
-			  DataDepViolationAtRetire, DataDepViolationAtMax };
+                          DataDepViolationAtRetire, DataDepViolationAtMax };
 #endif
 
 #if (defined TLS)
@@ -45,13 +45,6 @@ class Resource;
 class FetchEngine;
 class FReg;
 class BPredictor;
-
-#if (defined SESC_DDIS) || (defined SESC_DDIS1)
-#define DINST_PARENT 1
-#endif
-#if (defined DEBUG)
-#define DINST_NDEPS 1
-#endif
 
 // FIXME: do a nice class. Not so public
 class DInstNext {
@@ -115,7 +108,7 @@ private:
 
 #ifdef SESC_CHERRY
   bool resolved; // For load/stores when the address is computer, for
-		 // the rest of instructions when it is executed
+                 // the rest of instructions when it is executed
   bool earlyRecycled;
   bool canBeRecycled;
   bool memoryIssued;
@@ -124,9 +117,6 @@ private:
 
 #ifdef SESC_MISPATH
   bool fake;
-#endif
-#ifdef SESC_DDIS
-  bool presched;
 #endif
   // END Boolean flags
 
@@ -172,31 +162,28 @@ private:
   tls::Epoch *myEpoch;
 #endif // (defined TLS)
 
-#ifdef SESC_DDIS
-  long bank;
-#endif
 
-#ifdef DINST_NDEPS
- public:
   char nDeps;              // 0, 1 or 2 for RISC processors
+
+#ifdef DEBUG
+ public:
   static long currentID;
   long ID; // static ID, increased every create (currentID). pointer to the
   // DInst may not be a valid ID because the instruction gets recycled
 #endif
-	
-protected:
-public:
-#ifdef SESC_DDIS1
-  DInst *predParent;
-#endif
-
+ protected:
+ public:
   DInst();
+
+  void doAtSimTime();
+  StaticCallbackMember0<DInst,&DInst::doAtSimTime>  doAtSimTimeCB;
+
+  void doAtSelect();
+  StaticCallbackMember0<DInst,&DInst::doAtSelect>  doAtSelectCB;
 
   void doAtExecuted();
   StaticCallbackMember0<DInst,&DInst::doAtExecuted> doAtExecutedCB;
 
-  void doAtSimTime();
-  StaticCallbackMember0<DInst,&DInst::doAtSimTime>  doAtSimTimeCB;
 
   static DInst *createInst(InstID pc, VAddr va, int cId);
   static DInst *createDInst(const Instruction *inst, VAddr va, int cId);
@@ -256,20 +243,17 @@ public:
   }
 #endif
 
-#ifdef SESC_DDIS
-  bool isPresched() const { return presched; }
-  void setPresched() {
-    I(!presched);
-    presched = true;
-  }
-  long getBank() const { return bank; }
-  void setBank(long i) {
-    bank = i;
-  }
-#endif
 #ifdef DINST_PARENT
-  DInst *getParentSrc1() const { return pend[0].getParentDInst(); }
-  DInst *getParentSrc2() const { return pend[1].getParentDInst(); }
+  DInst *getParentSrc1() const { 
+    if (pend[0].isUsed)
+      return pend[0].getParentDInst(); 
+    return 0;
+  }
+  DInst *getParentSrc2() const { 
+    if (pend[1].isUsed)
+      return pend[1].getParentDInst();
+    return 0;
+  }
 #endif
 
   void setFetch(FetchEngine *fe) {
@@ -298,10 +282,8 @@ public:
 
     I(n);
 
-#ifdef DINST_NDEPS
     I(n->nDeps > 0);
     n->nDeps--;
-#endif
 
     first->isUsed = false;
     first->setParentDInst(0);
@@ -311,10 +293,8 @@ public:
   }
 
   void addSrc1(DInst * d) {
-#ifdef DINST_NDEPS
     I(d->nDeps < MAX_PENDING_SOURCES);
     d->nDeps++;
-#endif
     
     DInstNext *n = &d->pend[0];
     I(!n->isUsed);
@@ -333,9 +313,7 @@ public:
 
   void addSrc2(DInst * d) {
     I(d->nDeps < MAX_PENDING_SOURCES);
-#ifdef DINST_NDEPS
     d->nDeps++;
-#endif
     
     DInstNext *n = &d->pend[1];
     I(!n->isUsed);
@@ -354,13 +332,12 @@ public:
 
   void addFakeSrc(DInst * d) {
     I(d->nDeps < MAX_PENDING_SOURCES);
-#ifdef DINST_NDEPS
     d->nDeps++;
-#endif
     
     DInstNext *n = &d->pend[1];
     I(!n->isUsed);
     n->isUsed = true;
+    n->setParentDInst(this);
 
     I(n->getDInst() == d);
     if (first == 0) {
@@ -372,11 +349,15 @@ public:
     last = n;
   }
 
+  char getnDeps() const { return nDeps; }
+
+  bool isStallOnLoad() const {  return false; }
+
   bool isSrc1Ready() const { return !pend[0].isUsed; }
   bool isSrc2Ready() const { return !pend[1].isUsed; }
   bool hasDeps()     const { 
     GI(!pend[0].isUsed && !pend[1].isUsed, nDeps==0);
-    return pend[0].isUsed || pend[1].isUsed; 
+    return nDeps!=0;
   }
   bool hasPending()  const { return first != 0;  }
   const DInst *getFirstPending() const { return first->getDInst(); }
@@ -491,6 +472,5 @@ class Hash4DInst {
     return (size_t)(dinst);
   }
 };
-
 
 #endif   // DINST_H

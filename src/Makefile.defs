@@ -16,12 +16,12 @@ endif
 endif
 #######################################
 
-OBJ	=$(OBJ_DIR)/$(ABINAME)_obj
+OBJ     =$(OBJ_DIR)/$(ABINAME)_obj
 
 ifdef DEBUG
-DEFS	+=-DDEBUG -DSAFE -D_NOTHREADS
+DEFS    +=-DDEBUG -DSAFE -D_NOTHREADS
 ifdef DEBUG_SILENT
-DEFS	+=-DDEBUG_SILENT
+DEFS    +=-DDEBUG_SILENT
 else
 ifdef DEBUG2
 DEFS    +=-DDEBUG2=1
@@ -31,13 +31,13 @@ endif
 endif
 
 else # No DEBUG
-DEFS	+=-DNDEBUG
+DEFS    +=-DNDEBUG
 DEFS    +=-DDEBUG2=0
 endif # DEBUG
 
-VPATH	=$(OBJ):$(SRC_DIR):$(BUILD_DIR):.
+VPATH   =$(OBJ):$(SRC_DIR):$(BUILD_DIR):.
 
-#DEFS	+=-DTRACE_DRIVEN
+#DEFS   +=-DTRACE_DRIVEN
 
 ##############################################################################
 M4_MACROS = $(SRC_DIR)/libmint/m4.macros
@@ -92,32 +92,32 @@ DEFS += -DVALUEPROF
 endif
 
 #####################################
-INC	= -I. -I$(OBJ) -I$(SRC_DIR)/libapp -I$(SRC_DIR)/libsuc 
-INC	+= -I$(SRC_DIR)/libcore -I$(SRC_DIR)/libnet -I$(SRC_DIR)/libmem 
-INC	+= -I$(SRC_DIR)/libvmem 
+INC     = -I. -I$(OBJ) -I$(SRC_DIR)/libapp -I$(SRC_DIR)/libsuc 
+INC     += -I$(SRC_DIR)/libcore -I$(SRC_DIR)/libnet -I$(SRC_DIR)/libmem 
+INC     += -I$(SRC_DIR)/libvmem 
 INC     += -I$(SRC_DIR)/libll -I$(SRC_DIR)/libmint -I$(SRC_DIR)/libpint 
 INC     += -I$(SRC_DIR)/libsmp
 ##############################################################################
 ifeq ($(findstring IRIX,$(ABINAME)),IRIX)
-LIBS	= -L$(OBJ) -L$(OBJ)/ -lgen -lsesc
+LIBS    = -L$(OBJ) -L$(OBJ)/ -lgen -lsesc
 else
-LIBS	= -L$(OBJ)
+LIBS    = -L$(OBJ)
 endif
 STDLIBS = -lm $(XSTDLIBS)
-CFLAGS	= $(ABI) $(COPTS) $(INC) $(PDEFS) $(DEFS)
-LDFLAGS	= $(ABI) $(LOPTS)
+CFLAGS  = $(ABI) $(COPTS) $(INC) $(PDEFS) $(DEFS)
+LDFLAGS = $(ABI) $(LOPTS)
 
 ##############################################################################
 # Native compilation libraries
 ifdef XCC_SPARC 
 CFLAGS +=-DXCC_SPARC
-XLIBS	= -L$(OBJ) -lapp
+XLIBS   = -L$(OBJ) -lapp
 else
 ifdef XCC_MIPSEB
 CFLAGS +=-DXCC_MIPSEB
-XLIBS	= -L$(OBJ) -lapp
+XLIBS   = -L$(OBJ) -lapp
 else
-XLIBS	= -lpthread -L$(OBJ) -lapp
+XLIBS   = -lpthread -L$(OBJ) -lapp
 endif
 endif
 
@@ -132,10 +132,10 @@ endif
 
 ##############################################################################
 ifdef SESC_INSTPROF
-DEFS	+=-DINSTPROF
+DEFS    +=-DINSTPROF
 endif
 ifdef SESC_FUNCINSTPROF
-DEFS	+=-DINSTPROF -DFUNCINSTPROF
+DEFS    +=-DINSTPROF -DFUNCINSTPROF
 endif
 
 ifdef SESC_MISPATH
@@ -146,7 +146,7 @@ DEFS    += -DSESC_MISPATH
 endif
 
 ifdef SESC_NO_LDSTQ
-DEFS	+= -DLDSTBUFFER_IGNORE_DEPS
+DEFS    += -DLDSTBUFFER_IGNORE_DEPS
 endif
 
 ##############################################################################
@@ -155,27 +155,16 @@ endif
 # not interested for normal simulations.
 
 ################################################
-# Use Bloom Filter on the LD/ST Queue. Improve the efficiency.
-
-#DEFS   +=-DSESC_MEMBF
-
-##############################################################################
-# Instruction Pre-Schedule (schedule the instruction once it has been
-# scheduled, do not wait until executed)
-
-DEFS   +=-DSESC_PRESCHEDULE
-
-################################################
 # Branch Predictor Weird Tunning Parameters
 
 # Update branch prediction at retire instead of speculative branch
 # prediction update. Check Skadron thesis.
 
-#DEFS	 +=-DBPRED_UPDATE_RETIRE
+#DEFS    +=-DBPRED_UPDATE_RETIRE
 
 # Resolve branch when it reaches the head of the ROB
 
-#DEFS	 +=-DSESC_BRANCH_AT_RETIRE
+#DEFS    +=-DSESC_BRANCH_AT_RETIRE
 
 ################################################
 # Cherry
@@ -184,11 +173,17 @@ DEFS    += -DSESC_CHERRY
 endif
 
 ################################################
-# Decoupled Instruction Schedule
-#DEFS    += -DSESC_NO_LDQ2
-#DEFS	+= -DSESC_DDIS1
-ifdef SESC_DDIS
-DEFS    += -DSESC_DDIS
+# Scalable Efficient Enforcement of Dependeces
+ifdef SESC_SEED
+#DEFS    +=-DSESC_SEED_OVERFLOW
+DEFS    +=-DSESC_SEED_INORDER
+# either SESC_SEED_DEPPRED_RAND or SESC_SEED_DEPPRED
+#DEFS    +=-DSESC_SEED_DEPPRED_SRC
+#DEFS    +=-DSESC_SEED_DEPPRED_BOTH
+DEFS    +=-DSESC_SEED_DEPPRED_RAND
+DEFS    +=-DSESC_SEED
+# Processor.cpp
+#DEFS    +=-DSESC_SEED_STALL_LOADS
 endif
 
 ################################################
@@ -201,6 +196,8 @@ endif
 # Optimized Inorder Pipeline
 ifdef SESC_INORDER
 DEFS    += -DSESC_INORDER
+#DEFS    += -DSESC_INORDER_OUT_DEPS
+#DEFS   += -DSESC_INORDER_ENERGY
 endif
 
 
@@ -208,58 +205,58 @@ endif
 # HVersion (TaskScalar)
 
 ifdef TASKSCALAR 
-DEFS	+= -DTASKSCALAR -DTS_COUNT_TASKS_AHEAD
+DEFS    += -DTASKSCALAR -DTS_COUNT_TASKS_AHEAD
 
 
 ################################################
 # Reset Branch History at task Start
-DEFS	+= -DTS_RESET_HISTORY
+DEFS    += -DTS_RESET_HISTORY
 
 ifdef VALUEPRED
-DEFS	+= -DVALUEPRED
+DEFS    += -DVALUEPRED
 endif
 
 ################################################
 # Silent stores (good!)
 
 ifndef SESC_NO_SILENT_STORE
-DEFS	+=-DSILENT_STORE
+DEFS    +=-DSILENT_STORE
 endif
 
 ################################################ 
 # When an version reclaim is received it merge all the successors
 
 ifndef TS_BUBBLE
-DEFS	+=-DCLAIM_MERGE_SUCCESSOR
+DEFS    +=-DCLAIM_MERGE_SUCCESSOR
 endif
 
 ################################################ 
 # mergeFirst all. Useful to see real overhead
 
-#DEFS	+=-DMERGE_FIRST_ALL
+#DEFS   +=-DMERGE_FIRST_ALL
 
 ifdef TS_VMNOPROMOTE
-DEFS	+=-DTS_VMNOPROMOTE
+DEFS    +=-DTS_VMNOPROMOTE
 endif
 ################################################ 
 # mergeNext active
 
 ifndef NO_MERGENEXT
-DEFS	+=-DTS_MERGENEXT
+DEFS    +=-DTS_MERGENEXT
 endif
 
 ################################################ 
 # mergeLast active
 
 ifndef NO_MERGELAST
-DEFS	+=-DTS_MERGELAST
+DEFS    +=-DTS_MERGELAST
 endif
 
 ################################################ 
 # spawn mechanism
 
 ifdef TS_SPAWN
-DEFS	+=-DTS_SPAWN
+DEFS    +=-DTS_SPAWN
 endif
 
 ################################################
@@ -284,33 +281,33 @@ DEFS    +=-DTS_RISKLOADPROF
 endif
 
 ifdef TS_VMEM
-DEFS	+= -DTS_VMEM
+DEFS    += -DTS_VMEM
 
 ifdef VMEM_NO_TRAOPT
 ################################################ 
 # Use LVID in the address generation (more assoc)
-DEFS	+=-DVMEM_NO_TRAOPT
+DEFS    +=-DVMEM_NO_TRAOPT
 endif
 
 ################################################ 
 # Use LVID in the address generation (more assoc)
-#DEFS	+=-DVMEM_LVID_IN_ADDR
+#DEFS   +=-DVMEM_LVID_IN_ADDR
 
 # Generate restarts at fetch. Unless debugging, you should be giving
 # an upper limit performance
 DEFS +=-DTS_IMMEDIAT_RESTART
 
 # Simple Promotion
-#DEFS	+=-DVMEM_SIMPLE_PROMOTION
+#DEFS   +=-DVMEM_SIMPLE_PROMOTION
 
 # Use predecessor information from local cache to forward data
-DEFS	+=-DVMEM_PRED_FORWARD
+DEFS    +=-DVMEM_PRED_FORWARD
 
 # Implement a directory in the VBus
-#DEFS	+=-DVMEM_DIR
+#DEFS   +=-DVMEM_DIR
 
 # Use the most/least Speculative bit per cache line
-DEFS	+=-DTS_USE_SPECBITS
+DEFS    +=-DTS_USE_SPECBITS
 
 endif # TS_VMEM
 

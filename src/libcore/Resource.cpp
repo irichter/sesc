@@ -74,9 +74,6 @@ MemResource::MemResource(Cluster *cls
 			 ,int id
 			 ,const char *cad)
   : Resource(cls, aGen)
-#ifdef SESC_MEMBF
-  ,LSQBanks(SescConf->getBool("cpucore","LSQBanks",id))
-#endif
   ,L1DCache(ms->getDataSource())
   ,memorySystem(ms)
 {
@@ -84,29 +81,94 @@ MemResource::MemResource(Cluster *cls
   char cadena[100];
   sprintf(cadena,"%s(%d)", cad, id);
   
-#ifdef SESC_NO_LDQ2
-  ldqCheckEnergy = 0;
-  ldqRdWrEnergy  = 0;
+#ifdef SESC_NO_LDQ
+  ldqCheckEnergy = new GStatsEnergyNull; // No stats
+  ldqRdWrEnergy  = new GStatsEnergyNull; // No stats
+#endif
+
+#ifdef SESC_INORDER
+  ldqCheckEnergyOutOrder = new GStatsEnergy("ldqCheckEnergy",cadena,id,LDQCheckEnergy
+				    ,EnergyMgr::get("ldqCheckEnergy",id),"LSQ");
+
+  ldqRdWrEnergyOutOrder = new GStatsEnergy("ldqRdWrEnergy",cadena,id,LDQRdWrEnergy
+				   ,EnergyMgr::get("ldqRdWrEnergy",id),"LSQ");
+
+  ldqCheckEnergyInOrder = new GStatsEnergyNull; // No stats
+  ldqRdWrEnergyInOrder  = new GStatsEnergyNull; // No stats
+
+  ldqCheckEnergy = ldqCheckEnergyOutOrder; // No stats
+  ldqRdWrEnergy  = ldqRdWrEnergyOutOrder; // No stats
+  
+  
+  stqCheckEnergyOutOrder = new GStatsEnergy("stqCheckEnergy",cadena,id,STQCheckEnergy
+				    ,EnergyMgr::get("stqCheckEnergy",id),"LSQ");
+
+
+  stqRdWrEnergyOutOrder = new GStatsEnergy("stqRdWrEnergy",cadena,id,STQRdWrEnergy
+				   ,EnergyMgr::get("stqRdWrEnergy",id),"LSQ");
+				   
+				   
+  stqCheckEnergyInOrder = new GStatsEnergy("stqCheckEnergyInOrder",cadena,id,STQCheckEnergy
+				    ,EnergyMgr::get("stqCheckEnergy",id),"LSQ");
+
+
+  stqRdWrEnergyInOrder = new GStatsEnergy("stqRdWrEnergyInOrder",cadena,id,STQRdWrEnergy
+				   ,EnergyMgr::get("stqRdWrEnergy",id),"LSQ");
+				   
+  stqCheckEnergy = stqCheckEnergyOutOrder; // No stats
+  stqRdWrEnergy  = stqRdWrEnergyOutOrder; // No stats
+  			   
+
+  InOrderMode = true;
+  OutOrderMode = false;
+  currentMode = OutOrderMode;
+
 #else
   ldqCheckEnergy = new GStatsEnergy("ldqCheckEnergy",cadena,id,LDQCheckEnergy
 				    ,EnergyMgr::get("ldqCheckEnergy",id),"LSQ");
 
-  ldqRdWrEnergy = new GStatsEnergy("ldqRdWrEnergy",cadena,id,LDQRdWrEnergy
-				   ,EnergyMgr::get("ldqRdWrEnergy",id),"LSQ");
-#endif
+  ldqRdWrEnergy  = new GStatsEnergy("ldqRdWrEnergy",cadena,id,LDQRdWrEnergy
+				    ,EnergyMgr::get("ldqRdWrEnergy",id),"LSQ");
+
 
   stqCheckEnergy = new GStatsEnergy("stqCheckEnergy",cadena,id,STQCheckEnergy
 				    ,EnergyMgr::get("stqCheckEnergy",id),"LSQ");
 
 
-  stqRdWrEnergy = new GStatsEnergy("stqRdWrEnergy",cadena,id,STQRdWrEnergy
-				   ,EnergyMgr::get("stqRdWrEnergy",id),"LSQ");
-
+  stqRdWrEnergy  = new GStatsEnergy("stqRdWrEnergy",cadena,id,STQRdWrEnergy
+				    ,EnergyMgr::get("stqRdWrEnergy",id),"LSQ");
+				   
+#endif
 
   iAluEnergy = new GStatsEnergy("iAluEnergy", cadena , id, IAluEnergy
 				,EnergyMgr::get("iALUEnergy",id));
 }
 
+#ifdef SESC_INORDER
+void MemResource::setMode(bool mode)
+{
+  if(currentMode == mode)
+    return;
+
+  cluster->setMode(mode);
+
+  currentMode = mode;
+
+  if(mode == InOrderMode){
+   ldqCheckEnergy = ldqCheckEnergyInOrder; // No stats
+   ldqRdWrEnergy  = ldqRdWrEnergyInOrder; // No stats
+   stqCheckEnergy = stqCheckEnergyInOrder; // No stats
+   stqRdWrEnergy  = stqRdWrEnergyInOrder; // No stats
+   currentMode = InOrderMode;
+  }else{
+   ldqCheckEnergy = ldqCheckEnergyInOrder; // No stats
+   ldqRdWrEnergy  = ldqRdWrEnergyInOrder; // No stats
+   stqCheckEnergy = stqCheckEnergyInOrder; // No stats
+   stqRdWrEnergy  = stqRdWrEnergyInOrder; // No stats
+   currentMode = OutOrderMode;
+  }
+}
+#endif
 /***********************************************/
 
 FUMemory::FUMemory(Cluster *cls, GMemorySystem *ms, int id)
@@ -118,15 +180,13 @@ FUMemory::FUMemory(Cluster *cls, GMemorySystem *ms, int id)
 
 StallCause FUMemory::canIssue(DInst *dinst)
 {
-  if (!cluster->canIssue(dinst))
-    return SmallWinStall;
-
   cluster->newEntry();
   
   // TODO: Someone implement a LDSTBuffer::fenceGetEntry(dinst);
 
-  ldqRdWrEnergy->inc();
   stqRdWrEnergy->inc();
+  ldqRdWrEnergy->inc();
+
 
   return NoStall;
 }
@@ -140,10 +200,12 @@ void FUMemory::simTime(DInst *dinst)
 
   // All structures accessed (very expensive)
   iAluEnergy->inc();
-  ldqCheckEnergy->inc();
+  
   stqCheckEnergy->inc();
-  ldqRdWrEnergy->inc();
   stqRdWrEnergy->inc();
+
+  ldqCheckEnergy->inc();
+  ldqRdWrEnergy->inc();
 
   // TODO: Add prefetch for Fetch&op as a MemWrite
   dinst->doAtExecutedCB.schedule(1); // Next cycle
@@ -209,10 +271,6 @@ FULoad::FULoad(Cluster *cls, PortGeneric *aGen
   
   I(ms);
   I(freeLoads>0);
-
-#ifdef SESC_MEMBF
-  bf = new BloomFilter [LSQBanks](4, 8, 2*maxLoads, 6, maxLoads/2, 6, maxLoads/2, 6, maxLoads/2);
-#endif
 }
 
 StallCause FULoad::canIssue(DInst *dinst)
@@ -226,9 +284,6 @@ StallCause FULoad::canIssue(DInst *dinst)
     return OutsLoadsStall;
   }
 
-  if (!cluster->canIssue(dinst))
-    return SmallWinStall;
-
   cluster->newEntry();
 
   LDSTBuffer::getLoadEntry(dinst);
@@ -238,8 +293,8 @@ StallCause FULoad::canIssue(DInst *dinst)
   else
     freeLoads--;
 
-  ldqRdWrEnergy->inc(); // Allocate entry
-
+  ldqRdWrEnergy->inc();
+ 
   return NoStall;
 }
 
@@ -249,10 +304,11 @@ void FULoad::simTime(DInst *dinst)
 
   // The check in the LD Queue is performed always, for hit & miss
   iAluEnergy->inc();
-  ldqRdWrEnergy->inc(); // Update fields
   
-  ldqCheckEnergy->inc(); // Check ld-ld replays
   stqCheckEnergy->inc(); // Check st-ld forwarding
+
+  ldqRdWrEnergy->inc();
+  ldqCheckEnergy->inc();	
 
   if (dinst->isLoadForwarded()) {
 #ifdef SESC_CHERRY
@@ -275,22 +331,19 @@ void FULoad::executed(DInst* dinst)
 
 void FULoad::cacheDispatched(DInst *dinst)
 {
+  I( !dinst->isLoadForwarded() );
+
+  if(!L1DCache->canAcceptLoad(static_cast<PAddr>(dinst->getVaddr()))) {
+    cacheDispatchedCB::schedule(7, this, dinst); //try again later
+    return;
+  }
+
 #ifdef SESC_CHERRY
   dinst->markResolved();
   cluster->getGProcessor()->propagateUnresolvedLoad();
 #endif
 
-  I( !dinst->isLoadForwarded() );
-  // LOG("[0x%p] %lld 0x%lx read", dinst, globalClock, dinst->getVaddr());
-  if(!L1DCache->canAcceptLoad(static_cast<PAddr>(dinst->getVaddr()))) {
-    Time_t when = gen->nextSlot();
-    //try again
-    // +1 because when we have unilimited ports (or occ) 0, this will be an
-    // infinite loop
-    cacheDispatchedCB::scheduleAbs(when+1, this, dinst);
-  } else {
-    DMemRequest::create(dinst, memorySystem, MemRead);
-  }
+  DMemRequest::create(dinst, memorySystem, MemRead);
 }
 
 bool FULoad::retire(DInst *dinst)
@@ -363,9 +416,6 @@ StallCause FUStore::canIssue(DInst *dinst)
     return OutsStoresStall;
   }
 
-  if( !cluster->canIssue(dinst) )
-    return SmallWinStall;
-
   cluster->newEntry();
 
   LDSTBuffer::getStoreEntry(dinst);
@@ -376,7 +426,7 @@ StallCause FUStore::canIssue(DInst *dinst)
     freeStores--;
   }
 
-  stqRdWrEnergy->inc(); // Allocate entry
+  stqRdWrEnergy->inc();
 
   return NoStall;
 }
@@ -389,8 +439,10 @@ void FUStore::simTime(DInst *dinst)
 void FUStore::executed(DInst *dinst)
 {
   stqRdWrEnergy->inc(); // Update fields
-  
+
+
   ldqCheckEnergy->inc(); // Check st-ld replay traps
+
 
 #ifdef SESC_CHERRY
   dinst->markResolved();
@@ -535,9 +587,6 @@ FUGeneric::FUGeneric(Cluster *cls
 
 StallCause FUGeneric::canIssue(DInst *dinst)
 {
-  if( !cluster->canIssue(dinst) )
-    return SmallWinStall;
-
   cluster->newEntry();
 
   return NoStall;
@@ -560,6 +609,13 @@ void FUGeneric::earlyRecycle(DInst *dinst)
   I(0);
 }
 #endif
+#ifdef SESC_INORDER
+void FUGeneric::setMode(bool mode)
+{
+  cluster->setMode(mode);
+  // Nothing
+}
+#endif
 
 /***********************************************/
 
@@ -575,9 +631,6 @@ StallCause FUBranch::canIssue(DInst *dinst)
 {
   if (freeBranches == 0)
     return OutsBranchesStall;
-
-  if (!cluster->canIssue(dinst))
-    return SmallWinStall;
 
   cluster->newEntry();
   
@@ -639,6 +692,13 @@ void FUBranch::earlyRecycle(DInst *dinst)
   I(0);  // TODO
 }
 #endif
+#ifdef SESC_INORDER
+void FUBranch::setMode(bool mode)
+{
+  cluster->setMode(mode);
+  // Nothing
+}
+#endif
 
 /***********************************************/
 
@@ -649,9 +709,6 @@ FUEvent::FUEvent(Cluster *cls)
 
 StallCause FUEvent::canIssue(DInst *dinst)
 {
-  if( !cluster->canIssue(dinst) )
-    return SmallWinStall;
-
   return NoStall;
 }
 
@@ -677,5 +734,13 @@ void FUEvent::simTime(DInst *dinst)
 void FUEvent::earlyRecycle(DInst *dinst)
 {
   I(0);  // TODO
+}
+#endif
+
+#ifdef SESC_INORDER
+void FUEvent::setMode(bool mode)
+{
+  cluster->setMode(mode);
+  // Nothing
 }
 #endif

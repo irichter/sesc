@@ -51,7 +51,7 @@ orion: wattch
 $(ALLENVS): $(POWER_SUBDIRS)
 
 eclean:
-	-@rm -f cactify wattchify panalyze                           
+	-@rm -f cactify wattchify panalyze
 	-@for a in $(POWER_SUBDIRS) ; 			\
 	do 						\
 	echo "Cleaning " $$a ; 				\

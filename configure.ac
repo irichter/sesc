@@ -40,7 +40,7 @@ AC_SUBST(MPCOH_OPT)
 AC_SUBST(SESC_DSM_OPT)
 AC_SUBST(SESC_SMP_OPT)
 AC_SUBST(SESC_CHERRY_OPT)
-AC_SUBST(SESC_DDIS_OPT)
+AC_SUBST(SESC_SEED_OPT)
 AC_SUBST(SESC_BAAD_OPT)
 AC_SUBST(SESC_INORDER_OPT)
 
@@ -226,13 +226,13 @@ AC_HELP_STRING([--enable-cherry],
 [if test "$enableval" = "yes"; then AC_COMPOPT(SESC_CHERRY) fi],
 )
 
-### DDIS (Decoupled Instruction Scheduling)
+### SEED (Scalable Efficient Enforcement of Dependences)
 
-AC_NOCOMPOPT(SESC_DDIS)
-AC_ARG_ENABLE(ddis, 
-AC_HELP_STRING([--enable-ddis],
-               [Enables Decoupled Instruction Scheduling (default is no)]),
-[if test "$enableval" = "yes"; then AC_COMPOPT(SESC_DDIS) fi],
+AC_NOCOMPOPT(SESC_SEED)
+AC_ARG_ENABLE(seed, 
+AC_HELP_STRING([--enable-seed],
+               [Enables Scalable Efficient Enforcement of Dependences (default is no)]),
+[if test "$enableval" = "yes"; then AC_COMPOPT(SESC_SEED) fi],
 )
 
 ### BAAD (Bandwidth Analyzer)

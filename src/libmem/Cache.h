@@ -141,6 +141,7 @@ protected:
   GStatsCntr nWBFull;
   GStatsTimingAvg avgPendingWrites;
   GStatsAvg  avgMissLat;
+  GStatsCntr rejected;
   GStatsCntr rejectedHits;
   // END Statistics
 

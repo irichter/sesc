@@ -39,15 +39,23 @@ enum EnergyGroup {
   ,WindowRdWrEnergy
   ,WindowSelEnergy
   ,WindowCheckEnergy
-#ifdef SESC_DDIS
-  ,WinDepsEnergy
+#ifdef SESC_SEED
   ,DepTableEnergy
 #endif
   ,LDQCheckEnergy
   ,LDQRdWrEnergy
   ,STQCheckEnergy
+#ifdef SESC_INORDER
+  ,STQCheckEnergyInOrder
+#endif  
   ,STQRdWrEnergy
+#ifdef SESC_INORDER  
+  ,STQRdWrEnergyInOrder
+#endif  
   ,RenameEnergy
+#ifdef SESC_INORDER  
+  ,RenameEnergyInOrder
+#endif  
   ,IAluEnergy
   ,FPAluEnergy
   ,ResultBusEnergy

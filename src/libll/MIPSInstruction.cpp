@@ -155,7 +155,7 @@ void Instruction::initializeMINT(int argc,
     
     // In case that a iLoad has two dependences, the
     // MAX_PENDING_SOURCES from DInst should be increased.
-#ifndef SESC_NO_LDQ2
+#ifndef SESC_NO_LDQ
     GI(opcode == iLoad,  src2 == NoDependence);
 #endif
     
@@ -297,7 +297,7 @@ void Instruction::initializeMINT(int argc,
     InstTable[codeSize + FakeInst + i].opcode = iALU;
     InstTable[codeSize + FakeInst + i].subCode= iFake;
     InstTable[codeSize + FakeInst + i].src1   = (RegType)i;
-#ifdef SESC_NO_LDQ2
+#if (defined SESC_NO_LDQ) || (defined SESC_SERIAL_ST)
     InstTable[codeSize + FakeInst + i].src2   = InternalReg; // Fake dep
 #else
     InstTable[codeSize + FakeInst + i].src2   = NoDependence;
@@ -516,7 +516,7 @@ void Instruction::MIPSDecodeInstruction(size_t        index
     subCode = iMemory;
     dest    = static_cast < RegType > (picode->getRN(RT));
     src1    = static_cast < RegType > (picode->getRN(RS));
-#ifdef SESC_NO_LDQ2
+#ifdef SESC_NO_LDQ
     src2    = InternalReg;
 #endif
     break;
@@ -538,7 +538,7 @@ void Instruction::MIPSDecodeInstruction(size_t        index
     subCode = iMemory;
     dest = static_cast < RegType > (picode->getDPN(RT) + static_cast < int >(IntFPBoundary));
     src1 = static_cast < RegType > (picode->getRN(RS));
-#ifdef SESC_NO_LDQ2
+#ifdef SESC_NO_LDQ
     src2    = InternalReg;
 #endif
     break;
@@ -549,7 +549,7 @@ void Instruction::MIPSDecodeInstruction(size_t        index
     subCode = iMemory;
     dest = static_cast < RegType > (picode->getFPN(RT) + static_cast < int >(IntFPBoundary));
     src1 = static_cast < RegType > (picode->getRN(RS));
-#ifdef SESC_NO_LDQ2
+#ifdef SESC_NO_LDQ
     src2    = InternalReg;
 #endif
     break;

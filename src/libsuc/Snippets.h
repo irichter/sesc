@@ -60,7 +60,7 @@ short  log2i(long n);
 short  log2i(int n);
 
 //x, y are integers and x,y > 0
-#define CEILDiv(x,y)		((x)-1)/(y)+1
+#define CEILDiv(x,y)            ((x)-1)/(y)+1
 
 unsigned int roundUpPower2(unsigned int x);
 

@@ -36,29 +36,22 @@ private:
   PipeQueue pipeQ;
 
   signed int spaceInInstQueue;
+
+  MemObj *l1Cache;
   
   DInst *RAT[NumArchRegs];
-
 
 protected:
 
 #ifdef SESC_INORDER  
   Time_t RATTIME[NumArchRegs];
   long latencyVal[MaxInstType];
-
-  //  long  latiALU;          
-  // long  latiMult;              
-  //long  latiDiv;               
-  //long  latiBJ;                
-  //long  latiLoad;              
-  //long  latiStore;            
-  //long  latfpALU;              
-  //long  latfpMult;           
-  //long  latfpDiv; 
+  
+  bool isStall(DInst *dinst);
 #endif             
 
   // BEGIN VIRTUAL FUNCTIONS of GProcessor
-  DInst **getRAT(const DInst *dinst);
+  DInst **getRAT(const int contextId);
   FetchEngine *currentFlow();
 
   void saveThreadContext(Pid_t pid);

@@ -28,7 +28,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "Resource.h"
 
 pool<DInst> DInst::dInstPool(512);
-#ifdef DINST_NDEPS
+#ifdef DEBUG
 long DInst::currentID=0;
 #endif
 
@@ -41,15 +41,14 @@ GStatsAvg **DInst::avgRetireQTime = 0;
 #endif
 
 DInst::DInst()
-  :doAtExecutedCB(this)
-  ,doAtSimTimeCB(this)
+  :doAtSimTimeCB(this)
+  ,doAtSelectCB(this)
+  ,doAtExecutedCB(this)
 {
   pend[0].init(this);
   pend[1].init(this);
   I(MAX_PENDING_SOURCES==2);
-#ifdef DINST_NDEPS
   nDeps = 0;
-#endif
 
 #ifdef SESC_BAAD
   if (avgFetchQTime == 0) {
@@ -90,6 +89,30 @@ void DInst::dump(const char *str)
   inst->dump("");
 }
 
+void DInst::doAtSimTime()
+{
+  I( resource );
+
+  I(!isExecuted());
+
+  I(resource->getCluster());
+
+  if (!isStallOnLoad())
+    resource->getCluster()->wakeUpDeps(this);
+
+#ifdef SESC_BAAD
+  setSchedTime();
+#endif
+
+  resource->simTime(this);
+}
+
+void DInst::doAtSelect()
+{
+  I(resource->getCluster());
+  resource->getCluster()->select(this);
+}
+
 void DInst::doAtExecuted()
 {
   I(RATEntry);
@@ -100,25 +123,6 @@ void DInst::doAtExecuted()
   resource->executed(this);
 }
 
-void DInst::doAtSimTime()
-{
-  I( resource );
-
-  I(!isExecuted());
-
-  I(resource->getCluster());
-
-#ifdef SESC_PRESCHEDULE
-  // wakeUp at the end of the select stage
-  resource->getCluster()->wakeUpDeps(this);
-#endif
-
-#ifdef SESC_BAAD
-  setSchedTime();
-#endif
-
-  resource->simTime(this);
-}
 
 DInst *DInst::createDInst(const Instruction *inst, VAddr va, int cId)
 {
@@ -129,13 +133,13 @@ DInst *DInst::createDInst(const Instruction *inst, VAddr va, int cId)
 
   DInst *i = dInstPool.out();
 
-  i->inst  = inst;
+  i->inst       = inst;
   Prefetch(i->inst);
-  i->cId   = cId;
+  i->cId        = cId;
   i->wakeUpTime = 0;
-  i->vaddr = va;
-  i->first = 0;
-#ifdef DINST_NDEPS
+  i->vaddr      = va;
+  i->first      = 0;
+#ifdef DEBUG
   i->ID = currentID++;
 #endif
   i->resource  = 0;
@@ -173,10 +177,6 @@ DInst *DInst::createDInst(const Instruction *inst, VAddr va, int cId)
 #if (defined TLS)
   ID(i->myEpoch=0);
 #endif
-#ifdef SESC_DDIS
-  i->presched = false;
-  i->bank     = 0;
-#endif
 #ifdef DINST_PARENT
   i->pend[0].setParentDInst(0);
   i->pend[1].setParentDInst(0);
@@ -213,7 +213,7 @@ void DInst::killSilently()
     if (!dstReady->isIssued()) {
       // Accross processor dependence
       if (dstReady->hasDepsAtRetire())
-	dstReady->clearDepsAtRetire();
+        dstReady->clearDepsAtRetire();
       
       I(!dstReady->hasDeps());
       continue;
@@ -222,7 +222,7 @@ void DInst::killSilently()
       // The instruction got executed even though it has dependences. This is
       // because the instruction got silently killed (killSilently)
       if (!dstReady->hasDeps())
-	dstReady->scrap();
+        dstReady->scrap();
       continue;
     }
 
@@ -401,6 +401,5 @@ void DInst::setRetireTime()
   avgExeQTime[i]->sample(exeTime-schedTime);
   avgRetireQTime[i]->sample(globalClock-exeTime);
 }
-
 #endif
 

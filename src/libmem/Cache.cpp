@@ -61,6 +61,7 @@ Cache::Cache(MemorySystem *gms, const char *section, const char *name)
   ,nWBFull("%s:nWBFull", name)
   ,avgPendingWrites("%s:avgPendingWrites", name)
   ,avgMissLat("%s_avgMissLat", name)
+  ,rejected("%s:rejected", name)
   ,rejectedHits("%s:rejectedHits", name)
 {
   MemObj *lower_level = NULL;
@@ -172,7 +173,6 @@ void Cache::readMissHandler(MemRequest *mreq)
 {
   PAddr addr = mreq->getPAddr();
 
-
   if(!mshr->issue(addr, MemRead)) {
     mreq->setClockStamp(globalClock);
     mshr->addEntry(addr, doReadQueuedCB::create(this, mreq), 
@@ -217,7 +217,6 @@ void Cache::activateOverflow(MemRequest *mreq)
       sendMiss(mreq);
       return;
     }
-
 
     readHit.inc();
     PAddr paddr = mreq->getPAddr();
@@ -364,7 +363,7 @@ Cache::Line *Cache::allocateLine(PAddr addr, CallbackBase *cb)
   lineFill.inc();
 
   if(l == 0) {
-    doAllocateLineRetryCB::scheduleAbs(globalClock + 1000, this, addr, cb);
+    doAllocateLineRetryCB::scheduleAbs(globalClock + 100, this, addr, cb);
     return 0;
   }
 
@@ -424,9 +423,8 @@ bool Cache::canAcceptStore(PAddr addr)
 
   bool canAcceptReq = mshr->canAcceptRequest(addr);
 
-  if(!canAcceptReq && isInCache(addr)) {
-    rejectedHits.inc();
-  }
+  rejectedHits.add(!canAcceptReq && isInCache(addr) ? 1: 0);
+  rejected.add(!canAcceptReq);
 
   return canAcceptReq;
 }
@@ -435,9 +433,8 @@ bool Cache::canAcceptLoad(PAddr addr)
 {
   bool canAcceptReq = mshr->canAcceptRequest(addr);
 
-  if(!canAcceptReq && isInCache(addr)) {
-    rejectedHits.inc();
-  }
+  rejectedHits.add(!canAcceptReq && isInCache(addr) ? 1: 0);
+  rejected.add(!canAcceptReq);
 
   return canAcceptReq;
 }

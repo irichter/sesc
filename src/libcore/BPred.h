@@ -71,8 +71,9 @@ protected:
   GStatsEnergy *bpredEnergy;
 
   HistoryType calcInstID(const Instruction *inst) const {
-    return inst->currentID();
-    // return (cid >> 17) ^ (cid); // randomize it
+    HistoryType cid = inst->currentID();
+    return (cid >> 17) ^ (cid); // randomize it
+    //    return cid;
   }
 protected:
 public:
@@ -243,7 +244,7 @@ private:
 
   SCTable globalTable;
 
-  HistoryType *historyTable;
+  HistoryType *historyTable; // LHR
 protected:
 public:
   BP2level(int i, const char *section);
@@ -259,15 +260,12 @@ class BPHybrid:public BPred {
 private:
   BPBTB btb;
 
-  const ushort l1Size;
-  const ulong  l1SizeMask;
-
   const ushort historySize;
   const HistoryType historyMask;
 
   SCTable globalTable;
 
-  HistoryType *historyTable;
+  HistoryType ghr; // Global History Register
 
   SCTable localTable;
   SCTable metaTable;
@@ -317,9 +315,14 @@ class BPyags : public BPred {
 private:
   BPBTB btb;
 
+  const ushort historySize;
+  const HistoryType historyMask;
+
   SCTable table;
   SCTable ctableTaken;
   SCTable ctableNotTaken;
+
+  HistoryType ghr; // Global History Register
 
   uchar *CacheTaken;
   HistoryType CacheTakenMask;
@@ -339,103 +342,6 @@ public:
   void switchIn(Pid_t pid);
   void switchOut(Pid_t pid);
 };
-
-class BPRap : public BPred {
-private:
-
-  class PathHistoryEntry{
-  public:
-    HistoryType key;
-#ifdef RAP_T_NT_ONLY
-    bool ptaken;
-#else
-    InstID target;
-#endif
-    char correct;
-
-    PathHistoryEntry() {
-      key = 0;
-    }
-    bool operator==(PathHistoryEntry s) const {
-      return key == s.key; // ignore ptaken
-    }
-  };
-
-#ifdef RAP_T_NT_ONLY
-  BPBTB btb;
-#endif
-
-  const ushort historySize;
-  const HistoryType historyMask;
-
-  HistoryType history;
-
-  typedef HASH_MAP<HistoryType, int, Hash4HistoryType> Key2PosType;
-  
-  Key2PosType key2pos;
-  
-  PathHistoryEntry   *buffer;
-  const size_t BufferSize;
-  size_t bufferPos;
-
-  BPred *prePred;
-
-protected:
-  HistoryType newHistory(HistoryType iID, bool taken);
-
-public:
-  BPRap(int i, const char *section);
-  ~BPRap();
-
-  PredType predict(const Instruction * inst, InstID oracleID, bool doUpdate);
-
-  void switchIn(Pid_t pid);
-  void switchOut(Pid_t pid);
-};
-
-class BPCRap : public BPred {
-private:
-  BPBTB btb;
-  class PathEntry : public StateGeneric<HistoryType> {
-  public:
-    bool ptaken;
-    char correct;
-
-    void initialize(CacheGeneric<PathEntry, HistoryType>* c) { 
-      ptaken = false;
-      correct = 0;
-      clearTag();
-    }
-    bool operator==(PathEntry b) const {
-      return ( ptaken == b.ptaken && correct == b.correct );
-    }
-  };
-
-  const ushort historySize;
-  const HistoryType historyMask;
-
-  HistoryType history;
-
-  typedef CacheGeneric<PathEntry, HistoryType> CacheType;
-
-  CacheType *data;
-  size_t bufferPos;
-  
-  BPred *prePred;
-
-protected:
-  HistoryType newHistory(HistoryType iID, bool taken);
-
-public:
-  BPCRap(int i, const char *section);
-  ~BPCRap();
-
-  PredType predict(const Instruction * inst, InstID oracleID, bool doUpdate);
-
-  void switchIn(Pid_t pid);
-  void switchOut(Pid_t pid);
-};
-
 
 class BPredictor {
 private:

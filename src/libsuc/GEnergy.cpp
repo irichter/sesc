@@ -181,21 +181,26 @@ void GStatsEnergy::dump()
 
 double GStatsEnergy::getTotalEnergy()
 {
-  volatile double totalEnergy = 0.0;
-  double energy;
- 
+  double totalEnergy = 0.0;
+
+  double pVals[MaxPowerGroup];
+  for(int i=0; i < MaxPowerGroup; i++) 
+    pVals[i] = 0.0;
+
   // calculate the values
   for(size_t i=1;i< MaxEnergyGroup ;i++) {
-    energy = GStatsEnergy::getTotalGroup(static_cast<EnergyGroup>(i));
-   
-    totalEnergy += energy;
+    double    pwr = EnergyMgr::etop(GStatsEnergy::getTotalGroup(static_cast<EnergyGroup>(i)));
+    PowerGroup pg = EnergyStore::getPowerGroup(static_cast<EnergyGroup>(i));
+    pVals[pg] += pwr;
   }
+
+  // dump the values
+  for(int j=1; j < MaxPowerGroup;j++)
+    totalEnergy += EnergyMgr::ptoe(pVals[j]);
 
   // printf("E:%f\n", totalEnergy);
   return totalEnergy;
-
 }
-
 
 void GStatsEnergy::reportValue() const
 {
@@ -360,16 +365,24 @@ PowerGroup EnergyStore::getPowerGroup(EnergyGroup e)
   case WindowRdWrEnergy:
   case WindowSelEnergy:
   case WindowCheckEnergy:
-#ifdef SESC_DDIS
-  case WinDepsEnergy:
+#ifdef SESC_SEED
   case DepTableEnergy:
 #endif
-  case RenameEnergy: 
+  case RenameEnergy:
+#ifdef SESC_INORDER   
+  case RenameEnergyInOrder:
+#endif  
   case WrRegEnergy:
   case RdRegEnergy:
   case LDQCheckEnergy:
   case LDQRdWrEnergy:
+#ifdef SESC_INORDER
+   case STQCheckEnergyInOrder:
+#endif    
   case STQCheckEnergy:
+#ifdef SESC_INORDER
+   case STQRdWrEnergyInOrder:
+#endif  
   case STQRdWrEnergy:
   case ROBEnergy:
     return IssuePower;
@@ -422,9 +435,7 @@ char* EnergyStore::getStr(EnergyGroup d)
     return "WindowSelEnergy";
   case WindowCheckEnergy:
     return "WindowCheckEnergy";
-#ifdef SESC_DDIS
-  case WinDepsEnergy:
-    return "WinDepsEnergy";
+#ifdef SESC_SEED
   case DepTableEnergy:
     return "DepTableEnergy";
 #endif
@@ -438,6 +449,14 @@ char* EnergyStore::getStr(EnergyGroup d)
     return "STQRdWrEnergy";
   case RenameEnergy:
     return "RenameEnergy";
+#ifdef SESC_INORDER
+  case STQCheckEnergyInOrder:
+    return "STQCheckEnergyInOrder";
+  case STQRdWrEnergyInOrder:
+    return "STQRdWrEnergyInOrder";
+  case RenameEnergyInOrder:
+    return "RenameEnergyInOrder";
+#endif    
   case IAluEnergy:
     return "IAluEnergy";
   case FPAluEnergy:

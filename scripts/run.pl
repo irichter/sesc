@@ -80,7 +80,7 @@ sub waitUntilLoad {
     close(FH);
     last if ($loadavg <= $load);
     print "Load too high (${loadavg} waiting...\n";
-    sleep 73;
+    sleep 128*rand();
   }
 }
 
@@ -160,6 +160,7 @@ sub runBench {
       $output = "&> ${param{bench}}${op_ext}.out";
     }
   }
+
 
   my $executable = getExec($param{bench});
 
@@ -873,12 +874,15 @@ sub processParams {
 }
 
 sub setupDirectory {
-  unless( -f "words") {
-    system("cp -r ${BHOME}/CINT2000/197.parser/data/all/input/words .")
+
+  unless (-f "words") {
+	# wait a bit, maybe someone else is doing it
+  	sleep 32*rand();
   }
 
+  system("cp -r ${BHOME}/CINT2000/197.parser/data/all/input/words .") unless( -f "words");
   system("cp ${BHOME}/CINT2000/300.twolf/${dataset}/${op_data}.* .");
-  system("ln -sf ${BHOME}/CINT2000/253.perlbmk/data/all/input/lib lib");
+  system("ln -sf ${BHOME}/CINT2000/253.perlbmk/data/all/input/lib lib") unless ( -l "lib")
 }
 
 exit &main();

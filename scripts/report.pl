@@ -39,19 +39,19 @@ my $op_cc;
 my $op_baad;
 
 my $result = GetOptions("a",\$op_all,
-			"last",\$op_last,
-			"bpred!",\$op_bpred,
-			"cpu!",\$op_cpu,
+                        "last",\$op_last,
+                        "bpred!",\$op_bpred,
+                        "cpu!",\$op_cpu,
                         "inst!",\$op_inst,
-			"sim!",\$op_sim,
-			"versionmem",\$op_versionmem,
-			"tls",\$op_tls,
-			"atomic",\$op_atomic,
-			"lock",\$op_lock,
-			"table",\$op_table,
-			"cc",\$op_cc,
-			"baad",\$op_baad,
-			"help",\$op_help
+                        "sim!",\$op_sim,
+                        "versionmem",\$op_versionmem,
+                        "tls",\$op_tls,
+                        "atomic",\$op_atomic,
+                        "lock",\$op_lock,
+                        "table",\$op_table,
+                        "cc",\$op_cc,
+                        "baad",\$op_baad,
+                        "help",\$op_help
                        );
 
 
@@ -95,6 +95,7 @@ sub usage {
 my $nCPUs;
 my $cpuType;
 my $nCycles;
+my $slowdown;
 my $nInstTotal;
 my $nLoadTotal;
 my $nStoreTotal;
@@ -213,24 +214,24 @@ sub partialMemStat {
       return;
   }
 
-
   print $orig;
   if ($cf->getResultField("${name[1]}","readMiss")) {
     printf " %3.1f ",$cf->getResultField("${name[1]}_occ","v");
 
     my $total =
       $cf->getResultField("${name[1]}","readHit")
-	+ $cf->getResultField("${name[1]}","readHalfHit")
-	+ $cf->getResultField("${name[1]}","readHalfMiss")
-	+ $cf->getResultField("${name[1]}","readMiss")
+        + $cf->getResultField("${name[1]}","readHalfHit")
+        + $cf->getResultField("${name[1]}","readHalfMiss")
+        + $cf->getResultField("${name[1]}","readMiss")
         + $cf->getResultField("${name[1]}","writeHit")
         + $cf->getResultField("${name[1]}","writeHalfHit")
         + $cf->getResultField("${name[1]}","writeHalfMiss")
         + $cf->getResultField("${name[1]}","writeMiss");
 
-    printf " %5.2f%",
-      100*($cf->getResultField("${name[1]}","readMiss")
-	   + $cf->getResultField("${name[1]}","writeMiss"))/$total;
+    my $miss = $cf->getResultField("${name[1]}","readMiss")
+	+ $cf->getResultField("${name[1]}","writeMiss");
+
+    printf " %5.2f%", 100*($miss)/$total;
 
     my $tmp = $cf->getResultField("${name[1]}","readMiss");
     printf " (%4.1f%"  , (100*$tmp/$total);
@@ -239,6 +240,10 @@ sub partialMemStat {
     printf ",%4.1f%)", (100*$tmp/$total);
 
     printf " %5.2f%",100*$total/($nLoadTotal+$nStoreTotal+1);
+
+    # Miss BW
+    my $size = $cf->getConfigEntry(key=>"bsize",section=>$name[0]);
+    printf " %5.2fGB/s",$freq*$miss*$size/(1000*$nCycles);
     
     if ($cf->getResultField("${name[1]}_LVIDTable_nLinesOnRestart","v")) {
       printf " nLines(%4.1f", $cf->getResultField("${name[1]}_LVIDTable_nLinesOnKill","v");
@@ -275,7 +280,7 @@ sub tradMemStats {
   return unless ($total);
 
   printf "################################################################################\n";
-  printf "Proc  Cache Occ MissRate (RD, WR) %%DMemAcc : ... \n";
+  printf "Proc  Cache Occ MissRate (RD, WR) %%DMemAcc MB/s : ... \n";
   for(my $i=0;$i<$nCPUs;$i++) {
     my $cpuType = $cf->getConfigEntry(key=>"cpucore",index=>$i);
 
@@ -324,32 +329,29 @@ sub WritePowerLine {
 
   print "$header";
 
-  my $totPower    = $cf->getResultField($section,"totPower");
-  my $clockPower  = $cf->getResultField($section,"clockFUPower");
-  my $eNotLost    = $cf->getResultField($section,"memPower");
   my $allPower    = 0;
 
-  my $tmp = $cf->getResultField($section,"fetchPower");
+  my $tmp = $cf->getResultField($section,"fetchPower") *$slowdown;
   $allPower += $tmp;
   printf " %9.3f ",($tmp*$delay);
 
-  $tmp = $cf->getResultField($section,"issuePower");
+  $tmp = $cf->getResultField($section,"issuePower") *$slowdown;
   $allPower += $tmp;
   printf " %9.3f ",($tmp*$delay);
 
-  $tmp = $cf->getResultField($section,"memPower");
+  $tmp = $cf->getResultField($section,"memPower") *$slowdown;
   $allPower += $tmp;
   printf " %9.3f ",($tmp*$delay);
 
-  $tmp = $cf->getResultField($section,"execPower");
+  $tmp = $cf->getResultField($section,"execPower") *$slowdown;
   $allPower += $tmp;
   printf " %9.3f ",($tmp*$delay);
 
-  $tmp = $cf->getResultField($section,"clockPower");
+  $tmp = $cf->getResultField($section,"clockPower") *$slowdown;
   $allPower += $tmp;
   printf " %9.3f ",($tmp*$delay);
 
-  $tmp = $cf->getResultField($section,"totPower");
+  $tmp = $cf->getResultField($section,"totPower") *$slowdown;
   printf " %9.3f ",($tmp*$delay);
 
   print " WRONG ENERGY" unless ($allPower > $tmp *0.95 && $allPower < $tmp *1.05 || $tmp == 0);
@@ -399,26 +401,26 @@ sub printBreakMemPowerStats {
     my $totEnergy = shift;
 
     my $cacheE =
-	$cf->getResultField("$entry","rdHitEnergy")
-	+ $cf->getResultField("$entry","rdMissEnergy")
-	+ $cf->getResultField("$entry","wrHitEnergy")
-	+ $cf->getResultField("$entry","wrMissEnergy")
-	+ $cf->getResultField("$entry","lineFillEnergy");
+        $cf->getResultField("$entry","rdHitEnergy")
+        + $cf->getResultField("$entry","rdMissEnergy")
+        + $cf->getResultField("$entry","wrHitEnergy")
+        + $cf->getResultField("$entry","wrMissEnergy")
+        + $cf->getResultField("$entry","lineFillEnergy");
 
     printf " %5.2f% ", 100*$cacheE/$totEnergy;
 
     my $lvidE =
-	$cf->getResultField("$entry","rdLVIDEnergy")
-	+ $cf->getResultField("$entry","wrLVIDEnergy");
+        $cf->getResultField("$entry","rdLVIDEnergy")
+        + $cf->getResultField("$entry","wrLVIDEnergy");
     
     if ($lvidE) {
-	printf " %5.2f% ", 100*$lvidE/$totEnergy;
+        printf " %5.2f% ", 100*$lvidE/$totEnergy;
 
-	my $revE =
-	    $cf->getResultField("$entry","rdRevLVIDEnergy")
-	    + $cf->getResultField("$entry","wrRevLVIDEnergy");
+        my $revE =
+            $cf->getResultField("$entry","rdRevLVIDEnergy")
+            + $cf->getResultField("$entry","wrRevLVIDEnergy");
 
-	printf " %5.2f% ", 100*$revE/$totEnergy;
+        printf " %5.2f% ", 100*$revE/$totEnergy;
     }
 
     print " : ";
@@ -492,7 +494,7 @@ sub showVersionMem {
     $totComTasks += $commitCnt;
 
     my $squashInstrCnt = 
-	$cf->getResultField("VMemStats(${i})Instr","SquashInstr");
+        $cf->getResultField("VMemStats(${i})Instr","SquashInstr");
 
     printf " %10d",$squashInstrCnt;
 
@@ -513,12 +515,12 @@ sub showVersionMem {
 
     for(my $j=0; $j<$addr_no; $j++) {
       my $squashAddr = 
-	  $cf->getResultField("VMemStats(${i})Squashes(${j})","SAddr");
+          $cf->getResultField("VMemStats(${i})Squashes(${j})","SAddr");
       my $squashCnt = 
-	  $cf->getResultField("VMemStats(${i})Squashes(${j})","SCnt");
+          $cf->getResultField("VMemStats(${i})Squashes(${j})","SCnt");
       $tot_cnt += $squashCnt;
       if( $squashCnt > $max_cnt ) {
-	  $max_cnt = $squashCnt;
+          $max_cnt = $squashCnt;
       }
     }
 
@@ -531,12 +533,12 @@ sub showVersionMem {
 
     for(my $j=0; $j<$addr_no; $j++) {
       my $killAddr = 
-	  $cf->getResultField("VMemStats(${i})Kills(${j})","KAddr");
+          $cf->getResultField("VMemStats(${i})Kills(${j})","KAddr");
       my $killCnt = 
-	  $cf->getResultField("VMemStats(${i})Kills(${j})","KCnt");
+          $cf->getResultField("VMemStats(${i})Kills(${j})","KCnt");
       $tot_cnt += $killCnt;
       if( $killCnt > $max_cnt ) {
-	  $max_cnt = $killCnt;
+          $max_cnt = $killCnt;
       }
     }
 
@@ -644,21 +646,21 @@ sub showBaadStats {
     my $nBranches;
     my $nTaken;
     for(my $i=0;$i<$nCPUs;$i++) {
-	next unless( $cf->getResultField("Proc(${i})","clockTicks") );
+        next unless( $cf->getResultField("Proc(${i})","clockTicks") );
 
-	$niBJ += $cf->getResultField("PendingWindow(${i})_iBJ","n");
+        $niBJ += $cf->getResultField("PendingWindow(${i})_iBJ","n");
 
-	$nInst += $cf->getResultField("PendingWindow(${i})_iBJ","n")
-	    + $cf->getResultField("PendingWindow(${i})_iLoad","n")
-	    + $cf->getResultField("PendingWindow(${i})_iStore","n")
-	    + $cf->getResultField("PendingWindow(${i})_iALU","n")
-	    + $cf->getResultField("PendingWindow(${i})_iComplex","n")
-	    + $cf->getResultField("PendingWindow(${i})_fpALU","n")
-	    + $cf->getResultField("PendingWindow(${i})_fpComplex","n")
-	    + $cf->getResultField("PendingWindow(${i})_other","n");
-	
-	$nBranches += $cf->getResultField("BPred(${i})","nBranches");
-	$nTaken    += $cf->getResultField("BPred(${i})","nTaken");
+        $nInst += $cf->getResultField("PendingWindow(${i})_iBJ","n")
+            + $cf->getResultField("PendingWindow(${i})_iLoad","n")
+            + $cf->getResultField("PendingWindow(${i})_iStore","n")
+            + $cf->getResultField("PendingWindow(${i})_iALU","n")
+            + $cf->getResultField("PendingWindow(${i})_iComplex","n")
+            + $cf->getResultField("PendingWindow(${i})_fpALU","n")
+            + $cf->getResultField("PendingWindow(${i})_fpComplex","n")
+            + $cf->getResultField("PendingWindow(${i})_other","n");
+        
+        $nBranches += $cf->getResultField("BPred(${i})","nBranches");
+        $nTaken    += $cf->getResultField("BPred(${i})","nTaken");
     }
 
     $nTaken = 1 unless ($nTaken);
@@ -690,6 +692,24 @@ sub showStatReport {
 
   my $nGradInsts  = $cf->getResultField("ProcessId","nGradInsts");
   my $nWPathInsts = $cf->getResultField("ProcessId","nWPathInsts");
+  if ($nGradInsts == 0) {
+    my $nInst;
+    my $tmp;
+    for(my $i=0;$i<$nCPUs;$i++) {
+	$tmp += $cf->getResultField("FetchEngine(${i})","nDelayInst1");
+	
+	$nInst += $cf->getResultField("PendingWindow(${i})_iBJ","n")
+	    + $cf->getResultField("PendingWindow(${i})_iLoad","n")
+	    + $cf->getResultField("PendingWindow(${i})_iStore","n")
+	    + $cf->getResultField("PendingWindow(${i})_iALU","n")
+	    + $cf->getResultField("PendingWindow(${i})_iComplex","n")
+	    + $cf->getResultField("PendingWindow(${i})_fpALU","n")
+	    + $cf->getResultField("PendingWindow(${i})_fpComplex","n")
+	    + $cf->getResultField("PendingWindow(${i})_other","n");
+    }
+    $nGradInsts  = $nInst;
+    $nWPathInsts = $tmp;
+  }
   my $niKillGradInsts = $cf->getResultField("ProcessId","niKillGradInsts");
   my $nrKillGradInsts = $cf->getResultField("ProcessId","nrKillGradInsts");
   my $nKillWPathInsts    = $cf->getResultField("ProcessId","nrKillWPathInsts");
@@ -710,7 +730,7 @@ sub showStatReport {
   # nCycles
   printf " %9.0f ", $nCycles;
   # of wrong path instructions
-  printf " %9d ", $nWPathInsts;
+  printf " %9.0f ", $nWPathInsts;
   # IPC
   printf " %9.3f ", $nGradInsts/$nCycles;
   printf "\n";
@@ -731,45 +751,45 @@ sub showStatReport {
       my $lsqEnergy = 0;
       
       for(my $i=0;$i<$nCPUs;$i++) {
-	  last unless( $cf->getResultField("Proc(${i})","clockTicks") );
-	  
-	  my $cpuType    = $cf->getConfigEntry(key=>"cpucore",index=>$i);
-	  for (my $j=0; ; $j++) {
-	      my $clusterType = $cf->getConfigEntry(key=>"cluster", section=>$cpuType, index=>$j);
-	      last unless (defined $clusterType);
-	      
-	      $coreRenEnergy += $cf->getResultField("Proc(${i})","renameEnergy");
+          last unless( $cf->getResultField("Proc(${i})","clockTicks") );
+          
+          my $cpuType    = $cf->getConfigEntry(key=>"cpucore",index=>$i);
+          for (my $j=0; ; $j++) {
+              my $clusterType = $cf->getConfigEntry(key=>"cluster", section=>$cpuType, index=>$j);
+              last unless (defined $clusterType);
+              
+              $coreRenEnergy += $cf->getResultField("Proc(${i})","renameEnergy");
 
-	      $coreWinEnergy += $cf->getResultField("Proc(${i})_$clusterType","depTableEnergy"); # DDIS
-	      $coreWinEnergy += $cf->getResultField("Proc(${i})_$clusterType","winDepsEnergy");  # DDIS
-	      
-	      $coreWinEnergy += $cf->getResultField("Proc(${i})_$clusterType","windowRdWrEnergy");
-	      $coreWinEnergy += $cf->getResultField("Proc(${i})_$clusterType","windowCheckEnergy");
-	      $coreWinEnergy += $cf->getResultField("Proc(${i})_$clusterType","windowSelEnergy");
-	      
-	      $coreBusEnergy += $cf->getResultField("Proc(${i})_$clusterType","forwardBusEnergy");
-	      $coreBusEnergy += $cf->getResultField("Proc(${i})_$clusterType","resultBusEnergy");
+              $coreWinEnergy += $cf->getResultField("Proc(${i})_$clusterType","depTableEnergy"); # DDIS
+              $coreWinEnergy += $cf->getResultField("Proc(${i})_$clusterType","winDepsEnergy");  # DDIS
+              
+              $coreWinEnergy += $cf->getResultField("Proc(${i})_$clusterType","windowRdWrEnergy");
+              $coreWinEnergy += $cf->getResultField("Proc(${i})_$clusterType","windowCheckEnergy");
+              $coreWinEnergy += $cf->getResultField("Proc(${i})_$clusterType","windowSelEnergy");
+              
+              $coreBusEnergy += $cf->getResultField("Proc(${i})_$clusterType","forwardBusEnergy");
+              $coreBusEnergy += $cf->getResultField("Proc(${i})_$clusterType","resultBusEnergy");
 
-	  }
-	      
-	  $coreROBEnergy += $cf->getResultField("Proc(${i})","ROBEnergy");
+          }
+              
+          $coreROBEnergy += $cf->getResultField("Proc(${i})","ROBEnergy");
 
-	  $coreRegEnergy += $cf->getResultField("Proc(${i})","wrIRegEnergy");
-	  $coreRegEnergy += $cf->getResultField("Proc(${i})","rdFPRegEnergy");
-	  $coreRegEnergy += $cf->getResultField("Proc(${i})","wrFPRegEnergy");
-	  $coreRegEnergy += $cf->getResultField("Proc(${i})","rdFPRegEnergy");
+          $coreRegEnergy += $cf->getResultField("Proc(${i})","wrIRegEnergy");
+          $coreRegEnergy += $cf->getResultField("Proc(${i})","rdFPRegEnergy");
+          $coreRegEnergy += $cf->getResultField("Proc(${i})","wrFPRegEnergy");
+          $coreRegEnergy += $cf->getResultField("Proc(${i})","rdFPRegEnergy");
 
-	  foreach my $tag ("FULoad", "FUStore", "FUMemory") {
-	      $lsqEnergy += $cf->getResultField("${tag}(${i})","ldqCheckEnergy");
-	      $lsqEnergy += $cf->getResultField("${tag}(${i})","stqCheckEnergy");
-	      $lsqEnergy += $cf->getResultField("${tag}(${i})","ldqRdWrEnergy");
-	      $lsqEnergy += $cf->getResultField("${tag}(${i})","stqRdWrEnergy");
-	      $lsqEnergy += $cf->getResultField("${tag}(${i})","iALUEnergy");
-	  }
+          foreach my $tag ("FULoad", "FUStore", "FUMemory") {
+              $lsqEnergy += $cf->getResultField("${tag}(${i})","ldqCheckEnergy");
+              $lsqEnergy += $cf->getResultField("${tag}(${i})","stqCheckEnergy");
+              $lsqEnergy += $cf->getResultField("${tag}(${i})","ldqRdWrEnergy");
+              $lsqEnergy += $cf->getResultField("${tag}(${i})","stqRdWrEnergy");
+              $lsqEnergy += $cf->getResultField("${tag}(${i})","iALUEnergy");
+          }
       }
       
       my $coreEnergy  =  $coreRenEnergy + $coreWinEnergy + $coreROBEnergy +$coreBusEnergy + $coreRegEnergy + $lsqEnergy;
-      my $totPower    = $cf->getResultField("PowerMgr","totPower");
+      my $totPower    = $cf->getResultField("PowerMgr","totPower") *$slowdown;
   
       print  "#table2b                            Core (w) : Rename  : Window  : ROB  : Buses  : Regs  : LDSQ\n";
       
@@ -795,7 +815,7 @@ sub showStatReport {
       
       printf "table2c %25s ", $name;
       printf " %5.4g ", $totEnergy*1e-9;
-      printf " %5.4g ", $coreRenEnergy*1e-9;
+      printf " %5.4g ", $coreEnergy*1e-9;
       printf "\n";
   }
 
@@ -804,38 +824,132 @@ sub showStatReport {
       printf "#table8                              ProcId : ROBuse %: LDQ Use %: STQ use %: c1 winUse % : c2 winUse % :...\n";
 
       for(my $i=0;$i<$nCPUs;$i++) {
+          my $cpuType = $cf->getConfigEntry(key=>"cpucore",index=>$i);
+          last unless (defined $cf->getConfigEntry(key=>"robSize",section=>$cpuType));
+          
+          printf "table8  %25s  %9d ", $name, $i;
+          
+          my $max;
+          my $tmp;
+          # ROBUse
+          $max = $cf->getConfigEntry(key=>"robSize",section=>$cpuType);
+          $tmp = $cf->getResultField("Proc(${i})_robUsed","v");
+          printf " %9.2f ", 100*$tmp/$max;
+          # LDQ Use
+          $max = $cf->getConfigEntry(key=>"maxLoads",section=>$cpuType);
+          $tmp = $cf->getResultField("FULoad(${i})_ldqNotUsed","v");
+          printf " %9.2f ", 100*($max-$tmp)/$max;
+          # STQ Use
+          $max = $cf->getConfigEntry(key=>"maxStores",section=>$cpuType);
+          $tmp = $cf->getResultField("FUStore(${i})_stqNotUsed","v");
+          printf " %9.2f ", 100*($max-$tmp)/$max;
+          
+          for (my $j=0; ; $j++) {
+              my $clusterType = $cf->getConfigEntry(key=>"cluster", section=>$cpuType, index=>$j);
+              last unless (defined $clusterType);
+              
+              # Window Use
+              $max = $cf->getConfigEntry(key=>"winSize",section=>$clusterType);
+              $tmp = $cf->getResultField("Proc(${i})_${clusterType}_winNotUsed","v");
+              $tmp = $max if ($cf->getResultField("Proc(${i})_${clusterType}_winNotUsed","n") == 0); # Not used
+              printf " %9.2f ", 100*($max-$tmp)/$max;
+          }
+          ##########
+          printf "\n";
+      }
+
+  #############################################################################
+      for(my $i=0;$i<$nCPUs;$i++) {
+	  my $clockTicks= $cf->getResultField("Proc(${i})","clockTicks");
+	  next unless( $clockTicks > 1 );
+
+	  my $nDepsOverflow = 1;
+	  my $nDeps_0;
+	  my $nDeps_1;
+	  my $nDeps_2;
+	  my $nDepsMiss;
+	      
 	  my $cpuType = $cf->getConfigEntry(key=>"cpucore",index=>$i);
-	  last unless (defined $cf->getConfigEntry(key=>"robSize",section=>$cpuType));
-	  
-	  printf "table8  %25s  %9d ", $name, $i;
-	  
-	  my $max;
-	  my $tmp;
-	  # ROBUse
-	  $max = $cf->getConfigEntry(key=>"robSize",section=>$cpuType);
-	  $tmp = $cf->getResultField("Proc(${i})_robUsed","v");
-	  printf " %9.2f ", 100*$tmp/$max;
-	  # LDQ Use
-	  $max = $cf->getConfigEntry(key=>"maxLoads",section=>$cpuType);
-	  $tmp = $cf->getResultField("FULoad(${i})_ldqNotUsed","v");
-	  printf " %9.2f ", 100*($max-$tmp)/$max;
-	  # STQ Use
-	  $max = $cf->getConfigEntry(key=>"maxStores",section=>$cpuType);
-	  $tmp = $cf->getResultField("FUStore(${i})_stqNotUsed","v");
-	  printf " %9.2f ", 100*($max-$tmp)/$max;
-	  
 	  for (my $j=0; ; $j++) {
 	      my $clusterType = $cf->getConfigEntry(key=>"cluster", section=>$cpuType, index=>$j);
 	      last unless (defined $clusterType);
 	      
-	      # Window Use
-	      $max = $cf->getConfigEntry(key=>"winSize",section=>$clusterType);
-	      $tmp = $cf->getResultField("Proc(${i})_${clusterType}_winNotUsed","v");
-	      $tmp = $max if ($cf->getResultField("Proc(${i})_${clusterType}_winNotUsed","n") == 0); # Not used
-	      printf " %9.2f ", 100*($max-$tmp)/$max;
+	      $nDepsOverflow += $cf->getResultField("Proc(${i})_${clusterType}_depTable","nDepsOverflow");
+
+	      $nDeps_0   += $cf->getResultField("Proc(${i})_${clusterType}_depTable","nDeps_0");
+	      $nDeps_1   += $cf->getResultField("Proc(${i})_${clusterType}_depTable","nDeps_1");
+	      $nDeps_2   += $cf->getResultField("Proc(${i})_${clusterType}_depTable","nDeps_2");
+	      $nDepsMiss += $cf->getResultField("Proc(${i})_${clusterType}_depTable","nDepsMiss");
 	  }
-	  ##########
-	  printf "\n";
+
+	  next unless ($nDeps_0 > 1);
+
+	  printf "#table9                              ProcID: IPC : 0 deps : 1 deps : 2 deps : %re-dispatcch :#Overflows :L1 hit Predictor Accuracy\n";
+	  # ProcID
+	  printf "table9  %26s  %9d : ", $name, $i;
+
+	  my $nInst   = $cf->getResultField("PendingWindow(${i})_iBJ","n")
+	      + $cf->getResultField("PendingWindow(${i})_iLoad","n")
+	      + $cf->getResultField("PendingWindow(${i})_iStore","n")
+	      + $cf->getResultField("PendingWindow(${i})_iALU","n")
+	      + $cf->getResultField("PendingWindow(${i})_iComplex","n")
+	      + $cf->getResultField("PendingWindow(${i})_fpALU","n")
+	      + $cf->getResultField("PendingWindow(${i})_fpComplex","n")
+	      + $cf->getResultField("PendingWindow(${i})_other","n");
+
+	  my $bench = $name;
+	  $bench =~ /([^ _]*).mips$/;
+	  $bench = $1;
+
+	  printf " %-10s ", $bench;
+
+	  # IPC
+	  printf " & %9.3f ", $nInst/$clockTicks;
+
+	  # nDeps
+	  printf " & %9.1f ", 100*$nDeps_0/($nDeps_0 + $nDeps_1 + $nDeps_2);
+	  printf " & %9.1f ", 100*$nDeps_1/($nDeps_0 + $nDeps_1 + $nDeps_2);
+	  printf " & %9.1f ", 100*$nDeps_2/($nDeps_0 + $nDeps_1 + $nDeps_2);
+
+	  # re-dispatch
+	  printf " & %9.1f ", 100*$nDepsMiss/($nDeps_0 + $nDeps_1 + $nDeps_2);
+
+	  # cycles between overflows
+	  if ($clockTicks/$nDepsOverflow > 50e3) {
+	      printf " & \$>\$50k ";
+	  }else{
+	      printf " & %9.0f ", $clockTicks/$nDepsOverflow;
+	  }
+
+	  print "\\\\ :";
+
+	  printf " %-10s ", $bench;
+
+	  my $daccess = $cf->getResultField("P(${i})_DL1","readHalfMiss") + 
+	      $cf->getResultField("P(${i})_DL1","readMiss") + 
+	      $cf->getResultField("P(${i})_DL1","readHit") + 
+	      $cf->getResultField("P(${i})_DL1","writeHalfMiss") + 
+	      $cf->getResultField("P(${i})_DL1","writeMiss") + 
+	      $cf->getResultField("P(${i})_DL1","writeHit");
+
+	  printf " & %9.2f ", 100*($cf->getResultField("P(${i})_DL1","readMiss")
+				  +$cf->getResultField("P(${i})_DL1","writeMiss")
+				  )/$daccess;
+
+	  my $nL1Hit_pHit   = $cf->getResultField("L1Pred","nL1Hit_pHit");
+	  my $nL1Hit_pMiss  = $cf->getResultField("L1Pred","nL1Hit_pMiss");
+	  my $nL1Miss_pHit  = $cf->getResultField("L1Pred","nL1Miss_pHit");
+	  my $nL1Miss_pMiss = $cf->getResultField("L1Pred","nL1Miss_pMiss");
+
+	  my $total = $nL1Miss_pMiss+$nL1Miss_pHit+$nL1Hit_pMiss+$nL1Hit_pHit+1;
+
+	  printf " & %9.2f ", 100*($nL1Miss_pMiss+$nL1Hit_pHit)/$total;
+	  printf " & %9.2f ", 100*$nL1Hit_pMiss /$total;
+	  printf " & %9.2f ", 100*$nL1Miss_pHit /$total;
+
+	  print "\\\\";
+
+	  print "\n";
       }
   }
 
@@ -974,13 +1088,13 @@ sub showTLSReport {
       $tmp += $cf->getResultField("FetchEngine(${i})","nDelayInst1");
 
       $nInst += $cf->getResultField("PendingWindow(${i})_iBJ","n")
-	  + $cf->getResultField("PendingWindow(${i})_iLoad","n")
-	  + $cf->getResultField("PendingWindow(${i})_iStore","n")
-	  + $cf->getResultField("PendingWindow(${i})_iALU","n")
-	  + $cf->getResultField("PendingWindow(${i})_iComplex","n")
-	  + $cf->getResultField("PendingWindow(${i})_fpALU","n")
-	  + $cf->getResultField("PendingWindow(${i})_fpComplex","n")
-	  + $cf->getResultField("PendingWindow(${i})_other","n");
+          + $cf->getResultField("PendingWindow(${i})_iLoad","n")
+          + $cf->getResultField("PendingWindow(${i})_iStore","n")
+          + $cf->getResultField("PendingWindow(${i})_iALU","n")
+          + $cf->getResultField("PendingWindow(${i})_iComplex","n")
+          + $cf->getResultField("PendingWindow(${i})_fpALU","n")
+          + $cf->getResultField("PendingWindow(${i})_fpComplex","n")
+          + $cf->getResultField("PendingWindow(${i})_other","n");
   }
   printf " %8.2f%% ", 100*$tmp/($nInst+$tmp);
   printf " %9.1f ", calcPMVStructEnergy();
@@ -1051,7 +1165,7 @@ my $ntrEnergy;
 
 sub calcPMVStructEnergy {
     my $memEnergy  = $cf->getResultField("EnergyMgr","memEnergy") + 
-	$cf->getResultField("EnergyMgr","fetchEnergy");
+        $cf->getResultField("EnergyMgr","fetchEnergy");
 
     return if ($memEnergy == 0);
 
@@ -1059,25 +1173,25 @@ sub calcPMVStructEnergy {
     
 #L1: extra tag energy, LVID, revLVID    
     for(my $i=0;$i<$nCPUs;$i++) {
-	my $cpuType = $cf->getConfigEntry(key=>"cpucore",index=>$i);
-	
-	my $dataSource = $cf->getConfigEntry(key=>"dataSource",section=>$cpuType);
-	
-	my @name = split(/ +/,$dataSource);
-	next unless (defined $name[1]);
-	
-	my $total =
-	    $cf->getResultField("P(${i})_${name[1]}","rdHitEnergy")
-	    + $cf->getResultField("P(${i})_${name[1]}","rdMissEnergy")
-	    + $cf->getResultField("P(${i})_${name[1]}","wrHitEnergy")
-	    + $cf->getResultField("P(${i})_${name[1]}","wrMissEnergy")
-	    + $cf->getResultField("P(${i})_${name[1]}","lineFillEnergy");
-	
-	$mvEnergy += $total * 0.03; # extra tag energy (guessing 3% of total cache energy)
-	$mvEnergy += $cf->getResultField("P(${i})_${name[1]}","rdLVIDEnergy");
-	$mvEnergy += $cf->getResultField("P(${i})_${name[1]}","wrLVIDEnergy");
-	$mvEnergy += $cf->getResultField("P(${i})_${name[1]}","rdRevLVIDEnergy");
-	$mvEnergy += $cf->getResultField("P(${i})_${name[1]}","wrRevLVIDEnergy");
+        my $cpuType = $cf->getConfigEntry(key=>"cpucore",index=>$i);
+        
+        my $dataSource = $cf->getConfigEntry(key=>"dataSource",section=>$cpuType);
+        
+        my @name = split(/ +/,$dataSource);
+        next unless (defined $name[1]);
+        
+        my $total =
+            $cf->getResultField("P(${i})_${name[1]}","rdHitEnergy")
+            + $cf->getResultField("P(${i})_${name[1]}","rdMissEnergy")
+            + $cf->getResultField("P(${i})_${name[1]}","wrHitEnergy")
+            + $cf->getResultField("P(${i})_${name[1]}","wrMissEnergy")
+            + $cf->getResultField("P(${i})_${name[1]}","lineFillEnergy");
+        
+        $mvEnergy += $total * 0.03; # extra tag energy (guessing 3% of total cache energy)
+        $mvEnergy += $cf->getResultField("P(${i})_${name[1]}","rdLVIDEnergy");
+        $mvEnergy += $cf->getResultField("P(${i})_${name[1]}","wrLVIDEnergy");
+        $mvEnergy += $cf->getResultField("P(${i})_${name[1]}","rdRevLVIDEnergy");
+        $mvEnergy += $cf->getResultField("P(${i})_${name[1]}","wrRevLVIDEnergy");
     }
 
 #MVC all of it
@@ -1115,6 +1229,22 @@ sub simStats {
       next;
   }
 
+  $nCycles = $cf->getResultField("OSSim","nCycles");
+  next unless ($nCycles);
+  
+  for (my $j=0; ; $j++) {
+      my $clusterType = $cf->getConfigEntry(key=>"cluster", section=>$cpuType, index=>$j);
+      last unless (defined $clusterType);
+      next unless ($cf->getResultField("Proc(0)_${clusterType}_depTable","nDepsOverflow") > 1);
+      
+      my $clk = 30*$cf->getResultField("Proc(0)_${clusterType}_depTable","nDepsOverflow");
+      $slowdown = $nCycles/($nCycles+$clk);
+      $nCycles += $clk;
+      
+      die "Must compute overflow in a different way" if ($nCPUs != 1);
+  }
+  $slowdown = 1 unless (defined $slowdown);
+  
   $nLoadTotal  = 0;
   $nStoreTotal = 0;
   $nInstTotal  = 0;
@@ -1123,11 +1253,11 @@ sub simStats {
       $nStoreTotal += $cf->getResultField("PendingWindow(${i})_iStore","n");
       
       $nInstTotal   += $cf->getResultField("PendingWindow(${i})_iBJ","n")
-	  + $cf->getResultField("PendingWindow(${i})_iALU","n")
-	  + $cf->getResultField("PendingWindow(${i})_iComplex","n")
-	  + $cf->getResultField("PendingWindow(${i})_fpALU","n")
-	  + $cf->getResultField("PendingWindow(${i})_fpComplex","n")
-	  + $cf->getResultField("PendingWindow(${i})_other","n");
+          + $cf->getResultField("PendingWindow(${i})_iALU","n")
+          + $cf->getResultField("PendingWindow(${i})_iComplex","n")
+          + $cf->getResultField("PendingWindow(${i})_fpALU","n")
+          + $cf->getResultField("PendingWindow(${i})_fpComplex","n")
+          + $cf->getResultField("PendingWindow(${i})_other","n");
   }
   $nInstTotal += $nLoadTotal + $nStoreTotal;
 
@@ -1194,17 +1324,17 @@ sub instStats {
       last unless (defined $clusterType);
 
       foreach my $unitID ("iBJUnit", "iLoadUnit", "iStoreUnit", "iALUUnit"
-			  , "iMultUnit", "iDivUnit", "fpALUUnit", "fpMultUnit", "fpDivUnit") {
-	
-	my $tmp     = $cf->getConfigEntry(key=>$unitID, section=>$clusterType);
-	next unless (defined $tmp);
+                          , "iMultUnit", "iDivUnit", "fpALUUnit", "fpMultUnit", "fpDivUnit") {
+        
+        my $tmp     = $cf->getConfigEntry(key=>$unitID, section=>$clusterType);
+        next unless (defined $tmp);
 
-	my $val     = $cf->getResultField("${tmp}(${i})_occ","v");
+        my $val     = $cf->getResultField("${tmp}(${i})_occ","v");
 
-	if ($val > $worstValue ) {
-	  $worstValue = $val;
-	  $worstUnit  = $tmp;
-	}
+        if ($val > $worstValue ) {
+          $worstValue = $val;
+          $worstUnit  = $tmp;
+        }
       }
     }
 
@@ -1300,7 +1430,7 @@ sub branchStats {
       + $cf->getResultField("BPred(${i})_CRap","nHit");
     if( $rapHit ) {
       my $rapMiss = $cf->getResultField("BPred(${i})_Rap","nMiss")
-	+ $cf->getResultField("BPred(${i})_CRap","nMiss");
+        + $cf->getResultField("BPred(${i})_CRap","nMiss");
 
       my $rapRatio = ($rapMiss+$rapHit) <= 0 ? 0 : ($rapHit/($rapMiss+$rapHit));
 
@@ -1326,34 +1456,34 @@ sub tradCPUStats {
   print "Proc  IPC  ";
   print "Active " if( $active > 0 );
   print "      Cycles  Busy   LDQ   STQ  IWin   ROB";
-  print "  Regs   TLB ";
+  print "  Regs Ports   TLB ";
   print " maxBr MisBr Br4Clk  Other\n";
 
   my $cycles= $cf->getResultField("OSSim","nCycles");
   $cycles=1 if( $cycles < 1 );
 
   for(my $i=0;$i<$nCPUs;$i++) {
-    my $temp;
-
-    my $nInst   = $cf->getResultField("PendingWindow(${i})_iBJ","n")
-      + $cf->getResultField("PendingWindow(${i})_iLoad","n")
-	+ $cf->getResultField("PendingWindow(${i})_iStore","n")
-	  + $cf->getResultField("PendingWindow(${i})_iALU","n")
-	    + $cf->getResultField("PendingWindow(${i})_iComplex","n")
-	      + $cf->getResultField("PendingWindow(${i})_fpALU","n")
-		+ $cf->getResultField("PendingWindow(${i})_fpComplex","n")
-		  + $cf->getResultField("PendingWindow(${i})_other","n");
 
     my $clockTicks= $cf->getResultField("Proc(${i})","clockTicks");
+    next unless( $clockTicks > 1 );
 
-    next unless( $clockTicks );
-    $clockTicks=1 if( $clockTicks < 1 );
+    my $nInst   = $cf->getResultField("PendingWindow(${i})_iBJ","n")
+	+ $cf->getResultField("PendingWindow(${i})_iLoad","n")
+        + $cf->getResultField("PendingWindow(${i})_iStore","n")
+	+ $cf->getResultField("PendingWindow(${i})_iALU","n")
+	+ $cf->getResultField("PendingWindow(${i})_iComplex","n")
+	+ $cf->getResultField("PendingWindow(${i})_fpALU","n")
+	+ $cf->getResultField("PendingWindow(${i})_fpComplex","n")
+	+ $cf->getResultField("PendingWindow(${i})_other","n");
+
 
     my $cpuType = $cf->getConfigEntry(key=>"cpucore",index=>$i);
     my $fetch   = $cf->getConfigEntry(key=>"fetchWidth",section=>$cpuType);
     my $issue = $fetch;
     my $smtContexts  = $cf->getConfigEntry(key=>"smtContexts",section=>$cpuType);
     $smtContexts++ if( $smtContexts == 0 );
+
+    my $temp;
 
     $temp = $cf->getConfigEntry(key=>"issueWidth",section=>$cpuType);
     $issue = $temp if( $temp < $issue && $temp );
@@ -1403,6 +1533,11 @@ sub tradCPUStats {
 
     my $nSmallREG = $cf->getResultField("ExeEngine(${i})","nSmallREG");
     $temp = 100*$nSmallREG/$idealInst;
+    printf " %4.1f ",$temp;
+    $remaining -= $temp;
+
+    my $portConflich = $cf->getResultField("ExeEngine(${i})","PortConflict");
+    $temp = 100*$portConflich/$idealInst;
     printf " %4.1f ",$temp;
     $remaining -= $temp;
 

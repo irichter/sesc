@@ -64,7 +64,7 @@ double logtwo(double x)
 {
   double lx, l2, div;
 
-  if (x<=0) printf("%e\n",x);
+  if (x<=0) printf("%e negative logwo?\n",x);
   
   lx = log10(x) ;
   l2 = log10(2) ;

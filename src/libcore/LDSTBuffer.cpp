@@ -25,10 +25,6 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "Instruction.h"
 #include "Resource.h"
 
-#ifdef SESC_NO_LDQ2
-#define LDSTBUFFER_IGNORE_DEPS 1
-#endif
-
 LDSTBuffer::EntryType      LDSTBuffer::stores;
 LDSTBuffer::FenceEntryType LDSTBuffer::fences;
 

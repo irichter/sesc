@@ -50,10 +50,6 @@ typedef HASH_MAP<const char *,UnitEntry, HASH<const char*>, eqstr> UnitMapType;
 
 static UnitMapType unitMap;
 
-#ifdef SESC_DDIS1
-GStatsCntr  *nDeps[4];
-#endif
-
 Cluster::~Cluster()
 {
     // Nothing to do
@@ -67,17 +63,6 @@ Cluster::Cluster(const char *clusterName, GProcessor *gp)
   ,winNotUsed("Proc(%d)_%s_winNotUsed",gp->getId(), clusterName)
 {
   bzero(res,sizeof(Resource *)*MaxInstType);
-
-#ifdef SESC_DDIS1
-  static bool initialized = false;
-  if (!initialized) {
-    initialized = true;
-    nDeps[0] = new GStatsCntr("nLDQ_nDeps0");
-    nDeps[1] = new GStatsCntr("nLDQ_nDeps1");
-    nDeps[2] = new GStatsCntr("nLDQ_nDeps2");
-    nDeps[3] = new GStatsCntr("nLDQ_nDeps3");
-  }
-#endif
 
 }
 
@@ -241,7 +226,6 @@ Cluster *Cluster::create(const char *clusterName, GMemorySystem *ms, GProcessor 
   sprintf(strtmp,"%s_energy",clusterName);
   GStatsEnergyCGBase *ecgbase = new GStatsEnergyCGBase(strtmp,gproc->getId());
 
-
   cluster->buildUnit(clusterName,ms,cluster,iALU,ecgbase);
   cluster->buildUnit(clusterName,ms,cluster,iMult,ecgbase);  
   cluster->buildUnit(clusterName,ms,cluster,iDiv,ecgbase);
@@ -260,32 +244,6 @@ Cluster *Cluster::create(const char *clusterName, GMemorySystem *ms, GProcessor 
 
 void Cluster::addInst(DInst *dinst) 
 {
-#ifdef SESC_DDIS1
-  nDeps[dinst->nDeps]->inc();
-  if (dinst->nDeps > 1) {
-    // Predict the latest dependence
-    DInst *src1 = dinst->getParentSrc1();
-    DInst *src2 = dinst->getParentSrc2();
-    DInst *latest = 0;
-    if (src1)
-      latest = src1;
-    else if (src2)
-      latest = src2;
-    I(latest);
-    
-    if (src1)
-      if (latest->ID < src1->ID)
-	latest = src1;
-    if (src2)
-      if (latest->ID < src2->ID)
-	latest = src2;
-
-    dinst->predParent = latest;
-  }else{
-    dinst->predParent = 0;
-  }
-#endif
-
   window.addInst(dinst);
 }
 
@@ -371,5 +329,16 @@ void ClusterManager::misBranchRestore()
   // all of them
   static_cast<FULoad*>(res[iLoad])->misBranchRestore();
   static_cast<FUStore*>(res[iStore])->misBranchRestore();
+}
+#endif
+
+#ifdef SESC_INORDER	 
+void ClusterManager::setMode(bool mode)
+{
+  for(int t=0;t<MaxInstType;t++) {
+    Resource *r =  res[t];
+    if(r)
+      r->setMode(mode);
+  }	
 }
 #endif

@@ -1035,11 +1035,18 @@ void OSSim::report(const char *str)
     double maxClockEnergy = EnergyMgr::get(procName,"clockEnergy",i);
     double maxEnergy      = EnergyMgr::get(procName,"totEnergy");
 
+#if 0
     // Clock Power as computed by wattch
     double clockPower = (maxClockEnergy/maxEnergy) * pPower;
     double corePower  = pPower + clockPower;
+#else
+    // More reasonable clock energy. 50% is based on activity, 50% of the clock
+    // distributtion is there all the time
+    double clockPower = 0.5 * (maxClockEnergy/maxEnergy) * pPower + 0.5 * maxClockEnergy;
+    double corePower  = pPower + clockPower;
+#endif
     
-    totPower += corePower;
+    totPower      += corePower;
     totClockPower += clockPower;
 
     // print the rest of the report fields

@@ -53,7 +53,7 @@ protected:
   const int RetireWidth;
   const int RealisticWidth;
   const int InstQueueSize;
-  const bool InOrderCore;
+  bool InOrderCore;
   const size_t MaxFlows;
   const size_t MaxROBSize;
 
@@ -76,8 +76,23 @@ protected:
   GStatsAvg    robUsed;
 
   // Energy Counters
-  GStatsEnergy *renameEnergy;
-  GStatsEnergy *robEnergy;
+  GStatsEnergyBase *renameEnergy;
+  GStatsEnergyBase *robEnergy;
+  
+#ifdef SESC_INORDER
+  GStatsEnergyBase *renameEnergyOutOrder;
+  GStatsEnergyBase *robEnergyOutOrder;
+
+  GStatsEnergyBase *renameEnergyInOrder;
+  GStatsEnergyBase *robEnergyInOrder;
+
+  bool InOrderMode;
+  bool OutOrderMode;
+  bool currentMode;
+  bool switching; /* indicates if switch from outorder to inorder core */
+  
+#endif  
+  
   GStatsEnergyBase *wrRegEnergy[3]; // 0 INT, 1 FP, 2 NONE
   GStatsEnergyBase *rdRegEnergy[3]; // 0 INT, 1 FP, 2 NONE
 
@@ -113,7 +128,7 @@ protected:
   int issue(PipeQueue &pipeQ);
   void retire();
 
-  virtual DInst **getRAT(const DInst *dinst) = 0;
+  virtual DInst **getRAT(const int contextId) = 0;
 
   virtual FetchEngine *currentFlow() = 0;
 public:
@@ -123,6 +138,11 @@ public:
 
   virtual ~GProcessor();
   CPU_t getId() const { return Id; }
+
+  DInst *getRATEntry(const int contextId, RegType reg) {
+    DInst **RAT = getRAT(contextId);
+    return RAT[reg];
+  }
 
   GMemorySystem *getMemorySystem() const { return memorySystem; }
 
@@ -188,6 +208,11 @@ public:
 #ifdef SESC_MISPATH
   virtual void misBranchRestore(DInst *dinst)= 0;
 #endif
+
+#ifdef SESC_INORDER
+  void setMode(bool mode);
+#endif
+  
 };
 
 #endif   // GPROCESSOR_H

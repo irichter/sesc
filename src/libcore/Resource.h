@@ -44,6 +44,8 @@ enum StallCause {
   OutsLoadsStall,
   OutsStoresStall,
   OutsBranchesStall,
+  PortConflictStall,
+  SwitchStall,
   MaxStall
 };
 
@@ -81,6 +83,9 @@ public:
 #ifdef SESC_CHERRY
   virtual void earlyRecycle(DInst *dinst) = 0;
 #endif
+#ifdef SESC_INORDER
+  virtual void setMode(bool mode) = 0;
+#endif
 };
 
 class GMemorySystem;
@@ -88,20 +93,39 @@ class GMemorySystem;
 class MemResource : public Resource {
 private:
 protected:
-#ifdef SESC_MEMBF
-  const int LSQBanks;
-#endif
   MemObj  *L1DCache;
   GMemorySystem *memorySystem;
 
-  GStatsEnergy *ldqCheckEnergy; // Check for data dependence
-  GStatsEnergy *ldqRdWrEnergy;  // Read-write operations (insert, exec, retire)
-  GStatsEnergy *stqCheckEnergy; // Check for data dependence
-  GStatsEnergy *stqRdWrEnergy;  // Read-write operations (insert, exec, retire)
-  GStatsEnergy *iAluEnergy;
+#ifdef SESC_INORDER
+  GStatsEnergyBase *ldqCheckEnergyOutOrder; // Check for data dependence
+  GStatsEnergyBase *ldqRdWrEnergyOutOrder;  // Read-write operations (insert, exec, retire)
+
+  GStatsEnergyBase *ldqCheckEnergyInOrder; // Check for data dependence
+  GStatsEnergyBase *ldqRdWrEnergyInOrder;  // Read-write operations (insert, exec, retire)
+
+  GStatsEnergyBase *stqCheckEnergyOutOrder; // Check for data dependence
+  GStatsEnergyBase *stqRdWrEnergyOutOrder; 
+  
+  GStatsEnergyBase *stqCheckEnergyInOrder; // Check for data dependence
+  GStatsEnergyBase *stqRdWrEnergyInOrder; 
+  
+  bool InOrderMode;
+  bool OutOrderMode;
+  bool currentMode;
+#endif
+  
+  GStatsEnergyBase *ldqCheckEnergy; // Check for data dependence
+  GStatsEnergyBase *ldqRdWrEnergy;  // Read-write operations (insert, exec, retire)
+  
+  GStatsEnergyBase *stqCheckEnergy; // Check for data dependence
+  GStatsEnergyBase *stqRdWrEnergy;  // Read-write operations (insert, exec, retire)
+  GStatsEnergyBase *iAluEnergy;
 
   MemResource(Cluster *cls, PortGeneric *aGen, GMemorySystem *ms, int id, const char *cad);
 public:
+#ifdef SESC_INORDER
+  void setMode(bool mode);
+#endif
 };
 
 class FUMemory : public MemResource {
@@ -121,10 +145,6 @@ public:
 
 class FULoad : public MemResource {
 private:
-#ifdef SESC_MEMBF
-  BloomFilter *bf;
-#endif
-  
   GStatsAvg   ldqNotUsed;
   GStatsCntr  nForwarded;
 
@@ -139,9 +159,9 @@ protected:
 
 public:
   FULoad(Cluster *cls, PortGeneric *aGen
-	 ,TimeDelta_t l, TimeDelta_t lsdelay
-	 ,GMemorySystem *ms, size_t maxLoads
-	 ,int id);
+         ,TimeDelta_t l, TimeDelta_t lsdelay
+         ,GMemorySystem *ms, size_t maxLoads
+         ,int id);
 
   StallCause canIssue(DInst *dinst);
   void simTime(DInst *dinst);
@@ -179,11 +199,11 @@ protected:
   void doRetire(DInst *dinst);
 public:
   FUStore(Cluster *cls
-	  ,PortGeneric *aGen
-	  ,TimeDelta_t l
-	  ,GMemorySystem *ms
-	  ,size_t maxLoads
-	  ,int id);
+          ,PortGeneric *aGen
+          ,TimeDelta_t l
+          ,GMemorySystem *ms
+          ,size_t maxLoads
+          ,int id);
 
   StallCause canIssue(DInst *dinst);
   void simTime(DInst *dinst);
@@ -226,6 +246,11 @@ public:
 #ifdef SESC_CHERRY
   void earlyRecycle(DInst *dinst);
 #endif
+
+#ifdef SESC_INORDER
+  void setMode(bool mode);
+#endif
+
 };
 
 class SpawnRob;
@@ -244,11 +269,13 @@ public:
   void executed(DInst *dinst);
 
 #ifdef SESC_BRANCH_AT_RETIRE
-   bool retire(DInst *dinst);
+  bool retire(DInst *dinst);
 #endif
-
 #ifdef SESC_CHERRY
   void earlyRecycle(DInst *dinst);
+#endif
+#ifdef SESC_INORDER
+  void setMode(bool mode);
 #endif
 };
 
@@ -264,6 +291,11 @@ public:
 #ifdef SESC_CHERRY
   void earlyRecycle(DInst *dinst);
 #endif
+
+#ifdef SESC_INORDER
+  void setMode(bool mode);
+#endif
+  
 };
 
 #endif   // RESOURCE_H
