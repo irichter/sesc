@@ -38,18 +38,14 @@ private:
   int cFetchId;
   int cDecodeId;
   int cIssueId;
-  
-  // how many contexts has the machine
+
   const int smtContexts;
-
-  // From how many contexts can fetch in a single cycle
   const int smtFetchs4Clk;
-
-  // how many contexts can enter in the instQueue in a single cycle
   const int smtDecodes4Clk;
-
-  // how many contexts can enter in the ExeEngine in a single cycle
   const int smtIssues4Clk;
+  const int firstContext;
+
+  DInst ***gRAT;
 
   class Fetch {
   public:
@@ -97,6 +93,9 @@ protected:
   bool hasWork() const;
 
   void advanceClock();
+
+  StallCause addInst(DInst *dinst);
+
   // END VIRTUAL FUNCTIONS of GProcessor
 
 public:

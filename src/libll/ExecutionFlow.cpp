@@ -377,7 +377,7 @@ DInst *ExecutionFlow::executePC()
   }
 #endif // (defined TASKSCALAR) || (defined TLS)
  
-  dinst=DInst::createInst(cPC, vaddr, origPid);
+  dinst=DInst::createInst(cPC, vaddr, fid);
 
 #if (defined TLS)
   dinst->setEpoch(epoch);
@@ -426,7 +426,7 @@ DInst *ExecutionFlow::executePC()
   // "pendingDInst".
   pendingDInst=dinst;
   I(pendingDInst->getInst()->getAddr());
-  dinst = DInst::createInst(cPC, vaddr, origPid);
+  dinst = DInst::createInst(cPC, vaddr, fid);
 
 #if (defined TLS)
   dinst->setEpoch(epoch);
@@ -496,7 +496,7 @@ DInst *ExecutionFlow::executePC()
   // In the case of the event, the original iBJ dissapears
   pendingDInst->scrap();
   // Create a fake dynamic instruction for the event
-  pendingDInst = DInst::createInst(Instruction::getEventID(ev), evAddr, origPid);
+  pendingDInst = DInst::createInst(Instruction::getEventID(ev), evAddr, fid);
 
 #if (defined TLS)
   pendingDInst->setEpoch(epoch);

@@ -76,7 +76,7 @@ void LDSTBuffer::getFenceEntry(DInst *dinst)
    */
 
   const Instruction *inst = dinst->getInst();
-  int pid = dinst->getCPUId();
+  int cid = dinst->getContextId();  // FIXME: Is contextId correct?
 
   I(inst->isFence());
 
@@ -84,7 +84,7 @@ void LDSTBuffer::getFenceEntry(DInst *dinst)
   return true;
 #endif
 
-  fences[pid] = dinst;
+  fences[cid] = dinst;
 
 #if 0
   // TODO: not implemented
@@ -104,8 +104,8 @@ void LDSTBuffer::getFenceEntry(DInst *dinst)
 
 void LDSTBuffer::fenceLocallyPerformed(DInst *dinst)
 {
-  int pid = dinst->getCPUId();
-  FenceEntryType::iterator it = fences.find(pid);
+  int cid = dinst->getContextId();
+  FenceEntryType::iterator it = fences.find(cid);
 
   if (it->second == dinst)
     fences.erase(it);
@@ -123,7 +123,7 @@ void LDSTBuffer::getStoreEntry(DInst *dinst)
   EntryType::iterator sit = stores.find(calcWord(dinst));
   if (sit != stores.end()) {
     DInst *pdinst = sit->second;
-    if (!pdinst->hasPending() && dinst->getCPUId() == pdinst->getCPUId())
+    if (!pdinst->hasPending() && dinst->getContextId() == pdinst->getContextId())
       pdinst->setDeadStore();
   }
 
@@ -150,7 +150,7 @@ void LDSTBuffer::getLoadEntry(DInst *dinst)
   if (dinst->getVersionRef() != pdinst->getVersionRef())
     return;
 #else
-  if (dinst->getCPUId() != pdinst->getCPUId()) {
+  if (dinst->getContextId() != pdinst->getContextId()) {
     // FIXME2: In a context switch the same processor may have two different
     // PIDs
 
@@ -187,7 +187,7 @@ void LDSTBuffer::dump(const char *str)
     fprintf(stderr,": pc=0x%x, addr=0x%x %d"
 	    ,(int)(sit->second->getInst()->getAddr())
 	    ,(int)((sit->first)<<2)
-	    ,sit->second->getCPUId()
+	    ,sit->second->getContextId()
       );
   }
   fprintf(stderr,"\n");

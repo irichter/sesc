@@ -44,7 +44,7 @@ DInst::DInst()
 
 void DInst::dump(const char *str)
 {
-  fprintf(stderr,"%s:(%d)  DInst: vaddr=0x%x ", str, cpuId, (int)vaddr);
+  fprintf(stderr,"%s:(%d)  DInst: vaddr=0x%x ", str, cId, (int)vaddr);
   if (executed) {
     fprintf(stderr, " executed");
   }else if (issued) {
@@ -64,6 +64,10 @@ void DInst::dump(const char *str)
 
 void DInst::doAtExecuted()
 {
+  I(RATEntry);
+  if ( (*RATEntry) == this )
+    *RATEntry = 0;
+
   I( resource );
   resource->executed(this);
 }
@@ -84,7 +88,7 @@ void DInst::doAtSimTime()
   resource->simTime(this);
 }
 
-DInst *DInst::createDInst(const Instruction *inst, VAddr va, int cpuId)
+DInst *DInst::createDInst(const Instruction *inst, VAddr va, int cId)
 {
 #ifdef SESC_MISPATH
   if (inst->isType(iOpInvalid))
@@ -95,7 +99,7 @@ DInst *DInst::createDInst(const Instruction *inst, VAddr va, int cpuId)
 
   i->inst  = inst;
   Prefetch(i->inst);
-  i->cpuId = cpuId;
+  i->cId   = cId;
   i->wakeUpTime = 0;
   i->vaddr = va;
   i->first = 0;
@@ -103,6 +107,7 @@ DInst *DInst::createDInst(const Instruction *inst, VAddr va, int cpuId)
   i->ID = currentID++;
 #endif
   i->resource  = 0;
+  i->RATEntry  = 0;
   i->pendEvent = 0;
   i->fetch = 0;
   i->loadForwarded= false;
@@ -149,10 +154,10 @@ DInst *DInst::createDInst(const Instruction *inst, VAddr va, int cpuId)
   return i;
 }
 
-DInst *DInst::createInst(InstID pc, VAddr va, int cpuId)
+DInst *DInst::createInst(InstID pc, VAddr va, int cId)
 {
   const Instruction *inst = Instruction::getInst(pc);
-  return createDInst(inst, va, cpuId);
+  return createDInst(inst, va, cId);
 }
 
 void DInst::killSilently()

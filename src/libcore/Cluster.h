@@ -67,11 +67,7 @@ class Cluster {
     windowSize--;
     I(windowSize>=0);
   }
-  bool canIssue(DInst *dinst) const { 
-    if( windowSize>0 )
-      return window.canIssue(dinst);
-    return false;
-  }
+  bool canIssue(DInst *dinst) const { return windowSize>0; }
 
   void wakeUpDeps(DInst *dinst) { window.wakeUpDeps(dinst); }
 

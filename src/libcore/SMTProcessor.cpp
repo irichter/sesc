@@ -45,6 +45,7 @@ SMTProcessor::SMTProcessor(GMemorySystem *gm, CPU_t i)
   ,smtFetchs4Clk(SescConf->getLong("cpucore", "smtFetchs4Clk",i))
   ,smtDecodes4Clk(SescConf->getLong("cpucore", "smtDecodes4Clk",i))
   ,smtIssues4Clk(SescConf->getLong("cpucore", "smtIssues4Clk",i))
+  ,firstContext(i*smtContexts)
 {
   SescConf->isLong("cpucore", "smtContexts",Id);
   SescConf->isGT("cpucore", "smtContexts", 1,Id);
@@ -62,8 +63,12 @@ SMTProcessor::SMTProcessor(GMemorySystem *gm, CPU_t i)
 
   Fetch *f = new Fetch(gm, Id, Id*smtContexts);
   flow[0] = f;
+  gRAT = (DInst ***) malloc(sizeof(DInst ***) * smtContexts);
   for(int i = 1; i < smtContexts; i++) {
     flow[i] = new Fetch(gm, Id,Id*smtContexts+i, &(f->IFID));
+
+    gRAT[i] = (DInst **) malloc(sizeof(DInst **) * NumArchRegs);
+    bzero(gRAT[i],sizeof(DInst*)*NumArchRegs);
   }
 
   cFetchId =0;
@@ -281,6 +286,44 @@ void SMTProcessor::advanceClock()
   spaceInInstQueue += totalIssuedInsts;
   
   retire();
+}
+
+StallCause SMTProcessor::addInst(DInst *dinst) 
+{
+  const Instruction *inst = dinst->getInst();
+
+  DInst **RAT = gRAT[dinst->getContextId()-firstContext];
+
+  if( InOrderCore ) {
+    if(RAT[inst->getSrc1()] != 0 || RAT[inst->getSrc2()] != 0) {
+      return SmallWinStall;
+    }
+  }
+
+  StallCause sc = sharedAddInst(dinst);
+  if (sc != NoStall)
+    return sc;
+
+  I(dinst->getResource() != 0); // Resource::schedule must set the resource field
+
+  if(!dinst->isSrc2Ready()) {
+    // It already has a src2 dep. It means that it is solved at
+    // retirement (Memory consistency. coherence issues)
+    if( RAT[inst->getSrc1()] )
+      RAT[inst->getSrc1()]->addSrc1(dinst);
+  }else{
+    if( RAT[inst->getSrc1()] )
+      RAT[inst->getSrc1()]->addSrc1(dinst);
+
+    if( RAT[inst->getSrc2()] )
+      RAT[inst->getSrc2()]->addSrc2(dinst);
+  }
+
+  dinst->setRATEntry(&RAT[inst->getDest()]);
+
+  RAT[inst->getDest()] = dinst;
+
+  return NoStall;
 }
 
 bool SMTProcessor::hasWork() const 

@@ -90,8 +90,6 @@ DepWindow::DepWindow(GProcessor *gproc, const char *clusterName)
   SescConf->isLong("cpucore"    , "regFileDelay");
   SescConf->isBetween("cpucore" , "regFileDelay", 0, 1024);
 
-  RAT = gproc->getRAT();
-
 #ifdef SESC_DDIS
   if (nDeps[0] == 0) {
     nDeps[0] = new GStatsCntr("DepWindow:nDeps_0");
@@ -105,47 +103,11 @@ DepWindow::~DepWindow()
 {
 }
 
-bool DepWindow::canIssue(DInst *dinst) const
-{
-  const Instruction *inst = dinst->getInst();
-
-  if( InOrderCore ) {
-    if(RAT[inst->getSrc1()] != 0 || RAT[inst->getSrc2()] != 0) {
-      return false;
-    }
-  }
-#ifdef SESC_DDIS
-  bool can = true;
-  if (RAT[inst->getSrc1()])
-     can = ddis.canIssue(RAT[inst->getSrc1()]);
-  if (can && RAT[inst->getSrc2()])
-     can = ddis.canIssue(RAT[inst->getSrc2()]);
-  return can;
-#else
-  return true;
-#endif
-}
-
 void DepWindow::addInst(DInst *dinst)
 {
   const Instruction *inst = dinst->getInst();
 
   I(dinst->getResource() != 0); // Resource::schedule must set the resource field
-
-  if(!dinst->isSrc2Ready()) {
-    // It already has a src2 dep. It means that it is solved at
-    // retirement (Memory consistency. coherence issues)
-    if( RAT[inst->getSrc1()] )
-      RAT[inst->getSrc1()]->addSrc1(dinst);
-  }else{
-    if( RAT[inst->getSrc1()] )
-      RAT[inst->getSrc1()]->addSrc1(dinst);
-
-    if( RAT[inst->getSrc2()] )
-      RAT[inst->getSrc2()]->addSrc2(dinst);
-  }
-
-  RAT[inst->getDest()] = dinst;
 
   windowRdWrEnergy->inc();  // Add entry
 
@@ -228,10 +190,6 @@ void DepWindow::executed(DInst *dinst)
   //  MSG("execute [0x%x] @%lld",dinst, globalClock);
 
   I(!dinst->hasDeps());
-
-  RegType dest = inst->getDest();
-  if(RAT[dest] == dinst)
-    RAT[dest] = 0;
 
   resultBusEnergy->inc();
   windowCheckEnergy->inc();

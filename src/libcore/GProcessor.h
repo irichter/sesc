@@ -53,6 +53,7 @@ protected:
   const int RetireWidth;
   const int RealisticWidth;
   const int InstQueueSize;
+  const bool InOrderCore;
   const size_t MaxFlows;
   const size_t MaxROBSize;
 
@@ -68,7 +69,6 @@ protected:
   int recycleStore;   // min(Ul,Ub)
   DInst *cherryRAT[NumArchRegs];
 #endif
-  DInst *RAT[NumArchRegs];
 
   ClusterManager clusterManager;
 
@@ -108,7 +108,8 @@ protected:
 
   GProcessor(GMemorySystem *gm, CPU_t i, size_t numFlows);
 
-  StallCause addInst(DInst *dinst);
+  virtual StallCause addInst(DInst *dinst) = 0;
+  StallCause sharedAddInst(DInst *dinst);
   int issue(PipeQueue &pipeQ);
   void retire();
 
@@ -120,8 +121,6 @@ public:
 
   virtual ~GProcessor();
   CPU_t getId() const { return Id; }
-
-  DInst **getRAT() { return RAT; }
 
   GMemorySystem *getMemorySystem() const { return memorySystem; }
 

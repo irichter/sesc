@@ -96,7 +96,7 @@ private:
   DInstNext *last;
   DInstNext *first;
   
-  int cpuId;
+  int cId;
 
   // BEGIN Boolean flags
   bool loadForwarded;
@@ -134,6 +134,7 @@ private:
   const Instruction *inst;
   VAddr vaddr;
   Resource    *resource;
+  DInst      **RATEntry;
   FetchEngine *fetch;
 
 #ifdef TASKSCALAR
@@ -173,8 +174,8 @@ public:
   void doAtSimTime();
   StaticCallbackMember0<DInst,&DInst::doAtSimTime>  doAtSimTimeCB;
 
-  static DInst *createInst(InstID pc, VAddr va, int cpuId);
-  static DInst *createDInst(const Instruction *inst, VAddr va, int cpuId);
+  static DInst *createInst(InstID pc, VAddr va, int cId);
+  static DInst *createDInst(const Instruction *inst, VAddr va, int cId);
 
   void killSilently();
   void scrap(); // Destroys the instruction without any other effects
@@ -185,6 +186,11 @@ public:
     resource = res;
   }
   Resource *getResource() const { return resource; }
+
+  void setRATEntry(DInst **rentry) {
+    I(!RATEntry);
+    RATEntry = rentry;
+  }
 
 #ifdef BPRED_UPDATE_RETIRE
   void setBPred(BPredictor *bp, InstID oid) {
@@ -345,7 +351,7 @@ public:
 
   VAddr getVaddr() const { return vaddr;  }
 
-  int getCPUId() const { return cpuId; }
+  int getContextId() const { return cId; }
 
   void dump(const char *id);
 

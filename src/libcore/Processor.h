@@ -37,6 +37,8 @@ private:
 
   signed int spaceInInstQueue;
   
+  DInst *RAT[NumArchRegs];
+
 protected:
   // BEGIN VIRTUAL FUNCTIONS of GProcessor
   FetchEngine *currentFlow();
@@ -62,6 +64,9 @@ protected:
   bool hasWork() const;
 
   void advanceClock();
+
+  StallCause addInst(DInst *dinst);
+  
   // END VIRTUAL FUNCTIONS of GProcessor
 public:
   virtual ~Processor();

@@ -59,8 +59,6 @@ private:
   GStatsEnergy *windowCheckEnergy; // Check for dependences on the window
   GStatsEnergy *windowSelEnergy;   // instruction selection
 
-  DInst **RAT;
-
   PortGeneric *wakeUpPort;
   PortGeneric *schedPort;
 
@@ -74,13 +72,6 @@ public:
   void select(DInst *dinst);
   void executed(DInst *dinst);
 
-  bool canIssue(DInst *dinst) const;
-
-  void retire(DInst *dinst) {
-#ifdef SESC_DDIS
-    ddis.retire(dinst);
-#endif
-  }
 };
 
 #endif // DEPWINDOW_H

@@ -253,7 +253,6 @@ void ExecutedCluster::executed(DInst *dinst)
 
 void ExecutedCluster::retire(DInst *dinst)
 {
-  window.retire(dinst);
   winNotUsed.sample(windowSize);
   // Nothing
 }
@@ -261,13 +260,11 @@ void ExecutedCluster::retire(DInst *dinst)
 void RetiredCluster::executed(DInst *dinst)
 {
   dinst->markExecuted();
-
   window.executed(dinst);
 }
 
 void RetiredCluster::retire(DInst *dinst)
 {
-  window.retire(dinst);
   winNotUsed.sample(windowSize);
   delEntry();
 }

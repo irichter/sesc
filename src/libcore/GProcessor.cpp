@@ -39,6 +39,7 @@ GProcessor::GProcessor(GMemorySystem *gm, CPU_t i, size_t numFlows)
   ,RetireWidth(SescConf->getLong("cpucore", "retireWidth",i))
   ,RealisticWidth(RetireWidth < IssueWidth ? RetireWidth : IssueWidth)
   ,InstQueueSize(SescConf->getLong("cpucore", "instQueueSize",i))
+  ,InOrderCore(SescConf->getBool("cpucore","inorder",i))
   ,MaxFlows(numFlows)
   ,MaxROBSize(SescConf->getLong("cpucore", "robSize",i))
   ,memorySystem(gm)
@@ -116,8 +117,6 @@ GProcessor::GProcessor(GMemorySystem *gm, CPU_t i, size_t numFlows)
 
   // CHANGE "PendingWindow" instead of "Proc" for script compatibility reasons
   buildInstStats(nInst, "PendingWindow");
-
-  bzero(RAT,sizeof(DInst*)*NumArchRegs);
   
 #ifdef SESC_CHERRY
   unresolvedLoad  = -1;
@@ -161,7 +160,7 @@ void GProcessor::buildInstStats(GStatsCntr *i[MaxInstType], const char *txt)
   IN(forall((int a=1;a<(int)MaxInstType;a++), i[a] != 0));
 }
 
-StallCause GProcessor::addInst(DInst *dinst) 
+StallCause GProcessor::sharedAddInst(DInst *dinst) 
 {
   // rename an instruction. Steps:
   //
@@ -188,6 +187,18 @@ StallCause GProcessor::addInst(DInst *dinst)
 #endif
 
   Resource *res = clusterManager.getResource(inst->getOpcode());
+
+#ifdef SESC_DDIS
+  // FIXME:
+  bool can = true;
+  if (RAT[inst->getSrc1()])
+    can = res->getCluster()->ddis.canIssue(RAT[inst->getSrc1()]);
+  if (can && RAT[inst->getSrc2()])
+     can = ddis.canIssue(RAT[inst->getSrc2()]);
+  return can;
+#endif
+
+
   StallCause sc = res->canIssue(dinst);
   if (sc != NoStall)
     return sc;
