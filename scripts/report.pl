@@ -660,9 +660,12 @@ sub showBaadStats {
 	$nBranches += $cf->getResultField("BPred(${i})","nBranches");
 	$nTaken    += $cf->getResultField("BPred(${i})","nTaken");
     }
+
     $nTaken = 1 unless ($nTaken);
     $nInst  = 1 unless ($nInst);
     $niBJ   = 1 unless ($niBJ);
+
+    $nTaken = $niBJ - $nTaken;
 
     # BBSize
     printf " %9.2f ", 1/($niBJ/$nInst);
@@ -697,7 +700,7 @@ sub showStatReport {
   my $nTLSWPathInsts = $nKillWPathInsts + $nRestartWPathInsts;
 
   #############################################################################
-  printf "#table0                            BusyCPU %: CommitInst: nCycles : nWPathInsts\n";
+  printf "#table0                            BusyCPU %: CommitInst: nCycles : nWPathInsts : IPC\n";
 
   printf "table0  %25s ", $name;
   # BusyCPU
@@ -708,6 +711,8 @@ sub showStatReport {
   printf " %9.0f ", $nCycles;
   # of wrong path instructions
   printf " %9d ", $nWPathInsts;
+  # IPC
+  printf " %9.3f ", $nGradInsts/$nCycles;
   printf "\n";
 
   #############################################################################
