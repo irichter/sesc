@@ -1,5 +1,5 @@
-#ifndef Already_included_AdvancedStats_hpp
-#define Already_included_AdvancedStats_hpp
+#ifndef _AdvancedStats_hpp_
+#define _AdvancedStats_hpp_
 
 #include <map>
 #include <list>
@@ -15,10 +15,6 @@ namespace Stats{
 
   class Group{
   protected:
-    static void indent(size_t num){
-      for(size_t i=0;i<num;i++)
-	printf("  ");
-    }
     Group *parentGroup;
     char *myName;
     typedef list<Group *> GroupList;
@@ -26,45 +22,20 @@ namespace Stats{
     typedef GroupList::iterator GroupListIt;
     typedef map<Group *,GroupListIt> GroupMap;
     GroupMap groupMembers;
-    virtual void reportPrefix(size_t level) const{
-      if(myName){
-	indent(level);
-	printf("Statistics for %s begin\n",myName);
-      }
-    }
+
+    virtual void reportPrefix(size_t level) const;
     virtual void reportMiddle(size_t level) const;
-    virtual void reportSuffix(size_t level) const{
-      if(myName){
-	indent(level);
-	printf("Statistics for %s end\n",myName);
-      }
-    }
+    virtual void reportSuffix(size_t level) const;
+    static void indent(size_t num);
+
   public:
-    Group(Group *parentGroup=0, char *name=0)
-      : parentGroup(parentGroup),
-	myName(name?strdup(name):0){
-      if(parentGroup)
-	parentGroup->insertMember(this);
-    }
-    virtual void insertMember(Group *newMember){
-      I(!groupMembers.count(newMember));
-      GroupListIt listIt=groupOrder.insert(groupOrder.end(),newMember);
-      groupMembers.insert(GroupMap::value_type(newMember,listIt));
-    }
-    virtual void eraseMember(Group *newMember){
-      GroupMap::iterator mapIt=groupMembers.find(newMember);
-      I(mapIt!=groupMembers.end());
-      groupOrder.erase(mapIt->second);
-      groupMembers.erase(mapIt);
-    }
+    Group(Group *parentGroup=0, char *name=0);
+    virtual void insertMember(Group *newMember);
+    virtual void eraseMember(Group *newMember);
     virtual void addSample(const double value) const;
     virtual void addSamples(const double value, const LargeCount count) const;
+    virtual void report(size_t level=0) const;
     virtual ~Group(void);
-    virtual void report(size_t level=0) const{
-      reportPrefix(level);
-      reportMiddle(level);
-      reportSuffix(level);
-    }
   };
   
   class Distribution : public Group{

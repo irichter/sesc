@@ -2,6 +2,39 @@
 
 namespace Stats{
 
+  Group::Group(Group *parentGroup, char *name)
+    : parentGroup(parentGroup),
+      myName(name?strdup(name):0){
+    if(parentGroup)
+      parentGroup->insertMember(this);
+  }
+  
+  void Group::insertMember(Group *newMember){
+    I(!groupMembers.count(newMember));
+    GroupListIt listIt=groupOrder.insert(groupOrder.end(),newMember);
+    groupMembers.insert(GroupMap::value_type(newMember,listIt));
+  }
+  
+  void Group::eraseMember(Group *newMember){
+    GroupMap::iterator mapIt=groupMembers.find(newMember);
+    I(mapIt!=groupMembers.end());
+    groupOrder.erase(mapIt->second);
+    groupMembers.erase(mapIt);
+  }
+
+  void Group::report(size_t level) const{
+    reportPrefix(level);
+    reportMiddle(level);
+    reportSuffix(level);
+  }
+  
+  void Group::reportPrefix(size_t level) const{
+    if(myName){
+      indent(level);
+      printf("Statistics for %s begin\n",myName);
+    }
+  }
+
   void Group::reportMiddle(size_t level) const{
     for(GroupList::const_iterator groupIt=groupOrder.begin();
 	groupIt!=groupOrder.end();groupIt++){
@@ -9,6 +42,18 @@ namespace Stats{
     }
   }
   
+  void Group::reportSuffix(size_t level) const{
+    if(myName){
+      indent(level);
+      printf("Statistics for %s end\n",myName);
+    }
+  }
+
+  void Group::indent(size_t num){
+    for(size_t i=0;i<num;i++)
+      printf("  ");
+  }
+
   void Group::addSample(const double value) const{
     for(GroupList::const_iterator groupIt=groupOrder.begin();
 	groupIt!=groupOrder.end();groupIt++){
@@ -46,6 +91,8 @@ namespace Stats{
     indent(level);
     printf("Count:\t%llu\n",totalCount);
     if(totalCount){
+      indent(level);
+      printf("Total:\t%lg\n",totalSum);
       indent(level);
       printf("Averg:\t%lg\n",totalSum/totalCount);
       // Print the percentile points of the distribution
