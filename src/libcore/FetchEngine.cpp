@@ -205,9 +205,9 @@ bool FetchEngine::processBranch(DInst *dinst, ushort n2Fetched)
   return false;
 }
 
-void FetchEngine::realFetch(IBucket *bucket)
+void FetchEngine::realFetch(IBucket *bucket, int fetchMax)
 {
-  ushort n2Fetched=FetchWidth;
+  ushort n2Fetched=fetchMax > 0 ? fetchMax : FetchWidth;
   maxBB = BB4Cycle; // Reset the max number of BB to fetch in this cycle (decreased in processBranch)
 
   // This method only can be called once per cycle or the restriction of the
@@ -285,7 +285,7 @@ void FetchEngine::realFetch(IBucket *bucket)
   nFetched.add(tmp);
 }
 
-void FetchEngine::fakeFetch(IBucket *bucket)
+void FetchEngine::fakeFetch(IBucket *bucket, int fetchMax)
 {
   I(missInstID);
 #ifdef SESC_MISPATH
@@ -319,12 +319,12 @@ void FetchEngine::fakeFetch(IBucket *bucket)
 #endif // SESC_MISPATH
 }
 
-void FetchEngine::fetch(IBucket *bucket)
+void FetchEngine::fetch(IBucket *bucket, int fetchMax)
 {
   if(missInstID) {
-    fakeFetch(bucket);
+    fakeFetch(bucket, fetchMax);
   }else{
-    realFetch(bucket);
+    realFetch(bucket, fetchMax);
   }
 
   if(enableICache && !bucket->empty()) {

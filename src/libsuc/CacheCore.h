@@ -233,12 +233,16 @@ template<class State, class Addr_t = ulong, bool Energy=true>
 template<class State, class Addr_t = ulong, bool Energy=false>
 #endif
 class CacheAssoc : public CacheGeneric<State, Addr_t, Energy> {
+  using CacheGeneric<State, Addr_t, Energy>::numLines;
+  using CacheGeneric<State, Addr_t, Energy>::assoc;
+  using CacheGeneric<State, Addr_t, Energy>::maskAssoc;
+
 private:
 public:
   typedef typename CacheGeneric<State, Addr_t, Energy>::CacheLine Line;
 
 protected:
-  
+ 
   Line *mem;
   Line **content;
   ushort irand;
@@ -267,6 +271,7 @@ template<class State, class Addr_t = ulong, bool Energy=true>
 template<class State, class Addr_t = ulong, bool Energy=false>
 #endif
 class CacheDM : public CacheGeneric<State, Addr_t, Energy> {
+  using CacheGeneric<State, Addr_t, Energy>::numLines;
 private:
 public:
   typedef typename CacheGeneric<State, Addr_t, Energy>::CacheLine Line;

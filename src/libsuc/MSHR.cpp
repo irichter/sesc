@@ -78,6 +78,7 @@ MSHR<Addr_t> *MSHR<Addr_t>::create(const char *name, const char *section)
   }
 
   return mshr;
+     
 }
 
 template<class Addr_t>
@@ -296,10 +297,9 @@ void FullMSHR<Addr_t>::retire(Addr_t paddr)
   entry[pos].inUse = false;
 }
 
-
 // SingleMSHR
 
-template<class Addr_t> Cache* SingleMSHR<Addr_t>::L2Cache = NULL;
+//template<class Addr_t> Cache* SingleMSHR<Addr_t>::L2Cache = NULL; FIXME: fix this
 
 template<class Addr_t>
 SingleMSHR<Addr_t>::SingleMSHR(const char *name, int size, int lineSize, int nse)
@@ -703,6 +703,7 @@ void BankedMSHR<Addr_t>::checkOverflow()
 
   checkingOverflow = false;
 }
+
 
 
 //

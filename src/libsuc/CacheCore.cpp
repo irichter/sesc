@@ -214,7 +214,7 @@ CacheAssoc<State, Addr_t, Energy>::CacheAssoc(int size, int assoc, int blksize, 
     exit(0);
   }
 
-  mem     = new Line[numLines + 1];
+  mem     = new Line [numLines + 1];
   content = new Line* [numLines + 1];
 
   for(ulong i = 0; i < numLines; i++) {

@@ -89,6 +89,8 @@ private:
   long long nInst2Sim;
   long long nInstCommited2Sim;
 
+  unsigned long long snapshotGlobalClock;
+
 #ifdef OLDMARKS
   ulong simulationMarks;
   ulong simulationMark1;
@@ -359,6 +361,8 @@ public:
   long long getnInstCommited2Sim() const { return nInstCommited2Sim; }
 
   bool hasWork() const { return cpus.hasWork(); }
+
+  void pseudoReset() {snapshotGlobalClock = globalClock;} 
 };
 
 typedef CallbackMember4<OSSim, Pid_t, long, long, const void *, &OSSim::postEvent> postEventCB;

@@ -181,7 +181,7 @@ class CallbackFunction3
 private:      
   typedef pool<CallbackFunction3> poolType;
   static poolType cbPool;
-  friend class poolType;
+  friend class pool<CallbackFunction3>;
               
   Parameter1 p1;
   Parameter2 p2;
@@ -245,7 +245,7 @@ class CallbackFunction2
 private:
   typedef pool<CallbackFunction2> poolType;
   static poolType cbPool;
-  friend class poolType;
+  friend class pool<CallbackFunction2>;
 
   Parameter1 p1;
   Parameter2 p2;
@@ -307,7 +307,7 @@ class CallbackFunction1
 private:
   typedef pool<CallbackFunction1> poolType;
   static poolType cbPool;
-  friend class poolType;
+  friend class pool<CallbackFunction1>;
 
   Parameter1 p1;
 
@@ -467,7 +467,7 @@ class CallbackMember4
 private:
   typedef pool<CallbackMember4> poolType;
   static poolType cbPool;
-  friend class poolType;
+  friend class pool<CallbackMember4>;
 
   Parameter1 p1;
   Parameter2 p2;
@@ -539,7 +539,7 @@ class CallbackMember3
 private:
   typedef pool<CallbackMember3> poolType;
   static poolType cbPool;
-  friend class poolType;
+  friend class pool<CallbackMember3>;
 
   Parameter1 p1;
   Parameter2 p2;
@@ -608,7 +608,7 @@ class CallbackMember2
 private:
   typedef pool<CallbackMember2> poolType;
   static poolType cbPool;
-  friend class poolType;
+  friend class pool<CallbackMember2>;
 
   Parameter1 p1;
   Parameter2 p2;
@@ -675,7 +675,7 @@ class CallbackMember1
 private:
   typedef pool<CallbackMember1> poolType;
   static poolType cbPool;
-  friend class poolType;
+  friend class pool<CallbackMember1>;
 
   Parameter1 p1;
 
@@ -740,7 +740,7 @@ class CallbackMember0
 private:
   typedef pool<CallbackMember0> poolType;
   static poolType cbPool;
-  friend class poolType;
+  friend class pool<CallbackMember0>;
 
   ClassType *instance;
 

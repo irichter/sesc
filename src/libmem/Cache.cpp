@@ -31,6 +31,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "SescConf.h"
 #include "MemorySystem.h"
 #include "Cache.h"
+#include "MSHR.h"
 #include "OSSim.h"
 #ifdef TS_TIMELINE
 #include "TraceGen.h"

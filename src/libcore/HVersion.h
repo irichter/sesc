@@ -147,7 +147,7 @@ class HVersion {
 
   typedef pool<HVersion, true> poolType;
   static poolType vPool;
-  friend class poolType;
+  friend class pool<HVersion, true>;
 
   // Statistics about the avg number of children per task
   static const size_t nChildrenStatsMax=10;

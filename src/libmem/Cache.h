@@ -42,10 +42,6 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "VMemReq.h"
 #endif
 
-#ifdef SMP
-#include "MESICacheState.h"
-#endif
-
 class CState : public StateGeneric<> {
 private:
   bool valid;
@@ -89,7 +85,6 @@ public:
     clearTag();
   }
 };
-
 
 class Cache: public MemObj
 {

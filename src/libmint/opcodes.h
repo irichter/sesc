@@ -158,6 +158,7 @@ typedef enum ud_class_e {
   OP(mint_sesc_spawn);
   OP(mint_sesc_sysconf);
   OP(mint_sesc_wait);
+  OP(mint_sesc_pseudoreset);
   OP(mint_sesc_yield);
   OP(mint_sesc_suspend);
   OP(mint_sesc_resume);

@@ -196,6 +196,21 @@ void rsesc_wait(int cpid)
   osSim->eventWait(cpid);
 }
 
+int rsesc_pseudoreset_cnt = 0;
+
+void rsesc_pseudoreset(int pid)
+{ 
+  if (pid==0 && rsesc_pseudoreset_cnt==0)
+    {
+      rsesc_pseudoreset_cnt++;
+      
+      osSim->pseudoReset();
+    }
+  else if (pid==0 && rsesc_pseudoreset_cnt > 0) {
+    GLOG(1,"rsesc_pseudoreset called multiple times.");
+  }
+}
+
 int rsesc_suspend(int cpid, int pid)
 {
   return osSim->eventSuspend(cpid,pid);

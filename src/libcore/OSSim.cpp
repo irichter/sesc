@@ -119,9 +119,10 @@ void OSSim::reportOnTheFly(const char *file)
 }
 
 OSSim::OSSim(int argc, char **argv, char **envp)
-  : traceFile(0)
+  : traceFile(0) 
+    ,snapshotGlobalClock(0)    
     ,finishWorkNowCB(&cpus)
-{
+{ 
   I(osSim == 0);
   osSim = this;
 
@@ -1021,6 +1022,7 @@ void OSSim::report(const char *str)
 		,cpus.size()
 		,globalClock);
 
+  Report::field("OSSim:pseudoreset=%lld",snapshotGlobalClock);
 
 #ifdef SESC_ENERGY
   const char *procName = SescConf->getCharPtr("","cpucore",0);

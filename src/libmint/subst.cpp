@@ -458,7 +458,8 @@ func_desc_t Func_subst[] = {
   {"sesc_release",            mint_sesc_release,               1, OpExposed},
   {"sesc_release_",           mint_sesc_release,               1, OpExposed},
   {"sesc_wait",               mint_sesc_wait,                  1, OpExposed},
-  /// {"printf",		      mint_printf,	               1, OpExposed},
+  {"sesc_pseudoreset",        mint_sesc_pseudoreset,           1, OpExposed},
+  //  {"printf",		      mint_printf,	               1, OpExposed},
   //  {"IO_printf",	              mint_printf,	               1, OpExposed},
   {"sesc_get_num_cpus",       mint_sesc_get_num_cpus,          0, OpExposed},
 #if (defined TLS)
@@ -1675,6 +1676,17 @@ OP(mint_sesc_wait)
 
   rsesc_set_instruction_pointer(pid,addr2icode(REGNUM(31)));
   rsesc_wait(pid);
+  return rsesc_get_instruction_pointer(pthread->getPid());
+}
+
+void rsesc_pseudoreset(int pid);
+
+OP(mint_sesc_pseudoreset)
+{
+  int pid = pthread->getPid();
+
+  rsesc_set_instruction_pointer(pid,addr2icode(REGNUM(31)));
+  rsesc_pseudoreset(pid);
   return rsesc_get_instruction_pointer(pthread->getPid());
 }
 

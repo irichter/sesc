@@ -250,15 +250,33 @@ void SMTProcessor::advanceClock()
   clockTicks++;
   
   // Fetch Stage
-  for(int i=0;i<smtFetchs4Clk;i++) {
+  int nFetched = 0;
+  int fetchMax = FetchWidth;
+  for(int i = 0; i < smtContexts && nFetched < FetchWidth; i++) {
     selectFetchFlow();
     if (cFetchId >=0) {
       I(flow[cFetchId]->IFID.hasWork());
 
+#ifdef TASKSCALAR
+      TaskContext *tc = TaskContext::getTaskContext(flow[cFetchId]->IFID.getPid());
+      I(tc);
+      if(tc->getVersionRef()->isSafe()) {
+	fetchMax = FetchWidth;
+      } else {
+	fetchMax = FetchWidth / (smtContexts - i);
+	if(fetchMax == 0) fetchMax = 1;
+      }
+#endif
+      fetchMax = fetchMax > (FetchWidth - nFetched) 
+	? (FetchWidth - nFetched) : fetchMax;
+      
+      I(fetchMax > 0);
+
       IBucket *bucket = flow[cFetchId]->pipeQ.pipeLine.newItem();
       if( bucket ) {
-	flow[cFetchId]->IFID.fetch(bucket);
-	// readyItem would be called once the bucket is fetched
+	flow[cFetchId]->IFID.fetch(bucket, fetchMax);
+	// readyItem will be called once the bucket is fetched
+	nFetched += bucket->size();
       }
     }else{
       I(!flow[0]->IFID.hasWork());
@@ -266,7 +284,7 @@ void SMTProcessor::advanceClock()
   }
 
   // ID Stage (insert to instQueue)
-  for(int i=0;i<smtDecodes4Clk && spaceInInstQueue >= FetchWidth ;i++) {
+  for(int i=0;i<smtContexts && spaceInInstQueue >= FetchWidth ;i++) {
     selectDecodeFlow();
     
     IBucket *bucket = flow[cDecodeId]->pipeQ.pipeLine.nextItem();
@@ -281,7 +299,7 @@ void SMTProcessor::advanceClock()
 
   // RENAME Stage
   int totalIssuedInsts=0;
-  for(int i=0;i<smtIssues4Clk && totalIssuedInsts < IssueWidth ;i++) {
+  for(int i = 0; i < smtContexts && totalIssuedInsts < IssueWidth; i++) {
     selectIssueFlow();
     
     if( flow[cIssueId]->pipeQ.instQueue.empty() )

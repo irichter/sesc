@@ -64,6 +64,9 @@ void sesc_wait(void){
   exit(-1);
 }
 
+void sesc_pseudoreset(void){
+}
+
 long sesc_fetch_op(enum FetchOpType op, volatile long *addr, long val){
   fprintf(stderr,"sesc_fetch_op shouldn't be called without a simulator\n");
   exit(-1);
@@ -369,6 +372,11 @@ int sesc_yield(int tid)
 void sesc_wait(void)
 {
   addWaiting(pthread_self());
+}
+
+void sesc_pseudoreset(void)
+{
+  
 }
 
 void sesc_exit(int err)

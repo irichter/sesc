@@ -356,8 +356,9 @@ void GProcessor::retire()
   for(ushort i=0;i<RetireWidth && !ROB.empty();i++) {
     DInst *dinst = ROB.top();
 
-    if( !dinst->isExecuted() )
+    if( !dinst->isExecuted() ) {
       return;
+    }
 
     // save it now because retire can destroy DInst
     int rp = dinst->getInst()->getDstPool();

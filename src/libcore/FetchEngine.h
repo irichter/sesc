@@ -103,12 +103,12 @@ public:
   
   // Fills the current fetch buffer.
   //  Always fetches at most fetchWidth instructions
-  void fetch(IBucket *buffer);
+  void fetch(IBucket *buffer, int fetchMax = -1);
 
   // Fake fetch. Fills the buffer with fake (mispredicted) instructions
   // Only active is SESC_MISPATH def'd
-  void fakeFetch(IBucket *buffer);
-  void realFetch(IBucket *buffer);
+  void fakeFetch(IBucket *buffer, int fetchMax = -1);
+  void realFetch(IBucket *buffer, int fetchMax = -1);
 
   ThreadContext *getThreadContext(void){
     I(flow.currentPid()!=-1);

@@ -155,13 +155,17 @@ extern "C" {
   void sesc_finish(void);  /* Finish the whole simulation */
   void sesc_wait(void);
 
+  void sesc_pseudoreset(void); /* Reset/Capture some stats for parallel
+				        applications to subtract spawning
+				        overheads                            */
+
   long sesc_fetch_op(enum FetchOpType op, volatile long *addr, long val); 
   void sesc_unlock_op(volatile long *addr, long val);
 
   void sesc_simulation_mark(void);
   void sesc_simulation_mark_(void);
-  void sesc_simulation_mark_id(int id);
-  void sesc_simulation_mark_id_(int id);
+  void sesc_simulation_mark_id(int id) __attribute__((noinline));
+  void sesc_simulation_mark_id_(int id) __attribute__((noinline));;
   void sesc_fast_sim_begin(void);
   void sesc_fast_sim_begin_(void);
   void sesc_fast_sim_end(void);
@@ -448,4 +452,5 @@ extern "C" {
 #ifdef __cplusplus
 }
 #endif
+
 #endif                          /* SESCAPI_H */

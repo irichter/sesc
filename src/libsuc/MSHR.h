@@ -115,6 +115,21 @@ class MSHR {
 //
 template<class Addr_t>
 class NoMSHR : public MSHR<Addr_t> {
+  using MSHR<Addr_t>::nEntries;
+  using MSHR<Addr_t>::nFreeEntries; 
+  using MSHR<Addr_t>::Log2LineSize;
+  using MSHR<Addr_t>::nUse;
+  using MSHR<Addr_t>::nUseReads;
+  using MSHR<Addr_t>::nUseWrites;
+  using MSHR<Addr_t>::nOverflows;
+  using MSHR<Addr_t>::maxUsedEntries;
+  using MSHR<Addr_t>::nCanAccept;
+  using MSHR<Addr_t>::nCanNotAccept;
+  using MSHR<Addr_t>::occupancyHistogram;
+  using MSHR<Addr_t>::pendingReqsTimingHist;
+  using MSHR<Addr_t>::entriesOnReqHist;      
+  using MSHR<Addr_t>::updateOccHistogram;      
+  using MSHR<Addr_t>::updatePendingReqsHistogram;
 
  protected:
   friend class MSHR<Addr_t>;
@@ -137,6 +152,22 @@ class NoMSHR : public MSHR<Addr_t> {
 //
 template<class Addr_t>
 class NoDepsMSHR : public MSHR<Addr_t> {
+  using MSHR<Addr_t>::nEntries;
+  using MSHR<Addr_t>::nFreeEntries; 
+  using MSHR<Addr_t>::Log2LineSize;
+  using MSHR<Addr_t>::nUse;
+  using MSHR<Addr_t>::nUseReads;
+  using MSHR<Addr_t>::nUseWrites;
+  using MSHR<Addr_t>::nOverflows;
+  using MSHR<Addr_t>::maxUsedEntries;
+  using MSHR<Addr_t>::nCanAccept;
+  using MSHR<Addr_t>::nCanNotAccept;
+  using MSHR<Addr_t>::occupancyHistogram;
+  using MSHR<Addr_t>::pendingReqsTimingHist;
+  using MSHR<Addr_t>::entriesOnReqHist;      
+  using MSHR<Addr_t>::updateOccHistogram;      
+  using MSHR<Addr_t>::updatePendingReqsHistogram;
+
  private:  
   typedef OverflowFieldT<Addr_t> OverflowField;
   typedef std::deque<OverflowField> Overflow;
@@ -166,6 +197,22 @@ class NoDepsMSHR : public MSHR<Addr_t> {
 
 template<class Addr_t>
 class FullMSHR : public MSHR<Addr_t> {
+  using MSHR<Addr_t>::nEntries;
+  using MSHR<Addr_t>::nFreeEntries; 
+  using MSHR<Addr_t>::Log2LineSize;
+  using MSHR<Addr_t>::nUse;
+  using MSHR<Addr_t>::nUseReads;
+  using MSHR<Addr_t>::nUseWrites;
+  using MSHR<Addr_t>::nOverflows;
+  using MSHR<Addr_t>::maxUsedEntries;
+  using MSHR<Addr_t>::nCanAccept;
+  using MSHR<Addr_t>::nCanNotAccept;
+  using MSHR<Addr_t>::occupancyHistogram;
+  using MSHR<Addr_t>::pendingReqsTimingHist;
+  using MSHR<Addr_t>::entriesOnReqHist;      
+  using MSHR<Addr_t>::updateOccHistogram;      
+  using MSHR<Addr_t>::updatePendingReqsHistogram;
+
  private:
   GStatsCntr nStallConflict;
 
@@ -214,7 +261,6 @@ class FullMSHR : public MSHR<Addr_t> {
   void retire(Addr_t paddr);
 
 };
-
 
 template<class Addr_t>
 class MSHRentry {
@@ -277,11 +323,24 @@ template<class Addr_t> class HrMSHR;
 // SingleMSHR
 //
 
-#include "Cache.h"
-class Cache;
-
 template<class Addr_t>
 class SingleMSHR : public MSHR<Addr_t> {
+  using MSHR<Addr_t>::nEntries;
+  using MSHR<Addr_t>::nFreeEntries; 
+  using MSHR<Addr_t>::Log2LineSize;
+  using MSHR<Addr_t>::nUse;
+  using MSHR<Addr_t>::nUseReads;
+  using MSHR<Addr_t>::nUseWrites;
+  using MSHR<Addr_t>::nOverflows;
+  using MSHR<Addr_t>::maxUsedEntries;
+  using MSHR<Addr_t>::nCanAccept;
+  using MSHR<Addr_t>::nCanNotAccept;
+  using MSHR<Addr_t>::occupancyHistogram;
+  using MSHR<Addr_t>::pendingReqsTimingHist;
+  using MSHR<Addr_t>::entriesOnReqHist;      
+  using MSHR<Addr_t>::updateOccHistogram;      
+  using MSHR<Addr_t>::updatePendingReqsHistogram;
+
  private:  
   const int nSubEntries;
   int nOutsReqs;
@@ -306,7 +365,7 @@ class SingleMSHR : public MSHR<Addr_t> {
   GStatsHist subEntriesHist;      
   GStatsCntr nCanNotAcceptSubEntryFull;
 
-  static Cache *L2Cache;
+  // static Cache *L2Cache; TODO:FIXME, this does not work anymore
 
  protected:
   friend class MSHR<Addr_t>;
@@ -323,9 +382,13 @@ class SingleMSHR : public MSHR<Addr_t> {
   void dropEntry(Addr_t paddr);
   void putEntry(MSHRentry<Addr_t> &me);
 
-  void updateL2HitStat(Addr_t paddr) {
-    nL2HitsNewEntry.cinc(L2Cache && L2Cache->isInCache(paddr));
-  }
+  void updateL2HitStat(Addr_t paddr) 
+    {
+      // this is broken in gcc-3.4.3.
+      // we need to figure out a better way of doing this      
+      //      if (L2Cache && L2Cache->isInCache(paddr))
+      // nL2HitsNewEntry.inc();
+    }
 
  public:
   SingleMSHR(const char *name, int size, int lineSize, int nse = 16);
@@ -341,7 +404,10 @@ class SingleMSHR : public MSHR<Addr_t> {
 
   void retire(Addr_t paddr);
 
-  static void setL2Cache(Cache *l2Cache) { L2Cache = l2Cache; }
+  // we need to fix this. this is here just to make sesc compile with gcc-3.4.2
+  // nobody is going to miss this code anyways.
+  //static void setL2Cache(Cache *l2Cache) { L2Cache = l2Cache; }
+  static void setL2Cache(void *l2Cache) {  }
 
   int getnSubEntries() { return nSubEntries; }
 
@@ -353,6 +419,22 @@ class SingleMSHR : public MSHR<Addr_t> {
 
 template<class Addr_t>
 class BankedMSHR : public MSHR<Addr_t> {
+  using MSHR<Addr_t>::nEntries;
+  using MSHR<Addr_t>::nFreeEntries; 
+  using MSHR<Addr_t>::Log2LineSize;
+  using MSHR<Addr_t>::nUse;
+  using MSHR<Addr_t>::nUseReads;
+  using MSHR<Addr_t>::nUseWrites;
+  using MSHR<Addr_t>::nOverflows;
+  using MSHR<Addr_t>::maxUsedEntries;
+  using MSHR<Addr_t>::nCanAccept;
+  using MSHR<Addr_t>::nCanNotAccept;
+  using MSHR<Addr_t>::occupancyHistogram;
+  using MSHR<Addr_t>::pendingReqsTimingHist;
+  using MSHR<Addr_t>::entriesOnReqHist;      
+  using MSHR<Addr_t>::updateOccHistogram;      
+  using MSHR<Addr_t>::updatePendingReqsHistogram;
+
  private:  
   const int nBanks;
   SingleMSHR<Addr_t> **mshrBank;

@@ -1017,7 +1017,7 @@ sub showTLSReport {
               $cf->getResultField("TC", "nRestores");
   $nCkps = 1 if ($nCkps == 0);
 
-  printf " %9.0f ", $nGradInsts/$nCkps;
+  printf "     %5.0f ", ($nGradInsts+$nTLSGradInsts)/$nCkps;
 
   printf " %9.0f ", $cf->getResultField("VP_avgSizeInsts", "v");
   printf " %9.1f ", $cf->getResultField("VP_avgOutsPreds", "v");
