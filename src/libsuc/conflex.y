@@ -85,7 +85,7 @@ rules:
 
 
 texp:  CFSTRNAMEREF            { $$ = configptr->getCharPtr("",$1); configptr->isCharPtr("",$1); }
-
+;
 
 lexp:     CFLONG               { $$ = $1; }
         | CFNAMEREF            { $$ = configptr->getLong("",$1); configptr->isLong("",$1); }
