@@ -34,7 +34,7 @@ endif
 	$(OBJ_DIR)/$(ABINAME)_obj/mkdep  $(INC) $(DEFS) -- $(wildcard *.cpp *.c) $(wildcard tests/*.cpp tests/*.c) $(patsubst %.m4,$(OBJ)/%.cpp,$(wildcard *.m4)) >>$(OBJ)/.depend1.$(SIGNATURE)
 	@$(SED) -e 's/ $(OBJPAT)/ \$$\(OBJ\)/g' $(OBJ)/.depend1.$(SIGNATURE) > $(OBJ)/.depend2.$(SIGNATURE)
 	@$(SED) -e 's/ $(SRCPAT)/ \$$\(SRC_DIR\)/g' $(OBJ)/.depend2.$(SIGNATURE) >>$(DOTDEPEND)
-#	-@rm $(OBJ)/.depend1.$(SIGNATURE) $(OBJ)/.depend2.$(SIGNATURE)
+	-@rm $(OBJ)/.depend1.$(SIGNATURE) $(OBJ)/.depend2.$(SIGNATURE)
 	-@echo $(DOTDEPENDEXTRA1) >> $(DOTDEPEND)
 	-@echo $(DOTDEPENDEXTRA2) >> $(DOTDEPEND)
 	-@echo $(DOTDEPENDEXTRA3) >> $(DOTDEPEND)
