@@ -35,6 +35,9 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "MemRequest.h"
 #include "Pipeline.h"
 
+long long FetchEngine::nInst2Sim=0;
+long long FetchEngine::totalnInst=0;
+
 FetchEngine::FetchEngine(int cId
 			 ,int i
 			 // TOFIX: GMemorySystem is in GPRocessor too. This is
@@ -267,6 +270,13 @@ void FetchEngine::realFetch(IBucket *bucket)
 #endif
 
   ushort tmp = FetchWidth - n2Fetched;
+
+  totalnInst+=tmp;
+  if( totalnInst >= nInst2Sim ) {
+    MSG("stopSimulation at %lld (%lld)",totalnInst, nInst2Sim);
+    osSim->stopSimulation();
+  }
+
   nFetched.add(tmp);
 }
 
@@ -343,7 +353,6 @@ void FetchEngine::unBlockFetch()
   nDelayInst1.add(n);
 
   missFetchTime=0;
-
 }
 
 void FetchEngine::switchIn(Pid_t i) 

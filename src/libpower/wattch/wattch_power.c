@@ -219,12 +219,15 @@ void dump_power_stats(power_result_type *power)
   double rename_power;
   double rat_power;
   double dcl_power;
-  double lsq_power;
+  double ldq_power;
+  double stq_power;
   double window_power;
   double wakeup_power;
   double rs_power;
-  double lsq_wakeup_power;
-  double lsq_rs_power;
+  double ldq_wakeup_power;
+  double ldq_rs_power;
+  double stq_wakeup_power;
+  double stq_rs_power;
   double regfile_power;
   double reorder_power;
   double icache_power;
@@ -261,13 +264,21 @@ void dump_power_stats(power_result_type *power)
 
   window_power = wakeup_power + rs_power + power->selection;
 
-  lsq_rs_power = power->lsq_rs_decoder + 
-    power->lsq_rs_wordline + power->lsq_rs_bitline + power->lsq_rs_senseamp;
+  ldq_rs_power = power->ldq_rs_decoder + 
+    power->ldq_rs_wordline + power->ldq_rs_bitline + power->ldq_rs_senseamp;
 
-  lsq_wakeup_power = power->lsq_wakeup_tagdrive + 
-    power->lsq_wakeup_tagmatch + power->lsq_wakeup_ormatch;
+  stq_rs_power = power->stq_rs_decoder + 
+    power->stq_rs_wordline + power->stq_rs_bitline + power->stq_rs_senseamp;
 
-  lsq_power = lsq_wakeup_power + lsq_rs_power;
+  ldq_wakeup_power = power->ldq_wakeup_tagdrive + 
+    power->ldq_wakeup_tagmatch + power->ldq_wakeup_ormatch;
+
+  stq_wakeup_power = power->stq_wakeup_tagdrive + 
+    power->stq_wakeup_tagmatch + power->stq_wakeup_ormatch;
+
+  ldq_power = ldq_wakeup_power + ldq_rs_power;
+
+  stq_power = stq_wakeup_power + stq_rs_power;
 
   reorder_power = power->reorder_decoder + 
     power->reorder_wordline + power->reorder_bitline + 
@@ -278,7 +289,7 @@ void dump_power_stats(power_result_type *power)
     power->regfile_senseamp;
 
   total_power = bpred_power + rename_power + window_power + regfile_power +
-    power->resultbus + lsq_power + 
+    power->resultbus + ldq_power + stq_power +
     icache_power + dcache_power + dcache2_power + 
     dtlb_power + itlb_power + power->clock_power + power->ialu_power +
     power->falu_power;
@@ -310,12 +321,23 @@ void dump_power_stats(power_result_type *power)
   fprintf(stderr," decode_power (W): %g\n",power->rs_decoder);
   fprintf(stderr," wordline_power (W): %g\n",power->rs_wordline);
   fprintf(stderr," bitline_power (W): %g\n",power->rs_bitline);
-  fprintf(stderr,"Load/Store Queue Power Consumption: %g  (%.3g%%)\n",lsq_power,100*lsq_power/total_power);
-  fprintf(stderr," tagdrive (W): %g\n",power->lsq_wakeup_tagdrive);
-  fprintf(stderr," tagmatch (W): %g\n",power->lsq_wakeup_tagmatch);
-  fprintf(stderr," decode_power (W): %g\n",power->lsq_rs_decoder);
-  fprintf(stderr," wordline_power (W): %g\n",power->lsq_rs_wordline);
-  fprintf(stderr," bitline_power (W): %g\n",power->lsq_rs_bitline);
+  fprintf(stderr,"Load Queue Power Consumption: %g  (%.3g%%)\n",ldq_power,100*ldq_power/total_power);
+  fprintf(stderr," wakeup (W): %g\n",power->ldq_wakeup_power);
+  fprintf(stderr," RS (W): %g\n",power->ldq_rs_power);
+  fprintf(stderr," tagdrive (W): %g\n",power->ldq_wakeup_tagdrive);
+  fprintf(stderr," tagmatch (W): %g\n",power->ldq_wakeup_tagmatch);
+  fprintf(stderr," decode_power (W): %g\n",power->ldq_rs_decoder);
+  fprintf(stderr," wordline_power (W): %g\n",power->ldq_rs_wordline);
+  fprintf(stderr," bitline_power (W): %g\n",power->ldq_rs_bitline);
+  fprintf(stderr,"Store Queue Power Consumption: %g  (%.3g%%)\n",stq_power,100*stq_power/total_power);
+  fprintf(stderr," wakeup (W): %g\n",power->stq_wakeup_power);
+  fprintf(stderr," RS (W): %g\n",power->stq_rs_power);
+  fprintf(stderr," tagdrive (W): %g\n",power->stq_wakeup_tagdrive);
+  fprintf(stderr," tagmatch (W): %g\n",power->stq_wakeup_tagmatch);
+  fprintf(stderr," decode_power (W): %g\n",power->stq_rs_decoder);
+  fprintf(stderr," wordline_power (W): %g\n",power->stq_rs_wordline);
+  fprintf(stderr," bitline_power (W): %g\n",power->stq_rs_bitline);
+
   fprintf(stderr,"Arch. Register File Power Consumption: %g  (%.3g%%)\n",regfile_power,100*regfile_power/total_power);
   fprintf(stderr," decode_power (W): %g\n",power->regfile_decoder);
   fprintf(stderr," wordline_power (W): %g\n",power->regfile_wordline);
@@ -1245,10 +1267,14 @@ void calculate_power(power)
   /* no senseamps in reg file structures (only caches) */
   power->rs_senseamp =0;
 
-  /* addresses go into lsq tag's */
-  power->lsq_wakeup_tagdrive =cam_tagdrive(LSQ_size,data_width,res_memport,res_memport);
-  power->lsq_wakeup_tagmatch =cam_tagmatch(LSQ_size,data_width,res_memport,res_memport);
-  power->lsq_wakeup_ormatch =0; 
+  /* addresses go into ldq tag's */
+  power->ldq_wakeup_tagdrive =cam_tagdrive(LDQ_size,data_width,res_memport,res_memport);
+  power->ldq_wakeup_tagmatch =cam_tagmatch(LDQ_size,data_width,res_memport,res_memport);
+  power->ldq_wakeup_ormatch =0; 
+
+  power->stq_wakeup_tagdrive =cam_tagdrive(STQ_size,data_width,res_memport,res_memport);
+  power->stq_wakeup_tagmatch =cam_tagmatch(STQ_size,data_width,res_memport,res_memport);
+  power->stq_wakeup_ormatch =0; 
 
   wordlinelength = data_width * 
     (RegCellWidth + 
@@ -1258,11 +1284,16 @@ void calculate_power(power)
 
   /* rs's hold data */
   if(verbose)
-    fprintf(stderr,"lsq station power stats\n");
-  power->lsq_rs_decoder = array_decoder_power(LSQ_size,data_width,predeclength,res_memport,res_memport,cache);
-  power->lsq_rs_wordline = array_wordline_power(LSQ_size,data_width,wordlinelength,res_memport,res_memport,cache);
-  power->lsq_rs_bitline = array_bitline_power(LSQ_size,data_width,bitlinelength,res_memport,res_memport,cache);
-  power->lsq_rs_senseamp =0;
+    fprintf(stderr,"LD/ST Queue station power stats\n");
+  power->ldq_rs_decoder = array_decoder_power(LDQ_size,data_width,predeclength,res_memport,res_memport,cache);
+  power->ldq_rs_wordline = array_wordline_power(LDQ_size,data_width,wordlinelength,res_memport,res_memport,cache);
+  power->ldq_rs_bitline = array_bitline_power(LDQ_size,data_width,bitlinelength,res_memport,res_memport,cache);
+  power->ldq_rs_senseamp =0;
+
+  power->stq_rs_decoder = array_decoder_power(STQ_size,data_width,predeclength,res_memport,res_memport,cache);
+  power->stq_rs_wordline = array_wordline_power(STQ_size,data_width,wordlinelength,res_memport,res_memport,cache);
+  power->stq_rs_bitline = array_bitline_power(STQ_size,data_width,bitlinelength,res_memport,res_memport,cache);
+  power->stq_rs_senseamp =0;
 
   power->resultbus = compute_resultbus_power();
 
@@ -1469,13 +1500,21 @@ void calculate_power(power)
   power->rs_bitline *= crossover_scaling;
   power->rs_senseamp *= crossover_scaling;
 
-  power->lsq_wakeup_tagdrive *= crossover_scaling;
-  power->lsq_wakeup_tagmatch *= crossover_scaling;
+  power->ldq_wakeup_tagdrive *= crossover_scaling;
+  power->ldq_wakeup_tagmatch *= crossover_scaling;
 
-  power->lsq_rs_decoder *= crossover_scaling;
-  power->lsq_rs_wordline *= crossover_scaling;
-  power->lsq_rs_bitline *= crossover_scaling;
-  power->lsq_rs_senseamp *= crossover_scaling;
+  power->stq_wakeup_tagdrive *= crossover_scaling;
+  power->stq_wakeup_tagmatch *= crossover_scaling;
+
+  power->ldq_rs_decoder *= crossover_scaling;
+  power->ldq_rs_wordline *= crossover_scaling;
+  power->ldq_rs_bitline *= crossover_scaling;
+  power->ldq_rs_senseamp *= crossover_scaling;
+
+  power->stq_rs_decoder *= crossover_scaling;
+  power->stq_rs_wordline *= crossover_scaling;
+  power->stq_rs_bitline *= crossover_scaling;
+  power->stq_rs_senseamp *= crossover_scaling;
  
   power->resultbus *= crossover_scaling;
 
@@ -1523,9 +1562,15 @@ void calculate_power(power)
     power->regfile_bitline + power->regfile_senseamp +  
     power->rs_decoder + power->rs_wordline +
     power->rs_bitline + power->rs_senseamp + 
-    power->lsq_wakeup_tagdrive + power->lsq_wakeup_tagmatch +
-    power->lsq_rs_decoder + power->lsq_rs_wordline +
-    power->lsq_rs_bitline + power->lsq_rs_senseamp +
+
+    power->ldq_wakeup_tagdrive + power->ldq_wakeup_tagmatch +
+    power->ldq_rs_decoder + power->ldq_rs_wordline +
+    power->ldq_rs_bitline + power->ldq_rs_senseamp +
+
+    power->stq_wakeup_tagdrive + power->stq_wakeup_tagmatch +
+    power->stq_rs_decoder + power->stq_rs_wordline +
+    power->stq_rs_bitline + power->stq_rs_senseamp +
+
     power->resultbus +
     power->clock_power +
     power->icache_power + 
@@ -1546,9 +1591,14 @@ void calculate_power(power)
     power->regfile_bitline + power->regfile_senseamp +  
     power->rs_decoder + power->rs_wordline +
     power->rs_bitline + power->rs_senseamp + 
-    power->lsq_wakeup_tagdrive + power->lsq_wakeup_tagmatch +
-    power->lsq_rs_decoder + power->lsq_rs_wordline +
-    power->lsq_rs_bitline + power->lsq_rs_senseamp +
+    power->ldq_wakeup_tagdrive + power->ldq_wakeup_tagmatch +
+    power->ldq_rs_decoder + power->ldq_rs_wordline +
+    power->ldq_rs_bitline + power->ldq_rs_senseamp +
+
+    power->stq_wakeup_tagdrive + power->stq_wakeup_tagmatch +
+    power->stq_rs_decoder + power->stq_rs_wordline +
+    power->stq_rs_bitline + power->stq_rs_senseamp +
+
     power->resultbus +
     power->clock_power +
     power->icache_power + 
@@ -1578,16 +1628,27 @@ void calculate_power(power)
   power->window_power = power->wakeup_power + power->rs_power + 
     power->selection;
 
-  power->lsq_rs_power = power->lsq_rs_decoder + 
-    power->lsq_rs_wordline + power->lsq_rs_bitline + 
-    power->lsq_rs_senseamp;
+  power->ldq_rs_power = power->ldq_rs_decoder + 
+    power->ldq_rs_wordline + power->ldq_rs_bitline + 
+    power->ldq_rs_senseamp;
 
-  power->lsq_rs_power_nobit = power->lsq_rs_decoder + 
-    power->lsq_rs_wordline + power->lsq_rs_senseamp;
+  power->stq_rs_power = power->stq_rs_decoder + 
+    power->stq_rs_wordline + power->stq_rs_bitline + 
+    power->stq_rs_senseamp;
+
+  power->ldq_rs_power_nobit = power->ldq_rs_decoder + 
+    power->ldq_rs_wordline + power->ldq_rs_senseamp;
+
+  power->stq_rs_power_nobit = power->stq_rs_decoder + 
+    power->stq_rs_wordline + power->stq_rs_senseamp;
    
-  power->lsq_wakeup_power = power->lsq_wakeup_tagdrive + power->lsq_wakeup_tagmatch;
+  power->ldq_wakeup_power = power->ldq_wakeup_tagdrive + power->ldq_wakeup_tagmatch;
 
-  power->lsq_power = power->lsq_wakeup_power + power->lsq_rs_power;
+  power->stq_wakeup_power = power->stq_wakeup_tagdrive + power->stq_wakeup_tagmatch;
+
+  power->ldq_power = power->ldq_wakeup_power + power->ldq_rs_power;
+
+  power->stq_power = power->stq_wakeup_power + power->stq_rs_power;
 
   power->regfile_power = power->regfile_decoder + 
     power->regfile_wordline + power->regfile_bitline + 

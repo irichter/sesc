@@ -117,7 +117,7 @@ public:
   void pushLineAck(VMemPushLineReq *vreq);
   void askPushLine(VMemPushLineReq *vreq);
 
-  Time_t getNextFreeCycle();
+  Time_t getNextFreeCycle() const;
 
   void invalidate(PAddr addr, ushort size, MemObj *oc);
   bool canAcceptStore(PAddr addr) const;

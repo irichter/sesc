@@ -94,6 +94,9 @@ class TaskContext {
   static GStatsCntr *nCorrectOutOrderSpawn;
 
 #ifdef OOO_PAPER_STATS
+  static const size_t nRestartMax=10;
+  static GStatsCntr *nRestart[];
+
   static GStatsCntr *nOOSpawn;
   static GStatsCntr *nIOSpawn;
   static GStatsCntr *nOOInst;

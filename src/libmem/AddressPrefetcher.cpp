@@ -143,7 +143,7 @@ void AddressPrefetcher::invalidate(PAddr addr,ushort size,MemObj *oc)
   invUpperLevel(addr,size,oc); 
 }
 
-Time_t AddressPrefetcher::getNextFreeCycle() 
+Time_t AddressPrefetcher::getNextFreeCycle() const
 { 
   return cachePort->calcNextSlot();
 }

@@ -272,7 +272,7 @@ PACKAGE_VERSION='2'
 PACKAGE_STRING='esesc 2'
 PACKAGE_BUGREPORT='renau@soe.ucsc.edu luisceze@cs.uiuc.edu'
 
-ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS $1_OPT BUILD_DIR SRC_DIR TOPSRC_DIR DEFEXEC DEFCONF TASKSCALAR_OPT VALUEPRED_OPT SESC_ENERGY_OPT SESC_MISPATH_OPT TS_VMEM_OPT DEBUG_OPT DEBUG_SILENT_OPT DIRECTORY_OPT TS_PROFILING_OPT TS_RISKLOADPROF_OPT NO_MERGELAST_OPT TS_SPAWN_OPT SESC_SLICE_OPT NO_MERGENEXT_OPT ATOMIC_OPT MPCOH_OPT SESC_DSM_OPT LIBOBJS LTLIBOBJS'
+ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS $1_OPT BUILD_DIR SRC_DIR TOPSRC_DIR DEFEXEC DEFCONF TASKSCALAR_OPT VALUEPRED_OPT SESC_ENERGY_OPT SESC_MISPATH_OPT TS_VMEM_OPT DEBUG_OPT DEBUG_SILENT_OPT DIRECTORY_OPT TS_PROFILING_OPT TS_RISKLOADPROF_OPT NO_MERGELAST_OPT TS_SPAWN_OPT SESC_SLICE_OPT NO_MERGENEXT_OPT ATOMIC_OPT MPCOH_OPT SESC_DSM_OPT SESC_CHERRY_OPT SESC_DDIS_OPT LIBOBJS LTLIBOBJS'
 ac_subst_files=''
 
 # Initialize some variables set by options.
@@ -807,6 +807,9 @@ Optional Features:
                           no)
   --enable-cc             Enables Cache Coherence (default is no)
   --enable-dsm            Enables DSM System (default is no)
+  --enable-cherry         Enabes cherry (default is no)
+  --enable-ddis           Enables Decoupled Instruction Scheduling (default is
+                          no)
 
 Report bugs to <renau@soe.ucsc.edu luisceze@cs.uiuc.edu>.
 _ACEOF
@@ -1263,6 +1266,8 @@ DEFCONF=mem.conf
 
 
 
+
+
 #we are not defining compiler options yet, but we should
 #AC_PROG_CC
 
@@ -1466,6 +1471,27 @@ if test "${enable_dsm+set}" = set; then
  fi
 fi;
 
+### Cherry (no TLS Cherry)
+
+SESC_CHERRY_OPT=#SESC_CHERRY=1
+
+# Check whether --enable-cherry or --disable-cherry was given.
+if test "${enable_cherry+set}" = set; then
+  enableval="$enable_cherry"
+  if test "$enableval" = "yes"; then SESC_CHERRY_OPT=SESC_CHERRY=1
+ fi
+fi;
+
+### DDIS (Decoupled Instruction Scheduling)
+
+SESC_DDIS_OPT=#SESC_DDIS=1
+
+# Check whether --enable-ddis or --disable-ddis was given.
+if test "${enable_ddis+set}" = set; then
+  enableval="$enable_ddis"
+  if test "$enableval" = "yes"; then SESC_DDIS_OPT=SESC_DDIS=1
+ fi
+fi;
 
 
 cat >confcache <<\_ACEOF
@@ -2125,6 +2151,8 @@ s,@NO_MERGENEXT_OPT@,$NO_MERGENEXT_OPT,;t t
 s,@ATOMIC_OPT@,$ATOMIC_OPT,;t t
 s,@MPCOH_OPT@,$MPCOH_OPT,;t t
 s,@SESC_DSM_OPT@,$SESC_DSM_OPT,;t t
+s,@SESC_CHERRY_OPT@,$SESC_CHERRY_OPT,;t t
+s,@SESC_DDIS_OPT@,$SESC_DDIS_OPT,;t t
 s,@LIBOBJS@,$LIBOBJS,;t t
 s,@LTLIBOBJS@,$LTLIBOBJS,;t t
 CEOF

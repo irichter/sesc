@@ -60,6 +60,7 @@ Cluster::Cluster(const char *clusterName, GProcessor *gp)
   ,MaxWinSize(SescConf->getLong(clusterName,"winSize"))
   ,windowSize(SescConf->getLong(clusterName,"winSize")) 
   ,gproc(gp)
+  ,winNotUsed("Proc(%d)_%s_winNotUsed",gp->getId(), clusterName)
 {
     bzero(res,sizeof(Resource *)*MaxInstType);
 }
@@ -179,7 +180,7 @@ void Cluster::buildUnit(const char *clusterName
       // Those resources go together with the store unit (TODO: LD/ST unit
       // should go to the same cluster)
       if(res[iFence]==0) {
-	res[iFence] = new FUMemory(cluster, ms);
+	res[iFence] = new FUMemory(cluster, ms, gproc->getId());
 	I(res[iEvent]==0);
 	res[iEvent] = new FUEvent(cluster);
       }
@@ -216,7 +217,7 @@ Cluster *Cluster::create(const char *clusterName, GMemorySystem *ms, GProcessor 
   if( strcasecmp(recycleAt,"retire") == 0) {
     cluster = new RetiredCluster(clusterName, gproc);
   }else{
-#ifdef BFWIN
+#ifdef SESC_DDIS
     I(0); // retire is the only valid
 #endif
     I( strcasecmp(recycleAt,"execute") == 0);
@@ -244,31 +245,33 @@ Cluster *Cluster::create(const char *clusterName, GMemorySystem *ms, GProcessor 
   return cluster;
 }
 
-void ExecutedCluster::entryExecuted(DInst *dinst)
+void ExecutedCluster::executed(DInst *dinst)
 {
   dinst->markExecuted();
 
   delEntry();
-  window.simTimeAck(dinst);
+
+  window.executed(dinst);
 }
 
-void ExecutedCluster::entryRetired()
+void ExecutedCluster::retire()
 {
+  winNotUsed.sample(windowSize);
   // Nothing
 }
 
-void RetiredCluster::entryExecuted(DInst *dinst)
+void RetiredCluster::executed(DInst *dinst)
 {
   dinst->markExecuted();
 
-  window.simTimeAck(dinst);
+  window.executed(dinst);
 }
 
-void RetiredCluster::entryRetired()
+void RetiredCluster::retire()
 {
+  winNotUsed.sample(windowSize);
   delEntry();
 }
-
 
 ClusterManager::ClusterManager(GMemorySystem *ms, GProcessor *gproc)
 {

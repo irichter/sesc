@@ -94,7 +94,7 @@ public:
 
   void access(MemRequest *mreq);
 
-  Time_t getNextFreeCycle();
+  Time_t getNextFreeCycle() const;
 
   bool canAcceptStore(PAddr addr) const;
 

@@ -42,6 +42,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "GStats.h"
 #include "GMemorySystem.h"
 #include "GProcessor.h"
+#include "FetchEngine.h"
 
 
 #if (defined TLS)
@@ -800,7 +801,8 @@ void OSSim::preBoot()
   else{// 0 would never stop 
     nInst2Sim = ((~0ULL) - 1024)/2;
   }
-  GProcessor::setnInst2Sim(nInst2Sim);
+
+  FetchEngine::setnInst2Sim(nInst2Sim);
   
 #ifdef TS_PROFILING
   profiler = new Profile();

@@ -102,7 +102,7 @@ void DSMCache::detachNetworks()
   numNetworks = 0;
 }
 
-Time_t DSMCache::getNextFreeCycle()
+Time_t DSMCache::getNextFreeCycle() const
 {
   return cachePort->calcNextSlot();
 }

@@ -477,9 +477,12 @@ typedef struct {
   double wakeup_tagdrive;
   double wakeup_tagmatch;
   double wakeup_ormatch;
-  double lsq_wakeup_tagdrive;
-  double lsq_wakeup_tagmatch;
-  double lsq_wakeup_ormatch;
+  double ldq_wakeup_tagdrive;
+  double ldq_wakeup_tagmatch;
+  double ldq_wakeup_ormatch;
+  double stq_wakeup_tagdrive;
+  double stq_wakeup_tagmatch;
+  double stq_wakeup_ormatch;
   double selection;
   double regfile_driver;
   double regfile_decoder;
@@ -496,11 +499,18 @@ typedef struct {
   double rs_wordline;
   double rs_bitline;
   double rs_senseamp;
-  double lsq_rs_driver;
-  double lsq_rs_decoder;
-  double lsq_rs_wordline;
-  double lsq_rs_bitline;
-  double lsq_rs_senseamp;
+  double ldq_rs_driver;
+  double ldq_rs_decoder;
+  double ldq_rs_wordline;
+  double ldq_rs_bitline;
+  double ldq_rs_senseamp;
+
+  double stq_rs_driver;
+  double stq_rs_decoder;
+  double stq_rs_wordline;
+  double stq_rs_bitline;
+  double stq_rs_senseamp;
+
   double resultbus;
 
   double icache_decoder;
@@ -535,13 +545,17 @@ typedef struct {
   double rat_power;
   double dcl_power;
   double window_power;
-  double lsq_power;
+  double ldq_power;
+  double stq_power;
   double wakeup_power;
-  double lsq_wakeup_power;
+  double ldq_wakeup_power;
+  double stq_wakeup_power;
   double rs_power;
   double rs_power_nobit;
-  double lsq_rs_power;
-  double lsq_rs_power_nobit;
+  double ldq_rs_power;
+  double stq_rs_power;
+  double ldq_rs_power_nobit;
+  double stq_rs_power_nobit;
   double selection_power;
   double regfile_power;
   double regfile_power_nobit;

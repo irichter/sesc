@@ -92,7 +92,7 @@ Bank *MemCtrl::getBank(unsigned short int i) const
   return static_cast < Bank * >(lowerLevel[i]);
 }
 
-Time_t MemCtrl::getNextFreeCycle()
+Time_t MemCtrl::getNextFreeCycle() const
 { 
   return busyUntil; 
 }

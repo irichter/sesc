@@ -33,6 +33,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "Events.h"
 #include "Instruction.h"
 #include "FastQueue.h"
+#include "GStats.h"
 #include "nanassert.h"
 #include "Pipeline.h"
 #include "Resource.h"
@@ -45,10 +46,6 @@ class BPredictor;
 class GProcessor {
 private:
 protected:
-  // Static data
-  static long long nInst2Sim;
-  static long long totalnInst;
-
   // Per instance data
   const CPU_t Id;
   const int FetchWidth;
@@ -63,12 +60,23 @@ protected:
 
   FastQueue<DInst *> ROB;
 
+#ifdef SESC_CHERRY
+  int unresolvedLoad;   // Ul in cherry paper
+  int unresolvedStore;  // Us in cherry paper
+  int unresolvedBranch; // Ub in cherry paper
+
+  int recycleStore;   // min(Ul,Ub)
+  DInst *cherryRAT[NumArchRegs];
+#endif
 
   ClusterManager clusterManager;
 
+  // Normal Stats
+  GStatsAvg    robUsed;
+
   // Energy Counters
+  GStatsEnergy *renameEnergy;
   GStatsEnergy *robEnergy;
-  GStatsEnergy *windowSelEnergy;
   GStatsEnergyBase *wrRegEnergy[3]; // 0 INT, 1 FP, 2 NONE
   GStatsEnergyBase *rdRegEnergy[3]; // 0 INT, 1 FP, 2 NONE
 
@@ -99,7 +107,6 @@ protected:
 
   GProcessor(GMemorySystem *gm, CPU_t i, size_t numFlows);
 
-  void endIssue(int i);
   StallCause addInst(DInst *dinst);
   int issue(PipeQueue &pipeQ);
   void retire();
@@ -163,10 +170,12 @@ public:
 
   virtual bool hasWork() const=0;
 
-  static void setnInst2Sim(long long a) {
-    nInst2Sim = a;
-  }
-
+#ifdef SESC_CHERRY
+  void checkRegisterRecycle();
+  void propagateUnresolvedLoad();
+  void propagateUnresolvedStore();
+  void propagateUnresolvedBranch();
+#endif
 
 #ifdef SESC_MISPATH
   virtual void misBranchRestore(DInst *dinst)= 0;

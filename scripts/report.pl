@@ -29,24 +29,25 @@ my $op_bpred=1; # Show by default
 my $op_cpu=1;   # Show by default
 my $op_sim=1;   # Show by default
 my $op_inst=1;  # Show by default
-my $op_compact;
 my $op_help;
 my $op_versionmem;
 my $op_tls;
-my $op_atomic;
+my $op_table;
 my $op_lock;
+my $op_atomic;
 my $op_cc;
+my $op_table;
 my $result = GetOptions("a",\$op_all,
 			"last",\$op_last,
 			"bpred!",\$op_bpred,
 			"cpu!",\$op_cpu,
                         "inst!",\$op_inst,
 			"sim!",\$op_sim,
-			"compact",\$op_compact,
 			"versionmem",\$op_versionmem,
 			"tls",\$op_tls,
 			"atomic",\$op_atomic,
 			"lock",\$op_lock,
+			"table",\$op_table,
 			"cc",\$op_cc,
 			"help",\$op_help
                        );
@@ -131,15 +132,15 @@ sub main {
     $cf = sesc->new($file);
 
     my $bench = $cf->getResultField("OSSim","bench");
-    print "# Bench : $bench\n" unless( $op_compact );
-    printf "# File  : %-20s : %30s\n", $file,ctime((stat($file))[9]) unless( $op_compact );
+    print "# Bench : $bench\n";
+    printf "# File  : %-20s : %30s\n", $file,ctime((stat($file))[9]);
 
     print "# THESE ARE PARTIAL STATISTICS\n" if( $cf->getResultField("OSSim","reportName") =~ /Signal/ );
 
-    simStats($file);
-    branchStats($file);
-    instStats($file);
-    tradCPUStats($file);
+    simStats($file) if( $op_sim );
+    branchStats($file) if( $op_bpred );
+    instStats($file)  if( $op_inst );
+    tradCPUStats($file) if( $op_cpu );
 
     tradMemStats($file,"dataSource");
     tradMemStats($file,"instrSource");
@@ -148,11 +149,13 @@ sub main {
 
     tradPowerStats($file);
 
+    showStatReport($file) if( $op_table );
+
     showVersionMem($file) if( $op_versionmem );
 
     showCCStats($file) if( $op_cc );
 
-    showStatReport($file);
+    showTLSReport($file) if($op_tls);
 
     atomicStats($file);
 
@@ -311,7 +314,7 @@ sub WritePowerLine {
   my $header  = shift;
   my $delay   = shift;
 
-  print "$header\t";
+  print "$header";
 
   my $totPower    = $cf->getResultField($section,"totPower");
   my $clockPower  = $cf->getResultField($section,"clockFUPower");
@@ -320,26 +323,26 @@ sub WritePowerLine {
 
   my $tmp = $cf->getResultField($section,"fetchPower");
   $allPower += $tmp;
-  printf " %9.3f",($tmp*$delay);
+  printf " %9.3f ",($tmp*$delay);
 
   $tmp = $cf->getResultField($section,"issuePower");
   $allPower += $tmp;
-  printf " %9.3f",($tmp*$delay);
+  printf " %9.3f ",($tmp*$delay);
 
   $tmp = $cf->getResultField($section,"memPower");
   $allPower += $tmp;
-  printf " %9.3f",($tmp*$delay);
+  printf " %9.3f ",($tmp*$delay);
 
   $tmp = $cf->getResultField($section,"execPower");
   $allPower += $tmp;
-  printf " %9.3f",($tmp*$delay);
+  printf " %9.3f ",($tmp*$delay);
 
   $tmp = $cf->getResultField($section,"clockPower");
   $allPower += $tmp;
-  printf " %9.3f",($tmp*$delay);
+  printf " %9.3f ",($tmp*$delay);
 
   $tmp = $cf->getResultField($section,"totPower");
-  printf " %9.3f",($tmp*$delay);
+  printf " %9.3f ",($tmp*$delay);
 
   print " WRONG ENERGY" unless ($allPower > $tmp *0.95 && $allPower < $tmp *1.05 || $tmp == 0);
 
@@ -625,7 +628,158 @@ $writeSharersNoZero, $readFromMem, $writeFromMem;
 sub showStatReport {
   my $file = shift;
 
-  return unless ($op_tls);
+  printf "################################################################################\n";
+
+  my $name = $file;
+  $name =~ /.*sesc\_([^ ]*)......./;
+  $name = $1;
+
+  my $totCycles = 0;
+  for(my $i=0;$i<$nCPUs;$i++) {
+      $totCycles += $cf->getResultField("Proc(${i})","clockTicks");
+  }
+
+  my $nGradInsts  = $cf->getResultField("ProcessId","nGradInsts");
+  my $nWPathInsts = $cf->getResultField("ProcessId","nWPathInsts");
+  my $niKillGradInsts = $cf->getResultField("ProcessId","niKillGradInsts");
+  my $nrKillGradInsts = $cf->getResultField("ProcessId","nrKillGradInsts");
+  my $nKillWPathInsts    = $cf->getResultField("ProcessId","nrKillWPathInsts");
+  my $nRestartGradInsts  = $cf->getResultField("ProcessId","nRestartGradInsts");
+  my $nRestartWPathInsts = $cf->getResultField("ProcessId","nRestartWPathInsts");
+
+  my $nTLSGradInsts  = $niKillGradInsts + $nrKillGradInsts + $nRestartGradInsts;
+  my $nTLSWPathInsts = $nKillWPathInsts + $nRestartWPathInsts;
+
+  #############################################################################
+  printf "#table0                       BusyCPU %: CommitInst: nCycles : nWPathInsts\n";
+
+  printf "table0  %25s ", $name;
+  # BusyCPU
+  printf " %9.2f ", 100*$totCycles/$nCycles;
+  # CommitInst
+  printf " %9.0f ", $nGradInsts;
+  # nCycles
+  printf " %9.0f ", $nCycles;
+  # of wrong path instructions
+  printf " %d ", $nWPathInsts;
+  printf "\n";
+
+  #############################################################################
+  print  "#table2                             Fetch    Issue      Mem     Exec    Clock    Total\n";
+  my $txt = sprintf "table2  %25s ", $name;
+  WritePowerLine("PowerMgr", $txt, 1);
+
+  #############################################################################
+  my $totEnergy     = $cf->getResultField("EnergyMgr","totEnergy");
+  if ($totEnergy) {
+      my $coreRenEnergy = 0;
+      my $coreWinEnergy = 0;
+      my $coreROBEnergy = 0;
+      my $coreBusEnergy = 0;
+      my $coreRegEnergy = 0;
+      my $lsqEnergy = 0;
+      
+      for(my $i=0;$i<$nCPUs;$i++) {
+	  last unless( $cf->getResultField("Proc(${i})","clockTicks") );
+	  
+	  my $cpuType    = $cf->getConfigEntry(key=>"cpucore",index=>$i);
+	  for (my $j=0; ; $j++) {
+	      my $clusterType = $cf->getConfigEntry(key=>"cluster", section=>$cpuType, index=>$j);
+	      last unless (defined $clusterType);
+	      
+	      $coreRenEnergy += $cf->getResultField("Proc(${i})","renameEnergy");
+	      
+	      $coreWinEnergy += $cf->getResultField("Proc(${i})_$clusterType","windowRdWrEnergy");
+	      $coreWinEnergy += $cf->getResultField("Proc(${i})_$clusterType","windowCheckEnergy");
+	      $coreWinEnergy += $cf->getResultField("Proc(${i})_$clusterType","windowSelEnergy");
+	      
+	      $coreBusEnergy += $cf->getResultField("Proc(${i})_$clusterType","forwardBusEnergy");
+	      $coreBusEnergy += $cf->getResultField("Proc(${i})_$clusterType","resultBusEnergy");
+
+	  }
+	      
+	  $coreROBEnergy += $cf->getResultField("Proc(${i})","ROBEnergy");
+
+	  $coreRegEnergy += $cf->getResultField("Proc(${i})","wrIRegEnergy");
+	  $coreRegEnergy += $cf->getResultField("Proc(${i})","rdFPRegEnergy");
+	  $coreRegEnergy += $cf->getResultField("Proc(${i})","wrFPRegEnergy");
+	  $coreRegEnergy += $cf->getResultField("Proc(${i})","rdFPRegEnergy");
+
+	  foreach my $tag ("FULoad", "FUStore", "FUMemory") {
+	      $lsqEnergy += $cf->getResultField("${tag}(${i})","ldqCheckEnergy");
+	      $lsqEnergy += $cf->getResultField("${tag}(${i})","stqCheckEnergy");
+	      $lsqEnergy += $cf->getResultField("${tag}(${i})","ldqRdWrEnergy");
+	      $lsqEnergy += $cf->getResultField("${tag}(${i})","stqRdWrEnergy");
+	      $lsqEnergy += $cf->getResultField("${tag}(${i})","iALUEnergy");
+	  }
+      }
+      
+      my $coreEnergy    =  $coreRenEnergy + $coreWinEnergy + $coreROBEnergy +$coreBusEnergy + $coreRegEnergy + $lsqEnergy;
+  
+      print  "#table2b                             Core E % : Rename % : Window % : ROB % : Buses % : Regs % : LDSQ %\n";
+      
+      printf "table2b %25s ", $name;
+      # % Core of total
+      printf " %9.2f ", 100*$coreEnergy/$totEnergy;
+      # % Ren of core
+      printf " %9.2f ", 100*$coreRenEnergy/$coreEnergy;
+      # % Win of core
+      printf " %9.2f ", 100*$coreWinEnergy/$coreEnergy;
+      # % ROB of core
+      printf " %9.2f ", 100*$coreROBEnergy/$coreEnergy;
+      # % Bus of core
+      printf " %9.2f ", 100*$coreBusEnergy/$coreEnergy;
+      # % Reg of core
+      printf " %9.2f ", 100*$coreRegEnergy/$coreEnergy;
+      # % LSQ of core
+      printf " %9.2f ", 100*$lsqEnergy/$coreEnergy;
+      printf "\n";
+  }
+
+  #############################################################################
+  if ($cf->getResultField("Proc(0)_robUsed","n")) {
+      printf "#table8                       ProcId : ROBuse %: LDQ Use %: STQ use %: c1 winUse % : c2 winUse % :...\n";
+
+      for(my $i=0;$i<$nCPUs;$i++) {
+	  my $cpuType = $cf->getConfigEntry(key=>"cpucore",index=>$i);
+	  last unless (defined $cf->getConfigEntry(key=>"robSize",section=>$cpuType));
+	  
+	  printf "table8  %25s %d ", $name, $i;
+	  
+	  my $max;
+	  my $tmp;
+	  # ROBUse
+	  $max = $cf->getConfigEntry(key=>"robSize",section=>$cpuType);
+	  $tmp = $cf->getResultField("Proc(${i})_robUsed","v");
+	  printf " %9.2f  ", 100*$tmp/$max;
+	  # LDQ Use
+	  $max = $cf->getConfigEntry(key=>"maxLoads",section=>$cpuType);
+	  $tmp = $cf->getResultField("FULoad(${i})_ldqNotUsed","v");
+	  printf " %9.2f  ", 100*($max-$tmp)/$max;
+	  # STQ Use
+	  $max = $cf->getConfigEntry(key=>"maxStores",section=>$cpuType);
+	  $tmp = $cf->getResultField("FUStore(${i})_stqNotUsed","v");
+	  printf " %9.2f  ", 100*($max-$tmp)/$max;
+	  
+	  for (my $j=0; ; $j++) {
+	      my $clusterType = $cf->getConfigEntry(key=>"cluster", section=>$cpuType, index=>$j);
+	      last unless (defined $clusterType);
+	      
+	      # Window Use
+	      $max = $cf->getConfigEntry(key=>"winSize",section=>$clusterType);
+	      $tmp = $cf->getResultField("Proc(${i})_${clusterType}_winNotUsed","v");
+	      $tmp = $max if ($cf->getResultField("Proc(${i})_${clusterType}_winNotUsed","n") == 0); # Not used
+	      printf " %9.2f ", 100*($max-$tmp)/$max;
+	  }
+	  ##########
+	  printf "\n";
+      }
+  }
+
+}
+
+sub showTLSReport {
+  my $file = shift;
 
   printf "################################################################################\n";
 
@@ -651,48 +805,44 @@ sub showStatReport {
 
   printf "#table1                       BusyCPU %: UsefulCPU%: iUseful % : iDataKill% : iResKill% : iRestart %: CommitInst: nCycles : nWPathInsts\n";
 
-  printf "table1 %20s ", $name;
+  printf "table1  %25s ", $name;
   # BusyCPU
-  printf " %9.2f  ", 100*$totCycles/$nCycles;
+  printf " %9.2f ", 100*$totCycles/$nCycles;
   my $iUseful = $nGradInsts/($nGradInsts+$nTLSGradInsts);
   # usefulCPU (% of useful cycles)
-  printf " %9.2f  ", 100*$iUseful*$totCycles/$nCycles;
+  printf " %9.2f ", 100*$iUseful*$totCycles/$nCycles;
   # iUseful
-  printf " %9.2f  ", 100*$iUseful;
+  printf " %9.2f ", 100*$iUseful;
   # iDataKill
-  printf " %9.2f  ", 100*$niKillGradInsts/($nGradInsts+$nTLSGradInsts);
+  printf " %9.2f ", 100*$niKillGradInsts/($nGradInsts+$nTLSGradInsts);
   # iResKill
-  printf " %9.2f  ", 100*$nrKillGradInsts/($nGradInsts+$nTLSGradInsts);
+  printf " %9.2f ", 100*$nrKillGradInsts/($nGradInsts+$nTLSGradInsts);
   # iRestart
-  printf " %9.2f  ", 100*$nRestartGradInsts/($nGradInsts+$nTLSGradInsts);
+  printf " %9.2f ", 100*$nRestartGradInsts/($nGradInsts+$nTLSGradInsts);
   # CommitInst
-  printf " %10.0f ", $nGradInsts;
+  printf " %9.0f ", $nGradInsts;
   # nCycles
-  printf " %10.0f ", $nCycles;
+  printf " %9.0f ", $nCycles;
   # of wrong path instructions
   printf " %d ", $nWPathInsts;
   printf "\n";
 
-  print  "#table2                             Fetch    Issue      Mem     Exec    Clock    Total\n";
-  my $txt = sprintf "table2 %20s ", $name;
-  WritePowerLine("PowerMgr", $txt, 1);
-
 #  return if( $cf->getResultField("HVersion","nCreate") < 2);
 
   printf "#table3                    Tot-ooSpawns%%:Co-ooSpawns%%:  mNext/C  :  mLast/C  :  kills/C  : restarts/C : nTot-ooSpawn : squash/spawn\n";
-  printf "table3 %20s ", $name;
+  printf "table3  %25s ", $name;
 
   my $totSpawn = $cf->getResultField("TC","nInOrderSpawn") 
       + $cf->getResultField("TC","nOutOrderSpawn");
   $totSpawn = 1 unless ($totSpawn);
   # Tot-ooSpawns (Total number of out-of-order spawns)
-  printf " %8.2f   ", 100*$cf->getResultField("TC","nOutOrderSpawn")/ $totSpawn;
+  printf " %9.2f ", 100*$cf->getResultField("TC","nOutOrderSpawn")/ $totSpawn;
 
   my $nCommited = $cf->getResultField("TC","nCorrectInOrderSpawn")
       + $cf->getResultField("TC","nCorrectOutOrderSpawn");
   $nCommited = 1 unless ($nCommited);
   # CooSpawns (Total number of correct, commited,out-of-order spawns)
-  printf " %8.2f   ", 100 *$cf->getResultField("TC","nCorrectOutOrderSpawn")/$nCommited;
+  printf " %9.2f ", 100 *$cf->getResultField("TC","nCorrectOutOrderSpawn")/$nCommited;
 
   my $nKills    = $cf->getResultField("ProcessId","niKills") 
       + $cf->getResultField("ProcessId","nrKills");
@@ -700,26 +850,26 @@ sub showStatReport {
 
   # MergeNext per task commit (TODO: Remove nMergeFirst. Now it is kept
   # until all the simulations are converted to nMergeNext)
-  printf " %8.4f  ", $cf->getResultField("TC","nMergeFirst") + $cf->getResultField("TC","nMergeNext") / $nCommited;
+  printf " %9.4f ", $cf->getResultField("TC","nMergeFirst") + $cf->getResultField("TC","nMergeNext") / $nCommited;
   # MergeLast per task commit
-  printf " %8.4f  ", $cf->getResultField("TC","nMergeLast")  / $nCommited;
+  printf " %9.4f ", $cf->getResultField("TC","nMergeLast")  / $nCommited;
   # kills per task commit
-  printf " %8.4f  ", $nKills / $nCommited;
+  printf " %9.4f ", $nKills / $nCommited;
   # restarts per task commit
-  printf " %8.4f ",  $nRestarts / $nCommited;
+  printf " %9.4f ",  $nRestarts / $nCommited;
   # total number of OO spawns
-  printf " %8.4f ",  $cf->getResultField("TC","nOutOrderSpawn");
+  printf " %9.4f ",  $cf->getResultField("TC","nOutOrderSpawn");
   # restarts+Kills per task 
-  printf " %8.4f ",  ($nRestarts+$nKills) / ($nCommited+$nRestarts+$nKills);
+  printf " %9.4f ",  ($nRestarts+$nKills) / ($nCommited+$nRestarts+$nKills);
 
   print "\n";
 
   print  "#table4                      nTasksAhd :TotSpawns/C  : Sp in Lft \n";
-  printf "table4 %20s ", $name;
+  printf "table4  %25s ", $name;
   # number of tasks ahead TC_nTasksAhead
   my $nTasksAhead = $cf->getResultField("TC_nTasksAhead","v");
-  printf "   %2.5f ", $nTasksAhead;
-  printf " %1.7f   ", $totSpawn / $nCommited;
+  printf " %9.5f ", $nTasksAhead;
+  printf " %9.7f ", $totSpawn / $nCommited;
 
   my $nCSMax = $cf->getResultField("HVersion","nChildrenStatsMax");
   my $totNZeroChildren;
@@ -728,30 +878,30 @@ sub showStatReport {
   }
 
   $totNZeroChildren =1 if ($totNZeroChildren == 0);
-  printf " %1.7f   ", $totSpawn / $totNZeroChildren;
+  printf " %9.7f ", $totSpawn / $totNZeroChildren;
 
   print "\n";
 
   print  "#table5                     TaskSizeClk   ClaimDist ReleaseDist MergeSuccDist %MissFetch %%EnInMV\n";
-  printf "table5 %20s ", $name;
+  printf "table5  %25s ", $name;
   printf " %10.1f ", $nGradInsts/$nCommited;
   my $tmp = $cf->getResultField("HVersion","nClaim");
   if ($tmp == 0) {
-    printf "        NA  ";
+    printf "       NA ";
   }else{
-    printf " %10.1f ", $totCycles/$tmp;
+    printf " %9.1f ", $totCycles/$tmp;
   }
   $tmp = $cf->getResultField("HVersion","nRelease");
   if ($tmp == 0) {
-    printf "        NA  ";
+    printf "       NA ";
   }else{
-    printf " %10.1f ", $totCycles/$tmp;
+    printf " %9.1f ", $totCycles/$tmp;
   }
   $tmp = $cf->getResultField("TC","nMergeSuccessors");
   if ($tmp == 0) {
-    printf "        NA  ";
+    printf "       NA ";
   }else{
-    printf " %10.1f ", $totCycles/$tmp;
+    printf " %9.1f ", $totCycles/$tmp;
   }
 
   # MissFetch insts
@@ -769,8 +919,8 @@ sub showStatReport {
 	  + $cf->getResultField("PendingWindow(${i})_fpComplex","n")
 	  + $cf->getResultField("PendingWindow(${i})_other","n");
   }
-  printf " %7.2f%%   ", 100*$tmp/($nInst+$tmp);
-  printf " %2.1f ", calcPMVStructEnergy();
+  printf " %8.2f%% ", 100*$tmp/($nInst+$tmp);
+  printf " %9.1f ", calcPMVStructEnergy();
   print "\n";
 
   my $nChildrenStatsMax = $cf->getResultField("HVersion","nChildrenStatsMax");
@@ -779,15 +929,15 @@ sub showStatReport {
   print "#table6 nChildren        :";
   for(my $i=0;$i<$nChildrenStatsMax-1;$i++) {
     $total += $cf->getResultField("HVersion(${i})","nChildren");
-    printf " %5.0f " , $i;
+    printf " %9.0f " , $i;
   }
   $total =1 if ($total == 0);
   print "   More  \n";
 
-  printf "table6 %20s ", $name;
+  printf "table6  %25s ", $name;
   for(my $i=0;$i<$nChildrenStatsMax;$i++) {
     $tmp = $cf->getResultField("HVersion(${i})","nChildren");
-    printf " %5.1f ", 100*$tmp/$total;
+    printf " %9.1f ", 100*$tmp/$total;
   }
   print "\n";
 
@@ -801,24 +951,24 @@ sub showStatReport {
       $cf->getResultField("VPSEL_GLVaBHLV","miss");
   $nPredsFetch = 1 if ($nPredsFetch == 0);
   my $vpaccFetch = $cf->getResultField("VPSEL_GLVaBHLV","hit")/$nPredsFetch;
-  printf "table7 %20s ", $name;
-  printf "    %10.0f  %1.3f ", $cavaCyc, $vpaccFetch;
+  printf "table7  %25s ", $name;
+  printf " %9.0f  %9.3f ", $cavaCyc, $vpaccFetch;
 
   my $cavaIPC = $nGradInsts/$cavaCyc;
-  printf " %1.2f ", $cavaIPC;
+  printf " %9.2f ", $cavaIPC;
   
   my $nCkps = $cf->getResultField("TC", "nDiscards") + 
               $cf->getResultField("TC", "nRestores");
   $nCkps = 1 if ($nCkps == 0);
 
-  printf "     %5.0f ", $nGradInsts/$nCkps;
+  printf " %9.0f ", $nGradInsts/$nCkps;
 
-  printf "        %5.0f ", $cf->getResultField("VP_avgSizeInsts", "v");
-  printf "            %3.1f ", $cf->getResultField("VP_avgOutsPreds", "v");
-  printf "       %1.2f ", $nTLSGradInsts/($nGradInsts+$nTLSGradInsts);
-  printf "   %1.2f", $cf->getResultField("TC", "nRestores")/$nCkps;
-  printf "   %10.0f ", $nGradInsts;
-  printf "   %10.0f ", $nCkps;
+  printf " %9.0f ", $cf->getResultField("VP_avgSizeInsts", "v");
+  printf " %9.1f ", $cf->getResultField("VP_avgOutsPreds", "v");
+  printf " %9.2f ", $nTLSGradInsts/($nGradInsts+$nTLSGradInsts);
+  printf " %9.2f ", $cf->getResultField("TC", "nRestores")/$nCkps;
+  printf " %9.0f ", $nGradInsts;
+  printf " %9.0f ", $nCkps;
 
   # ugly code. it will be removed soon
   my $daccess = $cf->getResultField("P(0)_DL1","readHalfMiss") + 
@@ -829,7 +979,7 @@ sub showStatReport {
       $cf->getResultField("P(0)_DL1","writeHit");
 
   my $l2miss = $cf->getResultField("L2","readMiss")  +$cf->getResultField("L2","writeMiss") ;
-  printf "  %1.4f\n", $l2miss/$daccess;
+  printf " %9.4f\n", $l2miss/$daccess;
   
 }
 
@@ -886,8 +1036,6 @@ sub calcPMVStructEnergy {
 sub simStats {
   my $file = shift;
 
-  return unless( $op_sim );
-
   # Begin Global Stats
   $cpuType = $cf->getConfigEntry(key=>"cpucore");
 
@@ -919,7 +1067,7 @@ sub simStats {
   $nCycles = $cf->getResultField("OSSim","nCycles");
   # End Global Stats
 
-  print "      Sim. Speed         Exe Time         Sim Time (${freq}MHz)\n";
+  print "      Exe Speed         Exe Time         Sim Time (${freq}MHz)\n";
 
   my $secs    = $cf->getResultField("OSSim","msecs");
 
@@ -937,19 +1085,14 @@ sub simStats {
 sub instStats {
   my $file = shift;
 
-  return unless( $op_inst );
-  return if( $op_compact );
-
   print "           nInst     BJ    Load   Store      INT      FP  : LD Forward : Worst Unit (clk)\n";
 
 
   for(my $i=0;$i<$nCPUs;$i++) {
-    unless( $cf->getResultField("Proc(${i})","clockTicks") ) {
-      next;
-    }
-    printf " %3d ",$i;
+      next unless( $cf->getResultField("Proc(${i})","clockTicks") );
+      printf " %3d ",$i;
 
-    my $iBJ    = $cf->getResultField("PendingWindow(${i})_iBJ","n");
+      my $iBJ    = $cf->getResultField("PendingWindow(${i})_iBJ","n");
     my $iLoad  = $cf->getResultField("PendingWindow(${i})_iLoad","n");
     my $iStore = $cf->getResultField("PendingWindow(${i})_iStore","n");
     my $INT    = $cf->getResultField("PendingWindow(${i})_iALU","n")
@@ -1006,16 +1149,12 @@ sub instStats {
 sub branchStats {
   my $file = shift;
 
-  return unless( $op_bpred );
-
-  print "Proc  Avg.Time BPType       Total          RAS           BPred          BTB            BTAC" unless( $op_compact );
+  print "Proc  Avg.Time BPType       Total          RAS           BPred          BTB            BTAC";
   my $preType = $cf->getConfigEntry(key=>"preType");
   if( $preType > 0 ) {
-    print "         " . $preType unless( $op_compact );
+    print "         " . $preType;
   }
-  print "\n" unless( $op_compact );
-
-  printf "%-26s",$file if( $op_compact );
+  print "\n";
 
   for(my $i=0;$i<$nCPUs;$i++) {
     unless( $cf->getResultField("Proc(${i})","clockTicks") ) {
@@ -1110,8 +1249,6 @@ sub branchStats {
 sub tradCPUStats {
   my $file = shift;
 
-  return unless( $op_cpu );
-
   my $active=0;
   for(my $i=1;$i<$nCPUs;$i++) {
     $active += $cf->getResultField("Proc(${i})","clockTicks");
@@ -1122,11 +1259,9 @@ sub tradCPUStats {
 
   print "Proc  IPC  ";
   print "Active " if( $active > 0 );
-  print "      Cycles  Busy   LDQ   STQ  IWin   ROB" unless( $op_compact );
-  print "  Regs   TLB " unless( $op_compact );
-  print " maxBr MisBr Br4Clk  Other\n" unless( $op_compact );
-
-  printf "%-26s",$file if( $op_compact );
+  print "      Cycles  Busy   LDQ   STQ  IWin   ROB";
+  print "  Regs   TLB ";
+  print " maxBr MisBr Br4Clk  Other\n";
 
   my $cycles= $cf->getResultField("OSSim","nCycles");
   $cycles=1 if( $cycles < 1 );

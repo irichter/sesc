@@ -109,7 +109,7 @@ void SlaveMPCoh::returnAccess(MemRequest *mreq)
   I(0); 
 }
 
-Time_t SlaveMPCoh::getNextFreeCycle()
+Time_t SlaveMPCoh::getNextFreeCycle() const
 {
   //FIXME: model correctly
   return globalClock; 

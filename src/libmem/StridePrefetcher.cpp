@@ -321,7 +321,7 @@ void StridePrefetcher::invalidate(PAddr addr,ushort size,MemObj *oc)
    //invUpperLevel(addr,size,cb); 
 }
 
-Time_t StridePrefetcher::getNextFreeCycle()
+Time_t StridePrefetcher::getNextFreeCycle() const
 {
   return buffPort->calcNextSlot();
 }

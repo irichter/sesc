@@ -36,7 +36,6 @@
 #define truncf(a) (trunc(a))
 #endif
 
-
 #ifndef isunordered
 #define isunordered(u, v) ( isnan(u) || isnan(v) )
 #endif

@@ -79,7 +79,7 @@ void Bus::invalidate(PAddr addr,ushort size,MemObj *oc)
   invUpperLevel(addr,size,oc); 
 }
 
-Time_t Bus::getNextFreeCycle() 
+Time_t Bus::getNextFreeCycle() const
 { 
   return cmdPort->calcNextSlot();
 }

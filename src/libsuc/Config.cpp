@@ -216,10 +216,10 @@ const Config::Record * Config::getRecord(const char *block,
     if( ( pos->second->getVectorFirst() <= vectorPos 
 	  && pos->second->getVectorLast() >= vectorPos ) ) {
 
-// 	    if( !pos->second->isUsed()  )
-// 		MSG("found [%s] [%s] [%d-%d]%d",block,name
-// 		    ,pos->second->getVectorFirst(),pos->second->getVectorLast(),vectorPos);
-
+//       if( !pos->second->isUsed()  )
+// 	MSG("found [%s] [%s] [%d-%d]%d",block,name
+// 	    ,pos->second->getVectorFirst(),pos->second->getVectorLast(),vectorPos);
+      
       pos->second->setUsed();
 	    
       return pos->second;
@@ -249,16 +249,16 @@ void Config::addRecord(const char *block,
   std::pair<I,I> b = hashRecord.equal_range(key);
     
   for(I pos = b.first ; pos != b.second ; ++pos ) {
-    if( (pos->second->getVectorFirst() < rec->getVectorFirst()
+    if( (pos->second->getVectorFirst() <= rec->getVectorFirst()
 	 && pos->second->getVectorLast() >= rec->getVectorFirst()  )
 	|| 
-	( pos->second->getVectorLast() > rec->getVectorLast() 
+	( pos->second->getVectorLast() >= rec->getVectorLast() 
 	  && pos->second->getVectorFirst() <= rec->getVectorLast() )
 	||
-	(rec->getVectorFirst() < pos->second->getVectorFirst()
+	(rec->getVectorFirst() <= pos->second->getVectorFirst()
 	 && rec->getVectorLast() >= pos->second->getVectorFirst()  )
 	|| 
-	( rec->getVectorLast() > pos->second->getVectorLast() 
+	( rec->getVectorLast() >= pos->second->getVectorLast() 
 	  && rec->getVectorFirst() <= pos->second->getVectorLast() )
       ) {
       MSG("Config:: overlap between %s[%ld:%ld] and %s[%ld:%ld] in section %s"

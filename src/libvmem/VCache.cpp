@@ -142,7 +142,7 @@ void VCache::invalidate(PAddr addr, ushort size, MemObj *oc)
   // sharing that address and invalidate it (it may generate task restarts)
 }
 
-Time_t VCache::getNextFreeCycle()
+Time_t VCache::getNextFreeCycle() const
 {
   return cachePort->calcNextSlot();
 }

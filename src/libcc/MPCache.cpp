@@ -596,3 +596,14 @@ void MPCache::mpFreeLine(PAddr addr)
 
   l->invalidate();
 }
+
+Time_t MPCache::getNextFreeCycle() const 
+{
+  return cachePort->calcNextSlot();
+}
+
+
+void MPCache::StaticInvalidateReturn(IntlMemRequest *ireq) 
+{
+  ((MPCache*)ireq->getWorkData())->handleInvalidate(ireq);
+}

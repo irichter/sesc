@@ -3,6 +3,7 @@
    Copyright (C) 2004 University of Illinois.
 
    Contributed by Luis Ceze
+                  Jose Renau
 
 This file is part of SESC.
 
@@ -22,11 +23,6 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "BloomFilter.h"
 #include <stdarg.h>
 #include <string.h>
-
-BloomFilter::BloomFilter()
-{
-  I(0);
-}
 
 BloomFilter::BloomFilter(int nv, ...)
 {

@@ -22,8 +22,8 @@ eclean:
 size:
 	-@wc *.cpp *.h *.hpp
 
+# DO NOT DELETE
 _MAKEFILE_COMMON_SUBSHELL=1
-
 include $(SRC_DIR)/Makefile.common
 
 ifneq ($(MAKECMDGOALS),distclean)
@@ -31,4 +31,3 @@ ifneq ($(MAKECMDGOALS),clean)
 -include $(DOTDEPEND)
 endif
 endif
-# DO NOT DELETE

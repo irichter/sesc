@@ -141,6 +141,17 @@ endif
 # not interested for normal simulations.
 
 ################################################
+# Use Bloom Filter on the LD/ST Queue. Improve the efficiency.
+
+DEFS   +=-DSESC_MEMBF
+
+##############################################################################
+# Instruction Pre-Schedule (schedule the instruction once it has been
+# scheduled, do not wait until executed)
+
+DEFS   +=-DSESC_PRESCHEDULE
+
+################################################
 # Branch Predictor Weird Tunning Parameters
 
 # Update branch prediction at retire instead of speculative branch
@@ -155,9 +166,9 @@ DEFS    += -DSESC_CHERRY
 endif
 
 ################################################
-# Broadcast-Free WINdow
-ifdef SESC_BFWIN
-DEFS    += -DSESC_BFWIN
+# Decoupled Instruction Schedule
+ifdef SESC_DDIS
+DEFS    += -DSESC_DDIS
 endif
 
 ################################################
@@ -268,13 +279,6 @@ DEFS	+=-DVMEM_PRED_FORWARD
 # Use the most/least Speculative bit per cache line
 DEFS	+=-DTS_USE_SPECBITS
 
-ifndef TS_BASELINE
-################################################ 
-# Early retirement of store a la Cherry for TLS
-
-# WARNING: Cherry deactivated
-#DEFS	+=-DTS_CHERRY
-endif # !TS_BASELINE
 endif # TS_VMEM
 
 # Generate a task trace
@@ -285,7 +289,7 @@ endif
 # Do not spawn a task (do merge) if the task already has someone ahead
 #DEFS +=-DTS_INORDER
 
-# ASPLOS04 Statistics
+# TLS OOO Statistics
 DEFS +=-DOOO_PAPER_STATS
 
 endif # TASKSCALAR

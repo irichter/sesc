@@ -54,7 +54,7 @@ public:
   void returnAccess(MemRequest *mreq);
   bool canAcceptStore(PAddr addr) const;
   virtual void invalidate(PAddr addr,ushort size,MemObj *oc);
-  Time_t getNextFreeCycle();
+  Time_t getNextFreeCycle() const;
 };
 
 #endif // ADDRESSPREFETCHER_H

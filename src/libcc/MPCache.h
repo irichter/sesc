@@ -214,12 +214,8 @@ public:
   void mpFreeLine(PAddr addr);
 
   //Basic cache functionality
-  Time_t getNextFreeCycle() {
-    return cachePort->calcNextSlot();
-  }
-  static void StaticInvalidateReturn(IntlMemRequest *ireq) {
-    ((MPCache*)ireq->getWorkData())->handleInvalidate(ireq);
-  }
+  Time_t getNextFreeCycle() const;
+  static void StaticInvalidateReturn(IntlMemRequest *ireq);
   
 protected:
 

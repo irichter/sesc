@@ -36,6 +36,8 @@ AC_SUBST(NO_MERGENEXT_OPT)
 AC_SUBST(ATOMIC_OPT)
 AC_SUBST(MPCOH_OPT)
 AC_SUBST(SESC_DSM_OPT)
+AC_SUBST(SESC_CHERRY_OPT)
+AC_SUBST(SESC_DDIS_OPT)
 
 #we are not defining compiler options yet, but we should
 #AC_PROG_CC
@@ -193,6 +195,23 @@ AC_HELP_STRING([--enable-dsm],
 [if test "$enableval" = "yes"; then AC_COMPOPT(SESC_DSM) AC_SUBST(DEFEXEC,[sesc.dsm]) AC_SUBST(DEFCONF,[dsm.conf]) fi],
 )
 
+### Cherry (no TLS Cherry)
+
+AC_NOCOMPOPT(SESC_CHERRY)
+AC_ARG_ENABLE(cherry, 
+AC_HELP_STRING([--enable-cherry],
+               [Enabes cherry (default is no)]),
+[if test "$enableval" = "yes"; then AC_COMPOPT(SESC_CHERRY) fi],
+)
+
+### DDIS (Decoupled Instruction Scheduling)
+
+AC_NOCOMPOPT(SESC_DDIS)
+AC_ARG_ENABLE(ddis, 
+AC_HELP_STRING([--enable-ddis],
+               [Enables Decoupled Instruction Scheduling (default is no)]),
+[if test "$enableval" = "yes"; then AC_COMPOPT(SESC_DDIS) fi],
+)
 
 
 AC_OUTPUT

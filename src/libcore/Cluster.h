@@ -25,6 +25,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "nanassert.h"
 
 #include "DepWindow.h"
+#include "GStats.h"
 #include "Instruction.h"
 
 class Resource;
@@ -48,6 +49,8 @@ class Cluster {
 
   GProcessor *const gproc;
 
+  GStatsAvg winNotUsed;
+
   Resource   *res[MaxInstType];
 
  protected:
@@ -70,8 +73,10 @@ class Cluster {
     return false;
   }
 
-  virtual void entryExecuted(DInst *dinst) = 0;
-  virtual void entryRetired() = 0;
+  void wakeUpDeps(DInst *dinst) { window.wakeUpDeps(dinst); }
+
+  virtual void executed(DInst *dinst) = 0;
+  virtual void retire() = 0;
 
   static Cluster *create(const char *clusterName, GMemorySystem *ms, GProcessor *gproc);
 
@@ -95,8 +100,8 @@ class ExecutedCluster : public Cluster {
   ExecutedCluster(const char *clusterName, GProcessor *gp)
     : Cluster(clusterName, gp) { }
     
-  void entryExecuted(DInst *dinst);
-  void entryRetired();
+  void executed(DInst *dinst);
+  void retire();
 };
 
 class RetiredCluster : public Cluster {
@@ -106,8 +111,8 @@ class RetiredCluster : public Cluster {
   RetiredCluster(const char *clusterName, GProcessor *gp)
     : Cluster(clusterName, gp) { }
 
-  void entryExecuted(DInst *dinst);
-  void entryRetired();
+  void executed(DInst *dinst);
+  void retire();
 };
 
 

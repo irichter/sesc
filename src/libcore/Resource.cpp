@@ -56,12 +56,12 @@ Resource::~Resource()
 
 void Resource::executed(DInst *dinst)
 {
-  cluster->entryExecuted(dinst);
+  cluster->executed(dinst);
 }
 
 bool Resource::retire(DInst *dinst)
 {
-  cluster->entryRetired();
+  cluster->retire();
   dinst->destroy();
   return true;
 }
@@ -70,24 +70,47 @@ bool Resource::retire(DInst *dinst)
 
 MemResource::MemResource(Cluster *cls
 			 ,PortGeneric *aGen
-			 ,GMemorySystem *ms)
+			 ,GMemorySystem *ms
+			 ,int id
+			 ,const char *cad)
   : Resource(cls, aGen)
-    ,memorySystem(ms)
+#ifdef SESC_MEMBF
+  ,LSQBanks(SescConf->getBool("cpucore","LSQBanks",id))
+#endif
+  ,L1DCache(ms->getDataSource())
+  ,memorySystem(ms)
 {
-  L1DCache = ms->getDataSource();
+
+  char cadena[100];
+  sprintf(cadena,"%s(%d)", cad, id);
+  
+  ldqCheckEnergy = new GStatsEnergy("ldqCheckEnergy",cadena,id,LDQCheckEnergy
+				    ,EnergyMgr::get("ldqCheckEnergy",id),"LSQ");
+
+  stqCheckEnergy = new GStatsEnergy("stqCheckEnergy",cadena,id,STQCheckEnergy
+				    ,EnergyMgr::get("stqCheckEnergy",id),"LSQ");
+
+  ldqRdWrEnergy = new GStatsEnergy("ldqRdWrEnergy",cadena,id,LDQRdWrEnergy
+				   ,EnergyMgr::get("ldqRdWrEnergy",id),"LSQ");
+
+  stqRdWrEnergy = new GStatsEnergy("stqRdWrEnergy",cadena,id,STQRdWrEnergy
+				   ,EnergyMgr::get("stqRdWrEnergy",id),"LSQ");
+
+
+  iAluEnergy = new GStatsEnergy("iAluEnergy", cadena , id, IAluEnergy
+				,EnergyMgr::get("iALUEnergy",id));
 }
 
 /***********************************************/
 
-FUMemory::FUMemory(Cluster *cls, GMemorySystem *ms)
-  : MemResource(cls, 0, ms)
+FUMemory::FUMemory(Cluster *cls, GMemorySystem *ms, int id)
+  : MemResource(cls, 0, ms, id, "FUMemory")
 {
   I(ms);
-
-  L1DCache = ms->getDataSource();
+  I(L1DCache);
 }
 
-StallCause FUMemory::schedule(DInst *dinst)
+StallCause FUMemory::canIssue(DInst *dinst)
 {
   if (!cluster->canIssue(dinst))
     return SmallWinStall;
@@ -96,6 +119,9 @@ StallCause FUMemory::schedule(DInst *dinst)
   dinst->setResource(this);
   
   // TODO: Someone implement a LDSTBuffer::fenceGetEntry(dinst);
+
+  ldqRdWrEnergy->inc();
+  stqRdWrEnergy->inc();
 
   return NoStall;
 }
@@ -106,6 +132,13 @@ void FUMemory::simTime(DInst *dinst)
   I(inst->isFence());
   I(!inst->isLoad() );
   I(!inst->isStore() );
+
+  // All structures accessed (very expensive)
+  iAluEnergy->inc();
+  ldqCheckEnergy->inc();
+  stqCheckEnergy->inc();
+  ldqRdWrEnergy->inc();
+  stqRdWrEnergy->inc();
 
   // TODO: Add prefetch for Fetch&op as a MemWrite
   dinst->doAtExecutedCB.schedule(1); // Next cycle
@@ -119,8 +152,14 @@ bool FUMemory::retire(DInst *dinst)
       && !L1DCache->canAcceptStore(static_cast<PAddr>(dinst->getVaddr())) )
     return false;
 
+  ldqRdWrEnergy->inc();
+  stqRdWrEnergy->inc();
 
   if( inst->getSubCode() == iFetchOp ) {
+#ifdef SESC_CHERRY
+    dinst->setCanBeRecycled();
+    dinst->setMemoryIssued();
+#endif
     DMemRequest::create(dinst, memorySystem, MemWrite);
   }else if( inst->getSubCode() == iMemFence ) {
     // TODO: Consistency in LDST
@@ -137,6 +176,12 @@ bool FUMemory::retire(DInst *dinst)
   return true;
 }
 
+#ifdef SESC_CHERRY
+void FUMemory::earlyRecycle(DInst *dinst)
+{
+  I(0);  // TODO
+}
+#endif
 
 /***********************************************/
 
@@ -146,27 +191,24 @@ FULoad::FULoad(Cluster *cls, PortGeneric *aGen
 	       ,GMemorySystem *ms
 	       ,size_t maxLoads
 	       ,int id)
-  : MemResource(cls, aGen, ms)
+  : MemResource(cls, aGen, ms, id, "FULoad")
+  ,ldqNotUsed("FULoad(%d)_ldqNotUsed", id)
   ,nForwarded("FULoad(%d):nForwarded", id)
   ,lat(l)
   ,LSDelay(lsdelay)
   ,freeLoads(maxLoads)
   ,misLoads(0)
 {
-  char cadena[100];
-  sprintf(cadena,"FULoad(%d)", id);
-  
-  lsqPregEnergy = new GStatsEnergy("lsqPregLoadEnergy",cadena,id,LSQPregEnergy
-				   ,EnergyMgr::get("lsqPregEnergy",id),"LSQ");
-  
-  iAluEnergy = new GStatsEnergy("iAluEnergy", cadena , id, IAluEnergy
-				,EnergyMgr::get("iALUEnergy",id));
-  
   I(ms);
   I(freeLoads>0);
+
+#ifdef SESC_MEMBF
+  bf = new BloomFilter [LSQBanks](4, 8, 2*maxLoads, 6, maxLoads/2, 6, maxLoads/2, 6, maxLoads/2);
+#endif
+
 }
 
-StallCause FULoad::schedule(DInst *dinst)
+StallCause FULoad::canIssue(DInst *dinst)
 {
   int freeEntries = freeLoads;
 #ifdef SESC_MISPATH
@@ -190,6 +232,8 @@ StallCause FULoad::schedule(DInst *dinst)
   else
     freeLoads--;
 
+  ldqRdWrEnergy->inc(); // Allocate entry
+
   return NoStall;
 }
 
@@ -198,10 +242,17 @@ void FULoad::simTime(DInst *dinst)
   Time_t when = gen->nextSlot()+lat;
 
   // The check in the LD Queue is performed always, for hit & miss
-  lsqPregEnergy->inc();
   iAluEnergy->inc();
+  ldqRdWrEnergy->inc(); // Update fields
   
+  ldqCheckEnergy->inc(); // Check ld-ld replays
+  stqCheckEnergy->inc(); // Check st-ld forwarding
+
   if (dinst->isLoadForwarded()) {
+#ifdef SESC_CHERRY
+    dinst->markResolved();
+    cluster->getGProcessor()->propagateUnresolvedLoad();
+#endif
 
     dinst->doAtExecutedCB.scheduleAbs(when+LSDelay);
     // forwardEnergy->inc(); // TODO: CACTI == a read in the STQ
@@ -218,6 +269,10 @@ void FULoad::executed(DInst* dinst)
 
 void FULoad::cacheDispatched(DInst *dinst)
 {
+#ifdef SESC_CHERRY
+  dinst->markResolved();
+  cluster->getGProcessor()->propagateUnresolvedLoad();
+#endif
 
   I( !dinst->isLoadForwarded() );
   // LOG("[0x%p] %lld 0x%lx read", dinst, globalClock, dinst->getVaddr());
@@ -226,16 +281,34 @@ void FULoad::cacheDispatched(DInst *dinst)
 
 bool FULoad::retire(DInst *dinst)
 {
-  cluster->entryRetired();
+  ldqNotUsed.sample(freeLoads);
+
+  cluster->retire();
 
   if (!dinst->isFake() && !dinst->isEarlyRecycled())
     freeLoads++;
 
   dinst->destroy();
 
+  // ldqRdWrEnergy->inc(); // Loads do not update fields at retire, just update pointers
+
   return true;
 }
 
+#ifdef SESC_CHERRY
+void FULoad::earlyRecycle(DInst *dinst)
+{
+  I(!dinst->isEarlyRecycled());
+
+  //  MSG("0x%x load recycled @%lld",dinst->getInst()->currentID(), globalClock);
+  if (dinst->isFake())
+    misLoads--;
+  else
+    freeLoads++;
+
+  dinst->setEarlyRecycled();
+}
+#endif
 
 #ifdef SESC_MISPATH
 void FULoad::misBranchRestore()
@@ -250,29 +323,18 @@ FUStore::FUStore(Cluster *cls, PortGeneric *aGen
 		 ,GMemorySystem *ms
 		 ,size_t maxStores
 		 ,int id)
-  : MemResource(cls, aGen, ms)
+  : MemResource(cls, aGen, ms, id, "FUStore")
+  ,stqNotUsed("FUStore(%d)_stqNotUsed", id)
   ,nDeadStore("FUStore(%d):nDeadStore", id)
   ,lat(l)
   ,freeStores(maxStores)
   ,misStores(0)
 {
-  char cadena[100];
-  sprintf(cadena,"FUStore(%d)", id);
-  
-  lsqWakeupEnergy = new GStatsEnergy("lsqWakeupEnergy",cadena,id,LSQWakeupEnergy
-				     ,EnergyMgr::get("lsqWakeupEnergy",id),"LSQ");
-
-
-  lsqPregEnergy = new GStatsEnergy("lsqPregStoreEnergy",cadena,id,LSQPregEnergy
-				   ,EnergyMgr::get("lsqPregEnergy",id),"LSQ");
-
-  iAluEnergy = new GStatsEnergy("iAluEnergy", cadena , id, IAluEnergy
-				,EnergyMgr::get("iALUEnergy",id));
 
   I(freeStores>0);
 }
 
-StallCause FUStore::schedule(DInst *dinst)
+StallCause FUStore::canIssue(DInst *dinst)
 {
   int freeEntries = freeStores;
 #ifdef SESC_MISPATH
@@ -297,6 +359,8 @@ StallCause FUStore::schedule(DInst *dinst)
     freeStores--;
   }
 
+  stqRdWrEnergy->inc(); // Allocate entry
+
   return NoStall;
 }
 
@@ -307,35 +371,60 @@ void FUStore::simTime(DInst *dinst)
 
 void FUStore::executed(DInst *dinst)
 {
-  // energy increment
-  lsqPregEnergy->inc();
-  lsqWakeupEnergy->inc();
   iAluEnergy->inc();
+  stqRdWrEnergy->inc(); // Update fields
+  
+  ldqCheckEnergy->inc(); // Check st-ld replay traps
 
-  
-  cluster->entryExecuted(dinst);
-  
+#ifdef SESC_CHERRY
+  dinst->markResolved();
+  cluster->getGProcessor()->propagateUnresolvedStore();
+#endif
+
+  cluster->executed(dinst);
+
+#ifdef SESC_CHERRY
+  if (dinst->isEarlyRecycled()) {
+    dinst->setMemoryIssued();
+
+    DMemRequest::create(dinst, memorySystem, MemWrite);
+  }
+#endif
 }
 
 void FUStore::doRetire(DInst *dinst)
 {
+  stqNotUsed.sample(freeStores);
+
   LDSTBuffer::storeLocallyPerformed(dinst);
-  cluster->entryRetired();
+  cluster->retire();
 
   if (!dinst->isEarlyRecycled() && !dinst->isFake())
     freeStores++;
+
+  stqRdWrEnergy->inc(); // Read value send to memory, and clear fields
 }
 
 bool FUStore::retire(DInst *dinst)
 {
   if (dinst->isFake() || dinst->isEarlyRecycled()
+#ifdef SESC_CHERRY
+      || dinst->isMemoryIssued()
+#endif
       ) {
     doRetire(dinst);
 
     if (dinst->isDeadStore())
       nDeadStore.inc();
 
+#ifdef SESC_CHERRY
+    if (dinst->isMemoryIssued() && !dinst->hasCanBeRecycled())
+      dinst->setCanBeRecycled();
+    else
+      dinst->destroy();
+#else
     dinst->destroy();
+#endif
     return true;
   }
 
@@ -348,6 +437,10 @@ bool FUStore::retire(DInst *dinst)
   // Note: The store is retired from the LDSTQueue as soon as it is send to the
   // L1 Cache. It does NOT wait until the ack from the L1 Cache is received
 
+#ifdef SESC_CHERRY
+  dinst->setCanBeRecycled();
+  dinst->setMemoryIssued();
+#endif
 
   gen->nextSlot();
   DMemRequest::create(dinst, memorySystem, MemWrite);
@@ -357,6 +450,28 @@ bool FUStore::retire(DInst *dinst)
   return true;
 }
 
+#ifdef SESC_CHERRY
+void FUStore::earlyRecycle(DInst *dinst)
+{
+  I(!dinst->isEarlyRecycled());
+
+  dinst->setEarlyRecycled();
+
+  if (dinst->isDeadStore() && !dinst->isFake()) {
+    freeStores++;
+    return;
+  }
+
+  if (!dinst->isFake())
+    freeStores++;
+  
+  if (dinst->isResolved()) {
+    dinst->setMemoryIssued();
+
+    DMemRequest::create(dinst, memorySystem, MemWrite);
+  }
+}
+#endif
 
 #ifdef SESC_MISPATH
 void FUStore::misBranchRestore() 
@@ -378,7 +493,7 @@ FUGeneric::FUGeneric(Cluster *cls
 {
 }
 
-StallCause FUGeneric::schedule(DInst *dinst)
+StallCause FUGeneric::canIssue(DInst *dinst)
 {
   if( !cluster->canIssue(dinst) )
     return SmallWinStall;
@@ -397,9 +512,15 @@ void FUGeneric::simTime(DInst *dinst)
 void FUGeneric::executed(DInst *dinst)
 {
   fuEnergy->inc();
-  cluster->entryExecuted(dinst);
+  cluster->executed(dinst);
 }
 
+#ifdef SESC_CHERRY
+void FUGeneric::earlyRecycle(DInst *dinst)
+{
+  I(0);
+}
+#endif
 
 /***********************************************/
 
@@ -411,7 +532,7 @@ FUBranch::FUBranch(Cluster *cls, PortGeneric *aGen, TimeDelta_t l, int mb)
   I(freeBranches>0);
 }
 
-StallCause FUBranch::schedule(DInst *dinst)
+StallCause FUBranch::canIssue(DInst *dinst)
 {
   if (freeBranches == 0)
     return OutsBranchesStall;
@@ -445,10 +566,20 @@ void FUBranch::executed(DInst *dinst)
 
   freeBranches++;
 
+#ifdef SESC_CHERRY
+  dinst->markResolved();
+  cluster->getGProcessor()->propagateUnresolvedBranch();
+#endif
 
-  cluster->entryExecuted(dinst);
+  cluster->executed(dinst);
 }
 
+#ifdef SESC_CHERRY
+void FUBranch::earlyRecycle(DInst *dinst)
+{
+  I(0);  // TODO
+}
+#endif
 
 /***********************************************/
 
@@ -457,7 +588,7 @@ FUEvent::FUEvent(Cluster *cls)
 {
 }
 
-StallCause FUEvent::schedule(DInst *dinst)
+StallCause FUEvent::canIssue(DInst *dinst)
 {
   if( !cluster->canIssue(dinst) )
     return SmallWinStall;
@@ -479,10 +610,16 @@ void FUEvent::simTime(DInst *dinst)
   CallbackBase *cb = dinst->getPendEvent();
 
   // If the preEvent is created with a vaddr the event handler is
-  // responsible to schedule the instruction execution.
+  // responsible to canIssue the instruction execution.
   I( dinst->getVaddr() == 0 );
   cb->call();
 
-  cluster->entryExecuted(dinst);
+  cluster->executed(dinst);
 }
 
+#ifdef SESC_CHERRY
+void FUEvent::earlyRecycle(DInst *dinst)
+{
+  I(0);  // TODO
+}
+#endif

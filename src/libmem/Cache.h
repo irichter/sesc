@@ -175,7 +175,7 @@ public:
 
   void dump() const;
 
-  Time_t getNextFreeCycle();
+  Time_t getNextFreeCycle() const;
 };
 
 class WBCache : public Cache {

@@ -74,21 +74,19 @@ const SConfig::Record * SConfig::getRecord(const char *block,
   if(rec)
     return rec;
   
-  rec = Config::getRecord("", name, vectorPos);
-  if(rec)
-    return rec;
-
   // Use Indirection when neither of [block]name or []name exists. Indirection
   // can not handle vector inside a block.
 
   rec = Config::getRecord("", block, vectorPos);
 
-  if(rec == 0) return Config::getRecord(block, name, vectorPos);
+  if(rec == 0)
+    return Config::getRecord(block, name, vectorPos);
 
   const char *secName = rec->getCharPtr();
 
-  if(secName == 0)
-    return 0;
+  if(secName == 0) {
+    return rec;
+  }
 
   return Config::getRecord(secName, name, 0);
 }

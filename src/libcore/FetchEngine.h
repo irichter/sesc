@@ -41,6 +41,10 @@ class IBucket;
 
 class FetchEngine {
 private:
+  // Static data
+  static long long nInst2Sim;
+  static long long totalnInst;
+  
   const int Id;
   const int cpuId;
   GMemorySystem *gms;
@@ -159,6 +163,10 @@ public:
   ExecutionFlow *getExecFlow(){ return &flow ; }
 
   bool hasWork() const { return pid >= 0; }
+
+  static void setnInst2Sim(long long a) {
+    nInst2Sim = a;
+  }
 };
 
 #endif   // FETCHENGINE_H

@@ -20,6 +20,8 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 */
 
 #include "DInst.h"
+
+#include "Cluster.h"
 #include "FetchEngine.h"
 #include "OSSim.h"
 #include "LDSTBuffer.h"
@@ -34,8 +36,8 @@ DInst::DInst()
   :doAtExecutedCB(this)
   ,doAtSimTimeCB(this)
 {
-  pend[0].dinst = this;
-  pend[1].dinst = this;
+  pend[0].init(this);
+  pend[1].init(this);
   I(MAX_PENDING_SOURCES==2);
   IS(nDeps = 0);
 }
@@ -72,6 +74,13 @@ void DInst::doAtSimTime()
 
   I(!isExecuted());
 
+  I(resource->getCluster());
+
+#ifdef SESC_PRESCHEDULE
+  // wakeUp at the end of the select stage
+  resource->getCluster()->wakeUpDeps(this);
+#endif
+
   resource->simTime(this);
 }
 
@@ -87,6 +96,7 @@ DInst *DInst::createDInst(const Instruction *inst, VAddr va, int cpuId)
   i->inst  = inst;
   Prefetch(i->inst);
   i->cpuId = cpuId;
+  i->wakeUpTime = 0;
   i->vaddr = va;
   i->first = 0;
 #ifdef DEBUG
@@ -100,6 +110,13 @@ DInst *DInst::createDInst(const Instruction *inst, VAddr va, int cpuId)
   i->executed     = false;
   i->depsAtRetire = false;
   i->deadStore    = false;
+#ifdef SESC_CHERRY
+  i->resolved     = false;
+  i->earlyRecycled= false;
+  i->canBeRecycled= false;
+  i->memoryIssued = false;
+  i->registerRecycled= false;
+#endif
 #ifdef SESC_MISPATH
   i->fake         = false;
 #endif
@@ -273,7 +290,7 @@ void DInst::destroy()
 
   awakeRemoteInstructions();
 
-  GLOG(first != 0,"Instruction pc=0x%x failed first is pc=0x%x",(int)inst->getAddr(),(int)first->dinst->inst->getAddr());
+  GLOG(first != 0,"Instruction pc=0x%x failed first is pc=0x%x",(int)inst->getAddr(),(int)first->getDInst()->inst->getAddr());
   I(first == 0);   // no dependent instructions 
 
   scrap();

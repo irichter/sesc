@@ -51,6 +51,9 @@ ifdef SESC_SLICE
 OBJS  += Slicer.o
 endif
 
+ifdef SESC_DDIS
+OBJS	+=BFWin.o
+endif
 
 ##############################################################################
 #                             Change Rules                                   # 

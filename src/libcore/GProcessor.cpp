@@ -31,8 +31,6 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "GMemorySystem.h"
 #include "LDSTBuffer.h"
 
-long long GProcessor::nInst2Sim=0;
-long long GProcessor::totalnInst=0;
 
 GProcessor::GProcessor(GMemorySystem *gm, CPU_t i, size_t numFlows)
   :Id(i)
@@ -46,6 +44,7 @@ GProcessor::GProcessor(GMemorySystem *gm, CPU_t i, size_t numFlows)
   ,memorySystem(gm)
   ,ROB(MaxROBSize)
   ,clusterManager(gm, this)
+  ,robUsed("Proc(%d)_robUsed", i)
 {
   // osSim should be already initialized
   I(osSim);
@@ -90,9 +89,10 @@ GProcessor::GProcessor(GMemorySystem *gm, CPU_t i, size_t numFlows)
   char cadena[100];
   sprintf(cadena, "Proc(%d)", (int)i);
   
+  renameEnergy = new GStatsEnergy("renameEnergy", cadena, i, RenameEnergy
+				  ,EnergyMgr::get("renameEnergy",i));
+
   robEnergy = new GStatsEnergy("ROBEnergy",cadena,i,ROBEnergy,EnergyMgr::get("robEnergy",i));
-  windowSelEnergy  = new GStatsEnergy("windowSelEnergy",cadena,i,WindowSelEnergy
-				      ,EnergyMgr::get("windowSelEnergy",i));
 
   wrRegEnergy[0] = new GStatsEnergy("wrIRegEnergy", cadena, i, WrRegEnergy
 				    ,EnergyMgr::get("wrRegEnergy",i));
@@ -115,6 +115,15 @@ GProcessor::GProcessor(GMemorySystem *gm, CPU_t i, size_t numFlows)
   // CHANGE "PendingWindow" instead of "Proc" for script compatibility reasons
   buildInstStats(nInst, "PendingWindow");
   
+#ifdef SESC_CHERRY
+  unresolvedLoad  = -1;
+  unresolvedStore = -1;
+  unresolvedBranch= -1;
+  
+  recycleStore    = -1; // min(Ul,Ub)
+
+  bzero(cherryRAT, sizeof(DInst *) * NumArchRegs);
+#endif
   
 #ifdef SESC_MISPATH
   buildInstStats(nInstFake, "FakePendingWindow");
@@ -148,15 +157,6 @@ void GProcessor::buildInstStats(GStatsCntr *i[MaxInstType], const char *txt)
   IN(forall((int a=1;a<(int)MaxInstType;a++), i[a] != 0));
 }
 
-void GProcessor::endIssue(int i)
-{
-  totalnInst+=i;
-  if( totalnInst >= nInst2Sim ) {
-    MSG("stopSimulation at %lld (%lld)",totalnInst, nInst2Sim);
-    osSim->stopSimulation();
-  }
-}
-
 StallCause GProcessor::addInst(DInst *dinst) 
 {
   // rename an instruction. Steps:
@@ -184,7 +184,7 @@ StallCause GProcessor::addInst(DInst *dinst)
 #endif
 
   Resource *res = clusterManager.getResource(inst->getOpcode());
-  StallCause sc = res->schedule(dinst);
+  StallCause sc = res->canIssue(dinst);
   if (sc != NoStall)
     return sc;
 
@@ -204,8 +204,9 @@ StallCause GProcessor::addInst(DInst *dinst)
   regPool[inst->getDstPool()]--;
 #endif
 
-  windowSelEnergy->inc();
-  robEnergy->inc();
+  renameEnergy->inc(); // Rename RAT
+  robEnergy->inc(); // one for insert
+  robEnergy->inc(); // Another for execution (update bits, status)
 
   rdRegEnergy[inst->getSrc1Pool()]->inc();
   rdRegEnergy[inst->getSrc2Pool()]->inc();
@@ -213,6 +214,29 @@ StallCause GProcessor::addInst(DInst *dinst)
 
   ROB.push(dinst);
 
+#ifdef SESC_CHERRY
+  cherryRAT[inst->getDest()] = dinst;
+
+  // Before addInst because it can execute it :(
+
+  // TODO: try to move to schedule? so that the ifs are avoided
+  if (inst->isLoad()) {
+    if (unresolvedLoad == -1) {
+      if (!dinst->isResolved())
+	unresolvedLoad = ROB.getIdFromTop(ROB.size()-1);
+
+      // Early recycle Loads
+      if (unresolvedStore == -1)
+	dinst->getResource()->earlyRecycle(dinst);
+    }
+  }else if (inst->isStore()) {
+    if (unresolvedStore == -1 && !dinst->isResolved())
+      unresolvedStore = ROB.getIdFromTop(ROB.size()-1);
+  }else if (inst->isBranch()) {
+    if (unresolvedBranch == -1 && !dinst->isResolved())
+      unresolvedBranch = ROB.getIdFromTop(ROB.size()-1);
+  }
+#endif
 
   I(dinst->getResource() == res);
   res->getCluster()->addInst(dinst);
@@ -232,7 +256,6 @@ int GProcessor::issue(PipeQueue &pipeQ)
     do{
       I(!bucket->empty());
       if( i >= IssueWidth ) {
-	endIssue(i);
 	return i;
       }
 
@@ -255,7 +278,6 @@ int GProcessor::issue(PipeQueue &pipeQ)
       if (c != NoStall) {
 	if (i < RealisticWidth)
 	  nStall[c]->add(RealisticWidth - i);
-	endIssue(i);
 	return i+j;
       }
       i++;
@@ -268,7 +290,6 @@ int GProcessor::issue(PipeQueue &pipeQ)
     pipeQ.instQueue.pop();
   }while(!pipeQ.instQueue.empty());
 
-  endIssue(i);
   return i+j;
 }
 
@@ -286,8 +307,8 @@ void GProcessor::addEvent(EventType ev, CallbackBase *cb, long vaddr)
 void GProcessor::retire()
 {
 #ifdef DEBUG
-    // Check for progress. When a processor gets stuck, it sucks big time
-    if ((((long)globalClock) & 0x1FFFFFL) == 0) {
+  // Check for progress. When a processor gets stuck, it sucks big time
+  if ((((long)globalClock) & 0x1FFFFFL) == 0) {
     if (ROB.empty()) {
       // ROB should not be empty for lots of time
       if (prevDInstID == 1) {
@@ -309,6 +330,8 @@ void GProcessor::retire()
   }
 #endif
 
+  robUsed.sample(ROB.size());
+
   for(ushort i=0;i<RetireWidth && !ROB.empty();i++) {
     DInst *dinst = ROB.top();
 
@@ -325,11 +348,176 @@ void GProcessor::retire()
     if (! dinst->isFake())
       regPool[rp]++;
 
+#ifdef SESC_CHERRY
+    cherryRAT[dinst->getInst()->getDest()] = 0;
+
+    // If the instruction can get retired for sure that the unresolved
+    // pointer advanced
+    I(ROB.getIdFromTop(0) != unresolvedLoad);
+    //    I(ROB.getIdFromTop(0) != unresolvedStore);
+    //    I(ROB.getIdFromTop(0) != unresolvedBranch);
+#endif
 
     ROB.pop();
 
-    // energy increment
-    robEnergy->inc();
+    renameEnergy->inc(); // Retirement RAT
+    robEnergy->inc(); // read ROB entry (finished?, update retirement rat...)
   }
 }
 
+#ifdef SESC_CHERRY
+void GProcessor::checkRegisterRecycle()
+{
+  // Register Recycle min(Us,Ub) (not multi)
+  ushort robPos = ROB.getIdFromTop(ROB.size()-1);
+  while(1) {
+    DInst *dinst = ROB.getData(robPos);
+    
+    if (!dinst->hasRegisterRecycled() 
+	&& dinst->isExecuted() 
+	&& !dinst->hasPending()
+	&& cherryRAT[dinst->getInst()->getDest()] != dinst) {
+      dinst->setRegisterRecycled();
+
+#ifdef SESC_MISPATH
+      if (dinst->isFake()) {
+	misRegPool[dinst->getInst()->getDstPool()]--;
+      }else{
+	regPool[dinst->getInst()->getDstPool()]++;
+      }
+#else
+      regPool[dinst->getInst()->getDstPool()]++;
+#endif
+    }
+
+    robPos = ROB.getNextId(robPos);
+    if (ROB.isEnd(robPos))
+      break;
+  }
+}
+
+void GProcessor::propagateUnresolvedLoad()
+{
+  I(unresolvedLoad>=0);
+  while(1) {
+    DInst *dinst = ROB.getData(unresolvedLoad);
+    if (!dinst->isResolved() && dinst->getInst()->isLoad())
+      break; // only stop advancing pointer for an unresolved load
+	     // (faster than waiting for an un-executed load)
+
+    ushort robPos = ROB.getNextId(unresolvedLoad);
+    if (ROB.isEnd(robPos)) {
+      // There are no more instructions. The Ul covers the whole ROB
+#ifdef DEBUG
+      // Verify that all loads are resolved
+      robPos = ROB.getIdFromTop(0);
+      while(!ROB.isEnd(robPos)) {
+	DInst *dinst = ROB.getData(robPos);
+	I(!(dinst->getInst()->isLoad() && !dinst->isResolved()));
+	robPos = ROB.getNextId(robPos);
+      }
+#endif
+      unresolvedLoad = -1;
+      break;
+    }
+
+    unresolvedLoad = robPos;
+
+    // BEGIN RECYCLE FOR Ul advance
+
+    // Store recycle at min(Ul,Ub)
+    if (recycleStore == -1 || recycleStore != unresolvedBranch)
+      recycleStore = unresolvedLoad;
+
+    if (recycleStore == unresolvedLoad) {
+      dinst = ROB.getData(unresolvedLoad);
+      if (dinst->getInst()->isStore() && !dinst->isEarlyRecycled())
+	dinst->getResource()->earlyRecycle(dinst);
+    }
+  }
+}
+
+void GProcessor::propagateUnresolvedStore()
+{
+  I(unresolvedStore>=0);
+  while(1) {
+    DInst *dinst = ROB.getData(unresolvedStore);
+    if (!dinst->isResolved() && dinst->getInst()->isStore())
+      break; // only stop advancing pointer for an unresolved Store
+	     // (faster than waiting for an un-executed Store)
+
+    ushort robPos = ROB.getNextId(unresolvedStore);
+    if (ROB.isEnd(robPos)) {
+      // There are no more instructions. The Ul covers the whole ROB
+#ifdef DEBUG
+      // Verify that all stores are resolved
+      robPos = ROB.getIdFromTop(0);
+      while(!ROB.isEnd(robPos)) {
+	DInst *dinst = ROB.getData(robPos);
+	I(!(dinst->getInst()->isStore() && !dinst->isResolved()));
+	robPos = ROB.getNextId(robPos);
+      }
+#endif
+      unresolvedStore = -1;
+      break;
+    }
+
+    unresolvedStore = robPos;
+    // BEGIN RECYCLE for Us advance
+    
+    // LDQ entry recycled when Us
+    dinst = ROB.getData(unresolvedStore);
+    if (dinst->getInst()->isLoad() && !dinst->isEarlyRecycled()) {
+      // Entry can be recycled
+      dinst->getResource()->earlyRecycle(dinst);
+    }
+  }
+
+  // checkRegisterRecycle(); all the time is an overkilll. Checked
+  // when branches are resolved
+}
+
+void GProcessor::propagateUnresolvedBranch()
+{
+  I(unresolvedBranch>=0);
+  while(1) {
+    DInst *dinst = ROB.getData(unresolvedBranch);
+    if (!dinst->isResolved() && dinst->getInst()->isBranch())
+      break; // only stop advancing pointer for an unresolved branch
+	     // (faster than waiting for an un-executed branch)
+
+    ushort robPos = ROB.getNextId(unresolvedBranch);
+    if (ROB.isEnd(robPos)) {
+      // There are no more instructions. The Ul covers the whole ROB
+#ifdef DEBUG
+      // Verify that all stores are resolved
+      robPos = ROB.getIdFromTop(0);
+      while(!ROB.isEnd(robPos)) {
+	DInst *dinst = ROB.getData(robPos);
+	I(!(dinst->getInst()->isBranch() && !dinst->isResolved()));
+	robPos = ROB.getNextId(robPos);
+      }
+#endif
+      unresolvedBranch = -1;
+      break;
+    }
+
+    unresolvedBranch = robPos;
+
+    // BEGIN RECYCLE FOR Ul advance
+
+    // Store recycle at min(Ul,Ub)
+    if (recycleStore == -1 || recycleStore != unresolvedLoad)
+      recycleStore = unresolvedBranch;
+
+    if (recycleStore == unresolvedBranch) {
+      dinst = ROB.getData(unresolvedBranch);
+      if (dinst->getInst()->isStore() && !dinst->isEarlyRecycled())
+	dinst->getResource()->earlyRecycle(dinst);
+    }
+  }
+
+  checkRegisterRecycle();
+
+}
+#endif

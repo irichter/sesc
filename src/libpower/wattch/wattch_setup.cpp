@@ -30,7 +30,8 @@ double areaFactor;
 double dieLenght;
 int RUU_size;
 int REG_size;
-int LSQ_size;
+int LDQ_size;
+int STQ_size;
 int data_width;
 int res_ialu;
 int res_fpalu;
@@ -71,7 +72,8 @@ void setup()
   ruu_commit_width = 4 ;
   RUU_size = 16 ;
   REG_size = 32 ; 
-  LSQ_size = 32 ;
+  LDQ_size = 32 ;
+  STQ_size = 32 ;
   data_width = 32 ;
   res_ialu = 4 ;
   res_fpalu = 4 ;
@@ -155,7 +157,8 @@ void wattch_setup()
   
   // TODO: Currently, only IREgs. Add FPReg
   REG_size = SescConf->getLong(proc,"intRegs");
-  LSQ_size = SescConf->getLong(proc,"maxLoads") + SescConf->getLong(proc,"maxStores") ;
+  LDQ_size = SescConf->getLong(proc,"maxLoads");
+  STQ_size = SescConf->getLong(proc,"maxStores") ;
   rob_size = SescConf->getLong(proc,"robSize") ;
   data_width = 32 ;
   const char *l1Cache = SescConf->getCharPtr(proc,"dataSource");
@@ -222,27 +225,22 @@ void wattch_setup()
   
   // Instruction window energy increases as we increase the issue
   // width. Design something better if you do not like it
-  div = dfac1 * 3; // * ((double) ruu_issue_width);
-  SescConf->updateRecord(proc,"windowPregEnergy",pp.rs_power/div) ;
+  div = dfac1; // * ((double) ruu_issue_width);
+  SescConf->updateRecord(proc,"windowRdWrEnergy",pp.rs_power/div) ;
 
   div = dfac1; // * ((double) ruu_issue_width) ;
   SescConf->updateRecord(proc,"windowSelEnergy",pp.selection/div) ;
-  SescConf->updateRecord(proc,"wakeupEnergy",pp.wakeup_power/div) ;
+  SescConf->updateRecord(proc,"windowCheckEnergy",pp.wakeup_power/div) ;
 
-  // Assume that ROB is a single port structure. It reads the
-  // instructions to retire in consecutive possition. So no need to
-  // access ramdonly, and no need to have more ports.
-  div = dfac1 * ((double) ruu_commit_width);
+  div = dfac1; // Assume a multiported rob (traditional)
   SescConf->updateRecord(proc,"robEnergy",pp.reorder_power/div) ;
 
-  // Conservatively assume that some "magical" structure would have
-  // the same energy per access independent of the number of
-  // ports. This magical structure may be possible because the LSQ is
-  // a FIFO like structure. Therefore, we can "insert two consecutive"
-  // elements at once. (Tough but possible).
-  div = dfac1 * ((double) res_memport) ;
-  SescConf->updateRecord(proc,"lsqWakeupEnergy",pp.lsq_wakeup_power/div) ;
-  SescConf->updateRecord(proc,"lsqPregEnergy",pp.lsq_rs_power/div) ;
+  div = dfac1;
+  SescConf->updateRecord(proc,"ldqCheckEnergy",pp.ldq_wakeup_power/div) ;
+  SescConf->updateRecord(proc,"ldqRdWrEnergy",pp.ldq_rs_power/div) ;
+
+  SescConf->updateRecord(proc,"stqCheckEnergy",pp.stq_wakeup_power/div) ;
+  SescConf->updateRecord(proc,"stqRdWrEnergy",pp.stq_rs_power/div) ;
   
   // The more ports in the RF, the more the energy. Maybe some smart
   // designed can propose to have a single port multi-banked

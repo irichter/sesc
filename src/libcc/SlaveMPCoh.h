@@ -86,7 +86,7 @@ class SlaveMPCoh : public MPCacheCoherence, public MemObj {
   /* Should only be called by an Invalidate request */
   void access(MemRequest *mreq);
   void returnAccess(MemRequest *mreq);
-  Time_t getNextFreeCycle();
+  Time_t getNextFreeCycle() const;
 
   void invalidate(PAddr addr, ushort size, MemObj *oc);
   bool canAcceptStore(PAddr addr) const;

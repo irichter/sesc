@@ -112,7 +112,7 @@ public:
 
   //This assumes single entry point for object, which I do not like,
   //but it is still something that is worthwhile.
-  virtual Time_t getNextFreeCycle() = 0;
+  virtual Time_t getNextFreeCycle() const = 0;
 
   virtual void access(MemRequest *mreq) = 0;
   virtual void returnAccess(MemRequest *mreq) = 0;
@@ -133,7 +133,7 @@ public:
 class DummyMemObj : public MemObj {
 private:
 protected:
-  Time_t getNextFreeCycle();
+  Time_t getNextFreeCycle() const;
   void access(MemRequest *req);
   bool canAcceptStore(PAddr addr) const;
   void invalidate(PAddr addr, ushort size, MemObj *oc);

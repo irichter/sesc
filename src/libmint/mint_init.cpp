@@ -671,8 +671,8 @@ read_text()
     /* Precompute the branch and jump targets */
     if (iflags & IS_BRANCH) {
       if (immed == -1) {
-	warning("branch to itself at addr 0x%x. jump to next instruction if executed\n",
-		picode->addr);
+	//	warning("branch to itself at addr 0x%x. jump to next instruction if executed\n",
+	//		picode->addr);
 	picode->target = picode + 1;
       } else {
 	picode->target = picode + immed + 1;

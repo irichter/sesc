@@ -37,15 +37,20 @@ private:
   const TimeDelta_t InterClusterLat;
   const TimeDelta_t WakeUpDelay;
   const TimeDelta_t SchedDelay;
+  const TimeDelta_t RegFileDelay;
 
   const bool InOrderCore;
 
-  GStatsEnergy *renameEnergy;
+#ifdef SESC_DDIS
+  static GStatsCntr *nDeps[];
+#endif
+
   GStatsEnergy *resultBusEnergy;
   GStatsEnergy *forwardBusEnergy;
 
-  GStatsEnergy *windowPregEnergy;
-  GStatsEnergy *wakeupEnergy;
+  GStatsEnergy *windowRdWrEnergy;  // read/write on an individual window entry
+  GStatsEnergy *windowCheckEnergy; // Check for dependences on the window
+  GStatsEnergy *windowSelEnergy;   // instruction selection
 
   DInst *RAT[NumArchRegs];
 
@@ -58,7 +63,9 @@ public:
   DepWindow(int i, const char *clusterName);
 
   void addInst(DInst *dinst);
-  void simTimeAck(DInst *dinst);
+  void wakeUpDeps(DInst *dinst);
+  void select(DInst *dinst);
+  void executed(DInst *dinst);
 
   bool canIssue(DInst *dinst) const;
 };

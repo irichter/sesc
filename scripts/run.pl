@@ -29,9 +29,8 @@ my $op_data="ref";
 my $op_numprocs=1;
 my $op_rabbit;
 my $op_saveoutput;
+my $op_kinst;
 my $op_bindir="$ENV{'BENCHDIR'}/bin";
-my $op_marks2; 
-
 
 my $dataset;
 
@@ -54,7 +53,7 @@ my $result = GetOptions("test",\$op_test,
                         "rabbit", \$op_rabbit,
 			"saveoutput",\$op_saveoutput,
 			"bindir=s",\$op_bindir,
-			"marks2",\$op_marks2,
+			"kinst=i",\$op_kinst,
 			"help",\$op_help
 		       );
 
@@ -148,6 +147,7 @@ sub runBench {
   $sesc .= " -w1" if ($op_rabbit or $op_vprof);
   $sesc .= " -r" . $op_prof if (defined $op_prof);
   $sesc .= " -S" . $op_profsec if (defined $op_profsec);
+  $sesc .= " -y" . $op_kinst if(defined $op_kinst);
 
   my $output;
   
@@ -213,12 +213,7 @@ sub runBench {
     runIt("${sesc} -h0xC000000 ${marks} ${executable} ${opt} <${BHOME}/CINT2000/254.gap/${dataset}/${op_data}.in ${output}");
 
   }elsif( $param{bench} eq 'vortex' ) {
-    my $marks;
-    if ($op_marks2) {
-	$marks = getMarks("-11 -22", "-11 -22");
-    }else{
-	$marks = getMarks("-13 -24", "-13 -24");
-    }
+    my $marks = getMarks("-13 -24", "-13 -24");
     my $input;
     # prepare input data then run
     if ($op_data eq 'ref') {
@@ -240,12 +235,7 @@ sub runBench {
     runIt("${sesc} -h0x8000000 ${marks} ${executable} ${BHOME}/CINT2000/255.vortex/${dataset}/${input} ${output}");
 
   }elsif( $param{bench} eq 'bzip2' ) {
-    my $marks;
-    if ($op_marks2) {
-      $marks = getMarks("-13 -26", "-11 -29");
-    }else{
-      $marks = getMarks("-11 -22", "-11 -22");
-    }
+    my $marks = getMarks("-11 -22", "-11 -22");
     my $input;
     if ($op_data eq 'test') {
       $input = "input.random 2";
@@ -583,6 +573,7 @@ sub processParams {
     print "\t-profsec=s       ; Profiling section\n";
     print "\t-fast            ; Shorter marks for fast test\n";
     print "\t-procs=i         ; Number of threads in a splash application\n";
+    print "\t-kinst=i         ; Thousands of instructions to simulate at most\n";
     print "\t-rabbit          ; Run in Rabbit mode the whole program\n";
     print "\t-saveoutput      ; Save output to a .out file\n";
     print "\t-clean           ; DELETE all the outputs from previous runs\n";

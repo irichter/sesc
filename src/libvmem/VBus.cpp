@@ -319,7 +319,7 @@ void VBus::writeCheckAck(VMemWriteReq *vreq)
 
   if (oreq->getnRequests() == 0) { // FIXME
 
-    MSG("1.vreq 0x%x oreq 0x%x", vreq, oreq);
+    // MSG("1.vreq 0x%x oreq 0x%x", vreq, oreq);
 
     TimeDelta_t lat = vreq->getLatency();
     vreq->clearLatency();
@@ -338,7 +338,7 @@ void VBus::doWriteCheckAck(VMemWriteReq *vreq)
   I(vreq->getType() == VWriteCheckAck);
   I(oreq->getType() == VWriteCheck);
 
-  MSG("2.vreq 0x%x oreq 0x%x", vreq, oreq);
+  // MSG("2.vreq 0x%x oreq 0x%x", vreq, oreq);
 
   I(oreq->getnRequests() == 0);
 
@@ -486,7 +486,7 @@ void VBus::doSendAskPushLine(VMemPushLineReq *vreq, VMemObj *obj)
   obj->askPushLine(vreq);
 }
 
-Time_t VBus::getNextFreeCycle()
+Time_t VBus::getNextFreeCycle() const
 {
   return port->calcNextSlot();
 }

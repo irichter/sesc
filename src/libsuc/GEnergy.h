@@ -36,12 +36,14 @@ enum EnergyGroup {
   ,BPredEnergy
   ,RasEnergy
   ,BTBEnergy
-  ,WindowPregEnergy
+  ,WindowRdWrEnergy
   ,WindowSelEnergy
-  ,LSQPregEnergy
-  ,LSQWakeupEnergy
+  ,WindowCheckEnergy
+  ,LDQCheckEnergy
+  ,LDQRdWrEnergy
+  ,STQCheckEnergy
+  ,STQRdWrEnergy
   ,RenameEnergy
-  ,WakeupEnergy
   ,IAluEnergy
   ,FPAluEnergy
   ,ResultBusEnergy
@@ -56,13 +58,11 @@ enum EnergyGroup {
   ,WrHitEnergy
   ,WrMissEnergy
   ,WrHalfHitEnergy
-  ,LineFillEnergy
   ,ITLBEnergy
   ,IRdHitEnergy
   ,IRdMissEnergy
   ,IWrHitEnergy
   ,IWrMissEnergy
-  ,ILineFillEnergy
   ,RdRevLVIDEnergy
   ,WrRevLVIDEnergy
   ,RdLVIDEnergy

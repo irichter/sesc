@@ -199,12 +199,12 @@ void GStatsEnergy::add(int v)
   ****************************************************/
 
 GStatsEnergyCGBase::GStatsEnergyCGBase(const char* str,int procId)
-  :  ,lastCycleUsed(0) 
-    ,numCycles(0)
-  {
-    id = procId ;
-    name = strdup(str);
-  }
+  : lastCycleUsed(0) 
+  ,numCycles(0)
+{
+  id = procId;
+  name = strdup(str);
+}
 
 void GStatsEnergyCGBase::use()
 {
@@ -280,28 +280,29 @@ PowerGroup EnergyStore::getPowerGroup(EnergyGroup e)
   case IRdMissEnergy:
   case IWrHitEnergy:
   case IWrMissEnergy:
-  case ILineFillEnergy:
     return FetchPower;
 
     // processor core resources that scale energy as the issue width
     // increases
-  case WindowPregEnergy:
+  case WindowRdWrEnergy:
   case WindowSelEnergy:
-  case WakeupEnergy:
+  case WindowCheckEnergy:
   case RenameEnergy: 
   case WrRegEnergy:
   case RdRegEnergy:
-  case ResultBusEnergy:
-  case ForwardBusEnergy:
+  case LDQCheckEnergy:
+  case LDQRdWrEnergy:
+  case STQCheckEnergy:
+  case STQRdWrEnergy:
+  case ROBEnergy:
     return IssuePower;
   
     // processor core resources that DO NOT scale energy as the issue
     // width increases
   case IAluEnergy:
   case FPAluEnergy:
-  case LSQPregEnergy:
-  case LSQWakeupEnergy:
-  case ROBEnergy:
+  case ResultBusEnergy:
+  case ForwardBusEnergy:
     return ExecPower;
    
   case DTLBEnergy:
@@ -311,7 +312,6 @@ PowerGroup EnergyStore::getPowerGroup(EnergyGroup e)
   case WrHitEnergy:
   case WrMissEnergy:
   case WrHalfHitEnergy:
-  case LineFillEnergy:
   case RdRevLVIDEnergy:
   case WrRevLVIDEnergy:
   case RdLVIDEnergy:
@@ -339,18 +339,22 @@ char* EnergyStore::getStr(EnergyGroup d)
     return "RasEnergy";
   case BTBEnergy:
     return "BTBEnergy";
-  case WindowPregEnergy:
-    return "WindowPregEnergy";
+  case WindowRdWrEnergy:
+    return "WindowRdWrEnergy";
   case WindowSelEnergy:
     return "WindowSelEnergy";
-  case LSQPregEnergy:
-    return "LSQPregEnergy";
-  case LSQWakeupEnergy:
-    return "LSQWakeupEnergy";
+  case WindowCheckEnergy:
+    return "WindowCheckEnergy";
+  case LDQCheckEnergy:
+    return "LDQCheckEnergy";
+  case LDQRdWrEnergy:
+    return "LDQRdWrEnergy";
+  case STQCheckEnergy:
+    return "STQCheckEnergy";
+  case STQRdWrEnergy:
+    return "STQRdWrEnergy";
   case RenameEnergy:
     return "RenameEnergy";
-  case WakeupEnergy:
-    return "WakeupEnergy";
   case IAluEnergy:
     return "IAluEnergy";
   case FPAluEnergy:
@@ -375,8 +379,6 @@ char* EnergyStore::getStr(EnergyGroup d)
     return "WrHitEnergy";
   case WrMissEnergy:
     return "WrMissEnergy";
-  case LineFillEnergy:
-    return "LineFillEnergy";  
   case ITLBEnergy:
     return "InstTLBEnergy";
   case IRdHitEnergy:
@@ -387,8 +389,6 @@ char* EnergyStore::getStr(EnergyGroup d)
     return "InstWrHitEnergy";
   case IWrMissEnergy:
     return "InstWrMissEnergy";
-  case ILineFillEnergy:
-    return "InstLineFillEnergy";
   case RdRevLVIDEnergy:
     return "RdRevLVIDEnergy";
   case WrRevLVIDEnergy:

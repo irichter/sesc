@@ -78,7 +78,6 @@ void iterate()
       SescConf->updateRecord(block, "RdMissEnergy"  ,0);
       SescConf->updateRecord(block, "WrHitEnergy"   ,0);
       SescConf->updateRecord(block, "WrMissEnergy"  ,0);
-      SescConf->updateRecord(block, "LineFillEnergy",0); 
       
     }else if(strstr(name,"cache") 
 	     || strstr(name,"tlb")
@@ -89,10 +88,9 @@ void iterate()
       
       // write it
       SescConf->updateRecord(block, "RdHitEnergy"   ,eng);
-      SescConf->updateRecord(block, "RdMissEnergy"  ,eng);
+      SescConf->updateRecord(block, "RdMissEnergy"  ,eng * 2); // Rd miss + lineFill
       SescConf->updateRecord(block, "WrHitEnergy"   ,eng);
-      SescConf->updateRecord(block, "WrMissEnergy"  ,eng);
-      SescConf->updateRecord(block, "LineFillEnergy",eng); 
+      SescConf->updateRecord(block, "WrMissEnergy"  ,eng * 2); // Wr miss + lineFill
     }
   }
 }

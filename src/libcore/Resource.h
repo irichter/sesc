@@ -29,6 +29,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "callback.h"
 #include "GStats.h"
 #include "EnergyMgr.h"
+#include "BloomFilter.h"
 
 class PortGeneric;
 class DInst;
@@ -60,7 +61,7 @@ public:
 
   // Sequence:
   //
-  // 1st) A schedule check is done with "schedule". This checks that the cluster
+  // 1st) A canIssue check is done with "canIssue". This checks that the cluster
   // can accept another request (cluster window size), and that additional
   // structures (like the LD/ST queue entry) also have enough resources.
   //
@@ -72,11 +73,14 @@ public:
   //
   // 4th) When the instruction is retired from the ROB retire is called
 
-  virtual StallCause schedule(DInst *dinst) = 0;
+  virtual StallCause canIssue(DInst *dinst) = 0;
   virtual void simTime(DInst *dinst) = 0;
   virtual void executed(DInst *dinst);
   virtual bool retire(DInst *dinst);
 
+#ifdef SESC_CHERRY
+  virtual void earlyRecycle(DInst *dinst) = 0;
+#endif
 };
 
 class GMemorySystem;
@@ -84,10 +88,19 @@ class GMemorySystem;
 class MemResource : public Resource {
 private:
 protected:
+#ifdef SESC_MEMBF
+  const int LSQBanks;
+#endif
+  const MemObj  *L1DCache;
   GMemorySystem *memorySystem;
-  MemObj        *L1DCache;
 
-  MemResource(Cluster *cls, PortGeneric *aGen, GMemorySystem *ms);
+  GStatsEnergy *ldqCheckEnergy; // Check for data dependence
+  GStatsEnergy *ldqRdWrEnergy;  // Read-write operations (insert, exec, retire)
+  GStatsEnergy *stqCheckEnergy; // Check for data dependence
+  GStatsEnergy *stqRdWrEnergy;  // Read-write operations (insert, exec, retire)
+  GStatsEnergy *iAluEnergy;
+
+  MemResource(Cluster *cls, PortGeneric *aGen, GMemorySystem *ms, int id, const char *cad);
 public:
 };
 
@@ -95,24 +108,31 @@ class FUMemory : public MemResource {
 private:
 protected:
 public:
-  FUMemory(Cluster *cls, GMemorySystem *ms);
+  FUMemory(Cluster *cls, GMemorySystem *ms, int id);
 
-  StallCause schedule(DInst *dinst);
+  StallCause canIssue(DInst *dinst);
   void simTime(DInst *dinst);
   bool retire(DInst *dinst);
 
+#ifdef SESC_CHERRY
+  void earlyRecycle(DInst *dinst);
+#endif
 };
 
 class FULoad : public MemResource {
 private:
-  GStatsCntr       nForwarded;
+#ifdef SESC_MEMBF
+  BloomFilter *bf;
+#endif
+  
+  GStatsAvg   ldqNotUsed;
+  GStatsCntr  nForwarded;
+
   const TimeDelta_t lat;
   const TimeDelta_t LSDelay;
   int freeLoads;
   int misLoads; // loads from wrong paths
 
-  GStatsEnergy *lsqPregEnergy;
-  GStatsEnergy *iAluEnergy;
 protected:
   void cacheDispatched(DInst *dinst);
   typedef CallbackMember1<FULoad, DInst *, &FULoad::cacheDispatched> cacheDispatchedCB;
@@ -123,13 +143,16 @@ public:
 	 ,GMemorySystem *ms, size_t maxLoads
 	 ,int id);
 
-  StallCause schedule(DInst *dinst);
+  StallCause canIssue(DInst *dinst);
   void simTime(DInst *dinst);
   bool retire(DInst *dinst);
 
   void executed(DInst *dinst);
   int freeEntries() const { return freeLoads; }
 
+#ifdef SESC_CHERRY
+  void earlyRecycle(DInst *dinst);
+#endif
 
 #ifdef SESC_MISPATH
   void misBranchRestore();
@@ -138,14 +161,14 @@ public:
 
 class FUStore : public MemResource {
 private:
-  GStatsCntr        nDeadStore;
+
+  GStatsAvg   stqNotUsed;
+  GStatsCntr  nDeadStore;
+
   const TimeDelta_t lat;
   int               freeStores;
   int               misStores;
   
-  GStatsEnergy *lsqWakeupEnergy;
-  GStatsEnergy *lsqPregEnergy;
-  GStatsEnergy *iAluEnergy;
 protected:
   void doRetire(DInst *dinst);
 public:
@@ -156,13 +179,16 @@ public:
 	  ,size_t maxLoads
 	  ,int id);
 
-  StallCause schedule(DInst *dinst);
+  StallCause canIssue(DInst *dinst);
   void simTime(DInst *dinst);
   void executed(DInst *dinst);
   bool retire(DInst *dinst);
 
   int freeEntries() const { return freeStores; }
 
+#ifdef SESC_CHERRY
+  void earlyRecycle(DInst *dinst);
+#endif
 
 #ifdef SESC_MISPATH
   void misBranchRestore();
@@ -179,9 +205,12 @@ public:
 
   FUGeneric(Cluster *cls, PortGeneric *aGen, TimeDelta_t l, GStatsEnergyCG *eb);
 
-  StallCause schedule(DInst *dinst);
+  StallCause canIssue(DInst *dinst);
   void simTime(DInst *dinst);
   void executed(DInst *dinst);
+#ifdef SESC_CHERRY
+  void earlyRecycle(DInst *dinst);
+#endif
 };
 
 class SpawnRob;
@@ -195,10 +224,13 @@ protected:
 public:
   FUBranch(Cluster *cls, PortGeneric *aGen, TimeDelta_t l, int mb);
 
-  StallCause schedule(DInst *dinst);
+  StallCause canIssue(DInst *dinst);
   void simTime(DInst * dinst);
   void executed(DInst *dinst);
 
+#ifdef SESC_CHERRY
+  void earlyRecycle(DInst *dinst);
+#endif
 };
 
 class FUEvent : public Resource {
@@ -207,9 +239,12 @@ protected:
 public:
   FUEvent(Cluster *cls);
 
-  StallCause schedule(DInst *dinst);
+  StallCause canIssue(DInst *dinst);
   void simTime(DInst * dinst);
 
+#ifdef SESC_CHERRY
+  void earlyRecycle(DInst *dinst);
+#endif
 };
 
 #endif   // RESOURCE_H

@@ -9,9 +9,6 @@ exec perl -w -x $0 ${1+"$@"} # -*- mode: perl; perl-indent-level: 2; -*-
 ###                                                        ###
 ##############################################################
 
-## $Revision: 1.1.1.1 $
-## $Date: 2004/10/18 17:27:34 $
-## $Author: renau $
 ##
 ##   (C) 2001,2002,2003 Martyn J. Pearce <fluffy@cpan.org>, under the GNU GPL.
 ##   (C) 1999 Karl Fogel <kfogel@red-bean.com>, under the GNU GPL.
@@ -82,7 +79,7 @@ use constant MAILNAME => "/etc/mailname";
 my $Log_Source_Command = "cvs log";
 
 # In case we have to print it out:
-my $VERSION = '$Revision: 1.1.1.1 $';
+my $VERSION = '$Revision: 1.2 $';
 $VERSION =~ s/\S+\s+(\S+)\s+\S+/$1/;
 
 ## Vars set by options:

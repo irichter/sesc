@@ -65,6 +65,9 @@ GStatsCntr *TaskContext::nCorrectOutOrderSpawn=0;
 GStatsCntr *TaskContext::nCorrectInOrderSpawn=0;
 
 #ifdef OOO_PAPER_STATS
+// Statistics about the avg number of children per task
+GStatsCntr *TaskContext::nRestart[TaskContext::nRestartMax];
+
 GStatsCntr *TaskContext::nOOSpawn=0;
 GStatsCntr *TaskContext::nOOInst=0;
 GStatsCntr *TaskContext::nIOSpawn=0;
@@ -224,6 +227,8 @@ void TaskContext::mergeDestroy()
     nIOSpawn->inc();
     nIOInst->add(nInst);
   }
+
+  nRestart[nLocalRestarts<nRestartMax?nLocalRestarts:nRestartMax-1]->inc();
 #endif
 
   I(memBuffer);
@@ -671,6 +676,10 @@ void TaskContext::preBoot()
   nCorrectOutOrderSpawn  = new GStatsCntr("TC:nCorrectOutOrderSpawn");
   nCorrectInOrderSpawn   = new GStatsCntr("TC:nCorrectInOrderSpawn");
 #ifdef OOO_PAPER_STATS
+  for(size_t i=0;i<nRestartMax;i++) {
+    nRestart[i] = new GStatsCntr("TC(%d):nRestart",i);
+  }
+
   nOOSpawn               = new GStatsCntr("TC:nOOSpawn");
   nIOSpawn               = new GStatsCntr("TC:nIOSpawn");
   nOOInst                = new GStatsCntr("TC:nOOInst");
@@ -953,7 +962,8 @@ bool TaskContext::canMergeNext()
 #ifdef TS_INORDER
   if( !memVer->isNewest() ) {
     // Enforce in-order task spawn
-    doMergeNext = true;
+    //doMergeNext = true; // merge
+    doMergeLast = true; // kill
   }
 #endif
 

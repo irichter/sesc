@@ -285,7 +285,7 @@ void Bank::access(MemRequest *mreq)
     read(mreq);
 }
 
-Time_t Bank::getNextFreeCycle() 
+Time_t Bank::getNextFreeCycle() const
 { 
   return busyUntil; 
 }

@@ -45,18 +45,37 @@ class FetchEngine;
 class FReg;
 class BPredictor;
 
+// FIXME: do a nice class. Not so public
+class DInstNext {
+ private:
+  DInst     *dinst;
+ public:
+  DInstNext() {
+    dinst = 0;
+  }
+
+  DInstNext *nextDep;
+  bool       isUsed; // true while non-satisfied RAW dependence
+  const DInstNext *getNext() const { return nextDep; }
+  DInstNext *getNext() { return nextDep; }
+  void setNextDep(DInstNext *n) {
+    nextDep = n;
+  }
+
+  void init(DInst *d) {
+    I(dinst==0);
+    dinst = d;
+  }
+
+  DInst *getDInst() const { return dinst; }
+};
+
 class DInst {
  public:
   // In a typical RISC processor MAX_PENDING_SOURCES should be 2
   static const int MAX_PENDING_SOURCES=2;
 
 private:
-  class DInstNext {
-  public:
-    DInst     *dinst;
-    DInstNext *nextDep;
-    bool       isUsed; // true while non-satisfied RAW dependence
-  };
 
   static pool<DInst> dInstPool;
 
@@ -66,16 +85,30 @@ private:
   
   int cpuId;
 
+  // BEGIN Boolean flags
   bool loadForwarded;
   bool issued;
   bool executed;
   bool depsAtRetire;
   bool deadStore;
 
+#ifdef SESC_CHERRY
+  bool resolved; // For load/stores when the address is computer, for
+		 // the rest of instructions when it is executed
+  bool earlyRecycled;
+  bool canBeRecycled;
+  bool memoryIssued;
+  bool registerRecycled;
+#endif
 
 #ifdef SESC_MISPATH
   bool fake;
 #endif
+  // END Boolean flags
+
+  // BEGIN Time counters
+  Time_t wakeUpTime;
+  // END Time counters
 
 #ifdef BPRED_UPDATE_RETIRE
   BPredictor *bpred;
@@ -194,14 +227,14 @@ public:
 
   DInst *getNextPending() {
     I(first);
-    DInst *n = first->dinst;
+    DInst *n = first->getDInst();
 
     I(n);
     I(n->nDeps > 0);
 
     IS(n->nDeps--);
     first->isUsed = false;
-    first = first->nextDep;
+    first = first->getNext();
 
     return n;
   }
@@ -214,7 +247,7 @@ public:
     I(!n->isUsed);
     n->isUsed = true;
     
-    I(n->dinst == d);
+    I(n->getDInst() == d);
     if (first == 0) {
       first = n;
     } else {
@@ -232,7 +265,7 @@ public:
     I(!n->isUsed);
     n->isUsed = true;
 
-    I(n->dinst == d);
+    I(n->getDInst() == d);
     if (first == 0) {
       first = n;
     } else {
@@ -246,8 +279,8 @@ public:
   bool isSrc2Ready() const { return !pend[1].isUsed; }
   bool hasDeps()     const { return pend[0].isUsed || pend[1].isUsed; }
   bool hasPending()  const { return first != 0;  }
-  const DInst *getLastPending() const { return last->dinst; }
-  const DInst *getFirstPending() const { return first->dinst; }
+  const DInst *getFirstPending() const { return first->getDInst(); }
+  const DInstNext *getFirst() const { return first; }
 
   const Instruction *getInst() const { return inst; }
 
@@ -276,6 +309,9 @@ public:
     I(issued);
     I(!executed);
     executed = true;
+#ifdef SESC_CHERRY
+    resolved = true;
+#endif
   }
 
   bool isDeadStore() const { return deadStore; }
@@ -295,7 +331,19 @@ public:
     depsAtRetire = false;
   }
 
+#ifdef SESC_CHERRY
+  bool isResolved() const { return resolved; }
+  void markResolved() { 
+    resolved = true; 
+  }
+
+  bool isEarlyRecycled() const { return earlyRecycled; }
+  void setEarlyRecycled() { earlyRecycled = true; }
+  bool hasRegisterRecycled() const { return registerRecycled; }
+  void setRegisterRecycled() { registerRecycled = true; }
+#else
   bool isEarlyRecycled() const { return false; }
+#endif
 
 #ifdef SESC_MISPATH
   void setFake() { 
@@ -307,8 +355,21 @@ public:
   bool isFake() const  { return false; }
 #endif
 
+#ifdef SESC_CHERRY
+  bool hasCanBeRecycled() const { return canBeRecycled; }
+  void setCanBeRecycled() { canBeRecycled = true; }
+
+  bool isMemoryIssued() const { return memoryIssued; }
+  void setMemoryIssued() {  memoryIssued  = true; }
+#endif
 
   void awakeRemoteInstructions();
+
+  void setWakeUpTime(Time_t t)  { 
+    I(wakeUpTime < t); // Never go back in time
+    wakeUpTime = t;
+  }
+  Time_t getWakeUpTime() const { return wakeUpTime; }
 
 #ifdef DEBUG
   long getID() const { return ID; }

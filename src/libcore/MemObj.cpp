@@ -81,7 +81,7 @@ DummyMemObj::DummyMemObj(const char *section, const char *sName)
 {
 }
 
-Time_t DummyMemObj::getNextFreeCycle() 
+Time_t DummyMemObj::getNextFreeCycle() const
 { 
   return globalClock; 
 }

@@ -105,7 +105,7 @@ public:
   void returnAccess(MemRequest *mreq);
   bool canAcceptStore(PAddr addr) const;
   void invalidate(PAddr addr,ushort size,MemObj *oc);
-  Time_t getNextFreeCycle();
+  Time_t getNextFreeCycle() const;
   
   void learnHit(PAddr addr);
   void learnMiss(PAddr addr);

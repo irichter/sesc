@@ -67,7 +67,7 @@ public:
 
   Bank *getBank(unsigned short int i) const;
 
-  Time_t getNextFreeCycle();
+  Time_t getNextFreeCycle() const;
 
   void access(MemRequest *mreq);
 

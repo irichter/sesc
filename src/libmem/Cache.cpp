@@ -437,7 +437,7 @@ void Cache::doInvalidate(PAddr addr, ushort size)
     EventScheduler::schedule(2,cb);
 }
 
-Time_t Cache::getNextFreeCycle() // TODO: change name to calcNextFreeCycle
+Time_t Cache::getNextFreeCycle() const // TODO: change name to calcNextFreeCycle
 {
   return cachePort->calcNextSlot();
 }

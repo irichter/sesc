@@ -3,6 +3,7 @@
    Copyright (C) 2004 University of Illinois.
 
    Contributed by Luis Ceze
+                  Jose Renau
 
 This file is part of SESC.
 
@@ -36,9 +37,10 @@ class BloomFilter {
   void initMasks();
   int getIndex(unsigned val, int chunkPos);
   
+  BloomFilter() {
+  };
  public:
   ~BloomFilter() { }
-  BloomFilter();
   BloomFilter(int nv, ...);
 
   void insert(unsigned e);
