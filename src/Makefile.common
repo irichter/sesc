@@ -14,12 +14,17 @@ unexport OBJPAT
 SRCPAT	= $(subst /,\/,$(subst .,\.,$(SRC_DIR)))
 unexport SRCPAT
 
-ifdef XCC
+ifdef XCC_MIPSEB
+$(OBJ)/mkdep: $(OBJ)/.placeholder
+	gcc -O2 -o $@ $(SRC_DIR)/misc/mkdep.c
+else
+ifdef XCC_SPARC
 $(OBJ)/mkdep: $(OBJ)/.placeholder
 	gcc -O2 -o $@ $(SRC_DIR)/misc/mkdep.c
 else
 $(OBJ)/mkdep: $(SRC_DIR)/misc/mkdep.c $(OBJ)/.placeholder
 	$(CC) $(CFLAGS) -o $@ $(SRC_DIR)/misc/mkdep.c
+endif
 endif
 
 depend: $(DOTDEPEND)

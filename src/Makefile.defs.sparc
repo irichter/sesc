@@ -1,0 +1,47 @@
+#################
+# mipseb-linux specific
+#
+
+DEFS	+=-DLINUX
+AABI	:=
+ABI	:=
+ABINAME :=sparc
+##########################################################3
+# gcc
+PDEFS	:=-Wall -W -Wno-unused 
+CXX	=sparc-elf-g++
+CC	=sparc-elf-gcc
+F77	=sparc-elf-g77
+AR	=sparc-elf-ar
+RANLIB	=sparc-elf-ranlib
+AS	=sparc-elf-as
+LD	=sparc-elf-ld
+
+ifdef DEBUG
+COPTS	:=-O1 -g -fno-default-inline
+LOPTS	:=-O1 -g
+else
+##########################################################3
+# ! DEBUG
+COPTS	:=-O2
+LOPTS	:=-O2
+endif
+
+MOPTS:=-static 
+MOPTS+=-mv8 -msoft-float
+CCOPTS:=-fomit-frame-pointer -fno-exceptions -fno-strict-aliasing -finline-limit=1800 
+CCOPTS+=-frename-registers -finline-functions -funroll-loops
+CCOPTS+=-freduce-all-givs -fmove-all-movables -fgcse -fgcse-lm -fgcse-sm 
+
+COPTS += $(CCOPTS) $(MOPTS) 
+LOPTS += $(CCOPTS) $(MOPTS) 
+##############################################################################
+##############################################################################
+
+ARFLAGS	:=cr
+SHELL	=/bin/sh
+M4	=m4
+MAKE	=make
+FIND	=find
+SED	=sed
+

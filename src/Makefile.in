@@ -126,7 +126,11 @@ $(BUILD_DIR)/panalyze: $(OBJ)/panalyze.o $(OBJ)/libpanalyzer.a $(OBJ)/libcore.a 
 # libapp
 libapp-xcc:
 	@echo; echo "Cross-compiling libapp"; echo 
-	@$(MAKE) --no-print-directory XCC=1 -C $(SRC_DIR)/libapp all
+	@$(MAKE) --no-print-directory XCC_MIPSEB=1 -C $(SRC_DIR)/libapp all
+
+libapp-scoore:
+	@echo; echo "Cross-compiling libapp for sparc"; echo 
+	@$(MAKE) --no-print-directory XCC_SPARC=1 -C $(SRC_DIR)/libapp all
 
 libapp-native:
 	@echo; echo "Compiling libapp native"; echo 

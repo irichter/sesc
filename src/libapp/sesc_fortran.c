@@ -1,4 +1,7 @@
-#ifndef DARWIN
+
+#if (defined DARWIN) || (defined XCC_SPARC)
+// Do nothing
+#else
 
 #include "sescapi.h"
 #include <g2c.h>

@@ -661,6 +661,8 @@ sub showBaadStats {
 	$nTaken    += $cf->getResultField("BPred(${i})","nTaken");
     }
     $nTaken = 1 unless ($nTaken);
+    $nInst  = 1 unless ($nInst);
+    $niBJ   = 1 unless ($niBJ);
 
     # BBSize
     printf " %9.2f ", 1/($niBJ/$nInst);

@@ -5,10 +5,14 @@ include $(BUILD_DIR)/Make.defs
 
 #######################################
 # Machine detection (Uses MINT Makefile.defs.XXX)
-ifdef XCC
-include $(SRC_DIR)/Makefile.defs.cross
+ifdef XCC_MIPSEB
+include $(SRC_DIR)/Makefile.defs.mipseb
+else 
+ifdef XCC_SPARC
+include $(SRC_DIR)/Makefile.defs.sparc
 else
 include $(SRC_DIR)/Makefile.defs.$(shell uname -s)
+endif
 endif
 #######################################
 
@@ -97,11 +101,7 @@ INC     += -I$(SRC_DIR)/libsmp
 ifeq ($(findstring IRIX,$(ABINAME)),IRIX)
 LIBS	= -L$(OBJ) -L$(OBJ)/ -lgen -lsesc
 else
-ifdef XCC
-LIBS	= -L$(OBJ)
-else
 LIBS	= -L$(OBJ) 
-endif
 endif
 STDLIBS = -lm $(XSTDLIBS)
 CFLAGS	= $(ABI) $(COPTS) $(INC) $(PDEFS) $(DEFS)
@@ -109,10 +109,16 @@ LDFLAGS	= $(ABI) $(LOPTS)
 
 ##############################################################################
 # Native compilation libraries
-ifdef XCC
+ifdef XCC_SPARC 
+CFLAGS +=-DXCC_SPARC
+XLIBS	= -L$(OBJ) -lapp
+else
+ifdef XCC_MIPSEB
+CFLAGS +=-DXCC_MIPSEB
 XLIBS	= -L$(OBJ) -lapp
 else
 XLIBS	= -lpthread -L$(OBJ) -lapp
+endif
 endif
 
 ifdef SESCAPI_NATIVE

@@ -8,7 +8,7 @@
 
 #include "sescapi.h"
 
-#if ((defined(_MIPS_ISA) && (_MIPS_ISA == _MIPS_ISA_MIPS2)) || (defined XCC))
+#if ((defined(_MIPS_ISA) && (_MIPS_ISA == _MIPS_ISA_MIPS2)) || (defined XCC_MIPSEB) || (defined XCC_SPARC))
 /* compiled with -32 */
 
 void sesc_init(void)
