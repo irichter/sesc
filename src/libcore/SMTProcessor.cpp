@@ -64,9 +64,12 @@ SMTProcessor::SMTProcessor(GMemorySystem *gm, CPU_t i)
   Fetch *f = new Fetch(gm, Id, Id*smtContexts);
   flow[0] = f;
   gRAT = (DInst ***) malloc(sizeof(DInst ***) * smtContexts);
+
   for(int i = 1; i < smtContexts; i++) {
     flow[i] = new Fetch(gm, Id,Id*smtContexts+i, &(f->IFID));
+  }
 
+  for(int i = 0; i < smtContexts; i++) {
     gRAT[i] = (DInst **) malloc(sizeof(DInst **) * NumArchRegs);
     bzero(gRAT[i],sizeof(DInst*)*NumArchRegs);
   }
