@@ -159,7 +159,7 @@ double getEnergy(const char *section)
 
 void cacti_setup()
 {
-  const char *proc    = SescConf->getCharPtr("cpucore","cpucore");
+  const char *proc    = SescConf->getCharPtr("","cpucore",0);
   const char *l1Cache = SescConf->getCharPtr(proc,"dataSource");
 
   const char *l1CacheSpace = strstr(l1Cache," ");

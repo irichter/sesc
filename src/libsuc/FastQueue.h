@@ -53,10 +53,10 @@ class FastQueue {
 private:
   Data *pipe;
 
-  ushort pipeMask;
-  ushort start; 
-  ushort end;
-  ushort nElems;
+  unsigned int pipeMask;
+  unsigned int start; 
+  unsigned int end;
+  unsigned int nElems;
 
 protected:
 public:
@@ -64,7 +64,7 @@ public:
     // Find the closest power of two
     I(size);
     pipeMask = size;
-    I(size<32700); // define FASTQUEUE_USE_QUEUE for those cases
+    I(size<(256*1024)); // define FASTQUEUE_USE_QUEUE for those cases
 
     while(pipeMask & (pipeMask - 1))
       pipeMask++;
@@ -101,15 +101,15 @@ public:
     start = (start+1) & pipeMask;
   }
 
-  ushort getIdFromTop(int i) const {
+  unsigned int getIdFromTop(int i) const {
     I(nElems > i);
     return (start+i) & pipeMask;
   }
 
-  ushort getNextId(ushort id) const { return (id+1) & pipeMask; }
-  bool isEnd(ushort id) const { return id == end; }
+  unsigned int getNextId(unsigned int id) const { return (id+1) & pipeMask; }
+  bool isEnd(unsigned int id) const { return id == end; }
 
-  Data getData(ushort id) const {
+  Data getData(unsigned int id) const {
     I(id <= pipeMask);
     I(id != end);
     return pipe[id];

@@ -46,10 +46,10 @@ bool PipeIBucketLess::operator()(const IBucket *x, const IBucket *y) const
 
 Pipeline::Pipeline(size_t s, size_t fetch, int maxReqs)
   : PipeLength(s)
-  ,bucketPoolMaxSize(s+1)
+  ,bucketPoolMaxSize(s+1+maxReqs)
   ,MaxIRequests(maxReqs)
   ,nIRequests(maxReqs)
-  ,buffer(2*s+1)  // double s for the cleanMarks
+  ,buffer(2*s+1+maxReqs)  // double s for the cleanMarks
 {
   maxItemCntr = 0;
   minItemCntr = 0;

@@ -87,7 +87,7 @@ void Cluster::buildUnit(const char *clusterName
   TimeDelta_t lat = SescConf->getLong(clusterName,utLat);
   PortGeneric *gen;
 
-  SescConf->isBetween(clusterName,utLat,1,1024);
+  SescConf->isBetween(clusterName,utLat,0,1024);
   UnitMapType::const_iterator it = unitMap.find(unitName);
     
   if( it != unitMap.end() ) {
@@ -98,7 +98,7 @@ void Cluster::buildUnit(const char *clusterName
     SescConf->isLT(unitName,"Num",1024);
       
     e.occ = SescConf->getLong(unitName,"occ");
-    SescConf->isBetween(unitName,"occ",1,lat);
+    SescConf->isBetween(unitName,"occ",0,1024);
       
     char name[1024];
     sprintf(name,"%s(%d)", unitName, (int)gproc->getId());
@@ -148,9 +148,9 @@ void Cluster::buildUnit(const char *clusterName
   break ;
   case iBJ:
     {
-      ushort MaxBranches = SescConf->getLong("cpucore", "maxBranches", gproc->getId());
+      int MaxBranches = SescConf->getLong("cpucore", "maxBranches", gproc->getId());
       if( MaxBranches == 0 )
-	MaxBranches = USHRT_MAX;
+	MaxBranches = INT_MAX;
 	
       r = new FUBranch(cluster, gen, lat, MaxBranches);
     }
@@ -159,10 +159,10 @@ void Cluster::buildUnit(const char *clusterName
     {
       TimeDelta_t ldstdelay=SescConf->getLong("cpucore", "stForwardDelay",gproc->getId());
       SescConf->isLong("cpucore", "maxLoads",gproc->getId());
-      SescConf->isBetween("cpucore", "maxLoads", 0, 32700, gproc->getId());
-      ushort maxLoads=SescConf->getLong("cpucore", "maxLoads",gproc->getId());
+      SescConf->isBetween("cpucore", "maxLoads", 0, 256*1024, gproc->getId());
+      int maxLoads=SescConf->getLong("cpucore", "maxLoads",gproc->getId());
       if( maxLoads == 0 )
-	maxLoads = USHRT_MAX;
+	maxLoads = 256*1024;
 	
       r = new FULoad(cluster, gen, lat, ldstdelay, ms, maxLoads, gproc->getId());
     }
@@ -170,10 +170,10 @@ void Cluster::buildUnit(const char *clusterName
   case iStore:
     {
       SescConf->isLong("cpucore", "maxStores",gproc->getId());
-      SescConf->isBetween("cpucore", "maxStores", 0, 32700, gproc->getId());
-      ushort maxStores=SescConf->getLong("cpucore", "maxStores",gproc->getId());
+      SescConf->isBetween("cpucore", "maxStores", 0, 256*1024, gproc->getId());
+      int maxStores=SescConf->getLong("cpucore", "maxStores",gproc->getId());
       if( maxStores == 0 )
-	maxStores = USHRT_MAX;
+	maxStores = 256*1024;
 	
       r = new FUStore(cluster, gen, lat, ms, maxStores, gproc->getId());
 
