@@ -305,7 +305,7 @@ void Cache::returnAccess(MemRequest *mreq)
 void Cache::doReturnAccess(MemRequest *mreq)
 {
   PAddr addr = mreq->getPAddr();
-  Line *l = cache->findLine(addr); // TODO: count for energy? it shouldn't
+  Line *l = cache->findLineTagNoEffect(addr);
   I(l);
 
   l->valid = true;
@@ -354,7 +354,7 @@ Cache::Line *Cache::allocateLine(PAddr addr, CallbackBase *cb)
 
 void Cache::doAllocateLine(PAddr addr, PAddr rpl_addr, CallbackBase *cb)
 {
-  Line *l = cache->findLine(addr); // TODO: count for energy? it shouldn't
+  Line *l = cache->findLineTagNoEffect(addr);
   I(l);
 
   if(l->dirty)

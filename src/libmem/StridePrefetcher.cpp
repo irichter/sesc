@@ -262,7 +262,7 @@ void StridePrefetcher::access(MemRequest *mreq)
     LOG("SP:ignoring access addr=%08lx type=%d", paddr, mreq->getMemOperation());
     nextBuffSlot();
     
-    bLine *l = buff->findLine(paddr);
+    bLine *l = buff->readLine(paddr);
     if(l)
       l->invalidate();
 
@@ -314,7 +314,7 @@ void StridePrefetcher::invalidate(PAddr addr,ushort size,MemObj *oc)
    ulong paddr = addr & defaultMask;
    nextBuffSlot();
 
-   bLine *l = buff->findLine(paddr);
+   bLine *l = buff->readLine(paddr);
    if(l)
      l->invalidate();
 
