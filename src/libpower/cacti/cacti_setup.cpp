@@ -80,11 +80,11 @@ void iterate()
       SescConf->updateRecord(block, "WrMissEnergy"  ,0);
       SescConf->updateRecord(block, "LineFillEnergy",0); 
       
-    }else if(strcasestr(name,"cache") 
-	     || strcasestr(name,"tlb")
-	     || strcasestr(name,"mem")
-	     || strcasestr(name,"dir") 
-	     || !strcasecmp(name,"revLVIDTable") ){
+    }else if(strstr(name,"cache") 
+	     || strstr(name,"tlb")
+	     || strstr(name,"mem")
+	     || strstr(name,"dir") 
+	     || !strcmp(name,"revLVIDTable") ){
       double eng = wattch2cactiFactor * getEnergy(block);
       
       // write it

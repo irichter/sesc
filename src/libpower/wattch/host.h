@@ -50,22 +50,6 @@
  * INTERNET: dburger@cs.wisc.edu
  * US Mail:  1210 W. Dayton Street, Madison, WI 53706
  *
- * $Id: host.h,v 1.1.1.1 2004/10/18 17:27:36 renau Exp $
- *
- * $Log: host.h,v $
- * Revision 1.1.1.1  2004/10/18 17:27:36  renau
- * Super eScalar Santa Cruz
- *
- * Revision 1.1.1.1  2004/09/24 19:40:19  jrenau
- * Original SESC
- *
- * Revision 1.1  2003/03/07 21:02:28  sarangi
- * libpower : contains the wattchify script
- *
- * Revision 1.1  1998/08/27 08:28:46  taustin
- * Initial revision
- *
- *
  */
 
 #ifndef HOST_H
@@ -113,7 +97,9 @@ typedef double dfloat_t;		/* double-precision float - 64 bits */
 #if defined(__GNUC__) || defined(__SUNPRO_C) || defined(__CC_C89) || defined(__CC_XLC)
 #define HOST_HAS_QUAD
 #if !defined(__FreeBSD__)
-//typedef unsigned long long quad_t;	/* quad - 64 bits */
+#ifdef AIX
+typedef unsigned long long quad_t;	/* quad - 64 bits */
+#endif
 typedef signed long long squad_t;
 #else /* __FreeBSD__ */
 #define quad_t		unsigned long long

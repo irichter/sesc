@@ -50,46 +50,6 @@
  * INTERNET: dburger@cs.wisc.edu
  * US Mail:  1210 W. Dayton Street, Madison, WI 53706
  *
- * $Id: misc.h,v 1.1.1.1 2004/10/18 17:27:36 renau Exp $
- *
- * $Log: misc.h,v $
- * Revision 1.1.1.1  2004/10/18 17:27:36  renau
- * Super eScalar Santa Cruz
- *
- * Revision 1.1.1.1  2004/09/24 19:40:21  jrenau
- * Original SESC
- *
- * Revision 1.1  2003/03/07 21:02:29  sarangi
- * libpower : contains the wattchify script
- *
- * Revision 1.5  1998/08/27 15:45:24  taustin
- * implemented host interface description in host.h
- * added target interface support
- * implemented a more portable random() interface
- * disabled calls to sbrk() under malloc(), this breaks some
- *       malloc() implementation (e.g., newer Linux releases)
- * added myprintf() and myatoq() routines for printing and reading
- *       quadword's, respectively
- * added gzopen() and gzclose() routines for reading and writing
- *       compressed files, updated sysprobe to search for GZIP, if found
- *       support is enabled
- * moved host-dependent definitions to host.h
- *
- * Revision 1.4  1997/03/11  01:18:24  taustin
- * updated copyright
- * supported added for non-GNU C compilers
- * ANSI C compiler check added
- * long/int tweaks made for ALPHA target support
- * hacks added to make SYMCAT() portable
- *
- * Revision 1.3  1997/01/06  16:02:01  taustin
- * comments updated
- * system prototypes deleted (-Wall flag no longer a clean compile)
- *
- * Revision 1.1  1996/12/05  18:50:23  taustin
- * Initial revision
- *
- *
  */
 
 #ifndef MISC_H

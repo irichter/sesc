@@ -126,16 +126,22 @@ void wattch_setup()
   cout << "proc = " << proc << endl ;
   Mhz = SescConf->getDouble(proc,"frequency") ;
 
-  decode_stages = SescConf->getLong(proc,"decodeDelay");
-  rename_stages = SescConf->getLong(proc,"renameDelay");
-  wakeup_stages = SescConf->getLong(proc,"wakeupDelay");
-
   ruu_fetch_width  = SescConf->getLong(proc,"fetchWidth") ;
   ruu_decode_width = SescConf->getLong(proc,"issueWidth") ;
   ruu_issue_width  = SescConf->getLong(proc,"issueWidth") ;
   ruu_commit_width = SescConf->getLong(proc,"retireWidth") ;
   areaFactor       = SescConf->getDouble(proc,"areaFactor");
 
+  decode_stages = SescConf->getLong(proc,"decodeDelay");
+  rename_stages = SescConf->getLong(proc,"renameDelay");
+
+  {
+    const char* cc = SescConf->getCharPtr(proc,"cluster",0) ;
+
+    wakeup_stages = SescConf->getLong(cc,"wakeupDelay");
+    wakeup_stages += SescConf->getLong(cc,"scheduleDelay");
+  }
+ 
   double tech = SescConf->getDouble("","tech");
 
   dieLenght =.018*sqrt(areaFactor)*(tech/0.18);

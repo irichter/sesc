@@ -49,49 +49,6 @@
  * INTERNET: dburger@cs.wisc.edu
  * US Mail:  1210 W. Dayton Street, Madison, WI 53706
  *
- * $Id: wattch_cache.c,v 1.1.1.1 2004/10/18 17:27:36 renau Exp $
- *
- * $Log: wattch_cache.c,v $
- * Revision 1.1.1.1  2004/10/18 17:27:36  renau
- * Super eScalar Santa Cruz
- *
- * Revision 1.1.1.1  2004/09/24 19:40:22  jrenau
- * Original SESC
- *
- * Revision 1.3  2004/03/22 23:24:08  sarangi
- * warnings removed
- *
- * Revision 1.2  2003/10/04 21:35:14  sarangi
- * new Makefiles
- *
- * Revision 1.1  2003/10/04 16:55:46  sarangi
- * new names
- *
- * Revision 1.1  2003/03/07 21:02:28  sarangi
- * libpower : contains the wattchify script
- *
- * Revision 1.5  1998/08/27 08:02:01  taustin
- * implemented host interface description in host.h
- * added target interface support
- * implemented a more portable random() interface
- * fixed cache writeback stats for cache flushes
- *
- * Revision 1.4  1997/03/11  01:08:30  taustin
- * updated copyright
- * long/int tweaks made for ALPHA target support
- * double-word interfaces removed
- *
- * Revision 1.3  1997/01/06  15:56:20  taustin
- * comments updated
- * fixed writeback bug when balloc == FALSE
- * strdup() changed to mystrdup()
- * cache_reg_stats() now works with stats package
- * cp->writebacks stat added to cache
- *
- * Revision 1.1  1996/12/05  18:52:32  taustin
- * Initial revision
- *
- *
  */
 
 #include <stdio.h>

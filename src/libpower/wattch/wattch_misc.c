@@ -49,50 +49,6 @@
  * INTERNET: dburger@cs.wisc.edu
  * US Mail:  1210 W. Dayton Street, Madison, WI 53706
  *
- * $Id: wattch_misc.c,v 1.1.1.1 2004/10/18 17:27:36 renau Exp $
- *
- * $Log: wattch_misc.c,v $
- * Revision 1.1.1.1  2004/10/18 17:27:36  renau
- * Super eScalar Santa Cruz
- *
- * Revision 1.1.1.1  2004/09/24 19:40:23  jrenau
- * Original SESC
- *
- * Revision 1.3  2004/03/22 23:24:09  sarangi
- * warnings removed
- *
- * Revision 1.2  2003/10/23 22:56:16  sarangi
- * now it compiles and links
- *
- * Revision 1.1  2003/10/04 16:55:46  sarangi
- * new names
- *
- * Revision 1.1  2003/03/07 21:02:28  sarangi
- * libpower : contains the wattchify script
- *
- * Revision 1.6  1998/08/27 15:41:27  taustin
- * implemented host interface description in host.h
- * added target interface support
- * implemented a more portable random() interface
- * disabled calls to sbrk() under malloc(), this breaks some
- *       malloc() implementation (e.g., newer Linux releases)
- * added myprintf() and myatoq() routines for printing and reading
- *       quadword's, respectively
- * added gzopen() and gzclose() routines for reading and writing
- *       compressed files, updated sysprobe to search for GZIP, if found
- *       support is enabled
- *
- * Revision 1.5  1997/03/11  01:17:36  taustin
- * updated copyright
- * supported added for non-GNU C compilers
- *
- * Revision 1.4  1997/01/06  16:01:45  taustin
- * comments updated
- *
- * Revision 1.1  1996/12/05  18:52:32  taustin
- * Initial revision
- *
- *
  */
 
 #include <stdio.h>

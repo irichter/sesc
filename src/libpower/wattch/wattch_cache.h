@@ -49,40 +49,6 @@
  * INTERNET: dburger@cs.wisc.edu
  * US Mail:  1210 W. Dayton Street, Madison, WI 53706
  *
- * $Id: wattch_cache.h,v 1.1.1.1 2004/10/18 17:27:36 renau Exp $
- *
- * $Log: wattch_cache.h,v $
- * Revision 1.1.1.1  2004/10/18 17:27:36  renau
- * Super eScalar Santa Cruz
- *
- * Revision 1.1.1.1  2004/09/24 19:40:22  jrenau
- * Original SESC
- *
- * Revision 1.2  2004/03/22 23:24:09  sarangi
- * warnings removed
- *
- * Revision 1.1  2003/10/04 17:05:52  sarangi
- * changes
- *
- * Revision 1.1  2003/03/07 21:02:28  sarangi
- * libpower : contains the wattchify script
- *
- * Revision 1.5  1998/08/27 08:09:13  taustin
- * implemented host interface description in host.h
- * added target interface support
- *
- * Revision 1.4  1997/03/11  01:09:45  taustin
- * updated copyright
- * long/int tweaks made for ALPHA target support
- *
- * Revision 1.3  1997/01/06  15:57:55  taustin
- * comments updated
- * cache_reg_stats() now works with stats package
- * cp->writebacks stat added to cache
- *
- * Revision 1.1  1996/12/05  18:50:23  taustin
- * Initial revision
- *
  *
  */
 

@@ -50,33 +50,6 @@
  * INTERNET: dburger@cs.wisc.edu
  * US Mail:  1210 W. Dayton Street, Madison, WI 53706
  *
- * $Id: machine.def,v 1.1.1.1 2004/10/18 17:27:36 renau Exp $
- *
- * $Log: machine.def,v $
- * Revision 1.1.1.1  2004/10/18 17:27:36  renau
- * Super eScalar Santa Cruz
- *
- * Revision 1.1.1.1  2004/09/24 19:40:20  jrenau
- * Original SESC
- *
- * Revision 1.2  2003/03/29 19:19:53  sarangi
- * has support for memory and backend
- *
- * Revision 1.7  1998/08/27 17:01:35  taustin
- * implemented host interface description in host.h
- * added target interface support
- * reorganized instruction semantics definitions; now using name-mangled
- *      macros, this approach is very portable (even works on MC VC++) and
- *      it allows C statements to portably implement instruction semantics
- * LWL/LWR/SWL/SWR semantics fixed in ss.def, these instruction now
- *       appear to work correctly on big- and little-endian machines, this
- *       fixes all previous problems with IJPEG failing during functional
- *       simulation
- * added support for fast shifts if host machine can successfully implement
- *       them, sysprobe tests if fast shifts work and then sets -DFAST_SRA and
- *       -DFAST_SRL accordingly; this also fixes shifts when the high order
- *       bit is set for some machines
- *
  *
  */
 
