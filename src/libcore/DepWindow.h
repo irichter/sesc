@@ -72,6 +72,9 @@ public:
   void select(DInst *dinst);
   void executed(DInst *dinst);
 
+#ifdef SESC_DDIS
+  bool hasDepTableSpace(const DInst *dinst) const { return ddis.hasDepTableSpace(dinst); }
+#endif
 };
 
 #endif // DEPWINDOW_H

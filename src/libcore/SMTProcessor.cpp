@@ -102,6 +102,11 @@ SMTProcessor::Fetch *SMTProcessor::findFetch(Pid_t pid) const
   return 0;
 }
 
+DInst **SMTProcessor::getRAT(const DInst *dinst)
+{
+  return gRAT[dinst->getContextId()-firstContext];
+}
+
 FetchEngine *SMTProcessor::currentFlow()
 {
   return &flow[cFetchId]->IFID;

@@ -85,6 +85,10 @@ class Cluster {
     window.addInst(dinst);
   }
 
+#ifdef SESC_DDIS
+  bool hasDepTableSpace(const DInst *dinst) const { return window.hasDepTableSpace(dinst); }
+#endif
+
   GProcessor *getGProcessor() const { return gproc; }
 };
 

@@ -170,6 +170,10 @@ void DepWindow::select(DInst *dinst)
   // At the end of the wakeUp, we can start to read the register file
   I(dinst->getWakeUpTime());
 
+#ifdef SESC_BAAD
+  dinst->setIssueTime();
+#endif
+
   Time_t wakeTime = dinst->getWakeUpTime() + RegFileDelay;
 
   Time_t schedTime = schedPort->nextSlot();
@@ -186,6 +190,10 @@ void DepWindow::select(DInst *dinst)
 void DepWindow::executed(DInst *dinst)
 {
   const Instruction *inst = dinst->getInst();
+
+#ifdef SESC_BAAD
+  dinst->setExeTime();
+#endif
 
   //  MSG("execute [0x%x] @%lld",dinst, globalClock);
 
@@ -270,6 +278,9 @@ void DepWindow::executed(DInst *dinst)
       const Cluster *dstCluster = dstReady->getResource()->getCluster();
       I(dstCluster);
 
+#ifdef SESC_DDIS
+      I(dstCluster != srcCluster); // DDIS can not be compiled with multiple cluster
+#else
       if (dstCluster != srcCluster) {
 	forwardBusEnergy->inc();
 
@@ -277,6 +288,7 @@ void DepWindow::executed(DInst *dinst)
 	Time_t when = wakeUpPort->nextSlot() + InterClusterLat;
 	dstReady->setWakeUpTime(when);
       }
+#endif
 
       select(dstReady);
     }

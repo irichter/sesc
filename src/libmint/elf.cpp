@@ -401,7 +401,8 @@ elf_read_hdrs(char *objfile)
 #endif
 	  Data_size += size + addr - ( Data_start + Data_size);
 	}else
-	  fatal(".data data sections not contiguous\n");
+	  fatal(".data data sections not contiguous (%lx vs %lx)\n"
+		  ,addr,( Data_start + Data_size));
       }else
 	Data_size += size;
     } else if (strcmp(name, ".lit8") == 0) {

@@ -143,8 +143,6 @@ void BPRas::switchOut(Pid_t pid)
  */
 BPBTB::BPBTB(int i, const char *section, const char *name)
   :BPred(i,section, name ? name : "BTB")
-  ,historySize(SescConf->getLong(section,"btbHistory"))
-  ,historyMask(historySize?((1 << historySize) - 1):0)
 {
   char cadena[100];
   
@@ -156,9 +154,6 @@ BPBTB::BPBTB(int i, const char *section, const char *name)
     data = 0;
     return;
   }
-
-  SescConf->isBetween(section,"btbHistory",0,63);
-  history = 0x55555555;
 
   data = BTBCache::create(section,"btb","BPred_BTB(%d):",i);
   I(data);
@@ -175,9 +170,8 @@ void BPBTB::updateOnly(const Instruction *inst, InstID oracleID)
   if( data == 0 )
     return;
 
-  bool ntaken     = inst->calcNextInstID() == oracleID;
-  HistoryType key = calcInstID(inst) ^ (history & historyMask);
-  history         = (history<<1) | (ntaken?0:1);
+  bool ntaken = inst->calcNextInstID() == oracleID;
+  ulong key   = calcInstID(inst);
   
   // Update only in taken branches
   if( ntaken )
@@ -197,8 +191,8 @@ PredType BPBTB::predict(const Instruction * inst, InstID oracleID, bool doUpdate
 
   if (data == 0) {
     // required when BPOracle
-    if (doUpdate)
-      nHit.inc();
+    nHit.cinc(doUpdate);
+
     I(oracleID);
     if (ntaken) {
       // Trash result because it shouldn't have reach BTB. Otherwise, the
@@ -208,29 +202,23 @@ PredType BPBTB::predict(const Instruction * inst, InstID oracleID, bool doUpdate
     return CorrectPrediction;
   }
 
-  HistoryType key = calcInstID(inst) ^ (history & historyMask);
+  ulong key = calcInstID(inst);
 
-  if (doUpdate)
-    history = (history<<1) | (ntaken?0:1);
-  
   if ( ntaken || !doUpdate ) {
     // The branch is not taken. Do not update the cache
     BTBCache::CacheLine *cl = data->readLine(key);
 
     if( cl == 0 ) {
-      if (doUpdate)
-	nMiss.inc();
+      nMiss.cinc(doUpdate);
       return NoBTBPrediction; // NoBTBPrediction because BTAC would hide the prediction
     }
 
     if( cl->inst == oracleID ) {
-      if (doUpdate)
-	nHit.inc();
+      nHit.cinc(doUpdate);
       return CorrectPrediction;
     }
 
-    if (doUpdate)
-      nMiss.inc();
+    nMiss.cinc(doUpdate);
     return NoBTBPrediction;
   }
 
@@ -1347,6 +1335,7 @@ BPredictor::BPredictor(int i, const char *sec, BPredictor *bpred)
    ,SMTcopy(bpred == 0 ? false : true)
    ,ras(i, sec)
    ,nBranches("BPred(%d):nBranches", i)
+   ,nTaken("BPred(%d):nTaken", i)
    ,nMiss("BPred(%d):nMiss", i)
    ,section(strdup(sec ? sec : "null" ))
 {

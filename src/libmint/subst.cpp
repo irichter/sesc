@@ -458,7 +458,7 @@ func_desc_t Func_subst[] = {
   {"sesc_release",            mint_sesc_release,               1, OpExposed},
   {"sesc_release_",           mint_sesc_release,               1, OpExposed},
   {"sesc_wait",               mint_sesc_wait,                  1, OpExposed},
-  //  {"printf",		      mint_printf,	               1, OpExposed},
+  /// {"printf",		      mint_printf,	               1, OpExposed},
   //  {"IO_printf",	              mint_printf,	               1, OpExposed},
   {"sesc_get_num_cpus",       mint_sesc_get_num_cpus,          0, OpExposed},
 #if (defined TLS)

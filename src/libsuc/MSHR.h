@@ -323,11 +323,9 @@ class SingleMSHR : public MSHR<Addr_t> {
   void dropEntry(Addr_t paddr);
   void putEntry(MSHRentry<Addr_t> &me);
 
-  void updateL2HitStat(Addr_t paddr) 
-    {
-      if (L2Cache && L2Cache->isInCache(paddr))
-	nL2HitsNewEntry.inc();
-    }
+  void updateL2HitStat(Addr_t paddr) {
+    nL2HitsNewEntry.cinc(L2Cache && L2Cache->isInCache(paddr));
+  }
 
  public:
   SingleMSHR(const char *name, int size, int lineSize, int nse = 16);

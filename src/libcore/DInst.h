@@ -29,6 +29,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "callback.h"
 
 #include "Snippets.h"
+#include "GStats.h"
 
 #ifdef TASKSCALAR
 #include "GLVID.h"
@@ -125,6 +126,19 @@ private:
   // BEGIN Time counters
   Time_t wakeUpTime;
   // END Time counters
+
+#ifdef SESC_BAAD
+  static GStatsAvg **avgFetchQTime;
+  static GStatsAvg **avgIssueQTime;
+  static GStatsAvg **avgSchedQTime;
+  static GStatsAvg **avgExeQTime;
+  static GStatsAvg **avgRetireQTime;
+  Time_t fetchTime;
+  Time_t renameTime;
+  Time_t issueTime;
+  Time_t schedTime;
+  Time_t exeTime;
+#endif
 
 #ifdef BPRED_UPDATE_RETIRE
   BPredictor *bpred;
@@ -435,6 +449,15 @@ public:
     wakeUpTime = t;
   }
   Time_t getWakeUpTime() const { return wakeUpTime; }
+
+#ifdef SESC_BAAD
+  void setFetchTime();
+  void setRenameTime();
+  void setIssueTime();
+  void setSchedTime();
+  void setExeTime();
+  void setRetireTime();
+#endif
 
 #ifdef DEBUG
   long getID() const { return ID; }

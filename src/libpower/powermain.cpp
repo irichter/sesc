@@ -26,8 +26,13 @@ int main(int argc, char **argv)
 
   SescConf = new SConfig(argv[1+verbose]);
 
+  fprintf(stderr,"++++++++++++++BEGIN WATCH\n");
   wattch_setup();
+  fprintf(stderr,"++++++++++++++END   WATCH\n");
+
+  fprintf(stderr,"++++++++++++++BEGIN ORION\n");
   orion_setup(SescConf);
+  fprintf(stderr,"++++++++++++++END   ORION\n");
 
   // dump the wattchified configuration
   SescConf->dump(true);

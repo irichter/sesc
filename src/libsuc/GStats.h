@@ -48,7 +48,7 @@ protected:
   void subscribe();
   void unsubscribe();
 public:
-	int gd;
+  int gd;
 
   static void report(const char *str);
 #ifdef SESC_THERM
@@ -97,6 +97,9 @@ public:
   // change that for operator++()
   void inc() {
     data++;
+  }
+  void cinc(bool cond) {
+    data += cond ? 1 : 0;
   }
 
   void dec() {

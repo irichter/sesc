@@ -46,6 +46,11 @@ Processor::~Processor()
   // Nothing to do
 }
 
+DInst **Processor::getRAT(const DInst *dinst)
+{
+  return RAT;
+}
+
 FetchEngine *Processor::currentFlow()
 {
   return &IFID;
@@ -170,6 +175,7 @@ StallCause Processor::addInst(DInst *dinst)
       return SmallWinStall;
     }
   }
+
 
   StallCause sc = sharedAddInst(dinst);
   if (sc != NoStall)

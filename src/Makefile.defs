@@ -184,6 +184,12 @@ DEFS    += -DSESC_DDIS
 endif
 
 ################################################
+# Bandwidth Analyzer model
+ifdef SESC_BAAD
+DEFS    += -DSESC_BAAD
+endif
+
+################################################
 # HVersion (TaskScalar)
 
 ifdef TASKSCALAR 

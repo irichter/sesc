@@ -32,6 +32,14 @@ pool<DInst> DInst::dInstPool(512);
 long DInst::currentID=0;
 #endif
 
+#ifdef SESC_BAAD
+GStatsAvg **DInst::avgFetchQTime  = 0;
+GStatsAvg **DInst::avgIssueQTime  = 0;
+GStatsAvg **DInst::avgSchedQTime  = 0;
+GStatsAvg **DInst::avgExeQTime    = 0;
+GStatsAvg **DInst::avgRetireQTime = 0;
+#endif
+
 DInst::DInst()
   :doAtExecutedCB(this)
   ,doAtSimTimeCB(this)
@@ -40,6 +48,24 @@ DInst::DInst()
   pend[1].init(this);
   I(MAX_PENDING_SOURCES==2);
   IS(nDeps = 0);
+
+#ifdef SESC_BAAD
+  if (avgFetchQTime == 0) {
+    int maxType = static_cast<int>(MaxInstType);
+    avgFetchQTime  = (GStatsAvg **)malloc(sizeof(GStatsAvg *)*maxType);
+    avgIssueQTime  = (GStatsAvg **)malloc(sizeof(GStatsAvg *)*maxType);
+    avgSchedQTime  = (GStatsAvg **)malloc(sizeof(GStatsAvg *)*maxType);
+    avgExeQTime    = (GStatsAvg **)malloc(sizeof(GStatsAvg *)*maxType);
+    avgRetireQTime = (GStatsAvg **)malloc(sizeof(GStatsAvg *)*maxType);
+    for(int i = 1; i < maxType ; i++) {
+      avgFetchQTime[i]  = new GStatsAvg("BAAD_%sFrontQTime" ,Instruction::opcode2Name(static_cast<InstType>(i)));
+      avgIssueQTime[i]  = new GStatsAvg("BAAD_%sDepQTime"   ,Instruction::opcode2Name(static_cast<InstType>(i)));
+      avgSchedQTime[i]  = new GStatsAvg("BAAD_%sSchQTime"   ,Instruction::opcode2Name(static_cast<InstType>(i)));
+      avgExeQTime[i]    = new GStatsAvg("BAAD_%sExeQTime"   ,Instruction::opcode2Name(static_cast<InstType>(i)));
+      avgRetireQTime[i] = new GStatsAvg("BAAD_%sComRetQTime",Instruction::opcode2Name(static_cast<InstType>(i)));
+    }
+  }
+#endif
 }
 
 void DInst::dump(const char *str)
@@ -83,6 +109,10 @@ void DInst::doAtSimTime()
 #ifdef SESC_PRESCHEDULE
   // wakeUp at the end of the select stage
   resource->getCluster()->wakeUpDeps(this);
+#endif
+
+#ifdef SESC_BAAD
+  setSchedTime();
 #endif
 
   resource->simTime(this);
@@ -394,4 +424,41 @@ void DInst::awakeRemoteInstructions()
   }
 }
 
+#ifdef SESC_BAAD
+void DInst::setFetchTime()
+{
+  fetchTime = globalClock;
+}
+
+void DInst::setRenameTime()
+{
+  renameTime = globalClock;
+}
+
+void DInst::setIssueTime()
+{
+  issueTime = globalClock;
+}
+
+void DInst::setSchedTime()
+{
+  schedTime = globalClock;
+}
+
+void DInst::setExeTime()
+{
+  exeTime = globalClock;
+}
+void DInst::setRetireTime()
+{
+  InstType i = inst->getOpcode();
+  // Based on instruction type keep statistics
+  avgFetchQTime[i]->sample(renameTime-fetchTime);
+  avgIssueQTime[i]->sample(issueTime-renameTime);
+  avgSchedQTime[i]->sample(schedTime-issueTime);
+  avgExeQTime[i]->sample(exeTime-schedTime);
+  avgRetireQTime[i]->sample(globalClock-exeTime);
+}
+
+#endif
 

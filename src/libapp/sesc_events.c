@@ -1,5 +1,7 @@
+
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/time.h>
 
 #include "sescapi.h"
 
@@ -71,10 +73,61 @@ void sesc_simulation_mark_()
   sesc_simulation_mark();
 }
 
+void sesc_tvsub(struct timeval *tdiff, struct timeval *t1, struct timeval *t0)
+{
+  tdiff->tv_sec = t1->tv_sec - t0->tv_sec;
+  tdiff->tv_usec = t1->tv_usec - t0->tv_usec;
+  if (tdiff->tv_usec < 0 && tdiff->tv_sec > 0) {
+    tdiff->tv_sec--;
+    tdiff->tv_usec += 1000000;
+  }
+  
+  /* time shouldn't go backwards!!! */
+  if (tdiff->tv_usec < 0 || t1->tv_sec < t0->tv_sec) {
+    tdiff->tv_sec = 0;
+    tdiff->tv_usec = 0;
+  }
+}
+
 void sesc_simulation_mark()
 {
   static int mark=0;
-  fprintf(stderr,"sesc_simulation_mark %d (native)", mark);
+  static int mark1=0;
+  static int mark2=0;
+  static struct timeval tv1;
+
+  if (mark == 0) {
+    gettimeofday(&tv1, 0); // just in case that mark1 is not set
+
+    if (getenv("SESC_1"))
+      mark1 = atoi(getenv("SESC_1"));
+    
+    if (getenv("SESC_2"))
+      mark2 = atoi(getenv("SESC_2"));
+  }
+
+  if (mark == mark1)
+    gettimeofday(&tv1, 0);
+
+  fprintf(stderr,"sesc_simulation_mark %d (native) (sim from %d to %d mark)\n"
+	  ,mark, mark1, mark2);
+
+  if (mark == mark2) {
+    struct timeval tv2;
+    gettimeofday(&tv2, 0);
+
+    struct timeval td;
+    long long usecs;
+    
+    sesc_tvsub(&td, &tv2, &tv1);
+    usecs = td.tv_sec;
+    usecs *= 1000000;
+    usecs += td.tv_usec;
+    
+    fprintf(stderr,"sesc_simulation_mark FINISH %lld usesc\n", usecs);
+    exit(0);
+  }
+
   mark++;
 }
 

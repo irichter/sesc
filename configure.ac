@@ -41,6 +41,7 @@ AC_SUBST(SESC_DSM_OPT)
 AC_SUBST(SESC_SMP_OPT)
 AC_SUBST(SESC_CHERRY_OPT)
 AC_SUBST(SESC_DDIS_OPT)
+AC_SUBST(SESC_BAAD_OPT)
 
 #we are not defining compiler options yet, but we should
 #AC_PROG_CC
@@ -231,6 +232,15 @@ AC_ARG_ENABLE(ddis,
 AC_HELP_STRING([--enable-ddis],
                [Enables Decoupled Instruction Scheduling (default is no)]),
 [if test "$enableval" = "yes"; then AC_COMPOPT(SESC_DDIS) fi],
+)
+
+### BAAD (Bandwidth Analyzer)
+
+AC_NOCOMPOPT(SESC_BAAD)
+AC_ARG_ENABLE(baad, 
+AC_HELP_STRING([--enable-baad],
+               [Enables Bandwidth analyzer performance statistics (default is no)]),
+[if test "$enableval" = "yes"; then AC_COMPOPT(SESC_BAAD) fi],
 )
 
 

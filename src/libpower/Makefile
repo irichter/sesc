@@ -2,23 +2,25 @@
 SIGNATURE=libpower
 include	../Makefile.defs
 
-DOTDEPENDEXTRA1=$$\(OBJ\)/libpower.a: $$\(OBJ\)/libcacti.a $$\(OBJ\)/libwattch.a $$\(OBJ\)/liborion.a
+DOTDEPENDEXTRA1=$$\(OBJ\)/libpower.a: $$\(OBJ\)/libcacti.a $$\(OBJ\)/libwattch.a $$\(OBJ\)/libpanalyzer.a $$\(OBJ\)/liborion.a
 DOTDEPENDEXTRA2=-include $$\(OBJ\)/.depend.libcacti
 DOTDEPENDEXTRA3=-include $$\(OBJ\)/.depend.libwattch
-DOTDEPENDEXTRA4=-include $$\(OBJ\)/.depend.liborion
+DOTDEPENDEXTRA4=-include $$\(OBJ\)/.depend.libpanalyzer
+DOTDEPENDEXTRA5=-include $$\(OBJ\)/.depend.liborion
 
 ##############################################################################
 #              Definitions
 ##############################################################################
 WATTCHENV=$(OBJ)/libwattch.a
+PANALENV=$(OBJ)/libpanalyzer.a
 CACTIENV=$(OBJ)/libcacti.a
 ORIONENV=$(OBJ)/liborion.a
 SRCENV=$(OBJ)/libcore.a
 SUCENV=$(OBJ)/libsuc.a
 MINTENV=$(MINT_O)
-ALLENVS = $(WATTCHENV) $(CACTIENV) $(ORIONENV) $(SRCENV) $(SUCENV) $(MINTENV)
+ALLENVS = $(WATTCHENV) $(PANALENV) $(CACTIENV) $(ORIONENV) $(SRCENV) $(SUCENV) $(MINTENV)
 
-POWER_SUBDIRS:= cacti wattch orion
+POWER_SUBDIRS:= cacti wattch panalyzer orion
 
 ##############################################################################
 #                Objects
@@ -43,12 +45,13 @@ $(POWER_SUBDIRS): $(DOTDEPEND)
 	$(MAKE) --no-print-directory -C $@ all;	
 
 wattch: cacti
+panalyzer: cacti
 orion: wattch
 
 $(ALLENVS): $(POWER_SUBDIRS)
 
 eclean:
-	-@rm -f cactify wattchify                           
+	-@rm -f cactify wattchify panalyze                           
 	-@for a in $(POWER_SUBDIRS) ; 			\
 	do 						\
 	echo "Cleaning " $$a ; 				\

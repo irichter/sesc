@@ -113,6 +113,8 @@ protected:
   int issue(PipeQueue &pipeQ);
   void retire();
 
+  virtual DInst **getRAT(const DInst *dinst) = 0;
+
   virtual FetchEngine *currentFlow() = 0;
 public:
   //Lock counters

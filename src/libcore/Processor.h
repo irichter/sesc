@@ -41,6 +41,7 @@ private:
 
 protected:
   // BEGIN VIRTUAL FUNCTIONS of GProcessor
+  DInst **getRAT(const DInst *dinst);
   FetchEngine *currentFlow();
 
   void saveThreadContext(Pid_t pid);

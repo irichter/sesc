@@ -36,7 +36,8 @@ my $op_table;
 my $op_lock;
 my $op_atomic;
 my $op_cc;
-my $op_table;
+my $op_baad;
+
 my $result = GetOptions("a",\$op_all,
 			"last",\$op_last,
 			"bpred!",\$op_bpred,
@@ -49,6 +50,7 @@ my $result = GetOptions("a",\$op_all,
 			"lock",\$op_lock,
 			"table",\$op_table,
 			"cc",\$op_cc,
+			"baad",\$op_baad,
 			"help",\$op_help
                        );
 
@@ -83,6 +85,8 @@ sub usage {
   print "\t-[no]cpu      : Deactivae/Activate CPU statistics\n";
   print "\t-[no]inst     : Deactivae/Activate instruction statistics\n";
   print "\t-[no]sim      : Show results without comments\n";
+  print "\t-table        : Statistics table sumarry (god for scripts)\n";
+  print "\t-baad         : BAAD statistics\n";
   print "\t-help         : Show this help\n";
 }
 
@@ -156,15 +160,16 @@ sub main {
 
     showVersionMem($file) if( $op_versionmem );
 
-    showCCStats($file) if( $op_cc );
+    showCCStats($file)    if( $op_cc );
 
-    showTLSReport($file) if($op_tls);
+    showTLSReport($file)  if( $op_tls );
 
-    atomicStats($file);
+    showBaadStats($file)  if( $op_baad );
 
-    lockStats($file);
+    atomicStats($file)    if( $op_atomic );
+
+    lockStats($file)      if( $op_lock );
   }
-
 }
 
 sub partialBusStat {
@@ -551,8 +556,6 @@ sub showVersionMem {
 sub showCCStats {
   my $file = shift;
 
-  return unless ($op_cc);
-
   printf "###############################################################################\n";
 
   my $tot_rdSh  = 0;
@@ -561,7 +564,6 @@ sub showCCStats {
   my $tot_nwrSh = 0;
   my $tot_rdHdl = 0;
   my $tot_wrHdl = 0;
-
 
   for(my $i=0; $i<$nCPUs; $i++) {
     my $readSharers    = 
@@ -626,6 +628,45 @@ sub showCCStats {
   printf "res: $bench: %9.2f %9.2f %9.2f %9.2f\n", $readSharersNoZero, 
 $writeSharersNoZero, $readFromMem, $writeFromMem;
 
+}
+
+
+sub showBaadStats {
+    my $file = shift;
+    
+    printf "###############################################################################\n";
+
+    printf "#baad0       BBSize   FetchSize\n";
+    printf "baad0  ";
+
+    my $nInst;
+    my $niBJ;
+    my $nBranches;
+    my $nTaken;
+    for(my $i=0;$i<$nCPUs;$i++) {
+	next unless( $cf->getResultField("Proc(${i})","clockTicks") );
+
+	$niBJ += $cf->getResultField("PendingWindow(${i})_iBJ","n");
+
+	$nInst += $cf->getResultField("PendingWindow(${i})_iBJ","n")
+	    + $cf->getResultField("PendingWindow(${i})_iLoad","n")
+	    + $cf->getResultField("PendingWindow(${i})_iStore","n")
+	    + $cf->getResultField("PendingWindow(${i})_iALU","n")
+	    + $cf->getResultField("PendingWindow(${i})_iComplex","n")
+	    + $cf->getResultField("PendingWindow(${i})_fpALU","n")
+	    + $cf->getResultField("PendingWindow(${i})_fpComplex","n")
+	    + $cf->getResultField("PendingWindow(${i})_other","n");
+	
+	$nBranches += $cf->getResultField("BPred(${i})","nBranches");
+	$nTaken    += $cf->getResultField("BPred(${i})","nTaken");
+    }
+    $nTaken = 1 unless ($nTaken);
+
+    # BBSize
+    printf " %9.2f ", 1/($niBJ/$nInst);
+    # FetchSize
+    printf " %9.2f ", $nBranches/($nTaken*($niBJ/$nInst));
+    printf "\n";
 }
 
 sub showStatReport {
@@ -1054,8 +1095,12 @@ sub simStats {
   # Begin Global Stats
   $cpuType = $cf->getConfigEntry(key=>"cpucore");
 
-  $freq = $cf->getConfigEntry(key=>"frequency",section=>$cpuType) / 1e6;
-  $freq = 1e3 if( $freq == 0 );
+  my $techSec = $cf->getConfigEntry(key=>"technology");
+
+  $freq = $cf->getConfigEntry(key=>"frequency",section=>$techSec) / 1e6;
+  # Old configuration type
+  $freq = $cf->getConfigEntry(key=>"frequency",section=>$cpuType) / 1e6 unless($freq);
+  $freq = 1e3 unless($freq);
 
   $nCPUs= $cf->getResultField("OSSim","nCPUs");
   unless( defined $nCPUs ) {
@@ -1173,9 +1218,7 @@ sub branchStats {
   print "\n";
 
   for(my $i=0;$i<$nCPUs;$i++) {
-    unless( $cf->getResultField("Proc(${i})","clockTicks") ) {
-      next;
-    }
+    next unless( $cf->getResultField("Proc(${i})","clockTicks") );
 
     my $cpuType    = $cf->getConfigEntry(key=>"cpucore",index=>$i);
 
@@ -1396,8 +1439,6 @@ sub tradCPUStats {
 sub atomicStats {
   my $file = shift;
 
-  return unless ($op_atomic);
-
   printf "################################################################################\n";
 
   printf "Atomic stats:\n";
@@ -1412,8 +1453,6 @@ sub atomicStats {
 
 sub lockStats {
   my $file = shift;
-
-  return unless ($op_lock);
 
   printf "################################################################################\n";
 

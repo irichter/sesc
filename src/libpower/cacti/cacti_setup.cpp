@@ -41,6 +41,7 @@
  *------------------------------------------------------------*/
 #include <stdio.h>
 #include <ctype.h>
+#include <math.h>
 
 #include "def.h"
 #include "areadef.h"
@@ -352,7 +353,11 @@ void processorCore()
 
 void cacti_setup()
 {
-  tech = SescConf->getDouble("","tech") ;
+  const char *technology = SescConf->getCharPtr("","technology");
+  fprintf(stderr,"technology = [%s]\n",technology);
+  tech = SescConf->getLong(technology,"tech");
+  fprintf(stderr, "tech : %9.0fnm\n" , tech);
+  tech /= 1000;
 
   const char *proc    = SescConf->getCharPtr("","cpucore",0);
   const char *l1Cache = SescConf->getCharPtr(proc,"dataSource");

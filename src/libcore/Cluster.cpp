@@ -253,6 +253,10 @@ void ExecutedCluster::executed(DInst *dinst)
 
 void ExecutedCluster::retire(DInst *dinst)
 {
+#ifdef SESC_BAAD
+  dinst->setRetireTime();
+#endif
+
   winNotUsed.sample(windowSize);
   // Nothing
 }
@@ -265,6 +269,10 @@ void RetiredCluster::executed(DInst *dinst)
 
 void RetiredCluster::retire(DInst *dinst)
 {
+#ifdef SESC_BAAD
+  dinst->setRetireTime();
+#endif
+
   winNotUsed.sample(windowSize);
   delEntry();
 }

@@ -125,7 +125,14 @@ void wattch_setup()
   
   const char *proc = SescConf->getCharPtr("","cpucore",0) ;
   fprintf(stderr,"proc = [%s]\n",proc);
-  Mhz = SescConf->getDouble(proc,"frequency") ;
+
+  const char *technology = SescConf->getCharPtr("","technology");
+  fprintf(stderr,"technology = [%s]\n",technology);
+  Mhz = SescConf->getDouble(technology,"frequency");
+  double tech = SescConf->getLong(technology,"tech");
+  fprintf(stderr, "Freq : %9.2fGHz\n", Mhz/1e9);
+  fprintf(stderr, "tech : %9.0fnm\n" , tech);
+  tech /= 1000; // Use um (not nm)
 
   ruu_fetch_width  = SescConf->getLong(proc,"fetchWidth") ;
   ruu_decode_width = SescConf->getLong(proc,"issueWidth") ;
@@ -143,9 +150,7 @@ void wattch_setup()
     wakeup_stages += SescConf->getLong(cc,"scheduleDelay");
   }
  
-  double tech = SescConf->getDouble("","tech");
-
-  dieLenght =.018*sqrt(areaFactor)*(tech/0.18);
+  dieLenght =.018*sqrt(areaFactor)*(tech/.18);
   printf("areaFactor=%g estimated area = %g mm^2 at %.0fnm (per core)\n"
 	 ,areaFactor
 	 ,18*18*(tech/0.18)*(tech/0.18)*areaFactor

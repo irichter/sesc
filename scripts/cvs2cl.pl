@@ -76,7 +76,7 @@ use User::pwent;
 use constant MAILNAME => "/etc/mailname";
 
 # What we run to generate it:
-my $Log_Source_Command = "cvs log";
+my $Log_Source_Command = "cvsmain log";
 
 # In case we have to print it out:
 my $VERSION = '1.0';

@@ -189,21 +189,29 @@ StallCause GProcessor::sharedAddInst(DInst *dinst)
   Resource *res = clusterManager.getResource(inst->getOpcode());
 
 #ifdef SESC_DDIS
-  // FIXME:
-  bool can = true;
-  if (RAT[inst->getSrc1()])
-    can = res->getCluster()->ddis.canIssue(RAT[inst->getSrc1()]);
-  if (can && RAT[inst->getSrc2()])
-     can = ddis.canIssue(RAT[inst->getSrc2()]);
-  return can;
-#endif
+  {
+    DInst **RAT = getRAT(dinst);
+    const Cluster *cluster = res->getCluster();
 
+    if (RAT[inst->getSrc1()])
+      if (!cluster->hasDepTableSpace(RAT[inst->getSrc1()]))
+	return SmallWinStall;
+    
+    if (RAT[inst->getSrc2()])
+      if (!cluster->hasDepTableSpace(RAT[inst->getSrc2()]))
+	return SmallWinStall;
+  }
+#endif
   StallCause sc = res->canIssue(dinst);
   if (sc != NoStall)
     return sc;
 
   // BEGIN INSERTION (note that schedule already inserted in the window)
   dinst->markIssued();
+
+#ifdef SESC_BAAD
+  dinst->setRenameTime();
+#endif
 
 #ifdef SESC_MISPATH
   if (dinst->isFake()) {
@@ -348,22 +356,27 @@ void GProcessor::retire()
   for(ushort i=0;i<RetireWidth && !ROB.empty();i++) {
     DInst *dinst = ROB.top();
 
-    if( !dinst->isExecuted() ) {
+    if( !dinst->isExecuted() )
       return;
-    }
 
     // save it now because retire can destroy DInst
     int rp = dinst->getInst()->getDstPool();
 
+    bool fake = dinst->isFake();
+#ifdef SESC_CHERRY
+    RegType dest= dinst->getInst()->getDest();
+#endif
+
     I(dinst->getResource());
     if( !dinst->getResource()->retire(dinst) )
       return;
+    // dinst CAN NOT be used beyond this point
 
-    if (! dinst->isFake())
+    if (!fake)
       regPool[rp]++;
 
 #ifdef SESC_CHERRY
-    cherryRAT[dinst->getInst()->getDest()] = 0;
+    cherryRAT[dest] = 0;
 
     // If the instruction can get retired for sure that the unresolved
     // pointer advanced

@@ -24,8 +24,9 @@ int main(int argc, char **argv)
 
   SescConf = new SConfig(argv[1]);
 
+  fprintf(stderr,"++++++++++++++BEGIN CACTI\n");
   cacti_setup();
-  printf("CACTI Setup done\n");
+  fprintf(stderr,"++++++++++++++END   CACTI\n");
 
   // dump the cactify configuration
   SescConf->dump(true);

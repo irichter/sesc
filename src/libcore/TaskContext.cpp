@@ -201,10 +201,8 @@ void TaskContext::mergeDestroy()
 
   LOG("TaskContext(%d)::mergeDestroy", tid);
 
-  if (memVer->getTaskContext()->wasSpawnedOO)
-    nCorrectOutOrderSpawn->inc();
-  else
-    nCorrectInOrderSpawn->inc();
+  nCorrectOutOrderSpawn->cinc(memVer->getTaskContext()->wasSpawnedOO);
+  nCorrectInOrderSpawn->cinc(!memVer->getTaskContext()->wasSpawnedOO);
 
   long nInst = ProcessId::getProcessId(tid)->getNGradInsts();
 
@@ -1304,9 +1302,7 @@ void TaskContext::startTransaction(int pid)
 
   I(! memVer->isAtomic());
 
-  if (! restartCounted) {
-    nTransactions->inc();
-  }
+  nTransactions->cinc(!restartCounted);
 
   memBuffer->mergeDestroy();
   memBuffer = 0;

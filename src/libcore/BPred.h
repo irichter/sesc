@@ -71,8 +71,8 @@ protected:
   GStatsEnergy *bpredEnergy;
 
   HistoryType calcInstID(const Instruction *inst) const {
-    ulong cid = inst->currentID();
-    return (cid >> 17) ^ cid; // randomize it
+    return inst->currentID();
+    // return (cid >> 17) ^ (cid); // randomize it
   }
 protected:
 public:
@@ -87,10 +87,8 @@ public:
     if (!doUpdate || pred == NoPrediction)
       return pred;
 
-    if (pred == CorrectPrediction)
-      nHit.inc();
-    else 
-      nMiss.inc();
+    nHit.cinc(pred == CorrectPrediction);
+    nMiss.cinc(pred != CorrectPrediction);
 
     return pred;
   }
@@ -136,10 +134,6 @@ private:
 
   typedef CacheGeneric<BTBState, ulong, false> BTBCache;
   
-  const ushort historySize;
-  const HistoryType historyMask;
-  HistoryType history;
-
   BTBCache *data;
   
 protected:
@@ -452,6 +446,7 @@ private:
   BPred *pred;
   
   GStatsCntr nBranches;
+  GStatsCntr nTaken;
   GStatsCntr nMiss;           // hits == nBranches - nMiss
 
   char *section;
@@ -466,20 +461,19 @@ public:
   PredType predict(const Instruction *inst, InstID oracleID, bool doUpdate) {
     I(inst->isBranch());
 
-    if (doUpdate)
-      nBranches.inc();
+    nBranches.cinc(doUpdate);
+    nTaken.cinc(inst->calcNextInstID() == oracleID);
   
     PredType p= ras.doPredict(inst, oracleID, doUpdate);
     if( p != NoPrediction ) {
-      if (p != CorrectPrediction && doUpdate)
-	nMiss.inc();
+      nMiss.cinc(p != CorrectPrediction && doUpdate);
       return p;
     }
 
     p = pred->doPredict(inst, oracleID, doUpdate);
 
-    if (p != CorrectPrediction && doUpdate)
-      nMiss.inc();
+    nMiss.cinc(p != CorrectPrediction && doUpdate);
+
     return p;
   }
 

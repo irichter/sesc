@@ -386,7 +386,7 @@ static void create_addr_space()
       || ((ulong)Private_start > (ulong)Data_start  && (ulong)Private_start < (ulong)Data_end)) {
     long oldSpace = Private_start;
     Private_start = (long)allocate2(Mem_size);
-    fprintf(stderr,"Overlap: Shifting address space [0x%x] -> [0x%x]\n",oldSpace, Private_start);
+    fprintf(stderr,"Overlap: Shifting address space [0x%x] -> [0x%x]\n",(unsigned long)oldSpace, (unsigned long)Private_start);
     free((void *)oldSpace);
     Private_end   = Private_start + Mem_size;
   }
