@@ -56,7 +56,7 @@ Cluster::~Cluster()
 }
 
 Cluster::Cluster(const char *clusterName, GProcessor *gp)
-  : window(gp->getId(),clusterName)
+  : window(gp,clusterName)
   ,MaxWinSize(SescConf->getLong(clusterName,"winSize"))
   ,windowSize(SescConf->getLong(clusterName,"winSize")) 
   ,gproc(gp)

@@ -28,44 +28,45 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "LDSTBuffer.h"
 #include "Resource.h"
 #include "SescConf.h"
+#include "GProcessor.h"
 
 #ifdef SESC_DDIS
 GStatsCntr *DepWindow::nDeps[3] = {0,0,0};
 #endif
 
-DepWindow::DepWindow(int i, const char *clusterName)
-  :Id(i)
-  ,InterClusterLat(SescConf->getLong("cpucore", "interClusterLat",i))
+DepWindow::DepWindow(GProcessor *gproc, const char *clusterName)
+  :Id(gproc->getId())
+  ,InterClusterLat(SescConf->getLong("cpucore", "interClusterLat",gproc->getId()))
 #ifndef SESC_DDIS
   ,WakeUpDelay(SescConf->getLong(clusterName, "wakeupDelay"))
 #endif
   ,SchedDelay(SescConf->getLong(clusterName, "schedDelay"))
   ,RegFileDelay(SescConf->getLong("cpucore", "regFileDelay"))
-  ,InOrderCore(SescConf->getBool("cpucore","inorder",i))
+  ,InOrderCore(SescConf->getBool("cpucore","inorder",gproc->getId()))
 #ifdef SESC_DDIS
-  ,ddis(i,clusterName)
+  ,ddis(gproc->getId(),clusterName)
 #endif
 {
   char cadena[100];
-  sprintf(cadena,"Proc(%d)_%s", i, clusterName);
+  sprintf(cadena,"Proc(%d)_%s", Id, clusterName);
   
-  resultBusEnergy = new GStatsEnergy("resultBusEnergy", cadena , i, ResultBusEnergy
-				     ,EnergyMgr::get("resultBusEnergy",i));
+  resultBusEnergy = new GStatsEnergy("resultBusEnergy", cadena , Id, ResultBusEnergy
+				     ,EnergyMgr::get("resultBusEnergy",Id));
   
-  forwardBusEnergy = new GStatsEnergy("forwardBusEnergy", cadena , i, ForwardBusEnergy
-				      ,EnergyMgr::get("forwardBusEnergy",i));
+  forwardBusEnergy = new GStatsEnergy("forwardBusEnergy", cadena , Id, ForwardBusEnergy
+				      ,EnergyMgr::get("forwardBusEnergy",Id));
 
-  windowSelEnergy  = new GStatsEnergy("windowSelEnergy",cadena,i,WindowSelEnergy
-				      ,EnergyMgr::get("windowSelEnergy",i));
+  windowSelEnergy  = new GStatsEnergy("windowSelEnergy",cadena, Id, WindowSelEnergy
+				      ,EnergyMgr::get("windowSelEnergy",Id));
 
-  windowRdWrEnergy = new GStatsEnergy("windowRdWrEnergy", cadena , i, WindowRdWrEnergy
-				      ,EnergyMgr::get("windowRdWrEnergy",i));
+  windowRdWrEnergy = new GStatsEnergy("windowRdWrEnergy", cadena , Id, WindowRdWrEnergy
+				      ,EnergyMgr::get("windowRdWrEnergy",Id));
   
-  windowCheckEnergy = new GStatsEnergy("windowCheckEnergy", cadena, i, WindowCheckEnergy
-				       ,EnergyMgr::get("windowCheckEnergy",i));
+  windowCheckEnergy = new GStatsEnergy("windowCheckEnergy", cadena, Id, WindowCheckEnergy
+				       ,EnergyMgr::get("windowCheckEnergy",Id));
 
 #ifndef SESC_DDIS
-  sprintf(cadena,"Proc(%d)_%s_wakeUp", i, clusterName);
+  sprintf(cadena,"Proc(%d)_%s_wakeUp", Id, clusterName);
   wakeUpPort = PortGeneric::create(cadena
 				 ,SescConf->getLong(clusterName, "wakeUpNumPorts")
 				 ,SescConf->getLong(clusterName, "wakeUpPortOccp"));
@@ -74,7 +75,7 @@ DepWindow::DepWindow(int i, const char *clusterName)
   SescConf->isBetween(clusterName, "wakeupDelay", 0, 1024);
 #endif
 
-  sprintf(cadena,"Proc(%d)_%s_sched", i, clusterName);
+  sprintf(cadena,"Proc(%d)_%s_sched", Id, clusterName);
   schedPort = PortGeneric::create(cadena
 				  ,SescConf->getLong(clusterName, "SchedNumPorts")
 				  ,SescConf->getLong(clusterName, "SchedPortOccp"));
@@ -89,7 +90,7 @@ DepWindow::DepWindow(int i, const char *clusterName)
   SescConf->isLong("cpucore"    , "regFileDelay");
   SescConf->isBetween("cpucore" , "regFileDelay", 0, 1024);
 
-  bzero(RAT, sizeof(DInst *) * NumArchRegs);
+  RAT = gproc->getRAT();
 
 #ifdef SESC_DDIS
   if (nDeps[0] == 0) {

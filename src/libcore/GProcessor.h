@@ -68,6 +68,7 @@ protected:
   int recycleStore;   // min(Ul,Ub)
   DInst *cherryRAT[NumArchRegs];
 #endif
+  DInst *RAT[NumArchRegs];
 
   ClusterManager clusterManager;
 
@@ -119,6 +120,8 @@ public:
 
   virtual ~GProcessor();
   CPU_t getId() const { return Id; }
+
+  DInst **getRAT() { return RAT; }
 
   GMemorySystem *getMemorySystem() const { return memorySystem; }
 

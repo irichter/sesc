@@ -1,0 +1,69 @@
+SESCSpot
+---------------
+
+SESCSpot is used in conjunction with a thermal data file from SESC.  This will produce a steady state temperature file as well as a transient state temperature file.  
+
+SESCSpot Usage
+---------------
+
+Compile SESC with thermal and power(--enable-power --enable-therm)
+NOTE: If power is not enabled, this will not work
+SESC will output a file in the form of sesc_<app>.mips.therm.XXXXX while it is running a simulation.  After the simulation is complete, SESCSpot can be used to obtain temperature information.
+
+Note: All of these steps will produce quite large output files(for 1billion cycles, the final output file is 300mb)
+
+SescSpot source is located in sesc/sescspot.  This needs to be made on its own(gmake).  This will produce the "sescspot" binary.
+
+SescSpot 1.0 Usage Summary:
+Arguments:
+-i <infile>  Input file(required) - The therm file for which you want temperature data
+-o <outfile> Output file(required) - Output file name for either steady state or transient temperature.  This file has steady state temps if -s is not used, and transient if it is
+-c <conffile> Configuration file(required) - This is the mappings from floorplan variables to sesc variables
+-s <steadyfile> Steady state file - If this option is specified, the values from this file will be used as steady state values, and sescspot will output a transient temperatures file
+-f <floorplan> Floorplan file - Set to the floorplan you wish to use.  Default is 'ev6.flp'
+
+An example run would look like:
+./sescspot -i <bench>.therm.XXXX -c ev6.sspot -o <bench>.therm.XXXX.steady
+./sescspot -i <bench>.therm.XXXX -c ev6.sspot -s <bench>.therm.XXXX.steady -o <bench>.therm.XXXX.trans
+
+NOTE: This may change with versions of SESC
+The transient temperature file will contain 214(+) columns of data.  When SESCSpot is run to produce this file, it will print a list of the item names along with the column number.  This file is in a format that GNUPlot can use to plot a graph so that the data can be analyzed.  The first column contains the clock cycle # and the rest of the columns contain data.  Columns 2-65 contain temperature data.  The values labeled iface pertain to the interface material between the unit on the processor and the heatspreader.  The items preceeded with hsp refer to the heatspreader.  The Energy(66-129) columns contain the instantaneous power at the given cycle.  The SESC Statistics columns(everything else) are the average over each 10000 clock cycle interval.  
+
+SESCSpot Configuration File
+---------------
+There is a default configuration file located in the sescspot directory(ev6.sspot).  The format for this file is the following:
+<floorplan item>	<percentage>(optional)	<sesc items> ....
+
+The floorplan item is the name of an item from the .flp file.  The percentage option is the percentage of the following energy values that should be used to calculate temperature for that item.  This in the format of <int>%.  An example is the L2 values.  The sesc items is a list of items(tab delimited) that are power statistics from sesc.  If this is followed by a *, it will use every item with that name in it.  The provided ev6.sspot is a very good example.
+
+Implementation Notes
+---------------
+
+SESC was instrumented to output data every 10000 clock cycles.  The following information is contained in sesc_<app>.mips.therm.XXXXX
+
+First line: energy labels
+Second line: SESC statistic labels
+Odd lines: energy values
+Even lines: sesc statistic values
+
+SESC Files Modified:
+OSSim.cpp
+- Initializes thermal report file
+- Stops callback
+
+OSSim.h
+- variable for filename
+
+RunningProcs.cpp
+- stops callback
+
+GEnergy.cpp
+- Instrumentation to output data to file
+
+GStats.cpp
+- Instrumentation to output data to file
+
+Added Files:
+ReportTherm.cpp
+ReportTherm.h
+- Same as ReportGen except it contains the callback code

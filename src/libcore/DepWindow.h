@@ -32,6 +32,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #endif
 
 class DInst;
+class GProcessor;
 
 class DepWindow {
 private:
@@ -58,7 +59,7 @@ private:
   GStatsEnergy *windowCheckEnergy; // Check for dependences on the window
   GStatsEnergy *windowSelEnergy;   // instruction selection
 
-  DInst *RAT[NumArchRegs];
+  DInst **RAT;
 
   PortGeneric *wakeUpPort;
   PortGeneric *schedPort;
@@ -66,7 +67,7 @@ private:
 protected:
 public:
   ~DepWindow();
-  DepWindow(int i, const char *clusterName);
+  DepWindow(GProcessor *gproc, const char *clusterName);
 
   void addInst(DInst *dinst);
   void wakeUpDeps(DInst *dinst);

@@ -116,6 +116,8 @@ GProcessor::GProcessor(GMemorySystem *gm, CPU_t i, size_t numFlows)
 
   // CHANGE "PendingWindow" instead of "Proc" for script compatibility reasons
   buildInstStats(nInst, "PendingWindow");
+
+  bzero(RAT,sizeof(DInst*)*NumArchRegs);
   
 #ifdef SESC_CHERRY
   unresolvedLoad  = -1;
