@@ -57,7 +57,9 @@ public:
   PAddr getTag() const;
   void setTag(PAddr a);
 
-  bool isInvalid() const;
+  bool isInvalid() const { return invalid; }
+  bool isValid() const { return !invalid; }
+
   void invalidate();
 
   void setBit(const unsigned int cacheId, const PAddr addr) {

@@ -298,6 +298,7 @@ template<class Addr_t=ulong>
 class StateGeneric {
 private:
   Addr_t tag;
+
 public:
   virtual ~StateGeneric() {
     tag = 0;
@@ -309,7 +310,9 @@ public:
    tag = a; 
  }
  void clearTag() { tag = 0; }
- void initialize() { clearTag(); }
+ void initialize(void *c) { 
+   clearTag(); 
+ }
 
  virtual bool isValid() { return tag; }
 

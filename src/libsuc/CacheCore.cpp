@@ -218,6 +218,8 @@ CacheAssoc<State, Addr_t, Energy>::CacheAssoc(int size, int assoc, int blksize, 
   content = new Line* [numLines + 1];
 
   for(ulong i = 0; i < numLines; i++) {
+    mem[i].initialize(this);
+    mem[i].invalidate();
     content[i] = &mem[i];
   }
   
@@ -387,6 +389,8 @@ CacheDM<State, Addr_t, Energy>::CacheDM(int size, int blksize, const char *pStr)
   content = new Line* [numLines + 1];
 
   for(ulong i = 0; i < numLines; i++) {
+    mem[i].initialize(this);
+    mem[i].invalidate();
     content[i] = &mem[i];
   }
 }

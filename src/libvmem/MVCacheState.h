@@ -92,15 +92,15 @@ public:
     return cache->calcTag(addr) == tag;
   }
   
-   PAddr  getPAddr() const  { 
-     I(lvid);
-     return lvid->calcPAddr(cache->calcAddr4Tag(tag)); 
-   }
-
+  PAddr  getPAddr() const  { 
+    I(lvid);
+    return lvid->calcPAddr(cache->calcAddr4Tag(tag)); 
+  }
+  
   bool isRestarted() const {
     if (isInvalid())
       return true;
-
+    
     return subLVID != lvid->getSubLVID();
   }
   
@@ -130,6 +130,12 @@ public:
     GI(lvid == 0, getTag() == 0);
     GI(lvid, getTag());
     return lvid == 0; 
+  }
+
+  bool isValid() const { 
+    GI(lvid == 0, getTag() == 0);
+    GI(lvid, getTag());
+    return lvid;
   }
   
   void invalidate();

@@ -76,11 +76,6 @@ void DirState::setTag(PAddr a) {
   invalid = false;
 }
 
-bool DirState::isInvalid() const 
-{ 
-  return invalid; 
-}
-
 void DirState::invalidate() 
 { 
   invalid = true; 
