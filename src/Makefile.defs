@@ -101,7 +101,7 @@ INC     += -I$(SRC_DIR)/libsmp
 ifeq ($(findstring IRIX,$(ABINAME)),IRIX)
 LIBS	= -L$(OBJ) -L$(OBJ)/ -lgen -lsesc
 else
-LIBS	= -L$(OBJ) 
+LIBS	= -L$(OBJ)
 endif
 STDLIBS = -lm $(XSTDLIBS)
 CFLAGS	= $(ABI) $(COPTS) $(INC) $(PDEFS) $(DEFS)

@@ -68,16 +68,16 @@ MEMLIBS =$(OBJ)/libmem.a
 TLSLIBS =$(OBJ)/libvmem.a
 
 sesc.tst : $(OBJ)/main.o $(TSTLIBS)
-	$(CXX) $(CFLAGS) $(LDFLAGS) -o $@  $^  $(LIBS) -lm 
+	$(CXX) $(CFLAGS) $(LDFLAGS) -o $@  $^  $(LIBS) $(STDLIBS)
 
 sesc.mem : $(OBJ)/mtst1.o $(MEMLIBS) $(TSTLIBS)
-	$(CXX) $(CFLAGS) $(LDFLAGS) -o $@ $^  $(LIBS) -lm
+	$(CXX) $(CFLAGS) $(LDFLAGS) -o $@ $^  $(LIBS) $(STDLIBS)
 
 sesc.tls: $(OBJ)/tls.o $(TLSLIBS) $(MEMLIBS) $(TSTLIBS) 
-	$(CXX) $(CFLAGS) $(LDFLAGS) -o $@ $^  $(LIBS) -lm
+	$(CXX) $(CFLAGS) $(LDFLAGS) -o $@ $^  $(LIBS) $(STDLIBS)
 
 sesc.smp: $(OBJ)/smp.o $(SMPLIBS) $(MEMLIBS) $(TSTLIBS)
-	$(CXX) $(CFLAGS) $(LDFLAGS) -o $@ $^ $(LIBS) -lm
+	$(CXX) $(CFLAGS) $(LDFLAGS) -o $@ $^ $(LIBS) $(STDLIBS)
 
 
 ############ Simulator Benchmarking (bench the simulator, not the architecture)
