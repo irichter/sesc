@@ -31,7 +31,7 @@ CacheSample:	$(OBJ)/CacheSample.o $(OBJ)/libsuc.a
 ##############################################################################
 SOBJS	:= TQueue.o Config.o nanassert.o GStats.o callback.o \
 	Snippets.o Port.o ReportGen.o CacheCore.o SescConf.o \
-	MSHR.o TraceGen.o SCTable.o
+	TraceGen.o SCTable.o BloomFilter.o MSHR.o 
 
 ifdef SESC_ENERGY
 SOBJS	+= GEnergy.o
