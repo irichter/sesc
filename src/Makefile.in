@@ -72,19 +72,19 @@ MEMLIBS =$(OBJ)/libmem.a
 TLSLIBS =$(OBJ)/libvmem.a
 
 sesc.tst : $(OBJ)/main.o $(TSTLIBS)
-	$(CXX) $(CFLAGS) $(LDFLAGS) -o $@  $^ $(OBJ)/libll.a $(LIBS) -lm 
+	$(CXX) $(CFLAGS) $(LDFLAGS) -o $@  $^ $(OBJ)/libll.a $(LIBS) $(STDLIBS) 
 
 sesc.mem : $(OBJ)/mtst1.o $(TSTLIBS) $(MEMLIBS)
-	$(CXX) $(CFLAGS) $(LDFLAGS) -o $@ $^ $(OBJ)/libll.a $(LIBS) -lm
+	$(CXX) $(CFLAGS) $(LDFLAGS) -o $@ $^ $(OBJ)/libll.a $(LIBS) $(STDLIBS)
 
 sesc.cc:  $(OBJ)/nkcc1.o $(TSTLIBS) $(CCLIBS) $(NETLIBS) $(MEMLIBS)
-	$(CXX) $(CFLAGS) $(LDFLAGS) -o $@ $^ $(OBJ)/libll.a $(LIBS) -lm
+	$(CXX) $(CFLAGS) $(LDFLAGS) -o $@ $^ $(OBJ)/libll.a $(LIBS) $(STDLIBS)
 
 sesc.tls: $(OBJ)/tls.o $(TSTLIBS) $(TLSLIBS) $(MEMLIBS)
-	$(CXX) $(CFLAGS) $(LDFLAGS) -o $@ $^ $(OBJ)/libll.a $(LIBS) -lm
+	$(CXX) $(CFLAGS) $(LDFLAGS) -o $@ $^ $(OBJ)/libll.a $(LIBS) $(STDLIBS)
 
 sesc.dsm: $(OBJ)/dsm.o $(TSTLIBS) $(DSMLIBS) $(NETLIBS) $(MEMLIBS)  
-	$(CXX) $(CFLAGS) $(LDFLAGS) -o $@ $^ $(OBJ)/libll.a $(LIBS) -lm
+	$(CXX) $(CFLAGS) $(LDFLAGS) -o $@ $^ $(OBJ)/libll.a $(LIBS) $(STDLIBS)
 
 
 ############ Simulator Benchmarking (bench the simulator, not the architecture)
@@ -95,21 +95,21 @@ runSescbench: runCacheCoreBench runNetBench runPoolBench
 
 ########## CacheCore
 CacheCoreBench : $(SRC_DIR)/misc/CacheCoreBench.cpp $(TSTLIBS)
-	$(CXX) $(CFLAGS) $(LDFLAGS) -o $@ $^ $(OBJ)/libcore.a $(LIBS) -lm 
+	$(CXX) $(CFLAGS) $(LDFLAGS) -o $@ $^ $(OBJ)/libcore.a $(LIBS) $(STDLIBS) 
 
 runCacheCoreBench : CacheCoreBench 
 	./CacheCoreBench $(SRC_DIR)/misc/sample1.cfg
 
 ########## Network
 netBench : $(SRC_DIR)/misc/netBench.cpp $(NETLIBS) $(TSTLIBS) 
-	$(CXX) $(CFLAGS) $(LDFLAGS) -o $@ $^ $(OBJ)/libcore.a $(LIBS) -lm 
+	$(CXX) $(CFLAGS) $(LDFLAGS) -o $@ $^ $(OBJ)/libcore.a $(LIBS) $(STDLIBS) 
 
 runNetBench : netBench 
 	./netBench $(SRC_DIR)/misc/router.conf
 
 ########## Pool
 poolBench : $(SRC_DIR)/misc/poolBench.cpp $(TSTLIBS) 
-	$(CXX) $(CFLAGS) $(LDFLAGS) -o $@ $^ $(OBJ)/libcore.a $(LIBS) -lm 
+	$(CXX) $(CFLAGS) $(LDFLAGS) -o $@ $^ $(OBJ)/libcore.a $(LIBS) $(STDLIBS) 
 
 runPoolBench : poolBench 
 	./poolBench
@@ -122,10 +122,10 @@ runPoolBench : poolBench
 
 # libpower
 $(BUILD_DIR)/wattchify: $(OBJ)/powermain.o $(OBJ)/libwattch.a $(OBJ)/libcore.a  $(OBJ)/libsuc.a $(OBJ)/liborion.a
-	$(CXX) $(CFLAGS) -o $@ $^ $(LIBS) -lm 
+	$(CXX) $(CFLAGS) -o $@ $^ $(LIBS) $(STDLIBS) 
 
 $(BUILD_DIR)/cactify: $(OBJ)/cacmain.o  $(OBJ)/libcacti.a $(OBJ)/libcore.a  $(OBJ)/libsuc.a
-	$(CXX) $(CFLAGS) -o $@ $^ $(LIBS) -lm 
+	$(CXX) $(CFLAGS) -o $@ $^ $(LIBS) $(STDLIBS) 
 
 # libapp
 libapp-xcc:

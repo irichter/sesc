@@ -95,7 +95,7 @@ else
 LIBS	= -L$(OBJ) 
 endif
 endif
-STDLIBS = -lm
+STDLIBS = -lm $(XSTDLIBS)
 CFLAGS	= $(ABI) $(COPTS) $(INC) $(PDEFS) $(DEFS)
 LDFLAGS	= $(ABI) $(LOPTS)
 

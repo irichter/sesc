@@ -32,6 +32,7 @@ COPTS	+= -msupersparc
 endif
 # Platform neutral
 COPTS +=-ffast-math -fno-exceptions -fno-strict-aliasing -freg-struct-return 
+XSTDLIBS=-lsocket
 ##############################################################################
 
 ##############################################################################
