@@ -1,0 +1,7 @@
+
+SMT Processor:
+
+The same branch predictor is shared by all the threads. Only the RAS
+is duplicated (there is a RAS per thread).
+
+

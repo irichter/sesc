@@ -1,0 +1,141 @@
+HOW TO setup sesc
+-----------------
+
+Before you begin: if you are reading this file it probably means that
+you have your cvs set up and that you have successfully checked esesc
+out. Or that somebody else has given you this file. If this is the
+case, please refer to the end of this file for instructions on how to
+set up your cvs environment.
+
+building sesc
+-------------
+
+1) create a build directory
+
+   Now you can create a directory for the build process:
+
+> cd ../shadow
+> mkdir build
+
+   We recommend that you have one build directory per simulator
+   set of options. You may create as many directories as you want and
+   compile the simulator with different combinations of options (see
+   step 7).
+
+2) go to the build directory
+
+> cd build
+
+3) configure esesc from build
+
+   Run esesc/configure from the build directory (if you don't specify
+   any options, the default configuration will be built; to see all
+   options, type configure --help).
+
+> ../shadow/esesc/configure
+
+4) to build all sesc directories:
+
+> make
+
+5) to build the simulator executable:
+
+> make sesc
+
+
+# Examples of configure parameters:
+#
+# Activate all the checks, but do not have verbose dump
+# ./configure --enable-debug-silent 
+#
+# Activate version memory (taskscalar included in vmem) with silent debug mode
+# ./configure --enable-debug-silent --enable-vmem
+#
+
+modifying and testing the simulator
+-----------------------------------
+
+ testing
+ -------
+   If you modify the simulator in esesc, PLEASE test it before you
+   commit the code. To test it in the default configuration, you can
+   simply type make testsim (in the build directory). Please also try
+   testsim-tls.
+
+ commiting
+ ---------
+   Don't forget to do a cvs add for new files and cvs commit in the
+   esesc directory to commit your changes (but before you do that,
+   please make sure the simulator is still working ;o)
+
+ ChangeLog
+ ---------
+   To see the activity, regenerate the ChangeLog by typing gmake ChangeLog
+
+esesc directory structure
+-------------------------
+
+configure     - script to create the Makefiles for build
+configure.ac  - input file for autoconf, to create configure
+confs         - directory that contains several configuration files for 
+                the simulator runs
+COPYING       - copyright notice
+MAINTAINERS   - who is responsible for what description
+scripts       - report and run scripts for sesc
+src           - all real code for sesc is in this
+                directory (description below)
+TODO          - if you have some time available and you want to have
+                some fun, check this file and help improve sesc
+
+src directory structure
+-----------------------
+
+libapp        - patched calls from sesc (these are stubs for system
+                calls emulated by the simulator - the real
+                implementation is in mint/subst.c)
+libcore       - main processor structures
+libmem        - cache/memory backend
+libnet        - multiprocessor networking
+libpower      - power estimation (includes cacti, orion and wattch)
+libsuc        - general purpose code (specially useful code)
+libvmem       - versioning cache backend
+libmint       - functional simulator
+libcc         - Cache Coherence (directory based)
+libdsm        - Cache Coherence (bus snooping)
+misc          - miscellaneous files
+
+   The other files are mainly associated to the build process.
+
+
+cvs setup
+---------
+
+1) create a shadow directory
+
+   Create a directory where you want all your code to be stored
+
+> mkdir shadow
+
+2) configure cvs 
+
+   You can access the cvs root directory via pserver. The path is :pserver:kstrauss@chooyu.cs.uiuc.edu:/usr/local/cvsroot.
+
+   Set your cvs root environmental variable to that path. If you use bash:
+
+> export CVSROOT=:pserver:kstrauss@chooyu.cs.uiuc.edu:/usr/local/cvsroot
+
+   If you are going to modify the code frequently, you may want to add
+   the line above in your shell configuration file (e.g. .bashrc for bash).
+
+3) go to the shadow directory you have created in step 1.
+
+> cd shadow
+
+4) retrieve files from main repository
+
+   This will copy the files from the cvs repository into your shadow
+   directory:
+
+> cvs checkout esesc
+
+   More details about the directory structure below.

@@ -1,0 +1,278 @@
+##############################################################################
+#                       Makefile Generic Structure                           #
+##############################################################################
+include $(BUILD_DIR)/Make.defs
+
+#######################################
+# Machine detection (Uses MINT Makefile.defs.XXX)
+ifdef XCC
+include $(SRC_DIR)/Makefile.defs.cross
+else
+include $(SRC_DIR)/Makefile.defs.$(shell uname -s)
+endif
+#######################################
+
+OBJ	=$(OBJ_DIR)/$(ABINAME)_obj
+
+ifdef DEBUG
+DEFS	+=-DDEBUG -DSAFE -D_NOTHREADS
+ifdef DEBUG_SILENT
+DEFS	+=-DDEBUG_SILENT
+else
+ifdef DEBUG2
+DEFS    +=-DDEBUG2=1
+else
+DEFS    +=-DDEBUG2=0
+endif
+endif
+
+else # No DEBUG
+DEFS	+=-DNDEBUG
+DEFS    +=-DDEBUG2=0
+endif # DEBUG
+
+VPATH	=$(OBJ):$(SRC_DIR):$(BUILD_DIR):.
+
+##############################################################################
+# Defines
+ifdef TLS
+DEFS += -DTLS
+endif
+
+ifdef LOCKPROFILE
+DEFS    +=-DSESC_LOCKPROFILE
+endif
+
+ifdef SESC_PROTVER
+DEFS += -DPROTVER
+endif
+
+ifdef SESC_ENERGY
+DEFS += -DSESC_ENERGY
+
+# Orion Parameters
+DEFS   += -DPOWER_TEST -DPARM_TECH_POINT=7 -DVdd=1.1 -DPARM_Freq=5e9
+endif
+
+ifdef SESC_SLICE
+DEFS += -DSESC_SLICE
+endif
+
+ifdef TS_SPAWN
+DEFS += -DTS_SPAWN
+endif
+
+ifdef ACCESS
+DEFS += -DACCESS
+endif
+
+ifdef DIRECTORY
+DEFS += -DDIRECTORY
+endif
+
+ifdef MPCOH
+DEFS += -DMPCOH
+endif
+
+ifdef SESC_DSM
+DEFS += -DSESC_DSM
+endif
+
+#####################################
+INC	= -I. -I$(OBJ) -I$(SRC_DIR)/libapp -I$(SRC_DIR)/libsuc 
+INC	+= -I$(SRC_DIR)/libcore -I$(SRC_DIR)/libnet -I$(SRC_DIR)/libmem 
+INC	+= -I$(SRC_DIR)/libvmem -I$(SRC_DIR)/libcc -I$(SRC_DIR)/libdsm 
+INC     += -I$(SRC_DIR)/libll -I$(SRC_DIR)/libmint -I$(SRC_DIR)/libpint 
+##############################################################################
+ifeq ($(findstring IRIX,$(ABINAME)),IRIX)
+LIBS	= -L$(OBJ) -L$(OBJ)/ -lgen -lsesc
+else
+ifdef XCC
+LIBS	= -L$(OBJ)
+else
+LIBS	= -L$(OBJ) 
+endif
+endif
+STDLIBS = -lm
+CFLAGS	= $(ABI) $(COPTS) $(INC) $(PDEFS) $(DEFS)
+LDFLAGS	= $(ABI) $(LOPTS)
+
+##############################################################################
+# Native compilation libraries
+ifdef XCC
+XLIBS	= -L$(OBJ) -lapp
+else
+XLIBS	= -lpthread -L$(OBJ) -lapp
+endif
+
+ifdef SESCAPI_NATIVE
+CFLAGS +=-DSESCAPI_NATIVE
+endif
+
+ifdef SESCAPI_NATIVE_IRIX
+CFLAGS +=-DSESCAPI_NATIVE_IRIX
+XLIBS  +=-lfetchop
+endif
+
+##############################################################################
+ifdef SESC_INSTPROF
+DEFS	+=-DINSTPROF
+endif
+ifdef SESC_FUNCINSTPROF
+DEFS	+=-DINSTPROF -DFUNCINSTPROF
+endif
+
+ifdef SESC_MISPATH
+ifndef SESC_ENERGY
+$(warning "mispath without energy? It has a small impact unless energy is considered")
+endif
+DEFS    += -DSESC_MISPATH
+endif
+
+ifdef SESC_NO_LDSTQ
+DEFS	+= -DLDSTBUFFER_IGNORE_DEPS
+endif
+
+##############################################################################
+# Section for defines specific for different papers. Those are extensions
+# in the simulation (usualy statistics or change in the behavour) that are
+# not interested for normal simulations.
+
+################################################
+# Branch Predictor Weird Tunning Parameters
+
+# Update branch prediction at retire instead of speculative branch
+# prediction update. Check Skadron thesis.
+
+#DEFS	 +=-DBPRED_UPDATE_RETIRE
+
+################################################
+# HVersion (TaskScalar)
+
+ifdef TASKSCALAR 
+DEFS	+= -DTASKSCALAR -DTS_COUNT_TASKS_AHEAD
+
+
+################################################
+# Reset Branch History at task Start
+DEFS	+= -DTS_RESET_HISTORY
+
+ifdef VALUEPRED
+DEFS	+= -DVALUEPRED
+endif
+
+################################################
+# Silent stores (good!)
+
+ifndef SESC_NO_SILENT_STORE
+DEFS	+=-DSILENT_STORE
+endif
+
+################################################ 
+# When an version reclaim is received it merge all the successors
+
+ifndef TS_BUBBLE
+DEFS	+=-DCLAIM_MERGE_SUCCESSOR
+endif
+
+################################################ 
+# mergeFirst all. Useful to see real overhead
+
+#DEFS	+=-DMERGE_FIRST_ALL
+
+ifdef TS_VMNOPROMOTE
+DEFS	+=-DTS_VMNOPROMOTE
+endif
+################################################ 
+# mergeNext active
+
+ifndef NO_MERGENEXT
+DEFS	+=-DTS_MERGENEXT
+endif
+
+################################################ 
+# mergeLast active
+
+ifndef NO_MERGELAST
+DEFS	+=-DTS_MERGELAST
+endif
+
+################################################ 
+# spawn mechanism
+
+ifdef TS_SPAWN
+DEFS	+=-DTS_SPAWN
+endif
+
+################################################
+# slice processor 
+
+ifdef SESC_SLICE
+DEFS +=-DSESC_SLICE
+endif
+
+################################################
+# Profiling in Rabbit mode
+
+ifdef  TS_PROFILING
+DEFS    +=-DTS_PROFILING
+endif
+
+################################################
+# Risk Load Profiler
+
+ifdef  TS_RISKLOADPROF
+DEFS    +=-DTS_RISKLOADPROF
+endif
+
+ifdef TS_VMEM
+DEFS	+= -DTS_VMEM
+
+ifdef VMEM_NO_TRAOPT
+################################################ 
+# Use LVID in the address generation (more assoc)
+DEFS	+=-DVMEM_NO_TRAOPT
+endif
+
+################################################ 
+# Use LVID in the address generation (more assoc)
+#DEFS	+=-DVMEM_LVID_IN_ADDR
+
+# Generate restarts at fetch. Unless debugging, you should be giving
+# an upper limit performance
+DEFS +=-DTS_IMMEDIAT_RESTART
+
+# Simple Promotion
+#DEFS	+=-DVMEM_SIMPLE_PROMOTION
+
+# Use predecessor information from local cache to forward data
+DEFS	+=-DVMEM_PRED_FORWARD
+
+# Implement a directory in the VBus
+#DEFS	+=-DVMEM_DIR
+
+# Use the most Speculative bit per cache line
+#DEFS	+=-DTS_USE_MOSTSPEC
+
+ifndef TS_BASELINE
+################################################ 
+# Early retirement of store a la Cherry for TLS
+
+# WARNING: Cherry deactivated
+#DEFS	+=-DTS_CHERRY
+endif # !TS_BASELINE
+endif # TS_VMEM
+
+# Generate a task trace
+ifdef TS_TIMELINE
+DEFS    +=-DTS_TIMELINE
+endif
+
+# Do not spawn a task (do merge) if the task already has someone ahead
+#DEFS +=-DTS_INORDER
+
+# ASPLOS04 Statistics
+DEFS +=-DOOO_PAPER_STATS
+
+endif # TASKSCALAR
+

@@ -1,0 +1,45 @@
+#################
+# AIX specific
+MMAP	:=1
+SHARED_START :=0x30000000
+PRIVATE_START:=0x40000000
+
+# It is a BIG endian so DO NOT USE -DLENDIAN
+DEFS	+=-DAIX -D_BSD
+AABI    :=
+ABI     :=
+ABINAME :=AIX
+ifdef DEBUG
+COPTS   :=-g -O1
+LOPTS	:=-g -O1
+else
+ifdef PERFORMANCE
+COPTS   :=-O1 -pg
+else
+COPTS   :=-O2 -fomit-frame-pointer
+endif # PERFORMANCE
+COPTS   +=-fno-exceptions -fshort-enums -fno-strict-aliasing -funroll-loops -finline-functions
+COPTS	+=-mcpu=powerpc
+LOPTS	:=-O2
+endif # DEBUG
+PDEFS	:=
+ARFLAGS	:=cr
+
+##############################################################################
+SHELL	=/bin/sh
+ifdef USEXLC
+LD	=ld
+CXX	=gcc
+CC	=xlc
+AS	=xlc
+else
+LD	=gcc
+CXX	=g++
+CC	=gcc
+AS	=gcc
+endif
+AR	=ar
+M4	=m4
+MAKE	=gmake
+RANLIB	=ranlib
+FIND	=gfind

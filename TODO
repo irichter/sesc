@@ -1,0 +1,76 @@
+8) reorganize for multiple-isa support
+   
+   break libmint in libll and libmintmips
+
+   libll.     should contain only generic stuff, nothing here should be
+   simulation platform specific.
+
+   libmintmips should contain the MIPS-specific stuff for the function
+   simulation.
+
+   libmintppc is coming.... not sure when! ;-)
+
+_______________________________________________________________________
+
+
+swifthWidth on power (renamed)
+________________________________________________________________________
+
+7) Subdurectory in lib directory
+ 
+ creation of .depends: SIGNATURE is something like lib*.* and path to
+ files should be something like lib*/*. e.g. libpower/cacti
+
+________________________________________________________________________
+
+All the includes should be placed in alphabetical order.
+
+
+_______________________________________________________________________
+
+5) Platform selection
+
+ Remove the Makefile.defs.ARCH
+
+ Use configure options to select the following parameters:
+
+
+# LINUX
+# LENDIAN (little endian)
+
+# Linux
+DEFS	+=-DLINUX -DLENDIAN -DPOSIX_MEMALIGN
+
+# Darwin
+DEFS	+=-DDARWIN
+
+
+CXX	=g++
+CC	=gcc
+
+LOPTS
+COPTS
+
+
+ARFLAGS	:=cr
+SHELL	=/bin/sh
+AS	=as
+LD	=ld
+AR	=ar
+M4	=m4
+MAKE	=make
+RANLIB	=ranlib
+FIND	=find
+
+_______________________________________________________________________
+
+Fussion Instruction.h and icode.h, it should represent a sesc
+internal instruction independent of the encoding (MIPS, PPC).
+libmint and libtrace can have their internal representation.
+
+Lazy Instruction translation?
+
+If we have a cache, it will not be necessary to translate everything
+at the beginning. This is useful if we want to have something like
+pearPC. Otherwise, it will be impossible to have binary load.
+
