@@ -3,6 +3,7 @@
    Copyright (C) 2003 University of Illinois.
 
    Contributed by Luis Ceze
+                  Karin Strauss
 
 This file is part of SESC.
 
@@ -35,12 +36,16 @@ class PPCDecoder {
 
   static void Initialize();
   static void expandDecodeEntry(PPCInstDef *, int extOpSize);
+  static void fillDummyEntries();
   
   static PPCInstDef* getInstDef(unsigned rawInst) {
-    unsigned decodeEntry = PPC_OPC_MAIN(rawInst) * PPC_EXTOPS + PPC_OPC_EXT(rawInst);
-    I(decodeEntry < PPC_OPS * PPC_EXTOPS * sizeof(PPCInstDef *));
+    unsigned decodeEntry = (PPC_OPC_MAIN(rawInst) << PPC_EXTOP_BITS) + PPC_OPC_EXT(rawInst);
+    I(decodeEntry < PPC_OPS * PPC_EXTOPS);
     
     I(decodeTable[decodeEntry]);
+
+    if(decodeTable[decodeEntry]->majorOpcode == 0) // found a dummy instruction
+      MSG("Warning: found a dummy instruction. Assuming a nop.");
     
     return decodeTable[decodeEntry];
   }

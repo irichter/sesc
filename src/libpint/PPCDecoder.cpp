@@ -3,6 +3,7 @@
    Copyright (C) 2003 University of Illinois.
 
    Contributed by Luis Ceze
+                  Karin Strauss
 
 This file is part of SESC.
 
@@ -25,7 +26,8 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "PPCDecoder.h"
 
 PPCInstDef PPCDecoder::ppcInstTable[] = {
-#define SESCPPCINST(i, mop, eop, f, t, st) { #i, i ## _inst, mop, eop, f ## _form, t, st}
+#undef PPCINST
+#define PPCINST(i, mop, eop, f, t, st) { #i, i ## _inst, mop, eop, f ## _form, t, st}
 #include "PPCInsts.def"
 };
 
@@ -45,7 +47,8 @@ void PPCDecoder::Initialize()
   decodeTable = (PPCInstDef **) malloc(nEntries);
   bzero(decodeTable, nEntries);
 
-  for(int i = 0; i < nInsts; i++) {
+  // first entry in table is dummy
+  for(int i = 1; i < nInsts; i++) {
     PPCInstDef *instDef = &ppcInstTable[i];
     switch(instDef->form) {
     case I_form:
@@ -76,15 +79,31 @@ void PPCDecoder::Initialize()
       exit(-1);
     }
   }
+
+  fillDummyEntries();
 }
 
 void PPCDecoder::expandDecodeEntry(PPCInstDef *instDef, int extOpSize) 
 {
   I(extOpSize <= PPC_EXTOP_BITS);
   
-  int nExtOps = 1 << (extOpSize - 1);
+  int nOffset = 1 << extOpSize;
 
-  for(int i = 0; i < PPC_EXTOPS; i += nExtOps) 
-    decodeTable[instDef->majorOpcode * PPC_EXTOPS + instDef->extOpcode] = instDef;
+  unsigned int constIndex = (instDef->majorOpcode << PPC_EXTOP_BITS) 
+                            + instDef->extOpcode;
+
+  for(int i = 0; i < PPC_EXTOPS; i += nOffset) {
+    I(decodeTable[(constIndex + i)] == NULL);
+    decodeTable[(constIndex + i)] = instDef;
+  }
 }
 
+void PPCDecoder::fillDummyEntries() 
+{
+  PPCInstDef *dummyDef = &ppcInstTable[0];
+
+  for(int i = 0; i < PPC_OPS * PPC_EXTOPS; i++) {
+    if(decodeTable[i] == NULL)
+      decodeTable[i] = dummyDef;
+  }
+}

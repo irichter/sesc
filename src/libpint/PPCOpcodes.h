@@ -26,17 +26,22 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 #include "InstType.h"
 
-#define PPC_OPC_MAIN(opc)               (((opc)>>26)&0x3f)
-#define PPC_OPC_EXT(opc)                (((opc)>>1)&0x3ff)
-#define PPC_OPC_Rc                      1
-#define PPC_OPC_OE                      (1<<10)
-#define PPC_OPC_LK                      1
-#define PPC_OPC_AA                      (1<<1)
+#define PPC_OP_BITS     6                        // # of bits for opcode
+#define PPC_EXTOP_BITS  10                       // # of bits for ext. opcode
+#define PPC_OPS         (1 << PPC_OP_BITS)       // # of possible opcodes
+#define PPC_EXTOPS      (1 << PPC_EXTOP_BITS)    // # of possible ext. opcodes
+#define PPC_OP_MASK     (PPC_OPS - 1)            // mask for an opcode
+#define PPC_EXTOP_MASK  (PPC_EXTOPS - 1)         // mask for an ext. opcode
+#define PPC_OP_SHIFT    26                       // # of bits to shift opcode
+#define PPC_EXTOP_SHIFT 1                        // same for ext. opcode
 
-#define PPC_EXTOP_BITS 10
-#define PPC_OP_BITS    6
-#define PPC_EXTOPS     (1 << (PPC_EXTOP_BITS - 1))
-#define PPC_OPS        (1 << (PPC_OP_BITS - 1))
+#define PPC_OPC_MAIN(opc)      (((opc) >> PPC_OP_SHIFT) & PPC_OP_MASK)
+#define PPC_OPC_EXT(opc)       (((opc) >> PPC_EXTOP_SHIFT) & PPC_EXTOP_MASK)
+#define PPC_OPC_Rc             1
+#define PPC_OPC_OE             (1<<10)
+#define PPC_OPC_LK             1
+#define PPC_OPC_AA             (1<<1)
+
 
 #define PPC_DEC_I(rawinst, LI)			\
   {						\
@@ -149,9 +154,9 @@ typedef enum PPCInstFormEnum {
 
 //enumeration with instruction names
 typedef enum PPCInstEnum {
-#define SESCPPCINST(i, mop, eop, f, t, st) i ## _inst
+#undef PPCINST
+#define PPCINST(i, mop, eop, f, t, st) i ## _inst
 #include "PPCInsts.def"
-#undef SESCPPCINST
 } PPCInst;
 
 typedef struct _PPCInstDef {
