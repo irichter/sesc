@@ -167,23 +167,39 @@ protected:
   void wbuffAdd(PAddr addr);
   void wbuffRemove(PAddr addr);
   bool isInWBuff(PAddr addr);
-  
-  virtual void doWriteBack(PAddr addr) = 0;
 
+  Line *allocateLine(PAddr addr, CallbackBase *cb);
+  void doAllocateLine(PAddr addr, PAddr rpl_addr, CallbackBase *cb);
+  void doAllocateLineRetry(PAddr addr, CallbackBase *cb);
+
+  void doReturnAccess(MemRequest *mreq);
+
+  virtual void doWriteBack(PAddr addr) = 0;
   virtual void inclusionCheck(PAddr addr) { }
 
   typedef CallbackMember1<Cache, MemRequest *, &Cache::doRead> 
     doReadCB;
+
   typedef CallbackMember1<Cache, MemRequest *, &Cache::doWrite> 
     doWriteCB;
 
   typedef CallbackMember1<Cache, MemRequest *, &Cache::doReadQueued> 
     doReadQueuedCB;  
+
   typedef CallbackMember1<Cache, MemRequest *, &Cache::doWriteQueued> 
     doWriteQueuedCB;
 
   typedef CallbackMember1<Cache, MemRequest *, &Cache::activateOverflow> 
     activateOverflowCB;
+
+  typedef CallbackMember1<Cache, MemRequest *,
+                         &Cache::doReturnAccess> doReturnAccessCB;
+
+  typedef CallbackMember3<Cache, PAddr, PAddr, CallbackBase *,
+                         &Cache::doAllocateLine> doAllocateLineCB;
+
+  typedef CallbackMember2<Cache, PAddr, CallbackBase *,
+                         &Cache::doAllocateLineRetry> doAllocateLineRetryCB;
 
 public:
   Cache(MemorySystem *gms, const char *descr_section, 
@@ -196,16 +212,6 @@ public:
   virtual void pushLine(MemRequest *mreq) = 0;
   virtual void specialOp(MemRequest *mreq);
   virtual void returnAccess(MemRequest *mreq);
-  void doReturnAccess(MemRequest *mreq);
-
-  typedef CallbackMember1<Cache, MemRequest *,
-                         &Cache::doReturnAccess> doReturnAccessCB;
-
-  Line *allocateLine(PAddr addr, CallbackBase *cb);
-  void doAllocateLine(PAddr addr, PAddr rpl_addr, CallbackBase *cb);
-
-  typedef CallbackMember3<Cache, PAddr, PAddr, CallbackBase *,
-                         &Cache::doAllocateLine> doAllocateLineCB;
 
   virtual bool canAcceptStore(PAddr addr);
   virtual bool canAcceptLoad(PAddr addr);

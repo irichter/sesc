@@ -360,10 +360,15 @@ Cache::Line *Cache::allocateLine(PAddr addr, CallbackBase *cb)
 
   if(l == 0) {
     // very rare case
-    MSG("all cache lines locked! screwed");
+    MSG("WARNING:all cache lines locked!");
+#if 0
+    MSG("FATAL:all cache lines locked!");
     I(0);
     exit(1);
-    // TODO: schedule retry
+#else
+    // WARNING: *FIXME* 5 cycle-hardcoded retry delay for now.
+    doAllocateLineRetryCB::scheduleAbs(globalClock + 10, this, addr, cb);
+#endif
     return 0;
   }
 
@@ -404,6 +409,13 @@ void Cache::doAllocateLine(PAddr addr, PAddr rpl_addr, CallbackBase *cb)
   }
   I(cb);
   cb->call();
+}
+
+void Cache::doAllocateLineRetry(PAddr addr, CallbackBase *cb)
+{
+  Line *l = allocateLine(addr, cb);
+  if(l)
+    cb->call();
 }
 
 bool Cache::canAcceptStore(PAddr addr)
