@@ -322,9 +322,13 @@ void Cache::returnAccess(MemRequest *mreq)
   Line *l = cache->writeLine(addr);
   if (l == 0) {
     nextSlot();
-    l = allocateLine(mreq->getPAddr(), doReturnAccessCB::create(this, mreq));
+    CallbackBase *cb = doReturnAccessCB::create(this, mreq);
+    l = allocateLine(mreq->getPAddr(), cb);
     
-    if(l == 0) { 
+    if(l != 0) { 
+      // the allocation was successfull, no need for the callback
+      cb->destroy();
+    } else {
       // not possible to allocate a line, will be called back later
       return;
     }
@@ -359,21 +363,11 @@ Cache::Line *Cache::allocateLine(PAddr addr, CallbackBase *cb)
   lineFill.inc();
 
   if(l == 0) {
-    // very rare case
-    //    MSG("WARNING:all cache lines locked!");
-#if 0
-    MSG("FATAL:all cache lines locked!");
-    I(0);
-    exit(1);
-#else
-    // WARNING: *FIXME* 5 cycle-hardcoded retry delay for now.
-    doAllocateLineRetryCB::scheduleAbs(globalClock + 10, this, addr, cb);
-#endif
+    doAllocateLineRetryCB::scheduleAbs(globalClock + 1000, this, addr, cb);
     return 0;
   }
 
   if(!l->isValid()) {
-    cb->destroy();
     l->validate();
     return l;
   }
@@ -384,7 +378,6 @@ Cache::Line *Cache::allocateLine(PAddr addr, CallbackBase *cb)
       doWriteBack(rpl_addr);
       l->makeClean();
     }
-    cb->destroy();
     l->validate();
     return l;
   }
@@ -407,6 +400,9 @@ void Cache::doAllocateLine(PAddr addr, PAddr rpl_addr, CallbackBase *cb)
     doWriteBack(rpl_addr);
     l->makeClean();
   }
+
+  l->validate();
+
   I(cb);
   cb->call();
 }
@@ -414,7 +410,7 @@ void Cache::doAllocateLine(PAddr addr, PAddr rpl_addr, CallbackBase *cb)
 void Cache::doAllocateLineRetry(PAddr addr, CallbackBase *cb)
 {
   Line *l = allocateLine(addr, cb);
-  if(l)
+  if(l) 
     cb->call();
 }
 
