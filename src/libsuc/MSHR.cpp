@@ -88,16 +88,6 @@ NoDepsMSHR<Addr_t>::NoDepsMSHR(const char *name, int size, int lineSize)
 {
   //nothing to do
 
-#ifdef MSHR_STATS
-  usageHistReqs = (GStatsCntr **)malloc(sizeof(GStatsCntr *)*(MaxEntries + 1));
-  usageHistLines = (GStatsCntr **)malloc(sizeof(GStatsCntr *)*(MaxEntries + 1));
-  for(int i = 0; i < MaxEntries + 1; i++) {
-    usageHistReqs[i] = new GStatsCntr("%s_MSHR:Reqs(%d)", name, i);
-  }
-  for(int i = 0; i < MaxEntries + 1; i++) {
-    usageHistLines[i] = new GStatsCntr("%s_MSHR:Lines(%d)", name, i);
-  }
-#endif
 }
 
 template<class Addr_t>
@@ -111,12 +101,6 @@ bool NoDepsMSHR<Addr_t>::issue(Addr_t paddr, MemOperation mo)
     return false;
   }
 
-#ifdef MSHR_STATS  
-  pendStatTable[paddr >> Log2LineSize]++;
-  I(pendStatTable.find(paddr >> Log2LineSize) != pendStatTable.end());
-  I(pendStatTable[paddr>>Log2LineSize] > 0);
-  updateStats();
-#endif
 
   return true;
 }
@@ -145,46 +129,19 @@ void NoDepsMSHR<Addr_t>::retire(Addr_t paddr)
 
   nFreeEntries++;
 
-#ifdef MSHR_STATS
-  I(pendStatTable.find(paddr >> Log2LineSize) != pendStatTable.end());
-  I(pendStatTable[paddr >> Log2LineSize] > 0);
-
-  pendStatTable[paddr >> Log2LineSize]--;
-  if(pendStatTable[paddr >> Log2LineSize] == 0) 
-    pendStatTable.erase(paddr >> Log2LineSize);
-#endif
 
   if(!overflow.empty()) {
     OverflowField f = overflow.front();
     overflow.pop_front();
-#ifdef MSHR_STATS  
-    pendStatTable[f.paddr >> Log2LineSize]++;
-    I(pendStatTable.find(f.paddr >> Log2LineSize) != pendStatTable.end());
-    I(pendStatTable[f.paddr>>Log2LineSize] > 0);
-    
-    updateStats();
-#endif
 
     if(f.ovflwcb) {
       f.ovflwcb->call();
+      f.cb->destroy(); // the accessQueuedCallback will bever be called.
     } else
       f.cb->call();  // temporary until vmem uses the ovflw callback FIXME
   } 
 }
 
-#ifdef MSHR_STATS
-template<class Addr_t>
-void NoDepsMSHR<Addr_t>::updateStats()
-{
-  int nUsedEntries = nFreeEntries < 0 ? MaxEntries : (MaxEntries - nFreeEntries);
-  int nLines = pendStatTable.size();
-  I(nUsedEntries >= 0);
-
-  I(nUsedEntries <= MaxEntries && nLines <= MaxEntries);
-  usageHistReqs[nUsedEntries]->inc();
-  usageHistLines[nLines]->inc();
-}
-#endif
 // 
 // FullMSHR class
 //
@@ -247,6 +204,10 @@ void FullMSHR<Addr_t>::addEntry(Addr_t paddr, CallbackBase *c, CallbackBase *ovf
     nStallFull.inc();
     return;
   }
+
+  if(ovflwc)
+    ovflwc->destroy();
+
   nStallConflict.inc();
 
   int pos = calcEntry(paddr);
@@ -270,11 +231,17 @@ void FullMSHR<Addr_t>::retire(Addr_t paddr)
     int opos = calcEntry(f.paddr);
     if (entry[opos].inUse) {
       entry[opos].cc.add(f.cb);
+      // we did not need the overflow callback here, since there was a
+      // pending line already. but we need to destroy the callback to
+      // avoid leaks.
+      if(f.ovflwcb)
+	f.ovflwcb->destroy();
     }else{
       entry[opos].inUse = true;
-      if(f.ovflwcb) 
+      if(f.ovflwcb) {
 	f.ovflwcb->call();
-      else
+	f.cb->destroy(); // the retire callback will never be called
+      } else 
 	f.cb->call(); // temporary until vmem uses the ovflw callback FIXME
     }
   } else

@@ -165,9 +165,12 @@ void Cache::doReadQueued(MemRequest *mreq)
   mshr->retire(mreq->getPAddr());
 }
 
-// this is here just because we have no feedback 
-// from the memory system to the processor telling it to stall
-// the issue of a request to the memory system
+// this is here just because we have no feedback from the memory
+// system to the processor telling it to stall the issue of a request
+// to the memory system. this will only be called if an overflow entry
+// is activated in the MSHR and the is *no* pending request for the
+// same line.  therefore, sometimes the callback associated with this
+// function might not be called.
 void Cache::activateOverflow(MemRequest *mreq)
 {
   if(mreq->getMemOperation() == MemRead || mreq->getMemOperation() == MemReadW) {
@@ -284,7 +287,7 @@ void Cache::returnAccess(MemRequest *mreq)
       return;
     }
   }
-   
+
   l->valid = true;
       
   if(mreq->getMemOperation() == MemRead)
@@ -326,12 +329,15 @@ Cache::Line *Cache::allocateLine(PAddr addr, CallbackBase *cb)
   Line *l = cache->fillLine(addr, rpl_addr);
   lineFill.inc();
 
-  if(!l->valid)
+  if(!l->valid) {
+    cb->destroy();
     return l;
+  }
 
   if(isHighestLevel()) {
     if(l->dirty)
       doWriteBack(rpl_addr);
+    cb->destroy();
     return l;
   }
 

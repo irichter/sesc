@@ -113,12 +113,6 @@ class NoDepsMSHR : public MSHR<Addr_t> {
   };
 
 
-#ifdef MSHR_STATS
-  typedef HASH_MAP<PAddr, int> PendStatTable;
-  PendStatTable pendStatTable;
-  GStatsCntr **usageHistReqs;
-  GStatsCntr **usageHistLines;
-#endif
 
   typedef std::deque<OverflowField> Overflow;
   Overflow overflow;
@@ -139,9 +133,6 @@ class NoDepsMSHR : public MSHR<Addr_t> {
 
   void retire(Addr_t paddr);
 
-#ifdef MSHR_STATS
-  void updateStats();
-#endif
 
 };
 

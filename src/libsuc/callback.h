@@ -146,6 +146,7 @@ protected:
   }
 #endif
 public:
+  virtual void destroy() { }
 };
 
 class StaticCallbackBase : public CallbackBase {
@@ -212,6 +213,10 @@ public:
 
   void call() {
     (*funcPtr)(p1,p2,p3);
+    destroy();
+  }
+
+  void destroy() {
     cbPool.in(this);
   }
 
@@ -270,6 +275,10 @@ public:
 
   void call() {
     (*funcPtr)(p1,p2);
+    destroy();
+  }
+
+  void destroy() {
     cbPool.in(this);
   }
 
@@ -325,6 +334,10 @@ public:
 
   void call() {
     (*funcPtr)(p1);
+    destroy();
+  }
+
+  void destroy() {
     cbPool.in(this);
   }
 
@@ -491,9 +504,13 @@ public:
   
   void call() {
     (instance->*memberPtr)(p1, p2, p3, p4);
-    cbPool.in(this);
+    destroy();
   }
 
+  void destroy() {
+    cbPool.in(this);
+  }
+ 
   void setParam1(Parameter1 a1) {
     p1 = a1;
   }
@@ -557,6 +574,10 @@ public:
   
   void call() {
     (instance->*memberPtr)(p1, p2, p3);
+    destroy();
+  }
+
+  void destroy() {
     cbPool.in(this);
   }
 
@@ -620,6 +641,10 @@ public:
 
   void call() {
     (instance->*memberPtr)(p1, p2);
+    destroy();
+  }
+
+  void destroy() {
     cbPool.in(this);
   }
 
@@ -681,6 +706,10 @@ public:
 
   void call() {
     (instance->*memberPtr) (p1);
+    destroy();
+  }
+
+  void destroy() {
     cbPool.in(this);
   }
   
@@ -739,6 +768,10 @@ public:
 
   void call() {
     (instance->*memberPtr) ();
+    destroy();
+  }
+
+  void destroy() {
     cbPool.in(this);
   }
 };
