@@ -4,7 +4,6 @@
 #include "wattch_power.h"
 #include "wattch_cache.h"
 #include <stdio.h>
-#include <iostream>
 #include <string>
 #include <SescConf.h>
 #include <stdlib.h>
@@ -124,8 +123,8 @@ void wattch_setup()
 
   power_result_type pp;
   
-  const char *proc = SescConf->getCharPtr("cpucore","cpucore") ;
-  cout << "proc = " << proc << endl ;
+  const char *proc = SescConf->getCharPtr("","cpucore",0);
+  fprintf(stderr,"proc = [%s]\n",proc);
   Mhz = SescConf->getDouble(proc,"frequency") ;
 
   ruu_fetch_width  = SescConf->getLong(proc,"fetchWidth") ;
@@ -286,11 +285,11 @@ void processAlu(const char* proc)
 
   // check
   if(res_ialu == -1) {
-    cout << "ialu not set" << endl ;
+    fprintf(stderr,"ialu not set\n");
     exit(-1) ;
   }
   if(res_fpalu == -1){
-    cout << "fpalu not set" << endl ;
+    fprintf(stderr,"fpalu not set\n");
     exit(-1) ;
   }
 }
@@ -314,7 +313,7 @@ int getInstQueueSize(const char* proc)
 
   // check
   if(!num){
-    cout << "No clusters" << endl;
+    fprintf(stderr,"no clusters\n");
     exit(-1);
   }
 
@@ -369,7 +368,7 @@ void processBranch(const char* proc)
     comb_config[0] = (int) SescConf->getLong(bpred,"Metasize") ;
   }
   if(bp_type == OTHER){
-    cout << "branch predictor type " << bpred << " not recognized" << endl ;
+    fprintf(stderr,"branch predictor type %s not recognized\n",bpred);
     abort() ;
   }
 }
