@@ -132,6 +132,10 @@ sub main {
     $cf = sesc->new($file);
 
     my $bench = $cf->getResultField("OSSim","bench");
+
+    $nCycles = $cf->getResultField("OSSim","nCycles");
+    next unless ($nCycles);
+
     print "# Bench : $bench\n";
     printf "# File  : %-20s : %30s\n", $file,ctime((stat($file))[9]);
 
@@ -651,7 +655,7 @@ sub showStatReport {
   my $nTLSWPathInsts = $nKillWPathInsts + $nRestartWPathInsts;
 
   #############################################################################
-  printf "#table0                       BusyCPU %: CommitInst: nCycles : nWPathInsts\n";
+  printf "#table0                            BusyCPU %: CommitInst: nCycles : nWPathInsts\n";
 
   printf "table0  %25s ", $name;
   # BusyCPU
@@ -661,12 +665,12 @@ sub showStatReport {
   # nCycles
   printf " %9.0f ", $nCycles;
   # of wrong path instructions
-  printf " %d ", $nWPathInsts;
+  printf " %9d ", $nWPathInsts;
   printf "\n";
 
   #############################################################################
-  print  "#table2                             Fetch    Issue      Mem     Exec    Clock    Total\n";
-  my $txt = sprintf "table2  %25s ", $name;
+  print  "#table2a                                 Fetch    Issue      Mem     Exec    Clock    Total\n";
+  my $txt = sprintf "table2a  %25s ", $name;
   WritePowerLine("PowerMgr", $txt, 1);
 
   #############################################################################
@@ -688,6 +692,9 @@ sub showStatReport {
 	      last unless (defined $clusterType);
 	      
 	      $coreRenEnergy += $cf->getResultField("Proc(${i})","renameEnergy");
+
+	      $coreWinEnergy += $cf->getResultField("Proc(${i})_$clusterType","depTableEnergy"); # DDIS
+	      $coreWinEnergy += $cf->getResultField("Proc(${i})_$clusterType","winDepsEnergy");  # DDIS
 	      
 	      $coreWinEnergy += $cf->getResultField("Proc(${i})_$clusterType","windowRdWrEnergy");
 	      $coreWinEnergy += $cf->getResultField("Proc(${i})_$clusterType","windowCheckEnergy");
@@ -714,52 +721,61 @@ sub showStatReport {
 	  }
       }
       
-      my $coreEnergy    =  $coreRenEnergy + $coreWinEnergy + $coreROBEnergy +$coreBusEnergy + $coreRegEnergy + $lsqEnergy;
+      my $coreEnergy  =  $coreRenEnergy + $coreWinEnergy + $coreROBEnergy +$coreBusEnergy + $coreRegEnergy + $lsqEnergy;
+      my $totPower    = $cf->getResultField("PowerMgr","totPower");
   
-      print  "#table2b                             Core E % : Rename % : Window % : ROB % : Buses % : Regs % : LDSQ %\n";
+      print  "#table2b                            Core (w) : Rename  : Window  : ROB  : Buses  : Regs  : LDSQ\n";
       
       printf "table2b %25s ", $name;
       # % Core of total
-      printf " %9.2f ", 100*$coreEnergy/$totEnergy;
+      printf " %9.3f ", $totPower*$coreEnergy/$totEnergy;
       # % Ren of core
-      printf " %9.2f ", 100*$coreRenEnergy/$coreEnergy;
+      printf " %9.3f ", $totPower*$coreRenEnergy/$totEnergy;
       # % Win of core
-      printf " %9.2f ", 100*$coreWinEnergy/$coreEnergy;
+      printf " %9.3f ", $totPower*$coreWinEnergy/$totEnergy;
       # % ROB of core
-      printf " %9.2f ", 100*$coreROBEnergy/$coreEnergy;
+      printf " %9.3f ", $totPower*$coreROBEnergy/$totEnergy;
       # % Bus of core
-      printf " %9.2f ", 100*$coreBusEnergy/$coreEnergy;
+      printf " %9.3f ", $totPower*$coreBusEnergy/$totEnergy;
       # % Reg of core
-      printf " %9.2f ", 100*$coreRegEnergy/$coreEnergy;
+      printf " %9.3f ", $totPower*$coreRegEnergy/$totEnergy;
       # % LSQ of core
-      printf " %9.2f ", 100*$lsqEnergy/$coreEnergy;
+      printf " %9.3f ", $totPower*$lsqEnergy/$totEnergy;
+      printf "\n";
+
+      #############################################################################
+      print  "#table2c                            TotEnergy : CoreEnergy\n";
+      
+      printf "table2c %25s ", $name;
+      printf " %5.4g ", $totEnergy*1e-9;
+      printf " %5.4g ", $coreRenEnergy*1e-9;
       printf "\n";
   }
 
   #############################################################################
   if ($cf->getResultField("Proc(0)_robUsed","n")) {
-      printf "#table8                       ProcId : ROBuse %: LDQ Use %: STQ use %: c1 winUse % : c2 winUse % :...\n";
+      printf "#table8                              ProcId : ROBuse %: LDQ Use %: STQ use %: c1 winUse % : c2 winUse % :...\n";
 
       for(my $i=0;$i<$nCPUs;$i++) {
 	  my $cpuType = $cf->getConfigEntry(key=>"cpucore",index=>$i);
 	  last unless (defined $cf->getConfigEntry(key=>"robSize",section=>$cpuType));
 	  
-	  printf "table8  %25s %d ", $name, $i;
+	  printf "table8  %25s  %9d ", $name, $i;
 	  
 	  my $max;
 	  my $tmp;
 	  # ROBUse
 	  $max = $cf->getConfigEntry(key=>"robSize",section=>$cpuType);
 	  $tmp = $cf->getResultField("Proc(${i})_robUsed","v");
-	  printf " %9.2f  ", 100*$tmp/$max;
+	  printf " %9.2f ", 100*$tmp/$max;
 	  # LDQ Use
 	  $max = $cf->getConfigEntry(key=>"maxLoads",section=>$cpuType);
 	  $tmp = $cf->getResultField("FULoad(${i})_ldqNotUsed","v");
-	  printf " %9.2f  ", 100*($max-$tmp)/$max;
+	  printf " %9.2f ", 100*($max-$tmp)/$max;
 	  # STQ Use
 	  $max = $cf->getConfigEntry(key=>"maxStores",section=>$cpuType);
 	  $tmp = $cf->getResultField("FUStore(${i})_stqNotUsed","v");
-	  printf " %9.2f  ", 100*($max-$tmp)/$max;
+	  printf " %9.2f ", 100*($max-$tmp)/$max;
 	  
 	  for (my $j=0; ; $j++) {
 	      my $clusterType = $cf->getConfigEntry(key=>"cluster", section=>$cpuType, index=>$j);
@@ -1064,7 +1080,6 @@ sub simStats {
   }
   $nInstTotal += $nLoadTotal + $nStoreTotal;
 
-  $nCycles = $cf->getResultField("OSSim","nCycles");
   # End Global Stats
 
   print "      Exe Speed         Exe Time         Sim Time (${freq}MHz)\n";

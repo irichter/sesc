@@ -2153,12 +2153,13 @@ extern int organizational_parameters_valid(int B, int A, int C,
 void area_subbanked(int baddr,int b0,int RWP,int ERP,int EWP,int Ndbl,int Ndwl,int Nspd,int Ntbl,int Ntwl
     ,int Ntspd,double NSubbanks,parameter_type *parameters,area_type *result_subbanked,arearesult_type *result);
 
-void ca_calculate_time(result,arearesult,arearesult_subbanked,parameters,NSubbanks)
+void ca_calculate_time(result,arearesult,arearesult_subbanked,parameters,NSubbanks,useTag)
 arearesult_type *arearesult;
 area_type *arearesult_subbanked;
 result_type *result;
 parameter_type *parameters;
 double *NSubbanks;
+int useTag;
 {
    arearesult_type arearesult_temp;
    area_type arearesult_subbanked_temp;
@@ -2393,52 +2394,54 @@ double *NSubbanks;
 	    
 	    
 	    decoder_tag_power=0;
-	    decoder_tag = decoder_tag_delay(parameters->cache_size,
-					    parameters->block_size,parameters->associativity,
-					    Ndwl,Ndbl,Nspd,Ntwl,Ntbl,Ntspd,*NSubbanks,
-					    &decoder_tag_driver,&decoder_tag_3to8,
-					    &decoder_tag_inv,addr_inrisetime,&outrisetime,&tag_nor_inputs, &decoder_tag_power);
-	    max_delay=MAX(max_delay, decoder_tag);
-	    inrisetime = outrisetime;
-	    decoder_tag_power*=(parameters->num_readwrite_ports+parameters->num_read_ports+parameters->num_write_ports);
-	    
 	    wordline_tag_power=0;
-	    wordline_tag = wordline_tag_delay(parameters->cache_size,
-					      parameters->associativity,Ntspd,Ntwl,*NSubbanks,
-					      inrisetime,&outrisetime, &wordline_tag_power);
-	    max_delay=MAX(max_delay, wordline_tag);
-	    inrisetime = outrisetime;
-	    wordline_tag_power*=(parameters->num_readwrite_ports+parameters->num_read_ports+parameters->num_write_ports);
-	    
 	    bitline_tag_power=0;
-	    bitline_tag = bitline_tag_delay(parameters->cache_size,parameters->associativity,
-					    parameters->block_size,Ntwl,Ntbl,Ntspd,*NSubbanks,
-					    inrisetime,&outrisetime, &bitline_tag_power);
-	    max_delay=MAX(max_delay, bitline_tag);
-	    inrisetime = outrisetime;
-	    bitline_tag_power*=(parameters->num_readwrite_ports+parameters->num_read_ports+parameters->num_write_ports);
-	  
-	    sense_amp_tag_power=ADDRESS_BITS+2 - (int)logtwo((double)parameters->cache_size) + (int)logtwo((double)parameters->associativity);
-
-	    sense_amp_tag = sense_amp_tag_delay(inrisetime,&outrisetime,&sense_amp_tag_power);
-          
-	    max_delay=MAX(max_delay, sense_amp_tag);
-	    inrisetime = outrisetime;
-	    sense_amp_tag_power*=(parameters->num_readwrite_ports+parameters->num_read_ports);
-
-
-	    /* split comparator - look at half the address bits only */
 	    compare_tag_power=0;
-	    compare_tag = half_compare_time(parameters->cache_size,parameters->associativity,
-					    Ntbl,Ntspd,*NSubbanks,
-					    inrisetime,&outrisetime, &compare_tag_power);
-	    compare_tag_power*=(parameters->num_readwrite_ports+parameters->num_read_ports);
-	    inrisetime = outrisetime;
-	    max_delay=MAX(max_delay, compare_tag);
-	    
 	    valid_driver_power=0;
 	    mux_driver_power=0;
 	    selb_power=0;
+
+	    if (useTag) {
+	      decoder_tag = decoder_tag_delay(parameters->cache_size,
+					      parameters->block_size,parameters->associativity,
+					      Ndwl,Ndbl,Nspd,Ntwl,Ntbl,Ntspd,*NSubbanks,
+					      &decoder_tag_driver,&decoder_tag_3to8,
+					      &decoder_tag_inv,addr_inrisetime,&outrisetime,&tag_nor_inputs, &decoder_tag_power);
+	      max_delay=MAX(max_delay, decoder_tag);
+	      inrisetime = outrisetime;
+	      decoder_tag_power*=(parameters->num_readwrite_ports+parameters->num_read_ports+parameters->num_write_ports);
+	      
+	      wordline_tag = wordline_tag_delay(parameters->cache_size,
+						parameters->associativity,Ntspd,Ntwl,*NSubbanks,
+						inrisetime,&outrisetime, &wordline_tag_power);
+	      max_delay=MAX(max_delay, wordline_tag);
+	      inrisetime = outrisetime;
+	      wordline_tag_power*=(parameters->num_readwrite_ports+parameters->num_read_ports+parameters->num_write_ports);
+	      
+	      bitline_tag = bitline_tag_delay(parameters->cache_size,parameters->associativity,
+					      parameters->block_size,Ntwl,Ntbl,Ntspd,*NSubbanks,
+					      inrisetime,&outrisetime, &bitline_tag_power);
+	      max_delay=MAX(max_delay, bitline_tag);
+	      inrisetime = outrisetime;
+	      bitline_tag_power*=(parameters->num_readwrite_ports+parameters->num_read_ports+parameters->num_write_ports);
+	      
+	      sense_amp_tag_power=ADDRESS_BITS+2 - (int)logtwo((double)parameters->cache_size) + (int)logtwo((double)parameters->associativity);
+	      
+	      sense_amp_tag = sense_amp_tag_delay(inrisetime,&outrisetime,&sense_amp_tag_power);
+	      
+	      max_delay=MAX(max_delay, sense_amp_tag);
+	      inrisetime = outrisetime;
+	      sense_amp_tag_power*=(parameters->num_readwrite_ports+parameters->num_read_ports);
+	      
+	      /* split comparator - look at half the address bits only */
+	      compare_tag = half_compare_time(parameters->cache_size,parameters->associativity,
+					      Ntbl,Ntspd,*NSubbanks,
+					      inrisetime,&outrisetime, &compare_tag_power);
+	      compare_tag_power*=(parameters->num_readwrite_ports+parameters->num_read_ports);
+	      inrisetime = outrisetime;
+	      max_delay=MAX(max_delay, compare_tag);
+	    }
+	    
 	    if (parameters->associativity == 1) {
 	      mux_driver = 0;
 	      valid_driver = valid_driver_delay(parameters->cache_size,parameters->block_size,

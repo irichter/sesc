@@ -27,6 +27,9 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "nanassert.h"
 #include "Port.h"
 #include "Snippets.h"
+#ifdef SESC_DDIS
+#include "DDIS.h"
+#endif
 
 class DInst;
 
@@ -35,13 +38,16 @@ private:
   const int Id;
 
   const TimeDelta_t InterClusterLat;
+#ifndef SESC_DDIS
   const TimeDelta_t WakeUpDelay;
+#endif
   const TimeDelta_t SchedDelay;
   const TimeDelta_t RegFileDelay;
 
   const bool InOrderCore;
 
 #ifdef SESC_DDIS
+  DDIS ddis;
   static GStatsCntr *nDeps[];
 #endif
 
@@ -68,6 +74,12 @@ public:
   void executed(DInst *dinst);
 
   bool canIssue(DInst *dinst) const;
+
+  void retire(DInst *dinst) {
+#ifdef SESC_DDIS
+    ddis.retire(dinst);
+#endif
+  }
 };
 
 #endif // DEPWINDOW_H

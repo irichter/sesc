@@ -130,13 +130,18 @@ DInst *DInst::createDInst(const Instruction *inst, VAddr va, int cpuId)
   i->lvid       = 0;
   IS(i->lvidVersion=0); // not necessary to set to null (Goes together with LVID)
   i->restartVer = 0;
-
-
 #endif //TASKSCALAR
 
 #if (defined TLS)
   ID(i->myEpoch=0);
 #endif
+#ifdef SESC_DDIS
+  i->presched = false;
+  i->bank     = 0;
+  i->pend[0].setParentDInst(0);
+  i->pend[1].setParentDInst(0);
+#endif
+
   i->pend[0].isUsed = false;
   i->pend[1].isUsed = false;
     

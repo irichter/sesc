@@ -31,6 +31,7 @@ my $op_rabbit;
 my $op_saveoutput;
 my $op_kinst;
 my $op_bindir="$ENV{'BENCHDIR'}/bin";
+my $op_yes;
 
 my $dataset;
 
@@ -54,6 +55,7 @@ my $result = GetOptions("test",\$op_test,
 			"saveoutput",\$op_saveoutput,
 			"bindir=s",\$op_bindir,
 			"kinst=i",\$op_kinst,
+			"yes",\$op_yes,
 			"help",\$op_help
 		       );
 
@@ -455,21 +457,7 @@ sub runBench {
   }
 }
 
-sub processParams {
-  my $badparams =0;
-
-  $badparams = 1 if( @ARGV < 1 );
-
-  if ( -f "./${op_sesc}" ) {
-     $op_sesc = "./${op_sesc}";
-  }else{
-     $op_sesc = $op_sesc;
-  }
-
-  if( $op_clean ) {
-    print "Do you really want to DELETE all the files? (y/N)";
-    my $c = getc();
-    if( $c eq 'y' ) {
+sub cleanAll {
       unlink <core.*>;
       unlink <sesc_*\.??????>;
       unlink <prof_*>;
@@ -526,6 +514,28 @@ sub processParams {
       unlink <test.*>;
       unlink <train.*>;
       unlink <ref.*>;
+}
+
+sub processParams {
+  my $badparams =0;
+
+  $badparams = 1 if( @ARGV < 1 );
+
+  if ( -f "./${op_sesc}" ) {
+     $op_sesc = "./${op_sesc}";
+  }else{
+     $op_sesc = $op_sesc;
+  }
+
+  if( $op_clean ) {
+    if ( $op_yes) {
+      cleanAll();
+    }else{
+      print "Do you really want to DELETE all the files? (y/N)";
+      my $c = getc();
+      if( $c eq 'y' ) {
+  	cleanAll();
+      }
     }
     exit 0;
   }
@@ -577,6 +587,7 @@ sub processParams {
     print "\t-rabbit          ; Run in Rabbit mode the whole program\n";
     print "\t-saveoutput      ; Save output to a .out file\n";
     print "\t-clean           ; DELETE all the outputs from previous runs\n";
+    print "\t-yes             ; Do not ask for questions. Say all yes\n";
     print "\t-help            ; Show this help\n";
     exit;
   }

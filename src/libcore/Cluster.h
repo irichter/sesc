@@ -76,7 +76,7 @@ class Cluster {
   void wakeUpDeps(DInst *dinst) { window.wakeUpDeps(dinst); }
 
   virtual void executed(DInst *dinst) = 0;
-  virtual void retire() = 0;
+  virtual void retire(DInst *dinst) = 0;
 
   static Cluster *create(const char *clusterName, GMemorySystem *ms, GProcessor *gproc);
 
@@ -101,7 +101,7 @@ class ExecutedCluster : public Cluster {
     : Cluster(clusterName, gp) { }
     
   void executed(DInst *dinst);
-  void retire();
+  void retire(DInst *dinst);
 };
 
 class RetiredCluster : public Cluster {
@@ -112,7 +112,7 @@ class RetiredCluster : public Cluster {
     : Cluster(clusterName, gp) { }
 
   void executed(DInst *dinst);
-  void retire();
+  void retire(DInst *dinst);
 };
 
 

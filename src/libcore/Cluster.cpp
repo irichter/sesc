@@ -217,9 +217,6 @@ Cluster *Cluster::create(const char *clusterName, GMemorySystem *ms, GProcessor 
   if( strcasecmp(recycleAt,"retire") == 0) {
     cluster = new RetiredCluster(clusterName, gproc);
   }else{
-#ifdef SESC_DDIS
-    I(0); // retire is the only valid
-#endif
     I( strcasecmp(recycleAt,"execute") == 0);
     cluster = new ExecutedCluster(clusterName, gproc);
   }
@@ -254,8 +251,9 @@ void ExecutedCluster::executed(DInst *dinst)
   window.executed(dinst);
 }
 
-void ExecutedCluster::retire()
+void ExecutedCluster::retire(DInst *dinst)
 {
+  window.retire(dinst);
   winNotUsed.sample(windowSize);
   // Nothing
 }
@@ -267,8 +265,9 @@ void RetiredCluster::executed(DInst *dinst)
   window.executed(dinst);
 }
 
-void RetiredCluster::retire()
+void RetiredCluster::retire(DInst *dinst)
 {
+  window.retire(dinst);
   winNotUsed.sample(windowSize);
   delEntry();
 }

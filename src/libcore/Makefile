@@ -52,7 +52,7 @@ OBJS  += Slicer.o
 endif
 
 ifdef SESC_DDIS
-OBJS	+=BFWin.o
+OBJS:=DDIS.o $(OBJS)
 endif
 
 ##############################################################################

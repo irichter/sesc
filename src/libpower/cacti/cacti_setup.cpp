@@ -48,13 +48,54 @@
 #include "cacti_setup.h"
 #include "cacti_time.h"
 #include "io.h"
+#include "Snippets.h"
 
 /*------------------------------------------------------------------------------*/
 #include <vector>
 
-double wattch2cactiFactor = 1;
+int BITOUT=64;
+
+static double tech;
+static int res_memport;
+static double wattch2cactiFactor = 1;
+
+double getEnergy(int size
+		 ,int bsize
+		 ,int assoc
+		 ,int rdPorts
+		 ,int wrPorts
+		 ,int subBanks
+		 ,int useTag
+		 ,int bits);
 double getEnergy(const char*);
+
 void iterate();
+
+int getInstQueueSize(const char* proc)
+{
+   // get the clusters
+  int min = SescConf->getRecordMin(proc,"cluster") ;
+  int max = SescConf->getRecordMax(proc,"cluster") ;
+  int total = 0;
+  int num = 0;
+  
+  for(int i = min ; i <= max ; i++){
+    const char* cc = SescConf->getCharPtr(proc,"cluster",i) ;
+    if(SescConf->checkLong(cc,"winSize")){
+      int sz = SescConf->getLong(cc,"winSize") ;
+      total += sz;
+      num++;
+    }
+  }
+
+  // check
+  if(!num){
+    fprintf(stderr,"no clusters\n");
+    exit(-1);
+  }
+
+  return total/num;
+}
 
 void iterate()
 {
@@ -106,59 +147,213 @@ char *strfy(double v){
   return t ;
 }
 
-double getEnergy(const char *section)
+
+double getEnergy(int size
+		 ,int bsize
+		 ,int assoc
+		 ,int rdPorts
+		 ,int wrPorts
+		 ,int subBanks
+		 ,int useTag
+		 ,int bits)
 {
-  result_type result;
-  arearesult_type arearesult;
-  area_type arearesult_subbanked;
-  parameter_type parameters;
-  double NSubbanks;
+  int nsets = size/(bsize*assoc);
 
-  // set the input
-  int cache_size = SescConf->getLong(section,"size") ;
-  int block_size = SescConf->getLong(section,"bsize") ;
-  int assoc = SescConf->getLong(section,"assoc") ;
-  int nsets = cache_size/(block_size*assoc) ;
-  int write_ports = 0 ;
-  int read_ports = 0;
-  int readwrite_ports = 1;
-  int subbanks = 1;
-  double tech = SescConf->getDouble("","tech") ;
-
-  if (SescConf->getLong(section,"numPorts")>1) {
-    read_ports      = SescConf->getLong(section,"numPorts")-2;
-    readwrite_ports = 2;
+  if (nsets == 0) {
+    printf("Invalid cache parameters\n");
+    exit(0);
+  }
+  if ((size/subBanks)<64) {
+    printf("size %d: subBanks %d: assoc %d : nset %d\n",size,subBanks,assoc,nsets);
+    size =64*subBanks;
   }
 
-  if(SescConf->checkLong(section,"subBanks"))
-    subbanks = SescConf->getLong(section,"subBanks");
+  double NSubbanks;
+  area_type arearesult_subbanked;
+  parameter_type parameters;
+  arearesult_type arearesult;
+  result_type result;
+
+  if (rdPorts>1) {
+    wrPorts = rdPorts-2;
+    rdPorts = 2;
+  }
 
   // input data
   int argc = 9 ;
   char *argv[9] ;
-  argv[1] = strfy(cache_size) ;
-  argv[2] = strfy(block_size) ;
+  argv[1] = strfy(size) ;
+  argv[2] = strfy(bsize) ;
   argv[3] = (nsets == 1) ? strdup("FA") : strfy(assoc) ;
   argv[4] = strfy(tech) ;
-  argv[5] = strfy(readwrite_ports) ;
-  argv[6] = strfy(read_ports) ;
-  argv[7] = strfy(write_ports) ;
-  argv[8] = strfy(subbanks) ;
+  argv[5] = strfy(0) ;
+  argv[6] = strfy(rdPorts) ;
+  argv[7] = strfy(wrPorts) ;
+  argv[8] = strfy(subBanks) ;
 
-  MSG("processing %s,%s",section,argv[3]) ;
-  if(ca_input_data(argc,argv,&parameters,&NSubbanks) == ERROR){
+  BITOUT = bits;
+
+  if(ca_input_data(argc,argv,&parameters,&NSubbanks) == ERROR) {
     exit(0) ;
   }
-  ca_calculate_time(&result,&arearesult,&arearesult_subbanked,&parameters,&NSubbanks);
+  ca_calculate_time(&result,&arearesult,&arearesult_subbanked,&parameters,&NSubbanks,useTag);
 
-  double div = subbanks;
-  MSG("%s,%s processed %g",section,argv[3], result.total_power_allbanks * 1e9/div);
+  return 1e9*(result.total_power_without_routing/subBanks + result.total_routing_power);
+}
 
-  return result.total_power_allbanks * 1e9/div;
+double getEnergy(const char *section)
+{
+  // set the input
+  int cache_size = SescConf->getLong(section,"size") ;
+  int block_size = SescConf->getLong(section,"bsize") ;
+  int assoc = SescConf->getLong(section,"assoc") ;
+  int write_ports = 0 ;
+  int read_ports = SescConf->getLong(section,"numPorts");
+  int readwrite_ports = 1;
+  int subbanks = 1;
+  int bits = 64;
+
+  if(SescConf->checkLong(section,"subBanks"))
+    subbanks = SescConf->getLong(section,"subBanks");
+
+  if(SescConf->checkLong(section,"bits"))
+    bits = SescConf->getLong(section,"bits");
+
+  return getEnergy(cache_size
+		   ,block_size
+		   ,assoc
+		   ,read_ports
+		   ,readwrite_ports
+		   ,subbanks
+		   ,1
+		   ,bits);
+}
+
+void processorCore()
+{
+  const char *proc = SescConf->getCharPtr("","cpucore",0) ;
+  fprintf(stderr,"proc = [%s]\n",proc);
+
+  //----------------------------------------------
+  // Register File
+  int issueWidth= SescConf->getLong(proc,"issueWidth");
+  int size    = SescConf->getLong(proc,"intRegs");
+  int banks   = 1; 
+  int rdPorts = 2*issueWidth;
+  int wrPorts = issueWidth;
+  int bits = 64;
+  int bytes = 8;
+
+  if(SescConf->checkLong(proc,"bits")) {
+    bits = SescConf->getLong(proc,"bits");
+    bytes = bits/8;
+    if (bits*8 != bytes) {
+      fprintf(stderr,"Not valid number of bits for the processor core [%d]\n",bits);
+      exit(-2);
+    }
+  }
+
+  if(SescConf->checkLong(proc,"intRegBanks"))
+    banks = SescConf->getLong(proc,"intRegBanks");
+
+  if(SescConf->checkLong(proc,"intRegRdPorts"))
+    rdPorts = SescConf->getLong(proc,"intRegRdPorts");
+
+  if(SescConf->checkLong(proc,"intRegWrPorts"))
+    wrPorts = SescConf->getLong(proc,"intRegWrPorts");
+
+  double regEnergy = getEnergy(size*bytes,bytes,1,rdPorts,wrPorts,banks,0,bits);
+
+  SescConf->updateRecord(proc,"wrRegEnergy",regEnergy);
+  SescConf->updateRecord(proc,"rdRegEnergy",regEnergy);
+
+#if 0
+  // Energy numbers are way too good. Need to look for the problem,
+  // and/or more realistic models
+  //----------------------------------------------
+  // Load/Store Queue
+  size      = SescConf->getLong(proc,"maxLoads");
+  banks     = 1; 
+  rdPorts   = 0;
+  wrPorts   = res_memport;
+
+  if(SescConf->checkLong(proc,"lsqBanks"))
+    banks = SescConf->getLong(proc,"lsqBanks");
+
+  regEnergy = getEnergy(size*2*bytes,2*bytes,size,rdPorts,wrPorts,banks,1, 2*bits);
+
+  SescConf->updateRecord(proc,"ldqRdWrEnergy",regEnergy);
+
+  size      =  SescConf->getLong(proc,"maxStores");
+  regEnergy = getEnergy(size*4*bytes,4*bytes,size,rdPorts,wrPorts,banks,1, 2*bits);
+
+  SescConf->updateRecord(proc,"stqRdWrEnergy",regEnergy);
+#endif
+
+  //----------------------------------------------
+  // Reorder Buffer
+  size      = SescConf->getLong(proc,"robSize");
+  banks     = 1; 
+  rdPorts   = 0;
+  wrPorts   = issueWidth;
+
+  regEnergy = getEnergy(size*3,3,1,rdPorts,wrPorts,banks,0,24);
+
+  SescConf->updateRecord(proc,"robEnergy",regEnergy);
+
+#ifdef SESC_DDIS
+  //----------------------------------------------
+  // Window Energy & Window + DDIS
+
+  const char *cluster = SescConf->getCharPtr(proc,"cluster",0) ;
+
+  bool useDDIS = SescConf->getLong(cluster,"depTableNumPorts") != 0;
+
+  if (useDDIS) {
+    SescConf->updateRecord(proc,"robEnergy",0) ;
+    SescConf->updateRecord(proc,"windowCheckEnergy",0);
+    SescConf->updateRecord(proc,"windowRdWrEnergy" ,0);
+
+    //----------------------------------------------
+    // DepTable
+    size      = SescConf->getLong(proc,"robSize");
+    banks     = SescConf->getLong(cluster,"banks");
+    rdPorts   = 0;
+    wrPorts   = SescConf->getLong(cluster,"depTableNumPorts");
+    int tableBits = ((float)log(size)/log(2))*SescConf->getLong(cluster,"depTableEntries")+2;
+    int tableBytes;
+    if (tableBits < 8) {
+      tableBits  = 8;
+      tableBytes = 1;
+    }else{
+      tableBytes = roundUpPower2(tableBits)/8;
+    }
+    printf("depTable [%d bytes] [bits read %d] [bits entry %d]\n",size*tableBits/8,tableBits,(int)((float)log(size)/log(2)));
+    regEnergy = getEnergy(size*tableBytes,tableBytes,1,rdPorts,wrPorts,banks,0,tableBits);
+    
+    SescConf->updateRecord(proc,"depTableEnergy",regEnergy);
+
+    //----------------------------------------------
+    // winDeps
+    size      = SescConf->getLong(proc,"robSize");
+    banks     = SescConf->getLong(cluster,"banks");
+    rdPorts   = 0;
+    wrPorts   = SescConf->getLong(cluster,"winDepsNumPorts");
+
+    regEnergy = getEnergy(size*8,8,1,rdPorts,wrPorts,banks,0,64);
+    
+    SescConf->updateRecord(proc,"winDepsEnergy",regEnergy);
+  }else{
+    SescConf->updateRecord(proc,"depTableEnergy",0);
+    SescConf->updateRecord(proc,"winDepsEnergy" ,0);
+  }
+#endif
 }
 
 void cacti_setup()
 {
+  tech = SescConf->getDouble("","tech") ;
+
   const char *proc    = SescConf->getCharPtr("","cpucore",0);
   const char *l1Cache = SescConf->getCharPtr(proc,"dataSource");
 
@@ -166,6 +361,8 @@ void cacti_setup()
   char *l1Section = strdup(l1Cache);
   if (l1CacheSpace)
     l1Section[l1CacheSpace - l1Cache] = 0;
+
+  res_memport = SescConf->getLong(l1Section,"numPorts");
 
   double l1Energy = getEnergy(l1Section);
 
@@ -177,6 +374,8 @@ void cacti_setup()
   }else{
     fprintf(stderr,"-----WARNING: No wattch correction factor\n");
   }
+
+  processorCore();
 
   iterate();
 }

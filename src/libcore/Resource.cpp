@@ -61,7 +61,7 @@ void Resource::executed(DInst *dinst)
 
 bool Resource::retire(DInst *dinst)
 {
-  cluster->retire();
+  cluster->retire(dinst);
   dinst->destroy();
   return true;
 }
@@ -205,7 +205,6 @@ FULoad::FULoad(Cluster *cls, PortGeneric *aGen
 #ifdef SESC_MEMBF
   bf = new BloomFilter [LSQBanks](4, 8, 2*maxLoads, 6, maxLoads/2, 6, maxLoads/2, 6, maxLoads/2);
 #endif
-
 }
 
 StallCause FULoad::canIssue(DInst *dinst)
@@ -283,7 +282,7 @@ bool FULoad::retire(DInst *dinst)
 {
   ldqNotUsed.sample(freeLoads);
 
-  cluster->retire();
+  cluster->retire(dinst);
 
   if (!dinst->isFake() && !dinst->isEarlyRecycled())
     freeLoads++;
@@ -397,7 +396,7 @@ void FUStore::doRetire(DInst *dinst)
   stqNotUsed.sample(freeStores);
 
   LDSTBuffer::storeLocallyPerformed(dinst);
-  cluster->retire();
+  cluster->retire(dinst);
 
   if (!dinst->isEarlyRecycled() && !dinst->isFake())
     freeStores++;
@@ -555,6 +554,7 @@ void FUBranch::simTime(DInst *dinst)
 
 void FUBranch::executed(DInst *dinst)
 {
+#ifndef SESC_BRANCH_AT_RETIRE
   // TODO: change it to remove getFetch only call missBranch when a
   // boolean is set? Backup done at fetch 
   if (dinst->getFetch()) {
@@ -563,6 +563,7 @@ void FUBranch::executed(DInst *dinst)
     cluster->getGProcessor()->misBranchRestore(dinst);
 #endif
   }
+#endif
 
   freeBranches++;
 
@@ -573,6 +574,25 @@ void FUBranch::executed(DInst *dinst)
 
   cluster->executed(dinst);
 }
+
+#ifdef SESC_BRANCH_AT_RETIRE
+bool FUBranch::retire(DInst *dinst)
+{
+  // TODO: change it to remove getFetch only call missBranch when a
+  // boolean is set? Backup done at fetch 
+  if (dinst->getFetch()) {
+    dinst->getFetch()->unBlockFetch();
+#ifdef SESC_MISPATH
+    cluster->getGProcessor()->misBranchRestore(dinst);
+#endif
+  }
+
+  cluster->retire(dinst);
+  dinst->destroy();
+
+  return true;
+}
+#endif
 
 #ifdef SESC_CHERRY
 void FUBranch::earlyRecycle(DInst *dinst)

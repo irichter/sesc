@@ -161,6 +161,10 @@ DEFS   +=-DSESC_PRESCHEDULE
 
 #DEFS	 +=-DBPRED_UPDATE_RETIRE
 
+# Resolve branch when it reaches the head of the ROB
+
+#DEFS	 +=-DSESC_BRANCH_AT_RETIRE
+
 ################################################
 # Cherry
 ifdef SESC_CHERRY

@@ -123,7 +123,7 @@ void wattch_setup()
 
   power_result_type pp;
   
-  const char *proc = SescConf->getCharPtr("","cpucore",0);
+  const char *proc = SescConf->getCharPtr("","cpucore",0) ;
   fprintf(stderr,"proc = [%s]\n",proc);
   Mhz = SescConf->getDouble(proc,"frequency") ;
 

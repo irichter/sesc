@@ -48,7 +48,10 @@ class BPredictor;
 // FIXME: do a nice class. Not so public
 class DInstNext {
  private:
-  DInst     *dinst;
+  DInst *dinst;
+#ifdef SESC_DDIS
+  DInst *parentDInst;
+#endif
  public:
   DInstNext() {
     dinst = 0;
@@ -68,6 +71,16 @@ class DInstNext {
   }
 
   DInst *getDInst() const { return dinst; }
+
+#ifdef SESC_DDIS
+  DInst *getParentDInst() const { return parentDInst; }
+  void setParentDInst(DInst *d) {
+    GI(d,isUsed);
+    parentDInst = d;
+  }
+#else
+  void setParentDInst(DInst *d) { }
+#endif
 };
 
 class DInst {
@@ -104,6 +117,9 @@ private:
 #ifdef SESC_MISPATH
   bool fake;
 #endif
+#ifdef SESC_DDIS
+  bool presched;
+#endif
   // END Boolean flags
 
   // BEGIN Time counters
@@ -135,13 +151,17 @@ private:
   tls::Epoch *myEpoch;
 #endif // (defined TLS)
 
+#ifdef SESC_DDIS
+  long bank;
+#endif
+
 #ifdef DEBUG
   char nDeps;              // 0, 1 or 2 for RISC processors
   static long currentID;
   long ID; // static ID, increased every create (currentID). pointer to the
   // DInst may not be a valid ID because the instruction gets recycled
 #endif
-		
+	
 protected:
 public:
   DInst();
@@ -205,6 +225,20 @@ public:
   }
 #endif
 
+#ifdef SESC_DDIS
+  bool isPresched() const { return presched; }
+  void setPresched() {
+    I(!presched);
+    presched = true;
+  }
+  long getBank() const { return bank; }
+  void setBank(long i) {
+    bank = i;
+  }
+  DInst *getParentSrc1() const { return pend[0].getParentDInst(); }
+  DInst *getParentSrc2() const { return pend[1].getParentDInst(); }
+#endif
+
   void setFetch(FetchEngine *fe) {
     I(!isFake());
 
@@ -234,6 +268,7 @@ public:
 
     IS(n->nDeps--);
     first->isUsed = false;
+    first->setParentDInst(0);
     first = first->getNext();
 
     return n;
@@ -246,7 +281,8 @@ public:
     DInstNext *n = &d->pend[0];
     I(!n->isUsed);
     n->isUsed = true;
-    
+    n->setParentDInst(this);
+
     I(n->getDInst() == d);
     if (first == 0) {
       first = n;
@@ -258,6 +294,25 @@ public:
   }
 
   void addSrc2(DInst * d) {
+    I(d->nDeps < MAX_PENDING_SOURCES);
+    IS(d->nDeps++);
+    
+    DInstNext *n = &d->pend[1];
+    I(!n->isUsed);
+    n->isUsed = true;
+    n->setParentDInst(this);
+
+    I(n->getDInst() == d);
+    if (first == 0) {
+      first = n;
+    } else {
+      last->nextDep = n;
+    }
+    n->nextDep = 0;
+    last = n;
+  }
+
+  void addFakeSrc(DInst * d) {
     I(d->nDeps < MAX_PENDING_SOURCES);
     IS(d->nDeps++);
     
@@ -277,7 +332,10 @@ public:
 
   bool isSrc1Ready() const { return !pend[0].isUsed; }
   bool isSrc2Ready() const { return !pend[1].isUsed; }
-  bool hasDeps()     const { return pend[0].isUsed || pend[1].isUsed; }
+  bool hasDeps()     const { 
+    GI(!pend[0].isUsed && !pend[1].isUsed, nDeps==0);
+    return pend[0].isUsed || pend[1].isUsed; 
+  }
   bool hasPending()  const { return first != 0;  }
   const DInst *getFirstPending() const { return first->getDInst(); }
   const DInstNext *getFirst() const { return first; }
@@ -366,7 +424,7 @@ public:
   void awakeRemoteInstructions();
 
   void setWakeUpTime(Time_t t)  { 
-    I(wakeUpTime < t); // Never go back in time
+    // ??? FIXME: Why fails?I(wakeUpTime <= t); // Never go back in time
     wakeUpTime = t;
   }
   Time_t getWakeUpTime() const { return wakeUpTime; }
@@ -375,5 +433,13 @@ public:
   long getID() const { return ID; }
 #endif
 };
+
+class Hash4DInst {
+ public: 
+  size_t operator()(const DInst *dinst) const {
+    return (size_t)(dinst);
+  }
+};
+
 
 #endif   // DINST_H

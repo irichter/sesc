@@ -15,7 +15,8 @@ ABI	:=
 ABINAME :=Darwin
 ##########################################################
 # gcc
-PDEFS	:=-Wall -W -Wno-unused 
+PDEFS	:=-Wall -W -Wno-unused
+# -Weffc++ some day
 CXX	=g++
 CC	=gcc
 

@@ -287,6 +287,10 @@ PowerGroup EnergyStore::getPowerGroup(EnergyGroup e)
   case WindowRdWrEnergy:
   case WindowSelEnergy:
   case WindowCheckEnergy:
+#ifdef SESC_DDIS
+  case WinDepsEnergy:
+  case DepTableEnergy:
+#endif
   case RenameEnergy: 
   case WrRegEnergy:
   case RdRegEnergy:
@@ -345,6 +349,12 @@ char* EnergyStore::getStr(EnergyGroup d)
     return "WindowSelEnergy";
   case WindowCheckEnergy:
     return "WindowCheckEnergy";
+#ifdef SESC_DDIS
+  case WinDepsEnergy:
+    return "WinDepsEnergy";
+  case DepTableEnergy:
+    return "DepTableEnergy";
+#endif
   case LDQCheckEnergy:
     return "LDQCheckEnergy";
   case LDQRdWrEnergy:

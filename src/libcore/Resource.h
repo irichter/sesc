@@ -228,6 +228,10 @@ public:
   void simTime(DInst * dinst);
   void executed(DInst *dinst);
 
+#ifdef SESC_BRANCH_AT_RETIRE
+   bool retire(DInst *dinst);
+#endif
+
 #ifdef SESC_CHERRY
   void earlyRecycle(DInst *dinst);
 #endif

@@ -36,10 +36,15 @@ GStatsCntr *DepWindow::nDeps[3] = {0,0,0};
 DepWindow::DepWindow(int i, const char *clusterName)
   :Id(i)
   ,InterClusterLat(SescConf->getLong("cpucore", "interClusterLat",i))
+#ifndef SESC_DDIS
   ,WakeUpDelay(SescConf->getLong(clusterName, "wakeupDelay"))
+#endif
   ,SchedDelay(SescConf->getLong(clusterName, "schedDelay"))
   ,RegFileDelay(SescConf->getLong("cpucore", "regFileDelay"))
   ,InOrderCore(SescConf->getBool("cpucore","inorder",i))
+#ifdef SESC_DDIS
+  ,ddis(i,clusterName)
+#endif
 {
   char cadena[100];
   sprintf(cadena,"Proc(%d)_%s", i, clusterName);
@@ -50,19 +55,24 @@ DepWindow::DepWindow(int i, const char *clusterName)
   forwardBusEnergy = new GStatsEnergy("forwardBusEnergy", cadena , i, ForwardBusEnergy
 				      ,EnergyMgr::get("forwardBusEnergy",i));
 
+  windowSelEnergy  = new GStatsEnergy("windowSelEnergy",cadena,i,WindowSelEnergy
+				      ,EnergyMgr::get("windowSelEnergy",i));
+
   windowRdWrEnergy = new GStatsEnergy("windowRdWrEnergy", cadena , i, WindowRdWrEnergy
 				      ,EnergyMgr::get("windowRdWrEnergy",i));
   
   windowCheckEnergy = new GStatsEnergy("windowCheckEnergy", cadena, i, WindowCheckEnergy
 				       ,EnergyMgr::get("windowCheckEnergy",i));
 
-  windowSelEnergy  = new GStatsEnergy("windowSelEnergy",cadena,i,WindowSelEnergy
-				      ,EnergyMgr::get("windowSelEnergy",i));
-
+#ifndef SESC_DDIS
   sprintf(cadena,"Proc(%d)_%s_wakeUp", i, clusterName);
   wakeUpPort = PortGeneric::create(cadena
 				 ,SescConf->getLong(clusterName, "wakeUpNumPorts")
 				 ,SescConf->getLong(clusterName, "wakeUpPortOccp"));
+
+  SescConf->isLong(clusterName, "wakeupDelay");
+  SescConf->isBetween(clusterName, "wakeupDelay", 0, 1024);
+#endif
 
   sprintf(cadena,"Proc(%d)_%s_sched", i, clusterName);
   schedPort = PortGeneric::create(cadena
@@ -70,9 +80,6 @@ DepWindow::DepWindow(int i, const char *clusterName)
 				  ,SescConf->getLong(clusterName, "SchedPortOccp"));
 
   // Constraints
-  SescConf->isLong(clusterName, "wakeupDelay");
-  SescConf->isBetween(clusterName, "wakeupDelay", 0, 1024);
-
   SescConf->isLong(clusterName    , "schedDelay");
   SescConf->isBetween(clusterName , "schedDelay", 0, 1024);
 
@@ -107,24 +114,15 @@ bool DepWindow::canIssue(DInst *dinst) const
     }
   }
 #ifdef SESC_DDIS
-  // Check if it is possible to add the instruction on the
-  // broadcast-free window. Otherwise, stall the pipeline by returning
-  // false.
-  //
-  // NOTE: This can not add to the window (const). The utilization
-  // must be accounted on addInst
-
-  // Check for:
-  // 
-  // 1-window entries
-  //
-  // 2-free port on depTable
-  //
-  // 3-Enough BBIds
-
-#endif
-
+  bool can = true;
+  if (RAT[inst->getSrc1()])
+     can = ddis.canIssue(RAT[inst->getSrc1()]);
+  if (can && RAT[inst->getSrc2()])
+     can = ddis.canIssue(RAT[inst->getSrc2()]);
+  return can;
+#else
   return true;
+#endif
 }
 
 void DepWindow::addInst(DInst *dinst)
@@ -133,38 +131,34 @@ void DepWindow::addInst(DInst *dinst)
 
   I(dinst->getResource() != 0); // Resource::schedule must set the resource field
 
-
-  if( RAT[inst->getSrc1()] ) {
-    RAT[inst->getSrc1()]->addSrc1(dinst);
-    if( RAT[inst->getSrc2()] ) {
-      RAT[inst->getSrc2()]->addSrc2(dinst);
-    }
-    RAT[inst->getDest()] = dinst;
-    return;
-  }
-
   if(!dinst->isSrc2Ready()) {
-    RAT[inst->getDest()] = dinst;
-    return;
-  }
+    // It already has a src2 dep. It means that it is solved at
+    // retirement (Memory consistency. coherence issues)
+    if( RAT[inst->getSrc1()] )
+      RAT[inst->getSrc1()]->addSrc1(dinst);
+  }else{
+    if( RAT[inst->getSrc1()] )
+      RAT[inst->getSrc1()]->addSrc1(dinst);
 
-
-
-  // src2 may not be ready for memory ops See LDSTBuffer
-  if( RAT[inst->getSrc2()] ) {
-    RAT[inst->getSrc2()]->addSrc2(dinst);
-    RAT[inst->getDest()] = dinst;
-    return;
+    if( RAT[inst->getSrc2()] )
+      RAT[inst->getSrc2()]->addSrc2(dinst);
   }
 
   RAT[inst->getDest()] = dinst;
-  I(!dinst->hasDeps());
 
   windowRdWrEnergy->inc();  // Add entry
 
-  dinst->setWakeUpTime(wakeUpPort->nextSlot() + WakeUpDelay);
+#ifdef SESC_DDIS
+  ddis.addInst(dinst);
 
-  select(dinst);
+  if (!dinst->hasDeps())
+    select(dinst);
+#else
+  if (!dinst->hasDeps()) {
+    dinst->setWakeUpTime(wakeUpPort->nextSlot() + WakeUpDelay);
+    select(dinst);
+  }
+#endif
 }
 
 // Look for dependent instructions on the same cluster (do not wakeup,
@@ -173,6 +167,9 @@ void DepWindow::wakeUpDeps(DInst *dinst)
 {
   I(!dinst->hasDeps());
 
+#ifdef SESC_DDIS
+  ddis.wakeUpDeps(dinst);
+#else
   // Even if it does not wakeup instructions the port is used
   Time_t wakeUpTime= wakeUpPort->nextSlot();
 
@@ -197,15 +194,19 @@ void DepWindow::wakeUpDeps(DInst *dinst)
       // window, and the schedule is latter than the current time (2
       // sources, may try to be wakeUp at different times.
       if (dstRes->getCluster() == srcCluster 
-	  && wakeUpTime > dstReady->getWakeUpTime() )
+	  && wakeUpTime > dstReady->getWakeUpTime()
+	  && dstReady->getWakeUpTime() == 0)
 	dstReady->setWakeUpTime(wakeUpTime);
     }
   }
+#endif
 }
 
 void DepWindow::select(DInst *dinst)
 {
   // At the end of the wakeUp, we can start to read the register file
+  I(dinst->getWakeUpTime());
+
   Time_t wakeTime = dinst->getWakeUpTime() + RegFileDelay;
 
   Time_t schedTime = schedPort->nextSlot();
@@ -223,6 +224,8 @@ void DepWindow::executed(DInst *dinst)
 {
   const Instruction *inst = dinst->getInst();
 
+  //  MSG("execute [0x%x] @%lld",dinst, globalClock);
+
   I(!dinst->hasDeps());
 
   RegType dest = inst->getDest();
@@ -236,9 +239,10 @@ void DepWindow::executed(DInst *dinst)
   if (!dinst->hasPending())
     return;
 
-#ifndef SESC_PRESCHEDULE
-    wakeUpDeps(dinst);
-#endif
+  // Maybe the dependent instructions were pre-scheduled, and then
+  // another instruction arrived. This means that we have to
+  // wakeup the dependents again (just in case)
+  wakeUpDeps(dinst);
 
   I(!InOrderCore);
 
@@ -311,7 +315,7 @@ void DepWindow::executed(DInst *dinst)
 	forwardBusEnergy->inc();
 
 	// FIXME: get call wakeUpDeps for remote cluster.
-	Time_t when = wakeUpPort->nextSlot() + WakeUpDelay + InterClusterLat;
+	Time_t when = wakeUpPort->nextSlot() + InterClusterLat;
 	dstReady->setWakeUpTime(when);
       }
 

@@ -66,7 +66,8 @@ extern "C" {
  */
 
 #define ADDRESS_BITS 32
-#define BITOUT 64
+extern int BITOUT;
+/* #define BITOUT 64 */
 
 
 /* limits on the various N parameters */

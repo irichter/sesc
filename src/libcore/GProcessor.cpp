@@ -312,7 +312,7 @@ void GProcessor::retire()
     if (ROB.empty()) {
       // ROB should not be empty for lots of time
       if (prevDInstID == 1) {
-	MSG("ExeEngine::retire CPU[%d] ROB empty for long time @%lld", globalClock);
+	MSG("GProcessor::retire CPU[%d] ROB empty for long time @%lld", Id, globalClock);
       }
       prevDInstID = 1;
     }else{

@@ -79,7 +79,7 @@ use constant MAILNAME => "/etc/mailname";
 my $Log_Source_Command = "cvs log";
 
 # In case we have to print it out:
-my $VERSION = '$Revision: 1.2 $';
+my $VERSION = '1.0';
 $VERSION =~ s/\S+\s+(\S+)\s+\S+/$1/;
 
 ## Vars set by options:
@@ -2079,6 +2079,9 @@ sub parse_options ()
     }
     elsif ($arg =~ /^--no-indent$/) {
       $Indent = "";
+    }
+    elsif ($arg =~ /^--cvsmain$/) {
+      $Log_Source_Command = "cvsmain log";
     }
     elsif ($arg =~ /^--summary$/) {
       $Summary = 1;

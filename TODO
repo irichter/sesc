@@ -12,6 +12,40 @@
 
 _______________________________________________________________________
 
+RCS file: /cvsroot/sesc/sesc/src/libmem/Cache.cpp,v
+retrieving revision 1.4
+diff -u -r1.4 Cache.cpp
+--- src/libmem/Cache.cpp	12 Nov 2004 02:54:23 -0000	1.4
++++ src/libmem/Cache.cpp	24 Nov 2004 04:43:20 -0000
+@@ -415,7 +415,10 @@
+      pendInvTable.erase(addr);
+   }
+
+-  while (size) {
++  // patch to fix overflow error on size
++  short fixedsize=size;
++
++  while (fixedsize > 0) {
+     Line *l = cache->readLine(addr);
+
+     if(l){
+@@ -427,7 +430,7 @@
+       l->invalidate();
+     }
+     addr += cache->getLineSize();
+-    size -= cache->getLineSize();
++    fixedsize -= cache->getLineSize();
+   }
+
+   // finished sending dirty lines to lower level,
+
+_______________________________________________________________________
+
+
+Move RAT to Processor and SMTProcessor (duplicated)
+
+_______________________________________________________________________
+
 
 swifthWidth on power (renamed)
 ________________________________________________________________________

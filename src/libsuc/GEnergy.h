@@ -39,6 +39,10 @@ enum EnergyGroup {
   ,WindowRdWrEnergy
   ,WindowSelEnergy
   ,WindowCheckEnergy
+#ifdef SESC_DDIS
+  ,WinDepsEnergy
+  ,DepTableEnergy
+#endif
   ,LDQCheckEnergy
   ,LDQRdWrEnergy
   ,STQCheckEnergy
