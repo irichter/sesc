@@ -121,7 +121,7 @@ public:
   // BEGIN MemObj interface
   
   // port usage accounting
-  Time_t getNextFreeCycle();
+  Time_t getNextFreeCycle() const;
 
   // interface with upper level
   bool canAcceptStore(PAddr addr) const;

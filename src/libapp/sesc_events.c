@@ -165,14 +165,3 @@ void sesc_verify_value(int rval, int pval)
 }
 #endif
 
-#ifdef VALUEPROF
-void sesc_delinquent_load_begin (int id)
-{
-
-}
-
-void sesc_delinquent_load_end ()
-{
-
-}
-#endif

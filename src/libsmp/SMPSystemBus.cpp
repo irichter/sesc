@@ -52,7 +52,7 @@ SMPSystemBus::~SMPSystemBus()
   // do nothing
 }
 
-Time_t SMPSystemBus::getNextFreeCycle()
+Time_t SMPSystemBus::getNextFreeCycle() const
 {
   return cachePort->calcNextSlot();
 }

@@ -86,7 +86,7 @@ SMPCache::~SMPCache()
   // do nothing
 }
 
-Time_t SMPCache::getNextFreeCycle()
+Time_t SMPCache::getNextFreeCycle() const
 {
   return cachePort->calcNextSlot();
 }

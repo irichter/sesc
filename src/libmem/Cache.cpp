@@ -171,7 +171,6 @@ void Cache::readMissHandler(MemRequest *mreq)
   PAddr addr = mreq->getPAddr();
 
 
-
   if(!mshr->issue(addr, MemRead)) {
     mreq->setClockStamp(globalClock);
     mshr->addEntry(addr, doReadQueuedCB::create(this, mreq), 

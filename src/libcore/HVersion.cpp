@@ -38,12 +38,6 @@ GStatsCntr *HVersion::nShift=0;
 GStatsCntr *HVersion::nClaim=0;
 GStatsCntr *HVersion::nRelease=0;
 
-#if 0 //migrating to partial-ordering support
-HVersion *HVersion::oldestTC=0;
-HVersion *HVersion::oldest=0;
-HVersion *HVersion::newest=0;
-#endif
-
 HVersionDomain::VDomainVectorType HVersionDomain::vdVec;
 
 
