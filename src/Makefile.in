@@ -12,9 +12,6 @@ SUBDIRS:=libmint libpint libll libsuc libcore
 SUBDIRS+=libnet
 SUBDIRS+=libmem
 SUBDIRS+=libapp
-ifdef MPCOH
-SUBDIRS+=libcc
-endif
 ifdef SESC_SMP
 SUBDIRS+=libsmp
 endif
@@ -58,7 +55,7 @@ config.h: Make.defs
 
 ##############################################################################
 #rules for final sesc executables
-EXECS=sesc.tst sesc.mem sesc.ncc sesc.tls sesc.cc sesc.smp 
+EXECS=sesc.tst sesc.mem sesc.ncc sesc.tls sesc.smp 
 
 TSTLIBS =$(OBJ)/libcore.a $(OBJ)/libmint.a $(OBJ)/libll.a
 TSTLIBS+=$(OBJ)/libpint.a $(OBJ)/libsuc.a
@@ -66,7 +63,6 @@ ifdef SESC_ENERGY
 TSTLIBS += $(OBJ)/libpower.a
 endif
 NETLIBS =$(OBJ)/libnet.a 
-CCLIBS  =$(OBJ)/libcc.a
 SMPLIBS=$(OBJ)/libsmp.a
 MEMLIBS =$(OBJ)/libmem.a 
 TLSLIBS =$(OBJ)/libvmem.a
@@ -75,9 +71,6 @@ sesc.tst : $(OBJ)/main.o $(TSTLIBS)
 	$(CXX) $(CFLAGS) $(LDFLAGS) -o $@  $^  $(LIBS) -lm 
 
 sesc.mem : $(OBJ)/mtst1.o $(MEMLIBS) $(TSTLIBS)
-	$(CXX) $(CFLAGS) $(LDFLAGS) -o $@ $^  $(LIBS) -lm
-
-sesc.cc:  $(OBJ)/nkcc1.o $(TSTLIBS) $(CCLIBS) $(NETLIBS) $(MEMLIBS)
 	$(CXX) $(CFLAGS) $(LDFLAGS) -o $@ $^  $(LIBS) -lm
 
 sesc.tls: $(OBJ)/tls.o $(TLSLIBS) $(MEMLIBS) $(TSTLIBS) 
@@ -200,7 +193,7 @@ eclean: sharedclean
 
 edistclean:
 	-@rm -f config.status config.log cactify wattchify
-	-@rm -f config.h Make.defs Makefile sesc.mem sesc.vmem sesc.cc sesc.smp 
+	-@rm -f config.h Make.defs Makefile sesc.mem sesc.tls sesc.smp 
 	-@rm -rf obj
 
 size:
