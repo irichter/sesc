@@ -323,6 +323,9 @@ StallCause SMTProcessor::addInst(DInst *dinst)
 
   RAT[inst->getDest()] = dinst;
 
+  I(dinst->getResource());
+  dinst->getResource()->getCluster()->addInst(dinst);
+
   return NoStall;
 }
 

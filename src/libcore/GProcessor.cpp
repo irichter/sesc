@@ -198,7 +198,6 @@ StallCause GProcessor::sharedAddInst(DInst *dinst)
   return can;
 #endif
 
-
   StallCause sc = res->canIssue(dinst);
   if (sc != NoStall)
     return sc;
@@ -253,8 +252,7 @@ StallCause GProcessor::sharedAddInst(DInst *dinst)
   }
 #endif
 
-  I(dinst->getResource() == res);
-  res->getCluster()->addInst(dinst);
+  dinst->setResource(res);
 
   return NoStall;
 }

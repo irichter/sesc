@@ -116,7 +116,6 @@ StallCause FUMemory::canIssue(DInst *dinst)
     return SmallWinStall;
 
   cluster->newEntry();
-  dinst->setResource(this);
   
   // TODO: Someone implement a LDSTBuffer::fenceGetEntry(dinst);
 
@@ -225,7 +224,6 @@ StallCause FULoad::canIssue(DInst *dinst)
     return SmallWinStall;
 
   cluster->newEntry();
-  dinst->setResource(this);
 
   LDSTBuffer::getLoadEntry(dinst);
 
@@ -363,7 +361,6 @@ StallCause FUStore::canIssue(DInst *dinst)
     return SmallWinStall;
 
   cluster->newEntry();
-  dinst->setResource(this);
 
   LDSTBuffer::getStoreEntry(dinst);
 
@@ -537,7 +534,6 @@ StallCause FUGeneric::canIssue(DInst *dinst)
     return SmallWinStall;
 
   cluster->newEntry();
-  dinst->setResource(this);
 
   return NoStall;
 }
@@ -579,7 +575,6 @@ StallCause FUBranch::canIssue(DInst *dinst)
     return SmallWinStall;
 
   cluster->newEntry();
-  dinst->setResource(this);
   
   freeBranches--;
 
@@ -652,14 +647,11 @@ StallCause FUEvent::canIssue(DInst *dinst)
   if( !cluster->canIssue(dinst) )
     return SmallWinStall;
 
-  dinst->setResource(this);
   return NoStall;
 }
 
 void FUEvent::simTime(DInst *dinst)
 {
-  dinst->setResource(this);
-
   I(dinst->getInst()->getEvent() == PostEvent);
   // memfence, Relase, and Acquire are passed to FUMemory
   //
