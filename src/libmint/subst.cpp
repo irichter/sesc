@@ -273,10 +273,6 @@ OP(mint_sesc_become_safe);
 OP(mint_sesc_is_safe);
 OP(mint_sesc_prof_commit);
 OP(mint_sesc_prof_fork_successor);
-#ifdef ATOMIC
-OP(mint_sesc_start_transaction);
-OP(mint_sesc_commit_transaction);
-#endif
 #endif
 
 
@@ -484,10 +480,6 @@ func_desc_t Func_subst[] = {
   {"sesc_is_safe",            mint_sesc_is_safe,               0, OpExposed},
   {"sesc_is_versioned",       mint_do_nothing,                 0, OpExposed},
   {"sesc_begin_versioning",   mint_do_nothing,                 0, OpExposed},
-#ifdef ATOMIC
-  {"sesc_start_transaction",  mint_sesc_start_transaction,     0, OpExposed},
-  {"sesc_commit_transaction", mint_sesc_commit_transaction,    0, OpExposed},
-#endif
 #endif
 #ifdef SESC_LOCKPROFILE
   {"sesc_startlock",          mint_sesc_startlock,             0, OpExposed},
@@ -3859,29 +3851,6 @@ OP(mint_realloc)
   return addr2icode(pthread->getGPR(RetAddrGPR));
 }
 
-#ifdef ATOMIC
-void rsesc_start_transaction(int pid);
-int rsesc_commit_transaction(int pid);
-void rsesc_thread_exit(int pid);
-
-OP(mint_sesc_start_transaction)
-{
-  int pid=pthread->getPid();
-
-  rsesc_start_transaction(pid);
-
-  return addr2icode(REGNUM(31));
-}
-
-OP(mint_sesc_commit_transaction)
-{
-  int pid=pthread->getPid();
-
-  rsesc_commit_transaction(pid);
-
-  return addr2icode(REGNUM(31));
-}
-#endif
 
 #ifdef SESC_LOCKPROFILE
 void rsesc_startlock(int pid);

@@ -23,9 +23,6 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #ifndef HVERSION_H
 #define HVERSION_H
 
-#ifdef ATOMIC
-#include "ASVersion.h"
-#else
 
 #include <vector>
 
@@ -365,5 +362,4 @@ public:
   }
 };
 
-#endif //ATOMIC
 #endif // HVERSION_H

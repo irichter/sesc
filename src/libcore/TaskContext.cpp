@@ -90,12 +90,6 @@ GStatsCntr *TaskContext::thReadEnergy=0;   // FIXME: Energy
 GStatsCntr *TaskContext::thWriteEnergy=0;  // FIXME: Energy
 GStatsCntr *TaskContext::thFillEnergy=0;   // FIXME: Energy
 
-#ifdef ATOMIC
-size_t TaskContext::transPenalty;
-GStatsCntr *TaskContext::nTransactions=0;
-GStatsCntr *TaskContext::nSquashes=0;
-GStatsCntr *TaskContext::transTime=0;
-#endif
 
 GStatsCntr *TaskContext::nDataDepViolation[DataDepViolationAtMax];
 
@@ -141,12 +135,6 @@ void TaskContext::setFields(Pid_t i, HVersion *v)
   dataDepViolationID = 0;
   dataDepViolation   = false;
 
-#ifdef ATOMIC
-  suspOnTransaction = false;
-  suspOnBackoff = false;
-  restartCounted = false;
-  overflowed = false;
-#endif
 
   sContext.copy(osSim->getContext(tid));
 
@@ -335,12 +323,6 @@ void TaskContext::localRestart()
 
   LOG("TaskContext(%d)::restart", tid);
 
-#ifdef ATOMIC
-  if (restartCounted == false) {
-    restartCounted = true;
-    nSquashes->inc();
-  }
-#endif
 
   // justDestroy must be called before mergeSuccessors and
   // terminateAllThreadsButOriginal because it can generate a version
@@ -349,18 +331,11 @@ void TaskContext::localRestart()
   memBuffer->justDestroy();
   memBuffer = 0;
 
-#ifdef ATOMIC
-  clearState();
-  HVersion* oldVer = memVer;
-  memVer = memVer->createSuccessor(this, false);
-  oldVer->garbageCollect();
-#else
   mergeSuccessors(true);
   I(memVer->isNewest());
   NES = 0;
 
   clearState();
-#endif
 
   I(tid2TaskContext[tid] == this);
 
@@ -410,7 +385,6 @@ void TaskContext::localRestart()
   bad_reg[31]=false;
 #endif
 
-#ifndef ATOMIC
   if (nLocalRestarts > SyncOnRestart || wasSyncBecomeSafe)
     syncBecomeSafe();
   else if (nLocalRestarts == SyncOnRestart)
@@ -418,7 +392,6 @@ void TaskContext::localRestart()
 
   nLocalRestarts++;
   canEarlyAwake = true;
-#endif
 }
 
 // kill can be called by someone else than the parent, but it always
@@ -458,9 +431,6 @@ void TaskContext::localKill(bool inv)
 
 void TaskContext::mergeLast(bool inv)
 {
-#ifdef ATOMIC
-  return;
-#endif
 
   I(!memVer->isNewest());
 
@@ -501,9 +471,6 @@ void TaskContext::mergeLast(bool inv)
 
 void TaskContext::mergeSuccessors(bool inv)
 {
-#ifdef ATOMIC
-  return;
-#endif
 
   if (memVer->isNewest())
     return;
@@ -559,9 +526,6 @@ void TaskContext::tryPropagateSafeToken(const HVersionDomain *vd)
 {
   bool doMergeOps = false;
   
-#ifdef ATOMIC
-  return;
-#endif
   size_t nCommited=0;
 
   //LOG("TC::tryPropagateSafeToken()"); // way too often to be useful
@@ -716,12 +680,6 @@ void TaskContext::preBoot()
   thWriteEnergy  = new GStatsCntr("TC:thWriteEnergy");
   thFillEnergy   = new GStatsCntr("TC:thFillEnergy");
 
-#ifdef ATOMIC
-  nTransactions = new GStatsCntr("AT:nTransactions");
-  nSquashes     = new GStatsCntr("AT:nSquashes");
-  transTime     = new GStatsCntr("AT:transTime");
-  transPenalty  = SescConf->getLong("AT","transPenalty");
-#endif
   nDataDepViolation[DataDepViolationAtExe]   = new GStatsCntr("TC:nDataDepViolationAtExe");
   nDataDepViolation[DataDepViolationAtFetch] = new GStatsCntr("TC:nDataDepViolationAtFetch");
   nDataDepViolation[DataDepViolationAtRetire]= new GStatsCntr("TC:nDataDepViolationAtRetire");
@@ -1102,7 +1060,6 @@ void TaskContext::dumpAll()
 
   printf("TC[%3d:%3d]%10lld:", ProcessId::getNumThreads(), ProcessId::getNumRunningThreads(), globalClock);
 
-#ifndef ATOMIC
   for(int i = 0; i < HVersionDomain::getNDomains(); i++) {
     HVersionDomain *vd = HVersionDomain::getVDomain(i);
     v = HVersion::getOldestRef(vd);
@@ -1135,7 +1092,6 @@ void TaskContext::dumpAll()
     }
     printf(" \t");
   }
-#endif
 
   printf("\n");
 }
@@ -1190,148 +1146,3 @@ void TaskContext::setOOtask()
   }
 }
 
-#ifdef ATOMIC
-void TaskContext::spawn(Pid_t childPid)
-{
-  TaskContext *tc = tcPool.out();
-  //  tc->spawnAddr = calcChildSpawnAddr(childAddr);
-
-  HVersion *cv;
-  cv = memVer->createSuccessor(tc, false);
-
-  //  tc->setFields(childPid,cv);
-  tc->newVersionFixup(childPid,cv);
-  tc->usedThreads.insert(childPid);
-  tc->restartCounted = 0;
-
-#ifdef DEBUG 
-  fprintf(stderr,"spawn 0x%x -> 0x%x  (pid %d) -> (pid %d) "
-      , (int)spawnAddr, (int)tc->spawnAddr
-      , tid , tc->tid
-      );
-  memVer->dump("");
-  fprintf(stderr," -> ");
-  tc->memVer->dump("");
-  fprintf(stderr,"\n");
-#endif
-}
-
-void TaskContext::newVersionFixup(Pid_t pid, HVersion* v)
-{
-  tid       = pid;
-  memVer = v;
-  memBuffer = MemBuffer::create(memVer);
-
-  tid2TaskContext[tid] = this;
-
-  suspOnTransaction = false;
-  suspOnBackoff = false;
-  overflowed = false;
-  dataDepViolation = false;
-
-  ProcessId *proc = ProcessId::getProcessId(tid);
-  I(proc);
-  proc->clearExecuted();
-  proc->clearWaiting();
-}
-
-void TaskContext::resume(int pid)
-{
-  I(suspOnTransaction || suspOnBackoff);
-  osSim->resume(pid);
-  suspOnBackoff = false;
-}
-
-typedef CallbackMember1<TaskContext, Pid_t, &TaskContext::resume> resumeEventCB;
-
-void TaskContext::commitTransaction(int pid) 
-{
-  HVersion* v;
-
-  if (dataDepViolation)
-    return;
-
-  if (! memVer->isAtomic() )
-    return;
-
-#if 0
-  if (suspOnTransaction) {
-    suspOnTransaction = false;
-    return;
-  }
-#endif
-
-  transTime->add(globalClock-startTime);
-
-  I(memVer->isAtomic());
-
-  memBuffer->mergeDestroy();
-  memBuffer = 0;
-  v = memVer->createSuccessor(this,false); /* false = non-atomic context */
-  memVer->garbageCollect();
-  newVersionFixup(pid, v);
-  restartCounted = false;
-  overflowed = false;
-
-  LOG("[%d] commit transaction, ver=%d", pid, v->getBase());
-
-  osSim->suspend(pid);
-  resumeEventCB::schedule(transPenalty,this,pid);
-  suspOnTransaction = true;
-
-  I(! memVer->isAtomic());
-}
-
-void TaskContext::startTransaction(int pid) 
-{
-  HVersion *v;
-
-  I(! dataDepViolation);
-
-#if 0
-  if (suspOnTransaction) {
-    suspOnTransaction = false;
-    return;
-  }
-#endif
-
-  if (memVer->isAtomic())
-    return;
-
-  startTime = globalClock;
-
-  I(! memVer->isAtomic());
-
-  nTransactions->cinc(!restartCounted);
-
-  memBuffer->mergeDestroy();
-  memBuffer = 0;
-
-  osSim->stop(tid);
-  
-  sContext.copy(osSim->getContext(tid));
-
-  sContext.setPicode(osSim->eventGetInstructionPointer(tid));
-  osSim->unstop(tid);
-
-
-  v = memVer->createSuccessor(this,true); /* true = atomic context */
-  memVer->garbageCollect();
-  newVersionFixup(pid, v);
-
-  LOG("[%d] start transaction, ver=%d", pid, v->getBase());
-
-  osSim->suspend(pid);
-  resumeEventCB::schedule(transPenalty,this,pid);
-  suspOnTransaction = true;
-
-  I(memVer->isAtomic());
-}
-
-void TaskContext::atomicStall(Time_t stallTime)
-{
-  suspOnBackoff = true;
-  resumeEventCB::schedule(stallTime,this,getPid());
-  osSim->suspend(getPid());
-}
-#endif

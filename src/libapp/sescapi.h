@@ -436,10 +436,6 @@ extern "C" {
   int  sesc_prof_commit(int id);
 #endif
 
-#ifdef ATOMIC
-  int  sesc_commit_transaction();
-  void sesc_start_transaction();
-#endif
 
 #ifdef SESC_LOCKPROFILE
   void sesc_startlock();

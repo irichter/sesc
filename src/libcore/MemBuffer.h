@@ -77,9 +77,6 @@ protected:
     data = srcEntry->data;
   }
 
-#ifdef ATOMIC
-  bool written;
-#endif
 
 public:
   static MemBufferEntry *create(const HVersion *v, ulong ci, RAddr raddr, ulong iaddr=0);
@@ -143,10 +140,6 @@ public:
 
   void dump(const char *str) const;
 
-#ifdef ATOMIC
-  bool isWrite() { return written; }
-  void setWrite() { written = true; }
-#endif
 };
 
 // to support partial ordering, we need different comparison domains,
@@ -168,14 +161,6 @@ private:
 
   const HVersion *memVer; // version
 
-#ifdef ATOMIC
-  Time_t tLastSquash;
-  Time_t stallTime;
-  static const Time_t tBackoff = 1000; 
-  std::vector<const HVersion *> pendingRestart;
-
-  void doExpBackoff();
-#endif
 protected:
 public:
   static MemBufferDomain* createMemBufferDomain();
@@ -193,10 +178,6 @@ public:
   RAddr read(ulong iaddr, short iFlags, RAddr addr);
 
   void silentReadChunk(MemOpsType::iterator it, MemBufferEntry *e, RAddr addr);
-#ifdef ATOMIC
-  void checkDependencies(MemBufferEntry *e, MemOpsType::iterator mit,
-			 ulong cIndex);
-#endif
   const HVersion *postWrite(const unsigned long long *data, ulong iaddr, short iFlags, RAddr addr);
 };
 

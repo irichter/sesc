@@ -121,13 +121,6 @@ class TaskContext {
 
   static GStatsCntr *nDataDepViolation[DataDepViolationAtMax];
 
-#ifdef ATOMIC
-  static size_t transPenalty;
-
-  static GStatsCntr *nTransactions;
-  static GStatsCntr *nSquashes;
-  static GStatsCntr* transTime;
-#endif
 
 // Histogram statistics
   static const size_t MaxThreadsHist=16;
@@ -344,26 +337,6 @@ public:
   }
 #endif
 
-#ifdef ATOMIC
-private:
-  bool overflowed; /* a cache set */
-  bool restartCounted;
-  bool suspOnTransaction;
-  bool suspOnBackoff;
-  int startTime;
-public:
-  void spawn(Pid_t childPid);
-  void newVersionFixup(Pid_t pid, HVersion* v);
-  void commitTransaction(int pid);
-  void startTransaction(int pid);
-  void resume(int pid);
-  void atomicStall(Time_t stallTime);
-
-  //  bool isRestarting() { return invAccess; }
-
-  bool hasOverflowed() const { return overflowed; }
-  void setOverflowed() { overflowed = true; }
-#endif
   
 };
 

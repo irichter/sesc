@@ -236,22 +236,6 @@ void DInst::killSilently()
   }
 
 #ifdef TASKSCALAR
-#ifdef ATOMIC
-#if 0
-  while (! restartList.empty()) {
-    struct DInst::restartPair* pair = restartList.back();
-    restartList.pop_back();
-    if (pair->restartVer) {
-      TaskContext *tc = pair->restartVer->getTaskContext();
-      if (tc && osSim->getState(tc->getPid() ) == SuspendedState)
-	osSim->resume(tc->getPid());
-	tc->invalidMemAccess(pair->pendingInvMemID, InvMemAtRetire);
-      pair->restartVer->garbageCollect();
-      restartListPool.in(pair);
-    }
-  }
-#endif
-#else
   notifyDataDepViolation(DataDepViolationAtRetire);
 
   if (lvid) { // maybe got killSilently
@@ -262,7 +246,6 @@ void DInst::killSilently()
   }
   
   I(lvidVersion==0);
-#endif
 #endif
 
   if (hasDeps())
@@ -282,22 +265,6 @@ void DInst::scrap()
   I(nDeps == 0);   // No deps src
   I(first == 0);   // no dependent instructions 
 #ifdef TASKSCALAR
-#ifdef ATOMIC
-#if 0
-  while (! restartList.empty()) {
-    struct DInst::restartPair* pair = restartList.back();
-    restartList.pop_back();
-    if (pair->restartVer) {
-      TaskContext *tc = pair->restartVer->getTaskContext();
-      if (tc && osSim->getState(tc->getPid() ) == SuspendedState)
-	osSim->resume(tc->getPid());
-	tc->invalidMemAccess(pair->pendingInvMemID, InvMemAtRetire);
-      pair->restartVer->garbageCollect();
-      restartListPool.in(pair);
-    }
-  }
-#endif
-#else
   notifyDataDepViolation(DataDepViolationAtRetire);
 
   if (lvid) { // maybe got killSilently
@@ -308,7 +275,6 @@ void DInst::scrap()
   }
 
   I(lvidVersion==0);
-#endif
 #endif
 
 #if (defined TLS)
@@ -342,33 +308,6 @@ void DInst::destroy()
 }
 
 #ifdef TASKSCALAR
-#ifdef ATOMIC
-void DInst::addDataDepViolation(const HVersion* ver)
-{
-  I(0);
-#if 0
-  I(restartList.empty());
-
-  while (list->size() > 0) {
-    TaskContext *tc = list->back()->getTaskContext();
-    list->pop_back();
-    if (tc) {
-#ifdef TS_IMMEDIAT_RESTART
-      tc->invalidMemAccess(pendingInvMemID, InvMemAtFetch);
-#else
-      // At instruction retire only DInst::pendingInvMemD equal to the
-      // TaskContext::pendingInvMemID would generate a restart
-      struct restartPair* pair = restartListPool.out();
-      pair->pendingInvMemID = tc->markPendingInvMem();
-      // Duplicate version so that version does not get recycled by mistake
-      pair->restartVer      = tc->getVersionDuplicate();
-      restartList.push_back(pair);
-#endif
-    }
-  }
-#endif
-}
-#else
 void DInst::addDataDepViolation(const HVersion *ver)
 {
   I(restartVer==0);
@@ -402,7 +341,6 @@ void DInst::notifyDataDepViolation(DataDepViolationAt dAt, bool val)
   restartVer->garbageCollect();
   restartVer = 0;
 }
-#endif
 #endif
 
 void DInst::awakeRemoteInstructions() 

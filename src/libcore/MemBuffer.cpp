@@ -86,9 +86,6 @@ MemBufferEntry *MemBufferEntry::create(const HVersion *v, ulong ci, RAddr addr, 
   e->realAddr = calcAlignChunk(addr);
   e->instAddr = iaddr;
 
-#ifdef ATOMIC
-  e->written = false;
-#endif
 
   return e;
 }
@@ -220,10 +217,6 @@ MemBuffer *MemBuffer::create(const HVersion *ver)
   
   mb->memVer = ver;
   mb->mbd = ver->getMemBufferDomain();
-#ifdef ATOMIC
-  mb->stallTime = 0;
-  mb->tLastSquash = globalClock;
-#endif
   I(mb->mapMemOps.empty());
 
   return mb;
@@ -281,13 +274,6 @@ void MemBuffer::mergeOps()
   }
 }
 
-#ifdef ATOMIC
-void localSuspend(Pid_t p) {
-  osSim->suspend(p);
-}
-
-typedef CallbackFunction1<Pid_t, &localSuspend> localSuspendCB;
-#endif
 
 RAddr MemBuffer::read(ulong iaddr, short opflags, RAddr addr)
 {
@@ -315,29 +301,6 @@ RAddr MemBuffer::read(ulong iaddr, short opflags, RAddr addr)
   BitMaskType accMask=MemBufferEntry::calcAccessMask(opflags, cOffset);
 
   e->updateXRDMask(accMask);
-#ifdef ATOMIC
-  checkDependencies(e, mit, cIndex);
-  if (! memVer->isAtomic()) {
-    mbd->memOps.erase(e);
-    mapMemOps.erase(cIndex);
-    e->mergeDestroy();
-  }
-
-  if (pendingRestart.size() > 0) {
-    if (! memVer->isAtomic())
-      doExpBackoff();
-    /* squash at load execute time */
-    while (pendingRestart.size() > 0) {
-      TaskContext* tc = pendingRestart.back()->getTaskContext();
-      pendingRestart.pop_back();
-      if (! tc->hasDataDepViolation() ) {
-	int pendingInvMemID = tc->addDataDepViolation();
-	I(! tc->getVersionRef()->isSafe());
-	tc->invalidMemAccess(pendingInvMemID, DataDepViolationAtFetch);
-      }
-    }
-  }
-#endif
   return e->getAddr()+cOffset;
 }
 
@@ -367,47 +330,8 @@ const HVersion *MemBuffer::postWrite(const unsigned long long *writeData,
   BitMaskType accMask=MemBufferEntry::calcAccessMask(opflags, cOffset);
 
   e->addWRMask(accMask);
-#ifdef ATOMIC
-  e->setWrite();
-#endif
   bool copied = MemBufferEntry::chunkCopy(e->getAddr(), (RAddr)writeData, accMask);
 
-#ifdef ATOMIC
-  checkDependencies(e, mit, cIndex);
-  if (! memVer->isAtomic()) {
-    mbd->memOps.erase(e);
-    mapMemOps.erase(cIndex);
-    e->mergeDestroy();
-  }
-
-  /* squash at store retirement time */
-  /* actually squash now & suspend until retire time */
-
-  if (pendingRestart.size() > 0) {
-    if (! memVer->isAtomic())
-      doExpBackoff();
-
-    for (std::vector<const HVersion *>::iterator i = pendingRestart.begin() ;
-	 i != pendingRestart.end(); i++) {
-      TaskContext* tc = (*i)->getTaskContext();
-      if (! tc->hasDataDepViolation() ) {
-	int pendingInvMemID = tc->addDataDepViolation();
-	I(! tc->getVersionRef()->isSafe());
-	tc->invalidMemAccess(pendingInvMemID, DataDepViolationAtFetch);
-	/*
-	if (osSim->getState(tc->getPid() ) == RunningState) {
-	  	  localSuspendCB::schedule(1,tc->getPid());
-	  //	  osSim->suspend(tc->getPid());
-	  */
-      }
-    }
-    pendingRestart.clear();
-    return NULL;
-  }
-  else {
-    return NULL;
-  }
-#else
 #ifdef SILENT_STORE
   if (!copied)
     return 0;
@@ -446,82 +370,5 @@ const HVersion *MemBuffer::postWrite(const unsigned long long *writeData,
     MemBufferEntry::chunkCopy(succEntry->getAddr(), (RAddr)writeData, accMask);
   }
   return 0;
-#endif
 }
 
-#ifdef ATOMIC
-void MemBuffer::checkDependencies(MemBufferEntry *e, MemOpsType::iterator mit,
-				  ulong cIndex)
-{
-  bool squashSelf = false;
-
-  pendingRestart.clear();
-  I(pendingRestart.empty());
-
-  //  mit++; // skip itself
-  I(cIndex!=0xFFFFFFFF); // store to address 0xFFFFFFFF not allowed (JUNK entry)
-  if (memVer->isAtomic() ) {
-    // Find first atomic entry //
-    while((*mit)->getChunkIndex() == cIndex && (*mit)->getVersionRef()->isAtomic())
-      mit--;
-    I( (*mit)->getChunkIndex() != cIndex || (*mit)->getVersionRef()->isAtomic() == false);
-    mit++;
-    I( (*mit)->getChunkIndex() == cIndex && (*mit)->getVersionRef()->isAtomic() == true);
-  }
-  else {
-    // Find first atomic entry, *if* one exists 
-    while((*mit)->getChunkIndex() == cIndex && ( (*mit)->getVersionRef()->isAtomic() == false ))
-      mit++;
-    I( (*mit)->getChunkIndex() != cIndex || (*mit)->getVersionRef()->isAtomic() );
-  }
-
-
-  while ((*mit)->getChunkIndex() == cIndex) {
-    /* if at least one is a write */
-
-    if ((*mit) != e && ((*mit)->isWrite() || e->isWrite()) ) {  
-
-      /* 
-	 squash the one with the higher (newer) version number
-      */
-
-      if ((*mit)->getVersionRef()->isAtomic() &&
-	  *(*mit)->getVersionRef() > *memVer) {
-	I(*(*mit)->getVersionRef() != *memVer);
-	pendingRestart.push_back((*mit)->getVersionRef());
-	LOG("process %d squashing %d", memVer->getTaskContext()->getPid(),
-	    (*mit)->getVersionRef()->getTaskContext()->getPid());
-      }
-      else if (memVer->isAtomic() ) {
-	/* && *(*mit)->getVersionRef() < *e->getVersionRef() */
-	I(*(*mit)->getVersionRef() != *memVer);
-	if (squashSelf == false) {
-	  pendingRestart.push_back(memVer);
-	  squashSelf = true;
-	  LOG("process %d squashing %d (self)", 
-	      (*mit)->getVersionRef()->getTaskContext()->getPid(),
-	      memVer->getTaskContext()->getPid());
-	}
-      }
-    }
-    mit++;
-  }
-}
-
-void MemBuffer::doExpBackoff() {
-  if (globalClock - tLastSquash < tBackoff)
-    stallTime = stallTime ? stallTime*2 : 1;
-  else
-    for (Time_t t = tLastSquash ; t < globalClock; t += tBackoff)
-      stallTime /= 2;
-
-  tLastSquash = globalClock;
-
-  if (stallTime) {
-    LOG("process %d suspended for %d", 
-	memVer->getTaskContext()->getPid(), stallTime);
-    memVer->getTaskContext()->atomicStall(stallTime);
-  }
-}
-
-#endif

@@ -154,14 +154,6 @@ long ExecutionFlow::exeInst(void)
     restartVer = tc->postWrite(iAddr, opflags, origdAddrR);
   }
 #endif
-#ifdef ATOMIC
-#if 0
-  if(opflags&E_READ) {
-    I(restartVer==0);
-    restartVer = tc->postRead();
-  }
-#endif
-#endif
   return dAddrV;
 }
 

@@ -732,10 +732,6 @@ void rsesc_spawn(int ppid, int cpid, long flags)
   //  exit(-1);
   //}
 
-#ifdef ATOMIC
-  osSim->eventSpawn(ppid, cpid, flags);
-  TaskContext::getTaskContext(ppid)->spawn(cpid);
-#else
 #ifdef TC_PARTIALORDER
   osSim->eventSpawn(ppid, cpid, flags);
   TaskContext::normalForkNewDomain(cpid);
@@ -743,7 +739,6 @@ void rsesc_spawn(int ppid, int cpid, long flags)
   // New thread must share the same TaskContext
   TaskContext::getTaskContext(ppid)->normalFork(cpid);
   osSim->eventSpawn(ppid, cpid, flags);
-#endif
 #endif
 }
 
@@ -755,13 +750,11 @@ int rsesc_exit(int cpid, int err)
     return 1;
   }
 
-#ifndef ATOMIC
   TaskContext *tc=TaskContext::getTaskContext(cpid);
   if (tc) {
     tc->endTaskExecuted(cpid);
     return 0; // Do not recycle the Thread[cpid]
   }else
-#endif
     osSim->eventExit(cpid, err);
   return 1;
 }
@@ -943,19 +936,6 @@ int rsesc_is_versioned(int pid)
   return ExecutionFlow::isGoingRabbit()? 0 : 1;
 }
 
-#ifdef ATOMIC
-int rsesc_commit_transaction(int pid)
-{
-  //  int ret = rsesc_become_safe(pid);
-  TaskContext::getTaskContext(pid)->commitTransaction(pid);
-  return 1;
-}
-
-void rsesc_start_transaction(int pid)
-{
-  TaskContext::getTaskContext(pid)->startTransaction(pid);
-}
-#endif
 #endif // TASKSCALAR
 
 #ifdef SESC_LOCKPROFILE
