@@ -44,6 +44,9 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "GProcessor.h"
 #include "FetchEngine.h"
 
+#ifdef SESC_THERM
+#include "ReportTherm.h"
+#endif
 
 #if (defined TLS)
 #include "Epoch.h"
@@ -402,6 +405,17 @@ void OSSim::processParams(int argc, char **argv, char **envp)
  
   char *finalReportFile = (char *)strdup(reportFile);
  
+#ifdef SESC_THERM
+  {
+    thermFile = (char*)malloc(strlen(finalReportFile) + 7);
+    char *pp = strrchr(finalReportFile,'.');
+    *pp = 0;
+    sprintf(thermFile, "%s.therm.%s",finalReportFile, pp + 1);
+    ReportTherm::openFile(thermFile);
+    strcpy(pp, thermFile + ((pp - finalReportFile) +6));
+  }
+#endif
+  
   if (trace_flag) {
     traceFile = (char*)malloc(strlen(finalReportFile) + 7);
     char *p = strrchr(finalReportFile,'.');
@@ -415,6 +429,10 @@ void OSSim::processParams(int argc, char **argv, char **envp)
 
   free(finalReportFile);
 
+#ifdef SESC_THERM
+  free(thermFile);
+#endif
+
   for(i=0; i < nargc; i++)
     free(nargv[i]);
 
@@ -427,8 +445,11 @@ OSSim::~OSSim()
 #if (defined TLS)
   tls::Epoch::staticDestructor();
 #endif
-  
   Instruction::finalize();
+
+#ifdef SESC_THERM
+  ReportTherm::stopCB();
+#endif
 
   free(benchRunning);
   free(reportFile);
@@ -436,9 +457,11 @@ OSSim::~OSSim()
   delete SescConf;
 
   free(benchName);
-
+  //free(traceFile);
   if (trace())
     free(traceFile);
+
+  //printf("destructed..\n");
 }
 
 void OSSim::eventSysconf(Pid_t ppid, Pid_t fid, long flags)
@@ -587,6 +610,10 @@ void OSSim::eventExit(Pid_t cpid, int err)
     ThreadContext::getContext(cpid)->free();
 #else
   ThreadContext::getContext(cpid)->free();
+#endif
+ 
+#ifdef SESC_THERM
+  ReportTherm::stopCB();
 #endif
 }
 
@@ -952,6 +979,11 @@ void OSSim::simFinish()
   report("Final");
 
   Report::close();
+
+#ifdef SESC_THERM
+  ReportTherm::stopCB();
+  ReportTherm::close();
+#endif
 
   if(trace())
     Report::close();

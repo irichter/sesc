@@ -54,6 +54,8 @@ typedef off_t off64_t;
 
 #if (defined LINUX) && (defined __i386)
 #include <sys/syscall.h>
+#include <linux/types.h>
+#include <linux/unistd.h>
 typedef __off64_t off64_t;
 
 static _syscall3(int, getdents, uint, fd, struct dirent *, dirp, uint, count);

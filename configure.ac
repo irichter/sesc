@@ -22,6 +22,8 @@ AC_SUBST(DEFCONF,[mem.conf])
 AC_SUBST(TASKSCALAR_OPT)
 AC_SUBST(VALUEPRED_OPT)
 AC_SUBST(SESC_ENERGY_OPT)
+# added 12/05/04 DVDB
+AC_SUBST(SESC_THERM_OPT)
 AC_SUBST(SESC_MISPATH_OPT)
 AC_SUBST(TS_VMEM_OPT)
 AC_SUBST(DEBUG_OPT)
@@ -65,6 +67,14 @@ AC_HELP_STRING([--enable-power],
 [if test "$enableval" = "yes"; then AC_COMPOPT(SESC_ENERGY) fi],
 )
 
+###SESC_THERM added 12/05/04 DVDB
+
+AC_NOCOMPOPT(SESC_THERM)
+AC_ARG_ENABLE(therm, 
+AC_HELP_STRING([--enable-therm],
+               [Enable thermal model (default is no)]),
+[if test "$enableval" = "yes"; then AC_COMPOPT(SESC_THERM) fi],
+)
 
 ###SESC_MISPATH
 

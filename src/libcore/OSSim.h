@@ -72,6 +72,9 @@ private:
   char *reportFile;
   char *traceFile;
 
+  // added 11/19/04 DVDB
+  char *thermFile;
+
   timeval stTime;
   double  frequency;
 
@@ -140,6 +143,9 @@ public:
   GProcessor *id2GProcessor(CPU_t cpu);
 
   bool trace() const { return (traceFile != 0); }
+
+  
+
 
   virtual void preEvent(Pid_t pid, long vaddr, long type, void *sptr) {
     MSG("preevent(%ld, %ld, %p) pid %d", vaddr, type, sptr, pid);

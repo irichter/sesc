@@ -31,6 +31,9 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 #include "GStats.h"
 #include "ReportGen.h"
+#ifdef SESC_THERM
+#include "ReportTherm.h"
+#endif
 
 GStats::Container *GStats::store=0;
 
@@ -71,6 +74,36 @@ void GStatsCntr::reportValue() const
   Report::field("%s=%lld", name, data);
 }
 
+#ifdef SESC_THERM
+void GStatsCntr::reportValueDumpSetup() const
+{
+  char * tmp;
+  char * tmp1;
+  char * tmp2;
+  tmp = strstr(name, "(0)");
+  tmp2 = strstr(name, "Cluster");
+  tmp1 = strstr(name, "(");
+  if (tmp != NULL) {
+    ReportTherm::field("%s\t", name);
+  } else if (tmp == NULL && tmp1 == NULL) {
+    ReportTherm::field("%s\t", name);
+  }
+}
+
+void GStatsCntr::reportValueDump() const
+{
+  char * tmp;
+  char * tmp1;
+  tmp = strstr(name, "(0)");
+  tmp1 = strstr(name, "(");
+  if (tmp != NULL) {
+    ReportTherm::field("%lld\t", data);
+  } else if (tmp == NULL && tmp1 == NULL) {
+    ReportTherm::field("%lld\t", data);
+  }
+}
+#endif
+
 /*********************** GStatsAvg */
 
 GStatsAvg::GStatsAvg(const char *format,...)
@@ -104,6 +137,16 @@ void GStatsAvg::reportValue() const
   Report::field("%s:v=%g:n=%lld", name, getDouble(), nData);
 }
 
+#ifdef SESC_THERM
+void GStatsAvg::reportValueDumpSetup() const
+{
+}
+
+void GStatsAvg::reportValueDump() const
+{
+}
+#endif
+
 /*********************** GStats */
 
 char *GStats::getText(const char *format,
@@ -116,11 +159,12 @@ char *GStats::getText(const char *format,
   return strdup(strid);
 }
 
+
+
 void GStats::subscribe()
 {
   if( store == 0 )
     store = new Container;
-  
   store->push_back(this);
 }
 
@@ -143,13 +187,35 @@ void GStats::unsubscribe()
 void GStats::report(const char *str)
 {
   Report::field("BEGIN GStats::report %s", str);
-
-  if (store) 
-    for(ContainerIter i = store->begin(); i != store->end(); i++)
+  if (store) {
+    for(ContainerIter i = store->begin(); i != store->end(); i++) {
       (*i)->reportValue();
+
+    }
+  }
 
   Report::field("END GStats::report %s", str);
 }
+
+#ifdef SESC_THERM
+void GStats::reportDumpSetup()
+{
+  if (!store)
+    return;
+
+  for(ContainerIter i = store->begin(); i != store->end(); i++)
+    (*i)->reportValueDumpSetup();
+}
+
+void GStats::reportDump()
+{
+  if (!store)
+    return;
+
+  for(ContainerIter i = store->begin(); i != store->end(); i++)
+    (*i)->reportValueDump();
+}
+#endif
 
 GStats *GStats::getRef(const char *str)
 {
@@ -199,6 +265,20 @@ void GStatsProfiler::reportValue() const
       Report::field("%s(%d)=%d",name,(*it).first,(*it).second);
     }
 }
+
+#ifdef SESC_THERM
+void GStatsProfiler::reportValueDumpSetup() const
+{
+}
+
+void GStatsProfiler::reportValueDump() const 
+{
+  ProfHash::const_iterator it;
+  for( it = p.begin(); it != p.end(); it++ )
+    printf("%s(%d)=%d\n",name,(*it).first,(*it).second);
+}
+#endif
+
 
 /*********************** GStatsMax */
 
@@ -326,3 +406,29 @@ void GStatsTimingHist::sample(unsigned long key)
   lastUpdate = globalClock;
   lastKey = key;
 }
+
+#ifdef SESC_THERM
+void GStatsTimingHist::reportValueDump() const
+{
+}
+
+void GStatsHist::reportValueDumpSetup() const
+{
+}
+
+void GStatsHist::reportValueDump() const
+{
+}
+
+void GStatsTimingHist::reportValueDumpSetup() const
+{
+}
+
+void GStatsMax::reportValueDump() const
+{
+}
+
+void GStatsMax::reportValueDumpSetup() const
+{
+}
+#endif

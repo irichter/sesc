@@ -360,7 +360,7 @@ Cache::Line *Cache::allocateLine(PAddr addr, CallbackBase *cb)
 
   if(l == 0) {
     // very rare case
-    MSG("WARNING:all cache lines locked!");
+    //    MSG("WARNING:all cache lines locked!");
 #if 0
     MSG("FATAL:all cache lines locked!");
     I(0);

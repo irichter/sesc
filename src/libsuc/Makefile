@@ -31,10 +31,14 @@ CacheSample:	$(OBJ)/CacheSample.o $(OBJ)/libsuc.a
 ##############################################################################
 SOBJS	:= TQueue.o Config.o nanassert.o GStats.o callback.o \
 	Snippets.o Port.o ReportGen.o CacheCore.o SescConf.o \
-	TraceGen.o SCTable.o BloomFilter.o
+	TraceGen.o SCTable.o BloomFilter.o 
 
 ifdef SESC_ENERGY
 SOBJS	+= GEnergy.o
+endif
+
+ifdef SESC_THERM
+SOBJS	+= ReportTherm.o
 endif
 
 # Objects from generated C/C++ files 

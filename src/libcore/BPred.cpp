@@ -793,6 +793,168 @@ void BP2BcgSkew::switchOut(Pid_t pid)
 }
 
 /*****************************************
+ * YAGS
+ * 
+ * Based on:
+ *
+ * "The YAGS Brnach Prediction Scheme" by A. N. Eden and T. Mudge
+ *
+ * Arguments to the predictor:
+ *     type    = "yags"
+ *     l1size  = (in power of 2) Taken Cache Size.
+ *     l2size  = (in power of 2) Not-Taken Cache Size.
+ *     l1bits  = Number of bits for Cache Taken Table counter (2).
+ *     l2bits  = Number of bits for Cache NotTaken Table counter (2).
+ *     size    = (in power of 2) Size of the Choice predictor.
+ *     bits    = Number of bits for Choice predictor Table counter (2).
+ *     tagbits = Number of bits used for storing the address in
+ *               direction cache.
+ *
+ * Description:
+ *
+ * This predictor tries to address the conflict aliasing in the choice
+ * predictor by having two direction caches. Depending on the
+ * prediction, the address is looked up in the opposite direction and if
+ * there is a cache hit then that predictor is used otherwise the choice
+ * predictor is used. The choice predictor and the direction predictor
+ * used are updated based on the outcome.
+ *
+ */
+
+BPyags::BPyags(int i, const char *section)
+  :BPred(i,section,"yags")
+  ,btb(i,  section)
+  ,table(i,section
+           ,SescConf->getLong(section,"size")
+           ,SescConf->getLong(section,"bits"))
+  ,ctableTaken(i,section
+                ,SescConf->getLong(section,"l1size")
+                ,SescConf->getLong(section,"l1bits"))
+  ,ctableNotTaken(i,section
+                   ,SescConf->getLong(section,"l2size")
+                   ,SescConf->getLong(section,"l2bits"))
+{
+  // Constraints
+  SescConf->isLong(section, "size");
+  SescConf->isPower2(section, "size");
+  SescConf->isGT(section, "size", 1);
+
+  SescConf->isBetween(section, "bits", 1, 7);
+
+  SescConf->isLong(section, "l1size");
+  SescConf->isPower2(section, "l1bits");
+  SescConf->isGT(section, "l1size", 1);
+
+  SescConf->isBetween(section, "l1bits", 1, 7);
+
+  SescConf->isLong(section, "l2size");
+  SescConf->isPower2(section, "l2bits");
+  SescConf->isGT(section, "size", 1);
+
+  SescConf->isBetween(section, "l2bits", 1, 7);
+
+  SescConf->isBetween(section, "tagbits", 1, 7);
+
+  CacheTaken = new uchar[SescConf->getLong(section,"l1size")];
+  CacheTakenMask = SescConf->getLong(section,"l1size") - 1;
+  CacheTakenTagMask = (1 << SescConf->getLong(section,"tagbits")) - 1;
+
+  CacheNotTaken = new uchar[SescConf->getLong(section,"l2size")];
+  CacheNotTakenMask = SescConf->getLong(section,"l2size") - 1;
+  CacheNotTakenTagMask = (1 << SescConf->getLong(section,"tagbits")) - 1;
+
+  // Done
+}
+
+BPyags::~BPyags()
+{
+
+}
+
+PredType BPyags::predict(const Instruction *inst, InstID oracleID,bool doUpdate)
+{
+  bpredEnergy->inc();
+
+  if( inst->isBranchTaken() )
+    return btb.predict(inst, oracleID, doUpdate);
+
+  bool taken = (inst->calcNextInstID() != oracleID);
+
+  bool ptaken;
+  if (doUpdate)
+    ptaken = table.predict(calcInstID(inst), taken);
+  else
+    ptaken = table.predict(calcInstID(inst));
+
+  bool cacheHit;
+
+  HistoryType tag;
+  HistoryType cacheIndex;
+
+  if (ptaken == true) {
+    // Search the not taken cache. If we find an entry there, the
+    // prediction from the cache table will override the choice table.
+
+    cacheIndex = calcInstID(inst) & CacheNotTakenMask;
+
+    tag = inst->currentID() & CacheNotTakenTagMask;
+
+    cacheHit = (CacheNotTaken[cacheIndex] == tag);
+
+    if (cacheHit) {
+      if (doUpdate) {
+        CacheNotTaken[cacheIndex] = tag;
+        ptaken = ctableNotTaken.predict(calcInstID(inst), taken);
+      } else {
+        ptaken = ctableNotTaken.predict(calcInstID(inst));
+      }
+    } else if ((doUpdate) && (taken == false)) {
+      CacheNotTaken[cacheIndex] = tag;
+      (void)ctableNotTaken.predict(calcInstID(inst), taken);
+    }
+  } else {
+    // Search the taken cache. If we find an entry there, the prediction
+    // from the cache table will override the choice table.
+
+    cacheIndex = calcInstID(inst) & CacheTakenMask;
+
+    tag = inst->currentID() & CacheTakenTagMask;
+
+    cacheHit = (CacheTaken[cacheIndex] == tag);
+
+    if (cacheHit) {
+      if (doUpdate) {
+        CacheTaken[cacheIndex] = tag;
+        ptaken = ctableTaken.predict(calcInstID(inst), taken);
+      } else {
+        ptaken = ctableTaken.predict(calcInstID(inst));
+      }
+    } else if ((doUpdate) && (taken == true)) {
+        CacheTaken[cacheIndex] = tag;
+        (void)ctableTaken.predict(calcInstID(inst), taken);
+    }
+  }
+
+  if( taken != ptaken ) {
+    if (doUpdate)
+      btb.updateOnly(inst,oracleID);
+    return MissPrediction;
+  }
+  
+  return ptaken ? btb.predict(inst, oracleID, doUpdate) : CorrectPrediction;
+}
+
+void BPyags::switchIn(Pid_t pid)
+{
+
+}
+
+void BPyags::switchOut(Pid_t pid)
+{
+
+}
+
+/*****************************************
  * RAP Recent Address Predictor
  *
  */
@@ -1165,6 +1327,8 @@ BPred *BPredictor::getBPred(int id, const char *sec)
     pred = new BP2BcgSkew(id, sec);
   } else if (strcasecmp(type, "Hybrid") == 0) {
     pred = new BPHybrid(id, sec);
+  } else if (strcasecmp(type, "yags") == 0) {
+    pred = new BPyags(id, sec);
   } else if (strcasecmp(type, "Rap") == 0) {
     pred = new BPRap(id, sec);
   } else if (strcasecmp(type, "Crap") == 0) {

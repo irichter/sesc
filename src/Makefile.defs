@@ -58,6 +58,11 @@ DEFS += -DSESC_ENERGY
 DEFS   += -DPOWER_TEST -DPARM_TECH_POINT=7 -DVdd=1.1 -DPARM_Freq=5e9
 endif
 
+# added 12/05/04 DVDB
+ifdef SESC_THERM
+DEFS += -DSESC_THERM
+endif
+
 ifdef SESC_SLICE
 DEFS += -DSESC_SLICE
 endif

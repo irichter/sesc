@@ -212,6 +212,7 @@ protected:
   typedef HASH_MAP< const char *, std::vector<GStatsEnergy *> > EPartStoreType;
 
   static EProcStoreType  eProcStore;  // Energy store per processor
+  static EProcStoreType  oldEProc;
   static EGroupStoreType eGroupStore; // Energy store per group
   static EPartStoreType  ePartStore;  // Energy store per block
 
@@ -228,11 +229,19 @@ public:
   static double getTotalProc(int procId);
   static double getTotalGroup(EnergyGroup grp);
   static double getTotalPart(const char *part);
+  
   static void dump(int procId);
   static void dump();
+#ifdef SESC_THERM
+  static void setupDump(int procId);
+  static void printDump(int procId, int cycle);
+
+  void reportValueDump() const;
+  void reportValueDumpSetup() const;
+#endif
 
   void reportValue() const;
-
+  
   int getGid() const { return gid; }
 
   virtual double getDouble() const;

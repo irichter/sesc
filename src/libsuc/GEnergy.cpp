@@ -29,9 +29,12 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 #include "EnergyMgr.h"
 #include "ReportGen.h"
-#include <iostream>
+#ifdef SESC_TERM
+#include "ReportTherm.h"
+#endif
 
 GStatsEnergy::EProcStoreType  GStatsEnergy::eProcStore;
+GStatsEnergy::EProcStoreType  GStatsEnergy::oldEProc;
 GStatsEnergy::EGroupStoreType GStatsEnergy::eGroupStore; 
 GStatsEnergy::EPartStoreType  GStatsEnergy::ePartStore;
 
@@ -48,7 +51,6 @@ void GStatsEnergyNull::add(int v)
 {
 }
 
-
 GStatsEnergy::GStatsEnergy(const char *field, const char *blk
 			   ,int procId, EnergyGroup grp
 			   ,double energy, const char *part)
@@ -56,9 +58,12 @@ GStatsEnergy::GStatsEnergy(const char *field, const char *blk
   ,steps(0)
   ,gid(grp)
 {
-  if( eProcStore.size() <= static_cast<size_t>(procId) )
+  if( eProcStore.size() <= static_cast<size_t>(procId) ) {
     eProcStore.resize(procId+1);
+    //oldEProc.resize(procId+1);
+  }
   eProcStore[procId].push_back(this);
+  //oldEProc[procId].push_back(this);
 
   if(eGroupStore.size() <= static_cast<size_t>(grp) )
     eGroupStore.resize(grp + 1);
@@ -80,7 +85,25 @@ GStatsEnergy::~GStatsEnergy()
   free(name);
 }
 
-void GStatsEnergy::dump(int procId)
+
+#ifdef SESC_THERM
+void GStatsEnergy::setupDump(int procId) 
+{
+  I((unsigned int)procId < eProcStore.size());
+  
+  //ReportTherm::field("%d\n", eProcStore[procId].size());
+  for (size_t i = 0; i < eProcStore[procId].size(); i++) {
+    GStatsEnergy *e = eProcStore[procId][i];
+    
+    double pwr = EnergyMgr::etop(e->getDouble());
+    EnergyGroup eg = static_cast<EnergyGroup>(e->getGid()) ;
+    
+    PowerGroup pg = EnergyStore::getPowerGroup(eg);
+    ReportTherm::field("%s\t", e->name);
+  }
+}
+
+void GStatsEnergy::printDump(int procId, int cycle) 
 {
   double pVals[MaxPowerGroup];
   for(int c=0; c < MaxPowerGroup; c++) 
@@ -94,8 +117,39 @@ void GStatsEnergy::dump(int procId)
 
     double pwr = EnergyMgr::etop(e->getDouble());
     EnergyGroup eg = static_cast<EnergyGroup>(e->getGid()) ;
+    // change 11/29/04 DVDB
     PowerGroup pg = EnergyStore::getPowerGroup(eg);
+    ReportTherm::field("%f\t", EnergyMgr::etop(e->getDouble()));
+    pVals[static_cast<unsigned int>(pg)] += pwr;
+  }
+  
+}
+
+void GStatsEnergy::reportValueDumpSetup() const
+{
+}
+
+void GStatsEnergy::reportValueDump() const
+{
+}
+#endif
+
+void GStatsEnergy::dump(int procId)
+{
+  double pVals[MaxPowerGroup];
+  for(int c=0; c < MaxPowerGroup; c++) 
+    pVals[c] = 0.0;
    
+  I((unsigned int)procId < eProcStore.size());
+
+  // calculate the values
+  for(size_t i=0;i<eProcStore[procId].size();i++) {
+    GStatsEnergy *e = eProcStore[procId][i];
+
+    double pwr = EnergyMgr::etop(e->getDouble());
+    EnergyGroup eg = static_cast<EnergyGroup>(e->getGid()) ;
+    
+    PowerGroup pg = EnergyStore::getPowerGroup(eg);
     pVals[static_cast<unsigned int>(pg)] += pwr;
   }
 
@@ -129,6 +183,7 @@ void GStatsEnergy::reportValue() const
 {
   Report::field("%s=%g", name, getDouble());
 }
+
 
 double GStatsEnergy::getTotalProc(int procId)
 {

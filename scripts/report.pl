@@ -126,8 +126,7 @@ sub main {
     exit 0;
   }
 
-  my $file;
-  foreach $file (@flist) {
+  foreach my $file (@flist) {
 
     $cf = sesc->new($file);
 
@@ -1082,13 +1081,15 @@ sub simStats {
 
   # End Global Stats
 
-  print "      Exe Speed         Exe Time         Sim Time (${freq}MHz)\n";
+  print "      Exe Speed        Exe MHz         Exe Time         Sim Time (${freq}MHz)\n";
 
   my $secs    = $cf->getResultField("OSSim","msecs");
 
   $secs = 1 if( $secs == 0 );
 
   printf " %10.3f KIPS ",($nInstTotal/($secs*1000));
+  printf " %10.4f MHz ",1e-6/($secs/$nCycles);
+
   printf " %10.3f secs ",$secs;
 
   printf " %10.3f msec",(1e-3/$freq)*$nCycles;

@@ -319,6 +319,32 @@ public:
   void switchOut(Pid_t pid);
 };
 
+class BPyags : public BPred {
+private:
+  BPBTB btb;
+
+  SCTable table;
+  SCTable ctableTaken;
+  SCTable ctableNotTaken;
+
+  uchar *CacheTaken;
+  HistoryType CacheTakenMask;
+  HistoryType CacheTakenTagMask;
+
+  uchar *CacheNotTaken;
+  HistoryType CacheNotTakenMask;
+  HistoryType CacheNotTakenTagMask;
+
+protected:
+public:
+  BPyags(int i, const char *section);
+  ~BPyags();
+  
+  PredType predict(const Instruction * inst, InstID oracleID, bool doUpdate);
+
+  void switchIn(Pid_t pid);
+  void switchOut(Pid_t pid);
+};
 
 class BPRap : public BPred {
 private:

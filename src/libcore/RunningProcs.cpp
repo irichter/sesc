@@ -23,6 +23,10 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "RunningProcs.h"
 #include "GProcessor.h"
 
+#ifdef SESC_THERM
+#include "ReportTherm.h"
+#endif
+
 #ifdef TASKSCALAR
 #include "TaskContext.h"
 #endif
@@ -35,6 +39,9 @@ RunningProcs::RunningProcs()
 void RunningProcs::finishWorkNow()
 {
   stayInLoop=false;
+#ifdef SESC_THERM
+  ReportTherm::stopCB();
+#endif
   workingList.clear();
 }
 
@@ -128,8 +135,13 @@ void RunningProcs::run()
 	IS(currentCPU = 0);
 	EventScheduler::advanceClock();
       }while(stayInLoop);
+#ifdef SESC_THERM
+      ReportTherm::stopCB();
+#endif
     }
   }while(!EventScheduler::empty());
+  
+  
 }
 
 void RunningProcs::makeRunnable(ProcessId *proc)

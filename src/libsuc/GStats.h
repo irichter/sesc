@@ -38,6 +38,9 @@ private:
   typedef std::list < GStats * >Container;
   typedef std::list < GStats * >::iterator ContainerIter;
   static Container *store;
+  //added 11/19/04 DVDB
+  FILE *traceFile;
+
 protected:
   char *name;
   char *getText(const char *format,
@@ -45,14 +48,27 @@ protected:
   void subscribe();
   void unsubscribe();
 public:
+	int gd;
+
   static void report(const char *str);
+#ifdef SESC_THERM
+  static void reportDump();
+  static void reportDumpSetup();
+#endif
   static GStats *getRef(const char *str);
 
   GStats() {
   }
   virtual ~GStats();
 
+  void prepareTrace();
+
   virtual void reportValue() const =0;
+#ifdef SESC_THERM
+  virtual void reportValueDump() const =0;
+  virtual void reportValueDumpSetup() const =0;
+#endif
+
   virtual double getDouble() const {
     MSG("getDouble Not supported by this class %s",name);
     return 0;
@@ -93,6 +109,10 @@ public:
 
   double getDouble() const;
   void reportValue() const;
+#ifdef SESC_THERM
+  void reportValueDump() const;
+  void reportValueDumpSetup() const;
+#endif
 };
 
 class GStatsAvg : public GStats {
@@ -121,6 +141,10 @@ public:
   }
 
   void reportValue() const;
+#ifdef SESC_THERM
+  void reportValueDump() const;
+  void reportValueDumpSetup() const;
+#endif
 };
 
 class GStatsProfiler : public GStats {
@@ -135,6 +159,11 @@ public:
   GStatsProfiler(const char *format,...);
 
   void reportValue() const;
+
+#ifdef SESC_THERM
+  void reportValueDump() const;
+  void reportValueDumpSetup() const;
+#endif
 
   void sample(ulong key);  
 };
@@ -153,6 +182,11 @@ class GStatsMax : public GStats {
   }
 
   void reportValue() const;
+
+#ifdef SESC_THERM
+  void reportValueDump() const;
+  void reportValueDumpSetup() const;
+#endif
 };
 
 
@@ -181,6 +215,11 @@ public:
 
   void reportValue() const;
 
+#ifdef SESC_THERM
+  void reportValueDump() const;
+  void reportValueDumpSetup() const;
+#endif
+
   void sample(unsigned long key, unsigned long long weight);
 };
 
@@ -192,6 +231,11 @@ public:
   GStatsTimingHist(const char *format,...);
 
   void reportValue() const;
+
+#ifdef SESC_THERM
+  void reportValueDump() const;
+  void reportValueDumpSetup() const;
+#endif
 
   //Call on each update, it remembes what the last (key,time) pair was
   //and uses that to update the histogram.
