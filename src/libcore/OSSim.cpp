@@ -848,7 +848,7 @@ void OSSim::initBoot()
 
   // read it so it gets dumped 
   const char *technology = SescConf->getCharPtr("","technology");
-  SescConf->getDouble(technology,"frequency");
+  frequency = SescConf->getDouble(technology,"frequency");
 
   if (SescConf->checkBool("","NoMigration"))
     NoMigration = SescConf->getBool("","NoMigration");

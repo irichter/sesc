@@ -150,7 +150,7 @@ void GStatsEnergy::dump(int procId)
     EnergyGroup eg = static_cast<EnergyGroup>(e->getGid()) ;
     
     PowerGroup pg = EnergyStore::getPowerGroup(eg);
-    pVals[static_cast<unsigned int>(pg)] += pwr;
+    pVals[pg] += pwr;
   }
 
   // dump the values
@@ -161,20 +161,20 @@ void GStatsEnergy::dump(int procId)
 void GStatsEnergy::dump()
 {
   double pVals[MaxPowerGroup];
-  for(int c=0; c < ClockPower; c++) 
-    pVals[c] = 0.0;
+  for(int i=0; i < MaxPowerGroup; i++) 
+    pVals[i] = 0.0;
 
   // calculate the values
   for(size_t i=1;i< MaxEnergyGroup ;i++) {
-    double pwr = EnergyMgr::etop(GStatsEnergy::getTotalGroup(static_cast<EnergyGroup>(i)));
-    int pg = static_cast<int>(EnergyStore::getPowerGroup(static_cast<EnergyGroup>(i)));
+    double    pwr = EnergyMgr::etop(GStatsEnergy::getTotalGroup(static_cast<EnergyGroup>(i)));
+    PowerGroup pg = EnergyStore::getPowerGroup(static_cast<EnergyGroup>(i));
     pVals[pg] += pwr;
   }
 
   // dump the values
-  for(int j=1; j < ClockPower;j++)
+  for(int j=1; j < MaxPowerGroup;j++)
     Report::field("PowerMgr:%s=%g",EnergyStore::getStr(static_cast<PowerGroup>(j)),pVals[j]);
-  for(int j=1; j < ClockPower;j++)
+  for(int j=1; j < MaxPowerGroup;j++)
     Report::field("EnergyMgr:%s=%g",EnergyStore::getEnergyStr(static_cast<PowerGroup>(j)),EnergyMgr::ptoe(pVals[j]));
 
 }
@@ -382,10 +382,10 @@ PowerGroup EnergyStore::getPowerGroup(EnergyGroup e)
     return MemPower;
   default:
   case NOT_VALID_ENERGY:
-    I(0);
     break;
   }
 
+  I(0);
   return Not_Valid_Power;
 }
 

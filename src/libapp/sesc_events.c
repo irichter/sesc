@@ -89,6 +89,7 @@ void sesc_tvsub(struct timeval *tdiff, struct timeval *t1, struct timeval *t0)
   }
 }
 
+
 void sesc_simulation_mark()
 {
   static int mark=0;
@@ -101,9 +102,11 @@ void sesc_simulation_mark()
 
     if (getenv("SESC_1"))
       mark1 = atoi(getenv("SESC_1"));
-    
+   
     if (getenv("SESC_2"))
       mark2 = atoi(getenv("SESC_2"));
+    else
+      mark2 = -1;
   }
 
   if (mark == mark1)
