@@ -240,22 +240,6 @@ FMVCache::CacheLine *FMVCache::allocateLine(LVID *lvid, LPAddr addr)
   // 4-Otherwise displace the most speculative line (more spec that current task)
   //
   // 5-Otherwise displace using LRU
-  //
-  // FIXME?: Change to the following displacement algorithm
-  // 
-  // 1-Try find invalid line
-  //
-  // 2-Otherwise find a task that has no wrmask & xrdmask (prefetched line)
-  //
-  // 3-Otherwise invalidate the most spec line that got restarted
-  //
-  // 4-Otherwise displace a safer line (the safest, not itself)
-  //
-  // 5-Otherwise restart the most spec cache line (if not itself)
-  //
-  // 6-Otherwise displace randomly on line from the same version
-  //
-  // 7-Otherwise sync become safe
 
   CacheLine *cl = cache->findLine(addr);
   if (cl) {
@@ -473,9 +457,8 @@ bool FMVCache::performAccess(MemRequest *mreq)
     if (cl->isMostSpecLine())
       return true;
 
+
     initWriteCheck(lvid, mreq, true);
-    // FIXME: return true
-    // FIXME: do a ack(0) (no go up)
     return false;
   }
  
@@ -598,7 +581,34 @@ void FMVCache::localWrite(MemRequest *mreq)
 {
   I(mreq->getMemOperation() == MemWrite);
 
-  // FIXME
+#if 1
+  rdHitEnergy->inc();
+
+  LVID    *lvid   = static_cast<LVID *>(mreq->getLVID());
+  I(lvid);
+  if(!lvid->isKilled()) {
+    PAddr paddr = mreq->getPAddr();
+    const LPAddr    addr  = lvid->calcLPAddr(paddr);
+
+    CacheLine *cl = cache->findLine(addr);
+    if (cl == 0)
+      cl = allocateLine(lvid, addr);
+
+    if (cl) {
+      if (!cl->isMostSpecLine()) {
+      // Assume that all successor lines get invalidated
+	wrLVIDEnergy->inc();
+	cl->setMostSpecLine();
+      
+	rdHitEnergy->inc(); // around 3 checks per miss
+	rdHitEnergy->inc();
+	rdHitEnergy->inc();
+      }
+    }
+  }
+#endif
+
+  
   mreq->goUp(0);
   return;
 
