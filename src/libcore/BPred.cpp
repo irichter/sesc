@@ -727,7 +727,7 @@ PredType BP2BcgSkew::predict(const Instruction * inst, InstID oracleID, bool doU
   bool ptaken = metaOut ? BIMOut : gskewOut;
 
   if (ptaken != taken) {
-    if (doUpdate)
+    if (!doUpdate)
       return MissPrediction;
     
     BIM.predict(iID,taken);

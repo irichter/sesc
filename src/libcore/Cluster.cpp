@@ -117,11 +117,11 @@ void Cluster::buildUnit(const char *clusterName
 
   switch(type) {
   case iALU:
-    strtmp = strdup("iALU");
+    strtmp = strdup("iALUEnergy");
   case iMult:
-    if(!strtmp) strtmp = strdup("iMult");
+    if(!strtmp) strtmp = strdup("iMultEnergy");
   case iDiv:
-    if(!strtmp) strtmp = strdup("iDiv");
+    if(!strtmp) strtmp = strdup("iDivEnergy");
    eng = new GStatsEnergyCG(static_cast<const char*>(strtmp)
 			    ,name
 			    ,gproc->getId()
@@ -132,11 +132,11 @@ void Cluster::buildUnit(const char *clusterName
    r = new FUGeneric(cluster, gen, lat, eng);
    break;
   case fpALU:
-   strtmp = strdup("fpALU");
+   strtmp = strdup("fpALUEnergy");
   case fpMult:
-   if(!strtmp) strtmp=strdup("fpMult");
+   if(!strtmp) strtmp=strdup("fpMultEnergy");
   case fpDiv:
-   if(!strtmp) strtmp=strdup("fpDiv");
+   if(!strtmp) strtmp=strdup("fpDivEnergy");
   eng = new GStatsEnergyCG(static_cast<const char*>(strtmp)
 			   ,name
 			   ,gproc->getId()
