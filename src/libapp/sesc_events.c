@@ -5,6 +5,12 @@
 
 #include "sescapi.h"
 
+#ifdef SESC_OSX_CHUD
+void chud_boot();
+void chud_begin();
+void chud_end();
+#endif
+
 static void notifyEvent(const char *ev, long vaddr, long type, const void *sptr)
 {
 #ifdef DEBUG
@@ -107,15 +113,28 @@ void sesc_simulation_mark()
       mark2 = atoi(getenv("SESC_2"));
     else
       mark2 = -1;
+
+#ifdef SESC_OSX_CHUD
+    chud_boot();
+    chud_begin();
+#endif
   }
 
-  if (mark == mark1)
+  if (mark == mark1) {
     gettimeofday(&tv1, 0);
+#ifdef SESC_OSX_CHUD
+    chud_begin();
+#endif
+  }
 
   fprintf(stderr,"sesc_simulation_mark %d (native) (sim from %d to %d mark)\n"
 	  ,mark, mark1, mark2);
 
   if (mark == mark2) {
+#ifdef SESC_OSX_CHUD
+    chud_end();
+#endif
+
     struct timeval tv2;
     gettimeofday(&tv2, 0);
 

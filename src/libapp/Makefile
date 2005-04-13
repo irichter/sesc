@@ -63,7 +63,7 @@ event_tst1:	$(OBJ)/event_tst1.o $(OBJ)/libapp.a
 ##############################################################################
 #                Objects
 ##############################################################################
-OBJS	:= sesc_thread.o sesc_events.o sesc_locks.o sesc_fortran.o 
+OBJS	:= sesc_thread.o sesc_events.o sesc_locks.o sesc_fortran.o sesc_chud.o
 
 ifdef TLS
 OBJS   += sesc_tls.o
