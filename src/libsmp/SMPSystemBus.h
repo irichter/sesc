@@ -31,11 +31,12 @@ class SMPSystemBus : public MemObj {
 private:
 
 protected:
-  PortGeneric *cachePort;
-  TimeDelta_t missDelay;
-  TimeDelta_t hitDelay;
+  PortGeneric *busPort;
+  PortGeneric *memNetPort;
 
-  typedef HASH_MAP<PAddr, int> PendReqsTable;
+  TimeDelta_t delay;
+
+  typedef HASH_MAP<MemRequest *, int, SMPMemReqHashFunc> PendReqsTable;
 
   PendReqsTable pendReqsTable;
 
@@ -45,22 +46,26 @@ protected:
   void push(MemRequest *mreq);
   void specialOp(MemRequest *mreq);
 
-  // port usage accounting
-  Time_t nextSlot() {
-    return cachePort->nextSlot();
-  }
+  Time_t nextSlot(MemRequest *mreq);
 
-  void doRead(MemRequest *mreq);
-  void doWrite(MemRequest *mreq);
-  void doPush(PAddr addr);
+  virtual void doRead(MemRequest *mreq);
+  virtual void doWrite(MemRequest *mreq);
+  virtual void doPush(MemRequest *mreq);
 
   typedef CallbackMember1<SMPSystemBus, MemRequest *, &SMPSystemBus::doRead> 
     doReadCB;
   typedef CallbackMember1<SMPSystemBus, MemRequest *, &SMPSystemBus::doWrite> 
     doWriteCB;
-  typedef CallbackMember1<SMPSystemBus, PAddr, &SMPSystemBus::doPush> 
+  typedef CallbackMember1<SMPSystemBus, MemRequest *, &SMPSystemBus::doPush> 
     doPushCB;
 
+  virtual void finalizeRead(MemRequest *mreq);
+  virtual void finalizeWrite(MemRequest *mreq);
+  void finalizeAccess(MemRequest *mreq);
+  virtual void goToMem(MemRequest *mreq);
+  virtual unsigned getNumSnoopCaches(SMPMemRequest *sreq) {
+    return upperLevel.size() - 1;
+  }
 
 public:
   SMPSystemBus(SMemorySystem *gms, const char *section, const char *name);
@@ -76,7 +81,7 @@ public:
   void access(MemRequest *mreq);
   
   // interface with lower level
-  void returnAccess(MemRequest *mreq);
+  virtual void returnAccess(MemRequest *mreq);
 
   void invalidate(PAddr addr, ushort size, MemObj *oc);
   void doInvalidate(PAddr addr, ushort size);
@@ -85,7 +90,6 @@ public:
 
   // END MemObj interface
 
+};
 
 #endif // SMPSYSTEMBUS_H
-
-};

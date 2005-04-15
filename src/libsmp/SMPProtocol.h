@@ -24,17 +24,19 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #ifndef SMPPROTOCOL_H
 #define SMPPROTOCOL_H
 
-
 #include "SMPMemRequest.h"
 #include "MSHR.h"
 #include "estl.h"
 
 #include "SMPDebug.h"
+#include "SMPCacheState.h"
 
 class SMPCache;
 
 enum Protocol_t {
-  MESI_Protocol = 10
+  MESI_Protocol     = 10,
+  MESITO_Protocol   = 11,
+  MESITOGL_Protocol = 12,
 }; 
 
 class SMPProtocol {
@@ -46,6 +48,8 @@ protected:
   SMPCache *pCache;
 
 public:
+  typedef CacheGeneric<SMPCacheState, PAddr, false>            CacheType;
+  typedef CacheGeneric<SMPCacheState, PAddr, false>::CacheLine Line;
 
   Protocol_t getProtocolType() {
     return protocolType;
@@ -55,6 +59,10 @@ public:
   virtual ~SMPProtocol();
 
   // BEGIN interface with cache
+  virtual void changeState(Line *, unsigned);
+  virtual void makeDirty(Line *l);
+  virtual void preInvalidate(Line *l);
+
   virtual void read(MemRequest *mreq);
   virtual void write(MemRequest *mreq);
   virtual void writeBack(MemRequest *mreq);
@@ -78,75 +86,16 @@ public:
   virtual void writeMissAckHandler(SMPMemRequest *sreq) { I(0); }
   virtual void invalidateAckHandler(SMPMemRequest *sreq) { I(0); }
 
+  virtual void sendWriteBack(PAddr addr, CallbackBase *cb);
+  virtual void writeBackAckHandler(SMPMemRequest *sreq);
+
+  virtual void sendDisplaceNotify(PAddr addr, CallbackBase *cb);
+  virtual void displaceNotifyAckHandler(SMPMemRequest *sreq);
+
   virtual void sendData(SMPMemRequest *sreq);
   virtual void dataHandler(SMPMemRequest *sreq) { I(0); }
 
   // END interface of Protocol
-};
-
-class MESIProtocol : public SMPProtocol {
-
-protected:
-
-public:  
-  MESIProtocol(SMPCache *cache); 
-  ~MESIProtocol();
-
-  void read(MemRequest *mreq);
-  void doRead(MemRequest *mreq);
-  typedef CallbackMember1<MESIProtocol, MemRequest *, 
-                         &MESIProtocol::doRead> doReadCB;
-
-  void write(MemRequest *mreq);
-  void doWrite(MemRequest *mreq);
-  typedef CallbackMember1<MESIProtocol, MemRequest *, 
-                         &MESIProtocol::doWrite> doWriteCB;
-    
-  void writeBack(MemRequest *mreq);
-  void returnAccess(SMPMemRequest *sreq);
-
-  void sendReadMiss(MemRequest *mreq);
-  void sendWriteMiss(MemRequest *mreq);
-  void sendInvalidate(MemRequest *mreq);
-
-  void doSendReadMiss(MemRequest *mreq);
-  void doSendWriteMiss(MemRequest *mreq);
-  void doSendInvalidate(MemRequest *mreq);
-
-  typedef CallbackMember1<MESIProtocol, MemRequest *,
-                         &MESIProtocol::doSendReadMiss> doSendReadMissCB;
-  typedef CallbackMember1<MESIProtocol, MemRequest *,
-                         &MESIProtocol::doSendWriteMiss> doSendWriteMissCB;
-  typedef CallbackMember1<MESIProtocol, MemRequest *,
-                         &MESIProtocol::doSendInvalidate> doSendInvalidateCB;
-
-  void sendReadMissAck(SMPMemRequest *sreq);
-  void sendWriteMissAck(SMPMemRequest *sreq);
-  void sendInvalidateAck(SMPMemRequest *sreq);
-
-  void readMissHandler(SMPMemRequest *sreq);
-  void writeMissHandler(SMPMemRequest *sreq); 
-  void invalidateHandler(SMPMemRequest *sreq); 
-
-  typedef CallbackMember1<MESIProtocol, SMPMemRequest *,
-                   &MESIProtocol::sendWriteMissAck> sendWriteMissAckCB;
-  typedef CallbackMember1<MESIProtocol, SMPMemRequest *,
-                   &MESIProtocol::sendInvalidateAck> sendInvalidateAckCB;
-  typedef CallbackMember1<MESIProtocol, SMPMemRequest *,
-                   &MESIProtocol::writeMissHandler> writeMissHandlerCB;
-  typedef CallbackMember1<MESIProtocol, SMPMemRequest *,
-                   &MESIProtocol::invalidateHandler> invalidateHandlerCB;
-
-  void readMissAckHandler(SMPMemRequest *sreq); 
-  void writeMissAckHandler(SMPMemRequest *sreq); 
-  void invalidateAckHandler(SMPMemRequest *sreq); 
-
-
-  // data related
-  void sendData(SMPMemRequest *sreq);
-  void dataHandler(SMPMemRequest *sreq);
-
-  MESIState_t combineResponses(MESIState_t currentResponse, MESIState_t localState);
 };
 
 #endif // SMPPROTOCOL_H

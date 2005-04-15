@@ -37,14 +37,16 @@ SMPSystemBus::SMPSystemBus(SMemorySystem *dms, const char *section, const char *
 
   SescConf->isLong(section, "numPorts");
   SescConf->isLong(section, "portOccp");
+  SescConf->isLong(section, "delay");
+  
+  delay = SescConf->getLong(section, "delay");
 
-  char cadena[100];
-  sprintf(cadena,"Data%s", name);
-  cachePort = PortGeneric::create(cadena, 
-				  SescConf->getLong(section, "numPorts"), 
-				  SescConf->getLong(section, "portOccp"));
+  char portName[100];
+  sprintf(portName, "%s_bus", name);
 
-  // TODO: have a control and a data port separetely
+  busPort = PortGeneric::create(portName, 
+				SescConf->getLong(section, "numPorts"), 
+				SescConf->getLong(section, "portOccp"));
 }
 
 SMPSystemBus::~SMPSystemBus() 
@@ -54,7 +56,12 @@ SMPSystemBus::~SMPSystemBus()
 
 Time_t SMPSystemBus::getNextFreeCycle() const
 {
-  return cachePort->calcNextSlot();
+  return busPort->nextSlot();
+}
+
+Time_t SMPSystemBus::nextSlot(MemRequest *mreq)
+{
+  return getNextFreeCycle();
 }
 
 bool SMPSystemBus::canAcceptStore(PAddr addr) const
@@ -73,9 +80,6 @@ void SMPSystemBus::access(MemRequest *mreq)
   
   I(mreq->getPAddr() > 1024); 
 
-  GLOG(SMPDBG_MSGS, "SMPSystemBus::access addr = 0x%08x, type = %d", 
-       (uint) mreq->getPAddr(), (uint) mreq->getMemOperation());
-
   switch(mreq->getMemOperation()){
   case MemRead:     read(mreq);      break;
   case MemReadW:    
@@ -84,7 +88,8 @@ void SMPSystemBus::access(MemRequest *mreq)
   default:          specialOp(mreq); break;
   }
 
-  // MemRead means I need to read the data
+  // for reqs coming from upper level:
+  // MemRead means I need to read the data, but I don't have it
   // MemReadW means I need to write the data, but I don't have it
   // MemWrite means I need to write the data, but I don't have permission
   // MemPush means I don't have space to keep the data, send it to memory
@@ -92,172 +97,162 @@ void SMPSystemBus::access(MemRequest *mreq)
 
 void SMPSystemBus::read(MemRequest *mreq)
 {
-  PAddr addr = mreq->getPAddr();
-  if( ( (SMPMemRequest*) mreq)->isNew())
-    doReadCB::scheduleAbs(nextSlot(), this, mreq);
-  else
+  if(pendReqsTable.find(mreq) == pendReqsTable.end()) {
+    doReadCB::scheduleAbs(nextSlot(mreq)+delay, this, mreq);
+  } else {
     doRead(mreq);
+  }
 }
 
 void SMPSystemBus::write(MemRequest *mreq)
 {
-  PAddr addr = mreq->getPAddr();
-  if( ( (SMPMemRequest*) mreq)->isNew())
-    doWriteCB::scheduleAbs(nextSlot(), this, mreq);
-  else
+  SMPMemRequest *sreq = static_cast<SMPMemRequest *>(mreq);
+
+  if(pendReqsTable.find(mreq) == pendReqsTable.end()) {
+    doWriteCB::scheduleAbs(nextSlot(mreq)+delay, this, mreq);
+  } else {
     doWrite(mreq);
+  }
 }
 
 void SMPSystemBus::push(MemRequest *mreq)
 {
-  PAddr addr = mreq->getPAddr();
-
-  doPushCB::scheduleAbs(nextSlot(), this, addr);  
+  doPushCB::scheduleAbs(nextSlot(mreq)+delay, this, mreq);  
 }
 
 void SMPSystemBus::specialOp(MemRequest *mreq)
 {
   I(0);
-  mreq->goUp(1); // TODO: implement atomic ops?
 }
 
 void SMPSystemBus::doRead(MemRequest *mreq)
 {
-  PAddr addr = mreq->getPAddr();
+  SMPMemRequest *sreq = static_cast<SMPMemRequest *>(mreq);
 
-  if( ( (SMPMemRequest*) mreq)->isNew()) {
-    I(pendReqsTable.find(addr) == pendReqsTable.end());
-    ((SMPMemRequest*) mreq)->setNotNew();
-    GLOG(SMPDBG_MSGS, 
-	 "SMPSystemBus::doRead new access addr = 0x%08x, type = %d", 
-	 (uint) mreq->getPAddr(), (uint) mreq->getMemOperation());
+  // no need to snoop, go straight to memory
+  if(!sreq->needsSnoop()) {
+    goToMem(mreq);
+    return;
+  }
+
+  if(pendReqsTable.find(mreq) == pendReqsTable.end()) {
+
+    unsigned numSnoops = getNumSnoopCaches(sreq);
 
     // operation is starting now, add it to the pending requests buffer
-    pendReqsTable[addr] = upperLevel.size() - 1;
+    pendReqsTable[mreq] = getNumSnoopCaches(sreq);
+
+    if(!numSnoops) { 
+      // nothing to snoop on this chip
+      finalizeRead(mreq);
+      return;
+      // TODO: even if there is only one processor on each chip, 
+      // request is doing two rounds: snoop and memory
+    }
+
     // distribute requests to other caches, wait for responses
     for(ulong i = 0; i < upperLevel.size(); i++) {
-      if(upperLevel[i] != static_cast<SMPMemRequest *>(mreq)->getRequestor())
+      if(upperLevel[i] != static_cast<SMPMemRequest *>(mreq)->getRequestor()) {
 	upperLevel[i]->returnAccess(mreq);
+      }
     }
   } 
   else {
     // operation has already been sent to other caches, receive responses
 
-    I(pendReqsTable[addr] > 0);
-    I(pendReqsTable[addr] < (int) upperLevel.size());
+    I(pendReqsTable[mreq] > 0);
+    I(pendReqsTable[mreq] <= (int) upperLevel.size());
 
-    pendReqsTable[addr]--;
-    if(pendReqsTable[addr] != 0) {
+    pendReqsTable[mreq]--;
+    if(pendReqsTable[mreq] != 0) {
       // this is an intermediate response, request is not serviced yet
-      GLOG(SMPDBG_MSGS, 
-	   "SMPSystemBus::doRead interm. response addr = 0x%08x, type = %d",
-	   (uint) mreq->getPAddr(), (uint) mreq->getMemOperation());
       return;
     }
+
     // this is the final response, request can go up now
-    pendReqsTable.erase(addr);
-    SMPMemRequest *sreq = static_cast<SMPMemRequest *>(mreq);
-
-    if(sreq->getState() == MESI_INVALID) {
-      // could not find data anywhere, go to memory
-      GLOG(SMPDBG_MSGS, 
-	   "SMPSystemBus::doRead response (INVALID) addr = 0x%08x, type = %d",
-	   (uint) mreq->getPAddr(), (uint) mreq->getMemOperation());
-      
-      mreq->goDown(1, lowerLevel[0]);
-      return;
-    }
-
-    if(sreq->getState() == MESI_MODIFIED) {
-      // if data was dirty, it will go to memory too
-      GLOG(SMPDBG_MSGS, 
-	   "SMPSystemBus::doRead response (MODIFIED) addr = 0x%08x, type = %d, response = 0x%08x",
-	   (uint) mreq->getPAddr(), (uint) mreq->getMemOperation(), (uint) static_cast<SMPMemRequest *>(mreq)->getState());
-      
-      doPush(addr);
-    } else {
-
-      I(sreq->getState() == MESI_SHARED || sreq->getState() == MESI_EXCLUSIVE);
-      GLOG(SMPDBG_MSGS, 
-	   "SMPSystemBus::doRead response (SH. OR EXCL.) addr = 0x%08x, type = %d, response = 0x%08x",
-	   (uint) mreq->getPAddr(), (uint) mreq->getMemOperation(), (uint) static_cast<SMPMemRequest *>(mreq)->getState());
-      
-    }
-    sreq->goUp(1);
+    finalizeRead(mreq);
   }
+}
+
+void SMPSystemBus::finalizeRead(MemRequest *mreq)
+{
+  finalizeAccess(mreq);
 }
 
 void SMPSystemBus::doWrite(MemRequest *mreq)
 {
-  PAddr addr = mreq->getPAddr();
+  SMPMemRequest *sreq = static_cast<SMPMemRequest *>(mreq);
 
-  if( ( (SMPMemRequest*) mreq)->isNew()) {
-    I(pendReqsTable.find(addr) == pendReqsTable.end());
-    ((SMPMemRequest*) mreq)->setNotNew();
-    GLOG(SMPDBG_MSGS, "SMPSystemBus::doWrite new access addr = 0x%08x, type = %d", 
-	 (uint) mreq->getPAddr(), (uint) mreq->getMemOperation());
+  // no need to snoop, go straight to memory
+  if(!sreq->needsSnoop()) {
+    goToMem(mreq);
+    return;
+  }
+
+  if(pendReqsTable.find(mreq) == pendReqsTable.end()) {
+
+    unsigned numSnoops = getNumSnoopCaches(sreq);
 
     // operation is starting now, add it to the pending requests buffer
-    pendReqsTable[addr] = upperLevel.size() - 1;
+    pendReqsTable[mreq] = getNumSnoopCaches(sreq);
+
+    if(!numSnoops) { 
+      // nothing to snoop on this chip
+      finalizeWrite(mreq);
+      return;
+      // TODO: even if there is only one processor on each chip, 
+      // request is doing two rounds: snoop and memory
+    }
+
     // distribute requests to other caches, wait for responses
     for(ulong i = 0; i < upperLevel.size(); i++) {
-      if(upperLevel[i] != static_cast<SMPMemRequest *>(mreq)->getRequestor())
+      if(upperLevel[i] != static_cast<SMPMemRequest *>(mreq)->getRequestor()) {
 	upperLevel[i]->returnAccess(mreq);
+      }
     }
   } 
-  
   else {
     // operation has already been sent to other caches, receive responses
-    I(pendReqsTable[addr] > 0);
-    I(pendReqsTable[addr] < (int) upperLevel.size());
 
-    pendReqsTable[addr]--;
-    if(pendReqsTable[addr] != 0) {
+    I(pendReqsTable[mreq] > 0);
+    I(pendReqsTable[mreq] <= (int) upperLevel.size());
+
+    pendReqsTable[mreq]--;
+    if(pendReqsTable[mreq] != 0) {
       // this is an intermediate response, request is not serviced yet
-      GLOG(SMPDBG_MSGS, 
-	   "SMPSystemBus::doWrite interm. response addr = 0x%08x, type = %d", 
-	   (uint) mreq->getPAddr(), (uint) mreq->getMemOperation());
       return;
     }
+
     // this is the final response, request can go up now
-    pendReqsTable.erase(addr);
-    SMPMemRequest *sreq = static_cast<SMPMemRequest *>(mreq);
-
-    if(sreq->getState() == MESI_INVALID && 
-       sreq->getMemOperation() == MemReadW) {
-      // could not find data anywhere, go to memory
-      GLOG(SMPDBG_MSGS, 
-	   "SMPSystemBus::doWrite response (INVALID) addr = 0x%08x, type = %d",
-	   (uint) mreq->getPAddr(), (uint) mreq->getMemOperation());
-      
-      mreq->goDown(1, lowerLevel[0]);
-      return;
-    }
-
-    if(sreq->getState() == MESI_MODIFIED) {
-      // if data was dirty, it will go to memory too
-      GLOG(SMPDBG_MSGS, 
-	   "SMPSystemBus::doWrite response (MODIFIED) addr = 0x%08x, type = %d", 
-	   (uint) mreq->getPAddr(), (uint) mreq->getMemOperation());
-
-      doPush(addr);
-    } else {
-
-      I((sreq->getState() == MESI_INVALID && 
-	 sreq->getMemOperation() == MemWrite) ||
-	sreq->getState() == MESI_EXCLUSIVE || sreq->getState() == MESI_SHARED);
-      GLOG(SMPDBG_MSGS, 
-	   "SMPSystemBus::doWrite response (INV., SH. OR EXCL.) addr = 0x%08x, type = %d, state = 0x%08x",
-	   (uint) mreq->getPAddr(), (uint) mreq->getMemOperation(), (uint) static_cast<SMPMemRequest *>(mreq)->getState());
-    }
-    sreq->goUp(1);  
+    finalizeWrite(mreq);
   }
 }
- 
-void SMPSystemBus::doPush(PAddr addr)
+
+void SMPSystemBus::finalizeWrite(MemRequest *mreq)
 {
-  CBMemRequest::create(1, lowerLevel[0], MemPush, addr, 0);
-  // TODO: need to include bw consuption
+  finalizeAccess(mreq);
+}
+
+void SMPSystemBus::finalizeAccess(MemRequest *mreq)
+{
+  PAddr addr  = mreq->getPAddr();
+  SMPMemRequest *sreq = static_cast<SMPMemRequest *>(mreq);
+  
+  pendReqsTable.erase(mreq);
+ 
+  // request completed, respond to requestor 
+  // (may have to come back later to go to memory)
+  sreq->goUpAbs(nextSlot(mreq)+delay);  
+}
+
+void SMPSystemBus::goToMem(MemRequest *mreq)
+{
+  mreq->goDown(delay, lowerLevel[0]);
+}
+
+void SMPSystemBus::doPush(MemRequest *mreq)
+{
+  mreq->goDown(delay, lowerLevel[0]);
 }
 
 void SMPSystemBus::invalidate(PAddr addr, ushort size, MemObj *oc)
@@ -272,11 +267,5 @@ void SMPSystemBus::doInvalidate(PAddr addr, ushort size)
 
 void SMPSystemBus::returnAccess(MemRequest *mreq)
 {
-  PAddr addr = mreq->getPAddr();
-
-  GLOG(SMPDBG_MSGS, "SMPSystemBus::returnAccess for address 0x%x", 
-       (uint) mreq->getPAddr());
-
-  mreq->goUp(1);
+  mreq->goUpAbs(nextSlot(mreq)+delay);
 }
-

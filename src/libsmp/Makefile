@@ -11,7 +11,8 @@ all: $(OBJ)/smp.o $(OBJ)/libsmp.a
 ##############################################################################
 #                Objects
 ##############################################################################
-OBJS	:= SMPCache.o SMPSystemBus.o SMemorySystem.o SMPProtocol.o SMPMemRequest.o 
+OBJS	:= SMPCache.o SMPSystemBus.o SMemorySystem.o 
+OBJS    += MESIProtocol.o SMPProtocol.o SMPMemRequest.o 
 
 ##############################################################################
 #                             Change Rules                                   # 

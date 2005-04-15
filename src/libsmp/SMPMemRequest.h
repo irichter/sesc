@@ -23,9 +23,8 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define SMPMEMREQUEST_H
 
 #include "pool.h"
-
 #include "MemRequest.h"
-#include "MESICacheState.h"
+#include "SMPDebug.h"
 
 class SMPMemRequest : public MemRequest {
 private:
@@ -38,8 +37,17 @@ protected:
   MemRequest *oreq;
   unsigned int state;
   MemObj *requestor;
+  MemObj *supplier;
+  bool found;
+  bool needSnoop; 
   bool needData;
-  bool newReq;
+  bool writeDown;
+
+  // recycling counter
+  unsigned nUses;
+
+  // callback, if needed; should be only used when there is no oreq
+  CallbackBase *cb;
 
 public:
   SMPMemRequest(); 
@@ -48,28 +56,54 @@ public:
 
   // BEGIN: MemRequest interface
 
-  static SMPMemRequest *create(MemRequest *mreq, MemObj *reqCache, 
+  static SMPMemRequest *create(MemRequest *mreq, 
+			       MemObj *reqCache, 
 			       bool sendData);
+
+  static SMPMemRequest *create(MemObj *reqCache, 
+			       PAddr addr, 
+			       MemOperation mOp,
+			       bool needsWriteDown,
+			       CallbackBase *cb);
+
+  void incUses();
   void destroy();
 
   VAddr getVaddr() const;
   PAddr getPAddr() const;
-  void  ack(short unsigned int);
+  void  ack(TimeDelta_t lat);
 
   // END: MemRequest interface
 
   void setOriginalRequest(MemRequest *mreq);
   void setState(unsigned int st);
   void setRequestor(MemObj *reqCache);
+  void setSupplier(MemObj *supCache);
 
   MemRequest  *getOriginalRequest();
   MemOperation getMemOperation();
   unsigned int getState();
   MemObj      *getRequestor();
-  bool         needsData();
+  MemObj      *getSupplier();
 
-  bool         isNew() const { return newReq; }
-  void         setNotNew() { newReq = false; }
+  bool         needsData()  { return needData; }
+  bool         needsSnoop() { return needSnoop; }
+  void         noSnoop()    { needSnoop = false; }
+
+  bool         isFound()  { return found; }
+  void         setFound() { found = true; }
+
+  bool         needsWriteDown() { return writeDown; }
+  void         setWriteDown()   { writeDown = true; }
 };
+
+class SMPMemReqHashFunc {
+public: 
+  size_t operator()(const MemRequest *mreq) const {
+    HASH<const char *> H;
+    return H((const char *)mreq);
+  }
+};
+
 
 #endif // SMPMEMREQUEST_H

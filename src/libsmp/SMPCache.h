@@ -26,16 +26,18 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "SMemorySystem.h"
 #include "SMPProtocol.h"
 #include "SMPMemRequest.h"
-#include "MESICacheState.h"
+#include "SMPCacheState.h"
+#include "SMPSystemBus.h"
 #include "MSHR.h"
 #include "Port.h"
 
 #include "vector"
+#include "estl.h"
 
 class SMPCache : public MemObj {
 public:
-  typedef CacheGeneric<MESICacheState, PAddr, false>            CacheType;
-  typedef CacheGeneric<MESICacheState, PAddr, false>::CacheLine Line;
+  typedef CacheGeneric<SMPCacheState, PAddr, false>            CacheType;
+  typedef CacheGeneric<SMPCacheState, PAddr, false>::CacheLine Line;
 
 private:
 protected:
@@ -45,7 +47,7 @@ protected:
   TimeDelta_t missDelay;
   TimeDelta_t hitDelay;
 
-  MSHR<PAddr> *outsReq;  // buffer for requests coming from upper levels
+  MSHR<PAddr> *outsReq; // buffer for requests coming from upper levels
   static MSHR<PAddr> *mutExclBuffer;
 
   class Entry {
@@ -70,9 +72,17 @@ protected:
   GStatsCntr writeHit;
   GStatsCntr readMiss;
   GStatsCntr writeMiss;
+  GStatsCntr readHalfMiss;  // attention: these half misses have a != semantic
+  GStatsCntr writeHalfMiss; // than Cache.cpp: these counts are included in
+                            // other counters because MSHR is used differently
+  GStatsCntr writeBack;
+  GStatsCntr linePush;
   GStatsCntr lineFill;
-  
-  // TODO: fill this up
+  GStatsCntr readRetry;
+  GStatsCntr writeRetry;
+
+  GStatsCntr invalDirty;
+  GStatsCntr allocDirty;
   // END statistics
 
   SMPProtocol *protocol;
@@ -99,7 +109,8 @@ protected:
   void doRead(MemRequest *mreq);
   void doWrite(MemRequest *mreq);
   void doPushLine(MemRequest *mreq);
-  void doWriteBack(PAddr addr) const;
+  void doWriteBack(PAddr addr);
+  void concludeWriteBack(Time_t initialTime);
   void sendRead(MemRequest* mreq);
   void sendWrite(MemRequest* mreq);
 
@@ -113,6 +124,8 @@ protected:
                          &SMPCache::sendRead> sendReadCB;
   typedef CallbackMember1<SMPCache, MemRequest *,
                          &SMPCache::sendWrite> sendWriteCB;
+  typedef CallbackMember1<SMPCache, Time_t,
+                         &SMPCache::concludeWriteBack> concludeWriteBackCB;
 
 public:
   SMPCache(SMemorySystem *gms, const char *section, const char *name);
@@ -120,11 +133,11 @@ public:
 
   // BEGIN MemObj interface
   
-  // port usage accounting
+  // port availability
   Time_t getNextFreeCycle() const;
 
   // interface with upper level
-  bool canAcceptStore(PAddr addr) const;
+  bool canAcceptStore(PAddr addr);
   void access(MemRequest *mreq);
   
   // interface with lower level
@@ -134,46 +147,38 @@ public:
   void doInvalidate(PAddr addr, ushort size);
   void realInvalidate(PAddr addr, ushort size);
 
-  bool canAcceptStore(PAddr addr);
-
   // END MemObj interface
 
-  ulong getLineSize() {
-    return cache->getLineSize();
-  }
-
-  // BEGIN protocol interface 
+   // BEGIN protocol interface 
   
-  // access to lower level
+  // interface used by protocol to access lower level
   void sendBelow(SMPMemRequest *sreq);
   void respondBelow(SMPMemRequest *sreq);
   void receiveFromBelow(SMPMemRequest *sreq);
+  void doReceiveFromBelow(SMPMemRequest *sreq);
 
-  // protocol has decided what to do and wants to finish the coherence
-  // transaction, calling concludeAccess
+  typedef CallbackMember1<SMPCache, SMPMemRequest *,
+                         &SMPCache::doReceiveFromBelow> doReceiveFromBelowCB;
+
+  // interface used by protocol to access upper level
   void concludeAccess(MemRequest *mreq);
 
-  // line management - actions protocol can perform on cache lines
+  // interface used by protocol to operate on cache lines
+  Line *getLine(PAddr addr);
+  void writeLine(PAddr addr);
+  void invalidateLine(PAddr addr, CallbackBase *cb);
   Line *allocateLine(PAddr addr, CallbackBase *cb);
   void doAllocateLine(PAddr addr, PAddr rpl_addr, CallbackBase *cb);
 
   typedef CallbackMember3<SMPCache, PAddr, PAddr, CallbackBase *,
                          &SMPCache::doAllocateLine> doAllocateLineCB;
- 
-  Line *getLine(PAddr addr);
-  void updateLine(PAddr addr, MESIState_t state);
-  void SMPCache::writeLine(PAddr addr);
-  void invalidateLine(PAddr addr, CallbackBase *cb);
-
-  // interface to get pointer to another protocol
-  // this should be extended for more complex protocols
-  SMPProtocol *getProtocol() { return protocol; }
 
   // END protocol interface
 
-  // Debug function
+  // debug functions
   Line* findLine(PAddr addr) { return cache->findLine(addr); }
   void inclusionCheck(PAddr addr);
 };
+
 
 #endif // SMPCACHE_H

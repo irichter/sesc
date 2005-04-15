@@ -19,8 +19,10 @@ SESC; see the file COPYING.  If not, write to the  Free Software Foundation, 59
 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 */
 
+#include "SMPDebug.h"
 #include "SMPMemRequest.h"
-#include "MESICacheState.h"
+#include "SMPCacheState.h"
+#include "MemObj.h"
 
 pool<SMPMemRequest> SMPMemRequest::rPool(256);
 
@@ -37,31 +39,104 @@ SMPMemRequest *SMPMemRequest::create(MemRequest *mreq,
 
   I(mreq);
   sreq->oreq = mreq;
+  IS(sreq->acknowledged = false);
+  I(sreq->memStack.empty());
+
+  sreq->currentClockStamp = globalClock;
 
   sreq->pAddr = mreq->getPAddr();
   sreq->memOp = mreq->getMemOperation();
+  sreq->dataReq = mreq->isDataReq();
+  sreq->prefetch = mreq->isPrefetch();
 
-  sreq->state = MESI_INVALID;
+  sreq->state = SMP_INVALID;
 
   I(reqCache);
   sreq->requestor = reqCache;
   sreq->currentMemObj = reqCache;
 
   sreq->needData = sendData;
+ 
+  if(sreq->memOp == MemPush) 
+    sreq->needSnoop = false;
+  else
+    sreq->needSnoop = true;
 
-  sreq->newReq = true;
+  sreq->found = false;
+  sreq->nUses = 1;
+
+  sreq->cb = 0;
 
   return sreq;
 }
 
+SMPMemRequest *SMPMemRequest::create(MemObj *reqCache, 
+				     PAddr addr, 
+				     MemOperation mOp,
+				     bool needsWriteDown,
+				     CallbackBase *cb)
+{
+  SMPMemRequest *sreq = rPool.out();
+
+  sreq->oreq = 0;
+  IS(sreq->acknowledged = false);
+  I(sreq->memStack.empty());
+
+  sreq->currentClockStamp = globalClock;
+
+  sreq->pAddr = addr;
+  sreq->memOp = mOp;
+  sreq->cb = cb;
+
+  sreq->dataReq = false;
+  sreq->prefetch = false;
+
+  sreq->state = SMP_INVALID;
+
+  I(reqCache);
+  sreq->requestor = reqCache;
+  sreq->currentMemObj = reqCache;
+
+  sreq->needData = false; // TODO: check this (should it be true?)
+ 
+  if(sreq->memOp == MemPush) 
+    sreq->needSnoop = false;
+  else
+    sreq->needSnoop = true;
+
+  sreq->found = false;
+  sreq->nUses = 1;
+
+  return sreq;
+}
+
+void SMPMemRequest::incUses()
+{
+  nUses++;
+}
+
 void SMPMemRequest::destroy()
 {
-  rPool.in(this);
+  nUses--;
+  if(!nUses) {
+
+    GLOG(SMPDBG_MSGS, "sreq %p real destroy", this);
+    I(memStack.empty());
+    rPool.in(this);
+    return;
+  } 
+
+  GLOG(SMPDBG_MSGS, "sreq %p fake destroy", this);
 }
 
 VAddr SMPMemRequest::getVaddr() const
 {
-  return oreq->getVaddr();
+  I(0);
+
+  if(oreq)
+    return oreq->getVaddr();
+
+  return 0;
 }
 
 PAddr SMPMemRequest::getPAddr() const
@@ -71,12 +146,30 @@ PAddr SMPMemRequest::getPAddr() const
 
 void SMPMemRequest::ack(TimeDelta_t lat)
 {
-  I(0);
+  I(memStack.empty());
+  I(acknowledged == false);
+  IS(acknowledged = true);
+  I(lat == 0);
+
+  if (cb==0) {
+    destroy();
+    return; // avoid double ack
+  }
+
+  CallbackBase *ncb=cb;
+  cb = 0;
+  ncb->call();
+  destroy();
 }
 
 void SMPMemRequest::setState(unsigned int st)
 {
   state = st;
+}
+
+void SMPMemRequest::setSupplier(MemObj *supCache)
+{
+  supplier = supCache;
 }
 
 MemRequest *SMPMemRequest::getOriginalRequest()
@@ -86,7 +179,7 @@ MemRequest *SMPMemRequest::getOriginalRequest()
 
 MemOperation SMPMemRequest::getMemOperation()
 {
-  return oreq->getMemOperation();
+  return memOp;
 }
 
 unsigned int SMPMemRequest::getState()
@@ -99,7 +192,9 @@ MemObj *SMPMemRequest::getRequestor()
   return requestor;
 }
 
-bool SMPMemRequest::needsData() 
+MemObj *SMPMemRequest::getSupplier()
 {
-  return needData;
+  return supplier;
 }
+
+
