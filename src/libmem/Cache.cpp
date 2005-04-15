@@ -385,7 +385,7 @@ Cache::Line *Cache::allocateLine(PAddr addr, CallbackBase *cb)
   // not highest level, must invalidate old line, which may take a while
   l->lock();
   I(pendInvTable.find(rpl_addr) == pendInvTable.end());
-  pendInvTable[rpl_addr].outsResps = getUpperCacheLevelSize();
+  pendInvTable[rpl_addr].outsResps = getNumCachesInUpperLevels();
   pendInvTable[rpl_addr].cb = doAllocateLineCB::create(this, addr, rpl_addr, cb);
   invUpperLevel(rpl_addr, cache->getLineSize(), this);
   return 0;
@@ -457,7 +457,7 @@ void Cache::invalidate(PAddr addr, ushort size, MemObj *lowerCache)
 { 
   I(lowerCache);
   I(pendInvTable.find(addr) == pendInvTable.end());
-  pendInvTable[addr].outsResps = getUpperCacheLevelSize(); 
+  pendInvTable[addr].outsResps = getNumCachesInUpperLevels(); 
   pendInvTable[addr].cb = doInvalidateCB::create(lowerCache, addr, size);
 
   if (isHighestLevel()) {     // highest level, we have only to 

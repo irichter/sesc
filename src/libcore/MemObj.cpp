@@ -73,7 +73,7 @@ void MemObj::computenUpperCaches()
     if(upperLevel[j]->isCache())
       nUpperCaches++;
     else 
-      nUpperCaches += upperLevel[j]->getUpperCacheLevelSize();
+      nUpperCaches += upperLevel[j]->getNumCachesInUpperLevels();
   }
 
   // top-down traversal of the memory objects

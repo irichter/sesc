@@ -96,7 +96,7 @@ public:
 
   virtual const bool isCache() const { return false; }
 
-  const ulong getUpperCacheLevelSize() const {
+  const ulong getNumCachesInUpperLevels() const {
     return nUpperCaches;
   }
 
