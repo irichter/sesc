@@ -1,12 +1,6 @@
 HOW TO setup sesc
 -----------------
 
-Before you begin: if you are reading this file it probably means that
-you have your cvs set up and that you have successfully checked esesc
-out. Or that somebody else has given you this file. If this is the
-case, please refer to the end of this file for instructions on how to
-set up your cvs environment.
-
 building sesc
 -------------
 
@@ -101,41 +95,7 @@ libsuc        - general purpose code (specially useful code)
 libvmem       - versioning cache backend
 libmint       - functional simulator
 libcc         - Cache Coherence (directory based)
-libdsm        - Cache Coherence (bus snooping)
+libsmp        - Cache Coherence (bus snooping)
 misc          - miscellaneous files
 
    The other files are mainly associated to the build process.
-
-
-cvs setup
----------
-
-1) create a shadow directory
-
-   Create a directory where you want all your code to be stored
-
-> mkdir shadow
-
-2) configure cvs 
-
-   You can access the cvs root directory via pserver. The path is :pserver:kstrauss@chooyu.cs.uiuc.edu:/usr/local/cvsroot.
-
-   Set your cvs root environmental variable to that path. If you use bash:
-
-> export CVSROOT=:pserver:kstrauss@chooyu.cs.uiuc.edu:/usr/local/cvsroot
-
-   If you are going to modify the code frequently, you may want to add
-   the line above in your shell configuration file (e.g. .bashrc for bash).
-
-3) go to the shadow directory you have created in step 1.
-
-> cd shadow
-
-4) retrieve files from main repository
-
-   This will copy the files from the cvs repository into your shadow
-   directory:
-
-> cvs checkout esesc
-
-   More details about the directory structure below.
