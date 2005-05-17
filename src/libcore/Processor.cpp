@@ -170,6 +170,10 @@ void Processor::goRabbitMode(long long n2Skip)
 
 void Processor::advanceClock()
 {
+#ifdef TS_STALL
+  if (isStall()) return;
+#endif  
+
   clockTicks++;
   
   //  GMSG(!ROB.empty(),"robTop %d Ul %d Us %d Ub %d",ROB.getIdFromTop(0)
@@ -274,7 +278,7 @@ StallCause Processor::addInst(DInst *dinst)
   StallCause sc = sharedAddInst(dinst);
   if (sc != NoStall)
     return sc;
-
+  
 
   I(dinst->getResource() != 0); // Resource::schedule must set the resource field
 

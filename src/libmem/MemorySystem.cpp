@@ -5,6 +5,7 @@
 
 #include "Cache.h"
 #include "Bus.h"
+#include "PriorityBus.h"
 #include "MemCtrl.h"
 #include "Bank.h"
 #include "StridePrefetcher.h"
@@ -23,11 +24,13 @@
 #define k_prefbuff     "prefbuff"
 #define k_addrpref     "addrpref"
 #define k_bus          "bus"
+#define k_priobus      "prioritybus"
 #define k_memctrl      "memctrl"
 #define k_bank         "bank"
 #define k_niceCache    "niceCache"
 #define k_WB           "WB"
 #define k_WT           "WT"
+#define k_SV           "SV"
 #define k_procsPerNode "procsPerNode"
 
 
@@ -77,6 +80,11 @@ MemObj *MemorySystem::buildMemoryObj(const char *device_type,
 				      device_descr_section, 
 				      device_name);
 
+    } else if (!strcasecmp(write_policy, k_SV)) { // if it is spec vers
+      new_memory_device = new SVCache(this, 
+				      device_descr_section, 
+				      device_name);
+
     } else {                                      // if it is not WB or WT
       MSG("The write policy you have specified is not valid. "\
 	  "Assuming write-back.");
@@ -104,6 +112,10 @@ MemObj *MemorySystem::buildMemoryObj(const char *device_type,
   } else if (!strcasecmp(device_type, k_bus)) {
 
     new_memory_device = new Bus(this, device_descr_section, device_name);
+
+  } else if (!strcasecmp(device_type, k_priobus)) {
+
+    new_memory_device = new PriorityBus(this, device_descr_section, device_name);
 
   } else if (!strcasecmp(device_type, k_bank)) {
 

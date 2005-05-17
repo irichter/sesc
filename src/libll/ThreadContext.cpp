@@ -506,3 +506,36 @@ Pid_t ThreadContext::getThreadPid(void) const{
   return getPid();
 #endif
 }
+
+unsigned long long ThreadContext::getMemValue(RAddr p, unsigned dsize) {
+  unsigned long long value = 0;
+  switch(dsize) {
+  case 1:
+    value = *((unsigned char *) p);
+    break;
+  case 2:
+    value = *((unsigned short *) p);
+#ifdef LENDIAN
+    value = SWAP_SHORT(value);
+#endif      
+    break;
+  case 4:
+    value = *((unsigned *) p);
+#ifdef LENDIAN
+    value = SWAP_WORD(value);
+#endif      
+    break;
+  case 8:
+    value = *((unsigned long long*) p);
+#ifdef LENDIAN
+    value = SWAP_LONG(value);
+#endif      
+    break;
+  default:
+    MSG("ThreadContext:warning, getMemValue with bad (%d) data size.", dsize);
+    value = 0;
+    break;
+  }
+  
+  return value;
+}

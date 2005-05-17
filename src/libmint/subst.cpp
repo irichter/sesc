@@ -37,16 +37,21 @@
 #include <sys/uio.h>
 #include <sys/stat.h>
 #include <string.h>
-#include <ulimit.h>
 #include <time.h>
 #include <unistd.h>
-#include <dirent.h>
 #include <assert.h>
 #include <errno.h>
 
+#ifdef CYGWIN
+#include <sys/dirent.h>
+#else
+#include <ulimit.h>
+#include <dirent.h>
+#endif
+
 /* #define DEBUG_VERBOSE 1 */
 
-#ifdef DARWIN
+#if (defined DARWIN) || (defined CYGWIN)
 typedef off_t off64_t;
 #else
 #include <stropts.h>
@@ -992,8 +997,8 @@ OP(mint_sesc_is_safe)
   REGNUM(2)=(long)(rsesc_is_safe(pid));
   return addr2icode(REGNUM(31));  
 }
-
 #endif
+
 
 
 #ifdef VALUEPRED
@@ -1339,21 +1344,21 @@ OP(mint_ioctl)
   case FIONCLEX:
     break;
 #endif
-#ifndef DARWIN
+#if (!defined DARWIN) && (!defined CYGWIN)
   case I_FLUSH:
   case I_SETSIG:
   case I_SRDOPT:
   case I_SENDFD:
     break;
 #endif
-#ifndef SUNOS
+#if (!defined SUNOS) && (!defined CYGWIN)
   case FIONREAD:
   case FIONBIO:
   case FIOASYNC:
   case FIOSETOWN:
   case FIOGETOWN:
 #endif
-#ifndef DARWIN
+#if (!defined DARWIN) && (!defined CYGWIN)
   case I_PUSH:
   case I_POP:
   case I_LOOK:
@@ -1361,6 +1366,11 @@ OP(mint_ioctl)
   case I_FIND:
   case I_GRDOPT:
   case I_NREAD:
+#endif
+#ifdef CYGWIN
+  case WINDOWS_POST:
+  case WINDOWS_SEND:
+  case WINDOWS_HWND:
 #endif
     if (arg)
       arg = pthread->virt2real(arg);
@@ -1696,7 +1706,11 @@ OP(mint_ulimit)
     cmd = REGNUM(4);
     newlimit = REGNUM(5);
 
+#ifndef CYGWIN
     err = ulimit(cmd, newlimit);
+#else
+    fatal("ulimit not supported in cygwin") ;
+#endif
     REGNUM(2) = err;
     if (err == -1)
         pthread->setperrno(errno);
@@ -2934,7 +2948,7 @@ OP(mint_setdomainname)
     r4 = REGNUM(4);
     r5 = REGNUM(5);
 
-#if (defined SUNOS) || (defined AIX)
+#if (defined SUNOS) || (defined AIX) || (defined CYGWIN) 
     fatal("setdomainname not supported\n");
 #else
 #ifdef TASKSCALAR
@@ -2945,14 +2959,21 @@ OP(mint_setdomainname)
 	rsesc_OS_read_block(pthread->getPid(), picode->addr, cad1, (const void *) REGNUM(4), r5);
       else
 	cad1 = 0;
-
+#ifndef CYGWIN
       err = setdomainname(cad1, r5);
+#else
+      fatal("cygwin does not support setdomainname") ;
+#endif
     }
 #else
     if (r4)
         r4 = pthread->virt2real(r4);
-
+#ifndef CYGWIN
     err = setdomainname((char *) r4, r5);
+#else
+    fatal("cygwin does not support setdomainname") ;
+#endif
+
 #endif
 #endif
 

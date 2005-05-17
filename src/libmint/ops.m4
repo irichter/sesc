@@ -74,9 +74,6 @@ M4_IN(sp_over_op,
 #ifdef TASKSCALAR
     if(!rsesc_is_safe(pthread->getPid())) {
       rsesc_exception(pthread->getPid());
-#ifdef TS_PREDMISS
-      rsesc_become_safe(pthread->getPid());
-#endif
     } else {
 #endif
       fprintf(stderr, "stack overflow at instruction 0x%lx\n", picode->addr);
@@ -382,9 +379,6 @@ M4_IN(jalr_op,
       fprintf(stderr,"Jump to hell 0x%lx target 0x%lx\n",picode->addr, pthread->getREG(picode, RS));
 #endif
       rsesc_exception(pthread->getPid());
-#ifdef TS_PREDMISS
-      rsesc_become_safe(pthread->getPid());
-#endif
       iaddr = picode;
     }else{
       iaddr = addr2icode(pthread->getREG(picode, RS));
@@ -421,9 +415,6 @@ M4_IN(jr_op,
       fprintf(stderr,"Jump to hell 0x%lx target 0x%lx\n",picode->addr, pthread->getREG(picode, RS));
 #endif
       rsesc_exception(pthread->getPid());
-#ifdef TS_PREDMISS
-      rsesc_become_safe(pthread->getPid());
-#endif
       iaddr = picode;
     }else{
       iaddr = addr2icode(pthread->getREG(picode, RS));

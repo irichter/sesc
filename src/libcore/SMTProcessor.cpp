@@ -46,6 +46,12 @@ SMTProcessor::SMTProcessor(GMemorySystem *gm, CPU_t i)
   ,smtDecodes4Clk(SescConf->getLong("cpucore", "smtDecodes4Clk",i))
   ,smtIssues4Clk(SescConf->getLong("cpucore", "smtIssues4Clk",i))
   ,firstContext(i*smtContexts)
+  ,fetchDist("P(%d)_fetchDist", i)
+  ,noFetch("P(%d)_noFetch", i)
+#ifdef TASKSCALAR
+  ,fetchFromSafe("P(%d)_fetchFromSafe", i)
+  ,fetchFromSpec("P(%d)_fetchFromSpec", i)
+#endif
 {
   SescConf->isLong("cpucore", "smtContexts",Id);
   SescConf->isGT("cpucore", "smtContexts", 1,Id);
@@ -255,14 +261,36 @@ void SMTProcessor::advanceClock()
   // Fetch Stage
   int nFetched = 0;
   int fetchMax = FetchWidth;
+#ifdef TASKSCALAR
+  int safeFetched = 0;
+  int specFetched = 0;
+  bool firstThreadFetched = true;
+  int tries = 0;
+#endif
+
   for(int i = 0; i < smtContexts && nFetched < FetchWidth; i++) {
     selectFetchFlow();
     if (cFetchId >=0) {
       I(flow[cFetchId]->IFID.hasWork());
 
 #ifdef TASKSCALAR
+      // WARNING: this is temporary ugly code
       TaskContext *tc = TaskContext::getTaskContext(flow[cFetchId]->IFID.getPid());
       I(tc);
+
+      //in the first fetch of the cycle,  make cFetchId point to the safe thread
+      while(firstThreadFetched && !tc->getVersionRef()->isSafe()) {
+	selectFetchFlow();
+	tries++;
+	if (cFetchId >=0) {
+	  tc = TaskContext::getTaskContext(flow[cFetchId]->IFID.getPid());
+	  if(tries > smtContexts)
+	    break;
+	}
+      }
+      
+      firstThreadFetched = false;
+
       if(tc->getVersionRef()->isSafe()) {
 	fetchMax = FetchWidth;
       } else {
@@ -280,11 +308,25 @@ void SMTProcessor::advanceClock()
 	flow[cFetchId]->IFID.fetch(bucket, fetchMax);
 	// readyItem will be called once the bucket is fetched
 	nFetched += bucket->size();
+	fetchDist.sample(cFetchId, bucket->size()); 
+#ifdef TASKSCALAR
+	if(tc->getVersionRef()->isSafe())
+	  safeFetched += bucket->size();
+	else
+	  specFetched += bucket->size();
+#endif
+      } else {
+	noFetch.inc();
       }
     }else{
       I(!flow[0]->IFID.hasWork());
     }
   }
+
+#ifdef TASKSCALAR
+  fetchFromSafe.sample(safeFetched);
+  fetchFromSpec.sample(specFetched);
+#endif
 
   // ID Stage (insert to instQueue)
   for(int i=0;i<smtContexts && spaceInInstQueue >= FetchWidth ;i++) {

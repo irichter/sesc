@@ -28,6 +28,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#include <math.h>
 
 #include "GStats.h"
 #include "ReportGen.h"
@@ -45,8 +46,7 @@ GStats::~GStats()
 
 /*********************** GStatsCntr */
 
-GStatsCntr::GStatsCntr(const char *format,
-                       ...)
+GStatsCntr::GStatsCntr(const char *format,...)
 {
   I(format!=0);      // Mandatory to pass a description
   I(format[0] != 0); // Empty string not valid
@@ -147,6 +147,104 @@ void GStatsAvg::reportValueDump() const
 }
 #endif
 
+/*********************** GStatsPDF */
+
+GStatsPDF::GStatsPDF(const char *format,...)
+{
+  char *str;
+  va_list ap;
+
+  va_start(ap, format);
+  str = getText(format, ap);
+  va_end(ap);
+
+  data = 0;
+  nData = 0;
+
+  name = str;
+  subscribe();
+}
+
+void GStatsPDF::sample(const long v) 
+{
+  data += v;
+  nData++;
+
+  if(density.find(v) == density.end()) {
+    density[v] = 1;
+  } else {
+    density[v]++;
+  }
+}
+
+// Merge two GStatsPDF together
+void GStatsPDF::sample(GStatsPDF &g) 
+{
+  data += g.data;
+  nData += g.nData;
+
+  HASH_MAP<long,long>::iterator it;
+  for(it=g.density.begin(); it!=g.density.end(); it++) {
+    if( density.find( (*it).first ) == density.end() ) {
+      density[ (*it).first ] = (*it).second;
+    } else {
+      density[ (*it).first ] += (*it).second;
+    }
+  }
+}
+
+void GStatsPDF::msamples(const long long v, long long n) 
+{
+  data  += v;
+  nData += n;
+
+  if(density.find(v) == density.end()) {
+    density[v] = n;
+  } else {
+    density[v] += n;
+  }
+}
+
+double GStatsPDF::getStdDev() const
+{
+  double avg = getDouble();
+
+  double sum = 0.0;
+
+  HASH_MAP<long,long>::const_iterator it;
+
+  for(it=density.begin(); it!=density.end(); it++) {
+    double value = (*it).first;
+    double occurrence = (*it).second;
+    sum += occurrence * (value - avg) * (value - avg);
+  }
+
+  return sqrt(sum/double(nData));
+}
+
+double GStatsPDF::getSpread(double p) const
+{
+  double avg = getDouble();
+  double perAvg = p*avg;
+  long cnt=0;
+
+  HASH_MAP<long,long>::const_iterator it;
+    
+  for(it=density.begin(); it!=density.end(); it++) {
+    if( double((*it).first) > perAvg ) {
+      cnt += (*it).second;
+    }
+  }
+  
+  return (double)cnt / (double)nData;
+}
+
+void GStatsPDF::reportValue() const
+{
+  Report::field("%s:v=%g:sdev=%g:s=%g:n=%lld", name, getDouble(), getStdDev(),
+		getSpread(0.90),nData);
+}
+
 /*********************** GStats */
 
 char *GStats::getText(const char *format,
@@ -189,8 +287,8 @@ void GStats::report(const char *str)
   Report::field("BEGIN GStats::report %s", str);
   if (store) {
     for(ContainerIter i = store->begin(); i != store->end(); i++) {
+      (*i)->prepareReport(); //give class a chance to do any calculations
       (*i)->reportValue();
-
     }
   }
 
@@ -407,7 +505,188 @@ void GStatsTimingHist::sample(unsigned long key)
   lastKey = key;
 }
 
+/* GStatsEventTimingHist */
+
+GStatsEventTimingHist::GStatsEventTimingHist(const char *format,...)
+{
+  char *str;
+  va_list ap;
+
+  va_start(ap, format);
+  str = getText(format, ap);
+  va_end(ap);
+
+  name = str;
+  subscribe();
+
+  currentSum = 0;
+  lastSample = 0;
+  lastHistEvent = 0;
+}
+
+void GStatsEventTimingHist::buildHistogram(bool limit) 
+{
+  EventTimes::iterator it, begin_it;
+
+  begin_it = beginT.begin();
+  
+  while( (it=evT.begin()) != evT.end() ) {
+
+     if( limit && ( begin_it != beginT.end() && (*it) >= (*begin_it)) )
+       break;
+    
+     I( begin_it==beginT.end() || *it < *begin_it );
+     GStatsHist::sample(currentSum,(*it)-lastHistEvent);
+     currentSum += evH[ (*it) ];
+     I(currentSum >= 0);
+     I((*it)>=lastHistEvent);      
+     lastHistEvent = (*it);
+
+     evH.erase( (*it) );     
+     evT.erase( (*it) );
+  }  
+}
+
+void GStatsEventTimingHist::begin_sample(unsigned long long id)
+{
+  EventHistory::iterator it_now;
+  
+  it_now = beginH.find(globalClock);
+  if( it_now == beginH.end() ) {
+    beginH[globalClock] = 0;
+    it_now = beginH.find(globalClock); 
+  }   
+
+  // Add another request pending on this begin point
+  (*it_now).second = (*it_now).second + 1;
+
+  // Make sure begin point is included in begin-timeline
+  beginT.insert(globalClock);
+
+  evPending[id].start = globalClock;
+}
+
+void GStatsEventTimingHist::commit_sample(unsigned long long id)
+{
+  EventHistory::iterator it_begin;
+  Time_t startTime;
+  bool build = false;
+  
+  I( evPending.find(id) != evPending.end() );
+  
+  startTime = evPending[id].start;
+  evPending.erase(id);  
+    
+  it_begin = beginH.find( startTime ); 
+  I( it_begin != beginH.end() );
+
+  (*it_begin).second = (*it_begin).second - 1;   
+  if( (*it_begin).second == 0 ) {
+    beginT.erase(startTime);    
+    beginH.erase(startTime);
+    build = true;
+  }
+
+  EventHistory::iterator it_now, it_before;
+  
+  it_now = evH.find(globalClock);
+  if( it_now == evH.end() ) {
+    evH[globalClock] = 0;
+    it_now = evH.find(globalClock); 
+  }   
+  it_before = evH.find(startTime);
+  if(it_before == evH.end()) {
+    evH[startTime] = 0; 
+    it_before = evH.find(startTime);  
+  }
+
+  evT.insert(globalClock);
+  evT.insert(startTime);
+  
+  (*it_now).second = (*it_now).second - 1;
+  (*it_before).second = (*it_before).second + 1;
+
+  if(build)
+    buildHistogram(true);
+}
+
+void GStatsEventTimingHist::remove_sample(unsigned long long id)
+{
+  EventHistory::iterator it_begin;
+  Time_t startTime;
+  
+  I( evPending.find(id) != evPending.end() );
+  
+  startTime = evPending[id].start;
+  evPending.erase(id);  
+    
+  it_begin = beginH.find( startTime ); 
+  I( it_begin != beginH.end() );
+
+  (*it_begin).second = (*it_begin).second - 1;   
+  if( (*it_begin).second == 0 ) {
+    beginT.erase(startTime);
+    beginH.erase(startTime);    
+
+    buildHistogram(true);
+  }   
+}
+
+void GStatsEventTimingHist::reportValue() const
+{
+  GStatsHist::reportValue(); 
+}
+
+/* GStatsPeriodicHist */
+
+GStatsPeriodicHist::GStatsPeriodicHist(int p, const char *format,...)
+{
+  char *str;
+  va_list ap;
+
+  va_start(ap, format);
+  str = getText(format, ap);
+  va_end(ap);
+
+  name = str;
+  subscribe();
+  
+  data = 0;
+  period = p;
+  lastUpdate = 0;
+}
+
+void GStatsPeriodicHist::inc()
+{
+  if(globalClock > (lastUpdate + period)) {
+    GStatsHist::sample(data, 1);
+
+    // figuring out if there were periods with 0 activity
+    Time_t delta = globalClock - lastUpdate;
+    long long nZeroPeriods = (delta / period) - 1;
+
+    // sampling the zero activity
+    for(long long i = 0; i < nZeroPeriods; i++) 
+      GStatsHist::sample(0, 1);
+
+    // starting a new period 
+    lastUpdate = globalClock - (globalClock % period);
+    data = 0; 
+  }
+  data++;
+}
+
+void GStatsPeriodicHist::reportValue() const
+{
+  Report::field("%s_period=%llu",name,period);
+  GStatsHist::reportValue();
+}
+
 #ifdef SESC_THERM
+void GStatsPeriodicHist::reportValueDump() const
+{
+}
+
 void GStatsTimingHist::reportValueDump() const
 {
 }

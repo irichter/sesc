@@ -47,9 +47,10 @@ template<class State, class Addr_t = ulong, bool Energy=true>
   protected:
   const ulong  size;
   const ulong  lineSize;
+  const ulong  addrUnit; //Addressable unit: for most caches = 1 byte
   const ulong  assoc;
-  const ulong  log2Ls;
   const ulong  log2Assoc;
+  const ulong  log2AddrLs;
   const ulong  maskAssoc;
   const ulong  sets;
   const ulong  maskSets;
@@ -81,12 +82,13 @@ template<class State, class Addr_t = ulong, bool Energy=true>
   virtual CacheLine *findLineTag(Addr_t tag)=0;
   protected:
 
-  CacheGeneric(ulong s, ulong a, ulong b)
+  CacheGeneric(ulong s, ulong a, ulong b, ulong u)
   : size(s)
   ,lineSize(b)
+  ,addrUnit(u)
   ,assoc(a)
-  ,log2Ls(log2i(b))
   ,log2Assoc(log2i(a))
+  ,log2AddrLs(log2i(b/u))
   ,maskAssoc(a-1)
   ,sets((s/b)/a)
   ,maskSets(sets-1)
@@ -102,7 +104,7 @@ template<class State, class Addr_t = ulong, bool Energy=true>
 
   public:
   // Do not use this interface, use other create
-  static CacheGeneric<State, Addr_t, Energy> *create(int size, int assoc, int blksize, const char *pStr);
+  static CacheGeneric<State, Addr_t, Energy> *create(int size, int assoc, int blksize, int addrUnit, const char *pStr);
   static CacheGeneric<State, Addr_t, Energy> *create(const char *section, const char *append, const char *format, ...);
   void destroy() {
   }
@@ -207,15 +209,15 @@ template<class State, class Addr_t = ulong, bool Energy=true>
     return l;
   }
 
-  ulong  getLineSize() const  { return lineSize;  }
-  ulong  getAssoc() const     { return assoc;     }
-  ulong  getLog2Ls() const    { return log2Ls;    }
-  ulong  getLog2Assoc() const { return log2Assoc; }
-  ulong  getMaskSets() const  { return maskSets;  }
-  ulong  getNumLines() const  { return numLines;  }
-  ulong  getNumSets() const   { return sets;      }
+  ulong  getLineSize() const   { return lineSize;    }
+  ulong  getAssoc() const      { return assoc;       }
+  ulong  getLog2AddrLs() const { return log2AddrLs;  }
+  ulong  getLog2Assoc() const  { return log2Assoc;   }
+  ulong  getMaskSets() const   { return maskSets;    }
+  ulong  getNumLines() const   { return numLines;    }
+  ulong  getNumSets() const    { return sets;        }
 
-  Addr_t calcTag(Addr_t addr)       const { return (addr >> log2Ls);                  }
+  Addr_t calcTag(Addr_t addr)       const { return (addr >> log2AddrLs);              }
 
   ulong calcSet4Tag(Addr_t tag)     const { return (tag & maskSets);                  }
   ulong calcSet4Addr(Addr_t addr)   const { return calcSet4Tag(calcTag(addr));        }
@@ -224,7 +226,7 @@ template<class State, class Addr_t = ulong, bool Energy=true>
   ulong calcIndex4Tag(ulong tag)    const { return calcIndex4Set(calcSet4Tag(tag));   }
   ulong calcIndex4Addr(Addr_t addr) const { return calcIndex4Set(calcSet4Addr(addr)); }
 
-  Addr_t calcAddr4Tag(Addr_t tag)   const { return (tag << log2Ls);                   }
+  Addr_t calcAddr4Tag(Addr_t tag)   const { return (tag << log2AddrLs);                   }
 };
 
 #ifdef SESC_ENERGY
@@ -236,6 +238,7 @@ class CacheAssoc : public CacheGeneric<State, Addr_t, Energy> {
   using CacheGeneric<State, Addr_t, Energy>::numLines;
   using CacheGeneric<State, Addr_t, Energy>::assoc;
   using CacheGeneric<State, Addr_t, Energy>::maskAssoc;
+  using CacheGeneric<State, Addr_t, Energy>::goodInterface;
 
 private:
 public:
@@ -249,7 +252,7 @@ protected:
   ReplacementPolicy policy;
 
   friend class CacheGeneric<State, Addr_t, Energy>;
-  CacheAssoc(int size, int assoc, int blksize, const char *pStr);
+  CacheAssoc(int size, int assoc, int blksize, int addrUnit, const char *pStr);
 
   Line *findLineTag(Addr_t addr);
 public:
@@ -272,6 +275,8 @@ template<class State, class Addr_t = ulong, bool Energy=false>
 #endif
 class CacheDM : public CacheGeneric<State, Addr_t, Energy> {
   using CacheGeneric<State, Addr_t, Energy>::numLines;
+  using CacheGeneric<State, Addr_t, Energy>::goodInterface;
+
 private:
 public:
   typedef typename CacheGeneric<State, Addr_t, Energy>::CacheLine Line;
@@ -282,7 +287,7 @@ protected:
   Line **content;
 
   friend class CacheGeneric<State, Addr_t, Energy>;
-  CacheDM(int size, int blksize, const char *pStr);
+  CacheDM(int size, int blksize, int addrUnit, const char *pStr);
 
   Line *findLineTag(Addr_t addr);
 public:

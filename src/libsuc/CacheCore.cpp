@@ -40,18 +40,18 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 // Class CacheGeneric, the combinational logic of Cache
 //
 template<class State, class Addr_t, bool Energy>
-CacheGeneric<State, Addr_t, Energy> *CacheGeneric<State, Addr_t, Energy>::create(int size, int assoc, int bsize, const char *pStr)
+CacheGeneric<State, Addr_t, Energy> *CacheGeneric<State, Addr_t, Energy>::create(int size, int assoc, int bsize, int addrUnit, const char *pStr)
 {
-  GLOG(size == (assoc * bsize), "Do you want a faster simulation. Then be nice and implement CacheFA");
+  GLOG(size == (assoc * bsize), "Do you want a faster simulation? Then be nice and implement CacheFA.");
 
   CacheGeneric *cache;
 
   if (assoc==1) {
     // Direct Map cache
-    cache = new CacheDM<State, Addr_t, Energy>(size, bsize, pStr);
+    cache = new CacheDM<State, Addr_t, Energy>(size, bsize, addrUnit, pStr);
   }else{
     // Associative Cache
-    cache = new CacheAssoc<State, Addr_t, Energy>(size, assoc, bsize, pStr);
+    cache = new CacheAssoc<State, Addr_t, Energy>(size, assoc, bsize, addrUnit, pStr);
   }
 
   I(cache);
@@ -148,18 +148,32 @@ CacheGeneric<State, Addr_t, Energy> *CacheGeneric<State, Addr_t, Energy>::create
   CacheGeneric *cache=0;
   char size[STR_BUF_SIZE];
   char bsize[STR_BUF_SIZE];
+  char addrUnit[STR_BUF_SIZE];
   char assoc[STR_BUF_SIZE];
   char repl[STR_BUF_SIZE];
 
   snprintf(size ,STR_BUF_SIZE,"%sSize" ,append);
   snprintf(bsize,STR_BUF_SIZE,"%sBsize",append);
+  snprintf(addrUnit,STR_BUF_SIZE,"%sAddrUnit",append);
   snprintf(assoc,STR_BUF_SIZE,"%sAssoc",append);
   snprintf(repl ,STR_BUF_SIZE,"%sReplPolicy",append);
 
   int s = SescConf->getLong(section, size);
   int a = SescConf->getLong(section, assoc);
   int b = SescConf->getLong(section, bsize);
-
+  
+  //For now, tolerate caches that don't have this defined.
+  int u;
+  if ( SescConf->checkLong(section,addrUnit) ) {
+    if ( SescConf->isBetween(section, addrUnit, 0, b) &&
+	 SescConf->isPower2(section, addrUnit) )
+      u = SescConf->getLong(section,addrUnit);
+    else
+      u = 1;
+  } else {
+    u = 1;
+  }
+  
   const char *pStr = SescConf->getCharPtr(section, repl);
 
   if(SescConf->isGT(section, size, 0) &&
@@ -170,13 +184,14 @@ CacheGeneric<State, Addr_t, Energy> *CacheGeneric<State, Addr_t, Energy>::create
      SescConf->isPower2(section, assoc) &&
      SescConf->isInList(section, repl, k_RANDOM, k_LRU)) {
 
-    cache = create(s, a, b, pStr);
+    cache = create(s, a, b, u, pStr);
   } else {
     // this is just to keep the configuration going, 
     // sesc will abort before it begins
     cache = new CacheAssoc<State, Addr_t, Energy>(2, 
 						  1, 
-						  1, 
+						  1,
+						  1,
 						  pStr);
   }
 
@@ -200,8 +215,8 @@ CacheGeneric<State, Addr_t, Energy> *CacheGeneric<State, Addr_t, Energy>::create
  *********************************************************/
 
 template<class State, class Addr_t, bool Energy>
-CacheAssoc<State, Addr_t, Energy>::CacheAssoc(int size, int assoc, int blksize, const char *pStr) 
-  : CacheGeneric<State, Addr_t, Energy>(size, assoc, blksize) 
+CacheAssoc<State, Addr_t, Energy>::CacheAssoc(int size, int assoc, int blksize, int addrUnit, const char *pStr) 
+  : CacheGeneric<State, Addr_t, Energy>(size, assoc, blksize, addrUnit) 
 {
   I(numLines>0);
   
@@ -247,7 +262,10 @@ typename CacheAssoc<State, Addr_t, Energy>::Line *CacheAssoc<State, Addr_t, Ener
 
   // Check most typical case
   if ((*theSet)->getTag() == tag) {
-    I((*theSet)->isValid());
+    //this assertion is not true for SMP; it is valid to return invalid line
+#if !defined(SESC_SMP) && !defined(SESC_CRIT)
+    I((*theSet)->isValid());  
+#endif
     return *theSet;
   }
 
@@ -380,8 +398,8 @@ typename CacheAssoc<State, Addr_t, Energy>::Line
  *********************************************************/
 
 template<class State, class Addr_t, bool Energy>
-CacheDM<State, Addr_t, Energy>::CacheDM(int size, int blksize, const char *pStr) 
-  : CacheGeneric<State, Addr_t, Energy>(size, 1, blksize) 
+CacheDM<State, Addr_t, Energy>::CacheDM(int size, int blksize, int addrUnit, const char *pStr) 
+  : CacheGeneric<State, Addr_t, Energy>(size, 1, blksize, addrUnit) 
 {
   I(numLines>0);
   

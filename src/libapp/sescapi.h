@@ -436,6 +436,12 @@ extern "C" {
   int  sesc_prof_commit(int id);
 #endif
 
+#ifdef TS_CKPSUPORT
+  int  sesc_ckp();
+  void sesc_commit_ckp();
+  void sesc_restart_ckp();
+#endif
+
 
 #ifdef SESC_LOCKPROFILE
   void sesc_startlock();
@@ -444,6 +450,10 @@ extern "C" {
   void sesc_endlock2();
 #endif
 
+#ifdef VALUEPROF
+  void sesc_delinquent_load_begin(int id);
+  void sesc_delinquent_load_end();
+#endif
 
 #ifdef __cplusplus
 }

@@ -23,7 +23,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "TaskContext.h"
 #include "OSSim.h"
 
-HVersion::poolType HVersion::vPool(1024);
+HVersion::poolType HVersion::vPool(1024, "HVersion");
 
 GStatsCntr *HVersion::nCreate=0;
 GStatsCntr *HVersion::nShift=0;

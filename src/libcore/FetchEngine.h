@@ -52,6 +52,7 @@ private:
   
   const int Id;
   const int cpuId;
+
   GMemorySystem *gms;
   GProcessor *gproc;
 
@@ -115,6 +116,7 @@ protected:
 
   // ******************* Statistics section
   GStatsAvg  avgBranchTime;
+  GStatsAvg  avgInstsFetched;
   GStatsCntr nDelayInst1;
   GStatsCntr nDelayInst2;
   GStatsCntr nFetched;
@@ -191,6 +193,7 @@ public:
   }
 
   int getCPUId() const { return cpuId; }
+  GProcessor* getGProcessor() { return gproc; }
 
   BPredictor *getBPred() const { return bpred; }
   ExecutionFlow *getExecFlow(){ return &flow ; }

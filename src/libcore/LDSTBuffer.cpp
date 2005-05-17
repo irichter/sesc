@@ -132,7 +132,7 @@ void LDSTBuffer::getLoadEntry(DInst *dinst)
   DInst *pdinst = sit->second;
   I(pdinst->getInst()->isStore());
 
-#if defined(TASKSCALAR) && !defined(TS_PREDMISS)
+#if defined(TASKSCALAR) && !defined(TS_CAVA)
   if (dinst->getVersionRef() != pdinst->getVersionRef())
     return;
 #else
@@ -152,7 +152,9 @@ void LDSTBuffer::getLoadEntry(DInst *dinst)
   }
 #endif
 
+#ifndef LDSTQ_FWD
   dinst->setLoadForwarded();
+#endif
   if (!pdinst->isExecuted()) {
     I(pdinst->getInst()->getAddr() != dinst->getInst()->getAddr());
     pdinst->addFakeSrc(dinst);

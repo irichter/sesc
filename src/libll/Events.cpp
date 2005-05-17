@@ -792,7 +792,7 @@ void rsesc_fork_successor(int ppid, long where, int tid)
   if (ExecutionFlow::isGoingRabbit()) {
 #ifdef TS_PROFILING  
     if (osSim->enoughMarks1())
-      osSim->getProfiler()->recSpawn(ppid);
+      osSim->getProfiler()->recSpawn(tid);
 #endif      
 
     ThreadContext *pthread=osSim->getContext(ppid);
@@ -835,7 +835,7 @@ void rsesc_fork_successor(int ppid, long where, int tid)
 
   LOG("@%lld fork_successor ppid %d child %d (r31=0x%08x)", globalClock, ppid, childPid, parentThread->reg[31]);
 
-  pTC->spawnSuccessor(childPid, parentThread->reg[31]);
+  pTC->spawnSuccessor(childPid, parentThread->reg[31], tid); //tid is the static task id
 
   // The child was forked stopped, it can resume now 
   osSim->unstop(childPid);
@@ -935,6 +935,7 @@ int rsesc_is_versioned(int pid)
 {
   return ExecutionFlow::isGoingRabbit()? 0 : 1;
 }
+
 
 #endif // TASKSCALAR
 

@@ -50,10 +50,6 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #endif
 
 
-#ifdef PARPROF
-#include "ParProf.h"
-#endif
-
 #ifdef TS_RISKLOADPROF
 #include "RiskLoadProf.h"
 #endif
@@ -118,10 +114,6 @@ private:
   const char *profSectionName;
 #endif  
 
-
-#ifdef PARPROF
-  ParProf *parProf;
-#endif
 
 #ifdef TS_RISKLOADPROF
   RiskLoadProf *riskLoadProf;
@@ -283,12 +275,6 @@ public:
 #endif
 
 
-#ifdef PARPROF
-  ParProf *getParProf() const {
-    return parProf;
-  }
-#endif
-
 #ifdef TS_RISKLOADPROF
   RiskLoadProf *getRiskLoadProf() const {
     return riskLoadProf;
@@ -330,6 +316,9 @@ public:
 
   static const char *getBenchName(){
     return benchName;
+  }
+  const char *getReportFileName(){
+    return reportFile;
   }
 
   void initBoot();

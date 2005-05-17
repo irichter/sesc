@@ -271,6 +271,7 @@ public:
     raddr = a;
   }
 
+
   void dump();
   void dumpStack();
 
@@ -285,6 +286,8 @@ public:
   static ThreadContext *newActual(Pid_t pid);
   static ThreadContext *newCloned(void);
   void free(void);
+
+  static unsigned long long getMemValue(RAddr p, unsigned dsize); 
 
   // BEGIN Memory Mapping
   static bool isPrivateVAddr(VAddr addr)  {

@@ -4,7 +4,7 @@
 
    Contributed by Jose Renau
                   James Tuck
-                  Liu Wei
+                  Wei Liu
                   Luis Ceze
 
 This file is part of SESC.
@@ -42,6 +42,15 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 #include "DInst.h"
 #include "BPred.h"
+
+
+struct ltptr
+{
+  bool operator()(void *p1, void *p2) const
+  {
+    return p1 < p2;
+  }
+};
 
 class TaskContext {
  private:
@@ -114,10 +123,6 @@ class TaskContext {
   static GStatsCntr *thWriteEnergy; // ETODO
   static GStatsCntr *thFillEnergy;  // ETODO
 
-#ifdef TS_GOAHEAD
-  static GStatsCntr *nIgnoredRestarts;
-#endif
-
 
   static GStatsCntr *nDataDepViolation[DataDepViolationAtMax];
 
@@ -126,6 +131,10 @@ class TaskContext {
   static const size_t MaxThreadsHist=16;
   static GStatsCntr *numThreads[];
   static GStatsCntr *numRunningThreads[];
+
+
+  static HASH_MAP<int,int> compressedStaticId;
+  static int getCompressedStaticId(int staticId);
 
   /************* Instance Data ***************/
 
@@ -144,6 +153,8 @@ class TaskContext {
   int nLMergeNext; // # mergeNext that this TC has done
 
   PAddr spawnAddr;
+  int   staticId;  // Static Task Id
+
   long NES; // Number of Exists to Skipt (mergeNext)
   BPred::HistoryType startBPHistory; // Original history used
   BPred::HistoryType newBPHistory;
@@ -156,11 +167,6 @@ class TaskContext {
   bool dataDepViolation; // true if the task has a pending restart
 
   bool canEarlyAwake; // Early awake (even before receiving the commit token)
-
-#ifdef TS_GOAHEAD
-  bool goingAhead;
-  bool needRestart;
-#endif
 
 
 protected:
@@ -223,7 +229,7 @@ public:
   static void tryPropagateSafeToken(const HVersionDomain *vd);
 
   // Spawn a successor for current version: versionmem interface
-  void spawnSuccessor(Pid_t chilPid, PAddr childAddr);
+  void spawnSuccessor(Pid_t chilPid, PAddr childAddr, int sid);
 
   void normalFork(Pid_t cpid);
   static void normalForkNewDomain(Pid_t cpid);
@@ -233,11 +239,6 @@ public:
   bool hasDataDepViolation() const { return dataDepViolation; }
   int addDataDepViolation() {
     I(!memVer->isSafe());
-
-#ifdef TS_GOAHEAD
-    nIgnoredRestarts->inc();
-    goingAhead = true;
-#endif
 
     dataDepViolation = true;
     dataDepViolationID++;
@@ -321,21 +322,7 @@ public:
   void setOOtask();
   bool isOOtask() const { return ooTask; }
 
-#ifdef TS_GOAHEAD
-  void setGoingAhead(bool ga) {
-    goingAhead = ga;
-  }
-  bool isGoingAhead() const {
-    return goingAhead;
-  }
 
-  void setNeedRestart(bool nr) {
-    needRestart = nr;
-  }
-  bool isNeedRestart() const {
-    return needRestart;
-  }
-#endif
 
   
 };

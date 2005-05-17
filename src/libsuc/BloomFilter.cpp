@@ -76,6 +76,8 @@ int BloomFilter::getIndex(unsigned val, int chunkPos)
   idx = val & vMask[chunkPos];
   idx = idx >> rShift[chunkPos];
 
+  idx = (idx % vSize[chunkPos]);
+
   I(idx < vSize[chunkPos]);
   return idx;
 }

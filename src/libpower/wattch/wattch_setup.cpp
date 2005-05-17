@@ -147,7 +147,7 @@ void wattch_setup()
     const char* cc = SescConf->getCharPtr(proc,"cluster",0) ;
 
     wakeup_stages = SescConf->getLong(cc,"wakeupDelay");
-    wakeup_stages += SescConf->getLong(cc,"scheduleDelay");
+    wakeup_stages += SescConf->getLong(cc,"schedDelay");
   }
  
   dieLenght =.018*sqrt(areaFactor)*(tech/.18);

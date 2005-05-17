@@ -31,7 +31,7 @@ VCache::VCache(MemorySystem *gms, const char *section, const char *name)
   : VMemObj(gms, section, name)
   ,lvidTable(section, name)
     // Begin Statistics
-  ,lvidTableRdEnergy("rdHitEnergy" // TODO: real energy
+  ,lvidTableRdEnergy("lvidTableRdEnergy" // TODO: real energy
 		     ,"VCache"
 		     ,gms->getId() // cpuID
 		     ,RdHitEnergy
@@ -54,7 +54,7 @@ VCache::VCache(MemorySystem *gms, const char *section, const char *name)
   SescConf->isLong(section   , "MSHRSize");
   SescConf->isBetween(section, "MSHRSize", 1, 32768);
   
-  mshr = MSHR<PAddr>::create(name,
+  mshr = MSHR<PAddr,VCache>::create(name,
 			     SescConf->getCharPtr(section, "MSHRtype"),
 			     SescConf->getLong(section, "MSHRSize"),
 			     SescConf->getLong(section, "bsize"));

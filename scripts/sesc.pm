@@ -104,7 +104,7 @@ sub new {
 	  carp "The entry [" . $fields[0] . ":" . $1 ."] is redefined file[" . $self->{file} . "]. Ignoring additional entries.";
 	}else{
 	  $self->{res}{$tmp} = $2 if( $2 ); # Only for > 0
-#	  printf "%s=%s\n",$tmp,$2;
+#         printf "%s=%s\n",$tmp,$2;
 	}
       }
     }
@@ -142,6 +142,20 @@ sub getResultField {
   return $self->{res}{uc $match};
 }
 
+sub getCkResultField {
+  my ($self,$match,$match1) = @_;
+
+  defined $match or croak "getResultField needs at least one parameter";
+
+  $match .= $match1 if( defined $match1 );
+  
+  if( exists $self->{res}{uc $match} ) {
+      return $self->{res}{uc $match};
+  } else {
+      return 0;
+  }
+}
+
 
 =item B<getConfigEntry>
 
@@ -170,6 +184,19 @@ sub getConfigEntry {
   return $self->{conf}{uc $section}[$index]{uc $param{key}};
 }
 
+sub configEntryExists {
+  my $self  = shift;
+  my %param = @_;
+
+  defined $param{key} or croak "getConfigField requires the key field";
+
+  my $index   = defined $param{index}  ? $param{index}   : 0;
+  my $section = defined $param{section}? $param{section} : "";
+
+#  printf "%s[%d] section[%s]\n",$param{key},$index,$section;
+
+  return exists $self->{conf}{uc $section}[$index]{uc $param{key}};
+}
 
 #######################################
 # Dissasembler section code based in dismips.c

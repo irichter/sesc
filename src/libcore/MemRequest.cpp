@@ -33,7 +33,12 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "Resource.h"
 #include "Cluster.h"
 
+
 ID(int MemRequest::numMemReqs = 0;);
+
+#ifdef SESC_SMP_DEBUG
+pool<ReqPathEntry> ReqPathEntry::pPool(4096, "ReqPathEntry");
+#endif
 
 /************************************************
  *        MemRequest 
@@ -43,6 +48,7 @@ MemRequest::MemRequest()
   ,returnAccessCB(this)
 {
   IS(dinst = 0);
+  IS(gproc = 0);
   IS(currentMemObj = 0);
   IS(reqId = numMemReqs++);
   wToRLevel = -1;
@@ -68,13 +74,17 @@ void MemRequest::returnAccess()
  *        DMemRequest 
  ************************************************/
 
-pool<DMemRequest, true>  DMemRequest::actPool(32);
+pool<DMemRequest, true>  DMemRequest::actPool(32, "DMemRequest");
 
 void DMemRequest::destroy() 
 {
   I(dinst == 0);
   IS(currentMemObj = 0 );
   I(acknowledged);
+
+#ifdef SESC_SMP_DEBUG
+  clearPath();
+#endif
 
   actPool.in(this);
 }
@@ -83,7 +93,7 @@ void DMemRequest::dinstAck(DInst *dinst, MemOperation memOp, TimeDelta_t lat)
 {
   I(dinst);
   
-  I( !dinst->isLoadForwarded() );
+  I(!dinst->isLoadForwarded());
   if (memOp == MemWrite) {
     Cluster* c = dinst->getResource()->getCluster();
     FUStore* r = (FUStore*) c->getResource(iStore);
@@ -98,7 +108,7 @@ void DMemRequest::dinstAck(DInst *dinst, MemOperation memOp, TimeDelta_t lat)
     dinst->destroy();
 #endif
   }else{
-    I( memOp == MemRead || memOp == MemReadX );
+    I(memOp == MemRead);
     I(dinst->getResource());
 
     dinst->doAtExecutedCB.schedule(lat);
@@ -125,17 +135,14 @@ void DMemRequest::create(DInst *dinst, GMemorySystem *gmem, MemOperation mop)
   r->setFields(dinst, mop, gmem->getDataSource());
   r->dataReq = true;
   r->prefetch= false;
+  r->priority = 0;
 
-#ifdef SESC_DSM
-  r->local = true;
-  r->msg = 0;
-#endif
-  
   long ph_addr = gmem->getMemoryOS()->TLBTranslate(old_addr);
   if (ph_addr == -1) {
     gmem->getMemoryOS()->solveRequest(r);
     return;
   }
+
 
   r->setPAddr(old_addr);
   r->access();
@@ -165,13 +172,17 @@ VAddr DMemRequest::getVaddr() const
  *        IMemRequest 
  ************************************************/
 
-pool<IMemRequest, true>  IMemRequest::actPool(32);
+pool<IMemRequest, true>  IMemRequest::actPool(32, "IMemRequest");
 
 void IMemRequest::destroy() 
 {
   I(dinst == 0);
   IS(currentMemObj = 0 );
   I(acknowledged);
+
+#ifdef SESC_SMP_DEBUG
+  clearPath();
+#endif
 
   actPool.in(this);
 }
@@ -188,11 +199,7 @@ void IMemRequest::create(DInst *dinst, GMemorySystem *gmem, IBucket *bb)
   r->buffer  = bb;
   r->dataReq = false;
   r->prefetch= false;
-
-#ifdef SESC_DSM
-  r->local = true;
-  r->msg = 0;
-#endif   
+  r->priority= 0;
 
   long old_addr = dinst->getInst()->getAddr();
   long ph_addr = gmem->getMemoryOS()->ITLBTranslate(old_addr);
@@ -228,13 +235,17 @@ VAddr IMemRequest::getVaddr() const
  *        CBMemRequest 
  ************************************************/
 
-pool<CBMemRequest, true>  CBMemRequest::actPool(32);
+pool<CBMemRequest, true>  CBMemRequest::actPool(32, "CBMemRequest");
 
 void CBMemRequest::destroy() 
 {
   I(dinst == 0);
   I(cb == 0);
   I(acknowledged);
+
+#ifdef SESC_SMP_DEBUG
+  clearPath();
+#endif
 
   actPool.in(this);
 }
@@ -292,6 +303,11 @@ void StaticCBMemRequest::destroy()
   I(acknowledged);
 
   I(ackDone);
+
+#ifdef SESC_SMP_DEBUG
+  clearPath();
+#endif
+
   // Do nothing
 }
 

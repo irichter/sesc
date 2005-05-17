@@ -236,7 +236,7 @@ public:
 
 template<class Parameter1, class Parameter2, class Parameter3, void (*funcPtr) (Parameter1, Parameter2, Parameter3)>
 typename CallbackFunction3<Parameter1,Parameter2,Parameter3,funcPtr>::poolType 
-CallbackFunction3<Parameter1,Parameter2,Parameter3,funcPtr>::cbPool(32);
+  CallbackFunction3<Parameter1,Parameter2,Parameter3,funcPtr>::cbPool(32, "CBF3");
 
 
 template<class Parameter1, class Parameter2,void (*funcPtr) (Parameter1, Parameter2)> 
@@ -298,7 +298,7 @@ public:
 
 template<class Parameter1, class Parameter2,void (*funcPtr) (Parameter1, Parameter2)>
 typename CallbackFunction2<Parameter1,Parameter2,funcPtr>::poolType 
-CallbackFunction2<Parameter1,Parameter2,funcPtr>::cbPool(32);
+  CallbackFunction2<Parameter1,Parameter2,funcPtr>::cbPool(32, "CBF2");
 
 
 template<class Parameter1, void (*funcPtr) (Parameter1)> 
@@ -357,7 +357,7 @@ public:
 
 template<class Parameter1,void (*funcPtr) (Parameter1)>
 typename CallbackFunction1<Parameter1,funcPtr>::poolType 
-CallbackFunction1<Parameter1,funcPtr>::cbPool(32);
+  CallbackFunction1<Parameter1,funcPtr>::cbPool(32, "CBF1");
 
 template< class Parameter1, class Parameter2, void (*funcPtr) (Parameter1, Parameter2)> 
 class StaticCallbackFunction2
@@ -529,7 +529,7 @@ public:
 template<class ClassType ,class Parameter1 ,class Parameter2 ,class Parameter3, class Parameter4
         ,void (ClassType::*memberPtr) (Parameter1, Parameter2, Parameter3, Parameter4)>
 typename CallbackMember4<ClassType,Parameter1,Parameter2,Parameter3,Parameter4,memberPtr>::poolType 
-CallbackMember4<ClassType,Parameter1,Parameter2,Parameter3,Parameter4,memberPtr>::cbPool(32);
+  CallbackMember4<ClassType,Parameter1,Parameter2,Parameter3,Parameter4,memberPtr>::cbPool(32, "CBM4");
 
 
 template<class ClassType ,class Parameter1 ,class Parameter2, class Parameter3 
@@ -599,7 +599,7 @@ public:
 template<class ClassType ,class Parameter1 ,class Parameter2 ,class Parameter3
         ,void (ClassType::*memberPtr) (Parameter1, Parameter2, Parameter3)>
 typename CallbackMember3<ClassType,Parameter1,Parameter2,Parameter3,memberPtr>::poolType 
-CallbackMember3<ClassType,Parameter1,Parameter2,Parameter3,memberPtr>::cbPool(32);
+  CallbackMember3<ClassType,Parameter1,Parameter2,Parameter3,memberPtr>::cbPool(32, "CBM3");
 
 template<class ClassType ,class Parameter1 ,class Parameter2
 	 ,void (ClassType::*memberPtr) (Parameter1, Parameter2)> 
@@ -665,7 +665,7 @@ public:
 template<class ClassType ,class Parameter1 ,class Parameter2 
         ,void (ClassType::*memberPtr) (Parameter1, Parameter2)>
 typename CallbackMember2<ClassType,Parameter1,Parameter2,memberPtr>::poolType 
-CallbackMember2<ClassType,Parameter1,Parameter2,memberPtr>::cbPool(32);
+  CallbackMember2<ClassType,Parameter1,Parameter2,memberPtr>::cbPool(32, "CBM2");
 
 template<class ClassType
 	 ,class Parameter1
@@ -730,7 +730,7 @@ public:
 template<class ClassType ,class Parameter1 
         ,void (ClassType::*memberPtr) (Parameter1)>
 typename CallbackMember1<ClassType,Parameter1,memberPtr>::poolType 
-CallbackMember1<ClassType,Parameter1,memberPtr>::cbPool(32);
+  CallbackMember1<ClassType,Parameter1,memberPtr>::cbPool(32, "CBM1");
 
 
 template<class ClassType
@@ -787,7 +787,7 @@ public:
 
 template<class ClassType,void (ClassType::*memberPtr)()>
 typename CallbackMember0<ClassType,memberPtr>::poolType 
-CallbackMember0<ClassType,memberPtr>::cbPool(32);
+  CallbackMember0<ClassType,memberPtr>::cbPool(32, "CBM0");
 
 // STATIC SECTION
 

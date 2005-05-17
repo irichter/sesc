@@ -39,8 +39,9 @@ class TaskContext;
 enum PCacheState {CLEAN, DIRTY};
 
 class ProfCache {
+
 private:
-  class PCState : public StateGeneric<PCState> {
+  class PCState : public StateGeneric<PAddr> {
   public:
     PCacheState s;
 

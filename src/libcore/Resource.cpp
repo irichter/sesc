@@ -36,6 +36,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "Port.h"
 #include "Resource.h"
 
+
 Resource::Resource(Cluster *cls, PortGeneric *aGen)
   : cluster(cls)
     ,gen(aGen)
@@ -48,7 +49,7 @@ Resource::Resource(Cluster *cls, PortGeneric *aGen)
 Resource::~Resource()
 {
   GMSG(!EventScheduler::empty(), "Resources destroyed with %d pending instructions"
-       , EventScheduler::size());
+       ,EventScheduler::size());
   
   if(gen)
     gen->unsubscribe();
@@ -287,6 +288,7 @@ StallCause FULoad::canIssue(DInst *dinst)
   cluster->newEntry();
 
   LDSTBuffer::getLoadEntry(dinst);
+  cluster->getGProcessor()->getLSQ()->insert(dinst);
 
   if (dinst->isFake())
     misLoads++;
@@ -307,6 +309,7 @@ void FULoad::simTime(DInst *dinst)
   
   stqCheckEnergy->inc(); // Check st-ld forwarding
 
+  cluster->getGProcessor()->getLSQ()->executed(dinst);
   ldqRdWrEnergy->inc();
   ldqCheckEnergy->inc();	
 
@@ -320,7 +323,12 @@ void FULoad::simTime(DInst *dinst)
     // forwardEnergy->inc(); // TODO: CACTI == a read in the STQ
     nForwarded.inc();
   }else{
-    cacheDispatchedCB::scheduleAbs(when, this, dinst);
+    if(dinst->isDeadInst()) {
+      // dead inst, just make it fly through the pipeline
+      dinst->doAtExecuted();
+    } else {
+      cacheDispatchedCB::scheduleAbs(when, this, dinst);
+    }
   }
 }
 
@@ -343,7 +351,17 @@ void FULoad::cacheDispatched(DInst *dinst)
   cluster->getGProcessor()->propagateUnresolvedLoad();
 #endif
 
-  DMemRequest::create(dinst, memorySystem, MemRead);
+  I( !dinst->isLoadForwarded() );
+  // LOG("[0x%p] %lld 0x%lx read", dinst, globalClock, dinst->getVaddr());
+  if(!L1DCache->canAcceptLoad(static_cast<PAddr>(dinst->getVaddr()))) {
+    Time_t when = gen->nextSlot();
+    //try again
+    // +1 because when we have unilimited ports (or occ) 0, this will be an
+    // infinite loop
+    cacheDispatchedCB::scheduleAbs(when+1, this, dinst);
+  } else {
+    DMemRequest::create(dinst, memorySystem, MemRead);
+  }
 }
 
 bool FULoad::retire(DInst *dinst)
@@ -351,6 +369,7 @@ bool FULoad::retire(DInst *dinst)
   ldqNotUsed.sample(freeLoads);
 
   cluster->retire(dinst);
+  cluster->getGProcessor()->getLSQ()->remove(dinst);
 
   if (!dinst->isFake() && !dinst->isEarlyRecycled())
     freeLoads++;
@@ -419,6 +438,7 @@ StallCause FUStore::canIssue(DInst *dinst)
   cluster->newEntry();
 
   LDSTBuffer::getStoreEntry(dinst);
+  cluster->getGProcessor()->getLSQ()->insert(dinst);
 
   if (dinst->isFake()) {
     misStores++;
@@ -450,6 +470,7 @@ void FUStore::executed(DInst *dinst)
 #endif
 
   cluster->executed(dinst);
+  cluster->getGProcessor()->getLSQ()->executed(dinst);
 
 #ifdef SESC_CHERRY
   if (dinst->isEarlyRecycled()) {
@@ -465,17 +486,19 @@ void FUStore::doRetire(DInst *dinst)
   stqNotUsed.sample(freeStores);
 
   LDSTBuffer::storeLocallyPerformed(dinst);
+  cluster->getGProcessor()->getLSQ()->remove(dinst);
   cluster->retire(dinst);
 
   if (!dinst->isEarlyRecycled() && !dinst->isFake())
     freeStores++;
 
   stqRdWrEnergy->inc(); // Read value send to memory, and clear fields
+
 }
 
 bool FUStore::retire(DInst *dinst)
 {
-  if (dinst->isFake() || dinst->isEarlyRecycled()
+  if (dinst->isDeadInst() || dinst->isFake() || dinst->isEarlyRecycled()
 #ifdef SESC_CHERRY
       || dinst->isMemoryIssued()
 #endif

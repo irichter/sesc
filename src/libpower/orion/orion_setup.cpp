@@ -75,7 +75,7 @@ void iterate(SConfig* SescConf)
 double getEnergy(SConfig *SescConf, const char* section)
 {
   int numPorts = SescConf->getLong(section,"numPorts");
-  double busLength = SescConf->getDouble(section,"busLength");
+  double busLength = (double) SescConf->getLong(section,"busLength");
   int busWidth = SescConf->getLong(section,"busWidth");
   double delay = (double) SescConf->getLong(section,"delay");
   double fac = 1.0;

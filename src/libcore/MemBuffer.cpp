@@ -29,8 +29,8 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 //MemOpsType MemBuffer::memOps;
 
-pool<MemBuffer,true>      MemBuffer::mPool(32768);
-pool<MemBufferEntry,true> MemBufferEntry::mePool(32768);
+pool<MemBuffer,true>      MemBuffer::mPool(32768, "MemBuffer");
+pool<MemBufferEntry,true> MemBufferEntry::mePool(32768, "MemBufferEntry");
 
 #if ((E_RIGHT != 0x8) || (E_LEFT !=0x4) || (E_SIZE != 0x3))
 #error "OpFlags does not have the proper structure!"

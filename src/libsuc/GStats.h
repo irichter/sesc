@@ -5,7 +5,8 @@
    Contributed by Jose Renau
                   Basilio Fraguela
                   Smruti Sarangi
-		  Luis Ceze
+		              Luis Ceze
+		              James Tuck
 
 This file is part of SESC.
 
@@ -28,10 +29,23 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include <list>
 #include <stdarg.h>
 #include <vector>
+#include <set>
 
 #include "estl.h" // hash_map
 #include "callback.h"
 #include "nanassert.h"
+
+struct compare_unsigned_long_long {
+  bool operator () (unsigned long long one, unsigned long long two) const {
+    return one == two;
+  } 
+};
+
+struct hash_unsigned_long_long {
+  size_t operator () (unsigned long long key) const {
+    return key;
+  } 
+};
 
 class GStats {
 private:
@@ -47,6 +61,9 @@ protected:
 		va_list ap);
   void subscribe();
   void unsubscribe();
+
+  virtual void prepareReport() {}
+  
 public:
   int gd;
 
@@ -127,12 +144,17 @@ public:
   GStatsAvg(const char *format,...);
   GStatsAvg() { }
 
-  void sample(const long v) {
+  virtual void sample(const long v) {
     data += v;
     nData++;
   }
+  // Merge two GStatsAvg together
+  void sample(GStatsAvg &g) {
+    data += g.data;
+    nData += g.nData;
+  }
 
-  void msamples(const long long v, long long n) {
+  virtual void msamples(const long long v, long long n) {
     data  += v;
     nData += n;
   }
@@ -142,6 +164,31 @@ public:
   long long getSamples() const {
     return nData;
   }
+
+  virtual void reportValue() const;
+#ifdef SESC_THERM
+  void reportValueDump() const;
+  void reportValueDumpSetup() const;
+#endif
+};
+
+class GStatsPDF : public GStatsAvg {
+private:
+protected:
+  HASH_MAP<long,long> density;
+public:
+  GStatsPDF(const char *format,...);
+  GStatsPDF() { }
+
+  void sample(const long v);
+
+  // Merge two GStatsPDF together
+  void sample(GStatsPDF &g);
+
+  void msamples(const long long v, long long n);
+
+  double getStdDev() const;
+  double getSpread(double p) const;
 
   void reportValue() const;
 #ifdef SESC_THERM
@@ -243,6 +290,65 @@ public:
   //Call on each update, it remembes what the last (key,time) pair was
   //and uses that to update the histogram.
   void sample(unsigned long key);
+};
+
+class GStatsEventTimingHist : protected GStatsHist {
+private:
+  int currentSum;
+
+protected:
+
+  class PendingEvent {
+   public:
+    PendingEvent(): start(0) {}
+    unsigned long long start;
+  };
+
+  typedef std::set<unsigned long long> EventTimes;
+  typedef HASH_MAP<unsigned long long, int, 
+    hash_unsigned_long_long, compare_unsigned_long_long> EventHistory;
+  typedef HASH_MAP<unsigned long long, PendingEvent,
+    hash_unsigned_long_long, compare_unsigned_long_long> PendingEventsHash;
+  
+  EventTimes   evT;
+  EventHistory evH;
+
+  PendingEventsHash evPending;
+  EventTimes   beginT;
+  EventHistory beginH;
+
+  Time_t lastSample;
+  Time_t lastHistEvent;
+  
+  void buildHistogram(bool limit);  
+  void prepareReport() { buildHistogram(false); }
+
+public:
+  GStatsEventTimingHist(const char *format,...);
+  
+  void reportValue() const;
+  
+  void begin_sample(unsigned long long id);
+  void commit_sample(unsigned long long id);
+  void remove_sample(unsigned long long id);      
+};
+
+class GStatsPeriodicHist : public GStatsHist {
+private:
+  Time_t lastUpdate;
+  Time_t period;
+
+  long long data;
+ public:
+  GStatsPeriodicHist(int p, const char* format, ...);
+
+#ifdef SESC_THERM
+  void reportValueDump() const;
+  void reportValueDumpSetup() const;
+#endif
+
+  void reportValue() const;
+  void inc();
 };
 
 #endif   // GSTATSD_H

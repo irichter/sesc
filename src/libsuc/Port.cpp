@@ -278,13 +278,19 @@ PortNPipe::~PortNPipe()
   free(portBusyUntil);
 }
 
+
 Time_t PortNPipe::nextSlot() 
+{
+  return nextSlot(ocp);
+}
+
+Time_t PortNPipe::nextSlot(int occupancy) 
 {
   ID(Time_t cns      = calcNextSlot());
   Time_t bufTime     = portBusyUntil[0];
 
   if (bufTime < globalClock) {
-    portBusyUntil[0] = globalClock + ocp;
+    portBusyUntil[0] = globalClock + occupancy;
     I( cns == globalClock );
     if (doStats)
       avgTime.sample(0);
@@ -295,7 +301,7 @@ Time_t PortNPipe::nextSlot()
 
   for(NumUnits_t i=1; i < nUnits; i++) {
     if (portBusyUntil[i] < globalClock) {
-      portBusyUntil[i] = globalClock + ocp;
+      portBusyUntil[i] = globalClock + occupancy;
       I( cns == globalClock );
       if (doStats)
 	avgTime.sample(0);
@@ -307,7 +313,7 @@ Time_t PortNPipe::nextSlot()
     }
   }
 
-  portBusyUntil[bufPort] += ocp;
+  portBusyUntil[bufPort] += occupancy;
 
   I(cns == bufTime);
   if (doStats)

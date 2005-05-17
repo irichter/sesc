@@ -16,6 +16,7 @@ my $op_test=0;
 my $op_dump=0;
 my $op_sesc="$ENV{'SESCBUILDDIR'}/sesc";
 my $op_key;
+my $op_key2;
 my $op_load=1;
 my $op_mload=2;
 my $op_clean;
@@ -32,13 +33,18 @@ my $op_saveoutput;
 my $op_kinst;
 my $op_bindir="$ENV{'BENCHDIR'}/bin";
 my $op_yes;
+my $op_condor;
+my $op_condorstd;
 
 my $dataset;
+
+my $jobfp;
 
 my $result = GetOptions("test",\$op_test,
 			"dump",\$op_dump,
 			"sesc=s",\$op_sesc,
 			"key=s",\$op_key,
+			"key2=s",\$op_key2,
 			"ext=s",\$op_ext,
 			"load=i",\$op_load,
 			"mload=i",\$op_mload,
@@ -56,6 +62,8 @@ my $result = GetOptions("test",\$op_test,
 			"bindir=s",\$op_bindir,
 			"kinst=i",\$op_kinst,
 			"yes",\$op_yes,
+			"condor",\$op_condor,
+			"condorstd",\$op_condorstd,
 			"help",\$op_help
 		       );
 
@@ -104,8 +112,24 @@ sub getMarks {
 }
 
 sub runIt {
-  my $prg = shift;
+  my $sparm = shift;
+  my $inp = shift;
+  my $outp = shift;
 
+  if($op_condor) { 
+      newJob($sparm, $inp, $outp);
+      return;
+  }
+  
+  if($op_saveoutput) {
+      $outp = "&> ${outp}.out"; 
+  } else {
+      $outp = "";
+  }
+
+  $inp  = "\< ${inp}" if($inp);
+  my $prg = "${op_sesc} ${sparm} ${inp} ${outp}";
+  
   print RUNLOG "Launching: ";
   print RUNLOG "(Testing) " if( $op_test);
   print RUNLOG $prg . "\n";
@@ -136,38 +160,59 @@ sub runIt {
   }
 }
 
+sub newJob {
+  my $sparm = shift;
+  my $inp = shift;
+  my $outp = shift;
+  
+  printf $jobfp "Arguments    = $sparm\n";
+  printf $jobfp "Input        = $inp\n";
+  printf $jobfp "Log          = condorout/$outp.\$(Cluster).\$(Process).log\n";
+  printf $jobfp "Output       = condorout/$outp.\$(Cluster).\$(Process).out\n";
+  printf $jobfp "Error        = condorout/$outp.\$(Cluster).\$(Process).err\n";
+  printf $jobfp "Queue\n\n";
+
+}
+
 sub runBench {
   my %param = @_;
 
   die if( !defined($param{bench}) );
 
-  my $sesc = $op_sesc;
+  my $sesc_parms = "";
 
-  $sesc .= " -x" . $param{xtra} if( defined($param{xtra}) );
-  $sesc .= " -t" if( $op_test );
-  $sesc .= " -c" . $op_c if( defined $op_c );
-  $sesc .= " -w1" if ($op_rabbit or $op_vprof);
-  $sesc .= " -r" . $op_prof if (defined $op_prof);
-  $sesc .= " -S" . $op_profsec if (defined $op_profsec);
-  $sesc .= " -y" . $op_kinst if(defined $op_kinst);
+  $sesc_parms .= " -x" . $param{xtra} if( defined($param{xtra}) );
+  $sesc_parms .= " -f" . $param{xtra2} if( defined($param{xtra2}) );
+  $sesc_parms .= " -t" if( $op_test );
+  $sesc_parms .= " -c" . $op_c if( defined $op_c );
+  $sesc_parms .= " -w1" if ($op_rabbit or $op_vprof);
+  $sesc_parms .= " -r" . $op_prof if (defined $op_prof);
+  $sesc_parms .= " -S" . $op_profsec if (defined $op_profsec);
+  $sesc_parms .= " -y" . $op_kinst if(defined $op_kinst);
 
-  my $output;
-  
-  if( $op_saveoutput ) {
-    if ( defined($op_key) ) {
-      $output = "&> ${param{bench}}${op_ext}.${op_key}.out";
-    } else {
-      $output = "&> ${param{bench}}${op_ext}.out";
-    }
+  my $baseoutput;
+  if ( defined($op_key) ) {
+      if (defined($op_key2) ) {
+	  $baseoutput = "${param{bench}}${op_ext}.${op_key}.${op_key2}";
+      } else {
+	  $baseoutput = "${param{bench}}${op_ext}.${op_key}";
+      }
+  } else {
+      if (defined($op_key2) ) {
+	  $baseoutput = "${param{bench}}${op_ext}.${op_key2}";
+      } else {
+	  $baseoutput = "${param{bench}}${op_ext}";
+      }
   }
-
-
+  
   my $executable = getExec($param{bench});
 
   ############################################################
   # CINT2000
   ############################################################
   if( $param{bench} eq 'gzip' ) {
+    print "Running gzip\n";
+
     # Comments: Very homogeneous missrate across marks
     my $marks = getMarks("-120 -227", "-14 -2170");
     my $gzipinput;
@@ -178,32 +223,44 @@ sub runBench {
     } else {
       $gzipinput = "input.source 60";
     }
-    runIt("${sesc} -h0xF000000 ${marks} ${executable} ${BHOME}/CINT2000/164.gzip/${dataset}/${gzipinput} ${output}"); 
+    runIt("${sesc_parms} -h0xF000000 ${marks} ${executable} ${BHOME}/CINT2000/164.gzip/${dataset}/${gzipinput}", "", $baseoutput);
 
   }elsif( $param{bench} eq 'vpr' ) {
+    print "Running vpr\n";
+
     my $marks = getMarks("-11 -22", "-11 -22");
     my $opt = "${BHOME}/CINT2000/175.vpr/${dataset}/net.in ${BHOME}/CINT2000/175.vpr/${dataset}/arch.in ";
     $opt .= "place.out dum.out -nodisp -place_only -init_t 5 -exit_t 0.005 ";
     $opt .= "-alpha_t 0.9412 -inner_num 2";
-    runIt("${sesc} -h0xc00000 ${marks} ${executable} ${opt} ${output}");
+    runIt("${sesc_parms} -h0xc00000 ${marks} ${executable} ${opt}", "", $baseoutput);
 
   }elsif( $param{bench} eq 'gcc' ) {
+    print "Running gcc\n";
+
     my $marks = getMarks("-14 -26", "-16 -219");
     runIt("${sesc} -k0x80000 ${marks} ${executable} ${BHOME}/CINT2000/176.gcc/${dataset}/200.i -o gcc1.s ${output}");
   }elsif( $param{bench} eq 'mcf' ) {
+    print "Running mcf\n";
+
     my $marks = getMarks("-11 -26", "-11 -250");
-    runIt("${sesc} -h0x6000000 ${marks} ${executable} ${BHOME}/CINT2000/181.mcf/${dataset}/inp.in ${output}");
+    runIt("${sesc_parms} -h0x6000000 ${marks} ${executable} ${BHOME}/CINT2000/181.mcf/${dataset}/inp.in", "",  $baseoutput);
 
   }elsif( $param{bench} eq 'crafty' ) {
+    print "Running crafty\n";
+
     my $marks = getMarks("-18 -212", "-18 -215");
-    runIt("${sesc} -h0x800000 ${marks} ${executable} <${BHOME}/CINT2000/186.crafty/${dataset}/crafty.in ${output}");
+    runIt("${sesc_parms} -h0x800000 ${marks} ${executable}", "${BHOME}/CINT2000/186.crafty/${dataset}/crafty.in",  $baseoutput);
 
   }elsif( $param{bench} eq 'parser' ) {
+    print "Running parser\n";
+
     my $common= "${BHOME}/CINT2000/197.parser/data/all/input/2.1.dict -batch";
     my $marks = getMarks("-135 -238", "-133 -238");
-    runIt("${sesc} -k0x80000 -h0x3C00000 ${marks} ${executable} ${common} <${BHOME}/CINT2000/197.parser/${dataset}/${op_data}.in ${output}");
+    runIt("${sesc_parms} -k0x80000 -h0x3C00000 ${marks} ${executable} ${common}", "${BHOME}/CINT2000/197.parser/${dataset}/${op_data}.in", $baseoutput);
 
   }elsif( $param{bench} eq 'gap' ) {
+    print "Running gap\n";
+
     my $marks = getMarks("-1122 -2123", "-1141 -2145");
     my $opt = "-l ${BHOME}/CINT2000/254.gap/data/all/input  -q -n -m ";
     if ($op_data eq 'test') {
@@ -213,10 +270,13 @@ sub runBench {
     } else {
       $opt .= "128M";
     }
-    runIt("${sesc} -h0xC000000 ${marks} ${executable} ${opt} <${BHOME}/CINT2000/254.gap/${dataset}/${op_data}.in ${output}");
+    runIt("${sesc_parms} -h0xC000000 -k0x200000 ${marks} ${executable} ${opt}", 
+	  "${BHOME}/CINT2000/254.gap/${dataset}/${op_data}.in", $baseoutput);
 
   }elsif( $param{bench} eq 'vortex' ) {
-    my $marks = getMarks("-13 -24", "-13 -24");
+    print "Running vortex\n";
+
+    my $marks = getMarks("-11 -22", "-11 -22");
     my $input;
     # prepare input data then run
     if ($op_data eq 'ref') {
@@ -235,10 +295,12 @@ sub runBench {
       system("cp ${BHOME}/CINT2000/255.vortex/data/test/input/bendian.wnv .");
       $input = "bendian.raw";
     }
-    runIt("${sesc} -h0x8000000 ${marks} ${executable} ${BHOME}/CINT2000/255.vortex/${dataset}/${input} ${output}");
+    runIt("${sesc_parms} -h0x8000000 ${marks} ${executable} ${BHOME}/CINT2000/255.vortex/${dataset}/${input}", "",  $baseoutput);
 
   }elsif( $param{bench} eq 'bzip2' ) {
-    my $marks = getMarks("-11 -22", "-11 -22");
+    print "Running bzip2\n";
+
+    my $marks = getMarks("-13 -26", "-11 -29");
     my $input;
     if ($op_data eq 'test') {
       $input = "input.random 2";
@@ -247,43 +309,60 @@ sub runBench {
     } else {
       $input = "input.source 58";
     }
-    runIt("${sesc} -h0xbc00000 ${marks} ${executable} ${BHOME}/CINT2000/256.bzip2/${dataset}/${input} ${output}");
+    runIt("${sesc_parms} -h0xbc00000 ${marks} ${executable} ${BHOME}/CINT2000/256.bzip2/${dataset}/${input}", "",  $baseoutput);
 
   }elsif( $param{bench} eq 'twolf' ) {
+    print "Running twolf\n";
+
     my $marks = getMarks("-12 -23", "-12 -23");
-    runIt("${sesc} -h0x8000000 ${marks} ${executable} ${op_data} ${output}");
+    runIt("${sesc_parms} -h0x8000000 ${marks} ${executable} ${op_data}", "",  $baseoutput);
 
   }elsif( $param{bench} eq 'perlbmk' ) {
+    print "Running perlbmk\n";
+
     my $marks = getMarks("-11 -22", "-11 -22");
     my $opt;
     if ($op_data eq 'ref') {
       system("cp ${BHOME}/CINT2000/253.perlbmk/data/all/input/lenums .");
       $opt = "-Ilib ${BHOME}/CINT2000/253.perlbmk/data/all/input/diffmail.pl 2 550 15 24 23 100";
     }
-    runIt("${sesc} -h0x8000000 ${marks} ${executable} ${opt} ${output}");
+    runIt("${sesc_parms} -h0x8000000 ${marks} ${executable} ${opt}", "",  $baseoutput);
 
   }
 ####################################################################################
 #  SPEC FP
 ####################################################################################
   elsif( $param{bench} eq 'wupwise' ) {
+    print "Running wupwise\n";
+
     my $marks = getMarks("-11 -22", "-11 -24");
     system("cp ${BHOME}/CFP2000/168.wupwise/${dataset}/wupwise.in .");
-    runIt("${sesc} -h0xbc00000 ${marks} ${executable} ${output}");
+    runIt("${sesc_parms} -h0xbc00000 ${marks} ${executable}", "",  $baseoutput);
 
   }elsif( $param{bench} eq 'swim' ) {
+    print "Running swim\n";
+
     my $marks = getMarks("-12 -24", "-12 -26");
-    runIt("${sesc} -h0xbc00000 ${marks} ${executable} <${BHOME}/CFP2000/171.swim/${dataset}/swim.in ${output}");
+    runIt("${sesc_parms} -h0xbc00000 ${marks} ${executable}", 
+	  "${BHOME}/CFP2000/171.swim/${dataset}/swim.in", $baseoutput);
 
   }elsif( $param{bench} eq 'mgrid' ) {
+    print "Running mgrid\n";
+
     my $marks = getMarks("-11 -22", "-11 -23");
-    runIt("${sesc} -h0xbc00000 ${marks} ${executable} <${BHOME}/CFP2000/172.mgrid/${dataset}/mgrid.in ${output}");
+    runIt("${sesc_parms} -h0xbc00000 ${marks} ${executable}", 
+	  "${BHOME}/CFP2000/172.mgrid/${dataset}/mgrid.in", $baseoutput);
 
   }elsif( $param{bench} eq 'applu' ) {
+    print "Running applu\n";
+
     my $marks = getMarks("-11 -2110", "-11 -2220");
-    runIt("${sesc} -h0xb000000  -k0x20000 ${marks} ${executable} <${BHOME}/CFP2000/173.applu/${dataset}/applu.in${output}");
+    runIt("${sesc_parms} -h0xb000000  -k0x20000 ${marks} ${executable}", 
+	  "${BHOME}/CFP2000/173.applu/${dataset}/applu.in", $baseoutput);
 
   }elsif( $param{bench} eq 'mesa' ) {
+    print "Running mesa\n";
+
     my $params;
     my $marks = getMarks("-11 -22", "-11 -23");
     system("cp ${BHOME}/CFP2000/177.mesa/${dataset}/numbers .");
@@ -294,14 +373,18 @@ sub runBench {
     } elsif ($op_data eq 'ref') {
       $params = "-frames 1000 -meshfile ${BHOME}/CFP2000/177.mesa/${dataset}/mesa.in -ppmfile mesa.ppm";
     }
-    runIt("${sesc} -k0x80000  -h0x8000000 ${marks} ${executable} ${params} ${output}");
+    runIt("${sesc_parms} -k0x80000  -h0x8000000 ${marks} ${executable} ${params}", "", $baseoutput);
 
   }elsif( $param{bench} eq 'galgel' ) {
+    print "Running galgel\n";
+
     # still needs checking - all input sets
     runIt("echo \" facerec: benchmark in f90, need to find parameters. run may be wrong\"");
-    runIt("${sesc} -h0xbc00000 ${executable} <${BHOME}/CFP2000/178.galgel/${dataset}/galgel.in ${output}");
+    runIt("${sesc_parms} -h0xbc00000 ${executable}", "${BHOME}/CFP2000/178.galgel/${dataset}/galgel.in", $baseoutput);
 
   }elsif( $param{bench} eq 'art' ) {
+    print "Running art\n";
+
     my $params;
     my $marks = getMarks("-12 -23", "-12 -25");
     if ($op_data eq 'test') {
@@ -314,17 +397,23 @@ sub runBench {
       # --OR-- (spec runs both)
       # $params .= " -stride 2 -startx 470 -starty 140 -endx 520 -endy 180 -objects 10";
     }
-    runIt("${sesc} -h0xc000000 ${marks} ${executable} -scanfile ${BHOME}/CFP2000/179.art/${dataset}/c756hel.in -trainfile1 ${BHOME}/CFP2000/179.art/${dataset}/a10.img ${params} ${output}");
+    runIt("${sesc_parms} -h0xc000000 ${marks} ${executable} -scanfile ${BHOME}/CFP2000/179.art/${dataset}/c756hel.in -trainfile1 ${BHOME}/CFP2000/179.art/${dataset}/a10.img ${params}", "",  $baseoutput);
 
   }elsif( $param{bench} eq 'equake' ) {
+    print "Running equake\n";
+
     my $marks = getMarks("-13 -25", "-13 -213");
-    runIt("${sesc} -h0xbc00000 ${marks} ${executable} <${BHOME}/CFP2000/183.equake/${dataset}/inp.in ${output}");
+    runIt("${sesc_parms} -h0xbc00000 ${marks} ${executable}", "${BHOME}/CFP2000/183.equake/${dataset}/inp.in", $baseoutput);
 
   }elsif( $param{bench} eq 'facerec' ) {
+    print "Running facerec\n";
+
     # still needs checking - all input sets
     runIt("echo \" facerec: benchmark in f90, need to find parameters\"");
 
   }elsif( $param{bench} eq 'ammp' ) {
+    print "Running ammp\n";
+
     my $marks = getMarks("-1133 -210000", "-1133 -222650");
     if ($op_data eq 'test') {
       system("cp ${BHOME}/CFP2000/188.ammp/${dataset}/all.init.ammp .");
@@ -338,27 +427,36 @@ sub runBench {
       system("cp ${BHOME}/CFP2000/188.ammp/${dataset}/init_cond.run.2 .");
       system("cp ${BHOME}/CFP2000/188.ammp/${dataset}/init_cond.run.3 .");
     }
-    runIt("${sesc} -h0xc000000 ${marks} ${executable} <${BHOME}/CFP2000/188.ammp/${dataset}/ammp.in ${output}");
+    runIt("${sesc_parms} -h0xc000000 ${marks} ${executable}", "${BHOME}/CFP2000/188.ammp/${dataset}/ammp.in", $baseoutput);
 
   }elsif( $param{bench} eq 'lucas' ) {
+    print "Running lucas\n";
+
     # still needs checking - all input sets
     runIt("echo \" lucas: benchmark in f90, need to find parameters\"");
 
   }elsif( $param{bench} eq 'fma3d' ) {
+    print "Running fma3d\n";
+
     # still needs checking - all input sets
     runIt("echo \" fma3d: benchmark in f90, need to find parameters\"");
 
   }elsif( $param{bench} eq 'sixtrack' ) {
+    print "Running sixtrack\n";
+
     system("cp ${BHOME}/CFP2000/200.sixtrack/data/all/input/fort.2 .");
     system("cp ${BHOME}/CFP2000/200.sixtrack/${dataset}/fort.3 .");
     system("cp ${BHOME}/CFP2000/200.sixtrack/${dataset}/fort.7 .");
     system("cp ${BHOME}/CFP2000/200.sixtrack/${dataset}/fort.8 .");
     system("cp ${BHOME}/CFP2000/200.sixtrack/data/all/input/fort.16 .");
-    runIt("${sesc} -k0x80000 -h0x8000000 ${executable} <${BHOME}/CFP2000/200.sixtrack/${dataset}/inp.in ${output}");
+    runIt("${sesc_parms} -k0x80000 -h0x8000000 ${executable}", 
+	  "${BHOME}/CFP2000/200.sixtrack/${dataset}/inp.in", $baseoutput);
 
   }elsif( $param{bench} eq 'apsi' ) {
+    print "Running apsi\n";
+
     system("cp ${BHOME}/CFP2000/301.apsi/${dataset}/apsi.in .");
-    runIt("${sesc} -h0xbc00000 ${executable} ${output}");
+    runIt("${sesc_parms} -h0xbc00000 ${executable}", "", $baseoutput);
 
   }
 
@@ -367,6 +465,8 @@ sub runBench {
   ############################################################
 
   elsif( $param{bench} eq 'wupwisemcf' ) {
+    print "Running wupwisemcf\n";
+
     my $mcfMarks = getMarks("-11 -26", "-11 -250");
     my $wwMarks = getMarks("-11 -22", "-11 -24");
     my $marks = "-m181 $mcfMarks -m168 $wwMarks";
@@ -375,10 +475,12 @@ sub runBench {
     my $wwParm = "--begin=wupwise";
 
     system("cp ${BHOME}/CFP2000/168.wupwise/${dataset}/wupwise.in .");
-    runIt("${sesc} -h0x10000000 $marks ${executable} $mcfParm $wwParm ${output}");
+    runIt("${sesc_parms} -h0x10000000 $marks ${executable} $mcfParm $wwParm", "", $baseoutput);
   }
 
   elsif( $param{bench} eq 'mcfart' ) {
+    print "Running mcfart\n";
+
     my $mcfMarks = getMarks("-11 -26", "-11 -250");
     my $artMarks = getMarks("-12 -23", "-12 -25");
 
@@ -398,10 +500,12 @@ sub runBench {
 
     $artParm = "-scanfile ${BHOME}/CFP2000/179.art/${dataset}/c756hel.in -trainfile1 ${BHOME}/CFP2000/179.art/${dataset}/a10.img $artParm";
 
-    runIt("${sesc} -h0x20000000 ${marks} ${executable} --begin=mcf $mcfParm --begin=art $artParm ${output}");
+    runIt("${sesc_parms} -h0x20000000 ${marks} ${executable} --begin=mcf $mcfParm --begin=art $artParm", "", $baseoutput);
   }
 
   elsif( $param{bench} eq 'artequake' ) {
+    print "Running artequake\n";
+
     my $equakeMarks = getMarks("-13 -25", "-13 -213");
     my $artMarks = getMarks("-12 -23", "-12 -25");
 
@@ -419,10 +523,13 @@ sub runBench {
 
     $artParm = "-scanfile ${BHOME}/CFP2000/179.art/${dataset}/c756hel.in -trainfile1 ${BHOME}/CFP2000/179.art/${dataset}/a10.img $artParm";
 
-    runIt("${sesc} -h0x20000000 ${marks} ${executable} --begin=equake --begin=art $artParm <${BHOME}/CFP2000/183.equake/${dataset}/inp.in ${output}");
+    runIt("${sesc_parms} -h0x20000000 ${marks} ${executable} --begin=equake --begin=art $artParm", 
+	  "${BHOME}/CFP2000/183.equake/${dataset}/inp.in", $baseoutput);
   }
 
   elsif( $param{bench} eq 'craftyperlbmk' ) {
+    print "Running craftyperlbmk\n";
+
       my $craftyMarks = getMarks("-18 -212", "-18 -215");
       my $perlbmkMarks = getMarks("-11 -22", "-11 -22");
       
@@ -435,11 +542,14 @@ sub runBench {
 	  $perlbmkParm = "-Ilib ${BHOME}/CINT2000/253.perlbmk/data/all/input/diffmail.pl 2 550 15 24 23 100";
       }
 
-      runIt("${sesc} -h0x10000000  ${marks} ${executable} --begin=crafty --begin=perlbmk $perlbmkParm <${BHOME}/CINT2000/186.crafty/${dataset}/crafty.in ${output}");
+      runIt("${sesc_parms} -h0x10000000  ${marks} ${executable} --begin=crafty --begin=perlbmk $perlbmkParm", 
+	    "${BHOME}/CINT2000/186.crafty/${dataset}/crafty.in", $baseoutput);
   }
 
 
   elsif( $param{bench} eq 'mesaart' ) {
+    print "Running mesaart\n";
+
     my $mesaMarks = getMarks("-11 -22", "-11 -23");
     my $artMarks = getMarks("-12 -23", "-12 -25");
 
@@ -468,10 +578,12 @@ sub runBench {
     }
     $artParm = "-scanfile ${BHOME}/CFP2000/179.art/${dataset}/c756hel.in -trainfile1 ${BHOME}/CFP2000/179.art/${dataset}/a10.img $artParm";
 
-    runIt("${sesc}  -k0x80000 -h0x20000000 ${marks} ${executable} --begin=mesa $mesaParm --begin=art $artParm ${output}");
+    runIt("${sesc_parms}  -k0x80000 -h0x20000000 ${marks} ${executable} --begin=mesa $mesaParm --begin=art $artParm", "", $baseoutput);
   }
 
   elsif( $param{bench} eq 'mcfparser' ) {
+    print "Running mcfparser\n";
+
     my $mcfMarks = getMarks("-11 -26", "-11 -250");
     my $parserMarks = getMarks("-135 -238", "-133 -238");
 
@@ -479,12 +591,14 @@ sub runBench {
 
     my $mcfParm = "${BHOME}/CINT2000/181.mcf/${dataset}/inp.in";
     my $parserParm = "${BHOME}/CINT2000/197.parser/data/all/input/2.1.dict -batch ";
-    $parserParm .= " <${BHOME}/CINT2000/197.parser/${dataset}/${op_data}.in ${output}";
 
-    runIt("${sesc} -k0x80000 -h0x20000000 ${marks} ${executable} --begin=mcf $mcfParm --begin=parser $parserParm ${output}");
+    runIt("${sesc_parms} -k0x80000 -h0x20000000 ${marks} ${executable} --begin=mcf $mcfParm --begin=parser $parserParm", 
+	  "${BHOME}/CINT2000/197.parser/${dataset}/${op_data}.in",  $baseoutput);
   }
 
   elsif( $param{bench} eq 'wupwiseperlbmk' ) {
+    print "Running wupwiseperlbmk\n";
+
     my $wwMarks = getMarks("-11 -22", "-11 -24");
     my $perlbmkMarks = getMarks("-11 -22", "-11 -22");
     my $marks = "-m168 $wwMarks -m253 $perlbmkMarks";
@@ -497,10 +611,12 @@ sub runBench {
     }
     
     system("cp ${BHOME}/CFP2000/168.wupwise/${dataset}/wupwise.in .");
-    runIt("${sesc} -h0x10000000 $marks ${executable} --begin=wupwise  --begin=perlbmk $perlbmkParm ${output}");
+    runIt("${sesc_parms} -h0x10000000 $marks ${executable} --begin=wupwise  --begin=perlbmk $perlbmkParm", "",  $baseoutput);
   }
 
   elsif( $param{bench} eq 'bzip2vpr' ) {
+    print "Running bzip2vpr\n";
+
     my $bzipMarks = getMarks("-11 -22", "-11 -22");
     my $vprMarks = getMarks("-11 -22", "-11 -22");
 
@@ -521,43 +637,54 @@ sub runBench {
     $vprParm .= "place.out dum.out -nodisp -place_only -init_t 5 -exit_t 0.005 ";
     $vprParm .= "-alpha_t 0.9412 -inner_num 2";
 
-    runIt("${sesc} -h0x10000000 ${marks} ${executable} --begin=bzip2 $bzipParm --begin=vpr $vprParm ${output}");
+    runIt("${sesc_parms} -h0x10000000 ${marks} ${executable} --begin=bzip2 $bzipParm --begin=vpr $vprParm","", $baseoutput);
   }
 
   elsif( $param{bench} eq 'swimmcf' ) {
+    print "Running swimmcf\n";
+
     my $swimMarks = getMarks("-12 -24", "-12 -26");
     my $mcfMarks = getMarks("-11 -26", "-11 -250");
     my $marks = "-m181 $mcfMarks -m171 $swimMarks";
 
     my $mcfParm = "--begin=mcf ${BHOME}/CINT2000/181.mcf/${dataset}/inp.in";
-    my $swimParm = "--begin=swim  <${BHOME}/CFP2000/171.swim/${dataset}/swim.in ${output}";
+    my $swimParm = "--begin=swim";
 
-    runIt("${sesc} -h0x10000000 $marks ${executable} $mcfParm $swimParm ${output}");
+    runIt("${sesc_parms} -h0x10000000 $marks ${executable} $mcfParm $swimParm", 
+	  "${BHOME}/CFP2000/171.swim/${dataset}/swim.in",  $baseoutput);
   }
   
   elsif( $param{bench} eq 'mgridmcf' ) {
+    print "Running mgridmcf\n";
+
     my $mgridMarks = getMarks("-11 -22", "-11 -23");
     my $mcfMarks = getMarks("-11 -26", "-11 -250");
     my $marks = "-m181 $mcfMarks -m172 $mgridMarks";
 
     my $mcfParm = "--begin=mcf ${BHOME}/CINT2000/181.mcf/${dataset}/inp.in";
-    my $mgridParm = "--begin=mgrid <${BHOME}/CFP2000/172.mgrid/${dataset}/mgrid.in ${output}";
+    my $mgridParm = "--begin=mgrid";
 
-    runIt("${sesc} -h0x10000000 $marks ${executable} $mcfParm $mgridParm ${output}");
+    runIt("${sesc_parms} -h0x10000000 $marks ${executable} $mcfParm $mgridParm", 
+	  "${BHOME}/CFP2000/172.mgrid/${dataset}/mgrid.in",  $baseoutput);
   }
 
   elsif( $param{bench} eq 'equakeswim' ) {
+    print "Running equakeswim\n";
+
     my $equakeMarks = getMarks("-13 -25", "-13 -213");
     my $swimMarks = getMarks("-12 -24", "-12 -26");
 
     my $marks = "-m183 $equakeMarks -m171 $swimMarks";
 
-    my $swimParm = "--begin=swim  <${BHOME}/CFP2000/171.swim/${dataset}/swim.in ${output}";
+    my $swimParm = "--begin=swim";
 
-    runIt("${sesc} -h0x20000000 ${marks} ${executable} --begin=equake $swimParm ${output}");
+    runIt("${sesc_parms} -h0x20000000 ${marks} ${executable} --begin=equake $swimParm", 
+	  "${BHOME}/CFP2000/171.swim/${dataset}/swim.in", $baseoutput);
   }
 
   elsif( $param{bench} eq 'equakeperlbmk' ) {
+    print "Running equakeperlbmk\n";
+
     my $equakeMarks = getMarks("-13 -25", "-13 -213");
     my $perlbmkMarks = getMarks("-11 -22", "-11 -22");
 
@@ -570,12 +697,14 @@ sub runBench {
 	$perlbmkParm .= "-Ilib ${BHOME}/CINT2000/253.perlbmk/data/all/input/diffmail.pl 2 550 15 24 23 100";
     }
 
-    my $equakeParm = "--begin=equake <${BHOME}/CFP2000/183.equake/${dataset}/inp.in";
+    my $equakeParm = "--begin=equake";
 
-    runIt("${sesc} -h0x18000000  ${marks} ${executable} $perlbmkParm $equakeParm ${output}");
+    runIt("${sesc_parms} -h0x18000000  ${marks} ${executable} $perlbmkParm $equakeParm", "${BHOME}/CFP2000/183.equake/${dataset}/inp.in", $baseoutput);
   }  
 
   elsif( $param{bench} eq 'artgap' ) {
+    print "Running artgap\n";
+
     my $artMarks = getMarks("-12 -23", "-12 -25");
     my $gapMarks = getMarks("-1122 -2123", "-1141 -2145");
 
@@ -604,12 +733,13 @@ sub runBench {
       $gapParm .= "128M";
     }
 
-    $gapParm .= " <${BHOME}/CINT2000/254.gap/${dataset}/${op_data}.in";
-
-    runIt("${sesc} -h0x20000000 ${marks} ${executable} $artParm $gapParm ${output}");
+    runIt("${sesc_parms} -h0x20000000 ${marks} ${executable} $artParm $gapParm", 
+	  "${BHOME}/CINT2000/254.gap/${dataset}/${op_data}.in",  $baseoutput);
   }
 
   elsif( $param{bench} eq 'artperlbmk' ) {
+    print "Running artperlbmk\n";
+
     my $artMarks = getMarks("-12 -23", "-12 -25");
     my $perlbmkMarks = getMarks("-11 -22", "-11 -22");
 
@@ -635,7 +765,7 @@ sub runBench {
 	$perlbmkParm .= "-Ilib ${BHOME}/CINT2000/253.perlbmk/data/all/input/diffmail.pl 2 550 15 24 23 100";
     }
 
-    runIt("${sesc} -h0x20000000 ${marks} ${executable} $artParm $perlbmkParm ${output}");
+    runIt("${sesc_parms} -h0x20000000 ${marks} ${executable} $artParm $perlbmkParm", "",  $baseoutput);
   }
 
   
@@ -644,92 +774,116 @@ sub runBench {
   ###########################################################
 
   elsif( $param{bench} eq 'cholesky' ) {
+    print "Running cholesky\n";
+
     my $params;
     if ($op_data eq 'ref') {
-      $params = "-p${op_numprocs} ${BHOME}/splash2/kernels/cholesky/${dataset}/tk29.O"
+      $params = "-p${op_numprocs} ${BHOME}/splash2/kernels/cholesky/${dataset}/tk15.O"
     } elsif ($op_data eq 'test') {
       $params = "-p${op_numprocs} ${BHOME}/splash2/kernels/cholesky/${dataset}/lshp.O"
     }
-    runIt("${sesc} -h0x8000000 -k0x80000 ${executable} ${params}");
+    runIt("${sesc_parms} -h0x8000000 -k0x80000 ${executable} ${params}", "",  $baseoutput);
 
   }elsif( $param{bench} eq 'fft' ) {
+    print "Running fft\n";
+
     my $params;
     if ($op_data eq 'ref') {
       $params = "-m16 -l5 -p${op_numprocs}";
     } elsif ($op_data eq 'test') {
       $params = "-m12 -l5 -p${op_numprocs}";
     }
-    runIt("${sesc} -h0x8000000 ${executable} ${params}");
+    runIt("${sesc_parms} -h0x8000000 ${executable} ${params}", "", $baseoutput);
 
  }elsif( $param{bench} eq 'lu' ) {
+    print "Running lu\n";
+
    my $params;
    if ($op_data eq 'ref') {
      $params = "-n512 -b16 -p${op_numprocs}";
    } elsif ($op_data eq 'test') {
      $params = "-n32 -b8 -p${op_numprocs}";
    }
-   runIt("${sesc} -h0x8000000 ${executable} ${params}");
+   runIt("${sesc_parms} -h0x8000000 ${executable} ${params}", "",  $baseoutput);
 
   }elsif( $param{bench} eq 'radix' ) {
+    print "Running radix\n";
+
     my $params;
     if ($op_data eq 'ref') {
       $params = "-r1024 -n1048576 -p${op_numprocs}";
     } elsif ($op_data eq 'test') {
       $params = "-r32 -n65536 -p${op_numprocs}";
     }
-    runIt("${sesc} -h0x8000000 ${executable} ${params}"); 
+    runIt("${sesc_parms} -h0x8000000 ${executable} ${params}", "", $baseoutput); 
 
   }elsif( $param{bench} eq 'barnes' ) {
-    runIt("${sesc} -h0x8000000 ${executable} < ${BHOME}/splash2/apps/barnes/${dataset}/i${op_numprocs}");
+    print "Running barnes\n";
+
+    runIt("${sesc_parms} -h0x8000000 ${executable}", "${BHOME}/splash2/apps/barnes/${dataset}/i${op_numprocs}", $baseoutput);
 
   }elsif( $param{bench} eq 'fmm' ) {
-   runIt("${sesc} -h0x8000000 ${executable} < ${BHOME}/splash2/apps/fmm/${dataset}/i16kp${op_numprocs}");
+    print "Running fmm\n";
+
+   runIt("${sesc_parms} -h0x8000000 ${executable}", "${BHOME}/splash2/apps/fmm/${dataset}/i16kp${op_numprocs}", $baseoutput);
 
   }elsif( $param{bench} eq 'ocean' ) {
+    print "Running ocean\n";
+
     my $params;
     if ( $op_data eq 'ref') {
       $params = "-n258 -p${op_numprocs}";
     } else {
       $params = "-n34 -p${op_numprocs}";
     }
-    runIt("${sesc} -h0x8000000 ${executable} ${params}");
+    runIt("${sesc_parms} -h0x8000000 ${executable} ${params}", "", $baseoutput);
 
   }elsif( $param{bench} eq 'radiosity' ) {
+    print "Running radiosity\n";
+
     my $params;
     if ($op_data eq 'ref') {
-      $params = "-p ${op_numprocs} -batch -room"
+      $params = "-batch -room -ae 5000.0 -en 0.050 -bf 0.10 -p ${op_numprocs}"
     } elsif ($op_data eq 'test') {
-      $params = "-room -ae 5000.0 -en 0.050 -bf 0.10 -p ${op_numprocs}";
+      $params = "-batch -room -ae 5000.0 -en 0.050 -bf 0.10 -p ${op_numprocs}";
     }
-    runIt("${sesc} -h0x8000000 ${executable} ${params}");
+    runIt("${sesc_parms} -h0x8000000 ${executable} ${params}", "", $baseoutput);
 
   }elsif( $param{bench} eq 'raytrace' ) {
+    print "Running raytrace\n";
+
     my $params;
     if ($op_data eq 'ref') {
       system("cp ${BHOME}/splash2/apps/raytrace/${dataset}/car.geo .");
-      $params = "-p${op_numprocs} ${BHOME}/splash2/apps/raytrace/${dataset}/car.env";
+      $params = "-m64 -p${op_numprocs} ${BHOME}/splash2/apps/raytrace/${dataset}/car.env";
     } elsif ($op_data eq 'test') {
       system("cp ${BHOME}/splash2/apps/raytrace/${dataset}/teapot.geo .");
-      $params = "-p${op_numprocs} ${BHOME}/splash2/apps/raytrace/${dataset}/teapot.env";
+      $params = "-m64 -p${op_numprocs} ${BHOME}/splash2/apps/raytrace/${dataset}/teapot.env";
     }
-    runIt("${sesc} -h0x8000000 ${executable} ${params}");
+    runIt("${sesc_parms} -h0x8000000 ${executable} ${params}", "",  $baseoutput);
 
   }elsif( $param{bench} eq 'volrend' ) {
+    print "Running volrend\n";
+
     my $params;
     if ($op_data eq 'ref') {
       $params = "${op_numprocs} ${BHOME}/splash2/apps/volrend/${dataset}/head";
     } elsif($op_data eq 'test') {
       $params = "${op_numprocs} ${BHOME}/splash2/apps/volrend/${dataset}/head-scaleddown4";
     }
-    runIt("${sesc} -h0x8000000 ${executable} ${params}");
+    runIt("${sesc_parms} -h0x8000000 ${executable} ${params}", "", $baseoutput);
 
   }elsif( $param{bench} eq 'water-nsquared' ) {
+    print "Running water-nsquared\n";
+
     system("cp ${BHOME}/splash2/apps/water-nsquared/${dataset}/random.in .");
-    runIt("${sesc} -h0x8000000 ${executable} <${BHOME}/splash2/apps/water-nsquared/${dataset}/input_${op_numprocs}");
+    runIt("${sesc_parms} -h0x8000000 ${executable} ${BHOME}/splash2/apps/water-nsquared/${dataset}/input_${op_numprocs}", "", $baseoutput);
 
   }elsif( $param{bench} eq 'water-spatial' ) {
+    print "Running water-spatial\n";
+
     system("cp ${BHOME}/splash2/apps/water-spatial/${dataset}/random.in .");
-    runIt("${sesc} -h0x8000000 ${executable} <${BHOME}/splash2/apps/water-spatial/${dataset}/input_${op_numprocs}");
+    runIt("${sesc_parms} -h0x8000000 ${executable} ${BHOME}/splash2/apps/water-spatial/${dataset}/input_${op_numprocs}", "", $baseoutput);
 
   }else{
     die("Unknown benchmark [$param{xtra}]");
@@ -845,14 +999,13 @@ sub processParams {
     print "CINT2000: crafty mcf parser gzip vpr bzip2 gcc gap twolf vortex perlbmk\n";
     print "CFP2000 : wupwise swim mgrid applu apsi equake ammp art mesa\n";
     print "SPLASH2: cholesky fft lu radix barnes fmm ocean radiosity  \n";
-    print "SMTmix: wupwisemcf\n";
     print "         raytrace volrend water-nsquared water-spatial     \n";
+    print "SMTmix: wupwisemcf\n";
     print "Misc   : mp3dec mp3enc smatrix\n";
     print "\t-sesc=s          ; Simulator executable (default is $ENV{'SESCBUILDDIR'}/sesc)\n";
     print "\t-c=s             ; Configuration file (default is $op_c).\n";
     print "\t-bhome=s         ; Path for the benchmarks directory is located (default is $op_bhome)\n";
     print "\t-bindir=s        ; Specify where the benchmarks binaries are (deafult is $op_bindir).\n";
-    print "\t-marks2          ; Choose a different set of simulation marks (Only for testing, not official marks).\n";
     print "\t-ext=s           ; Extension to be added to the binary names\n";
     print "\t-data=s          ; Data set [test|train|ref]\n";
     print "\t-test            ; Just test the configuration\n";
@@ -867,6 +1020,8 @@ sub processParams {
     print "\t-rabbit          ; Run in Rabbit mode the whole program\n";
     print "\t-saveoutput      ; Save output to a .out file\n";
     print "\t-clean           ; DELETE all the outputs from previous runs\n";
+    print "\t-condor          ; Submit jobs using condor.\n";
+    print "\t-condorstd       ; Use condor standard universe.\n";
     print "\t-yes             ; Do not ask for questions. Say all yes\n";
     print "\t-help            ; Show this help\n";
     exit;
@@ -905,10 +1060,31 @@ sub main {
 
   setupDirectory();
 
+  open($jobfp, ">condorjob");
+
+  if($op_condor) { 
+      system("mkdir -p condorout");
+      printf $jobfp "Executable   = $op_sesc\n";
+      printf $jobfp "Image_Size = 150000\n";
+      printf $jobfp "Requirements = Memory > 200 && Machine != \"iacoma38.cs.uiuc.edu\"\n";
+      if($op_condorstd) {
+	  printf $jobfp "Universe     = standard\n";
+      } else {
+	  printf $jobfp "Universe     = vanilla\n";
+      }
+      printf $jobfp "Notification = Error\n";
+      printf $jobfp "\n\n\n";
+  }
   foreach $bench (@ARGV) {
-    runBench( bench => $bench , xtra => $op_key);
+    runBench( bench => $bench , xtra => $op_key, xtra2 => $op_key2);
   }
 
+  if($op_condor) {
+      close $jobfp;
+      close(RUNLOG);
+  }
+  
+  
   print "RUN: Spawning finished. Waiting for results...\n" if( $threadsRunning );
 
   while( $threadsRunning > 0 ) {
@@ -918,5 +1094,6 @@ sub main {
   }
 
   close(RUNLOG);
+	exit(0);
 }
 

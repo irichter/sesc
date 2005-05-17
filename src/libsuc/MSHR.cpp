@@ -1,23 +1,24 @@
-/* 
+/*
    SESC: Super ESCalar simulator
    Copyright (C) 2004 University of Illinois.
 
    Contributed by Jose Renau
                   Luis Ceze
+                  James Tuck
 
-This file is part of SESC.
+   This file is part of SESC.
 
-SESC is free software; you can redistribute it and/or modify it under the terms
-of the GNU General Public License as published by the Free Software Foundation;
-either version 2, or (at your option) any later version.
+   SESC is free software; you can redistribute it and/or modify it under the terms
+   of the GNU General Public License as published by the Free Software Foundation;
+   either version 2, or (at your option) any later version.
 
-SESC is    distributed in the  hope that  it will  be  useful, but  WITHOUT ANY
-WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
-PARTICULAR PURPOSE.  See the GNU General Public License for more details.21
+   SESC is    distributed in the  hope that  it will  be  useful, but  WITHOUT ANY
+   WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+   PARTICULAR PURPOSE.  See the GNU General Public License for more details.21
 
-You should  have received a copy of  the GNU General  Public License along with
-SESC; see the file COPYING.  If not, write to the  Free Software Foundation, 59
-Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+   You should  have received a copy of  the GNU General  Public License along with
+   SESC; see the file COPYING.  If not, write to the  Free Software Foundation, 59
+   Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 */
 
 #define MSHR_CPP
@@ -27,62 +28,96 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 // TODO: Add energy model
 
-// 
+//
 // basic MSHR class
 //
 
-template<class Addr_t>
-MSHR<Addr_t> *MSHR<Addr_t>::create(const char *name, 
-				   const char *type, int size, int lineSize, int nse)
+template<class Addr_t, class Cache_t>
+MSHR<Addr_t, Cache_t> *MSHR<Addr_t, Cache_t>::create(const char *name,
+                                                     const char *type,
+                                                     int size,
+                                                     int lineSize,
+                                                     int nrd,
+                                                     int nwr,
+                                                     int aPolicy)
 {
   MSHR *mshr;
 
   if(strcmp(type, "none") == 0) {
-    mshr = new NoMSHR<Addr_t>(name, size, lineSize);
+    mshr = new NoMSHR<Addr_t, Cache_t>(name, size, lineSize, aPolicy);
   } else if(strcmp(type, "nodeps") == 0) {
-    mshr = new NoDepsMSHR<Addr_t>(name, size, lineSize);
+    mshr = new NoDepsMSHR<Addr_t, Cache_t>(name, size, lineSize, aPolicy);
   } else if(strcmp(type, "full") == 0) {
-    mshr = new FullMSHR<Addr_t>(name, size, lineSize);
+    mshr = new FullMSHR<Addr_t, Cache_t>(name, size, lineSize, aPolicy);
   } else if(strcmp(type, "single") == 0) {
-    mshr = new SingleMSHR<Addr_t>(name, size, lineSize, nse);
+    mshr = new SingleMSHR<Addr_t, Cache_t>(name, size, lineSize, nrd, nwr, aPolicy);
   } else {
     MSG("WARNING:MSHR: type \"%s\" unknown, defaulting to \"none\"", type);
-    mshr = new NoMSHR<Addr_t>(name, size, lineSize);
+    mshr = new NoMSHR<Addr_t, Cache_t>(name, size, lineSize, aPolicy);
   }
-  
+
   return mshr;
 }
 
-template<class Addr_t>
-MSHR<Addr_t> *MSHR<Addr_t>::create(const char *name, const char *section)
+template<class Addr_t, class Cache_t>
+MSHR<Addr_t, Cache_t> *MSHR<Addr_t, Cache_t>::create(const char *name, const char *section)
 {
   MSHR *mshr;
-  int nse = 16;
-  int nse2 = 16;
+  int nrd = 16;
+  int nwr = 0;
+  int aPolicy = SPECIAL;
 
-  const char *type = SescConf->getCharPtr(section, "MSHRtype");
-  int size = SescConf->getLong(section, "MSHRsize");
+  const char *type = SescConf->getCharPtr(section, "type");
+  int size = SescConf->getLong(section, "size");
   int lineSize = SescConf->getLong(section, "bsize");
 
-  if(SescConf->checkLong(section, "MSHRrpl")) 
-    nse = SescConf->getLong(section, "MSHRrpl");
+  const char *alloc;
+  if(SescConf->checkCharPtr(section,"alloc")) {
+    alloc = SescConf->getCharPtr(section,"alloc");
 
-  if(SescConf->checkLong(section, "MSHRrpl2")) 
-    nse2 = SescConf->getLong(section, "MSHRrpl2");
+    if(strcmp(alloc,"conventional")==0) {
+      aPolicy = CONVENTIONAL;
+    }
+  }
+
+  if(SescConf->checkLong(section, "rpl"))
+    nrd = SescConf->getLong(section, "rpl");
+
+  if(SescConf->checkLong(section, "maxWrites"))
+    nwr = SescConf->getLong(section, "maxWrites");
 
   if(strcmp(type, "banked") == 0) {
-    int nb = SescConf->getLong(section, "MSHRbanks");
-    mshr = new BankedMSHR<Addr_t>(name, size, lineSize, nb, nse);
+    int nb = SescConf->getLong(section, "banks");
+    mshr = new BankedMSHR<Addr_t, Cache_t>(name, size, lineSize, nb, nrd, nwr,
+                                           aPolicy);
   } else {
-    mshr = MSHR<PAddr>::create(name, type, size, lineSize, nse);
+    mshr = MSHR<Addr_t,Cache_t>::create(name, type, size, lineSize, nrd, nwr,
+                                        aPolicy);
   }
 
   return mshr;
-     
 }
 
-template<class Addr_t>
-MSHR<Addr_t>::MSHR(const char *name, int size, int lineSize)
+template<class Addr_t, class Cache_t>
+MSHR<Addr_t,Cache_t> *MSHR<Addr_t, Cache_t>::attach(const char *name,
+                                                    const char *section,
+                                                    MSHR<Addr_t,Cache_t> *mshr)
+{
+  MSHR *newmshr;
+  int aPolicy = SPECIAL;
+
+    {
+      newmshr = MSHR<Addr_t,Cache_t>::create(name,section);
+    }
+
+  // Share occupancy stats
+  newmshr->attach(mshr);
+
+  return newmshr;
+}
+
+template<class Addr_t, class Cache_t>
+MSHR<Addr_t, Cache_t>::MSHR(const char *name, int size, int lineSize, int aPolicy)
   :nEntries(size)
   ,Log2LineSize(log2i(lineSize))
   ,nUse("%s_MSHR:nUse", name)
@@ -92,40 +127,118 @@ MSHR<Addr_t>::MSHR(const char *name, int size, int lineSize)
   ,maxUsedEntries("%s_MSHR_maxUsedEntries", name)
   ,nCanAccept("%s_MSHR:nCanAccept", name)
   ,nCanNotAccept("%s_MSHR:nCanNotAccept", name)
-  ,occupancyHistogram("%s_MSHR:occupancy",name)
-  ,pendingReqsTimingHist("%s_MSHR:PendingReqsTimeHist",name)
-  ,entriesOnReqHist("%s_MSHR:PendingReqsHist",name)
+  ,nCanNotAcceptConv("%s_MSHR:nCanNotAcceptConv", name)
+  ,blockingCycles("%s_MSHR:blockingCycles",name)
+  ,allocPolicy(aPolicy)
+  ,occStatsAttached(false)
+  ,lowerCache(NULL)
 {
-  I(size>0 && size<1024*32); 
+  I(size>0 && size<1024*32);
+
+  occStats = new MSHRStats<Addr_t,Cache_t>(name);
+  occStats->attach(this);
 
   nFreeEntries = size;
 }
 
-// 
+template<class Addr_t, class Cache_t>
+void MSHR<Addr_t, Cache_t>::attach(MSHR<Addr_t, Cache_t> *mshr)
+{
+  if(!occStatsAttached)
+    delete occStats;
+
+  occStatsAttached = true;
+
+  occStats = mshr->occStats;
+  occStats->attach(this);
+}
+
+template<class Addr_t, class Cache_t>
+bool MSHR<Addr_t, Cache_t>::canAcceptRequest(Addr_t paddr, MemOperation mo)
+{
+  if(allocPolicy==CONVENTIONAL) {
+    if(!canAllocateEntry()) {
+      nCanNotAccept.inc();
+      nCanNotAcceptConv.inc();
+
+      if(readSEntryFull())
+	blockingCycles.sample(2);
+      else if(writeSEntryFull())
+	blockingCycles.sample(3);
+      else
+	blockingCycles.sample(1);
+
+      return false;
+    }
+  }
+
+  bool canAcceptSpecial = canAcceptRequestSpecial(paddr,mo);
+  //GI(allocPolicy == CONVENTIONAL, canAcceptSpecial);
+  //this is not true, the MSHR might be overflowing
+
+  blockingCycles.sample((canAcceptSpecial)? 0 : 1);
+
+  return canAcceptSpecial;
+}
+
+template<class Addr_t, class Cache_t>
+MSHRentry<Addr_t>* MSHR<Addr_t, Cache_t>::selectEntryToDrop(Addr_t paddr)
+{
+  MSG("MSHR::selectEntryToDrop not defined. May not have intended meaning.");
+  return NULL;
+}
+
+template<class Addr_t, class Cache_t>
+void MSHR<Addr_t, Cache_t>::dropEntry(Addr_t lineAddr)
+{
+  MSG("MSHR::dropEntry not defined. May not have intended meaning.");
+}
+
+template<class Addr_t, class Cache_t>
+MSHRentry<Addr_t>* MSHR<Addr_t, Cache_t>::getEntry(Addr_t paddr)
+{
+  MSG("MSHR::getEntry not defined. May not have intended meaning.");
+  return NULL;
+}
+
+template<class Addr_t, class Cache_t>
+void MSHR<Addr_t, Cache_t>::putEntry(MSHRentry<Addr_t> &me)
+{
+  MSG("MSHR::putEntry not defined. May not have intended use.");
+}
+
+template<class Addr_t, class Cache_t>
+void MSHR<Addr_t, Cache_t>::updateOccHistogram()
+{
+  occStats->sampleEntryOcc(this,nEntries-nFreeEntries);
+}
+
+//
 // NoMSHR class
 //
 
-template<class Addr_t>
-NoMSHR<Addr_t>::NoMSHR(const char *name, int size, int lineSize)
-  : MSHR<Addr_t>(name, size, lineSize)
-{
-  //nothing to do  
-}
-
-
-// 
-// NoDepsMSHR class
-//
-
-template<class Addr_t>
-NoDepsMSHR<Addr_t>::NoDepsMSHR(const char *name, int size, int lineSize)
-  : MSHR<Addr_t>(name, size, lineSize)
+template<class Addr_t, class Cache_t>
+NoMSHR<Addr_t, Cache_t>::NoMSHR(const char *name, int size, int lineSize, int aPolicy)
+  : MSHR<Addr_t, Cache_t>(name, size, lineSize, aPolicy)
 {
   //nothing to do
 }
 
-template<class Addr_t>
-bool NoDepsMSHR<Addr_t>::issue(Addr_t paddr, MemOperation mo)
+
+//
+// NoDepsMSHR class
+//
+
+template<class Addr_t, class Cache_t>
+NoDepsMSHR<Addr_t, Cache_t>::NoDepsMSHR(const char *name, int size, int lineSize,
+                                        int aPolicy)
+  : MSHR<Addr_t, Cache_t>(name, size, lineSize,aPolicy)
+{
+  //nothing to do
+}
+
+template<class Addr_t, class Cache_t>
+bool NoDepsMSHR<Addr_t, Cache_t>::issue(Addr_t paddr, MemOperation mo)
 {
   nUse.inc();
 
@@ -139,9 +252,9 @@ bool NoDepsMSHR<Addr_t>::issue(Addr_t paddr, MemOperation mo)
 }
 
 
-template<class Addr_t>
-void NoDepsMSHR<Addr_t>::addEntry(Addr_t paddr, CallbackBase *c, 
-				  CallbackBase *ovflwc, MemOperation mo)
+template<class Addr_t, class Cache_t>
+void NoDepsMSHR<Addr_t, Cache_t>::addEntry(Addr_t paddr, CallbackBase *c,
+                                           CallbackBase *ovflwc, MemOperation mo)
 {
   // by definition, calling addEntry in the NoDepsMSHR is overflowing
   OverflowField f;
@@ -157,8 +270,8 @@ void NoDepsMSHR<Addr_t>::addEntry(Addr_t paddr, CallbackBase *c,
   return;
 }
 
-template<class Addr_t>
-void NoDepsMSHR<Addr_t>::retire(Addr_t paddr)
+template<class Addr_t, class Cache_t>
+bool NoDepsMSHR<Addr_t, Cache_t>::retire(Addr_t paddr)
 {
   maxUsedEntries.sample(nEntries - nFreeEntries);
 
@@ -173,24 +286,32 @@ void NoDepsMSHR<Addr_t>::retire(Addr_t paddr)
       f.cb->destroy(); // the accessQueuedCallback will bever be called.
     } else
       f.cb->call();  // temporary until vmem uses the ovflw callback FIXME
-  } 
+  }
+
+  return true;
 }
 
-// 
+template<class Addr_t, class Cache_t>
+bool NoDepsMSHR<Addr_t, Cache_t>::hasLineReq(Addr_t paddr)
+{
+  return false;
+}
+
+//
 // FullMSHR class
 //
 
-template<class Addr_t>
-FullMSHR<Addr_t>::FullMSHR<Addr_t>(const char *name, int size, int lineSize)
-  : MSHR<Addr_t>(name, size, lineSize)
+template<class Addr_t, class Cache_t>
+FullMSHR<Addr_t, Cache_t>::FullMSHR(const char *name, int size, int lineSize, int aPolicy)
+  : MSHR<Addr_t, Cache_t>(name, size, lineSize, aPolicy)
   ,nStallConflict("%s_MSHR:nStallConflict", name)
   ,MSHRSize(roundUpPower2(size)*4)
   ,MSHRMask(MSHRSize-1)
-    
+
 {
   I(lineSize>=0 && Log2LineSize<(8*sizeof(Addr_t)-1));
   overflowing  = false;
-  
+
   entry = new EntryType[MSHRSize];
 
   for(int i=0;i<MSHRSize;i++) {
@@ -199,8 +320,8 @@ FullMSHR<Addr_t>::FullMSHR<Addr_t>(const char *name, int size, int lineSize)
   }
 }
 
-template<class Addr_t>
-bool FullMSHR<Addr_t>::issue(Addr_t paddr, MemOperation mo)
+template<class Addr_t, class Cache_t>
+bool FullMSHR<Addr_t, Cache_t>::issue(Addr_t paddr, MemOperation mo)
 {
   nUse.inc();
 
@@ -222,8 +343,8 @@ bool FullMSHR<Addr_t>::issue(Addr_t paddr, MemOperation mo)
   return true;
 }
 
-template<class Addr_t>
-void FullMSHR<Addr_t>::addEntry(Addr_t paddr, CallbackBase *c, CallbackBase *ovflwc, MemOperation mo)
+template<class Addr_t, class Cache_t>
+void FullMSHR<Addr_t, Cache_t>::addEntry(Addr_t paddr, CallbackBase *c, CallbackBase *ovflwc, MemOperation mo)
 {
   I(nFreeEntries>=0);
   I(nFreeEntries <= nEntries);
@@ -251,11 +372,11 @@ void FullMSHR<Addr_t>::addEntry(Addr_t paddr, CallbackBase *c, CallbackBase *ovf
   entry[pos].cc.add(c);
 }
 
-template<class Addr_t>
-void FullMSHR<Addr_t>::retire(Addr_t paddr)
+template<class Addr_t, class Cache_t>
+bool FullMSHR<Addr_t, Cache_t>::retire(Addr_t paddr)
 {
   maxUsedEntries.sample((nEntries - nFreeEntries) + overflow.size());
-  
+
   if (overflowing) {
     I(!overflow.empty());
     OverflowField f = overflow.front();
@@ -269,21 +390,20 @@ void FullMSHR<Addr_t>::retire(Addr_t paddr)
       // pending line already. but we need to destroy the callback to
       // avoid leaks.
       if(f.ovflwcb)
-	f.ovflwcb->destroy();
+        f.ovflwcb->destroy();
     }else{
       entry[opos].inUse = true;
       if(f.ovflwcb) {
-	f.ovflwcb->call();
-	f.cb->destroy(); // the retire callback will never be called
-      } else 
-	f.cb->call(); // temporary until vmem uses the ovflw callback FIXME
+        f.ovflwcb->call();
+        f.cb->destroy(); // the retire callback will never be called
+      } else
+        f.cb->call(); // temporary until vmem uses the ovflw callback FIXME
     }
   } else
     nFreeEntries++;
 
   I(nFreeEntries>=0);
   I(nFreeEntries <= nEntries);
-  GMSG(nFreeEntries > nEntries, "free[%d] max[%d] overflow[%d]",nFreeEntries, nEntries, overflow.size());
 
   int pos = calcEntry(paddr);
 
@@ -291,44 +411,62 @@ void FullMSHR<Addr_t>::retire(Addr_t paddr)
 
   if (!entry[pos].cc.empty()) {
     entry[pos].cc.callNext();
-    return;
+    return false;
   }
 
   entry[pos].inUse = false;
+  return true;
 }
 
+
+template<class Addr_t, class Cache_t>
+bool FullMSHR<Addr_t, Cache_t>::hasLineReq(Addr_t paddr)
+{
+  //not well defined for this MSHR
+  return false;
+}
+
+//
 // SingleMSHR
+//
 
-//template<class Addr_t> Cache* SingleMSHR<Addr_t>::L2Cache = NULL; FIXME: fix this
-
-template<class Addr_t>
-SingleMSHR<Addr_t>::SingleMSHR(const char *name, int size, int lineSize, int nse)
-  : MSHR<Addr_t>(name, size, lineSize),
-    nSubEntries(nse),
+template<class Addr_t, class Cache_t>
+SingleMSHR<Addr_t, Cache_t>::SingleMSHR(const char *name, int size,
+                                        int lineSize, int nrd, int nwr,
+                                        int aPolicy)
+  : MSHR<Addr_t, Cache_t>(name, size, lineSize, aPolicy),
+    nReads(nrd),
+    nWrites(nwr),
     bf(4, 8, 256, 6, 64, 6, 64, 6, 64),
     avgOverflowConsumptions("%s_MSHR_avgOverflowConsumptions", name),
     maxOutsReqs("%s_MSHR_maxOutsReqs", name),
     avgReqsPerLine("%s_MSHR_avgReqsPerLine", name),
     nIssuesNewEntry("%s_MSHR:nIssuesNewEntry", name),
-    nL2HitsNewEntry("%s_MSHR:nL2HitsNewEntry", name),
-    subEntriesHist("%s_MSHR:usedSubEntries", name),
-    nCanNotAcceptSubEntryFull("%s_MSHR:nCanNotAcceptSubEntryFull", name)
-
+    nCanNotAcceptSubEntryFull("%s_MSHR:nCanNotAcceptSubEntryFull", name),
+    nCanNotAcceptTooManyWrites("%s_MSHR:nCanNotAcceptTooManyWrites", name),
+    avgQueueSize("%s_MSHR_avgQueueSize", name),
+    avgWritesPerLine("%s_MSHR_avgWritesPerLine", name),
+    avgWritesPerLineComb("%s_MSHR_avgWritesPerLineComb", name),
+    nOnlyWrites("%s_MSHR:nOnlyWrites", name),
+    nRetiredEntries("%s_MSHR:nRetiredEntries", name),
+    nRetiredEntriesWritten("%s_MSHR:nRetiredEntriesWritten", name)
 {
   nFreeEntries = nEntries;
+  nFullReadEntries = 0;
+  nFullWriteEntries = 0;
   checkingOverflow = false;
   nOutsReqs = 0;
 }
 
-template<class Addr_t>
-bool SingleMSHR<Addr_t>::issue(Addr_t paddr, MemOperation mo)
+template<class Addr_t, class Cache_t>
+bool SingleMSHR<Addr_t, Cache_t>::issue(Addr_t paddr, MemOperation mo)
 {
   MSHRit it = ms.find(calcLineAddr(paddr));
 
   nUse.inc();
   if(mo == MemRead)
     nUseReads.inc();
-  
+
   if(mo == MemWrite)
     nUseWrites.inc();
 
@@ -340,25 +478,34 @@ bool SingleMSHR<Addr_t>::issue(Addr_t paddr, MemOperation mo)
 
   if(it == ms.end()) {
     if(nFreeEntries > 0) {
-      entriesOnReqHist.sample(nEntries-nFreeEntries,1);
-      ms[calcLineAddr(paddr)].firstRequest(calcLineAddr(paddr), nSubEntries);
+      ms[calcLineAddr(paddr)].firstRequest(paddr, calcLineAddr(paddr), 
+					   nReads, nWrites, mo);
       bf.insert(calcLineAddr(paddr));
       nFreeEntries--;
       updateOccHistogram();
       nOutsReqs++;
-      updatePendingReqsHistogram(nOutsReqs);
+
+      if(mo == MemRead)
+	occStats->incRdReqs();
+
       nIssuesNewEntry.inc();
-      updateL2HitStat(paddr);
+      avgQueueSize.sample(0);
+
+      checkSubEntries(paddr, mo);
+
+#ifdef MSHR_EXTRAOCCSTATS
+      occStats->sampleEntry( calcLineAddr(paddr) );
+#endif
       return true;
-    } 
+    }
   }
 
   return false;
 }
 
-template<class Addr_t>
-void SingleMSHR<Addr_t>::toOverflow(Addr_t paddr, CallbackBase *c, 
-				    CallbackBase *ovflwc, MemOperation mo)
+template<class Addr_t, class Cache_t>
+void SingleMSHR<Addr_t, Cache_t>::toOverflow(Addr_t paddr, CallbackBase *c,
+                                             CallbackBase *ovflwc, MemOperation mo)
 {
   OverflowField f;
   f.paddr = paddr;
@@ -370,12 +517,33 @@ void SingleMSHR<Addr_t>::toOverflow(Addr_t paddr, CallbackBase *c,
   nOverflows.inc();
 }
 
-template<class Addr_t>
-void SingleMSHR<Addr_t>::checkOverflow()
+template<class Addr_t, class Cache_t>
+void SingleMSHR<Addr_t, Cache_t>::checkSubEntries(Addr_t paddr, MemOperation mo)
+{
+  MSHRit it = ms.find(calcLineAddr(paddr));
+  I(it != ms.end());
+
+  if((*it).second.isRdWrSharing()) {
+    if(!(*it).second.hasFreeReads() ||!(*it).second.hasFreeWrites()) {
+      nFullReadEntries++;
+      nFullWriteEntries++;
+    }
+  } else {
+    if(!(*it).second.hasFreeReads() && mo == MemRead) {
+      nFullReadEntries++;
+    }
+    if(!(*it).second.hasFreeWrites() && mo == MemWrite) {
+      nFullWriteEntries++;
+    }
+  }
+}
+
+template<class Addr_t, class Cache_t>
+void SingleMSHR<Addr_t, Cache_t>::checkOverflow()
 {
   if(overflow.empty()) //nothing to do
     return;
-  
+
   if(checkingOverflow) // i am already checking the overflow
     return;
 
@@ -389,35 +557,49 @@ void SingleMSHR<Addr_t>::checkOverflow()
   do {
     OverflowField f = overflow.front();
     MSHRit it = ms.find(calcLineAddr(f.paddr));
-    
+
     if(it == ms.end()) {
       if(nFreeEntries > 0) {
-	entriesOnReqHist.sample(nEntries-nFreeEntries,1);
-	ms[calcLineAddr(f.paddr)].firstRequest(calcLineAddr(f.paddr), nSubEntries);
-	bf.insert(calcLineAddr(f.paddr));
-	nFreeEntries--;
-	updateOccHistogram();
-	nConsumed++;
-	nOutsReqs++;
-	updatePendingReqsHistogram(nOutsReqs);
-	f.ovflwcb->call();
-	f.cb->destroy();
-	overflow.pop_front();
-	nIssuesNewEntry.inc();
-	updateL2HitStat(f.paddr);
+        ms[calcLineAddr(f.paddr)].firstRequest(f.paddr, calcLineAddr(f.paddr),
+                                               nReads, nWrites, f.mo);
+	checkSubEntries(f.paddr, f.mo);
+#ifdef MSHR_EXTRAOCCSTATS
+        occStats->sampleEntry( calcLineAddr( f.paddr ) );
+#endif
+        bf.insert(calcLineAddr(f.paddr));
+        nFreeEntries--;
+        updateOccHistogram();
+        nConsumed++;
+        nOutsReqs++;
+	if(f.mo == MemRead)
+	  occStats->incRdReqs();
+
+        f.ovflwcb->call();
+        f.cb->destroy();
+        overflow.pop_front();
+        nIssuesNewEntry.inc();
+        avgQueueSize.sample(0);
+
       } else {
-	break;
+        break;
       }
     } else { // just try to add the entry
       if((*it).second.addRequest(f.paddr, f.cb, f.mo)) {
-	// succesfully accepted entry, but no need to call the callback
-	// since there was already an entry pending for the same line
-	f.ovflwcb->destroy();
-	overflow.pop_front();
-	nOutsReqs++;
-	updatePendingReqsHistogram(nOutsReqs);
+        // succesfully accepted entry, but no need to call the callback
+        // since there was already an entry pending for the same line
+        avgQueueSize.sample((*it).second.getPendingReqs() - 1);
+        f.ovflwcb->destroy();
+        overflow.pop_front();
+        nOutsReqs++;
+	if(f.mo == MemRead)
+	  occStats->incRdReqs();
+
+
+	checkSubEntries(f.paddr, f.mo);
+        //MSG("[%llu] nFullRd=%d nFullWr=%d a:%lu",globalClock,
+        //  nFullReadEntries,nFullWriteEntries,calcLineAddr(f.paddr));
       } else {
-	break;
+        break;
       }
     }
   } while(!overflow.empty());
@@ -428,9 +610,9 @@ void SingleMSHR<Addr_t>::checkOverflow()
   checkingOverflow = false;
 }
 
-template<class Addr_t>
-void SingleMSHR<Addr_t>::addEntry(Addr_t paddr, CallbackBase *c, 
-				  CallbackBase *ovflwc, MemOperation mo)
+template<class Addr_t, class Cache_t>
+void SingleMSHR<Addr_t, Cache_t>::addEntry(Addr_t paddr, CallbackBase *c,
+                                           CallbackBase *ovflwc, MemOperation mo)
 {
   MSHRit it = ms.find(calcLineAddr(paddr));
   I(ovflwc); // for single MSHR, overflow handler REQUIRED!
@@ -449,9 +631,18 @@ void SingleMSHR<Addr_t>::addEntry(Addr_t paddr, CallbackBase *c,
 
   if((*it).second.addRequest(paddr, c, mo)) {
     // ok, the addrequest succeeded, the request was added
+    avgQueueSize.sample((*it).second.getPendingReqs() - 1);
     nOutsReqs++;
-    updatePendingReqsHistogram(nOutsReqs);
-    ovflwc->destroy(); // there was no overflow, so the callback needs to be destroyed
+    if(mo == MemRead)
+      occStats->incRdReqs();
+
+    // there was no overflow, so the callback needs to be destroyed
+    ovflwc->destroy();
+    // check to see if we have filled up the subentries
+    checkSubEntries(paddr, mo);
+
+    //MSG("[%llu] nFullRd=%d nFullWr=%d a:%lu",globalClock,
+    //      nFullReadEntries,nFullWriteEntries, calcLineAddr(paddr));
     return;
   } else {
     // too many oustanding requests to the same line already. send to overflow
@@ -460,23 +651,78 @@ void SingleMSHR<Addr_t>::addEntry(Addr_t paddr, CallbackBase *c,
   }
 }
 
-template<class Addr_t>
-void SingleMSHR<Addr_t>::retire(Addr_t paddr)
+template<class Addr_t, class Cache_t>
+bool SingleMSHR<Addr_t, Cache_t>::retire(Addr_t paddr)
 {
+  bool rmEntry = false;
+
   MSHRit it = ms.find(calcLineAddr(paddr));
   I(it != ms.end());
   I(calcLineAddr(paddr) == (*it).second.getLineAddr());
 
   maxOutsReqs.sample(nOutsReqs);
   nOutsReqs--;
-  updatePendingReqsHistogram(nOutsReqs);
-  if((*it).second.retire()) {
+
+  //MSG("[%llu] nFullSubE=%d a=%lu",globalClock,nFullReadEntries,calcLineAddr(paddr));
+
+  rmEntry = (*it).second.retire();
+  if(rmEntry) {
     // the last pending request for the MSHRentry was completed
     // recycle the entry
-    avgReqsPerLine.sample((*it).second.getMaxUsedSubEntries());
-    subEntriesHist.sample((*it).second.getMaxUsedSubEntries(), 1);
+    nRetiredEntries.inc();
+    avgReqsPerLine.sample((*it).second.getUsedReads() + (*it).second.getUsedWrites());
     maxUsedEntries.sample(nEntries - nFreeEntries);
+    avgWritesPerLine.sample((*it).second.getUsedWrites());
+    avgWritesPerLineComb.sample((*it).second.getNWrittenWords());
+    
+    occStats->decRdReqs((*it).second.getUsedReads());
 
+    if((*it).second.getUsedWrites() > 0)
+      nRetiredEntriesWritten.inc();
+
+    if( ! (*it).second.hasFreeReads() ) {
+      nFullReadEntries--;
+      I(nFullReadEntries>=0);
+    }
+
+    if( ! (*it).second.hasFreeWrites() ) {
+      nFullWriteEntries--;
+      I(nFullWriteEntries>=0);
+    }
+
+    if((*it).second.isL2Hit()) 
+      occStats->avgReadSubentriesL2Hit.sample((*it).second.getUsedReads());
+    else
+      occStats->avgReadSubentriesL2Miss.sample((*it).second.getUsedReads());
+
+#ifdef MSHR_EXTRAOCCSTATS
+    // extra MSHR occ stats
+    occStats->subEntriesHist.sample((*it).second.getUsedReads()+
+				    (*it).second.getUsedWrites(), 1);
+
+    occStats->subEntriesReadsHist.sample((*it).second.getUsedReads(), 1);
+
+    occStats->subEntriesWritesHist.sample((*it).second.getUsedWrites(), 1);
+
+    occStats->subEntriesWritesHistComb.sample((*it).second.getNWrittenWords(), 1);
+
+    occStats->subEntriesHistComb.sample((*it).second.getUsedReads()+
+					(*it).second.getNWrittenWords(), 1);
+    
+    if((*it).second.getUsedReads() == 0 &&
+       (*it).second.getUsedWrites() > 0) {
+      nOnlyWrites.inc();
+      occStats->retireWrEntry((*it).second.getLineAddr());
+    } else if( (*it).second.getUsedReads() > 0 &&
+      (*it).second.getUsedWrites() == 0 ) {
+      occStats->retireRdEntry((*it).second.getLineAddr());
+    } else {
+      I( (*it).second.getUsedWrites() > 0 );  
+      I( (*it).second.getUsedReads() > 0 );
+      occStats->retireRdWrEntry((*it).second.getLineAddr());  
+    }
+#endif
+    
     nFreeEntries++;
     updateOccHistogram();
     bf.remove((*it).second.getLineAddr());
@@ -484,10 +730,32 @@ void SingleMSHR<Addr_t>::retire(Addr_t paddr)
   }
 
   checkOverflow();
+
+  return rmEntry;
 }
 
-template<class Addr_t>
-bool SingleMSHR<Addr_t>::canAcceptRequest(Addr_t paddr)
+
+template<class Addr_t, class Cache_t>
+bool SingleMSHR<Addr_t, Cache_t>::canAllocateEntry()
+{
+  return (nFreeEntries > 0) && (nFullReadEntries==0) && (nFullWriteEntries==0);
+}
+
+template<class Addr_t, class Cache_t>
+bool SingleMSHR<Addr_t, Cache_t>::readSEntryFull()
+{ 
+  return (nFullReadEntries != 0);
+}
+
+template<class Addr_t, class Cache_t>
+bool SingleMSHR<Addr_t, Cache_t>::writeSEntryFull() 
+{ 
+  return (nFullWriteEntries != 0);
+}
+
+
+template<class Addr_t, class Cache_t>
+bool SingleMSHR<Addr_t, Cache_t>::canAcceptRequestSpecial(Addr_t paddr, MemOperation mo)
 {
   if(!overflow.empty()) {
     nCanNotAccept.inc();
@@ -507,50 +775,132 @@ bool SingleMSHR<Addr_t>::canAcceptRequest(Addr_t paddr)
   }
 
   I(it != ms.end());
-  
-  bool canAccept = (*it).second.canAcceptRequest();
+
+  bool canAccept = (*it).second.canAcceptRequest(mo);
   if(canAccept)
     nCanAccept.inc();
   else {
     nCanNotAccept.inc();
-    nCanNotAcceptSubEntryFull.inc();
+
+    if(mo == MemWrite && !(*it).second.hasFreeWrites())
+      nCanNotAcceptTooManyWrites.inc();
+    else
+      nCanNotAcceptSubEntryFull.inc();
   }
 
   return canAccept;
 }
 
-template<class Addr_t>
-void SingleMSHR<Addr_t>::dropEntry(Addr_t paddr)
+template<class Addr_t, class Cache_t>
+bool SingleMSHR<Addr_t, Cache_t>::isOnlyWrites(Addr_t paddr)
 {
-  MSHRit it = ms.find(paddr);
+  const_MSHRit it = ms.find(calcLineAddr(paddr));
+  I(it != ms.end());
+
+  return ((*it).second.getUsedReads() == 0);
+}
+
+template<class Addr_t, class Cache_t>
+MSHRentry<Addr_t>* SingleMSHR<Addr_t, Cache_t>::selectEntryToDrop(Addr_t paddr)
+{
+  MSHRentry<Addr_t> *me;
+  MSHRit dispIt = ms.begin();
+
+  me = &((*dispIt).second);
+
+  I(!ms.empty());
+
+  // choosing the oldest one
+  for(MSHRit it = ms.begin(); it != ms.end(); it++) {
+    Time_t ts = it->second.getWhenAllocated();
+    if(ts < dispIt->second.getWhenAllocated()) {
+      dispIt = it;
+      me = &((*it).second);
+    }
+  }
+
+  return me;
+}
+
+template<class Addr_t, class Cache_t>
+void SingleMSHR<Addr_t, Cache_t>::dropEntry(Addr_t lineAddr)
+{
+  MSHRit it = ms.find(lineAddr);
   I(it != ms.end());
   (*it).second.displace();
-  
-  nOutsReqs -= (*it).second.getUsedSubEntries();
-  ms.erase(it);
-  bf.remove(paddr);
-  updatePendingReqsHistogram(nOutsReqs);
+
+  if( ! (*it).second.hasFreeReads() ) {
+    nFullReadEntries--;
+  }
+  if( ! (*it).second.hasFreeWrites() ) {
+    nFullWriteEntries--;
+  }
+
+  nOutsReqs -= ( (*it).second.getPendingReqs() );
 
   nFreeEntries++;
   updateOccHistogram();
+  occStats->decRdReqs((*it).second.getUsedReads());
+#ifdef MSHR_EXTRAOCCSTATS
+  if((*it).second.getUsedReads() == 0 &&
+     (*it).second.getUsedWrites() > 0) {
+    occStats->retireWrEntry((*it).second.getLineAddr());
+  } else if( (*it).second.getUsedReads() > 0 &&
+	     (*it).second.getUsedWrites() == 0 ) {
+    occStats->retireRdEntry((*it).second.getLineAddr());
+  } else {
+    I( (*it).second.getUsedWrites() > 0 );  
+    I( (*it).second.getUsedReads() > 0 );
+    occStats->retireRdWrEntry((*it).second.getLineAddr());  
+  }
+#endif
+
+  ms.erase(it);
+  bf.remove(lineAddr);
 }
 
-template<class Addr_t>
-void SingleMSHR<Addr_t>::putEntry(MSHRentry<Addr_t> &me)
+template<class Addr_t, class Cache_t>
+MSHRentry<Addr_t>* SingleMSHR<Addr_t, Cache_t>::getEntry(Addr_t paddr)
+{
+  MSHRentry<Addr_t> *me = NULL;
+  MSHRit dispIt = ms.find(calcLineAddr(paddr));
+
+  if(dispIt!=ms.end())
+    me = &((*dispIt).second);
+
+  return me;
+}
+
+template<class Addr_t, class Cache_t>
+void SingleMSHR<Addr_t, Cache_t>::putEntry(MSHRentry<Addr_t> &me)
 {
   I(ms.find(me.getLineAddr()) == ms.end());
-  
+
   I(nFreeEntries > 0);
 
   ms[me.getLineAddr()] = me;
-  bf.insert(me.getLineAddr());
-  nOutsReqs += me.getUsedSubEntries();
-  updatePendingReqsHistogram(nOutsReqs);
-  updateL2HitStat(me.getLineAddr() << Log2LineSize );
 
-  entriesOnReqHist.sample(nEntries-nFreeEntries,1);
+  ms[me.getLineAddr()].adjustParameters(getnReads(), 
+					getnWrites());
+
+  MSHRentry<Addr_t> &pme = ms[me.getLineAddr()];
+
+  bf.insert(pme.getLineAddr());
+  nOutsReqs += pme.getPendingReqs();
+
   nFreeEntries--;
   updateOccHistogram();
+  occStats->incRdReqs(me.getUsedReads());
+#ifdef MSHR_EXTRAOCCSTATS
+  occStats->sampleEntry(me.getLineAddr());
+#endif
+
+  if( ! pme.hasFreeReads() ) {
+    nFullReadEntries++;
+  }
+  if( ! pme.hasFreeWrites() ) {
+    nFullWriteEntries++;
+  }
 
   I(nFreeEntries >=0);
 }
@@ -559,33 +909,71 @@ void SingleMSHR<Addr_t>::putEntry(MSHRentry<Addr_t> &me)
 // BankedMSHR
 //
 
-template<class Addr_t>
-BankedMSHR<Addr_t>::BankedMSHR(const char *name, int size, int lineSize, int nb, int nse)
-  : MSHR<Addr_t>(name, size, lineSize),
+template<class Addr_t, class Cache_t>
+BankedMSHR<Addr_t, Cache_t>::BankedMSHR(const char *name, int size, int lineSize,
+                                        int nb, int nrd, int nwr, int aPolicy)
+  : MSHR<Addr_t, Cache_t>(name, size, lineSize, aPolicy),
     nBanks(nb),
     maxOutsReqs("%s_MSHR_maxOutsReqs", name),
     avgOverflowConsumptions("%s_MSHR_avgOverflowConsumptions", name)
 {
-  mshrBank = (SingleMSHR<Addr_t> **) malloc(sizeof(SingleMSHR<Addr_t> *) * nBanks);
+  mshrBank = (SingleMSHR<Addr_t, Cache_t> **)
+    malloc(sizeof(SingleMSHR<Addr_t, Cache_t> *) * nBanks);
+  
   for(int i = 0; i < nBanks; i++) {
     char mName[512];
-    sprintf(mName, "%s_B%d", name, i);
-    mshrBank[i] = new SingleMSHR<Addr_t>(mName, size, lineSize, nse);
+    sprintf(mName, "%s_set%d", name, i);
+    mshrBank[i] =
+      new SingleMSHR<Addr_t, Cache_t>(mName, size, lineSize, nrd, nwr);
+    mshrBank[i]->attach(this);
   }
 
   nOutsReqs = 0;
   checkingOverflow = false;
 }
 
-template<class Addr_t>
-bool BankedMSHR<Addr_t>::canAcceptRequest(Addr_t paddr)
+template<class Addr_t, class Cache_t>
+bool BankedMSHR<Addr_t, Cache_t>::canAllocateEntry()
+{
+  bool can=true;
+  for(int i=0;i<nBanks;i++) {
+    can = (can && mshrBank[i]->canAllocateEntry());
+  }
+  return can;
+}
+
+template<class Addr_t, class Cache_t>
+bool BankedMSHR<Addr_t, Cache_t>::readSEntryFull()
+{ 
+  for(int i=0;i<nBanks;i++) {
+    if(mshrBank[i]->readSEntryFull())
+      return true;
+  }
+  return false;
+}
+
+template<class Addr_t, class Cache_t>
+bool BankedMSHR<Addr_t, Cache_t>::writeSEntryFull()
+{ 
+  for(int i=0;i<nBanks;i++) {
+    if(mshrBank[i]->writeSEntryFull())
+      return true;
+  }
+  return false;
+}
+
+
+template<class Addr_t, class Cache_t>
+bool BankedMSHR<Addr_t, Cache_t>::canAcceptRequestSpecial(Addr_t paddr,
+                                                          MemOperation mo)
 {
   if(!overflow.empty()) {
     nCanNotAccept.inc();
     return false;
   }
 
-  bool canAccept = mshrBank[calcBankIndex(paddr)]->canAcceptRequest(paddr);
+  bool canAccept = mshrBank[calcBankIndex(paddr)]->canAcceptRequest(paddr,mo);
+
   if(canAccept)
     nCanAccept.inc();
   else
@@ -594,17 +982,17 @@ bool BankedMSHR<Addr_t>::canAcceptRequest(Addr_t paddr)
   return canAccept;
 }
 
-template<class Addr_t>
-bool BankedMSHR<Addr_t>::issue(Addr_t paddr, MemOperation mo) 
+template<class Addr_t, class Cache_t>
+bool BankedMSHR<Addr_t, Cache_t>::issue(Addr_t paddr, MemOperation mo)
 {
   nUse.inc();
 
   if(mo == MemRead)
     nUseReads.inc();
-  
+
   if(mo == MemWrite)
     nUseWrites.inc();
-  
+
   if(!overflow.empty())
     return false;
 
@@ -612,44 +1000,44 @@ bool BankedMSHR<Addr_t>::issue(Addr_t paddr, MemOperation mo)
 
   if(issued) {
     nOutsReqs++;
-    updatePendingReqsHistogram(nOutsReqs);
   }
 
   return issued;
 }
 
-template<class Addr_t>
-void BankedMSHR<Addr_t>::addEntry(Addr_t paddr, CallbackBase *c, 
-				  CallbackBase *ovflwc, MemOperation mo)
+template<class Addr_t, class Cache_t>
+void BankedMSHR<Addr_t, Cache_t>::addEntry(Addr_t paddr, CallbackBase *c,
+                                           CallbackBase *ovflwc, MemOperation mo)
 {
   if(!overflow.empty()) {
     toOverflow(paddr, c, ovflwc, mo);
     return;
   }
 
-  if(mshrBank[calcBankIndex(paddr)]->canAcceptRequest(paddr)) {
+  if(mshrBank[calcBankIndex(paddr)]->canAcceptRequest(paddr, mo)) {
     nOutsReqs++;
-    updatePendingReqsHistogram(nOutsReqs);
     mshrBank[calcBankIndex(paddr)]->addEntry(paddr, c, ovflwc, mo);
+    I(!mshrBank[calcBankIndex(paddr)]->isOverflowing());
     return;
   }
 
   toOverflow(paddr, c, ovflwc, mo);
 }
 
-template<class Addr_t>
-void BankedMSHR<Addr_t>::retire(Addr_t paddr)
+template<class Addr_t, class Cache_t>
+bool BankedMSHR<Addr_t, Cache_t>::retire(Addr_t paddr)
 {
+  bool rmEntry;
   maxOutsReqs.sample(nOutsReqs);
-  mshrBank[calcBankIndex(paddr)]->retire(paddr);
+  rmEntry = mshrBank[calcBankIndex(paddr)]->retire(paddr);
   nOutsReqs--;
-  updatePendingReqsHistogram(nOutsReqs);
   checkOverflow();
+  return rmEntry;
 }
 
-template<class Addr_t>
-void BankedMSHR<Addr_t>::toOverflow(Addr_t paddr, CallbackBase *c, 
-				    CallbackBase *ovflwc, MemOperation mo)
+template<class Addr_t, class Cache_t>
+void BankedMSHR<Addr_t, Cache_t>::toOverflow(Addr_t paddr, CallbackBase *c,
+                                             CallbackBase *ovflwc, MemOperation mo)
 {
   OverflowField f;
   f.paddr = paddr;
@@ -657,11 +1045,12 @@ void BankedMSHR<Addr_t>::toOverflow(Addr_t paddr, CallbackBase *c,
   f.ovflwcb = ovflwc;
   f.mo      = mo;
 
+  nOverflows.inc();
   overflow.push_back(f);
 }
 
-template<class Addr_t>
-void BankedMSHR<Addr_t>::checkOverflow()
+template<class Addr_t, class Cache_t>
+void BankedMSHR<Addr_t, Cache_t>::checkOverflow()
 {
   if(overflow.empty()) //nothing to do
     return;
@@ -678,23 +1067,24 @@ void BankedMSHR<Addr_t>::checkOverflow()
 
   do {
     OverflowField f = overflow.front();
-    SingleMSHR<Addr_t> *mb = mshrBank[calcBankIndex(f.paddr)];
+    SingleMSHR<Addr_t, Cache_t> *mb = mshrBank[calcBankIndex(f.paddr)];
 
-    if(!mb->canAcceptRequest(f.paddr))
+    if(!mb->canAcceptRequest(f.paddr, f.mo))
       break;
 
     overflow.pop_front();
     nOutsReqs++;
-    updatePendingReqsHistogram(nOutsReqs);
     nConsumed++;
 
     if(mb->issue(f.paddr, f.mo)) {
+
       f.ovflwcb->call();
       f.cb->destroy();
       continue;
     }
 
     mb->addEntry(f.paddr, f.cb, f.ovflwcb, f.mo);
+    I(!mb->isOverflowing());
 
   } while(!overflow.empty());
 
@@ -704,6 +1094,61 @@ void BankedMSHR<Addr_t>::checkOverflow()
   checkingOverflow = false;
 }
 
+template<class Addr_t, class Cache_t>
+void BankedMSHR<Addr_t, Cache_t>::setLowerCache(Cache_t *lCache)
+{
+  for(int i=0; i<nBanks; i++) {
+    mshrBank[i]->setLowerCache(lCache);
+  }
+}
+
+template<class Addr_t, class Cache_t>
+bool BankedMSHR<Addr_t, Cache_t>::hasLineReq(Addr_t paddr)
+{
+  return mshrBank[calcBankIndex(paddr<<Log2LineSize)]->hasLineReq(paddr);
+}
+
+template<class Addr_t, class Cache_t>
+MSHRentry<Addr_t>* BankedMSHR<Addr_t, Cache_t>::selectEntryToDrop(Addr_t paddr)
+{
+  MSHRentry<Addr_t> *me;
+
+  me = mshrBank[calcBankIndex(paddr)]->selectEntryToDrop(paddr);
+
+  return me;
+}
+
+template<class Addr_t, class Cache_t>
+void BankedMSHR<Addr_t, Cache_t>::dropEntry(Addr_t lineAddr)
+{
+  I(mshrBank);
+  I(mshrBank[calcBankIndex(lineAddr<<Log2LineSize)]);
+  mshrBank[calcBankIndex(lineAddr<<Log2LineSize)]->dropEntry(lineAddr);
+}
+
+template<class Addr_t, class Cache_t>
+MSHRentry<Addr_t>* BankedMSHR<Addr_t, Cache_t>::getEntry(Addr_t paddr)
+{
+  return mshrBank[calcBankIndex(paddr)]->getEntry(paddr);
+}
+
+
+template<class Addr_t, class Cache_t>
+void BankedMSHR<Addr_t, Cache_t>::putEntry(MSHRentry<Addr_t> &me)
+{
+  I(mshrBank);
+  I(mshrBank[calcBankIndex(me.getLineAddr()<<Log2LineSize)]);
+  mshrBank[calcBankIndex(me.getLineAddr()<<Log2LineSize)]->putEntry(me);
+}
+
+template<class Addr_t, class Cache_t>
+void BankedMSHR<Addr_t, Cache_t>::attach( MSHR<Addr_t,Cache_t> *mshr )
+{
+  MSHR<Addr_t,Cache_t>::attach(mshr);
+  for(int i=0;i<nBanks;i++) {
+    mshrBank[i]->attach(mshr);
+  }
+}
 
 
 //
@@ -711,38 +1156,45 @@ void BankedMSHR<Addr_t>::checkOverflow()
 //
 
 template<class Addr_t>
-bool MSHRentry<Addr_t>::addRequest(Addr_t reqAddr, CallbackBase *rcb, MemOperation mo) 
+bool MSHRentry<Addr_t>::addRequest(Addr_t reqAddr, CallbackBase *rcb, MemOperation mo)
 {
-  I(nFreeSubEntries >= 0);
-  I(nFreeSubEntries <= nSubEntries);
+  I(nFreeReads >= 0);
+  I(nFreeReads <= nReads);
+  I(nFreeWrites >= 0);
+  I(nFreeWrites <= nWrites);
+  I(nFreeSEntries >= 0);
 
-  if(nFreeSubEntries == 0) 
+  if(nFreeSEntries == 0)
     return false;
 
-  nFreeSubEntries--;
+  if(mo == MemRead && nFreeReads == 0)
+    return false;
 
-  maxUsedSubEntries = maxUsedSubEntries < (nSubEntries - nFreeSubEntries) ?
-    (nSubEntries - nFreeSubEntries) : maxUsedSubEntries;
+  if(mo == MemWrite && nFreeWrites == 0) 
+    return false;
 
+  // Writes/reads are counted separately
+  if(mo == MemRead) {
+    nFreeReads--;
+  } else {
+    I(mo == MemWrite);
+    //hardcoded word mask for now. ugly, i know.
+    writeSet.insert(reqAddr & 0xfffffffc);
+    nFreeWrites--;
+  }
+  
+  nFreeSEntries--;
   cc.add(rcb);
-
   return true;
 }
 
 template<class Addr_t>
 bool MSHRentry<Addr_t>::retire()
 {
-  nFreeSubEntries++;
-
   if(!cc.empty()) {
     cc.callNext();
     return false;
   }
 
-  // if we are here, we have to be the last pending entry in the pending
-  // MSHR
-  I(nFreeSubEntries == nSubEntries);
-
   return true;
 }
-

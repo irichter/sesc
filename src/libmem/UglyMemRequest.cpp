@@ -1,7 +1,7 @@
 
 #include "UglyMemRequest.h"
 
-pool<IntlMemRequest, true>  IntlMemRequest::actPool(32);
+pool<IntlMemRequest, true>  IntlMemRequest::actPool(32, "IntlMemRequest");
 
 IntlMemRequest::IntlMemRequest()
   :MemRequest()

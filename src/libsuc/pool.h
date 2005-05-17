@@ -171,7 +171,7 @@ public:
     psize++;
     if (psize>=warn_psize) {
       I(0);
-      MSG("pool class size grew to %lu",psize);
+      MSG("%s:pool class size grew to %lu", Name, psize);
       warn_psize=4*psize;
     }
 #endif
@@ -213,6 +213,7 @@ protected:
 #endif
 
   const int Size; // Reproduction size
+  const char *Name;
 
   Holder *first;  // List of free nodes
   
@@ -232,8 +233,10 @@ protected:
   }
 
 public:
-  pool(int s = 32)
-    : Size(s) {
+    pool(int s = 32, const char *n = "pool name not declared")
+    : Size(s)
+    , Name(n)
+    {
     I(Size > 0);
     IS(deleted=false);
 
@@ -311,7 +314,7 @@ public:
     psize++;
     if (psize>=warn_psize) {
       I(0);
-      MSG("pool class size grew to %lu",psize);
+      MSG("%s:pool class size grew to %lu", Name, psize);
       warn_psize=4*psize;
     }
 #endif

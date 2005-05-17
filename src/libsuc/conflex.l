@@ -8,11 +8,14 @@
 int CFlineno=1;
 
 #define MAXFILESTACK  32
-struct {
+typedef struct {
    char *filename;
    int line;
    YY_BUFFER_STATE state;
-} fileStack[MAXFILESTACK];
+} fileStack_t;
+
+
+fileStack_t  fileStack[MAXFILESTACK];
 int fileStackPos=0;
 
 const char *currentFile=0;

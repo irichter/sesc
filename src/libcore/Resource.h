@@ -44,6 +44,7 @@ enum StallCause {
   OutsLoadsStall,
   OutsStoresStall,
   OutsBranchesStall,
+  ReplayStall,
   PortConflictStall,
   SwitchStall,
   MaxStall

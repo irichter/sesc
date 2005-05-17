@@ -29,6 +29,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "DInst.h"
 #include "Snippets.h"
 
+class GProcessor;
 class GMemorySystem;
 class GMemoryOS;
 class MemObj;
@@ -46,6 +47,7 @@ class GFlow {
 
   GMemorySystem *gms;
   GMemoryOS *gmos;
+  //GProcessor *gproc;
   
  public:
   GFlow(int i, int cId, GMemorySystem *gmem);

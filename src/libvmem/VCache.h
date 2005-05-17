@@ -44,7 +44,7 @@ protected:
 
   LVIDTable lvidTable;
 
-  MSHR<PAddr> *mshr;
+  MSHR<PAddr,VCache> *mshr;
 
   TimeDelta_t hitDelay;
   TimeDelta_t missDelay;

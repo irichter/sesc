@@ -12,9 +12,10 @@ all: $(OBJ)/mtst1.o $(OBJ)/libmem.a
 #                Objects
 ##############################################################################
 OBJS	:= MemorySystem.o Cache.o Bank.o MemCtrl.o Bus.o MemoryOS.o  \
-           TLB.o StridePrefetcher.o UglyMemRequest.o AddressPrefetcher.o
+           TLB.o StridePrefetcher.o UglyMemRequest.o AddressPrefetcher.o \
+	   PriorityBus.o
 
-ifdef TS_PREDMISS
+ifdef TS_CAVA
 OBJS	+= MValuePredictor.o
 endif
 ##############################################################################

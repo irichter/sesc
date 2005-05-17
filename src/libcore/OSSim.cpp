@@ -160,8 +160,10 @@ OSSim::OSSim(int argc, char **argv, char **envp)
   tls::Epoch::staticConstructor();
 #endif
 
+#ifdef SESC_ENERGY
   // initialize the energy subsystem
   EnergyMgr::init();
+#endif
 }
 
 void OSSim::processParams(int argc, char **argv, char **envp)
@@ -893,9 +895,6 @@ void OSSim::preBoot()
 #ifdef TS_PROFILING
   profiler = new Profile();
 #endif  
-#ifdef PARPROF
-  parProf = new ParProf();
-#endif
 #ifdef TS_RISKLOADPROF
   riskLoadProf = new RiskLoadProf();
 #endif
@@ -979,6 +978,7 @@ void OSSim::simFinish()
   // Work finished, dump statistics
   report("Final");
 
+
   Report::close();
 
 #ifdef SESC_THERM
@@ -992,10 +992,6 @@ void OSSim::simFinish()
 
 void OSSim::report(const char *str)
 {
-
-#ifdef PARPROF
-  parProf->terminate();
-#endif
 
 #ifdef TS_RISKLOADPROF
   riskLoadProf->finalize();

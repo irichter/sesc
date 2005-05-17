@@ -5,6 +5,7 @@
    Contributed by Jose Renau
                   Basilio Fraguela
                   Smruti Sarangi
+		  Luis Ceze
 
 This file is part of SESC.
 

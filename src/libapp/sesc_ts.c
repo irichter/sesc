@@ -56,24 +56,11 @@ void sesc_terminate(void)
   sesc_exit(0);
 }
 
-#ifdef ATOMIC
-void sesc_start_transaction(void)
-{
-  fprintf(stderr, "need simulator here\n");
-  sesc_exit(1);
-}
-
-int sesc_commit_transaction(void)
-{
-  fprintf(stderr, "need simulator here\n");
-  sesc_exit(1);
-  return 1;
-}
-#endif
 
 #ifdef SESC_LOCKPROFILE
- void sesc_startlock() { }
- void sesc_endlock() { }
- void sesc_startlock2() { }
- void sesc_endlock2() { }
+void sesc_startlock() { }
+void sesc_endlock() { }
+void sesc_startlock2() { }
+void sesc_endlock2() { }
 #endif
+

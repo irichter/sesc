@@ -79,13 +79,6 @@ GStatsEnergy::GStatsEnergy(const char *field, const char *blk
 }
 
 
-GStatsEnergy::~GStatsEnergy()
-{
-  unsubscribe();
-  free(name);
-}
-
-
 #ifdef SESC_THERM
 void GStatsEnergy::setupDump(int procId) 
 {

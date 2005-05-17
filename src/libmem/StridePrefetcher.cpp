@@ -30,7 +30,8 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "MemorySystem.h"
 #include "StridePrefetcher.h"
 
-static pool < std::queue<MemRequest *> > activeMemReqPool(32);
+static pool < std::queue<MemRequest *> > activeMemReqPool(32, 
+							  "StridePrefetcher");
 
 StridePrefetcher::StridePrefetcher(MemorySystem* current
 	 ,const char *section
@@ -241,10 +242,13 @@ void StridePrefetcher::prefetch(pEntry *pe, Time_t lat)
 	CBMemRequest *r;
 	r = CBMemRequest::create(lat, lowerLevel[0], MemRead, prefAddr, 
 				 processAckCB::create(this, prefAddr));
+	if(lat != 0) { // if lat=0, the req might not exist anymore at this point
+	  r->markPrefetch();
+	}
 	pendingFetches.insert(prefAddr);
       }
     }
-    prefAddr += i * pe->stride;
+    prefAddr += pe->stride;
   }
 }
 
@@ -255,8 +259,7 @@ void StridePrefetcher::access(MemRequest *mreq)
 
   // TODO: should i really consider all these read types? 
   if (mreq->getMemOperation() == MemRead
-      || mreq->getMemOperation() == MemReadW
-      || mreq->getMemOperation() == MemReadX) {
+      || mreq->getMemOperation() == MemReadW) {
     read(mreq);
   } else {
     LOG("SP:ignoring access addr=%08lx type=%d", paddr, mreq->getMemOperation());

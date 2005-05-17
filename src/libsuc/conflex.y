@@ -4,7 +4,12 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef CYGWIN
+// This assumes that the build directory is located is a subdirectory of esesc
+#include <../../../src/libsuc/Config.h>
+#else
 #include "Config.h"
+#endif
 
   extern int CFlineno; /* Defined in conflex.l */
 
@@ -66,7 +71,7 @@ initial: /* empty */
 rules:
  CFOB CFNAME CFCB  { blockName=$2; }
 |
- CFNAME CFEQUAL texp    { configptr->addRecord(blockName,$1,$3); }
+CFNAME CFEQUAL texp    { configptr->addRecord(blockName,$1,$3); }
 |
  CFNAME CFEQUAL CFQSTRING { configptr->addRecord(blockName,$1,$3); }
 |

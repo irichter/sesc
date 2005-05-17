@@ -320,7 +320,7 @@ void *allocate2(long nbytes)
     fprintf(stderr,"allocate2: %x\n",status);
     fprintf(stderr, "allocate_aligned: cannot allocate 0x%x bytes at a 0x%x boundary.\n",
 	    (unsigned) nbytes, (unsigned) size2);
-    exit(1);
+    exit(-1);
   }
   /* Slow as hell  bzero(ptr, size2); */
 

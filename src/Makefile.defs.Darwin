@@ -21,8 +21,8 @@ CXX	=g++
 CC	=gcc
 
 ifdef DEBUG
-COPTS	:=-O1 -g -fno-inline-functions $(PDEFS)
-LOPTS	:=-O1
+COPTS	:=-O0 -g -fno-inline-functions $(PDEFS)
+LOPTS	:=-O0
 else
 # -fast does not work by default. Dissable some opts
 COPTS	:=-O3 -g1 -finline-functions -finline-limit=1800

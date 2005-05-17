@@ -37,21 +37,25 @@ my $op_lock;
 my $op_atomic;
 my $op_cc;
 my $op_baad;
+my $op_cg;
+my $op_dead;
 
 my $result = GetOptions("a",\$op_all,
                         "last",\$op_last,
                         "bpred!",\$op_bpred,
                         "cpu!",\$op_cpu,
                         "inst!",\$op_inst,
-                        "sim!",\$op_sim,
-                        "versionmem",\$op_versionmem,
-                        "tls",\$op_tls,
-                        "atomic",\$op_atomic,
-                        "lock",\$op_lock,
-                        "table",\$op_table,
-                        "cc",\$op_cc,
-                        "baad",\$op_baad,
-                        "help",\$op_help
+			"sim!",\$op_sim,
+			"versionmem",\$op_versionmem,
+			"tls",\$op_tls,
+			"atomic",\$op_atomic,
+			"lock",\$op_lock,
+			"table",\$op_table,
+			"cc",\$op_cc,
+			"baad",\$op_baad,
+                        "cg",\$op_cg,
+			"dead",\$op_dead,
+			"help",\$op_help
                        );
 
 
@@ -87,6 +91,8 @@ sub usage {
   print "\t-[no]sim      : Show results without comments\n";
   print "\t-table        : Statistics table sumarry (god for scripts)\n";
   print "\t-baad         : BAAD statistics\n";
+  print "\t-cg           : CriticalityGraph statistics\n";
+  print "\t-dead         : List report files whose simulations didn't complete\n";
   print "\t-help         : Show this help\n";
 }
 
@@ -131,6 +137,23 @@ sub main {
     exit 0;
   }
 
+  if( $op_dead ) {
+    my %dead ;
+    foreach my $f (@flist) {
+      #Catches problems accessing files without permission
+      open(FILE,"<$f") or next;
+      close(FILE);
+
+      my $c = sesc->new($f);
+
+      my $bench = $c->getCkResultField("OSSim","bench");
+      if( ($bench eq 0) ) {	    
+	  print "$f\n";
+      }
+    }
+    exit;
+  }
+
   foreach my $file (@flist) {
 
     $cf = sesc->new($file);
@@ -170,6 +193,8 @@ sub main {
     atomicStats($file)    if( $op_atomic );
 
     lockStats($file)      if( $op_lock );
+
+    showCGStats($file)    if( $op_cg );
   }
 }
 
@@ -1155,7 +1180,8 @@ sub showTLSReport {
       $cf->getResultField("P(0)_DL1","writeMiss") + 
       $cf->getResultField("P(0)_DL1","writeHit");
 
-  my $l2miss = $cf->getResultField("L2","readMiss")  +$cf->getResultField("L2","writeMiss") ;
+  my $l2miss = $cf->getResultField("L2","readMiss") 
+      + $cf->getResultField("L2","writeMiss") ;
   printf " %9.4f\n", $l2miss/$daccess;
   
 }
@@ -1605,4 +1631,60 @@ sub lockStats {
 
   printf "Lock time (instances) = %d (%d)\n", $time, $count/2;
   printf "Lock total time = %d\n", $cf->getResultField("LOCK","OccTime");
+}
+
+sub showCGStats {
+  my $file = shift;
+  my @name = split(/[_\.]/,$file);
+
+  printf "################################################################################\n";
+
+  printf "CriticalityGraph stats:\n";
+
+  my $nTotCriticalTasks = $cf->getResultField("CG", "nTotCriticalTasks");
+  my $nMidCriticalTasks = $cf->getResultField("CG", "nMidCriticalTasks");
+  my $nNonCriticalTasks = $cf->getResultField("CG", "nNonCriticalTasks");
+  my $tmpTotal = $nTotCriticalTasks+$nNonCriticalTasks+$nMidCriticalTasks;
+
+  if ($tmpTotal) {
+    printf "Crit1:    \%TotCriticalTasks \%MidCriticalTasks \%NonCriticalTask\n";
+    printf "Crit1: %8s %9.2f %18.2f %18.2f\n", $name[3],
+            100*$nTotCriticalTasks/$tmpTotal,
+            100*$nMidCriticalTasks/$tmpTotal,
+            100*$nNonCriticalTasks/$tmpTotal;
+  }        
+  
+  my $nCorrectCauseSquash = $cf->getResultField("CG", "nCorrectCauseSquash");
+  my $nIncorrectCauseSquash = $cf->getResultField("CG", "nIncorrectCauseSquash");
+  my $nCorrectNoSquash = $cf->getResultField("CG", "nCorrectNoSquash");
+  my $nIncorrectNoSquash = $cf->getResultField("CG", "nIncorrectNoSquash");
+  $tmpTotal = $nCorrectCauseSquash + $nIncorrectCauseSquash 
+            + $nCorrectNoSquash + $nIncorrectNoSquash;
+
+  if ($tmpTotal) {
+    printf "Crit2:                CorrectPredition      IncorrectPrediction\n";   
+    printf "Crit2: [Pred,Real]    [1,1]      [0,0]      [0,1]      [1,0]\n";
+    printf "Crit2: %8s       %5.2f      %5.2f      %5.2f      %5.2f\n", $name[3],
+           100*$nCorrectCauseSquash/$tmpTotal,
+           100*$nCorrectNoSquash/$tmpTotal,
+           100*$nIncorrectCauseSquash/$tmpTotal,
+           100*$nIncorrectNoSquash/$tmpTotal;
+  }         
+
+  my $nCorrectRestarted = $cf->getResultField("CG", "nCorrectRestarted");
+  my $nIncorrectRestarted = $cf->getResultField("CG", "nIncorrectRestarted");
+  my $nCorrectNoRestart = $cf->getResultField("CG", "nCorrectNoRestart");
+  my $nIncorrectNoRestart = $cf->getResultField("CG", "nIncorrectNoRestart");
+  $tmpTotal = $nCorrectRestarted + $nIncorrectRestarted 
+            + $nCorrectNoRestart + $nIncorrectNoRestart;
+
+  if ($tmpTotal) {
+    printf "Crit3:                CorrectPredition      IncorrectPrediction\n";   
+    printf "Crit3: [Pred,Real]    [1,1]      [0,0]      [0,1]      [1,0]\n";
+    printf "Crit3: %8s       %5.2f      %5.2f      %5.2f      %5.2f\n", $name[3],
+           100*$nCorrectRestarted/$tmpTotal,
+           100*$nCorrectNoRestart/$tmpTotal,
+           100*$nIncorrectRestarted/$tmpTotal,
+           100*$nIncorrectNoRestart/$tmpTotal;
+  }         
 }

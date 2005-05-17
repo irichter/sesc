@@ -11,7 +11,7 @@ else
 ifdef XCC_SPARC
 include $(SRC_DIR)/Makefile.defs.sparc
 else
-include $(SRC_DIR)/Makefile.defs.$(shell uname -s)
+include $(SRC_DIR)/Makefile.defs.$(shell uname -s | cut -d '_' -f 1)
 endif
 endif
 #######################################
@@ -71,6 +71,10 @@ ifdef SESC_SLICE
 DEFS += -DSESC_SLICE
 endif
 
+ifdef SESC_CRIT
+DEFS += -DSESC_CRIT
+endif
+
 ifdef TS_SPAWN
 DEFS += -DTS_SPAWN
 endif
@@ -87,16 +91,23 @@ ifdef MPCOH
 DEFS += -DMPCOH
 endif
 
-ifdef VALUEPROF
-DEFS += -DVALUEPROF
+ifdef SESC_SMP
+DEFS += -DSESC_SMP
+ifdef SESC_SMP_DEBUG
+DEFS += -DSESC_SMP_DEBUG
+endif
+endif
+
+ifdef MEMANALYZER
+DEFS += -DMEMANALYZER
 endif
 
 #####################################
-INC     = -I. -I$(OBJ) -I$(SRC_DIR)/libapp -I$(SRC_DIR)/libsuc 
-INC     += -I$(SRC_DIR)/libcore -I$(SRC_DIR)/libnet -I$(SRC_DIR)/libmem 
-INC     += -I$(SRC_DIR)/libvmem 
+INC	= -I$(OBJ) -I$(SRC_DIR)/libapp -I$(SRC_DIR)/libsuc 
+INC	+= -I$(SRC_DIR)/libcore -I$(SRC_DIR)/libnet -I$(SRC_DIR)/libmem 
+INC	+= -I$(SRC_DIR)/libvmem 
 INC     += -I$(SRC_DIR)/libll -I$(SRC_DIR)/libmint -I$(SRC_DIR)/libpint 
-INC     += -I$(SRC_DIR)/libsmp
+INC     += -I$(SRC_DIR)/libsmp -I. 
 ##############################################################################
 ifeq ($(findstring IRIX,$(ABINAME)),IRIX)
 LIBS    = -L$(OBJ) -L$(OBJ)/ -lgen -lsesc
@@ -311,8 +322,8 @@ DEFS    +=-DTS_USE_SPECBITS
 
 endif # TS_VMEM
 
-ifdef TS_PREDMISS
-DEFS    +=-DTS_PREDMISS -DVALUEPROF -DTC_PARTIALORDER
+ifdef TS_CAVA
+DEFS    +=-DTS_CAVA -DTC_PARTIALORDER -DTS_CKPSUPPORT
 endif
 
 # Generate a task trace
@@ -325,6 +336,11 @@ endif
 
 # TLS OOO Statistics
 DEFS +=-DOOO_PAPER_STATS
+
+# Stall Processor support
+ifdef TS_STALL
+DEFS +=-DTS_STALL
+endif
 
 endif # TASKSCALAR
 

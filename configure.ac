@@ -37,12 +37,16 @@ AC_SUBST(SESC_SLICE_OPT)
 AC_SUBST(NO_MERGENEXT_OPT)
 AC_SUBST(ATOMIC_OPT)
 AC_SUBST(MPCOH_OPT)
-AC_SUBST(SESC_DSM_OPT)
 AC_SUBST(SESC_SMP_OPT)
+AC_SUBST(SESC_SMP_DEBUG_OPT)
+AC_SUBST(SESC_DSM_OPT)
 AC_SUBST(SESC_CHERRY_OPT)
 AC_SUBST(SESC_SEED_OPT)
 AC_SUBST(SESC_BAAD_OPT)
+AC_SUBST(SESC_CRIT_OPT)
 AC_SUBST(SESC_INORDER_OPT)
+AC_SUBST(TS_CAVA_OPT)
+
 
 #we are not defining compiler options yet, but we should
 #AC_PROG_CC
@@ -205,7 +209,16 @@ AC_NOCOMPOPT(SESC_SMP)
 AC_ARG_ENABLE(smp,
 AC_HELP_STRING([--enable-smp],
 	       [Enables SMP System (default is no)]),
-[if test "$enableval" = "yes"; then AC_COMPOPT(SESC_SMP) AC_SUBST(DEFEXEC,[sesc.smp]) AC_SUBST(DEFCONF,[smp.conf]) AC_DEFINE(SMP) fi],
+[if test "$enableval" = "yes"; then AC_COMPOPT(SESC_SMP) AC_SUBST(DEFEXEC,[sesc.smp]) AC_SUBST(DEFCONF,[smp.conf]) fi],
+)
+
+### Debugging for Symmetric MultiProcessor
+
+AC_NOCOMPOPT(SESC_SMP_DEBUG)
+AC_ARG_ENABLE(smpdebug,
+AC_HELP_STRING([--enable-smpdebug],
+	       [Enables SMP System advanced debug features (default is no)]),
+[if test "$enableval" = "yes"; then AC_COMPOPT(SESC_SMP_DEBUG) fi],
 )
 
 ### Distributed Shared Memory
@@ -214,7 +227,7 @@ AC_NOCOMPOPT(SESC_DSM)
 AC_ARG_ENABLE(dsm,
 AC_HELP_STRING([--enable-dsm],
 	       [Enables DSM System (default is no)]),
-[if test "$enableval" = "yes"; then AC_COMPOPT(SESC_DSM) AC_SUBST(DEFEXEC,[sesc.dsm]) AC_SUBST(DEFCONF,[dsm.conf]) fi],
+[if test "$enableval" = "yes"; then AC_COMPOPT(SESC_SMP) AC_COMPOPT(SESC_DSM) AC_SUBST(DEFEXEC,[sesc.dsm]) AC_SUBST(DEFCONF,[dsm.conf]) fi],
 )
 
 ### Cherry (no TLS Cherry)
@@ -244,12 +257,31 @@ AC_HELP_STRING([--enable-baad],
 [if test "$enableval" = "yes"; then AC_COMPOPT(SESC_BAAD) fi],
 )
 
+### CRIT (CRITicality Analyzer)
+
+AC_NOCOMPOPT(SESC_CRIT)
+AC_ARG_ENABLE(crit, 
+AC_HELP_STRING([--enable-crit],
+               [Enables Criticality analyzer (default is no)]),
+[if test "$enableval" = "yes"; then AC_COMPOPT(SESC_CRIT) fi],
+)
+
 ### SESC_INORDER (optimized inorder)
 AC_NOCOMPOPT(SESC_INORDER)
 AC_ARG_ENABLE(inorder, 
 AC_HELP_STRING([--enable-inorder],
                [Enables optimized inorder pipeline (default is no)]),
 [if test "$enableval" = "yes"; then AC_COMPOPT(SESC_INORDER) fi],
+)
+
+### CAVA
+
+AC_NOCOMPOPT(TS_CAVA)
+AC_ARG_ENABLE(cava, 
+AC_HELP_STRING([--enable-cava],
+               [Enables CAVA (default is no)]),
+[if test "$enableval" = "yes"; then AC_COMPOPT(TS_CAVA) AC_COMPOPT(TASKSCALAR) AC_DEFINE(FANCY_MSHR) AC_DEFINE(LDSTQ_FWD) AC_DEFINE(MSHR_BWSTATS) AC_DEFINE(MSHR_EXTRAOCCSTATS)
+fi],
 )
 
 AC_OUTPUT

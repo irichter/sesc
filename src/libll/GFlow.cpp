@@ -35,6 +35,9 @@ GFlow::GFlow(int i, int cId, GMemorySystem *gmem)
     gms(gmem), 
     gmos(gmem->getMemoryOS())
 {
+
+  //gproc = osSim->id2GProcessor(cpuId);
+
   if (trainCache == 0) {
     if (SescConf->checkCharPtr("cpucore","trainCache", cId)) {
       const char *cpuSection = SescConf->getCharPtr("", "cpucore", cId);

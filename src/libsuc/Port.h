@@ -167,6 +167,7 @@ public:
   virtual ~PortNPipe();
 
   Time_t nextSlot();
+  Time_t nextSlot(int occupancy);
   Time_t occupySlots(int nSlots);
   Time_t calcNextSlot() const;
   void lock4nCycles(TimeDelta_t clks);

@@ -4,6 +4,7 @@
 
    Contributed by Jose Renau
                   Basilio Fraguela
+		  Luis Ceze
 
 This file is part of SESC.
 
@@ -28,7 +29,7 @@ Bus::Bus(MemorySystem* current
 	 ,const char *section
 	 ,const char *name)
   : MemObj(section, name)
-    ,delay(SescConf->getLong(section, "delay"))
+  ,delay(SescConf->getLong(section, "delay"))
 {
   MemObj *lower_level = NULL;
 
@@ -49,24 +50,41 @@ Bus::Bus(MemorySystem* current
   lower_level = current->declareMemoryObj(section, k_lowerLevel);   
   if (lower_level != NULL)
     addLowerLevel(lower_level);
+
+  opAvgBusTime[MemRead] = new GStatsAvg("%s_AvgTime_MemRead", name);
+  opAvgBusTime[MemWrite] = new GStatsAvg("%s_AvgTime_MemWrite", name);
+  opAvgBusTime[MemPush] = new GStatsAvg("%s_AvgTime_MemPush", name);
+  opAvgBusTime[MemReadW] = new GStatsAvg("%s_AvgTime_MemReadW", name);
+  
 }
 
 void Bus::access(MemRequest *mreq)
 {
+  Time_t when = 0;
   if (mreq->getMemOperation() == MemWrite) {
-    mreq->goDownAbs(dataPort->nextSlot()+delay, lowerLevel[0]);
+    when = dataPort->nextSlot()+delay;
   }else{
-    mreq->goDownAbs(cmdPort->nextSlot(), lowerLevel[0]);
+    when = cmdPort->nextSlot();
   }
+  
+  opAvgBusTime[mreq->getMemOperation()]->sample(when-globalClock);
+  
+  mreq->goDownAbs(when, lowerLevel[0]);
 }
 
 void Bus::returnAccess(MemRequest *mreq)
 {
+  Time_t when = 0;
+
   if (mreq->getMemOperation() == MemWrite) {
-    mreq->goUpAbs(cmdPort->nextSlot());
+    when = cmdPort->nextSlot();
   }else{
-    mreq->goUpAbs(dataPort->nextSlot()+delay);
+    when = dataPort->nextSlot()+delay;
   }
+
+  opAvgBusTime[mreq->getMemOperation()]->sample(when-globalClock);
+ 
+  mreq->goUpAbs(when);
 }
 
 bool Bus::canAcceptStore(PAddr addr)

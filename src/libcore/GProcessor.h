@@ -38,10 +38,12 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "Pipeline.h"
 #include "Resource.h"
 #include "Snippets.h"
+#include "LDSTQ.h"
 
 class FetchEngine;
 class GMemorySystem;
 class BPredictor;
+
 
 class GProcessor {
 private:
@@ -61,6 +63,9 @@ protected:
 
   FastQueue<DInst *> ROB;
 
+  FastQueue<DInst *> replayQ;
+  LDSTQ lsq;
+
 #ifdef SESC_CHERRY
   int unresolvedLoad;   // Ul in cherry paper
   int unresolvedStore;  // Us in cherry paper
@@ -69,6 +74,7 @@ protected:
   int recycleStore;   // min(Ul,Ub)
   DInst *cherryRAT[NumArchRegs];
 #endif
+
 
   ClusterManager clusterManager;
 
@@ -105,6 +111,10 @@ protected:
   // that the processor have been active (fetch + exe engine)
   Time_t clockTicks;
 
+#ifdef TS_STALL
+  Time_t stallUntil; //stall the cpu until
+#endif
+
   ID(long prevDInstID);
 
   GStatsCntr *nStall[MaxStall];
@@ -126,6 +136,7 @@ protected:
   virtual StallCause addInst(DInst *dinst) = 0;
   StallCause sharedAddInst(DInst *dinst);
   int issue(PipeQueue &pipeQ);
+  int issueFromReplayQ();
   void retire();
 
   virtual DInst **getRAT(const int contextId) = 0;
@@ -145,6 +156,9 @@ public:
   }
 
   GMemorySystem *getMemorySystem() const { return memorySystem; }
+  LDSTQ *getLSQ() { return &lsq; }
+
+  virtual void replay(DInst *dinst);
 
   // Returns the maximum number of flows this processor can support 
   size_t getMaxFlows(void) const { return MaxFlows; }
@@ -207,6 +221,12 @@ public:
 
 #ifdef SESC_MISPATH
   virtual void misBranchRestore(DInst *dinst)= 0;
+#endif
+
+
+#ifdef TS_STALL
+  virtual void setStallUntil(Time_t t) { stallUntil = t; }
+  virtual bool isStall() const { return (stallUntil >= globalClock); }
 #endif
 
 #ifdef SESC_INORDER

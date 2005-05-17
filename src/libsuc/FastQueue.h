@@ -101,8 +101,8 @@ public:
     start = (start+1) & pipeMask;
   }
 
-  unsigned int getIdFromTop(int i) const {
-    I(nElems > (unsigned int)i);
+  unsigned int getIdFromTop(unsigned int i) const {
+    I(nElems > i);
     return (start+i) & pipeMask;
   }
 

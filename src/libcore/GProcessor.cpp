@@ -3,6 +3,7 @@
    Copyright (C) 2003 University of Illinois.
 
    Contributed by Jose Renau
+                  Luis Ceze
 
 This file is part of SESC.
 
@@ -44,6 +45,8 @@ GProcessor::GProcessor(GMemorySystem *gm, CPU_t i, size_t numFlows)
   ,MaxROBSize(SescConf->getLong("cpucore", "robSize",i))
   ,memorySystem(gm)
   ,ROB(MaxROBSize)
+  ,replayQ(2*MaxROBSize)
+  ,lsq(this, i)
   ,clusterManager(gm, this)
   ,robUsed("Proc(%d)_robUsed", i)
   ,nLocks("Processor(%d):nLocks", i)
@@ -87,6 +90,7 @@ GProcessor::GProcessor(GMemorySystem *gm, CPU_t i, size_t numFlows)
   nStall[OutsLoadsStall]    = new GStatsCntr("ExeEngine(%d):nOutsLoads",i);
   nStall[OutsStoresStall]   = new GStatsCntr("ExeEngine(%d):nOutsStores",i);
   nStall[OutsBranchesStall] = new GStatsCntr("ExeEngine(%d):nOutsBranches",i);
+  nStall[ReplayStall]       = new GStatsCntr("ExeEngine(%d):nReplays",i);
   nStall[PortConflictStall] = new GStatsCntr("ExeEngine(%d):PortConflict",i);
   
   clockTicks=0;
@@ -154,6 +158,7 @@ GProcessor::GProcessor(GMemorySystem *gm, CPU_t i, size_t numFlows)
 #ifdef SESC_MISPATH
   buildInstStats(nInstFake, "FakePendingWindow");
 #endif
+
 }
 
 GProcessor::~GProcessor()
@@ -218,17 +223,18 @@ StallCause GProcessor::sharedAddInst(DInst *dinst)
   //
   // 3-Try to schedule in Resource (window entry...)
 
-  if( ROB.size() >= MaxROBSize )
+  if( ROB.size() >= MaxROBSize ) {
     return SmallROBStall;
-
+  }
+  
 #if SESC_INORDER
   if (switching) {
     if(!ROB.empty())
-        return SwitchStall; // New stall Type to add
-     switching = false;
- } 
+      return SwitchStall; // New stall Type to add
+    switching = false;
+  } 
 #endif
-
+  
   const Instruction *inst = dinst->getInst();
 
   // Register count
@@ -318,6 +324,14 @@ int GProcessor::issue(PipeQueue &pipeQ)
 
   I(!pipeQ.instQueue.empty());
 
+  if(!replayQ.empty()) {
+    issueFromReplayQ();
+    nStall[ReplayStall]->add(RealisticWidth);
+    return 0;  // we issued 0 from the instQ;
+    // FIXME:check if we can issue from replayQ and 
+    // fetchQ during the same cycle
+  }
+
   do{
     IBucket *bucket = pipeQ.instQueue.top();
     do{
@@ -358,6 +372,56 @@ int GProcessor::issue(PipeQueue &pipeQ)
   }while(!pipeQ.instQueue.empty());
 
   return i+j;
+}
+
+int GProcessor::issueFromReplayQ()
+{
+  int nIssued = 0;
+
+  while(!replayQ.empty()) {
+    DInst *dinst = replayQ.top();
+    StallCause c = addInst(dinst);
+    if (c != NoStall) {
+      if (nIssued < RealisticWidth)
+	nStall[c]->add(RealisticWidth - nIssued);
+      break;
+    }
+    nIssued++;
+    replayQ.pop();
+    if(nIssued >= IssueWidth)
+      break;
+  }
+  return nIssued;
+}
+
+void GProcessor::replay(DInst *dinst)
+{
+  //traverse the ROB for instructions younger than dinst
+  //and add them to the replayQ.
+
+#ifndef DOREPLAY
+  return;
+#endif
+
+  if(dinst->isDeadInst())
+    return;
+
+  bool pushInst = false;
+  unsigned int robPos = ROB.getIdFromTop(0); // head or top
+  while(1) {
+    DInst *robDInst = ROB.getData(robPos);
+    if(robDInst == dinst)
+      pushInst = true;
+
+    if(pushInst && !robDInst->isDeadInst()) {
+      replayQ.push(robDInst->clone());
+      robDInst->setDeadInst();
+    }
+
+    robPos = ROB.getNextId(robPos);
+    if (ROB.isEnd(robPos))
+      break;
+  }
 }
 
 void GProcessor::report(const char *str)

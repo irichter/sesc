@@ -200,7 +200,7 @@ IBucket *Pipeline::nextItem()
       I(b->top() != 0);
 
       if (nCleanMarks) {
-	// Shawallow fakes if clean mark set
+	// Swallow fakes if clean mark set
 	do {
 	  if (!b->top()->isFake())
 	    return b;

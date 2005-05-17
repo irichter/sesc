@@ -47,11 +47,19 @@ private:
   bool valid;
   bool dirty;
   bool locked;
+  bool spec;
+  unsigned int ckpId;
+  int nReadMisses; // number of pending read ops when the line was brought to the cache
+  int nReadAccesses;
 public:
   CState() {
     valid = false;
     dirty = false;
     locked = false;
+    spec = false;
+    ckpId = 0;
+    nReadMisses = 0;
+    nReadAccesses = 0;
     clearTag();
   }
   bool isLocked() const {
@@ -77,12 +85,43 @@ public:
     I(getTag());
     valid = true;
     locked = false;
+    nReadMisses = 0;
+    nReadAccesses = 0;
   }
   void invalidate() {
     valid = false;
     dirty = false;
     locked = false;
+    spec = false;
+    ckpId = 0;
     clearTag();
+  }
+  void setSpec(bool s) {
+    spec = s;
+  }
+  bool isSpec() {
+    return spec;
+  }
+
+  void incReadAccesses() {
+    nReadAccesses++;
+  }
+  int getReadAccesses() {
+    return nReadAccesses;
+  }
+
+  void setReadMisses(int n) {
+    nReadMisses = n;
+  }
+  int getReadMisses() {
+    return nReadMisses;
+  }
+
+  void setCkpId(unsigned ci) {
+    ckpId = ci;
+  }
+  unsigned int getCkpId() {
+    return ckpId;
   }
 };
 
@@ -93,11 +132,11 @@ protected:
   typedef CacheGeneric<CState,PAddr>::CacheLine Line;
 
   const bool inclusiveCache;
+  int nBanks;
 
 
-  CacheType *cache;
-
-  MSHR<PAddr> *mshr;
+  CacheType **cacheBanks;
+  MSHR<PAddr,Cache> **bankMSHRs;
   
   typedef HASH_MAP<PAddr, int> WBuff; 
 
@@ -121,11 +160,14 @@ protected:
   PendInvTable pendInvTable; // pending invalidate table
 
   PortGeneric *cachePort;
+  PortGeneric **bankPorts;
+  PortGeneric **mshrPorts;
 
   long defaultMask;
   TimeDelta_t missDelay;
   TimeDelta_t hitDelay;
   TimeDelta_t fwdDelay;
+  bool doWBFwd;
 
   // BEGIN Statistics
   GStatsCntr readHalfMiss;
@@ -143,16 +185,52 @@ protected:
   GStatsAvg  avgMissLat;
   GStatsCntr rejected;
   GStatsCntr rejectedHits;
+  GStatsCntr **nAccesses;
   // END Statistics
 
-  Time_t nextSlot() {
+#ifdef MSHR_BWSTATS
+  GStatsHist secondaryMissHist;
+  GStatsHist accessesHist;
+  GStatsPeriodicHist mshrBWHist;
+  bool parallelMSHR;
+#endif
+
+  int getBankId(PAddr addr) const {
+    // FIXME: perhaps we should make this more efficient
+    // by allowing only power of 2 nBanks
+    return ((calcTag(addr)) % nBanks);
+  }
+
+  CacheType *getCacheBank(PAddr addr) const {
+    return cacheBanks[getBankId(addr)];
+  }
+
+  PortGeneric *getBankPort(PAddr addr) const {
+    return bankPorts[getBankId(addr)];
+  }
+
+  MSHR<PAddr,Cache> *getBankMSHR(PAddr addr) {
+    return bankMSHRs[getBankId(addr)];
+  }
+
+  Time_t nextCacheSlot() {
     return cachePort->nextSlot();
+  }
+
+  Time_t nextBankSlot(PAddr addr) {
+    return bankPorts[getBankId(addr)]->nextSlot();
+  }
+
+  Time_t nextMSHRSlot(PAddr addr) {
+    return mshrPorts[getBankId(addr)]->nextSlot();
   }
 
   virtual void sendMiss(MemRequest *mreq) = 0;
 
+  void doReadBank(MemRequest *mreq);
   void doRead(MemRequest *mreq);
   void doReadQueued(MemRequest *mreq);
+  void doWriteBank(MemRequest *mreq);
   virtual void doWrite(MemRequest *mreq);
   void doWriteQueued(MemRequest *mreq);
   void activateOverflow(MemRequest *mreq);
@@ -168,13 +246,20 @@ protected:
   void doAllocateLine(PAddr addr, PAddr rpl_addr, CallbackBase *cb);
   void doAllocateLineRetry(PAddr addr, CallbackBase *cb);
 
-  void doReturnAccess(MemRequest *mreq);
+  virtual void doReturnAccess(MemRequest *mreq);
+  virtual void preReturnAccess(MemRequest *mreq);
 
   virtual void doWriteBack(PAddr addr) = 0;
   virtual void inclusionCheck(PAddr addr) { }
 
+  typedef CallbackMember1<Cache, MemRequest *, &Cache::doReadBank> 
+    doReadBankCB;
+
   typedef CallbackMember1<Cache, MemRequest *, &Cache::doRead> 
     doReadCB;
+
+  typedef CallbackMember1<Cache, MemRequest *, &Cache::doWriteBank> 
+    doWriteBankCB;
 
   typedef CallbackMember1<Cache, MemRequest *, &Cache::doWrite> 
     doWriteCB;
@@ -190,6 +275,9 @@ protected:
 
   typedef CallbackMember1<Cache, MemRequest *,
                          &Cache::doReturnAccess> doReturnAccessCB;
+
+  typedef CallbackMember1<Cache, MemRequest *,
+                         &Cache::preReturnAccess> preReturnAccessCB;
 
   typedef CallbackMember3<Cache, PAddr, PAddr, CallbackBase *,
                          &Cache::doAllocateLine> doAllocateLineCB;
@@ -222,13 +310,24 @@ public:
 
   void dump() const;
 
+  PAddr calcTag(PAddr addr) const { return cacheBanks[0]->calcTag(addr); }
+
   Time_t getNextFreeCycle() const;
+
+
+  //used by SVCache
+  virtual void ckpRestart(unsigned int ckpId) {}
+  virtual void ckpCommit(unsigned int ckpId) {}
 };
 
 class WBCache : public Cache {
 protected:
   void sendMiss(MemRequest *mreq);
   void doWriteBack(PAddr addr); 
+  void doReturnAccess(MemRequest *mreq);
+
+  typedef CallbackMember1<WBCache, MemRequest *, &WBCache::doReturnAccess>
+    doReturnAccessCB;
 
 public:
   WBCache(MemorySystem *gms, const char *descr_section, 
@@ -246,9 +345,13 @@ protected:
   void writePropagateHandler(MemRequest *mreq);
   void propagateDown(MemRequest *mreq);
   void reexecuteDoWrite(MemRequest *mreq);
-  
+  void doReturnAccess(MemRequest *mreq);  
+
   typedef CallbackMember1<WTCache, MemRequest *, &WTCache::reexecuteDoWrite> 
     reexecuteDoWriteCB;
+
+  typedef CallbackMember1<WTCache, MemRequest *, &WTCache::doReturnAccess>
+    doReturnAccessCB;
 
   void inclusionCheck(PAddr addr);
 
@@ -258,6 +361,27 @@ public:
   ~WTCache();
 
   void pushLine(MemRequest *mreq);
+};
+
+class SVCache : public WBCache {
+ protected:
+  GStatsCntr nInvLines;
+  GStatsCntr nCommitedLines;
+  GStatsCntr nSpecOverflow;
+
+  bool doMSHRopt;
+  
+ public:
+
+  SVCache(MemorySystem *gms, const char *descr_section,
+	  const char *name = NULL);
+  ~SVCache();
+
+  virtual void doWrite(MemRequest *mreq);
+  virtual void preReturnAccess(MemRequest *mreq);
+  virtual void doReturnAccess(MemRequest *mreq);
+  virtual void ckpRestart(unsigned int ckpId);
+  virtual void ckpCommit(unsigned int ckpId);
 };
 
 class NICECache : public Cache

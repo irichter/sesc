@@ -125,9 +125,21 @@ protected:
     }
 
     bool isBool() const {
+      if(type == RCCharPtr) {
+	if((strcmp(v.CharPtr, "true") == 0) ||
+	   (strcmp(v.CharPtr, "false") == 0)) {
+	  return true;
+	}
+      }
+
       return type == RCBool;
     }
     bool getBool() const {
+      if(type == RCCharPtr && (strcmp(v.CharPtr, "true") == 0))
+	return true;
+      if(type == RCCharPtr && (strcmp(v.CharPtr, "false") == 0))
+	return false;
+      
       return v.Bool;
     }
 

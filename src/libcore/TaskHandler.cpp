@@ -70,10 +70,9 @@ void TaskHandler::setSafe(const HVersion *ver)
   I(tc);
 
   tc->getVersion()->setSafe();
-
   // If there was any task waiting to become safe, this is the time to
   // awake it (it is SAFE!!)
-  tc->awakeIfWaiting();
+  tc->awakeIfWaiting();  
 }
 
 void TaskHandler::setFinished(const HVersion *ver)
@@ -81,7 +80,6 @@ void TaskHandler::setFinished(const HVersion *ver)
   I(ver->getTaskContext());
   TaskContext *tc=ver->getTaskContext();
   I(tc);
-
   tc->getVersion()->setFinished();
 }
 

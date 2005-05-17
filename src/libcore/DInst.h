@@ -3,6 +3,7 @@
    Copyright (C) 2003 University of Illinois.
 
    Contributed by Jose Renau
+                  Luis Ceze
 
 This file is part of SESC.
 
@@ -40,6 +41,7 @@ enum DataDepViolationAt { DataDepViolationAtExe=0, DataDepViolationAtFetch,
 #if (defined TLS)
 #include "Epoch.h"
 #endif
+
 
 class Resource;
 class FetchEngine;
@@ -105,10 +107,12 @@ private:
   bool executed;
   bool depsAtRetire;
   bool deadStore;
+  bool deadInst;
+
+  bool resolved; // For load/stores when the address is computer, for
+		 // the rest of instructions when it is executed
 
 #ifdef SESC_CHERRY
-  bool resolved; // For load/stores when the address is computer, for
-                 // the rest of instructions when it is executed
   bool earlyRecycled;
   bool canBeRecycled;
   bool memoryIssued;
@@ -154,6 +158,7 @@ private:
   HVersion   *lvidVersion;
   GLVID      *lvid;
   SubLVIDType subLVID;
+
 #endif
 
   CallbackBase *pendEvent;
@@ -180,6 +185,8 @@ private:
 
   void doAtSelect();
   StaticCallbackMember0<DInst,&DInst::doAtSelect>  doAtSelectCB;
+
+  DInst *clone();
 
   void doAtExecuted();
   StaticCallbackMember0<DInst,&DInst::doAtExecuted> doAtExecutedCB;
@@ -402,6 +409,9 @@ private:
     deadStore = true; 
   }
 
+  void setDeadInst() { deadInst = true; }
+  bool isDeadInst() { return deadInst; }
+  
   bool hasDepsAtRetire() const { return depsAtRetire; }
   void setDepsAtRetire() { 
     I(!depsAtRetire);
@@ -412,12 +422,12 @@ private:
     depsAtRetire = false;
   }
 
-#ifdef SESC_CHERRY
   bool isResolved() const { return resolved; }
   void markResolved() { 
     resolved = true; 
   }
 
+#ifdef SESC_CHERRY
   bool isEarlyRecycled() const { return earlyRecycled; }
   void setEarlyRecycled() { earlyRecycled = true; }
   bool hasRegisterRecycled() const { return registerRecycled; }
@@ -448,8 +458,10 @@ private:
 
   void setWakeUpTime(Time_t t)  { 
     // ??? FIXME: Why fails?I(wakeUpTime <= t); // Never go back in time
+    //I(wakeUpTime <= t);
     wakeUpTime = t;
   }
+
   Time_t getWakeUpTime() const { return wakeUpTime; }
 
 #ifdef SESC_BAAD

@@ -45,6 +45,13 @@ private:
   const int smtIssues4Clk;
   const int firstContext;
 
+  GStatsHist fetchDist;
+  GStatsCntr  noFetch;
+#ifdef TASKSCALAR
+  GStatsAvg fetchFromSafe;
+  GStatsAvg fetchFromSpec;
+#endif
+
   DInst ***gRAT;
 
   class Fetch {

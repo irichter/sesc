@@ -3,6 +3,7 @@
    Copyright (C) 2003 University of Illinois.
 
    Contributed by Jose Renau
+                  Luis Ceze
 
 This file is part of SESC.
 
@@ -27,7 +28,8 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "LDSTBuffer.h"
 #include "Resource.h"
 
-pool<DInst> DInst::dInstPool(512);
+
+pool<DInst> DInst::dInstPool(512, "DInst");
 #ifdef DEBUG
 long DInst::currentID=0;
 #endif
@@ -151,8 +153,9 @@ DInst *DInst::createDInst(const Instruction *inst, VAddr va, int cId)
   i->executed     = false;
   i->depsAtRetire = false;
   i->deadStore    = false;
-#ifdef SESC_CHERRY
   i->resolved     = false;
+  i->deadInst     = false;
+#ifdef SESC_CHERRY
   i->earlyRecycled= false;
   i->canBeRecycled= false;
   i->memoryIssued = false;
@@ -192,6 +195,17 @@ DInst *DInst::createInst(InstID pc, VAddr va, int cId)
 {
   const Instruction *inst = Instruction::getInst(pc);
   return createDInst(inst, va, cId);
+}
+
+DInst *DInst::clone() 
+{
+  DInst *newDInst = createDInst(inst, vaddr, cId);
+#ifdef TASKSCALAR
+  // setting the LVID for the cloned instruction
+  // this will call incOutsReqs for the HVersion.
+  newDInst->setLVID(lvid, lvidVersion);
+#endif
+  return newDInst;
 }
 
 void DInst::killSilently()

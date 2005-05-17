@@ -31,17 +31,18 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "GMemorySystem.h"
 #include "TraceGen.h"
 
-
 #include "TaskContext.h"
 #include "mintapi.h"
+
 
 #ifdef OOO_PAPER_STATS
 TaskContext::TaskEntriesType TaskContext::taskEntries;
 #endif
 
+
 StaticCallbackFunction0<TaskContext::collect> TaskContext::collectCB;
 
-pool<TaskContext, true> TaskContext::tcPool(32);
+pool<TaskContext, true> TaskContext::tcPool(32, "TaskContext");
 
 TaskContext::Tid2TaskContextType TaskContext::tid2TaskContext;
 
@@ -81,10 +82,6 @@ GStatsAvg  *TaskContext::nTasksAhead=0;
 #endif 
 #endif
 
-#ifdef TS_GOAHEAD
-GStatsCntr *TaskContext::nIgnoredRestarts=0;
-#endif
-
 
 GStatsCntr *TaskContext::thReadEnergy=0;   // FIXME: Energy
 GStatsCntr *TaskContext::thWriteEnergy=0;  // FIXME: Energy
@@ -96,6 +93,8 @@ GStatsCntr *TaskContext::nDataDepViolation[DataDepViolationAtMax];
 // Histogram statistics
 GStatsCntr *TaskContext::numThreads[TaskContext::MaxThreadsHist];
 GStatsCntr *TaskContext::numRunningThreads[TaskContext::MaxThreadsHist];
+
+HASH_MAP<int,int> TaskContext::compressedStaticId;
 
 TaskContext::TaskContext() 
 {
@@ -172,6 +171,8 @@ void TaskContext::destroy()
   I(memBuffer == 0);
   I(memVer);
 
+
+
   memVer->garbageCollect(true);
   memVer = 0;
 
@@ -214,8 +215,9 @@ void TaskContext::mergeDestroy()
     nIOInst->add(nInst);
   }
 
-  nRestart[nLocalRestarts<nRestartMax?nLocalRestarts:nRestartMax-1]->inc();
+  nRestart[nLocalRestarts<(int)nRestartMax?nLocalRestarts:nRestartMax-1]->inc();
 #endif
+
 
   I(memBuffer);
   memBuffer->mergeDestroy();
@@ -392,6 +394,7 @@ void TaskContext::localRestart()
 
   nLocalRestarts++;
   canEarlyAwake = true;
+
 }
 
 // kill can be called by someone else than the parent, but it always
@@ -400,6 +403,7 @@ void TaskContext::localRestart()
 void TaskContext::localKill(bool inv)
 {
   // NOTE: DO NOT CALL THIS METHOD DIRECTLY. Use taskHandler (there may be inheritance)
+
 
   I(!memVer->isSafe());
   LOG("TaskContext(%d)::localKill", tid);
@@ -525,7 +529,7 @@ void TaskContext::syncBecomeSafe(bool earlyAwake)
 void TaskContext::tryPropagateSafeToken(const HVersionDomain *vd)
 {
   bool doMergeOps = false;
-  
+
   size_t nCommited=0;
 
   //LOG("TC::tryPropagateSafeToken()"); // way too often to be useful
@@ -539,13 +543,6 @@ void TaskContext::tryPropagateSafeToken(const HVersionDomain *vd)
     I(!tc->hasDataDepViolation());
     if (tc->hasDataDepViolation()) 
       break;
-
-#ifdef TS_GOAHEAD
-    if (tc->goingAhead) {
-      tc->needRestart = true;
-      taskHandler->restart(v);
-    }
-#endif
 
     if (!v->isSafe()) {
       osSim->setPriority(tc->getPid(), -1);
@@ -600,6 +597,7 @@ void TaskContext::tryPropagateSafeToken(const HVersionDomain *vd)
 #endif
 
     tc->mergeDestroy();
+
     
     // mergeDestroy advanced the oldest TaskContext
     I(HVersion::getOldestTaskContextRef(vd) != v);
@@ -671,10 +669,6 @@ void TaskContext::preBoot()
 #endif
 #endif
 
-#ifdef TS_GOAHEAD
-  nIgnoredRestarts       = new GStatsCntr("TC:nIgnoredRestarts");
-#endif
-
 
   thReadEnergy   = new GStatsCntr("TC:thReadEnergy");
   thWriteEnergy  = new GStatsCntr("TC:thWriteEnergy");
@@ -707,6 +701,7 @@ void TaskContext::preBoot()
   }
   I(tid2TaskContext.size() == MAXPROC);
 
+
   MemBufferDomain *mbd = MemBuffer::createMemBufferDomain();
 
   TaskContext *tc = tcPool.out();
@@ -719,15 +714,11 @@ void TaskContext::preBoot()
   tc->wasSpawnedOO    = false;
   tc->ooTask          = false;
 
-#ifdef TS_GOAHEAD
-  tc->goingAhead  = false;
-  tc->needRestart = false;
-#endif
-
 #ifdef TS_PARANOID
   for(int i=0; i<68; i++)
     tc->bad_reg[i] = false;
 #endif
+
 
 }
 
@@ -748,7 +739,7 @@ void TaskContext::postBoot()
   I(tc->memVer->isOldestTaskContext());
 }
 
-void TaskContext::spawnSuccessor(Pid_t childPid, PAddr childAddr)
+void TaskContext::spawnSuccessor(Pid_t childPid, PAddr childAddr, int sid)
 {
   thReadEnergy->inc();  // Read local info
   thWriteEnergy->inc(); // update local info acordingly
@@ -771,6 +762,7 @@ void TaskContext::spawnSuccessor(Pid_t childPid, PAddr childAddr)
   TaskContext *tc    = tcPool.out();
 
   tc->spawnAddr = calcChildSpawnAddr(childAddr);
+  tc->staticId  = sid;
 
   tc->ooTask         = false;
   if(memVer->isNewest()) {
@@ -789,11 +781,6 @@ void TaskContext::spawnSuccessor(Pid_t childPid, PAddr childAddr)
   // pass NES to the continuation
   tc->NES  = NES;
   NES      = 0;
-
-#ifdef TS_GOAHEAD
-  tc->goingAhead  = false;
-  tc->needRestart = false;
-#endif
 
 #ifdef TS_PARANOID
   for(int i=0; i<68; i++)
@@ -818,6 +805,7 @@ void TaskContext::spawnSuccessor(Pid_t childPid, PAddr childAddr)
 #endif
 
   tc->setFields(childPid, childVer);
+
 }
 
 
@@ -863,13 +851,6 @@ void TaskContext::endTaskExecuted(Pid_t fpid)
     syncBecomeSafe();
     return;
   }
-#ifdef TS_GOAHEAD
-  if(goingAhead) {
-    needRestart = true;
-    taskHandler->restart(memVer); 
-    return;
-  }
-#endif
 
   LOG("TC(%d)::endTaskExecuted(%d)", tid, fpid);
 
@@ -943,6 +924,8 @@ void TaskContext::exception()
 
 bool TaskContext::canMergeNext()
 {
+
+
 #ifdef MERGE_FIRST_ALL
   nMergeNext->inc();
   nLMergeNext++;
@@ -1145,4 +1128,15 @@ void TaskContext::setOOtask()
     v = v->getNextRef();
   }
 }
+
+
+int TaskContext::getCompressedStaticId(int staticId)
+{
+  if (compressedStaticId.find(staticId) == compressedStaticId.end()) {
+    compressedStaticId[staticId] = compressedStaticId.size();
+  } 
+
+  return compressedStaticId[staticId];
+}
+
 

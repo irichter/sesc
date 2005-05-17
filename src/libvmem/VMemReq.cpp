@@ -25,9 +25,9 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "LVIDTable.h"
 #include "VMemObj.h"
 
-pool<VMemReadReq>     VMemReadReq::rPool(256);
-pool<VMemWriteReq>    VMemWriteReq::rPool(256);
-pool<VMemPushLineReq> VMemPushLineReq::rPool(256);
+pool<VMemReadReq>     VMemReadReq::rPool(256, "VMemReadReq");
+pool<VMemWriteReq>    VMemWriteReq::rPool(256, "VMemWriteReq");
+pool<VMemPushLineReq> VMemPushLineReq::rPool(256, "VMemPushLineReq");
 
 #ifdef DEBUG
 unsigned int VMemReq::snCount = 0;

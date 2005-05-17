@@ -63,7 +63,7 @@ void MVCacheState::initialize(CacheType *c)
 
   VMemState::initialize();
 
-  ulong l = c->getLog2Ls();
+  ulong l = c->getLog2AddrLs();
   l = (1<<l)-1;
   I(lineMask == l);
 

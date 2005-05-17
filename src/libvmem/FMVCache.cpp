@@ -50,7 +50,7 @@ FMVCache::FMVCache(MemorySystem *gms, const char *section, const char *name)
 
 {
 
-  extMSHR = MSHR<PAddr>::create(getExtMSHRName(name),
+  extMSHR = MSHR<PAddr,FMVCache>::create(getExtMSHRName(name),
 				SescConf->getCharPtr(section, "ExtMSHRtype"),
 				SescConf->getLong(section, "ExtMSHRSize"),
 				SescConf->getLong(section, "bsize"));

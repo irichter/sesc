@@ -15,6 +15,9 @@ SUBDIRS+=libapp
 ifdef SESC_SMP
 SUBDIRS+=libsmp
 endif
+ifdef SESC_DSM
+SUBDIRS+=libdsm
+endif
 ifdef TS_VMEM
 SUBDIRS+=libvmem
 endif
@@ -55,7 +58,7 @@ config.h: Make.defs
 
 ##############################################################################
 #rules for final sesc executables
-EXECS=sesc.tst sesc.mem sesc.ncc sesc.tls sesc.smp 
+EXECS=sesc.tst sesc.mem sesc.ncc sesc.tls sesc.smp sesc.dsm
 
 TSTLIBS =$(OBJ)/libcore.a $(OBJ)/libmint.a $(OBJ)/libll.a
 TSTLIBS+=$(OBJ)/libpint.a $(OBJ)/libsuc.a
@@ -63,7 +66,8 @@ ifdef SESC_ENERGY
 TSTLIBS += $(OBJ)/libpower.a
 endif
 NETLIBS =$(OBJ)/libnet.a 
-SMPLIBS=$(OBJ)/libsmp.a
+DSMLIBS =$(OBJ)/libdsm.a
+SMPLIBS =$(OBJ)/libsmp.a
 MEMLIBS =$(OBJ)/libmem.a 
 TLSLIBS =$(OBJ)/libvmem.a
 
@@ -78,7 +82,8 @@ sesc.tls: $(OBJ)/tls.o $(TLSLIBS) $(MEMLIBS) $(TSTLIBS)
 
 sesc.smp: $(OBJ)/smp.o $(SMPLIBS) $(MEMLIBS) $(TSTLIBS)
 	$(CXX) $(CFLAGS) $(LDFLAGS) -o $@ $^ $(LIBS) $(STDLIBS)
-
+sesc.dsm: $(OBJ)/dsm.o $(DSMLIBS) $(SMPLIBS) $(MEMLIBS) $(TSTLIBS)
+	$(CXX) $(LDFLAGS) -o $@ $^ $(LIBS) -lm
 
 ############ Simulator Benchmarking (bench the simulator, not the architecture)
 
@@ -199,8 +204,8 @@ eclean: sharedclean
 	done
 
 edistclean:
-	-@rm -f config.status config.log cactify wattchify panalyze
-	-@rm -f config.h Make.defs Makefile sesc.mem sesc.tls sesc.smp 
+	-@rm -f config.status config.log cactify wattchify  panalyze
+	-@rm -f config.h Make.defs Makefile sesc.mem sesc.tls sesc.smp sesc.dsm
 	-@rm -rf obj
 
 size:

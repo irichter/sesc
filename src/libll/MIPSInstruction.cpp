@@ -132,6 +132,7 @@ void Instruction::initializeMINT(int argc,
     icode_ptr picode;
     InstType opcode;
     InstSubType subCode;
+    MemDataSize dataSize;
     RegType src1;
     RegType dest;
     RegType src2;
@@ -140,7 +141,7 @@ void Instruction::initializeMINT(int argc,
     bool gTaken;
     bool jumpLabel;
 
-    MIPSDecodeInstruction(i, picode, opcode, subCode, src1, dest, src2, uEvent
+    MIPSDecodeInstruction(i, picode, opcode, subCode, dataSize, src1, dest, src2, uEvent
 			  ,BJCondLikely, gTaken, jumpLabel);
 
     I(picode->instID==i);
@@ -209,6 +210,7 @@ void Instruction::initializeMINT(int argc,
 
     InstTable[i].opcode = opcode;
     InstTable[i].subCode= subCode;
+    InstTable[i].dataSize= dataSize;
     InstTable[i].src1   = src1;
     InstTable[i].dest   = dest;
     InstTable[i].src2   = src2;
@@ -329,6 +331,7 @@ void Instruction::MIPSDecodeInstruction(size_t        index
                                         ,icode_ptr   &epicode
                                         ,InstType    &opcode
                                         ,InstSubType &subCode
+					,MemDataSize &dataSize
                                         ,RegType     &src1
                                         ,RegType     &dest
                                         ,RegType     &src2
@@ -350,6 +353,7 @@ void Instruction::MIPSDecodeInstruction(size_t        index
   BJCondLikely = false;
   guessTaken   = false;
   jumpLabel    = false;
+  dataSize = 0;
 
   icode_t icode;
   icode_ptr picode = &icode;
@@ -504,14 +508,17 @@ void Instruction::MIPSDecodeInstruction(size_t        index
     guessTaken   = true;
     src2    = static_cast < RegType > (picode->getRN(RS));
     break;
-  case lb_opn:
-  case lbu_opn:
-  case lh_opn:
-  case lhu_opn:
   case ll_opn:
   case lw_opn:
   case lwl_opn:
   case lwr_opn:
+    dataSize  = 2; /* 2 + 1 + 1 = 4, word load */
+  case lh_opn:
+  case lhu_opn:
+    dataSize += 1; /* 1 + 1 = 2, half-word load */
+  case lb_opn:
+  case lbu_opn:
+    dataSize += 1; /* byte load */
     opcode  = iLoad;
     subCode = iMemory;
     dest    = static_cast < RegType > (picode->getRN(RT));
@@ -520,12 +527,15 @@ void Instruction::MIPSDecodeInstruction(size_t        index
     src2    = InternalReg;
 #endif
     break;
-  case sb_opn:
   case sc_opn:
-  case sh_opn:
   case sw_opn:
   case swl_opn:
   case swr_opn:
+    dataSize = 2; /* 2+1+1 = 4 word store */
+  case sh_opn:
+    dataSize += 1; /* 1+1 = 2 half-word store */
+  case sb_opn:
+    dataSize += 1; /* byte store */
     opcode = iStore;
     subCode = iMemory;
     src1 = static_cast < RegType > (picode->getRN(RS));
@@ -534,6 +544,7 @@ void Instruction::MIPSDecodeInstruction(size_t        index
   case ldc1_opn:
   case ldc2_opn:
   case ldc3_opn:
+    dataSize = 8; /* double-word load */
     opcode = iLoad;
     subCode = iMemory;
     dest = static_cast < RegType > (picode->getDPN(RT) + static_cast < int >(IntFPBoundary));
@@ -545,6 +556,7 @@ void Instruction::MIPSDecodeInstruction(size_t        index
   case lwc1_opn:
   case lwc2_opn:
   case lwc3_opn:
+    dataSize = 4; /* word load */
     opcode = iLoad;
     subCode = iMemory;
     dest = static_cast < RegType > (picode->getFPN(RT) + static_cast < int >(IntFPBoundary));
@@ -556,6 +568,7 @@ void Instruction::MIPSDecodeInstruction(size_t        index
   case sdc1_opn:
   case sdc2_opn:
   case sdc3_opn:
+    dataSize = 8; /* double-word store */
     opcode = iStore;
     subCode = iMemory;
     src1 = static_cast < RegType > (picode->getRN(RS));
@@ -564,6 +577,7 @@ void Instruction::MIPSDecodeInstruction(size_t        index
   case swc1_opn:
   case swc2_opn:
   case swc3_opn:
+    dataSize = 4; /* word store */
     opcode = iStore;
     subCode = iMemory;
     src1 = static_cast < RegType > (picode->getRN(RS));

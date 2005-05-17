@@ -29,11 +29,11 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "OSSim.h"
 #include "LDSTBuffer.h"
 #include "GMemorySystem.h"
-
-#include "GMemorySystem.h"
 #include "GMemoryOS.h"
+#include "GProcessor.h"
 #include "MemRequest.h"
 #include "Pipeline.h"
+
 
 #ifdef SESC_INORDER
 #include <time.h>
@@ -60,6 +60,7 @@ FetchEngine::FetchEngine(int cId
   ,pid(-1)
   ,flow(cId, i, gmem)
   ,avgBranchTime("FetchEngine(%d)_avgBranchTime", i)
+  ,avgInstsFetched("FetchEngine(%d)_avgInstsFetched",i)
   ,nDelayInst1("FetchEngine(%d):nDelayInst1", i)
   ,nDelayInst2("FetchEngine(%d):nDelayInst2", i) // Not enough BB/LVIDs per cycle 
   ,nFetched("FetchEngine(%d):nFetched",i)
@@ -114,6 +115,8 @@ FetchEngine::FetchEngine(int cId
     }
   }
 
+  gproc = osSim->id2GProcessor(cpuId);
+
 #ifdef SESC_INORDER
   char strTime[16], fileName[32];
   time_t rawtime;
@@ -148,8 +151,6 @@ FetchEngine::FetchEngine(int cId
 	 gproc->setMode(mode);	
   }  
 #endif
-    
-
 #endif
 }
 
@@ -318,6 +319,14 @@ void FetchEngine::realFetch(IBucket *bucket, int fetchMax)
     if (dinst == 0)
       break;
 
+#ifdef SESC_BAAD
+    // FIXME: Instruction fetched. Use dinst to create the depQ BW function
+    dinst->setFetchTime();
+#endif
+
+#ifdef TASKSCALAR
+    dinst->setLVID(lvid, lvidVersion);
+#endif //TASKSCALAR
     const Instruction *inst = dinst->getInst();
 
     if (inst->isStore()) {
@@ -374,7 +383,6 @@ void FetchEngine::fetch(IBucket *bucket, int fetchMax)
 #if 0
     if(intervalCount > 2000 && intervalCount < 3000){
       if(instrCount == 200){
-<<<<<<< FetchEngine.cpp
         ++subIntervalCount;
         
         if(subIntervalCount % 10 == 0){
@@ -385,24 +393,8 @@ void FetchEngine::fetch(IBucket *bucket, int fetchMax)
         double energy = GStatsEnergy::getTotalEnergy();
         double delta_energy = energy - previousTotEnergy;
         long delta_time = globalClock - previousClockCount;
-=======
-	 ++subIntervalCount;
->>>>>>> 1.13
         
-<<<<<<< FetchEngine.cpp
         fprintf(energyInstFile,"%d\t%.3f\t%ld\n", intervalCount * 10 + subIntervalCount, delta_energy, delta_time);
-=======
-      if(subIntervalCount % 10 == 0){
-	   ++intervalCount;
-	  subIntervalCount = 0;
-	}
-	
-	double energy = GStatsEnergy::getTotalEnergy();
-	double delta_energy = energy - previousTotEnergy;
-	long delta_time = globalClock - previousClockCount;
-	
-	fprintf(energyInstFile,"%d\t%.3f\t%ld\n", intervalCount * 10 + subIntervalCount, delta_energy, delta_time);
->>>>>>> 1.13
 
         previousTotEnergy =  GStatsEnergy::getTotalEnergy();
         previousClockCount = globalClock;
@@ -483,13 +475,12 @@ void FetchEngine::fakeFetch(IBucket *bucket, int fetchMax)
 #endif // SESC_MISPATH
 }
 
-
 void FetchEngine::dump(const char *str) const
 {
   char *nstr = (char *)alloca(strlen(str) + 20);
 
   sprintf(nstr, "%s_FE", str);
-
+ 
   bpred->dump(nstr);
   flow.dump(nstr);
 }

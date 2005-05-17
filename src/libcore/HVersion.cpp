@@ -28,7 +28,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 int HVersion::gID=0;
 #endif
 
-HVersion::poolType HVersion::vPool(1024);
+HVersion::poolType HVersion::vPool(1024, "HVersion");
 
 GStatsCntr **HVersion::IDP::correct;
 GStatsCntr **HVersion::IDP::incorrect;
@@ -468,7 +468,7 @@ void HVersion::decOutsReqs()
 { 
   nOutsReqs--; 
   I(nOutsReqs>=0);
-  if (nOutsReqs == 0)
+  if (nOutsReqs == 0) 
     TaskContext::tryPropagateSafeToken(vDomain);
 }
 

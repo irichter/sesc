@@ -23,6 +23,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #ifndef BUS_H
 #define BUS_H
 
+#include "GStats.h"
 #include "Port.h"
 #include "MemRequest.h"
 #include "MemObj.h"
@@ -33,6 +34,8 @@ protected:
   PortGeneric *dataPort;
   PortGeneric *cmdPort;
 
+  GStatsAvg  *opAvgBusTime[MemLastOp];
+
 public:
   Bus(MemorySystem* current, const char *device_descr_section,
       const char *device_name = NULL);
@@ -40,7 +43,7 @@ public:
   void access(MemRequest *mreq);
   void returnAccess(MemRequest *mreq);
   bool canAcceptStore(PAddr addr);
-  virtual void invalidate(PAddr addr,ushort size,MemObj *oc);
+  void invalidate(PAddr addr,ushort size,MemObj *oc);
   Time_t getNextFreeCycle() const;
 };
 

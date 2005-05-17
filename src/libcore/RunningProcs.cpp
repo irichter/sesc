@@ -204,8 +204,9 @@ void RunningProcs::makeNonRunnable(ProcessId *proc)
     // Find another process to run on this cpu
     ProcessId *newProc=ProcessId::queueGet(cpu);
     // If a process has been found, switch it in
-    if(newProc)
+    if(newProc){
       switchIn(cpu,newProc);
+    }
   }else{
     // Just set the state to InvalidState to make it non-runnable
     proc->becomeNonReady();
@@ -242,7 +243,11 @@ void RunningProcs::switchIn(CPU_t id, ProcessId *proc)
   workingListAdd(core);
 
   proc->switchIn(id);
+#ifdef TS_STALL  
+  core->setStallUntil(globalClock+5);
+#endif  
   core->switchIn(proc->getPid()); // Must be the last thing because it can generate a switch
+
 }
 
 void RunningProcs::switchOut(CPU_t id, ProcessId *proc) 
@@ -256,6 +261,7 @@ void RunningProcs::switchOut(CPU_t id, ProcessId *proc)
   core->switchOut(pid);
 
   workingListRemove(core);
+
 }
 
 GProcessor *RunningProcs::getAvailableProcessor(void)

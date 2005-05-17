@@ -11,14 +11,14 @@ all: $(OBJ)/main.o $(OBJ)/libcore.a
 ##############################################################################
 #                Objects
 ##############################################################################
-OBJS	:=Processor.o GProcessor.o SMTProcessor.o DInst.o Pipeline.o FetchEngine.o \
-	Resource.o Cluster.o DepWindow.o BPred.o \
+OBJS	:=Processor.o GProcessor.o LDSTQ.o SMTProcessor.o DInst.o Pipeline.o \
+	FetchEngine.o Resource.o Cluster.o DepWindow.o BPred.o \
 	MemRequest.o MemObj.o  OSSim.o LDSTBuffer.o \
 	ProcessId.o RunningProcs.o GMemorySystem.o ValueTable.o \
-	GMemoryOS.o
+	GMemoryOS.o VPred.o MemAnalyzer.o
 
-ifdef TS_PREDMISS
-OBJS += ValueProfiler.o
+ifdef TS_CAVA
+OBJS += CavaManager.o
 endif
 
 ifdef TLS

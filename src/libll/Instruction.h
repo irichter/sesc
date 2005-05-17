@@ -53,6 +53,8 @@ enum RegType {
     NumArchRegs // = BaseInstTypeReg +MaxInstType old times
 };
 
+typedef unsigned char MemDataSize;
+
 //! Static Instruction type
 /*! For each assembler in the binary there is an Instruction
  *  associated. It is an expanded version of the MIPS instruction.
@@ -87,6 +89,7 @@ private:
 				    ,icode_ptr &picode
 				    ,InstType &opcode
 				    ,InstSubType &subCode
+				    ,MemDataSize &dataSize
 				    ,RegType &src1
 				    ,RegType &dest
 				    ,RegType &src2
@@ -110,6 +113,7 @@ protected:
 
   EventType uEvent;
   InstSubType subCode;
+  MemDataSize dataSize;
 
   char src1Pool;  // src1 register is in the FP pool?
   char src2Pool;  // src2 register is in the FP pool?
@@ -136,7 +140,7 @@ public:
     return &InstTable[id];
   }
 
-  // this is what shoudl be called by TraceFlow.
+  // this is what should be called by TraceFlow.
   static const Instruction *getInstByPC(long addr, ulong rawInst) {
     InstHash::iterator it = instHash.find(addr);
 
@@ -249,6 +253,8 @@ public:
   // be stored.  src2 is the data to be stored
   bool isStore() const { return opcode == iStore; }
   bool isStoreAddr() const { return subCode == iFake; } // opcode == iALU 
+
+  MemDataSize getDataSize() const { return dataSize; }
 
   bool isType(InstType t) const { return t == opcode;  }
 

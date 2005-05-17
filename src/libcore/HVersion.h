@@ -131,6 +131,8 @@ class HVersion {
     };
 
     typedef CacheGeneric<PredEntry, PredEntryTag> PredType;
+
+
   protected:
     static size_t nChildMax;
 
@@ -171,12 +173,6 @@ class HVersion {
   static GStatsCntr *nRelease;
 
   HVersionDomain *vDomain;
-
-#if 0
-  static HVersion *oldestTC; 
-  static HVersion *oldest;
-  static HVersion *newest;
-#endif
   
   VType base;
   VType maxi;
@@ -190,6 +186,7 @@ class HVersion {
 
   int nOutsReqs;  // both outs instructions and mem requests
 
+    
   void shiftAllVersions();
   void claim();
   void release();
@@ -343,6 +340,7 @@ class HVersion {
     I(finished); // a task may be re-awaked
     finished = false;
   }
+
 
   static void report();
 };

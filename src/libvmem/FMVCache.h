@@ -37,7 +37,7 @@ private:
 
   // a MSHR for external request. It can not use the local mshr
   // because it may generate deadlocks.
-  MSHR<PAddr> *extMSHR;
+  MSHR<PAddr,FMVCache> *extMSHR;
   static char *getExtMSHRName(const char *name);
 protected:
 

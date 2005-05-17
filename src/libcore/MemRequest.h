@@ -28,26 +28,22 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 #include "nanassert.h"
 #include "ThreadContext.h"
+#include "Resource.h"
+#include "Cluster.h"
 #include "DInst.h"
 #include "Message.h"
 
-// TOFIX: remove MemOperation, and convert it to a bool (read/write)
-// If someone needs more state, it should extend the class, not add it
-// here
 
+// Additional cache coherence state should not be
+// added here, but in a derived class 
 enum MemOperation {
   MemRead = 0,
   MemWrite,
   MemPush,
-  MemFetchOp,   // Atomic instruction with read/write. Must behave like a read,
-		// but acquire cache line in exclusive
-
-  // Cache Coherence Specific
-  MemReadW,                  // Preserve store, return in modify or exclusive.
-  MemReadX,                  // Provide Info for Exclusive Read
-  MemInvalidate,
-  MemUpdate,
-  MemRmSharer,
+  MemReadW,                  // store that misses and needs data,
+                             // never comes from the processor, it is
+                             // always converted by a cache from a MemWrite
+  MemLastOp // just to get the size of the enumeration
 };
 
 #ifndef DEBUGCONDITION
@@ -58,14 +54,46 @@ enum MemOperation {
 #endif
 #endif
 
+#include "MemObj.h"
 class MemObj;
 class GMemorySystem;
+class GProcessor;
 class IBucket;
 
 #ifdef TASKSCALAR
 class VMemReq;
 #endif
 
+#ifdef SESC_SMP_DEBUG
+class ReqPathEntry {
+private:
+  static pool<ReqPathEntry> pPool;
+  friend class pool<ReqPathEntry>;
+
+public:
+  const char *memobj;
+  const char *action;
+  Time_t accessTime;
+  int specialId;
+  
+  static ReqPathEntry *create(const char *memobj, 
+				 const char *action,
+				 Time_t accessTime,
+				 int specialId = -1) {
+    ReqPathEntry *rpEntry = pPool.out();
+    rpEntry->memobj = memobj;
+    rpEntry->action = action;
+    rpEntry->accessTime = accessTime;
+    rpEntry->specialId = specialId;
+
+    return rpEntry;
+  }
+  
+  void destroy() {
+    pPool.in(this);
+  }
+};
+#endif
 
 // MemRequest has lots of functionality that it is memory backend
 // dependent, some fields are used by some backends, while others are
@@ -90,21 +118,33 @@ protected:
   Time_t currentClockStamp;
 
   DInst *dinst;
+  GProcessor *gproc;
+  
   MemObj *currentMemObj;
   PAddr  pAddr; // physical address
   MemOperation memOp;
+
+  int priority;
+
+  Time_t l2MissDetection;
+
+#ifdef SESC_SMP_DEBUG
+  typedef std::vector<ReqPathEntry *> ReqPath;
+  ReqPath reqPath;
+#endif
 
   bool dataReq; // data or icache request
   bool prefetch;
   ID(bool acknowledged;)
 
-#ifdef SESC_DSM // libdsm stuff
-  bool local;      // local or remote request
-  Message *msg;  // if remote, which msg was used to request data
-#endif
-
   void setFields(DInst *d, MemOperation mop, MemObj *mo) {
     dinst = d;
+    if(d) {
+      if(d->getResource())
+	gproc = d->getResource()->getCluster()->getGProcessor();
+    } else {
+      gproc = 0;
+    }
     memOp = mop;
     currentMemObj = mo;
   }
@@ -144,12 +184,18 @@ public:
     }
   }
 
+  void   setL2MissDetection(Time_t time) { l2MissDetection = time; }
+  Time_t getL2MissDetection()            { return l2MissDetection; }
+
   bool isDataReq() const { return dataReq; }
   bool isPrefetch() const {return prefetch; }
   void markPrefetch() {
     I(!prefetch);
     prefetch = true;
   }
+
+  void setPriority(int p) { priority = p; }
+  int  getPriority() { return priority; }
  
 #ifdef SESC_DSM // libdsm stuff
   // local is true by default
@@ -168,14 +214,12 @@ public:
 
   bool isWrite() const { return wToRLevel != -1 || memOp == MemWrite; }
 
-  void mutateReadToReadX() {
-    I( memOp == MemRead );
-    memOp = MemReadX;
-  }
-
   void goDown(TimeDelta_t lat, MemObj *newMemObj) {
     memStack.push(currentMemObj);
     clockStack.push(globalClock);
+#ifdef SESC_SMP_DEBUG
+    registerVisit(currentMemObj, "goDown", globalClock);
+#endif
     currentMemObj = newMemObj;
     accessCB.schedule(lat);
   }
@@ -183,6 +227,9 @@ public:
   void goDownAbs(Time_t time, MemObj *newMemObj) {
     memStack.push(currentMemObj);
     clockStack.push(globalClock);
+#ifdef SESC_SMP_DEBUG
+    registerVisit(currentMemObj, "goDownAbs", globalClock);
+#endif
     currentMemObj = newMemObj;
     accessCB.scheduleAbs(time);
   }
@@ -195,6 +242,11 @@ public:
       destroy();
       return;
     }
+
+#ifdef SESC_SMP_DEBUG
+    registerVisit(currentMemObj, "goUp", globalClock);
+#endif
+
     currentMemObj = memStack.top();
     memStack.pop();
 
@@ -211,6 +263,11 @@ public:
       destroy();
       return;
     }
+
+#ifdef SESC_SMP_DEBUG
+    registerVisit(currentMemObj, "goUpAbs", globalClock);
+#endif
+
     currentMemObj = memStack.top();
     memStack.pop();
 
@@ -229,13 +286,19 @@ public:
 
   DInst *getDInst() {  return dinst; }
 
+  GProcessor *getGProcessor() {
+    return gproc;
+  }
+
   MemObj *getCurrentMemObj() const { return currentMemObj; }
 
-#ifdef TASKSCALAR
+  
   void setCurrentMemObj(MemObj *obj) {
     currentMemObj = obj;
   }
   
+#ifdef TASKSCALAR 
+
   void setVMemReq(VMemReq *req) {
     vmemReq = req;
   }
@@ -275,6 +338,73 @@ public:
 
   virtual VAddr getVaddr() const=0;
   virtual void ack(TimeDelta_t lat) =0;
+
+#ifdef SESC_SMP_DEBUG
+  void registerVisit(MemObj *memobj, const char *action, Time_t time)
+  {
+    ReqPathEntry *entry = ReqPathEntry::create(memobj->getSymbolicName(),
+						     action,
+						     time);
+    reqPath.push_back(entry);
+  }
+
+  void registerVisit(const char *name, const char *action, Time_t time, int sId)
+  {
+    ReqPathEntry *entry = ReqPathEntry::create(name, action, time, sId);
+    reqPath.push_back(entry);
+  }
+
+  void dumpPathSumm()
+  {
+    MSG("dumping path for %p: 0x%08x", this, (unsigned) getPAddr());
+    MSG("%d entries", (unsigned) reqPath.size());
+    MSG("0: %s/%s -- %lld (abs)", reqPath[0]->memobj, reqPath[0]->action, 
+	reqPath[0]->accessTime);
+    if(reqPath.size() > 1) {
+      MSG("1: %s/%s -- +%lld", reqPath[1]->memobj, reqPath[1]->action, 
+	  reqPath[1]->accessTime - reqPath[0]->accessTime);
+    }
+
+    if(reqPath.size() > 2) {
+      MSG("...");
+      
+      int i = reqPath.size() - 1;
+      if(reqPath[i]->specialId == -1) {
+	MSG("%d: %s/%s - +%lld", i, reqPath[i]->memobj, reqPath[i]->action, 
+	    reqPath[i]->accessTime - reqPath[i-1]->accessTime);
+      } else {
+	MSG("%d: %s/%s(%d) - +%lld", i, reqPath[i]->memobj, reqPath[i]->action, 
+	    reqPath[i]->specialId, 
+	    reqPath[i]->accessTime - reqPath[i-1]->accessTime);
+      }
+    }
+  }
+
+  void dumpPath()
+  {
+    MSG("dumping path for %p: 0x%08x", this, (unsigned) getPAddr());
+    MSG("0: %s/%s -- %lld (abs)", reqPath[0]->memobj, reqPath[0]->action, 
+	reqPath[0]->accessTime);
+    for(unsigned i = 1; i < reqPath.size(); i++) {
+      if(reqPath[i]->specialId == -1) {
+	MSG("%d: %s/%s - +%lld", i, reqPath[i]->memobj, reqPath[i]->action, 
+	    reqPath[i]->accessTime - reqPath[i-1]->accessTime);
+      } else {
+	MSG("%d: %s/%s(%d) - +%lld", i, reqPath[i]->memobj, reqPath[i]->action, 
+	    reqPath[i]->specialId, 
+	    reqPath[i]->accessTime - reqPath[i-1]->accessTime);
+      }
+    }
+  }
+
+  void clearPath() 
+  {
+    for(unsigned i = 0; i < reqPath.size(); i++)
+      reqPath[i]->destroy();
+
+    reqPath.clear();
+  }
+#endif // SESC_SMP_DEBUG
 };
 
 class DMemRequest : public MemRequest {

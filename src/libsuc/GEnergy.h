@@ -112,7 +112,6 @@ enum PowerGroup {
 
 class EnergyStore {
 private:
-protected:
 public:
   EnergyStore() {
   }
@@ -199,7 +198,7 @@ public:
   double get(const char *name, int procId=0);
 };
 
-class GStatsEnergyBase {
+class GStatsEnergyBase : public GStats {
  public:
   virtual double getDouble() const = 0;
   virtual void inc() = 0;
@@ -211,9 +210,11 @@ class GStatsEnergyNull : public GStatsEnergyBase {
   double getDouble() const;
   void inc();
   void add(int v);
+
+  void reportValue() const {};
 };
 
-class GStatsEnergy : public GStatsEnergyBase, public GStats {
+class GStatsEnergy : public GStatsEnergyBase {
 protected:
   typedef std::vector< std::vector<GStatsEnergy *> > EProcStoreType;
   typedef std::vector< std::vector<GStatsEnergy *> > EGroupStoreType;
@@ -233,7 +234,7 @@ public:
   GStatsEnergy(const char *name, const char* block
 	       ,int procId, EnergyGroup grp
 	       ,double energy, const char *part="");
-  ~GStatsEnergy();
+  ~GStatsEnergy() {};
   static double getTotalProc(int procId);
   static double getTotalGroup(EnergyGroup grp);
   static double getTotalPart(const char *part);
