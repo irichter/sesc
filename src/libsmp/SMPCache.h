@@ -47,8 +47,8 @@ protected:
   TimeDelta_t missDelay;
   TimeDelta_t hitDelay;
 
-  MSHR<PAddr> *outsReq; // buffer for requests coming from upper levels
-  static MSHR<PAddr> *mutExclBuffer;
+  MSHR<PAddr, SMPCache> *outsReq; // buffer for requests coming from upper levels
+  static MSHR<PAddr, SMPCache> *mutExclBuffer;
 
   class Entry {
   public:
