@@ -38,7 +38,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 // subsystem is the same size. This is not hard to fix, though. Any
 // candidates?
 
-MSHR<PAddr> *SMPCache::mutExclBuffer = NULL;
+MSHR<PAddr, SMPCache> *SMPCache::mutExclBuffer = NULL;
 
 SMPCache::SMPCache(SMemorySystem *dms, const char *section, const char *name)
   : MemObj(section, name)
@@ -86,20 +86,17 @@ SMPCache::SMPCache(SMemorySystem *dms, const char *section, const char *name)
   // even hits are added to MSHR
   char *outsReqName = (char *) malloc(strlen(name) + 2);
   sprintf(outsReqName, "%s", name);
-  const char *mshrType = SescConf->getCharPtr(section,"MSHRtype");
-  SescConf->isLong(section, "MSHRsize");
-  SescConf->isLong(section, "bsize");
-  unsigned long mshrSize = SescConf->getLong(section, "MSHRsize");
-  unsigned long bsize = SescConf->getLong(section, "bsize");
-  outsReq = MSHR<PAddr>::create(outsReqName, mshrType, mshrSize, bsize);
+
+  const char *mshrSection = SescConf->getCharPtr(section,"MSHR");
   
+  outsReq = MSHR<PAddr,SMPCache>::create(outsReqName, mshrSection);
 
   if (mutExclBuffer == NULL)
-    mutExclBuffer = MSHR<PAddr>::create("mutExclBuffer", 
-					mshrType,
-					32000,
-					mshrSize);
-
+    mutExclBuffer = MSHR<PAddr,SMPCache>::create("mutExclBuffer", 
+				  SescConf->getCharPtr(mshrSection, "type"),
+				  32000,
+				  SescConf->getLong(mshrSection, "bsize"));
+  
   SescConf->isLong(section, "hitDelay");
   hitDelay = SescConf->getLong(section, "hitDelay");
 
