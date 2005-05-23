@@ -94,7 +94,8 @@ private:
   int intervalCount;
   double previousTotEnergy;
   
-  int getNextCoreMode();  
+  int getNextCoreMode(); 
+  int gatherRunTimeData();
 #endif
 
  

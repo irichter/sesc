@@ -62,11 +62,6 @@ DEFS += -DSESC_ENERGY
 DEFS   += -DPOWER_TEST -DPARM_TECH_POINT=7 -DVdd=1.1 -DPARM_Freq=5e9
 endif
 
-# added 12/05/04 DVDB
-ifdef SESC_THERM
-DEFS += -DSESC_THERM
-endif
-
 ifdef SESC_SLICE
 DEFS += -DSESC_SLICE
 endif
@@ -204,11 +199,18 @@ DEFS    += -DSESC_BAAD
 endif
 
 ################################################
+# Thermal model
+ifdef SESC_THERM
+DEFS += -DSESC_THERM
+endif
+
+################################################
 # Optimized Inorder Pipeline
 ifdef SESC_INORDER
 DEFS    += -DSESC_INORDER
-#DEFS    += -DSESC_INORDER_OUT_DEPS
-#DEFS   += -DSESC_INORDER_ENERGY
+DEFS    += -DSESC_INORDER_OUT_DEPS
+DEFS    += -DSESC_INORDER_ENERGY
+DEFS   	+= -DSESC_INORDER_SWITCH
 endif
 
 

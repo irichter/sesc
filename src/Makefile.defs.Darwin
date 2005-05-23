@@ -22,13 +22,20 @@ CC	=gcc
 
 ifdef DEBUG
 COPTS	:=-O0 -g -fno-inline-functions $(PDEFS)
-LOPTS	:=-O0
+LOPTS	:=-O1
 else
 # -fast does not work by default. Dissable some opts
 COPTS	:=-O3 -g1 -finline-functions -finline-limit=1800
 COPTS +=-funroll-loops -fsched-interblock -fomit-frame-pointer
 LOPTS	:=-O2
+
+ifdef CHUD
+# CHUD OPTIONS
+LOPTS	+=-framework CHUD
+COPTS	+=-DSESC_OSX_CHUD -F/System/Library/PrivateFrameworks
 endif
+endif
+
 
 # Shared COPTS (do not affect debugging)
 # Plaform Specific

@@ -879,6 +879,9 @@ void OSSim::preBoot()
 
   SescConf->lock();       // All the objects should be loaded
 
+  time_t t = time(0);
+  Report::field("OSSim:beginTime=%s", ctime(&t));
+
   Report::field("OSSim:bench=%s", benchRunning);
   Report::field("OSSim:benchName=%s", benchName);
   if( nInst2Skip ) 
@@ -978,6 +981,8 @@ void OSSim::simFinish()
   // Work finished, dump statistics
   report("Final");
 
+  time_t t = time(0);
+  Report::field("OSSim:endTime=%s", ctime(&t));
 
   Report::close();
 

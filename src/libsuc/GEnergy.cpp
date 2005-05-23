@@ -29,7 +29,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 #include "EnergyMgr.h"
 #include "ReportGen.h"
-#ifdef SESC_TERM
+#ifdef SESC_THERM
 #include "ReportTherm.h"
 #endif
 

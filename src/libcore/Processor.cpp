@@ -175,7 +175,7 @@ void Processor::advanceClock()
 #endif  
 
   clockTicks++;
-  
+
   //  GMSG(!ROB.empty(),"robTop %d Ul %d Us %d Ub %d",ROB.getIdFromTop(0)
   //       ,unresolvedLoad, unresolvedStore, unresolvedBranch);
 
@@ -278,7 +278,53 @@ StallCause Processor::addInst(DInst *dinst)
   StallCause sc = sharedAddInst(dinst);
   if (sc != NoStall)
     return sc;
-  
+
+#ifdef SESC_SEED
+  {
+    // Small L1 cache predictor
+    static SCTable l1HitPred(0,"l1HitPred",8192,3);
+    static GStatsCntr  *nL1Hit_pHit  =0;
+    static GStatsCntr  *nL1Hit_pMiss =0;
+    static GStatsCntr  *nL1Miss_pHit =0;
+    static GStatsCntr  *nL1Miss_pMiss=0;
+    if (nL1Hit_pMiss == 0) {
+      nL1Hit_pHit   = new GStatsCntr("L1Pred:nL1Hit_pHit");
+      nL1Hit_pMiss  = new GStatsCntr("L1Pred:nL1Hit_pMiss");
+      nL1Miss_pHit  = new GStatsCntr("L1Pred:nL1Miss_pHit");
+      nL1Miss_pMiss = new GStatsCntr("L1Pred:nL1Miss_pMiss");
+    }
+    
+    if (inst->isLoad()) {
+      bool l1Hit  = static_cast<Cache *>(l1Cache)->isInCache(static_cast<PAddr>(dinst->getVaddr()));
+      bool pL1Hit = l1HitPred.isHighest(inst->currentID());
+      if (l1Hit)
+        l1HitPred.predict(inst->currentID(), true);
+      else
+        l1HitPred.clear(inst->currentID());
+
+      if (l1Hit && pL1Hit) {
+#ifdef SESC_SEED_STALL_LOADS
+        dinst->setStallOnLoad();
+#endif
+        nL1Hit_pHit->inc();
+      }else if (l1Hit && !pL1Hit) {
+	// additional stall on load only if L1 hit & predict miss
+        dinst->setStallOnLoad();
+        nL1Hit_pMiss->inc();
+      }else if (!l1Hit && pL1Hit) {
+#ifdef SESC_SEED_STALL_LOADS
+        dinst->setStallOnLoad();
+#endif
+        nL1Miss_pHit->inc();
+      }else{
+#ifdef SESC_SEED_STALL_LOADS
+        dinst->setStallOnLoad();
+#endif
+        nL1Miss_pMiss->inc();
+      }
+    }
+  }
+#endif
 
   I(dinst->getResource() != 0); // Resource::schedule must set the resource field
 
@@ -307,6 +353,10 @@ StallCause Processor::addInst(DInst *dinst)
 
 bool Processor::hasWork() const 
 {
+#ifdef SESC_INORDER
+  if (switching)
+    return true;
+#endif
   return IFID.hasWork() || !ROB.empty() || pipeQ.hasWork();
 }
 

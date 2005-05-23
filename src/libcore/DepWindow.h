@@ -46,6 +46,40 @@ private:
   const TimeDelta_t SchedDelay;
   const TimeDelta_t RegFileDelay;
 
+#ifdef SESC_SEED
+  const long Banks;
+  const long DepTableEntries;
+  const long DepTableNumPorts;
+
+  const TimeDelta_t DepTableDelay;
+
+#ifdef SESC_SEED_OVERFLOW
+  const long MaxOverflowing;
+  const long MaxUnderflowing;
+#endif
+
+  long nOverflowing;
+
+  SCTable  depPred;
+
+  GStatsCntr nDepsCorrect;
+  GStatsCntr nDepsMiss;
+  GStatsCntr nDepsOverflow;
+  GStatsCntr nDepsUnderflow;
+
+  GStatsCntr *nDepsCntr[3];
+
+  long addInstBank;
+
+#ifdef SESC_SEED
+  Time_t lastWakeUpTime;
+#endif
+  
+  PortGeneric **depTablePort;
+
+  GStatsEnergy *depTableEnergy; // FIXME: correct energy computed
+
+#endif
 
   GStatsEnergy *resultBusEnergy;
   GStatsEnergy *forwardBusEnergy;
@@ -72,6 +106,17 @@ private:
   PortGeneric *wakeUpPort;
   PortGeneric *schedPort;
 
+#ifdef SESC_SEED
+  long getBank() {
+    long tmp = addInstBank;
+    addInstBank = (addInstBank+1) % Banks;
+    return tmp;
+  }
+  void addParentSrcShared(DInst *child, DInst *parent);
+  void addParentSrc1(DInst *child);
+  void addParentSrc2(DInst *child);
+  bool hasDepTableSpace(const DInst *dinst) const;
+#endif
 
 protected:
   void preSelect(DInst *dinst);

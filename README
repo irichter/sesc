@@ -36,7 +36,6 @@ building sesc
 
 > make sesc
 
-
 # Examples of configure parameters:
 #
 # Activate all the checks, but do not have verbose dump

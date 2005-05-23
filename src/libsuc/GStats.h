@@ -68,10 +68,6 @@ public:
   int gd;
 
   static void report(const char *str);
-#ifdef SESC_THERM
-  static void reportDump();
-  static void reportDumpSetup();
-#endif
   static GStats *getRef(const char *str);
 
   GStats() {
@@ -81,10 +77,6 @@ public:
   void prepareTrace();
 
   virtual void reportValue() const =0;
-#ifdef SESC_THERM
-  virtual void reportValueDump() const =0;
-  virtual void reportValueDumpSetup() const =0;
-#endif
 
   virtual double getDouble() const {
     MSG("getDouble Not supported by this class %s",name);
@@ -129,10 +121,6 @@ public:
 
   double getDouble() const;
   void reportValue() const;
-#ifdef SESC_THERM
-  void reportValueDump() const;
-  void reportValueDumpSetup() const;
-#endif
 };
 
 class GStatsAvg : public GStats {
@@ -160,16 +148,9 @@ public:
   }
 
   double getDouble() const;
-
-  long long getSamples() const {
-    return nData;
-  }
+  long long getSamples() const { return nData; }
 
   virtual void reportValue() const;
-#ifdef SESC_THERM
-  void reportValueDump() const;
-  void reportValueDumpSetup() const;
-#endif
 };
 
 class GStatsPDF : public GStatsAvg {
@@ -191,16 +172,11 @@ public:
   double getSpread(double p) const;
 
   void reportValue() const;
-#ifdef SESC_THERM
-  void reportValueDump() const;
-  void reportValueDumpSetup() const;
-#endif
 };
 
 class GStatsProfiler : public GStats {
 private:
 protected:
-
   typedef HASH_MAP<ulong, int> ProfHash;
 
   ProfHash p;
@@ -209,11 +185,6 @@ public:
   GStatsProfiler(const char *format,...);
 
   void reportValue() const;
-
-#ifdef SESC_THERM
-  void reportValueDump() const;
-  void reportValueDumpSetup() const;
-#endif
 
   void sample(ulong key);  
 };
@@ -232,11 +203,6 @@ class GStatsMax : public GStats {
   }
 
   void reportValue() const;
-
-#ifdef SESC_THERM
-  void reportValueDump() const;
-  void reportValueDumpSetup() const;
-#endif
 };
 
 
@@ -254,23 +220,19 @@ public:
 class GStatsHist : public GStats {
 private:
 protected:
+  long long data;
+  long long nData;
   
   typedef HASH_MAP<unsigned long, unsigned long long> Histogram;
 
   Histogram H;
-
 public:
   GStatsHist(const char *format,...);
   GStatsHist() { }
 
   void reportValue() const;
 
-#ifdef SESC_THERM
-  void reportValueDump() const;
-  void reportValueDumpSetup() const;
-#endif
-
-  void sample(unsigned long key, unsigned long long weight);
+  void sample(unsigned long key, unsigned long long weight=1);
 };
 
 class GStatsTimingHist : public GStatsHist {
@@ -282,14 +244,22 @@ public:
 
   void reportValue() const;
 
-#ifdef SESC_THERM
-  void reportValueDump() const;
-  void reportValueDumpSetup() const;
-#endif
+  //Call on each update, it remembes what the last (key,time) pair was
+  //and uses that to update the histogram.
+  void sample(unsigned long key=1);
+};
+
+class GStatsChangeHist : public GStatsHist {
+private:
+  Time_t lastUpdate;
+public:
+  GStatsChangeHist(const char *format,...);
+
+  void reportValue() const;
 
   //Call on each update, it remembes what the last (key,time) pair was
   //and uses that to update the histogram.
-  void sample(unsigned long key);
+  void sample(unsigned long key=1);
 };
 
 class GStatsEventTimingHist : protected GStatsHist {
@@ -341,11 +311,6 @@ private:
   long long data;
  public:
   GStatsPeriodicHist(int p, const char* format, ...);
-
-#ifdef SESC_THERM
-  void reportValueDump() const;
-  void reportValueDumpSetup() const;
-#endif
 
   void reportValue() const;
   void inc();

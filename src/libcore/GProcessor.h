@@ -22,6 +22,9 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #ifndef GPROCESSOR_H
 #define GPROCESSOR_H
 
+#define MODE_INORDER 1
+#define MODE_OUTORDER 0
+
 // Generic Processor Interface.
 // 
 // This class is a generic interface for Processors. It has been
@@ -96,7 +99,6 @@ protected:
   bool OutOrderMode;
   bool currentMode;
   bool switching; /* indicates if switch from outorder to inorder core */
-  
 #endif  
   
   GStatsEnergyBase *wrRegEnergy[3]; // 0 INT, 1 FP, 2 NONE

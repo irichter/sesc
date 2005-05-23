@@ -25,6 +25,10 @@ ifdef SESC_ENERGY
 SUBDIRS+=libpower
 VPATH += $(SRC_DIR)/libpower/cacti $(SRC_DIR)/libpower/wattch $(SRC_DIR)/libpower/panalyzer $(SRC_DIR)/libpower/orion
 endif
+ifdef SESC_THERM
+SUBDIRS+=libsescspot
+endif
+
 
 ABSUBDIRS=$(addprefix $(SRC_DIR)/,$(SUBDIRS))
 
@@ -70,6 +74,9 @@ DSMLIBS =$(OBJ)/libdsm.a
 SMPLIBS =$(OBJ)/libsmp.a
 MEMLIBS =$(OBJ)/libmem.a 
 TLSLIBS =$(OBJ)/libvmem.a
+ifdef SESC_THERM
+TLSLIBS =$(OBJ)/libsescspot.a
+endif
 
 sesc.tst : $(OBJ)/main.o $(TSTLIBS)
 	$(CXX) $(CFLAGS) $(LDFLAGS) -o $@  $^  $(LIBS) $(STDLIBS)
@@ -82,6 +89,7 @@ sesc.tls: $(OBJ)/tls.o $(TLSLIBS) $(MEMLIBS) $(TSTLIBS)
 
 sesc.smp: $(OBJ)/smp.o $(SMPLIBS) $(MEMLIBS) $(TSTLIBS)
 	$(CXX) $(CFLAGS) $(LDFLAGS) -o $@ $^ $(LIBS) $(STDLIBS)
+
 sesc.dsm: $(OBJ)/dsm.o $(DSMLIBS) $(SMPLIBS) $(MEMLIBS) $(TSTLIBS)
 	$(CXX) $(LDFLAGS) -o $@ $^ $(LIBS) -lm
 
@@ -119,14 +127,27 @@ runPoolBench : poolBench
 # each directory
 
 # libpower
-$(BUILD_DIR)/wattchify: $(OBJ)/powermain.o $(OBJ)/libwattch.a $(OBJ)/libcore.a  $(OBJ)/libsuc.a $(OBJ)/liborion.a
+wattchify: $(OBJ)/powermain.o $(OBJ)/libwattch.a $(OBJ)/libcore.a  $(OBJ)/libsuc.a $(OBJ)/liborion.a
 	$(CXX) $(CFLAGS) -o $@ $^ $(LIBS) $(STDLIBS) 
 
-$(BUILD_DIR)/cactify: $(OBJ)/cacmain.o  $(OBJ)/libcacti.a $(OBJ)/libcore.a  $(OBJ)/libsuc.a
+cactify: $(OBJ)/cacmain.o  $(OBJ)/libcacti.a $(OBJ)/libcore.a  $(OBJ)/libsuc.a
 	$(CXX) $(CFLAGS) -o $@ $^ $(LIBS) $(STDLIBS) 
 
-$(BUILD_DIR)/panalyze: $(OBJ)/panalyze.o $(OBJ)/libpanalyzer.a $(OBJ)/libcore.a  $(OBJ)/libsuc.a 
+panalyze: $(OBJ)/panalyze.o $(OBJ)/libpanalyzer.a $(OBJ)/libcore.a  $(OBJ)/libsuc.a 
 	$(CXX) $(CFLAGS) -o $@ $^ $(LIBS) $(STDLIBS) 
+
+ifdef SESC_THERM
+sescspot: $(OBJ)/libsescspot.a sescspot.sspot sescspot.flp
+	$(CXX) $(CFLAGS) -o $@ $(OBJ)/sescspot.o $(OBJ)/libsescspot.a $(STDLIBS) 
+
+sescspot.sspot: $(TOPSRC_DIR)/confs/ev6.sspot
+	@echo; echo "Generating EV6 $@ from: $(TOPSRC_DIR)/confs"
+	$(CP) $(TOPSRC_DIR)/confs/ev6.sspot sescspot.sspot
+
+sescspot.flp: $(TOPSRC_DIR)/confs/ev6.flp
+	@echo; echo "Generating EV6 $@ from: $(TOPSRC_DIR)/confs"
+	$(CP) $(TOPSRC_DIR)/confs/ev6.flp sescspot.flp
+endif
 
 # libapp
 libapp-xcc:

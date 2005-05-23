@@ -1,9 +1,14 @@
 
+#include "sescapi.h"
+
+void sesc_f77_simulation_mark__() {
+  sesc_simulation_mark();
+} 
+
 #if (defined DARWIN) || (defined XCC_SPARC)
 // Do nothing
 #else
 
-#include "sescapi.h"
 #include <g2c.h>
 
 integer sesc_f77_vfork(void)

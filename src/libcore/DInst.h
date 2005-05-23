@@ -48,6 +48,10 @@ class FetchEngine;
 class FReg;
 class BPredictor;
 
+#if (defined SESC_SEED)
+#define DINST_PARENT 1
+#endif
+
 // FIXME: do a nice class. Not so public
 class DInstNext {
  private:
@@ -129,11 +133,41 @@ private:
   // END Time counters
 
 #ifdef SESC_BAAD
-  static GStatsAvg **avgFetchQTime;
-  static GStatsAvg **avgIssueQTime;
-  static GStatsAvg **avgSchedQTime;
-  static GStatsAvg **avgExeQTime;
-  static GStatsAvg **avgRetireQTime;
+  static int fetchQSize;
+  static int issueQSize;
+  static int schedQSize;
+  static int exeQSize;
+  static int retireQSize;
+
+  static GStatsTimingHist *fetchQHist1;
+  static GStatsTimingHist *issueQHist1;
+  static GStatsTimingHist *schedQHist1;
+  static GStatsTimingHist *exeQHist1;
+  static GStatsTimingHist *retireQHist1;
+  
+  static GStatsHist *fetchQHist2;
+  static GStatsHist *issueQHist2;
+  static GStatsHist *schedQHist2;
+  static GStatsHist *exeQHist2;
+  static GStatsHist *retireQHist2;
+
+  static GStatsHist *fetchQHistUp;
+  static GStatsHist *issueQHistUp;
+  static GStatsHist *schedQHistUp;
+  static GStatsHist *exeQHistUp;
+  static GStatsHist *retireQHistUp;
+
+  static GStatsHist *fetchQHistDown;
+  static GStatsHist *issueQHistDown;
+  static GStatsHist *schedQHistDown;
+  static GStatsHist *exeQHistDown;
+  static GStatsHist *retireQHistDown;
+
+  static GStatsHist **avgFetchQTime;
+  static GStatsHist **avgIssueQTime;
+  static GStatsHist **avgSchedQTime;
+  static GStatsHist **avgExeQTime;
+  static GStatsHist **avgRetireQTime;
   Time_t fetchTime;
   Time_t renameTime;
   Time_t issueTime;
@@ -167,6 +201,15 @@ private:
   tls::Epoch *myEpoch;
 #endif // (defined TLS)
 
+#ifdef SESC_SEED
+  DInst *predParent;
+  int    nDepTableEntries;
+  long   bank;
+  long   xtraBank;
+  bool   predParentSrc1;
+  bool   overflowing;
+  bool   stallOnLoad;
+#endif
 
   char nDeps;              // 0, 1 or 2 for RISC processors
 
@@ -358,7 +401,44 @@ private:
 
   char getnDeps() const { return nDeps; }
 
+#ifdef SESC_SEED
+  void addDepTableEntry() {
+    nDepTableEntries++;
+  }
+  int getnDepTableEntries() const { return nDepTableEntries; }
+  long getXtraBank() const { return xtraBank; }
+  void setXtraBank(long i) {
+    xtraBank = i;
+  }
+  long getBank() const { return bank; }
+  void setBank(long i) {
+    bank = i;
+  }
+  // No getPredParent because predParent can be an stale pointer. Only parent
+  // should access (it may retire)
+  bool isOverflowing() const {  return overflowing; }
+  void setOverflowing()   {  overflowing = true; }
+
+  bool isStallOnLoad() const {  
+    return inst->isLoad() && stallOnLoad; 
+  }
+  void setStallOnLoad() {
+    I(inst->isLoad());
+    stallOnLoad = true; 
+  }
+
+  bool isPredParentSrc1() const { 
+    I(predParent); 
+    return predParentSrc1; 
+  }
+  DInst *getPredParent() const { return predParent; }
+  void setPredParent(DInst *p, bool src1=false) {
+    predParent = p;
+    predParentSrc1 = src1;
+  }
+#else
   bool isStallOnLoad() const {  return false; }
+#endif
 
   bool isSrc1Ready() const { return !pend[0].isUsed; }
   bool isSrc2Ready() const { return !pend[1].isUsed; }

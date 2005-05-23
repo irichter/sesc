@@ -14,7 +14,6 @@ use strict;
 use Time::localtime;
 use Getopt::Long;
 
-
 foreach my $tmp (@ARGV) {
   my $cf = sesc->new($tmp);
 

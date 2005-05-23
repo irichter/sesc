@@ -888,6 +888,48 @@ sub showStatReport {
 	  my $clockTicks= $cf->getResultField("Proc(${i})","clockTicks");
 	  next unless( $clockTicks > 1 );
 
+	  printf "#table9a                              IPC : szFB : szBB : brMiss : brMissTime : iMissRate \n";
+	  printf "table9a  %26s ", $name;
+
+	  my $nInst   = $cf->getResultField("PendingWindow(${i})_iBJ","n")
+	      + $cf->getResultField("PendingWindow(${i})_iLoad","n")
+	      + $cf->getResultField("PendingWindow(${i})_iStore","n")
+	      + $cf->getResultField("PendingWindow(${i})_iALU","n")
+	      + $cf->getResultField("PendingWindow(${i})_iComplex","n")
+	      + $cf->getResultField("PendingWindow(${i})_fpALU","n")
+	      + $cf->getResultField("PendingWindow(${i})_fpComplex","n")
+	      + $cf->getResultField("PendingWindow(${i})_other","n");
+
+	  # IPC
+	  printf " %9.3f ", $nInst/$clockTicks;
+
+	  # szFB
+	  my $nTaken    = $cf->getResultField("BPred(${i})","nTaken");
+	  printf " %9.2f ", $nInst/$nTaken;
+
+	  # szBB
+	  my $nBranches = $cf->getResultField("BPred(${i})","nBranches");
+	  printf " %9.2f ", $nInst/$nBranches;
+
+	  # branchMissRate
+	  my $nMiss = $cf->getResultField("BPred(${i})","nMiss");
+	  printf " %9.2f ", 100*$nMiss/$nBranches;
+
+	  # brMissTime
+	  printf " %9.2f ", $cf->getResultField("FetchEngine(${i})_avgBranchTime","v");
+
+	  # icache miss
+	  my $iaccess = $cf->getResultField("P(${i})_IL1","readHalfMiss") + 
+	      $cf->getResultField("P(${i})_IL1","readMiss") + 
+	      $cf->getResultField("P(${i})_IL1","readHit") + 
+	      $cf->getResultField("P(${i})_IL1","writeHalfMiss") + 
+	      $cf->getResultField("P(${i})_IL1","writeMiss") + 
+	      $cf->getResultField("P(${i})_IL1","writeHit");
+
+	  printf " %9.2f ", 100*($cf->getResultField("P(${i})_IL1","readMiss")+$cf->getResultField("P(${i})_IL1","writeMiss")) /$iaccess;
+	  
+	  printf "\n";
+
 	  my $nDepsOverflow = 1;
 	  my $nDeps_0;
 	  my $nDeps_1;
@@ -913,14 +955,6 @@ sub showStatReport {
 	  # ProcID
 	  printf "table9  %26s  %9d : ", $name, $i;
 
-	  my $nInst   = $cf->getResultField("PendingWindow(${i})_iBJ","n")
-	      + $cf->getResultField("PendingWindow(${i})_iLoad","n")
-	      + $cf->getResultField("PendingWindow(${i})_iStore","n")
-	      + $cf->getResultField("PendingWindow(${i})_iALU","n")
-	      + $cf->getResultField("PendingWindow(${i})_iComplex","n")
-	      + $cf->getResultField("PendingWindow(${i})_fpALU","n")
-	      + $cf->getResultField("PendingWindow(${i})_fpComplex","n")
-	      + $cf->getResultField("PendingWindow(${i})_other","n");
 
 	  my $bench = $name;
 	  $bench =~ /([^ _]*).mips$/;

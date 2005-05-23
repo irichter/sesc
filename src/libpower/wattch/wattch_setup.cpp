@@ -243,9 +243,16 @@ void wattch_setup()
   SescConf->updateRecord(proc,"ldqCheckEnergy",pp.ldq_wakeup_power/div) ;
   SescConf->updateRecord(proc,"ldqRdWrEnergy",pp.ldq_rs_power/div) ;
 
+
   SescConf->updateRecord(proc,"stqCheckEnergy",pp.stq_wakeup_power/div) ;
   SescConf->updateRecord(proc,"stqRdWrEnergy",pp.stq_rs_power/div) ;
-  
+
+#ifdef SESC_INORDER
+  SescConf->updateRecord(proc,"stqCheckEnergyInOrder",(pp.stq_wakeup_power/div)/4) ;
+  SescConf->updateRecord(proc,"stqRdWrEnergyInOrder",(pp.stq_rs_power)/div/4) ;
+#endif
+ 
+ 
   // The more ports in the RF, the more the energy. Maybe some smart
   // designed can propose to have a single port multi-banked
   // structure. The truth is that most current processors increase the

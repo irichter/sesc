@@ -27,7 +27,6 @@ use Getopt::Long;
 #
 # Add all the values at functions, and do the same rankings.
 #
-#
 
 use strict;
 use Getopt::Long;

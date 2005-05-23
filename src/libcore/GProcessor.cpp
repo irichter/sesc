@@ -32,7 +32,6 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "GMemorySystem.h"
 #include "LDSTBuffer.h"
 
-
 GProcessor::GProcessor(GMemorySystem *gm, CPU_t i, size_t numFlows)
   :Id(i)
   ,FetchWidth(SescConf->getLong("cpucore", "fetchWidth",i))
@@ -65,9 +64,6 @@ GProcessor::GProcessor(GMemorySystem *gm, CPU_t i, size_t numFlows)
   SescConf->isLong("cpucore"    , "robSize",i);
   SescConf->isBetween("cpucore" , "robSize", 2, 262144,i);
 
-  // Queue should be at least equal to fetch width
-  SescConf->isBetween("cpucore", "instQueueSize",FetchWidth, 4096, i);
-
   SescConf->isLong("cpucore"    , "intRegs",i);
   SescConf->isBetween("cpucore" , "intRegs", 16, 262144,i);
 
@@ -92,37 +88,33 @@ GProcessor::GProcessor(GMemorySystem *gm, CPU_t i, size_t numFlows)
   nStall[OutsBranchesStall] = new GStatsCntr("ExeEngine(%d):nOutsBranches",i);
   nStall[ReplayStall]       = new GStatsCntr("ExeEngine(%d):nReplays",i);
   nStall[PortConflictStall] = new GStatsCntr("ExeEngine(%d):PortConflict",i);
-  
+
   clockTicks=0;
 
   char cadena[100];
   sprintf(cadena, "Proc(%d)", (int)i);
-  
 
 #ifdef SESC_INORDER
   renameEnergyOutOrder = new GStatsEnergy("renameEnergy", cadena, i, RenameEnergy
 					  ,EnergyMgr::get("renameEnergy",i));
-  robEnergyOutOrder = new GStatsEnergy("ROBEnergy",cadena,i,ROBEnergy,EnergyMgr::get("robEnergy",i));
+  robEnergyOutOrder    = new GStatsEnergy("ROBEnergy",cadena,i,ROBEnergy,EnergyMgr::get("robEnergy",i));
 
-  renameEnergyInOrder = new GStatsEnergyNull();
-  robEnergyInOrder = new GStatsEnergyNull();
+  renameEnergyInOrder  = new GStatsEnergyNull();
+  robEnergyInOrder     = new GStatsEnergyNull();
 
   renameEnergy = renameEnergyOutOrder;
-  robEnergy =  robEnergyOutOrder;
-
-  InOrderMode = true;
+  robEnergy    = robEnergyOutOrder;
+ 
+  InOrderMode  = true;
   OutOrderMode = false;
-  currentMode = OutOrderMode;
-  switching = false;
-
+  currentMode  = OutOrderMode;
+  switching    = false;
 #else
   renameEnergy = new GStatsEnergy("renameEnergy", cadena, i, RenameEnergy
                                   ,EnergyMgr::get("renameEnergy",i));
 
   robEnergy = new GStatsEnergy("ROBEnergy",cadena,i,ROBEnergy,EnergyMgr::get("robEnergy",i));
 #endif
-
-
 
   wrRegEnergy[0] = new GStatsEnergy("wrIRegEnergy", cadena, i, WrRegEnergy
                                     ,EnergyMgr::get("wrRegEnergy",i));
@@ -171,22 +163,31 @@ void GProcessor::setMode(bool mode)
   if(currentMode == mode)
     return;
 
-  currentMode = mode;
+  //currentMode = mode;
+  printf("Called setMode\n");
+  if(currentMode == InOrderMode)
+    mode = OutOrderMode;
+  else 
+    mode = InOrderMode;
+
   switching   = true;
 
   if(mode == InOrderMode){
-   renameEnergy = renameEnergyInOrder;
-   robEnergy =  robEnergyInOrder;
-   currentMode = InOrderMode;
-   InOrderCore = true;
+    printf("Switching to InOrderMode\n"); 
+    renameEnergy = renameEnergyInOrder;
+    robEnergy =  robEnergyInOrder;
+    currentMode = InOrderMode;
+    InOrderCore = true;
   }else{
+    printf("Switching to OutOrderMode\n"); 
    renameEnergy = renameEnergyOutOrder;
    robEnergy =  robEnergyOutOrder;
    currentMode = OutOrderMode;
    InOrderCore = false;
   }
 
-  clusterManager.setMode(mode);	
+  clusterManager.setMode(mode);
+  printf("Done setting Mode\n");	
 }
 #endif
 
@@ -460,15 +461,14 @@ void GProcessor::retire()
     }
   }
 #endif
-  
+
   robUsed.sample(ROB.size());
   
   for(ushort i=0;i<RetireWidth && !ROB.empty();i++) {
     DInst *dinst = ROB.top();
 
-    if( !dinst->isExecuted() ) {
+    if( !dinst->isExecuted() )
       return;
-    }
 
     // save it now because retire can destroy DInst
     int rp = dinst->getInst()->getDstPool();

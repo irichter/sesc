@@ -35,11 +35,41 @@ long DInst::currentID=0;
 #endif
 
 #ifdef SESC_BAAD
-GStatsAvg **DInst::avgFetchQTime  = 0;
-GStatsAvg **DInst::avgIssueQTime  = 0;
-GStatsAvg **DInst::avgSchedQTime  = 0;
-GStatsAvg **DInst::avgExeQTime    = 0;
-GStatsAvg **DInst::avgRetireQTime = 0;
+int DInst::fetchQSize  = 0;
+int DInst::issueQSize  = 0;
+int DInst::schedQSize  = 0;
+int DInst::exeQSize    = 0;
+int DInst::retireQSize = 0;
+
+GStatsTimingHist *DInst::fetchQHist1  = 0;
+GStatsTimingHist *DInst::issueQHist1  = 0;
+GStatsTimingHist *DInst::schedQHist1  = 0;
+GStatsTimingHist *DInst::exeQHist1    = 0;
+GStatsTimingHist *DInst::retireQHist1 = 0;
+
+GStatsHist *DInst::fetchQHist2  = 0;
+GStatsHist *DInst::issueQHist2  = 0;
+GStatsHist *DInst::schedQHist2  = 0;
+GStatsHist *DInst::exeQHist2    = 0;
+GStatsHist *DInst::retireQHist2 = 0;
+
+GStatsHist *DInst::fetchQHistUp = 0;
+GStatsHist *DInst::issueQHistUp = 0;
+GStatsHist *DInst::schedQHistUp = 0;
+GStatsHist *DInst::exeQHistUp   = 0;
+GStatsHist *DInst::retireQHistUp= 0;
+
+GStatsHist *DInst::fetchQHistDown = 0;
+GStatsHist *DInst::issueQHistDown = 0;
+GStatsHist *DInst::schedQHistDown = 0;
+GStatsHist *DInst::exeQHistDown   = 0;
+GStatsHist *DInst::retireQHistDown= 0;
+
+GStatsHist **DInst::avgFetchQTime  = 0;
+GStatsHist **DInst::avgIssueQTime  = 0;
+GStatsHist **DInst::avgSchedQTime  = 0;
+GStatsHist **DInst::avgExeQTime    = 0;
+GStatsHist **DInst::avgRetireQTime = 0;
 #endif
 
 DInst::DInst()
@@ -55,18 +85,42 @@ DInst::DInst()
 #ifdef SESC_BAAD
   if (avgFetchQTime == 0) {
     int maxType = static_cast<int>(MaxInstType);
-    avgFetchQTime  = (GStatsAvg **)malloc(sizeof(GStatsAvg *)*maxType);
-    avgIssueQTime  = (GStatsAvg **)malloc(sizeof(GStatsAvg *)*maxType);
-    avgSchedQTime  = (GStatsAvg **)malloc(sizeof(GStatsAvg *)*maxType);
-    avgExeQTime    = (GStatsAvg **)malloc(sizeof(GStatsAvg *)*maxType);
-    avgRetireQTime = (GStatsAvg **)malloc(sizeof(GStatsAvg *)*maxType);
+    avgFetchQTime  = (GStatsHist **)malloc(sizeof(GStatsHist *)*maxType);
+    avgIssueQTime  = (GStatsHist **)malloc(sizeof(GStatsHist *)*maxType);
+    avgSchedQTime  = (GStatsHist **)malloc(sizeof(GStatsHist *)*maxType);
+    avgExeQTime    = (GStatsHist **)malloc(sizeof(GStatsHist *)*maxType);
+    avgRetireQTime = (GStatsHist **)malloc(sizeof(GStatsHist *)*maxType);
     for(int i = 1; i < maxType ; i++) {
-      avgFetchQTime[i]  = new GStatsAvg("BAAD_%sFrontQTime" ,Instruction::opcode2Name(static_cast<InstType>(i)));
-      avgIssueQTime[i]  = new GStatsAvg("BAAD_%sDepQTime"   ,Instruction::opcode2Name(static_cast<InstType>(i)));
-      avgSchedQTime[i]  = new GStatsAvg("BAAD_%sSchQTime"   ,Instruction::opcode2Name(static_cast<InstType>(i)));
-      avgExeQTime[i]    = new GStatsAvg("BAAD_%sExeQTime"   ,Instruction::opcode2Name(static_cast<InstType>(i)));
-      avgRetireQTime[i] = new GStatsAvg("BAAD_%sComRetQTime",Instruction::opcode2Name(static_cast<InstType>(i)));
+      avgFetchQTime[i]  = new GStatsHist("BAAD_%sFrontQTime" ,Instruction::opcode2Name(static_cast<InstType>(i)));
+      avgIssueQTime[i]  = new GStatsHist("BAAD_%sDepQTime"   ,Instruction::opcode2Name(static_cast<InstType>(i)));
+      avgSchedQTime[i]  = new GStatsHist("BAAD_%sSchQTime"   ,Instruction::opcode2Name(static_cast<InstType>(i)));
+      avgExeQTime[i]    = new GStatsHist("BAAD_%sExeQTime"   ,Instruction::opcode2Name(static_cast<InstType>(i)));
+      avgRetireQTime[i] = new GStatsHist("BAAD_%sComRetQTime",Instruction::opcode2Name(static_cast<InstType>(i)));
     }
+
+    fetchQHist1  = new GStatsTimingHist("BAAD_FrontQHist1");
+    issueQHist1  = new GStatsTimingHist("BAAD_DepQHist1");
+    schedQHist1  = new GStatsTimingHist("BAAD_SchQHist1");
+    exeQHist1    = new GStatsTimingHist("BAAD_ExeQHist1");
+    retireQHist1 = new GStatsTimingHist("BAAD_ComRetQHist1");
+
+    fetchQHist2  = new GStatsHist("BAAD_FrontQHist2");
+    issueQHist2  = new GStatsHist("BAAD_DepQHist2");
+    schedQHist2  = new GStatsHist("BAAD_SchQHist2");
+    exeQHist2    = new GStatsHist("BAAD_ExeQHist2");
+    retireQHist2 = new GStatsHist("BAAD_ComRetQHist2");
+
+    fetchQHistUp = new GStatsHist("BAAD_FrontQHistUp");
+    issueQHistUp = new GStatsHist("BAAD_DepQHistUp");
+    schedQHistUp = new GStatsHist("BAAD_SchQHistUp");
+    exeQHistUp   = new GStatsHist("BAAD_ExeQHistUp");
+    retireQHistUp= new GStatsHist("BAAD_ComRetQHistUp");
+
+    fetchQHistDown  = new GStatsHist("BAAD_FrontQHistDown");
+    issueQHistDown  = new GStatsHist("BAAD_DepQHistDown");
+    schedQHistDown  = new GStatsHist("BAAD_SchQHistDown");
+    exeQHistDown    = new GStatsHist("BAAD_ExeQHistDown");
+    retireQHistDown = new GStatsHist("BAAD_ComRetQHistDown");
   }
 #endif
 }
@@ -141,6 +195,12 @@ DInst *DInst::createDInst(const Instruction *inst, VAddr va, int cId)
   i->wakeUpTime = 0;
   i->vaddr      = va;
   i->first      = 0;
+#ifdef SESC_SEED
+  i->predParent   = 0;
+  i->nDepTableEntries = 0;
+  i->overflowing  = false;
+  i->stallOnLoad  = false;
+#endif
 #ifdef DEBUG
   i->ID = currentID++;
 #endif
@@ -384,26 +444,75 @@ void DInst::awakeRemoteInstructions()
 void DInst::setFetchTime()
 {
   fetchTime = globalClock;
+
+  fetchQHistUp->sample(fetchQSize);
+  fetchQSize++;
+
+  fetchQHist1->sample(fetchQSize);  
+  fetchQHist2->sample(fetchQSize);  
 }
 
 void DInst::setRenameTime()
 {
   renameTime = globalClock;
+
+  fetchQHistDown->sample(fetchQSize);
+  fetchQSize--;
+  issueQHistUp->sample(issueQSize);
+  issueQSize++;
+
+  fetchQHist2->sample(fetchQSize);  
+
+  issueQHist1->sample(issueQSize);  
+  issueQHist2->sample(issueQSize);  
 }
 
 void DInst::setIssueTime()
 {
   issueTime = globalClock;
+
+  issueQHistDown->sample(issueQSize);
+  issueQSize--;
+
+  schedQHistUp->sample(schedQSize);
+  schedQSize++;
+
+  issueQHist2->sample(issueQSize);  
+
+  schedQHist1->sample(schedQSize);  
+  schedQHist2->sample(schedQSize);  
 }
 
 void DInst::setSchedTime()
 {
   schedTime = globalClock;
+
+  schedQHistDown->sample(schedQSize);
+  schedQSize--;
+
+  exeQHistUp->sample(exeQSize);
+  exeQSize++;
+
+  schedQHist2->sample(schedQSize);  
+
+  exeQHist1->sample(exeQSize);
+  exeQHist2->sample(exeQSize);
 }
 
 void DInst::setExeTime()
 {
   exeTime = globalClock;
+
+  exeQHistDown->sample(exeQSize);
+  exeQSize--;
+
+  retireQHistUp->sample(retireQSize);
+  retireQSize++;
+
+  exeQHist2->sample(exeQSize);
+
+  retireQHist1->sample(retireQSize);
+  retireQHist2->sample(retireQSize);
 }
 void DInst::setRetireTime()
 {
@@ -414,6 +523,9 @@ void DInst::setRetireTime()
   avgSchedQTime[i]->sample(schedTime-issueTime);
   avgExeQTime[i]->sample(exeTime-schedTime);
   avgRetireQTime[i]->sample(globalClock-exeTime);
+
+  retireQHistDown->sample(retireQSize);
+  retireQSize--;
 }
 #endif
 

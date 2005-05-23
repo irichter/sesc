@@ -6,7 +6,7 @@
                   Milos Prvulovic
                   Smruti Sarangi
                   Luis Ceze
-
+ 
 This file is part of SESC.
 
 SESC is free software; you can redistribute it and/or modify it under the terms
@@ -38,7 +38,9 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #ifdef SESC_INORDER
 #include <time.h>
 #include "GEnergy.h"
+#include "GProcessor.h"
 #endif
+
 
 long long FetchEngine::nInst2Sim=0;
 long long FetchEngine::totalnInst=0;
@@ -118,15 +120,18 @@ FetchEngine::FetchEngine(int cId
   gproc = osSim->id2GProcessor(cpuId);
 
 #ifdef SESC_INORDER
-  char strTime[16], fileName[32];
+  char strTime[16], fileName[64];
+  const char *benchName;
   time_t rawtime;
   struct tm * timeinfo;
 
   time ( &rawtime );
   timeinfo = localtime ( &rawtime );
   strftime(strTime, 16, "%H%M",timeinfo);
-  strcpy(fileName,"/home/masc/spkale/delta_e_inst");
-  strncat(fileName,strTime,strlen(strTime));
+  benchName = OSSim::getBenchName();
+  strcpy(fileName,"/home/masc/spkale/SWITCH/deltas_");
+  strncat(fileName,benchName,strlen(benchName));
+  //  strncat(fileName,strTime,strlen(strTime));
 
 #ifdef SESC_INORDER_ENERGY
   energyInstFile = fopen(fileName, "w");
@@ -143,18 +148,84 @@ FetchEngine::FetchEngine(int cId
   previousClockCount = 0;
 
 #ifdef SESC_INORDER_SWITCH
-  switchFile = fopen("/home/masc/spkale/mcf/eddTally.dat", "r");
-  if(energyInstFile == NULL){
+  printf("Opening switch file\n"); 
+
+  char switchFileName[64];
+  strcpy(switchFileName,"/home/masc/spkale/04_04_05/");
+  strcat(switchFileName, OSSim::getBenchName());
+  strcat(switchFileName,"/eddTally.dat");
+  printf("Opening file:%s\n", switchFileName); 
+  switchFile = fopen(switchFileName, "r");
+
+  if(switchFile == NULL){
     printf("Error, could not open file energy_instr file for writing\n");
   }else{
-     int mode = getNextCoreMode();
-	 gproc->setMode(mode);	
+    int mode = getNextCoreMode();
+    gproc->setMode(mode);	
   }  
 #endif
 #endif
 }
 
 #ifdef SESC_INORDER
+int FetchEngine::gatherRunTimeData()
+{
+#ifdef SESC_INORDER_ENERGY
+    instrCount++;
+
+#if 0
+    if(intervalCount > 2000 && intervalCount < 3000){
+      if(instrCount == 200){
+
+	++subIntervalCount;
+
+	if(subIntervalCount % 10 == 0){
+	  ++intervalCount;
+	  subIntervalCount = 0;
+	}
+	
+	double energy = GStatsEnergy::getTotalEnergy();
+	double delta_energy = energy - previousTotEnergy;
+	long delta_time = globalClock - previousClockCount;
+	
+	fprintf(energyInstFile,"%d\t%.3f\t%ld\n", intervalCount * 10 + subIntervalCount, delta_energy, delta_time);
+
+
+        previousTotEnergy =  GStatsEnergy::getTotalEnergy();
+        previousClockCount = globalClock;
+
+        instrCount = 0;
+
+      }/* End if instrCount == 200 */
+    }
+#endif
+
+    if(instrCount == 2000) {
+      intervalCount++;
+     
+#ifdef SESC_INORDER_SWITCH
+      int mode = 0;
+      /* Get next core change */
+      // int mode = getNextCoreMode();
+      gproc->setMode(mode);
+#endif
+      
+      if(energyInstFile != NULL) {
+        double energy =  GStatsEnergy::getTotalEnergy();
+        double delta_energy = energy - previousTotEnergy; 
+        long  delta_time = globalClock - previousClockCount;
+
+        fprintf(energyInstFile,"%d\t%.3f\t%ld\n", intervalCount * 10, delta_energy, delta_time);
+      }
+      
+      previousTotEnergy =  GStatsEnergy::getTotalEnergy();
+      previousClockCount = globalClock;
+      instrCount = 0;
+    }/* Endif instrcount = 2000 */
+}
+#endif
+
+#ifdef SESC_INORDER_SWITCH
 int FetchEngine::getNextCoreMode()
 {
   char line[128];
@@ -178,6 +249,7 @@ int FetchEngine::getNextCoreMode()
   return mode;
 }
 #endif
+#endif
 
 FetchEngine::~FetchEngine()
 {
@@ -188,7 +260,10 @@ FetchEngine::~FetchEngine()
 #ifdef SESC_INORDER
   if(energyInstFile != NULL)
     fclose(energyInstFile);
-    fclose(switchFile);
+#ifdef SESC_INORDER_SWITCH
+  if(switchFile != NULL)
+     fclose(switchFile);
+#endif
 #endif
   
   delete bpred;
@@ -375,61 +450,11 @@ void FetchEngine::fetch(IBucket *bucket, int fetchMax)
     fakeFetch(bucket, fetchMax);
   }else{
     realFetch(bucket, fetchMax);
-    
-#ifdef SESC_INORDER  
-#ifdef SESC_INORDER_ENERGY
-    instrCount++;
-
-#if 0
-    if(intervalCount > 2000 && intervalCount < 3000){
-      if(instrCount == 200){
-        ++subIntervalCount;
-        
-        if(subIntervalCount % 10 == 0){
-          ++intervalCount;
-          subIntervalCount = 0;
-        }
-        
-        double energy = GStatsEnergy::getTotalEnergy();
-        double delta_energy = energy - previousTotEnergy;
-        long delta_time = globalClock - previousClockCount;
-        
-        fprintf(energyInstFile,"%d\t%.3f\t%ld\n", intervalCount * 10 + subIntervalCount, delta_energy, delta_time);
-
-        previousTotEnergy =  GStatsEnergy::getTotalEnergy();
-        previousClockCount = globalClock;
-
-        instrCount = 0;
-
-      }/* End if instrCount == 200 */
+#ifdef SESC_INORDER
+    gatherRunTimeData();
 #endif
-
-   }
-
-   if(instrCount == 2000) {
-      intervalCount++;
-     
-	  /* Get next core change */
-	  int mode = getNextCoreMode();
-	  gp->setMode(mode);	
-
-      if(energyInstFile != NULL) {
-        double energy =  GStatsEnergy::getTotalEnergy();
-        double delta_energy = energy - previousTotEnergy; 
-        long  delta_time = globalClock - previousClockCount;
-
-        fprintf(energyInstFile,"%d\t%.3f\t%ld\n", intervalCount * 10, delta_energy, delta_time);
-
-      }
-      previousTotEnergy =  GStatsEnergy::getTotalEnergy();
-      previousClockCount = globalClock;
-     
-      instrCount = 0;
-    }
-#endif
-#endif   
   }
-
+  
   if(enableICache && !bucket->empty()) {
     if (bucket->top()->getInst()->isStoreAddr())
       IMemRequest::create(bucket->topNext(), gms, bucket);
