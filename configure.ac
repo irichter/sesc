@@ -32,20 +32,13 @@ AC_SUBST(DIRECTORY_OPT)
 AC_SUBST(TS_PROFILING_OPT)
 AC_SUBST(TS_RISKLOADPROF_OPT)
 AC_SUBST(NO_MERGELAST_OPT)
-AC_SUBST(TS_SPAWN_OPT)
-AC_SUBST(SESC_SLICE_OPT)
 AC_SUBST(NO_MERGENEXT_OPT)
-AC_SUBST(ATOMIC_OPT)
-AC_SUBST(MPCOH_OPT)
 AC_SUBST(SESC_SMP_OPT)
 AC_SUBST(SESC_SMP_DEBUG_OPT)
-AC_SUBST(SESC_DSM_OPT)
 AC_SUBST(SESC_CHERRY_OPT)
 AC_SUBST(SESC_SEED_OPT)
 AC_SUBST(SESC_BAAD_OPT)
-AC_SUBST(SESC_CRIT_OPT)
 AC_SUBST(SESC_INORDER_OPT)
-AC_SUBST(TS_CAVA_OPT)
 
 
 #we are not defining compiler options yet, but we should
@@ -168,41 +161,6 @@ AC_HELP_STRING([--enable-ts-nomnext],
 [if test "$enableval" = "yes"; then AC_COMPOPT(NO_MERGENEXT) fi],
 )
 
-###TS_SPAWN
-AC_NOCOMPOPT(TS_SPAWN)
-AC_ARG_ENABLE(spawn, 
-AC_HELP_STRING([--enable-spawn],
-               [Enables TS_SPAWN in Sesc (default is no)]),
-[if test "$enableval" = "yes"; then AC_COMPOPT(TS_SPAWN) fi],
-)
-
-
-###SESC_SLICE
-AC_NOCOMPOPT(SESC_SLICE)
-AC_ARG_ENABLE(slice, 
-AC_HELP_STRING([--enable-slice],
-               [Enables SESC_SLICE in Sesc (default is no)]),
-[if test "$enableval" = "yes"; then AC_COMPOPT(SESC_SLICE) fi],
-)
-
-###ATOMIC
-
-AC_NOCOMPOPT(ATOMIC)
-AC_ARG_ENABLE(atomic, 
-AC_HELP_STRING([--enable-atomic],
-               [Enables atomic sections in TaskScalar (default is no)]),
-[if test "$enableval" = "yes"; then AC_COMPOPT(ATOMIC) AC_DEFINE(ATOMIC) fi],
-)
-
-### Cache Coherence
-
-AC_NOCOMPOPT(MPCOH)
-AC_ARG_ENABLE(cc,
-AC_HELP_STRING([--enable-cc],
-	       [Enables Cache Coherence (default is no)]),
-[if test "$enableval" = "yes"; then AC_COMPOPT(MPCOH) AC_SUBST(DEFEXEC,[sesc.cc]) AC_SUBST(DEFCONF,[nkcc1.conf]) fi],
-)
-
 ### Symmetric MultiProcessor
 
 AC_NOCOMPOPT(SESC_SMP)
@@ -219,15 +177,6 @@ AC_ARG_ENABLE(smpdebug,
 AC_HELP_STRING([--enable-smpdebug],
 	       [Enables SMP System advanced debug features (default is no)]),
 [if test "$enableval" = "yes"; then AC_COMPOPT(SESC_SMP_DEBUG) fi],
-)
-
-### Distributed Shared Memory
-
-AC_NOCOMPOPT(SESC_DSM)
-AC_ARG_ENABLE(dsm,
-AC_HELP_STRING([--enable-dsm],
-	       [Enables DSM System (default is no)]),
-[if test "$enableval" = "yes"; then AC_COMPOPT(SESC_SMP) AC_COMPOPT(SESC_DSM) AC_SUBST(DEFEXEC,[sesc.dsm]) AC_SUBST(DEFCONF,[dsm.conf]) fi],
 )
 
 ### Cherry (no TLS Cherry)
@@ -257,31 +206,12 @@ AC_HELP_STRING([--enable-baad],
 [if test "$enableval" = "yes"; then AC_COMPOPT(SESC_BAAD) fi],
 )
 
-### CRIT (CRITicality Analyzer)
-
-AC_NOCOMPOPT(SESC_CRIT)
-AC_ARG_ENABLE(crit, 
-AC_HELP_STRING([--enable-crit],
-               [Enables Criticality analyzer (default is no)]),
-[if test "$enableval" = "yes"; then AC_COMPOPT(SESC_CRIT) fi],
-)
-
 ### SESC_INORDER (optimized inorder)
 AC_NOCOMPOPT(SESC_INORDER)
 AC_ARG_ENABLE(inorder, 
 AC_HELP_STRING([--enable-inorder],
                [Enables optimized inorder pipeline (default is no)]),
 [if test "$enableval" = "yes"; then AC_COMPOPT(SESC_INORDER) fi],
-)
-
-### CAVA
-
-AC_NOCOMPOPT(TS_CAVA)
-AC_ARG_ENABLE(cava, 
-AC_HELP_STRING([--enable-cava],
-               [Enables CAVA (default is no)]),
-[if test "$enableval" = "yes"; then AC_COMPOPT(TS_CAVA) AC_COMPOPT(TASKSCALAR) AC_DEFINE(FANCY_MSHR) AC_DEFINE(LDSTQ_FWD) AC_DEFINE(MSHR_BWSTATS) AC_DEFINE(MSHR_EXTRAOCCSTATS)
-fi],
 )
 
 AC_OUTPUT

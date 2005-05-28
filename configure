@@ -273,7 +273,7 @@ PACKAGE_VERSION='2'
 PACKAGE_STRING='esesc 2'
 PACKAGE_BUGREPORT='renau@soe.ucsc.edu luisceze@cs.uiuc.edu'
 
-ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS $1_OPT BUILD_DIR SRC_DIR TOPSRC_DIR DEFEXEC DEFCONF TASKSCALAR_OPT VALUEPRED_OPT SESC_ENERGY_OPT SESC_THERM_OPT SESC_MISPATH_OPT TS_VMEM_OPT DEBUG_OPT DEBUG_SILENT_OPT DIRECTORY_OPT TS_PROFILING_OPT TS_RISKLOADPROF_OPT NO_MERGELAST_OPT TS_SPAWN_OPT SESC_SLICE_OPT NO_MERGENEXT_OPT ATOMIC_OPT MPCOH_OPT SESC_SMP_OPT SESC_SMP_DEBUG_OPT SESC_DSM_OPT SESC_CHERRY_OPT SESC_SEED_OPT SESC_BAAD_OPT SESC_CRIT_OPT SESC_INORDER_OPT TS_CAVA_OPT LIBOBJS LTLIBOBJS'
+ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS $1_OPT BUILD_DIR SRC_DIR TOPSRC_DIR DEFEXEC DEFCONF TASKSCALAR_OPT VALUEPRED_OPT SESC_ENERGY_OPT SESC_THERM_OPT SESC_MISPATH_OPT TS_VMEM_OPT DEBUG_OPT DEBUG_SILENT_OPT DIRECTORY_OPT TS_PROFILING_OPT TS_RISKLOADPROF_OPT NO_MERGELAST_OPT NO_MERGENEXT_OPT SESC_SMP_OPT SESC_SMP_DEBUG_OPT SESC_CHERRY_OPT SESC_SEED_OPT SESC_BAAD_OPT SESC_INORDER_OPT LIBOBJS LTLIBOBJS'
 ac_subst_files=''
 
 # Initialize some variables set by options.
@@ -803,23 +803,15 @@ Optional Features:
                           no)
   --enable-ts-nomlast     Enables NO_MERGELAST in TaskScalar (default is no)
   --enable-ts-nomnext     Enables NO_MERGENEXT in TaskScalar (default is no)
-  --enable-spawn          Enables TS_SPAWN in Sesc (default is no)
-  --enable-slice          Enables SESC_SLICE in Sesc (default is no)
-  --enable-atomic         Enables atomic sections in TaskScalar (default is
-                          no)
-  --enable-cc             Enables Cache Coherence (default is no)
   --enable-smp            Enables SMP System (default is no)
   --enable-smpdebug       Enables SMP System advanced debug features (default
                           is no)
-  --enable-dsm            Enables DSM System (default is no)
   --enable-cherry         Enabes cherry (default is no)
   --enable-seed           Enables Scalable Efficient Enforcement of
                           Dependences (default is no)
   --enable-baad           Enables Bandwidth analyzer performance statistics
                           (default is no)
-  --enable-crit           Enables Criticality analyzer (default is no)
   --enable-inorder        Enables optimized inorder pipeline (default is no)
-  --enable-cava           Enables CAVA (default is no)
 
 Report bugs to <renau@soe.ucsc.edu luisceze@cs.uiuc.edu>.
 _ACEOF
@@ -1312,13 +1304,6 @@ DEFCONF=mem.conf
 
 
 
-
-
-
-
-
-
-
 #we are not defining compiler options yet, but we should
 #AC_PROG_CC
 
@@ -1471,54 +1456,6 @@ if test "${enable_nomnext+set}" = set; then
  fi
 fi;
 
-###TS_SPAWN
-TS_SPAWN_OPT=#TS_SPAWN=1
-
-# Check whether --enable-spawn or --disable-spawn was given.
-if test "${enable_spawn+set}" = set; then
-  enableval="$enable_spawn"
-  if test "$enableval" = "yes"; then TS_SPAWN_OPT=TS_SPAWN=1
- fi
-fi;
-
-
-###SESC_SLICE
-SESC_SLICE_OPT=#SESC_SLICE=1
-
-# Check whether --enable-slice or --disable-slice was given.
-if test "${enable_slice+set}" = set; then
-  enableval="$enable_slice"
-  if test "$enableval" = "yes"; then SESC_SLICE_OPT=SESC_SLICE=1
- fi
-fi;
-
-###ATOMIC
-
-ATOMIC_OPT=#ATOMIC=1
-
-# Check whether --enable-atomic or --disable-atomic was given.
-if test "${enable_atomic+set}" = set; then
-  enableval="$enable_atomic"
-  if test "$enableval" = "yes"; then ATOMIC_OPT=ATOMIC=1
- cat >>confdefs.h <<\_ACEOF
-#define ATOMIC 1
-_ACEOF
- fi
-fi;
-
-### Cache Coherence
-
-MPCOH_OPT=#MPCOH=1
-
-# Check whether --enable-cc or --disable-cc was given.
-if test "${enable_cc+set}" = set; then
-  enableval="$enable_cc"
-  if test "$enableval" = "yes"; then MPCOH_OPT=MPCOH=1
- DEFEXEC=sesc.cc
- DEFCONF=nkcc1.conf
- fi
-fi;
-
 ### Symmetric MultiProcessor
 
 SESC_SMP_OPT=#SESC_SMP=1
@@ -1540,20 +1477,6 @@ SESC_SMP_DEBUG_OPT=#SESC_SMP_DEBUG=1
 if test "${enable_smpdebug+set}" = set; then
   enableval="$enable_smpdebug"
   if test "$enableval" = "yes"; then SESC_SMP_DEBUG_OPT=SESC_SMP_DEBUG=1
- fi
-fi;
-
-### Distributed Shared Memory
-
-SESC_DSM_OPT=#SESC_DSM=1
-
-# Check whether --enable-dsm or --disable-dsm was given.
-if test "${enable_dsm+set}" = set; then
-  enableval="$enable_dsm"
-  if test "$enableval" = "yes"; then SESC_SMP_OPT=SESC_SMP=1
- SESC_DSM_OPT=SESC_DSM=1
- DEFEXEC=sesc.dsm
- DEFCONF=dsm.conf
  fi
 fi;
 
@@ -1590,17 +1513,6 @@ if test "${enable_baad+set}" = set; then
  fi
 fi;
 
-### CRIT (CRITicality Analyzer)
-
-SESC_CRIT_OPT=#SESC_CRIT=1
-
-# Check whether --enable-crit or --disable-crit was given.
-if test "${enable_crit+set}" = set; then
-  enableval="$enable_crit"
-  if test "$enableval" = "yes"; then SESC_CRIT_OPT=SESC_CRIT=1
- fi
-fi;
-
 ### SESC_INORDER (optimized inorder)
 SESC_INORDER_OPT=#SESC_INORDER=1
 
@@ -1609,31 +1521,6 @@ if test "${enable_inorder+set}" = set; then
   enableval="$enable_inorder"
   if test "$enableval" = "yes"; then SESC_INORDER_OPT=SESC_INORDER=1
  fi
-fi;
-
-### CAVA
-
-TS_CAVA_OPT=#TS_CAVA=1
-
-# Check whether --enable-cava or --disable-cava was given.
-if test "${enable_cava+set}" = set; then
-  enableval="$enable_cava"
-  if test "$enableval" = "yes"; then TS_CAVA_OPT=TS_CAVA=1
- TASKSCALAR_OPT=TASKSCALAR=1
- cat >>confdefs.h <<\_ACEOF
-#define FANCY_MSHR 1
-_ACEOF
- cat >>confdefs.h <<\_ACEOF
-#define LDSTQ_FWD 1
-_ACEOF
- cat >>confdefs.h <<\_ACEOF
-#define MSHR_BWSTATS 1
-_ACEOF
- cat >>confdefs.h <<\_ACEOF
-#define MSHR_EXTRAOCCSTATS 1
-_ACEOF
-
-fi
 fi;
 
 cat >confcache <<\_ACEOF
@@ -2289,20 +2176,13 @@ s,@DIRECTORY_OPT@,$DIRECTORY_OPT,;t t
 s,@TS_PROFILING_OPT@,$TS_PROFILING_OPT,;t t
 s,@TS_RISKLOADPROF_OPT@,$TS_RISKLOADPROF_OPT,;t t
 s,@NO_MERGELAST_OPT@,$NO_MERGELAST_OPT,;t t
-s,@TS_SPAWN_OPT@,$TS_SPAWN_OPT,;t t
-s,@SESC_SLICE_OPT@,$SESC_SLICE_OPT,;t t
 s,@NO_MERGENEXT_OPT@,$NO_MERGENEXT_OPT,;t t
-s,@ATOMIC_OPT@,$ATOMIC_OPT,;t t
-s,@MPCOH_OPT@,$MPCOH_OPT,;t t
 s,@SESC_SMP_OPT@,$SESC_SMP_OPT,;t t
 s,@SESC_SMP_DEBUG_OPT@,$SESC_SMP_DEBUG_OPT,;t t
-s,@SESC_DSM_OPT@,$SESC_DSM_OPT,;t t
 s,@SESC_CHERRY_OPT@,$SESC_CHERRY_OPT,;t t
 s,@SESC_SEED_OPT@,$SESC_SEED_OPT,;t t
 s,@SESC_BAAD_OPT@,$SESC_BAAD_OPT,;t t
-s,@SESC_CRIT_OPT@,$SESC_CRIT_OPT,;t t
 s,@SESC_INORDER_OPT@,$SESC_INORDER_OPT,;t t
-s,@TS_CAVA_OPT@,$TS_CAVA_OPT,;t t
 s,@LIBOBJS@,$LIBOBJS,;t t
 s,@LTLIBOBJS@,$LTLIBOBJS,;t t
 CEOF
