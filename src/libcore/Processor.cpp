@@ -180,16 +180,16 @@ void Processor::advanceClock()
   //       ,unresolvedLoad, unresolvedStore, unresolvedBranch);
 
   // Fetch Stage
-  if (IFID.hasWork()) {
+  if (IFID.hasWork() ) {
     IBucket *bucket = pipeQ.pipeLine.newItem();
     if( bucket ) {
       IFID.fetch(bucket);
       // readyItem would be called once the bucket is fetched
     }
   }
-
+  
   // ID Stage (insert to instQueue)
-  if ( spaceInInstQueue >= FetchWidth ) {
+  if (spaceInInstQueue >= FetchWidth) {
     IBucket *bucket = pipeQ.pipeLine.nextItem();
     if( bucket ) {
       I(!bucket->empty());
@@ -204,6 +204,7 @@ void Processor::advanceClock()
   // RENAME Stage
   if ( !pipeQ.instQueue.empty() ) {
     spaceInInstQueue += issue(pipeQ);
+    //    spaceInInstQueue += issue(pipeQ);
   }
   
   retire();

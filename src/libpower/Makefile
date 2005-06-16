@@ -20,10 +20,7 @@ SUCENV=$(OBJ)/libsuc.a
 MINTENV=$(MINT_O)
 ALLENVS = $(WATTCHENV) $(PANALENV) $(CACTIENV) $(ORIONENV) $(SRCENV) $(SUCENV) $(MINTENV)
 
-POWER_SUBDIRS:= cacti wattch orion
-ifdef SESC_THERM
-POWER_SUBDIRS+=panalyzer
-endif
+POWER_SUBDIRS:= cacti wattch orion panalyzer
 
 ##############################################################################
 #                Objects

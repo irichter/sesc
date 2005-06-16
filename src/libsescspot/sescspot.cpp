@@ -4,6 +4,8 @@ Created by David van der Bokke and Andrew Hill for CMPE202
 
 This application processes therm files created by SESC to report temperature data
 
+Patch #1 from Javi: Read values from sesc.conf file
+
 */
 #include <vector>
 #include <string>

@@ -47,13 +47,16 @@ VPATH += $(ABSUBDIRS)
 sesc: depend
 	@$(MAKE) --no-print-directory -C . $(DEFEXEC)
 
+reload: depend
+	@$(MAKE) --no-print-directory -C .
+
 all: depend 
 
 default: all sesc
 
 depend: $(ALLDEPS) $(OBJ)/mkdep config.h 
 
-$(ALLDEPS): config.h mkdep 
+$(ALLDEPS): config.h $(OBJ)/mkdep 
 	@echo; echo "Creating deps " $(patsubst $(OBJ)/.depend.lib%,lib%,$@); echo
 	@$(MAKE) --no-print-directory -C $(patsubst $(OBJ)/.depend.lib%,$(SRC_DIR)/lib%,$@) depend
 
@@ -126,15 +129,17 @@ runPoolBench : poolBench
 # if this section gets big, we should create a Makefile.rules inside
 # each directory
 
+.NOTPARALLEL: wattchify cactify panalyze
+
 # libpower
-wattchify: $(OBJ)/powermain.o $(OBJ)/libwattch.a $(OBJ)/libcore.a  $(OBJ)/libsuc.a $(OBJ)/liborion.a
-	$(CXX) $(CFLAGS) -o $@ $^ $(LIBS) $(STDLIBS) 
+wattchify: reload $(OBJ)/powermain.o $(OBJ)/libwattch.a $(OBJ)/libcore.a  $(OBJ)/libsuc.a $(OBJ)/liborion.a
+	$(CXX) $(CFLAGS) -o $@ $(OBJ)/powermain.o $(OBJ)/libwattch.a $(OBJ)/libcore.a  $(OBJ)/libsuc.a $(OBJ)/liborion.a $(LIBS) $(STDLIBS) 
 
-cactify: $(OBJ)/cacmain.o  $(OBJ)/libcacti.a $(OBJ)/libcore.a  $(OBJ)/libsuc.a
-	$(CXX) $(CFLAGS) -o $@ $^ $(LIBS) $(STDLIBS) 
+cactify: reload $(OBJ)/cacmain.o  $(OBJ)/libcacti.a $(OBJ)/libcore.a  $(OBJ)/libsuc.a
+	$(CXX) $(CFLAGS) -o $@ $(OBJ)/cacmain.o  $(OBJ)/libcacti.a $(OBJ)/libcore.a  $(OBJ)/libsuc.a $(LIBS) $(STDLIBS) 
 
-panalyze: $(OBJ)/panalyze.o $(OBJ)/libpanalyzer.a $(OBJ)/libcore.a  $(OBJ)/libsuc.a 
-	$(CXX) $(CFLAGS) -o $@ $^ $(LIBS) $(STDLIBS) 
+panalyze: reload $(OBJ)/panalyze.o $(OBJ)/libpanalyzer.a $(OBJ)/libcore.a  $(OBJ)/libsuc.a 
+	$(CXX) $(CFLAGS) -o $@ $(OBJ)/panalyze.o $(OBJ)/libpanalyzer.a $(OBJ)/libcore.a  $(OBJ)/libsuc.a $(LIBS) $(STDLIBS) 
 
 ifdef SESC_THERM
 sescspot: $(OBJ)/libsescspot.a sescspot.sspot sescspot.flp
@@ -176,7 +181,7 @@ $(OBJ)/conflexlex.cpp:	conflex.l $(OBJ)/conflex.tab.cpp.h
 #                         Configuration Rules                                # 
 ##############################################################################
 
-power.conf: sesc.conf $(BUILD_DIR)/wattchify $(BUILD_DIR)/panalyze $(BUILD_DIR)/cactify
+power.conf: sesc.conf wattchify cactify
 	@echo; echo "Generating $@ from: sesc.conf"
 	$(BUILD_DIR)/wattchify sesc.conf tmp.conf
 	$(BUILD_DIR)/cactify tmp.conf power.conf
@@ -188,26 +193,26 @@ sesc.conf: $(TOPSRC_DIR)/confs/$(DEFCONF) $(TOPSRC_DIR)/confs/shared.conf
 	$(CP) $(TOPSRC_DIR)/confs/shared.conf .
 
 ifdef SESC_ENERGY
-testsim: $(DEFEXEC) power.conf
+testsim: sesc power.conf
 	./$(DEFEXEC) -h0x800000 -cpower.conf $(TOPSRC_DIR)/tests/crafty < $(TOPSRC_DIR)/tests/tt.in
 else
-testsim: $(DEFEXEC) sesc.conf
+testsim: sesc sesc.conf
 	./$(DEFEXEC) -h0x800000 -csesc.conf $(TOPSRC_DIR)/tests/crafty < $(TOPSRC_DIR)/tests/tt.in
 endif
 
 ifdef SESC_ENERGY
-testsim-mcf: $(DEFEXEC) power.conf
+testsim-mcf: sesc power.conf
 	./$(DEFEXEC) -h0x6000000 -cpower.conf $(TOPSRC_DIR)/tests/mcf $(TOPSRC_DIR)/tests/mcf.in mcf.out
 else
-testsim-mcf: $(DEFEXEC) sesc.conf
+testsim-mcf: sesc sesc.conf
 	./$(DEFEXEC) -h0x6000000 -csesc.conf $(TOPSRC_DIR)/tests/mcf $(TOPSRC_DIR)/tests/mcf.in mcf.out
 endif
 
 ifdef SESC_ENERGY
-testsim-tls: $(DEFEXEC) power.conf
+testsim-tls: sesc power.conf
 	./$(DEFEXEC) -h0x800000 -cpower.conf $(TOPSRC_DIR)/tests/crafty.outorder < $(TOPSRC_DIR)/tests/tt.in
 else
-testsim-tls: $(DEFEXEC) sesc.conf
+testsim-tls: sesc sesc.conf
 	./$(DEFEXEC) -h0x800000 -csesc.conf $(TOPSRC_DIR)/tests/crafty.outorder < $(TOPSRC_DIR)/tests/tt.in
 endif
 

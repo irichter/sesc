@@ -394,11 +394,6 @@ void FetchEngine::realFetch(IBucket *bucket, int fetchMax)
     if (dinst == 0)
       break;
 
-#ifdef SESC_BAAD
-    // FIXME: Instruction fetched. Use dinst to create the depQ BW function
-    dinst->setFetchTime();
-#endif
-
 #ifdef TASKSCALAR
     dinst->setLVID(lvid, lvidVersion);
 #endif //TASKSCALAR
@@ -416,6 +411,7 @@ void FetchEngine::realFetch(IBucket *bucket, int fetchMax)
       n2Fetched--;
       nGradInsts++;
     }
+
     instFetched(dinst);
     bucket->push(dinst);
     n2Fetched--;

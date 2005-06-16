@@ -189,6 +189,10 @@ DInst *DInst::createDInst(const Instruction *inst, VAddr va, int cId)
 
   DInst *i = dInstPool.out();
 
+#ifdef SESC_BAAD
+  i->fetchTime       = 0;
+#endif
+
   i->inst       = inst;
   Prefetch(i->inst);
   i->cId        = cId;
@@ -265,6 +269,11 @@ DInst *DInst::clone()
   // this will call incOutsReqs for the HVersion.
   newDInst->setLVID(lvid, lvidVersion);
 #endif
+
+#ifdef SESC_BAAD
+  I(0);
+#endif
+
   return newDInst;
 }
 
@@ -272,6 +281,10 @@ void DInst::killSilently()
 {
   I(getPendEvent()==0);
   I(getResource()==0);
+
+#ifdef SESC_BAAD
+  I(0);
+#endif
 
   markIssued();
   markExecuted();
@@ -338,6 +351,11 @@ void DInst::scrap()
 {
   I(nDeps == 0);   // No deps src
   I(first == 0);   // no dependent instructions 
+
+#ifdef SESC_BAAD
+  I(issued && executed);
+#endif
+
 #ifdef TASKSCALAR
   notifyDataDepViolation(DataDepViolationAtRetire);
 
@@ -443,6 +461,7 @@ void DInst::awakeRemoteInstructions()
 #ifdef SESC_BAAD
 void DInst::setFetchTime()
 {
+  I(fetchTime == 0);
   fetchTime = globalClock;
 
   fetchQHistUp->sample(fetchQSize);
