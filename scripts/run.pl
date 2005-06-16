@@ -191,7 +191,6 @@ sub newJob {
   printf $jobfp "Output       = condorout/$outp.\$(Cluster).\$(Process).out\n";
   printf $jobfp "Error        = condorout/$outp.\$(Cluster).\$(Process).err\n";
   printf $jobfp "Queue\n\n";
-
 }
 
 sub runBench {
@@ -1080,9 +1079,9 @@ sub main {
 
   setupDirectory();
 
-  open($jobfp, ">condorjob");
-
   if($op_condor) { 
+      open($jobfp, ">condorjob");
+
       system("mkdir -p condorout");
       printf $jobfp "Executable   = $op_sesc\n";
       printf $jobfp "Image_Size = 150000\n";
@@ -1095,6 +1094,7 @@ sub main {
       printf $jobfp "Notification = Error\n";
       printf $jobfp "\n\n\n";
   }
+
   foreach $bench (@ARGV) {
     runBench( bench => $bench , xtra => $op_key, xtra2 => $op_key2);
   }
@@ -1103,7 +1103,6 @@ sub main {
       close $jobfp;
       close(RUNLOG);
   }
-  
   
   print "RUN: Spawning finished. Waiting for results...\n" if( $threadsRunning );
 
@@ -1114,6 +1113,7 @@ sub main {
   }
 
   close(RUNLOG);
-        exit(0);
+
+  exit(0);
 }
 

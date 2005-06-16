@@ -45,17 +45,17 @@ my $result = GetOptions("a",\$op_all,
                         "bpred!",\$op_bpred,
                         "cpu!",\$op_cpu,
                         "inst!",\$op_inst,
-			"sim!",\$op_sim,
-			"versionmem",\$op_versionmem,
-			"tls",\$op_tls,
-			"atomic",\$op_atomic,
-			"lock",\$op_lock,
-			"table",\$op_table,
-			"cc",\$op_cc,
-			"baad",\$op_baad,
+                        "sim!",\$op_sim,
+                        "versionmem",\$op_versionmem,
+                        "tls",\$op_tls,
+                        "atomic",\$op_atomic,
+                        "lock",\$op_lock,
+                        "table",\$op_table,
+                        "cc",\$op_cc,
+                        "baad",\$op_baad,
                         "cg",\$op_cg,
-			"dead",\$op_dead,
-			"help",\$op_help
+                        "dead",\$op_dead,
+                        "help",\$op_help
                        );
 
 
@@ -147,8 +147,8 @@ sub main {
       my $c = sesc->new($f);
 
       my $bench = $c->getCkResultField("OSSim","bench");
-      if( ($bench eq 0) ) {	    
-	  print "$f\n";
+      if( ($bench eq 0) ) {         
+          print "$f\n";
       }
     }
     exit;
@@ -254,7 +254,7 @@ sub partialMemStat {
         + $cf->getResultField("${name[1]}","writeMiss");
 
     my $miss = $cf->getResultField("${name[1]}","readMiss")
-	+ $cf->getResultField("${name[1]}","writeMiss");
+        + $cf->getResultField("${name[1]}","writeMiss");
 
     printf " %5.2f%", 100*($miss)/$total;
 
@@ -721,16 +721,16 @@ sub showStatReport {
     my $nInst;
     my $tmp;
     for(my $i=0;$i<$nCPUs;$i++) {
-	$tmp += $cf->getResultField("FetchEngine(${i})","nDelayInst1");
-	
-	$nInst += $cf->getResultField("PendingWindow(${i})_iBJ","n")
-	    + $cf->getResultField("PendingWindow(${i})_iLoad","n")
-	    + $cf->getResultField("PendingWindow(${i})_iStore","n")
-	    + $cf->getResultField("PendingWindow(${i})_iALU","n")
-	    + $cf->getResultField("PendingWindow(${i})_iComplex","n")
-	    + $cf->getResultField("PendingWindow(${i})_fpALU","n")
-	    + $cf->getResultField("PendingWindow(${i})_fpComplex","n")
-	    + $cf->getResultField("PendingWindow(${i})_other","n");
+        $tmp += $cf->getResultField("FetchEngine(${i})","nDelayInst1");
+        
+        $nInst += $cf->getResultField("PendingWindow(${i})_iBJ","n")
+            + $cf->getResultField("PendingWindow(${i})_iLoad","n")
+            + $cf->getResultField("PendingWindow(${i})_iStore","n")
+            + $cf->getResultField("PendingWindow(${i})_iALU","n")
+            + $cf->getResultField("PendingWindow(${i})_iComplex","n")
+            + $cf->getResultField("PendingWindow(${i})_fpALU","n")
+            + $cf->getResultField("PendingWindow(${i})_fpComplex","n")
+            + $cf->getResultField("PendingWindow(${i})_other","n");
     }
     $nGradInsts  = $nInst;
     $nWPathInsts = $tmp;
@@ -885,130 +885,130 @@ sub showStatReport {
 
   #############################################################################
       for(my $i=0;$i<$nCPUs;$i++) {
-	  my $clockTicks= $cf->getResultField("Proc(${i})","clockTicks");
-	  next unless( $clockTicks > 1 );
+          my $clockTicks= $cf->getResultField("Proc(${i})","clockTicks");
+          next unless( $clockTicks > 1 );
 
-	  printf "#table9a                              IPC : szFB : szBB : brMiss : brMissTime : iMissRate \n";
-	  printf "table9a  %26s ", $name;
+          printf "#table9a                              IPC : szFB : szBB : brMiss : brMissTime : iMissRate \n";
+          printf "table9a  %26s ", $name;
 
-	  my $nInst   = $cf->getResultField("PendingWindow(${i})_iBJ","n")
-	      + $cf->getResultField("PendingWindow(${i})_iLoad","n")
-	      + $cf->getResultField("PendingWindow(${i})_iStore","n")
-	      + $cf->getResultField("PendingWindow(${i})_iALU","n")
-	      + $cf->getResultField("PendingWindow(${i})_iComplex","n")
-	      + $cf->getResultField("PendingWindow(${i})_fpALU","n")
-	      + $cf->getResultField("PendingWindow(${i})_fpComplex","n")
-	      + $cf->getResultField("PendingWindow(${i})_other","n");
+          my $nInst   = $cf->getResultField("PendingWindow(${i})_iBJ","n")
+              + $cf->getResultField("PendingWindow(${i})_iLoad","n")
+              + $cf->getResultField("PendingWindow(${i})_iStore","n")
+              + $cf->getResultField("PendingWindow(${i})_iALU","n")
+              + $cf->getResultField("PendingWindow(${i})_iComplex","n")
+              + $cf->getResultField("PendingWindow(${i})_fpALU","n")
+              + $cf->getResultField("PendingWindow(${i})_fpComplex","n")
+              + $cf->getResultField("PendingWindow(${i})_other","n");
 
-	  # IPC
-	  printf " %9.3f ", $nInst/$clockTicks;
+          # IPC
+          printf " %9.3f ", $nInst/$clockTicks;
 
-	  # szFB
-	  my $nTaken    = $cf->getResultField("BPred(${i})","nTaken");
-	  printf " %9.2f ", $nInst/$nTaken;
+          # szFB
+          my $nTaken    = $cf->getResultField("BPred(${i})","nTaken");
+          printf " %9.2f ", $nInst/$nTaken;
 
-	  # szBB
-	  my $nBranches = $cf->getResultField("BPred(${i})","nBranches");
-	  printf " %9.2f ", $nInst/$nBranches;
+          # szBB
+          my $nBranches = $cf->getResultField("BPred(${i})","nBranches");
+          printf " %9.2f ", $nInst/$nBranches;
 
-	  # branchMissRate
-	  my $nMiss = $cf->getResultField("BPred(${i})","nMiss");
-	  printf " %9.2f ", 100*$nMiss/$nBranches;
+          # branchMissRate
+          my $nMiss = $cf->getResultField("BPred(${i})","nMiss");
+          printf " %9.2f ", 100*$nMiss/$nBranches;
 
-	  # brMissTime
-	  printf " %9.2f ", $cf->getResultField("FetchEngine(${i})_avgBranchTime","v");
+          # brMissTime
+          printf " %9.2f ", $cf->getResultField("FetchEngine(${i})_avgBranchTime","v");
 
-	  # icache miss
-	  my $iaccess = $cf->getResultField("P(${i})_IL1","readHalfMiss") + 
-	      $cf->getResultField("P(${i})_IL1","readMiss") + 
-	      $cf->getResultField("P(${i})_IL1","readHit") + 
-	      $cf->getResultField("P(${i})_IL1","writeHalfMiss") + 
-	      $cf->getResultField("P(${i})_IL1","writeMiss") + 
-	      $cf->getResultField("P(${i})_IL1","writeHit");
+          # icache miss
+          my $iaccess = $cf->getResultField("P(${i})_IL1","readHalfMiss") + 
+              $cf->getResultField("P(${i})_IL1","readMiss") + 
+              $cf->getResultField("P(${i})_IL1","readHit") + 
+              $cf->getResultField("P(${i})_IL1","writeHalfMiss") + 
+              $cf->getResultField("P(${i})_IL1","writeMiss") + 
+              $cf->getResultField("P(${i})_IL1","writeHit");
 
-	  printf " %9.2f ", 100*($cf->getResultField("P(${i})_IL1","readMiss")+$cf->getResultField("P(${i})_IL1","writeMiss")) /$iaccess;
-	  
-	  printf "\n";
+          printf " %9.2f ", 100*($cf->getResultField("P(${i})_IL1","readMiss")+$cf->getResultField("P(${i})_IL1","writeMiss")) /$iaccess;
+          
+          printf "\n";
 
-	  my $nDepsOverflow = 1;
-	  my $nDeps_0;
-	  my $nDeps_1;
-	  my $nDeps_2;
-	  my $nDepsMiss;
-	      
-	  my $cpuType = $cf->getConfigEntry(key=>"cpucore",index=>$i);
-	  for (my $j=0; ; $j++) {
-	      my $clusterType = $cf->getConfigEntry(key=>"cluster", section=>$cpuType, index=>$j);
-	      last unless (defined $clusterType);
-	      
-	      $nDepsOverflow += $cf->getResultField("Proc(${i})_${clusterType}_depTable","nDepsOverflow");
+          my $nDepsOverflow = 1;
+          my $nDeps_0;
+          my $nDeps_1;
+          my $nDeps_2;
+          my $nDepsMiss;
+              
+          my $cpuType = $cf->getConfigEntry(key=>"cpucore",index=>$i);
+          for (my $j=0; ; $j++) {
+              my $clusterType = $cf->getConfigEntry(key=>"cluster", section=>$cpuType, index=>$j);
+              last unless (defined $clusterType);
+              
+              $nDepsOverflow += $cf->getResultField("Proc(${i})_${clusterType}_depTable","nDepsOverflow");
 
-	      $nDeps_0   += $cf->getResultField("Proc(${i})_${clusterType}_depTable","nDeps_0");
-	      $nDeps_1   += $cf->getResultField("Proc(${i})_${clusterType}_depTable","nDeps_1");
-	      $nDeps_2   += $cf->getResultField("Proc(${i})_${clusterType}_depTable","nDeps_2");
-	      $nDepsMiss += $cf->getResultField("Proc(${i})_${clusterType}_depTable","nDepsMiss");
-	  }
+              $nDeps_0   += $cf->getResultField("Proc(${i})_${clusterType}_depTable","nDeps_0");
+              $nDeps_1   += $cf->getResultField("Proc(${i})_${clusterType}_depTable","nDeps_1");
+              $nDeps_2   += $cf->getResultField("Proc(${i})_${clusterType}_depTable","nDeps_2");
+              $nDepsMiss += $cf->getResultField("Proc(${i})_${clusterType}_depTable","nDepsMiss");
+          }
 
-	  next unless ($nDeps_0 > 1);
+          next unless ($nDeps_0 > 1);
 
-	  printf "#table9                              ProcID: IPC : 0 deps : 1 deps : 2 deps : %re-dispatcch :#Overflows :L1 hit Predictor Accuracy\n";
-	  # ProcID
-	  printf "table9  %26s  %9d : ", $name, $i;
+          printf "#table9                              ProcID: IPC : 0 deps : 1 deps : 2 deps : %re-dispatcch :#Overflows :L1 hit Predictor Accuracy\n";
+          # ProcID
+          printf "table9  %26s  %9d : ", $name, $i;
 
 
-	  my $bench = $name;
-	  $bench =~ /([^ _]*).mips$/;
-	  $bench = $1;
+          my $bench = $name;
+          $bench =~ /([^ _]*).mips$/;
+          $bench = $1;
 
-	  printf " %-10s ", $bench;
+          printf " %-10s ", $bench;
 
-	  # IPC
-	  printf " & %9.3f ", $nInst/$clockTicks;
+          # IPC
+          printf " & %9.3f ", $nInst/$clockTicks;
 
-	  # nDeps
-	  printf " & %9.1f ", 100*$nDeps_0/($nDeps_0 + $nDeps_1 + $nDeps_2);
-	  printf " & %9.1f ", 100*$nDeps_1/($nDeps_0 + $nDeps_1 + $nDeps_2);
-	  printf " & %9.1f ", 100*$nDeps_2/($nDeps_0 + $nDeps_1 + $nDeps_2);
+          # nDeps
+          printf " & %9.1f ", 100*$nDeps_0/($nDeps_0 + $nDeps_1 + $nDeps_2);
+          printf " & %9.1f ", 100*$nDeps_1/($nDeps_0 + $nDeps_1 + $nDeps_2);
+          printf " & %9.1f ", 100*$nDeps_2/($nDeps_0 + $nDeps_1 + $nDeps_2);
 
-	  # re-dispatch
-	  printf " & %9.1f ", 100*$nDepsMiss/($nDeps_0 + $nDeps_1 + $nDeps_2);
+          # re-dispatch
+          printf " & %9.1f ", 100*$nDepsMiss/($nDeps_0 + $nDeps_1 + $nDeps_2);
 
-	  # cycles between overflows
-	  if ($clockTicks/$nDepsOverflow > 50e3) {
-	      printf " & \$>\$50k ";
-	  }else{
-	      printf " & %9.0f ", $clockTicks/$nDepsOverflow;
-	  }
+          # cycles between overflows
+          if ($clockTicks/$nDepsOverflow > 50e3) {
+              printf " & \$>\$50k ";
+          }else{
+              printf " & %9.0f ", $clockTicks/$nDepsOverflow;
+          }
 
-	  print "\\\\ :";
+          print "\\\\ :";
 
-	  printf " %-10s ", $bench;
+          printf " %-10s ", $bench;
 
-	  my $daccess = $cf->getResultField("P(${i})_DL1","readHalfMiss") + 
-	      $cf->getResultField("P(${i})_DL1","readMiss") + 
-	      $cf->getResultField("P(${i})_DL1","readHit") + 
-	      $cf->getResultField("P(${i})_DL1","writeHalfMiss") + 
-	      $cf->getResultField("P(${i})_DL1","writeMiss") + 
-	      $cf->getResultField("P(${i})_DL1","writeHit");
+          my $daccess = $cf->getResultField("P(${i})_DL1","readHalfMiss") + 
+              $cf->getResultField("P(${i})_DL1","readMiss") + 
+              $cf->getResultField("P(${i})_DL1","readHit") + 
+              $cf->getResultField("P(${i})_DL1","writeHalfMiss") + 
+              $cf->getResultField("P(${i})_DL1","writeMiss") + 
+              $cf->getResultField("P(${i})_DL1","writeHit");
 
-	  printf " & %9.2f ", 100*($cf->getResultField("P(${i})_DL1","readMiss")
-				  +$cf->getResultField("P(${i})_DL1","writeMiss")
-				  )/$daccess;
+          printf " & %9.2f ", 100*($cf->getResultField("P(${i})_DL1","readMiss")
+                                  +$cf->getResultField("P(${i})_DL1","writeMiss")
+                                  )/$daccess;
 
-	  my $nL1Hit_pHit   = $cf->getResultField("L1Pred","nL1Hit_pHit");
-	  my $nL1Hit_pMiss  = $cf->getResultField("L1Pred","nL1Hit_pMiss");
-	  my $nL1Miss_pHit  = $cf->getResultField("L1Pred","nL1Miss_pHit");
-	  my $nL1Miss_pMiss = $cf->getResultField("L1Pred","nL1Miss_pMiss");
+          my $nL1Hit_pHit   = $cf->getResultField("L1Pred","nL1Hit_pHit");
+          my $nL1Hit_pMiss  = $cf->getResultField("L1Pred","nL1Hit_pMiss");
+          my $nL1Miss_pHit  = $cf->getResultField("L1Pred","nL1Miss_pHit");
+          my $nL1Miss_pMiss = $cf->getResultField("L1Pred","nL1Miss_pMiss");
 
-	  my $total = $nL1Miss_pMiss+$nL1Miss_pHit+$nL1Hit_pMiss+$nL1Hit_pHit+1;
+          my $total = $nL1Miss_pMiss+$nL1Miss_pHit+$nL1Hit_pMiss+$nL1Hit_pHit+1;
 
-	  printf " & %9.2f ", 100*($nL1Miss_pMiss+$nL1Hit_pHit)/$total;
-	  printf " & %9.2f ", 100*$nL1Hit_pMiss /$total;
-	  printf " & %9.2f ", 100*$nL1Miss_pHit /$total;
+          printf " & %9.2f ", 100*($nL1Miss_pMiss+$nL1Hit_pHit)/$total;
+          printf " & %9.2f ", 100*$nL1Hit_pMiss /$total;
+          printf " & %9.2f ", 100*$nL1Miss_pHit /$total;
 
-	  print "\\\\";
+          print "\\\\";
 
-	  print "\n";
+          print "\n";
       }
   }
 
@@ -1297,7 +1297,7 @@ sub simStats {
       last unless (defined $clusterType);
       next unless ($cf->getResultField("Proc(0)_${clusterType}_depTable","nDepsOverflow") > 1);
       
-      my $clk = 30*$cf->getResultField("Proc(0)_${clusterType}_depTable","nDepsOverflow");
+      my $clk = 10*$cf->getResultField("Proc(0)_${clusterType}_depTable","nDepsOverflow");
       $slowdown = $nCycles/($nCycles+$clk);
       $nCycles += $clk;
       
@@ -1528,13 +1528,13 @@ sub tradCPUStats {
     next unless( $clockTicks > 1 );
 
     my $nInst   = $cf->getResultField("PendingWindow(${i})_iBJ","n")
-	+ $cf->getResultField("PendingWindow(${i})_iLoad","n")
+        + $cf->getResultField("PendingWindow(${i})_iLoad","n")
         + $cf->getResultField("PendingWindow(${i})_iStore","n")
-	+ $cf->getResultField("PendingWindow(${i})_iALU","n")
-	+ $cf->getResultField("PendingWindow(${i})_iComplex","n")
-	+ $cf->getResultField("PendingWindow(${i})_fpALU","n")
-	+ $cf->getResultField("PendingWindow(${i})_fpComplex","n")
-	+ $cf->getResultField("PendingWindow(${i})_other","n");
+        + $cf->getResultField("PendingWindow(${i})_iALU","n")
+        + $cf->getResultField("PendingWindow(${i})_iComplex","n")
+        + $cf->getResultField("PendingWindow(${i})_fpALU","n")
+        + $cf->getResultField("PendingWindow(${i})_fpComplex","n")
+        + $cf->getResultField("PendingWindow(${i})_other","n");
 
 
     my $cpuType = $cf->getConfigEntry(key=>"cpucore",index=>$i);
