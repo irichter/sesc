@@ -47,15 +47,11 @@ enum EnergyGroup {
   ,STQCheckEnergy
 #ifdef SESC_INORDER
   ,STQCheckEnergyInOrder
-#endif  
-  ,STQRdWrEnergy
-#ifdef SESC_INORDER  
   ,STQRdWrEnergyInOrder
-#endif  
-  ,RenameEnergy
-#ifdef SESC_INORDER  
   ,RenameEnergyInOrder
 #endif  
+  ,STQRdWrEnergy
+  ,RenameEnergy
   ,IAluEnergy
   ,FPAluEnergy
   ,ResultBusEnergy
@@ -136,8 +132,8 @@ class GStatsEnergyBase {
 class GStatsEnergy : public GStatsEnergyBase {
 public:
   GStatsEnergy(const char *name, const char *block
-	       ,int procId, EnergyGroup grp
-	       ,double energy, const char *part="") {
+               ,int procId, EnergyGroup grp
+               ,double energy, const char *part="") {
   }
   ~GStatsEnergy() {
   }
@@ -172,8 +168,8 @@ public:
 class GStatsEnergyCG {
 public:
   GStatsEnergyCG(const char *name, const char* block
-		 ,int procId, EnergyGroup grp
-		 ,double energy, GStatsEnergyCGBase *b, const char *part="") {
+                 ,int procId, EnergyGroup grp
+                 ,double energy, GStatsEnergyCGBase *b, const char *part="") {
   }
   void inc() {}
   void add(int v){}
@@ -232,8 +228,8 @@ protected:
 
 public:
   GStatsEnergy(const char *name, const char* block
-	       ,int procId, EnergyGroup grp
-	       ,double energy, const char *part="");
+               ,int procId, EnergyGroup grp
+               ,double energy, const char *part="");
   ~GStatsEnergy() {};
   static double getTotalProc(int procId);
   static double getTotalGroup(EnergyGroup grp);
@@ -282,8 +278,8 @@ protected:
 
 public:
   GStatsEnergyCG(const char *name, const char* block
-		 ,int procId, EnergyGroup grp
-		 ,double energy, GStatsEnergyCGBase *b, const char *part="");
+                 ,int procId, EnergyGroup grp
+                 ,double energy, GStatsEnergyCGBase *b, const char *part="");
 
   double getDouble() const;
   void inc();

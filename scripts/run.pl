@@ -75,7 +75,27 @@ my $threadsRunning=0;
 sub waitUntilLoad {
   my $load= shift;
 
-  my $loadavg;
+  my $loadavg = 0;
+
+  sleep 6*rand();
+
+  open(FH, "ps axu|") or die ('Failed to open file');
+  while (<FH>) {
+      chop();
+      my $line = $_;
+      next if ( $line =~ /COMMAND|axu|grep/);
+      next unless ($line =~ /\ R/);
+
+      $loadavg++;
+  }
+  close(FH);
+
+  if ($loadavg >= $op_mload) {
+      # There may be multiple run.pl running. It is best if we wait a bit until
+      # uptime gets more stable
+      print "Too many running procs (${loadavg} waiting...\n";
+      sleep 64*rand()+23;
+  }
 
   while (1) {
     open(FH, "uptime|") or die ('Failed to open file');
@@ -126,11 +146,18 @@ sub runItLowLevel {
     my $sprg = shift;
     my $aprg = shift;
 
+    # Refresh the automount. Linux AS 2.0 automount problem
+    system("ls -al ${op_bhome} ${op_sesc} ${op_bindir} . >/dev/null");
+    system("ls -al /cse/faculty/renau/build >/dev/null");
+    system("ls -al >/dev/null");
+    sleep 3;
+
     if( $op_dump ) {
         print "[${sprg} ${aprg}]\n";
     }elsif ($op_native) {
         system($aprg);
     }else{
+        # Run the app
         system("${sprg} ${aprg}");
     }
 }

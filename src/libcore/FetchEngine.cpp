@@ -39,6 +39,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include <time.h>
 #include "GEnergy.h"
 #include "GProcessor.h"
+#include "Signature.h"
 #endif
 
 
@@ -138,9 +139,9 @@ FetchEngine::FetchEngine(int cId
   if(energyInstFile == NULL){
     printf("Error, could not open file energy_instr file for writing\n");
   }else{
-     fprintf(energyInstFile,"#interval\tenergy\ttime\n");
+    // fprintf(energyInstFile,"#interval\tenergy\ttime\n");
   }
-#endif
+#endif //SESC_INORDER_ENERGY
 
   instrCount = 0;
   intervalCount = 0;
@@ -168,12 +169,12 @@ FetchEngine::FetchEngine(int cId
 }
 
 #ifdef SESC_INORDER
-int FetchEngine::gatherRunTimeData()
+int FetchEngine::gatherRunTimeData(long pc)
 {
 #ifdef SESC_INORDER_ENERGY
     instrCount++;
 
-#if 0
+//#if 0
     if(intervalCount > 2000 && intervalCount < 3000){
       if(instrCount == 200){
 
@@ -198,17 +199,19 @@ int FetchEngine::gatherRunTimeData()
 
       }/* End if instrCount == 200 */
     }
-#endif
+//#endif
 
     if(instrCount == 2000) {
       intervalCount++;
      
 #ifdef SESC_INORDER_SWITCH
-      int mode = 0;
+      int mode = 1; /* INORDER */
+      mode = pipeLineSelector.getPipeLineMode(pc, globalClock, GStatsEnergy::getTotalEnergy());
+
       /* Get next core change */
-      // int mode = getNextCoreMode();
+      // int mode = getNextCoreMode(); //get next mode from file
       gproc->setMode(mode);
-#endif
+#endif //SESC_INORDER_SWITCH
       
       if(energyInstFile != NULL) {
         double energy =  GStatsEnergy::getTotalEnergy();
@@ -223,7 +226,7 @@ int FetchEngine::gatherRunTimeData()
       instrCount = 0;
     }/* Endif instrcount = 2000 */
 }
-#endif
+#endif //SESC_INORDER_ENERGY
 
 #ifdef SESC_INORDER_SWITCH
 int FetchEngine::getNextCoreMode()
@@ -447,7 +450,8 @@ void FetchEngine::fetch(IBucket *bucket, int fetchMax)
   }else{
     realFetch(bucket, fetchMax);
 #ifdef SESC_INORDER
-    gatherRunTimeData();
+    long pc = bucket->top()->getInst()->getAddr();
+    gatherRunTimeData(pc);
 #endif
   }
   

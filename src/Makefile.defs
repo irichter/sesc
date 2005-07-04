@@ -181,13 +181,26 @@ endif
 ################################################
 # Scalable Efficient Enforcement of Dependeces
 ifdef SESC_SEED
+DEFS    +=-DSESC_SEED
 #DEFS    +=-DSESC_SEED_OVERFLOW
 DEFS    +=-DSESC_SEED_INORDER
-# either SESC_SEED_DEPPRED_RAND or SESC_SEED_DEPPRED
-#DEFS    +=-DSESC_SEED_DEPPRED_SRC
-#DEFS    +=-DSESC_SEED_DEPPRED_BOTH
+
+#############################
+# BEGIN PREDICTOR SELECTION 
+
+# seed (Random Predictor) (DEFAULT)
 DEFS    +=-DSESC_SEED_DEPPRED_RAND
-DEFS    +=-DSESC_SEED
+
+# seednp (No predictor)
+
+# seeddp (SRC predictor)
+#DEFS    +=-DSESC_SEED_DEPPRED_SRC
+
+# seedbp (Both predictors)
+#DEFS    +=-DSESC_SEED_DEPPRED_BOTH
+# END PREDICTOR SELECTION
+#############################
+
 # Processor.cpp
 #DEFS    +=-DSESC_SEED_STALL_LOADS
 endif

@@ -249,7 +249,6 @@ StallCause Processor::addInst(DInst *dinst)
        || RATTIME[inst->getDest()] > globalClock 
 #endif
         ) {
-      I(RAT[inst->getSrc1()] != 0 || RAT[inst->getSrc2()] != 0 || RAT[inst->getDest()] != 0);
       return SmallWinStall;
     }
 
@@ -309,7 +308,7 @@ StallCause Processor::addInst(DInst *dinst)
 #endif
         nL1Hit_pHit->inc();
       }else if (l1Hit && !pL1Hit) {
-	// additional stall on load only if L1 hit & predict miss
+        // additional stall on load only if L1 hit & predict miss
         dinst->setStallOnLoad();
         nL1Hit_pMiss->inc();
       }else if (!l1Hit && pL1Hit) {

@@ -5,7 +5,7 @@
    Contributed by Jose Renau
                   Basilio Fraguela
                   Smruti Sarangi
-		  Luis Ceze
+                  Luis Ceze
 
 This file is part of SESC.
 
@@ -181,7 +181,7 @@ void DepWindow::addParentSrcShared(DInst *child, DInst *parent)
   I(parent);
 
   depTableEnergy->add(2); // Queue on parent (read + write)
-  depTablePort[parent->getBank()]->nextSlot();
+  depTablePort[parent->getBank() % Banks]->nextSlot();
 
 #ifdef SESC_SEED_OVERFLOW
   if (!child->isOverflowing()) {
@@ -198,7 +198,7 @@ void DepWindow::addParentSrcShared(DInst *child, DInst *parent)
     parent->setXtraBank(getBank());
 
     depTableEnergy->add(2); // Queue on parent (read + write)
-    depTablePort[parent->getXtraBank()]->nextSlot();
+    depTablePort[parent->getXtraBank() % Banks]->nextSlot();
 
     nDepsUnderflow.inc();
   }else{
@@ -256,6 +256,14 @@ StallCause DepWindow::canIssue(DInst *dinst) const
     if (src2->getnDepTableEntries() >= (2*DepTableEntries-1))
         return PortConflictStall;
   }
+
+  long bank = addInstBank; // updated on addInst
+  if (depTablePort[bank]->calcNextSlot() > globalClock) {
+    bank = (bank+1) % Banks;
+    if (depTablePort[bank]->calcNextSlot() > globalClock)
+      return PortConflictStall;
+  }
+  dinst->setBank(bank); 
 #endif
 
   return NoStall;
@@ -270,7 +278,7 @@ void DepWindow::addInst(DInst *dinst)
   windowRdWrEnergy->inc();  // Add entry
 
 #ifdef SESC_SEED
-  dinst->setBank(getBank());
+  addInstBank = (dinst->getBank()+1) % Banks;
 
   depTableEnergy->inc();
   Time_t when = depTablePort[dinst->getBank()]->nextSlot();
@@ -311,9 +319,9 @@ void DepWindow::addInst(DInst *dinst)
     if (src1) {
       // predict both
       if (dinst->getParentSrc2())
-	addParentSrc2(dinst);
+        addParentSrc2(dinst);
       if (dinst->getParentSrc1())
-	addParentSrc1(dinst);
+        addParentSrc1(dinst);
     }else{
       // random
     if (dinst->getParentSrc1())

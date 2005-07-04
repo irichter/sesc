@@ -70,6 +70,12 @@ double getEnergy(int size
                  ,int bits);
 double getEnergy(const char*);
 
+
+extern "C" void output_data(result_type *result, arearesult_type *arearesult,
+                            area_type *arearesult_subbanked, 
+                            parameter_type *parameters, double *NSubbanks);
+
+
 void iterate();
 
 int getInstQueueSize(const char* proc)
@@ -174,6 +180,8 @@ double getEnergy(int size
     size =64*subBanks;
   }
 
+  size = roundUpPower2(size);
+
   double NSubbanks;
   area_type arearesult_subbanked;
   parameter_type parameters;
@@ -203,6 +211,10 @@ double getEnergy(int size
     exit(0) ;
   }
   ca_calculate_time(&result,&arearesult,&arearesult_subbanked,&parameters,&NSubbanks,useTag);
+
+#ifdef DEBUG
+  output_data(&result,&arearesult,&arearesult_subbanked,&parameters,&NSubbanks);
+#endif
 
   return 1e9*(result.total_power_without_routing/subBanks + result.total_routing_power);
 }
@@ -430,8 +442,8 @@ void processorCore()
         size                 = SescConf->getLong(cluster,"winSize");
         banks                = roundUpPower2(SescConf->getLong(cluster,"banks"));
         int depTableEntries  = SescConf->getLong(cluster,"depTableEntries");
-        rdPorts   = 0;
-        wrPorts   = SescConf->getLong(cluster,"depTableNumPorts");
+        rdPorts   = SescConf->getLong(cluster,"depTableNumPorts");
+        wrPorts   = 0;
         float entryBits = 4*(log(robSize)/log(2)); // src1, src2, dest, instID
         entryBits += 7 ; // opcode
         entryBits += log(depTableEntries)/log(2); // use pos
@@ -448,8 +460,8 @@ void processorCore()
 
         regEnergy = getEnergy(tableBytes*size,tableBytes+1,1,rdPorts,wrPorts,banks,0,tableBits);
 
-        printf("\ndepTable [%d bytes] [bytes read %d] [bits per entry %d] size[%d] Energy[%g]\n"
-               ,size*tableBytes,tableBytes,tableBits/depTableEntries, size, regEnergy);
+        printf("\ndepTable [%d bytes] [bytes read %d] [bits per entry %d] size[%d] Energy[%g] ports[%d]\n"
+               ,size*tableBytes,tableBytes,tableBits/depTableEntries, size, regEnergy, wrPorts+ rdPorts);
         
         SescConf->updateRecord(proc,"depTableEnergy",regEnergy);
       }

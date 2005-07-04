@@ -88,6 +88,7 @@ GProcessor::GProcessor(GMemorySystem *gm, CPU_t i, size_t numFlows)
   nStall[OutsBranchesStall] = new GStatsCntr("ExeEngine(%d):nOutsBranches",i);
   nStall[ReplayStall]       = new GStatsCntr("ExeEngine(%d):nReplays",i);
   nStall[PortConflictStall] = new GStatsCntr("ExeEngine(%d):PortConflict",i);
+  nStall[SwitchStall]       = new GStatsCntr("ExeEngine(%d):switch",i);
 
   clockTicks=0;
 
@@ -96,7 +97,7 @@ GProcessor::GProcessor(GMemorySystem *gm, CPU_t i, size_t numFlows)
 
 #ifdef SESC_INORDER
   renameEnergyOutOrder = new GStatsEnergy("renameEnergy", cadena, i, RenameEnergy
-					  ,EnergyMgr::get("renameEnergy",i));
+                                          ,EnergyMgr::get("renameEnergy",i));
   robEnergyOutOrder    = new GStatsEnergy("ROBEnergy",cadena,i,ROBEnergy,EnergyMgr::get("robEnergy",i));
 
   renameEnergyInOrder  = new GStatsEnergyNull();
@@ -157,7 +158,7 @@ GProcessor::~GProcessor()
 {
 }
 
-#ifdef SESC_INORDER	 
+#ifdef SESC_INORDER      
 void GProcessor::setMode(bool mode)
 {
   if(currentMode == mode)
@@ -187,7 +188,7 @@ void GProcessor::setMode(bool mode)
   }
 
   clusterManager.setMode(mode);
-  printf("Done setting Mode\n");	
+  printf("Done setting Mode\n");        
 }
 #endif
 
@@ -384,7 +385,7 @@ int GProcessor::issueFromReplayQ()
     StallCause c = addInst(dinst);
     if (c != NoStall) {
       if (nIssued < RealisticWidth)
-	nStall[c]->add(RealisticWidth - nIssued);
+        nStall[c]->add(RealisticWidth - nIssued);
       break;
     }
     nIssued++;

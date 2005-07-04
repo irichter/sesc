@@ -38,6 +38,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 #ifdef SESC_INORDER
 #include <stdio.h>
+#include "Signature.h"
 #endif
 
 class GMemorySystem;
@@ -88,14 +89,16 @@ private:
   bool enableICache;
 
 #ifdef SESC_INORDER
+  PipeLineSelector pipeLineSelector;
   FILE *energyInstFile, *switchFile;
   long instrCount;
+  long subIntervalCount;
   long previousClockCount;
   int intervalCount;
   double previousTotEnergy;
   
   int getNextCoreMode(); 
-  int gatherRunTimeData();
+  int gatherRunTimeData(long pc);
 #endif
 
  

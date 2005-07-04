@@ -39,8 +39,8 @@ PortGeneric::~PortGeneric()
 }
 
 PortGeneric *PortGeneric::create(const char *unitName, 
-				 NumUnits_t nUnits, 
-				 TimeDelta_t occ)
+                                 NumUnits_t nUnits, 
+                                 TimeDelta_t occ)
 {
   // Search for the configuration with the best performance. In theory
   // everything can be solved with PortNPipe, but it is the slowest.
@@ -79,30 +79,21 @@ void PortGeneric::destroy()
 PortUnlimited::PortUnlimited(const char *name)
   : PortGeneric(name) 
 {
-  lTime = globalClock;
 }
 
 Time_t PortUnlimited::nextSlot()
 {
-  if( lTime < globalClock )
-    lTime = globalClock;
-
-  avgTime.sample(lTime-globalClock);
-  return lTime;
+  return globalClock;
 }
 
 Time_t PortUnlimited::occupySlots(int nSlots) 
 {
-  if( lTime < globalClock )
-    lTime = globalClock;
-
-  avgTime.sample(lTime-globalClock); 
-  return lTime;
+  return globalClock;
 }
 
 Time_t PortUnlimited::calcNextSlot() const
 {
-  return lTime < globalClock ? globalClock : lTime;
+  return globalClock;
 }
 
 void PortUnlimited::lock4nCycles(TimeDelta_t clks)
@@ -304,7 +295,7 @@ Time_t PortNPipe::nextSlot(int occupancy)
       portBusyUntil[i] = globalClock + occupancy;
       I( cns == globalClock );
       if (doStats)
-	avgTime.sample(0);
+        avgTime.sample(0);
       return globalClock;
     }
     if (portBusyUntil[i] < bufTime) {

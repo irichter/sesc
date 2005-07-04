@@ -90,7 +90,7 @@ Cache::Cache(MemorySystem *gms, const char *section, const char *name)
 
   const char* mshrSection = SescConf->getCharPtr(section,"MSHR");
 
-  sprintf(tmpName, "%s_B%d", name, 0);
+  sprintf(tmpName, "%s_MSHR%d", name, 0);
   cacheBanks[0] = CacheType::create(section, "", tmpName);
   bankMSHRs[0] = MSHR<PAddr,Cache>::create(tmpName, mshrSection);
   nAccesses[0] = new GStatsCntr("%s_B%d:nAccesses", name, 0);
@@ -98,6 +98,8 @@ Cache::Cache(MemorySystem *gms, const char *section, const char *name)
   for(int b = 1; b < nBanks; b++) {
     sprintf(tmpName, "%s_B%d", name, b);
     cacheBanks[b] = CacheType::create(section, "", tmpName);
+
+    sprintf(tmpName, "%s_MSHR%d", name, b);
 
     if((b % nMSHRsharers) == 0)
       bankMSHRs[b] = MSHR<PAddr,Cache>::attach(tmpName, mshrSection, bankMSHRs[0]);

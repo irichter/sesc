@@ -12,7 +12,7 @@ typedef struct unit_t_st
 	double height;
 	double leftx;
 	double bottomy;
-}unit_t;
+} unit_t;
 
 /* floorplan definition	*/
 typedef struct flp_t_st
