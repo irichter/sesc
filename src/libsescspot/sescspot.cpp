@@ -13,15 +13,14 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
-#include "RC.h"
-#include "flp.h"
-#include "util.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <ctype.h>
 #include <unistd.h>
 #include <getopt.h>
-
+#include "RC.h"
+#include "flp.h"
+#include "util.h"
 using namespace std;
 
 // Data structure to hold values from the therm file
@@ -44,7 +43,7 @@ strList steadyList;		// Steady state values
 strList sescList;		// SESC Stats list
 strList warmList;		// Warmup Stats list
 // simulator options
-static char *flp_cfg = "sescspot.flp";			/* has the floorplan configuration	*/
+static char *flp_cfg = "sescspot.flp";		/* has the floorplan configuration	*/
 static int omit_lateral = 0;				/* omit lateral chip resistances?	*/
 static double init_temp = 60 + 273.15;		/* 60 degree C converted to Kelvin	*/
 static int dtm_used = 0;					/* set accordingly	*/
@@ -163,53 +162,7 @@ void sim_init()
 		set_temp(temp, flp->n_units, init_temp);
 }
 
-/*
-//Read the init/warmup file
-void read_warmup()
-{
-  std::string line;
-  
-  getline(if_initfile, line); //read and discard line 1
-  getline(if_initfile, line); //read and discard line 2
 
-  items = 0;
-  if (getline(if_initfile, line)) {
-	std::istringstream linestream(line);
-	std::string token;
-
-	while (getline(linestream, token, '\t')) {
-	  sscanf(token.c_str(), "%f", &tmp);
-	  eNamesList[items].value = tmp;
-
-	  if (eNamesList[items].link.size() > 0) {
-	for (int xx = 0; xx < eNamesList[items].link.size(); xx++) {
-	  sspotNamesList[eNamesList[items].link[xx]].value += tmp;
-	  sspotNamesList[eNamesList[items].link[xx]].realoldValue += tmp;
-	}
-	  }
-	  items++;
-	}
-  } else {
-	ret = -1;
-  }
-  // get the SESC stats
-	while (getline(linestream, token, '\t')) {
-	  nn.name = token.c_str();
-	  warmList.push_back(nn);
-	}
-
- while(readSescVals() != -1) {
-	iter++;
-	// sspotNamesList has the current aggregate values for 10000 clock cycles
-	// make sure #s are in floorplan order.. or we could have trouble
-	for (x = 0; x < sspotNamesList.size(); x++) {
-	  char  *tmpname = (char*)(sspotNamesList[x].name.c_str());
-	  // Energy fix 11/29/04
-	  if (sspotNamesList[x].percent != 100) sspotNamesList[x].value = sspotNamesList[x].value * ((float)sspotNamesList[x].percent/100.0);
-	  power[get_blk_index(flp, tmpname)] = sspotNamesList[x].value;
-	}
-// Read values from the therm file
-*/
 
 //----------------------------------------------------------------------------
 // readSescVals : Read values from the therm file
@@ -486,7 +439,7 @@ void parseConfigFile(){
             }
              else if(tokens[0] == "DTMUsed"){
                  dtm_used=atoi(tokens[1].c_str());
-                cout << "DTMUsed: " << dtm_used << endl;
+                cout << "DTMUsed: " << (dtm_used? "yes" : "no") << endl;
              }
               else if(tokens[0] == "ChipThickness"){
             	  t_chip=atof(tokens[1].c_str());
@@ -586,6 +539,11 @@ void parseConfigFile(){
 
 void calcAveragePower(std::ifstream &if_file){
     std::string line;
+	//ignore the first two line
+		if_file.clear();
+    if_file.seekg(0, ios::beg);
+	getline(if_file,line);
+	getline(if_file,line);
 	while(getline(if_file, line)) {
 		std::istringstream linestream(line);
 		std::string token;
@@ -596,14 +554,92 @@ void calcAveragePower(std::ifstream &if_file){
 			eNamesList[items].value += tmp;
             items++;
         }
+		getline(if_file,line);	//ignore the next line that contains just stats
     }
     //reset the file pointer to the beginning of the file again (this is to handle the case where the warmupfile equals the input file
-    if_file.seekg(0);
+
 
         for(int i=0;i< (int)eNamesList.size();i++){
             eNamesList[i].value/=eNamesList.size(); //calculate average power for each Element in eNamesList
         }
 
+        // Go though the eNamesList, accumulating the power data for each floorplan block in sspotNamesList
+        // If eNamesList[i].link[j]>0, then list item i has power data to be added to floorplan block sspotNamesList[eNamesList[i].link[j]]
+        for(int i=0; i<(int)eNamesList.size();i++){
+            if (eNamesList[i].link.size() > 0) {
+                for (int j = 0; j < (int)eNamesList[i].link.size(); j++) {
+                    sspotNamesList[eNamesList[i].link[j]].value += eNamesList[i].value; //store accumulate the average power for each block    
+				}
+			}
+        }
+        //Now sspotNamesList contains the average power data for each floorplan block
+
+}
+
+void calcMaxPower(std::ifstream &if_file){
+    std::string line;
+		if_file.clear();
+    if_file.seekg(0, ios::beg);
+	getline(if_file,line);
+	getline(if_file,line);
+	while(getline(if_file, line)) {
+		std::istringstream linestream(line);
+		std::string token;
+        float tmp;
+        int items=0;
+
+		while (getline(linestream, token, '\t')) {
+			sscanf(token.c_str(), "%f", &tmp);
+			if(tmp > eNamesList[items].value)
+				eNamesList[items].value=tmp;
+            items++;
+        }
+		getline(if_file,line);
+    }
+    //reset the file pointer to the beginning of the file again (this is to handle the case where the warmupfile equals the input file
+	
+
+        // Go though the eNamesList, accumulating the power data for each floorplan block in sspotNamesList
+        // If eNamesList[i].link[j]>0, then list item i has power data to be added to floorplan block sspotNamesList[eNamesList[i].link[j]]
+        for(int i=0; i<(int)eNamesList.size();i++){
+            if (eNamesList[i].link.size() > 0) {
+                for (int j = 0; j < (int)eNamesList[i].link.size(); j++) {
+                    sspotNamesList[eNamesList[i].link[j]].value += eNamesList[i].value; //store accumulate the average power for each block    
+				}
+			}
+        }
+        //Now sspotNamesList contains the Max power data for each floorplan block at the end of each sample period
+
+}
+
+void calcMinPower(std::ifstream &if_file){
+    std::string line;
+		if_file.clear();
+    if_file.seekg(0, ios::beg);
+	getline(if_file,line);
+	getline(if_file,line);
+
+	for(int i=0;i<(int)eNamesList.size();i++){
+		eNamesList[i].value=(float)-1;
+	}
+
+	while(getline(if_file, line)) {
+		std::istringstream linestream(line);
+		std::string token;
+        float tmp;
+        int items=0;
+		while (getline(linestream, token, '\t')) {
+			sscanf(token.c_str(), "%f", &tmp);
+			 if(tmp < eNamesList[items].value || eNamesList[items].value==0)
+				eNamesList[items].value=tmp;
+            items++;
+        }
+		getline(if_file, line);
+    }
+    //reset the file pointer to the beginning of the file again (this is to handle the case where the warmupfile equals the input file
+
+
+     
         // Go though the eNamesList, accumulating the power data for each floorplan block in sspotNamesList
         // If eNamesList[i].link[j]>0, then list item i has power data to be added to floorplan block sspotNamesList[eNamesList[i].link[j]]
         for(int i=0; i<(int)eNamesList.size();i++){
@@ -627,7 +663,7 @@ void showUsage()
 	printf("-c <--conffile> Configuration file(required) - This is the mappings from floorplan variables to sesc variables\n");
 	printf("-s <--steadyfile> Steady state file - If this option is specified, the values from this file will be used as steady state values, and sescspot will output a transient temperatures file\n");
 	printf("-f <--floorplan> Floorplan file - Set to the floorplan you wish to use.  Default is 'ev6.flp'\n");
-	printf("<--initfile> Warmup file - The warmup file is used to generate average power information for the heatsink.\n");
+	printf("<--warmfile> Warmup file - The warmup file is used to generate average power information for the heatsink.\n");
 }
 
 int main(int argc, char **argv)
@@ -729,6 +765,7 @@ int main(int argc, char **argv)
 
 
 
+
    //if we specified a warmup file, initial warmup stage
     if(warmfile != NULL){
     
@@ -743,24 +780,121 @@ int main(int argc, char **argv)
         getSescNames(if_warmfile);
 
         //Parse the configuration file correlating the energy labels with their respecitve floorplan units
+		//Initialize sspotNamesList Entries (but do not store values)
         parseConfigFile();
 
+		// initialize flp, get adjacency matrix 
+		flp = read_flp(flp_cfg);
 
+		// initialize the R and C matrices 
+		create_RC_matrices(flp, omit_lateral);
+
+		// allocate the temp and power arrays	
+		// using hotspot_vector to internally allocate  whatever extra nodes needed	
+
+		temp = hotspot_vector(flp->n_units);
+		power = hotspot_vector(flp->n_units);
+		steady_temp = hotspot_vector(flp->n_units);
+		overall_power = hotspot_vector(flp->n_units);
+
+		strList tmpeNamesList=eNamesList; //save eNamesList data  	
+		strList tmpsspotNamesList=sspotNamesList;
+
+		//Calculate the max energy values for each of the Energy labels, storing the data to enameslist[i].value entities
+		//Then accumulate all the energy numbers in sspotNamesList
+		calcMaxPower(if_warmfile);
+		strList MaxPower=sspotNamesList;
+
+
+		eNamesList=tmpeNamesList;
+		sspotNamesList=tmpsspotNamesList;
 
         //Calculate the average energy values for each of the Energy labels, storing the data to enameslist[i].value entities
+		//Then accumulate all the energy numbers in sspotNamesList
         calcAveragePower(if_warmfile);
+		strList AveragePower=sspotNamesList;
 
+		
+		eNamesList=tmpeNamesList;
+		sspotNamesList=tmpsspotNamesList;
 
-        // Compute Temperatures
-		compute_temp(power, temp, flp->n_units, (float)cycles/frequency);
+      
 
-        //calculate the total power
-        for (x = 0; x < (int)sspotNamesList.size(); x++) {
-            char  *tmpname = (char*)(sspotNamesList[x].name.c_str());
-            overall_power[get_blk_index(flp,tmpname)] += power[get_blk_index(flp, tmpname)];
-            sspotNamesList[x].value = temp[get_blk_index(flp, tmpname)];
-        }
+        //Calculate the min energy values for each of the Energy labels, storing the data to enameslist[i].value entities
+		//Then accumulate all the energy numbers in sspotNamesList
+		calcMinPower(if_warmfile);
+		strList MinPower=sspotNamesList;
+
+		eNamesList=tmpeNamesList;
+		sspotNamesList=tmpsspotNamesList;
+
+        for (int x = 0; x < (int)AveragePower.size(); x++) {
+            char  *tmpname = (char*)(AveragePower[x].name.c_str());
+			// Energy fix 11/29/04
+            if (AveragePower[x].percent != 100) AveragePower[x].value = AveragePower[x].value * ((float)AveragePower[x].percent/100.0);
+            //cout << AveragePower[x].value << endl;
+		//	printf("%s\t%.1f", AveragePower[x].name.c_str(), AveragePower[x].value);
+			overall_power[get_blk_index(flp, tmpname)] = AveragePower[x].value;
+		}
+	  
+		cout << "FloorPlan Unit \t";
+		cout << "MAX Power \t MIN Power \t AVERAGE Power" << endl;
+			/* on chip temperatures	*/
+		cout.fill(' ');
+		cout.setf(ios::left);
+		for (int i=0; i < (int)sspotNamesList.size(); i++){
+			cout.width(16);
+			cout << sspotNamesList[i].name;
+			cout.width(17);
+			cout << MaxPower[i].value;
+			cout.width(16);
+			cout << MinPower[i].value;
+			cout << AveragePower[i].value << endl;
+		}
+
+		steady_state_temp(overall_power, temp, flp->n_units);
+		int idx;
+		double max;
+		// find maximum steady-state on chip temperature 
+		for (int i=0; i < flp->n_units; i++){
+			if(temp[i]> max)
+				max = temp[i];
+		}
+		// If clipping is enabled, and the maximum steady state temperature is higher than the threshhold,
+		// then scale all the temperatures such that maximum does not exceed the threshold
+		// Note: DTM requires that the steady-state be clipped
+		if (dtm_used && (max > thermal_threshold)) {
+			/* if max has to be brought down to thermal_threshold, 
+			   * (w.r.t the ambient) what is the scale down factor?
+			*/
+			double factor = (thermal_threshold - ambient) / (max - ambient);
+	
+			/* scale down all temperature differences (from ambient) by the same factor	*/
+			for (int i=0; i < NL*flp->n_units + EXTRA; i++)
+				temp[i] = (temp[i]-ambient)*factor + ambient;
+		}
+	
+    printf("\t\t**** WARMUP STAGE ****\n");
+	printf("%-20s\t%-15s\n","Unit","Steady");
+	n = sspotNamesList.size();
+	for (int i=0; i < n; i++)
+		printf("%-20s\t%.2f\n", flp->units[i].name, temp[i]-273.15);
+	for (int i=0; i < n; i++)
+		printf("interface_%-10s\t%.2f\n", flp->units[i].name, temp[IFACE*n+i]-273.15);
+	for (int i=0; i < n; i++)
+		printf("spreader_%-11s\t%.2f\n", flp->units[i].name, temp[HSP*n+i]-273.15);
+	printf("%-20s\t%.2f\n", "spreader_west", temp[NL*n+SP_W]-273.15);
+	printf("%-20s\t%.2f\n", "spreader_east", temp[NL*n+SP_E]-273.15);
+	printf("%-20s\t%.2f\n", "spreader_north", temp[NL*n+SP_N]-273.15);
+	printf("%-20s\t%.2f\n", "spreader_south", temp[NL*n+SP_S]-273.15);
+	printf("%-20s\t%.2f\n", "spreader_bottom", temp[NL*n+SP_B]-273.15);
+	printf("%-20s\t%.2f\n", "sink_west", temp[NL*n+SINK_W]-273.15);
+	printf("%-20s\t%.2f\n", "sink_east", temp[NL*n+SINK_E]-273.15);
+	printf("%-20s\t%.2f\n", "sink_north", temp[NL*n+SINK_N]-273.15);
+	printf("%-20s\t%.2f\n", "sink_south", temp[NL*n+SINK_S]-273.15);
+	printf("%-20s\t%.2f\n", "sink_bottom", temp[NL*n+SINK_B]-273.15);
     }
+	   fatal("done");
     //Begin reading the therm file (just the labels on the top two lines) 
              
     //Store the list of Energy Labels (on the first line of the therm file) in enamesList
