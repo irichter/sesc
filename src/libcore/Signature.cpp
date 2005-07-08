@@ -1,5 +1,6 @@
 #include "Signature.h"
-
+#include "ReportGen.h"
+#include "EnergyMgr.h"
 #include <stdio.h>
 
 SignatureVector::SignatureVector(){
@@ -12,23 +13,20 @@ SignatureVector::SignatureVector(){
 SignatureVector::~SignatureVector(){}
 
 
-int SignatureVector::setPCBit(unsigned long pc){
-  int index = hashPC(pc);
-
-  if(setBit(index) != 1)
-    printf("Error SignatureVector::setPCBit could not set PC bit\n");
-
-  return 1;
+void SignatureVector::setPCBit(unsigned long pc)
+{
+  setBit(hashPC(pc));
 }
 
-
-int SignatureVector::hashPC(unsigned long pc){
-  unsigned int temp9   ;
-  unsigned int temp3High ;
-  unsigned int temp3Mid ;
-  unsigned int temp3Low ;
-  unsigned int resultTri ;
-  unsigned int result   ;
+int SignatureVector::hashPC(unsigned long pc)
+{
+#ifdef ADVANCED_HASH
+  unsigned int temp9;
+  unsigned int temp3High;
+  unsigned int temp3Mid;
+  unsigned int temp3Low;
+  unsigned int resultTri;
+  unsigned int result;
 
   result = 0;
 
@@ -63,19 +61,53 @@ int SignatureVector::hashPC(unsigned long pc){
   result = result | resultTri;
 
   return result;
+#else
+  // Get only 9 bits (0x1ff)
+  return (((pc>>13) ^ pc)>>4) & 0x1FF;
+#endif
 }
 
+#if 0
+int SignatureVector::hashPC(unsigned long pc){
+  unsigned long t1, bits_4, bits_3, bits_2;
+  unsigned int result = 0;
+  
+  t1 = (pc & 0xFFFF0000) >> 16;
+  bits_4 = 0;
+  for(int i = 0; i < 4; i++){
+    bits_4 = (t1 & 0xF) ^ bits_4; 
+    t1 = t1 >> 4;
+  }
+ 
+  t1 = (pc & 0x0000FF80) >> 7;
+  bits_3 = 0;
+  for(int i = 0; i <3 ; i++){
+    bits_3 = (t1 & 0x7) ^ bits_3;
+    t1 = t1 >> 3;
+  }
 
+  t1 = (pc & 0x0000007D)  ;
+  bits_2 = 0;
+  for(int i = 0; i < 2; i++){
+    bits_2 = (t1 & 0x3) ^ bits_2;
+    t1 = t1 >> 2 ;
+  }
+ 
+  result = (bits_4 << 5) | (bits_3 << 2)|  bits_2;
+  //printf("Results:%d\n", result);
+  return result;
+}
+#endif
 
-int SignatureVector::setBit(int index){
-
-  int  arrayIndex = 0;
-  int subIndex = 0;
+void SignatureVector::setBit(int index)
+{
+  int arrayIndex  = 0;
+  int subIndex    = 0;
   int range_count = 32;
 
-  // Error check range
-  if(index > 511)
-    return -1;
+//printf("Set bit:%d", index);
+
+  I(index <= 511);
 
   // Get array index (0-15)
   for(arrayIndex = 0; arrayIndex < 16; arrayIndex++){
@@ -84,15 +116,19 @@ int SignatureVector::setBit(int index){
     range_count += 32;
   }                                                       
   // Get index in subArray
-  subIndex = index % (range_count - 32);
-
+  //printf("Index:%d RangeCounts:%d\n", index, range_count);
+  if(range_count == 32){
+    subIndex = index;
+  }else{
+    subIndex = index % (range_count - 32);
+  }
   // Set Bit to onern 
   signator[arrayIndex] = signator[arrayIndex] | (1 << subIndex);
-  
-  return 1;
 }
 
-int SignatureVector::getNumberOfBits(){
+int SignatureVector::getNumberOfBits()
+{
+  I(0);
 
   int bitCount = 0;
   long tempLong = 0;
@@ -109,24 +145,24 @@ int SignatureVector::getNumberOfBits(){
   return 1;
 }
 
-int SignatureVector::getNumberOfBits(unsigned long input){
-
+int SignatureVector::getNumberOfBits(unsigned long input)
+{
   int bitCount = 0;
   unsigned long tempLong = 0;
  
-    tempLong =input;
-    for(int j = 0; j < 32; j++){
-      if(tempLong & 0x1){
-        bitCount++;
-      }
-      tempLong = tempLong >> 1;
-    }// End long
+  tempLong =input;
+  for(int j = 0; j < sizeof(unsigned long); j++) {
+    
+    bitCount = bitCount + (tempLong & 0x1);
 
+    tempLong = tempLong >> 1;
+  }// End long
+  
   return bitCount;
 }
 
-float SignatureVector::getSignatureDifference(unsigned long compareSig[]){
-
+float SignatureVector::getSignatureDifference(unsigned long compareSig[])
+{
   float percentDif = 0.0;
   int bitCountCommon = 0;
   int bitCountDiff = 0;
@@ -134,8 +170,6 @@ float SignatureVector::getSignatureDifference(unsigned long compareSig[]){
   unsigned long bitsCommon[16];
   unsigned long bitsDiff[16];
 
-//    long tempLong = 0;
- // long tempComp = 0;
 
   for(int i = 0; i < 16; i++){
     bitsDiff[i]   = signator[i] ^ compareSig[i];
@@ -143,7 +177,7 @@ float SignatureVector::getSignatureDifference(unsigned long compareSig[]){
     
     bitCountCommon += getNumberOfBits(bitsCommon[i]);
     bitCountDiff   += getNumberOfBits(bitsDiff[i]);
-    
+   //printf("BtCommon:%d, BitDiff:%d\n",bitCountCommon, bitCountDiff); 
   }// End For
 
  
@@ -192,198 +226,239 @@ int SignatureVector:: clearBits(){
 
 
 //======================================
-SignatureTable::SignatureTable(){
-        nextUpdatePos = 0;
+SignatureTable::SignatureTable()
+{
+  nextUpdatePos = 0;
 }
 
-SignatureTable::~SignatureTable(){
-        for(int i = 0; i < 128; i++){
-             //   delete(&sigEntries[i]);
-        }
+SignatureTable::~SignatureTable()
+{
+  for(int i = 0; i < 128; i++){
+    //   delete(&sigEntries[i]);
+  }
 }
 
-int SignatureTable::isSignatureInTable(SignatureVector vec){
-        SignatureEntry *entry;
-        for(int i = 0; i < 128; i++){
-                entry = &sigEntries[i];
-                if(entry->taken != 0){
-                        if(entry->sigVec.matchBits(vec.getSignature())){
-                                return i;
-                        }
-                }
-        }
-        return -1;
+int SignatureTable::isSignatureInTable(SignatureVector vec)
+{
+  SignatureEntry *entry;
+  for(int i = 0; i < 128; i++){
+    entry = &sigEntries[i];
+    if(entry->taken != 0){
+      if(entry->sigVec.matchBits(vec.getSignature())){
+	return i;
+      }
+    }
+  }
+  return -1;
 }
 
+int SignatureTable::getSignatureMode(int index)
+{
+  SignatureEntry *entry = &sigEntries[index];
+  if(entry->taken == 0)
+    return -1;
 
-int SignatureTable::getSignatureMode(int index){
-        SignatureEntry *entry = &sigEntries[index];
-        if(entry->taken == 0)
-                return -1;
-        else
-                return entry->mode;
+  return entry->mode;
 }
 
-int SignatureTable::addSignatureVector(SignatureVector vec, int mode){
-
-        SignatureEntry *entry = &sigEntries[nextUpdatePos];
-        //vec.copySignature(entry->sigVec.getSignature()); // Need to make a copy constructor
-        entry->sigVec.copySignature(vec.getSignature());
-        entry->taken = 1;
-        entry->mode = mode;
-
-        nextUpdatePos = (nextUpdatePos + 1) % 128;
-        
-        return 1;
+int SignatureTable::addSignatureVector(SignatureVector vec, int mode)
+{
+  SignatureEntry *entry = &sigEntries[nextUpdatePos];
+  //vec.copySignature(entry->sigVec.getSignature()); // Need to make a copy constructor
+  entry->sigVec.copySignature(vec.getSignature());
+  entry->taken = 1;
+  entry->mode = mode;
+  
+  nextUpdatePos = (nextUpdatePos + 1) & 0xFF; // 128
+  
+  return 1;
 }
 
 //===========================================================================
 //
 //===========================================================================
-PipeLineSelector::PipeLineSelector(){
-        clockCount  = 0;
-        inOrderEDD  = 0;
-        outOrderEDD = 0;
-        totEnergy = 0;
-        windowInstCount = 0;
-        currPipelineMode = 0; 
-        trainWindowCount = 0;
-        currState = 0;
+PipeLineSelector::PipeLineSelector()
+{
+  clockCount  = 0;
+  inOrderEDD  = 0;
+  outOrderEDD = 0;
+  totEnergy = 0;
+  windowInstCount = 0;
+  currPipelineMode = 0; 
+  trainWindowCount = 0;
+  currState = 0;
+  inOrderWindowCount  = 0;
+  outOrderWindowCount = 0;
+#ifdef SESC_INORDER
+ pipelineSelectorEnergy = new GStatsEnergy("pipelineSelectorEnergy","",0,PipelineSelectorEnergy
+                                              ,EnergyMgr::get("pipelineSelectorEnergy",0),"SIGNATURE");
+#endif
 }
 
-PipeLineSelector::~PipeLineSelector(){     
+PipeLineSelector::~PipeLineSelector()
+{
 }
 
 //=====================================================
-void PipeLineSelector::updateCurrSignature(unsigned long pc){
-        signatureCurr.setPCBit(pc);
+void PipeLineSelector::updateCurrSignature(unsigned long pc)
+{
+  signatureCurr.setPCBit(pc);
 }
 
 
-double PipeLineSelector::calculateEDD(long currClockCount, double currTotEnergy){ 
-	  double caculatedEDD = 0;
-	  //double energy =  GStatsEnergy::getTotalEnergy();
-	  
-      double delta_energy = currTotEnergy - totEnergy;       
-      long  delta_time = currClockCount - clockCount;
-	  caculatedEDD = delta_energy * (double)(delta_time * delta_time);
-	 
-	  return caculatedEDD;
-	
+double PipeLineSelector::calculateEDD(long currClockCount, double currTotEnergy)
+{ 
+  double caculatedEDD = 0;
+  //double energy =  GStatsEnergy::getTotalEnergy();
+  
+  double delta_energy = currTotEnergy - totEnergy;       
+  long  delta_time = currClockCount - clockCount;
+  caculatedEDD = (delta_energy/100) * ((double)delta_time/100.0* (double)delta_time/100.0);
+  
+  return caculatedEDD;
+}
+
+void PipeLineSelector::report(const char* str)
+{
+  printf("Printing pipelineslector data\n");
+
+  Report::field("inOrderWindowCount=%ld",inOrderWindowCount);
+  Report::field("outOrderWindowCount=%ld",outOrderWindowCount);
 }
 
 //====================================================================================
-int PipeLineSelector::getPipeLineMode(unsigned long pc, long currClockCount, double currTotEnergy){ // called on every pc dispatch
-	float signatureDiff = 0.0;
-    int tableIndex;
+int PipeLineSelector::getPipeLineMode(unsigned long pc)
+{ 
+ 
 
-    if(pc == 0){
-      return currPipelineMode;
-    }
-    //printf("getpipeLineMode: %x\n", pc); 
-    // Update currenect signature with current pc and windowInstCount
-    updateCurrSignature(pc);
-    ++windowInstCount;
-    //if((windowInstCount % 100) == 0)
-     	printf("getpipeLineMode: %x Count:%d\n", pc, windowInstCount);  
+  // called on every pc dispatch
+  if(pc == 0)
+    return currPipelineMode;
   
-    //printf("Updated Window\n"); 
-     // Check if we are at an end of a window interval
-    if(windowInstCount == 10){
-        windowInstCount = 0;  
-    	// We can calclulate the edd for the last window
-    	if(currPipelineMode == INORDER){
-    		inOrderEDD = calculateEDD(currClockCount, currTotEnergy); 
-    	}else{
-    		outOrderEDD = calculateEDD(currClockCount, currTotEnergy); 
-    	}	
-    		
-    	// Get Signature difference
-        signatureDiff = signaturePrev.getSignatureDifference(signatureCurr.getSignature());
-                        
-        if(signatureDiff > 0.5){
-          	//==========================
-            // Phase Change Detected
-            //=========================
-            printf("Phase change detected\n");          
-            // Check if signature is in table
-            if((tableIndex = table.isSignatureInTable(signatureCurr)) == 1){
-                // Signature found
-                printf("Found Siganature\n");
-                currPipelineMode = table.getSignatureMode(tableIndex);  
-                currState = STABLE;             
-                
-            }else{
-                if(currState == STABLE){
-                    // Signature NOT FOUND! (NEED TO TRAIN)
-                    // reset statiscsi
-                    printf("Start training\n");
-                    currState = TRAINING;
-                    currPipelineMode = INORDER;
-                    trainWindowCount = 0;
+  updateCurrSignature(pc);
+  windowInstCount++;
+  
+  // Check if we are at an end of a window interval
+  if(windowInstCount != 1000)
+    return currPipelineMode;
 
-                }else{
-                	// Already Training  (need to reset training) 
-                	// reset statiscs
-                   printf("Start trianing\n"); 
-		    currState = TRAINING;
-                    currPipelineMode = INORDER;
-                    trainWindowCount = 0;                                             
-                }
-            }// END Signature found 
-          
-                           
-        }else{
-           //==========================
-           // NO Phase Change
-           //=========================
-           if(currState == TRAINING){
-             switch(trainWindowCount){
-               case 0:
-                 // capture statiics
-                 printf("Training Step 0\n");
-                 clockCount = currClockCount;
-                 totEnergy = currTotEnergy;
-                 currPipelineMode = INORDER;
-                 break;
-               case 1:
-                 printf("Training Step 1\n");
-               	 // compute inorder edd, swithc to outorder  	
-               	 inOrderEDD = calculateEDD(currClockCount, currTotEnergy);               	  
-               	 currPipelineMode = OUTORDER;
-                 break;
-               case 2:
-                 printf("Traing Step 2\n");
-               	 // capture statistics
-               	 clockCount = currClockCount;
-                 totEnergy = currTotEnergy;
-                 currPipelineMode = OUTORDER;               
-                 break;
-               case 3:
-                 printf("Training Step 3\n");
-               	 // compute out of order edd, find best, add to table
-                 outOrderEDD = calculateEDD(currClockCount, currTotEnergy);   
-                 if(inOrderEDD < outOrderEDD){                 	
-                 	currPipelineMode = INORDER;
-                 }else{
-                 	currPipelineMode = OUTORDER;
-             	 }
-             	 // Add signuter to table
-             	 table.addSignatureVector(signatureCurr, currPipelineMode);	
-                 break;
-            
-              
-            }// End Switch
-            ++trainWindowCount;                                                        
-          }   
-      }/* EnD No Phase Change */
+#ifdef SESC_INORDER
+   double currTotEnergy = GStatsEnergy::getTotalEnergy();
+#else
+   double currTotEnergy =0;
+#endif
+
+   long currClockCount = globalClock;
+  // FIXME: begin of getPipeLineMode (move previous instructions to updateHashPC)
+  float signatureDiff = 0.0;
+  int tableIndex;
+
+  windowInstCount = 0;
+  // We can calclulate the edd for the last window
+  if(currPipelineMode == INORDER){
+    inOrderEDD = calculateEDD(currClockCount, currTotEnergy); 
+  }else{
+    outOrderEDD = calculateEDD(currClockCount, currTotEnergy); 
+  }	
+  
+  // Get Signature difference
+  signatureDiff = signaturePrev.getSignatureDifference(signatureCurr.getSignature());
+  printf("Signature diff:%f\n", signatureDiff);                
+  if(signatureDiff > 0.5) {
+    //==========================
+    // Phase Change Detected
+    //=========================
+    //  printf("Phase change detected\n");
+    pipelineSelectorEnergy->inc();          
+    // Check if signature is in table
+    if((tableIndex = table.isSignatureInTable(signatureCurr)) == 1){
+      // Signature found
+      printf("Found Siganature\n");
+      currPipelineMode = table.getSignatureMode(tableIndex);  
+      currState = STABLE;             
       
-      // Copy curr signister to prev, reset currentSignature fo rnew window
-      signaturePrev.copySignature(signatureCurr.getSignature()); 
-      signatureCurr.clearBits();    
-      windowInstCount = 0;  
-   }   
-   return currPipelineMode;
+    }else{
+      if(currState == STABLE){
+	// Signature NOT FOUND! (NEED TO TRAIN)
+	// reset statiscsi
+	printf("Start training\n");
+	currState = TRAINING;
+	currPipelineMode = INORDER;
+	trainWindowCount = 0;
+	}else{
+	// Already Training  (need to reset training) 
+	// reset statiscs
+	printf("Start trianing\n"); 
+	currState = TRAINING;
+	currPipelineMode = INORDER;
+	trainWindowCount = 0;
+      }
+    }// END Signature found 
+    
+    signaturePrev.copySignature(signatureCurr.getSignature());
+    
+  }else{
+    //==========================
+    // NO Phase Change
+    //=========================
+    if(currState == TRAINING){
+      switch(trainWindowCount){
+      case 0:
+	// capture statiics
+	printf("Training Step 0\n");
+	clockCount = currClockCount;
+	totEnergy = currTotEnergy;
+	currPipelineMode = INORDER;
+	break;
+      case 1:
+	printf("Training Step 1\n");
+	  // compute inorder edd, swithc to outorder  	
+	inOrderEDD = calculateEDD(currClockCount, currTotEnergy);               	  
+	currPipelineMode = OUTORDER;
+	break;
+      case 2:
+	printf("Traing Step 2\n");
+	// capture statistics
+	clockCount = currClockCount;
+	totEnergy = currTotEnergy;
+	currPipelineMode = OUTORDER;
+	break;
+      case 3:
+	printf("Training Step 3\n");
+	// compute out of order edd, find best, add to table
+	outOrderEDD = calculateEDD(currClockCount, currTotEnergy);   
+	printf("InorderEDD:%f, OutOrderEDD:%f\n", inOrderEDD, outOrderEDD); 
+	if(inOrderEDD < outOrderEDD){                 	
+	  currPipelineMode = INORDER;
+	}else{
+	  currPipelineMode = OUTORDER;
+	}
+	// Add signuter to table
+	table.addSignatureVector(signatureCurr, currPipelineMode);	
+	currState = STABLE;
+	break;
+ 	
+	}// End Switch
+      ++trainWindowCount;                                                        
+    }else{
+      // printf("No phase change\n");
+    }
+  }/* EnD No Phase Change */
+  
+  // Copy curr signister to prev, reset currentSignature fo rnew window
+  // printf("Clering signature\n");
+  signatureCurr.clearBits();    
+  windowInstCount = 0; 
+  
+  if(currPipelineMode == INORDER){
+    ++inOrderWindowCount;
+    //   printf("inOrderWindowCount:%ld\n",inOrderWindowCount);
+  }else{
+    ++outOrderWindowCount;
+      //	printf("outOrderWindowCount:%ld\n",outOrderWindowCount);
+  } 
+
+  return currPipelineMode;
 }
 
 

@@ -34,14 +34,12 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "MemRequest.h"
 #include "Pipeline.h"
 
-
 #ifdef SESC_INORDER
 #include <time.h>
 #include "GEnergy.h"
 #include "GProcessor.h"
 #include "Signature.h"
 #endif
-
 
 long long FetchEngine::nInst2Sim=0;
 long long FetchEngine::totalnInst=0;
@@ -171,60 +169,63 @@ FetchEngine::FetchEngine(int cId
 #ifdef SESC_INORDER
 int FetchEngine::gatherRunTimeData(long pc)
 {
+ //int mode = 1;
+ instrCount++;
+// mode = pipeLineSelector.getPipeLineMode(pc, globalClock, GStatsEnergy::getTotalEnergy());
+// gproc->setMode(mode);
+
 #ifdef SESC_INORDER_ENERGY
-    instrCount++;
 
-//#if 0
-    if(intervalCount > 2000 && intervalCount < 3000){
-      if(instrCount == 200){
-
-	++subIntervalCount;
-
-	if(subIntervalCount % 10 == 0){
-	  ++intervalCount;
-	  subIntervalCount = 0;
-	}
-	
-	double energy = GStatsEnergy::getTotalEnergy();
-	double delta_energy = energy - previousTotEnergy;
-	long delta_time = globalClock - previousClockCount;
-	
-	fprintf(energyInstFile,"%d\t%.3f\t%ld\n", intervalCount * 10 + subIntervalCount, delta_energy, delta_time);
-
-
-        previousTotEnergy =  GStatsEnergy::getTotalEnergy();
-        previousClockCount = globalClock;
-
-        instrCount = 0;
-
-      }/* End if instrCount == 200 */
-    }
-//#endif
-
-    if(instrCount == 2000) {
-      intervalCount++;
+#if 0
+ if(intervalCount > 2000 && intervalCount < 3000){
+   if(instrCount == 200){
      
+     ++subIntervalCount;
+     
+     if(subIntervalCount % 10 == 0){
+       ++intervalCount;
+       subIntervalCount = 0;
+     }
+     
+     double energy = GStatsEnergy::getTotalEnergy();
+     double delta_energy = energy - previousTotEnergy;
+     long delta_time = globalClock - previousClockCount;
+     
+     fprintf(energyInstFile,"%d\t%.3f\t%ld\n", intervalCount * 10 + subIntervalCount, delta_energy, delta_time);
+     
+     
+     previousTotEnergy =  GStatsEnergy::getTotalEnergy();
+     previousClockCount = globalClock;
+     
+     instrCount = 0;
+     
+   }/* End if instrCount == 200 */
+ }
+#endif
+ if(instrCount == 25) {
+   intervalCount++;
+   
 #ifdef SESC_INORDER_SWITCH
-      int mode = 1; /* INORDER */
-      mode = pipeLineSelector.getPipeLineMode(pc, globalClock, GStatsEnergy::getTotalEnergy());
-
-      /* Get next core change */
-      // int mode = getNextCoreMode(); //get next mode from file
-      gproc->setMode(mode);
+   int mode = 1; /* INORDER */
+   mode = pipeLineSelector.getPipeLineMode(pc, globalClock, GStatsEnergy::getTotalEnergy());
+   
+   /* Get next core change */
+   // int mode = getNextCoreMode(); //get next mode from file
+   gproc->setMode(mode);
 #endif //SESC_INORDER_SWITCH
-      
-      if(energyInstFile != NULL) {
-        double energy =  GStatsEnergy::getTotalEnergy();
-        double delta_energy = energy - previousTotEnergy; 
-        long  delta_time = globalClock - previousClockCount;
-
-        fprintf(energyInstFile,"%d\t%.3f\t%ld\n", intervalCount * 10, delta_energy, delta_time);
-      }
-      
-      previousTotEnergy =  GStatsEnergy::getTotalEnergy();
-      previousClockCount = globalClock;
-      instrCount = 0;
-    }/* Endif instrcount = 2000 */
+   
+   if(energyInstFile != NULL) {
+     double energy =  GStatsEnergy::getTotalEnergy();
+     double delta_energy = energy - previousTotEnergy; 
+     long  delta_time = globalClock - previousClockCount;
+     
+     fprintf(energyInstFile,"%d\t%.3f\t%ld\n", intervalCount * 10, delta_energy, delta_time);
+   }
+   
+   previousTotEnergy =  GStatsEnergy::getTotalEnergy();
+   previousClockCount = globalClock;
+   instrCount = 0;
+ }/* Endif instrcount = 2000 */
 }
 #endif //SESC_INORDER_ENERGY
 

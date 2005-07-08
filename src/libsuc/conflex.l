@@ -46,8 +46,8 @@ nameref \$\({name}\)
 
 strnameref \"\$\({name}\)\"
 
-QString1 \"({alnum}|[ \.])*\"
-QString2 \'({alnum}|[\.])*\'
+QString1 \"([^\$\"\n\r])*\"
+QString2 \'([^\'\n\r])*\'
 
 QString {QString1}|{QString2}
 

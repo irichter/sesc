@@ -139,7 +139,13 @@ public:
   void addEvent(EventType ev, CallbackBase *cb, long vaddr) {
     flow.addEvent(ev,cb,vaddr);
   }
-  
+ 
+#ifdef SESC_INORDER
+  void report(const char * str) {
+    pipeLineSelector.report(str);	
+  }
+#endif
+ 
   // Fills the current fetch buffer.
   //  Always fetches at most fetchWidth instructions
   void fetch(IBucket *buffer, int fetchMax = -1);

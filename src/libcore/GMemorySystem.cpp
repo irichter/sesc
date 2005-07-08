@@ -212,6 +212,8 @@ MemObj *GMemorySystem::declareMemoryObj(const char *block, const char *field)
     MSG("Section [%s] field [%s] does not describe a MemoryObj\n", 
 	block, field);
     MSG("Required format: memoryDevice = descriptionSection [name] [shared|private]\n");
+    SescConf->notCorrect();
+    I(0);
     return 0; // Known-error mode
   }
 
