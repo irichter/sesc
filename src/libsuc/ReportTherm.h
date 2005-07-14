@@ -37,6 +37,7 @@ private:
   static int tos;
   static int rep;
   static FILE *createTmp(const char *name);
+  static int cyclesPerSample;
   ReportTherm();
 public:
   // Creates a new report file. Notice that if the name has the syntax

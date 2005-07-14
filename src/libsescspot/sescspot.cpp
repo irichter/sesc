@@ -215,7 +215,7 @@ int readSescVals()
 	    sspotNamesList[x].value = sspotNamesList[x].value * ((float)sspotNamesList[x].percent/100.0);
 	  power[get_blk_index(flp, tmpname)] = sspotNamesList[x].value;
 	}
-
+/*
 // get the SESC stats
 	items = 0;
 	if (getline(if_infile, line)) {
@@ -238,7 +238,7 @@ int readSescVals()
 	for (x = 0; x < (int)sescList.size(); x++) {
 		sescList[x].value = sescList[x].value - sescList[x].value1;
 	}
-
+*/
 	return ret;
 }
 
@@ -263,32 +263,32 @@ void dump_tempAppend1(flp_t *flp, double *temp, char *file)
 
 // on chip temperatures	
 	for (i=0; i < flp->n_units; i++)
-		fprintf(fp, "%-12f", temp[i]-217.15);
+		fprintf(fp, "%-12f", temp[i]-273.15);
 
 // interface temperatures
 	for (i=0; i < flp->n_units; i++)
-		fprintf(fp, "%-12f", temp[IFACE*flp->n_units+i]-217.15);
+		fprintf(fp, "%-12f", temp[IFACE*flp->n_units+i]-273.15);
 
 // spreader temperatures	
 	for (i=0; i < flp->n_units; i++)
-		fprintf(fp, "%-12f", temp[HSP*flp->n_units+i]-217.15);
+		fprintf(fp, "%-12f", temp[HSP*flp->n_units+i]-273.15);
 
 // internal node temperatures	
 	for (i=0; i < EXTRA; i++) {
 		sprintf(str, "inode_%d", i);
-		fprintf(fp, "%-12f", temp[i+NL*flp->n_units]-217.15);
+		fprintf(fp, "%-12f", temp[i+NL*flp->n_units]-273.15);
 	}
 
-	if (curcycle == 1)
-		cyclenum = curcycle;
-	else
-		cyclenum = cycles;
+//	if (curcycle == 1)
+//		cyclenum = curcycle;
+//	else
+//		cyclenum = cycles;
 
-	for (i = 0; i < (int)eNamesList.size(); i++)
-		fprintf(fp, "%-12f\t", eNamesList[i].value);
+//	for (i = 0; i < (int)eNamesList.size(); i++)
+//		fprintf(fp, "%-12f\t", eNamesList[i].value);
 
-	for (i = 0; i < (int)sescList.size(); i++)
-		fprintf(fp, "%-12f\t", sescList[i].value/cyclenum);
+//	for (i = 0; i < (int)sescList.size(); i++)
+//		fprintf(fp, "%-12f\t", sescList[i].value/cyclenum);
 
 	fclose(fp);   
 }
@@ -337,12 +337,12 @@ void dump_tempTitles(flp_t *flp, char *file)
 		//printf("%s: %d\n", eNamesList[i].name.c_str(), x);
 		x++;
 	}
-	fprintf(fp, "\n");
-	for (i = 0; i < (int)sescList.size(); i++) {
-		fprintf(fp, "%-12s", sescList[i].name.c_str());
+//	fprintf(fp, "\n");
+//	for (i = 0; i < (int)sescList.size(); i++) {
+//		fprintf(fp, "%-12s", sescList[i].name.c_str());
 		//printf("%s: %d\n", sescList[i].name.c_str(), x);
-		x++;
-	}
+//		x++;
+//	}
 
 	fclose(fp);
 }
@@ -423,7 +423,7 @@ void parseConfigFile(int printflag){
 	  else if(tokens[0] == "InitialTemp"){
 	    init_temp=atof(tokens[1].c_str());
 	    cout << "InitialTemp: " << init_temp << endl;
-	    init_temp+=217.15;
+	    init_temp+=273.15;
 	  }
 	  else if(tokens[0] == "DTMUsed"){
 	    dtm_used=atoi(tokens[1].c_str());
@@ -436,7 +436,7 @@ void parseConfigFile(int printflag){
 	  else if(tokens[0] == "DTMTempThreshhold"){
 	    thermal_threshold=atof(tokens[1].c_str());
 	    cout << "DTMTempThreshhold: " << thermal_threshold << endl;
-	    init_temp+=217.15;
+	    init_temp+=273.15;
 	  }
 	  else if(tokens[0] == "ConvectionCapacitance"){
 	    c_convec=atof(tokens[1].c_str());
@@ -469,7 +469,7 @@ void parseConfigFile(int printflag){
 	  else if(tokens[0] == "AmbientTemperature"){
 	    ambient=atof(tokens[1].c_str());
 	    cout << "AmbientTemperature: " << ambient << endl;
-	    ambient+=217.15;
+	    ambient+=273.15;
 	  }
 	  else
 	    fatal("SescSpot: Error in Configuration File, Cannot Read Settings\n"); 
@@ -540,8 +540,7 @@ void calcAveragePower(std::ifstream &if_file){
       eNamesList[i].value=(float)0;
     }
     
-    getline(if_file,line); //skip first two lines
-    getline(if_file,line);
+    getline(if_file,line); //skip first line
 
     /* The following algorith is used to calculate the running average (this is to prevent overflow)
      *  mean := x[0];
@@ -562,7 +561,7 @@ void calcAveragePower(std::ifstream &if_file){
       eNamesList[items].value = tmp; // mean := x[0]
       items++;
     }
-    getline(if_file,line);	//ignore the next line that contains just stats
+    //getline(if_file,line);	//ignore the next line that contains just stats
     float i=1;
     while(getline(if_file, line)) {
       std::istringstream linestream(line);
@@ -574,7 +573,7 @@ void calcAveragePower(std::ifstream &if_file){
 	eNamesList[items].value = (i/(i + 1.0))*eNamesList[items].value + tmp/(i+1);
 	items++;
       }
-      getline(if_file,line);	//ignore the next line that contains just stats
+      //getline(if_file,line);	//ignore the next line that contains just stats
       i++;
     }
     //reset the file pointer to the beginning of the file again (this is to handle the case where the warmupfile equals the input file
@@ -609,7 +608,7 @@ void calcMaxPower(std::ifstream &if_file){
     }
 
     getline(if_file,line);
-    getline(if_file,line);
+
     while(getline(if_file, line)) {
       std::istringstream linestream(line);
       std::string token;
@@ -622,7 +621,7 @@ void calcMaxPower(std::ifstream &if_file){
 	  eNamesList[items].value=tmp;
 	items++;
       }
-      getline(if_file,line);
+      //getline(if_file,line);
     }
     //reset the file pointer to the beginning of the file again (this is to handle the case where the warmupfile equals the input file
     
@@ -647,7 +646,6 @@ void calcMinPower(std::ifstream &if_file){
 		if_file.clear();
     if_file.seekg(0, ios::beg);
 	getline(if_file,line);
-	getline(if_file,line);
 
 	for(int i=0;i<(int)eNamesList.size();i++){
 		eNamesList[i].value=(float)-1;
@@ -664,7 +662,7 @@ void calcMinPower(std::ifstream &if_file){
 				eNamesList[items].value=tmp;
             items++;
         }
-		getline(if_file, line);
+	//getline(if_file, line);
     }
     //reset the file pointer to the beginning of the file again (this is to handle the case where the warmupfile equals the input file
 
@@ -780,19 +778,6 @@ int main(int argc, char **argv)
 	  fatal("Cannot open warmup file\n");
 	}
 
-    // initialize flp, get adjacency matrix 
-    flp = read_flp(flp_cfg);
-    
-    // initialize the R and C matrices 
-    create_RC_matrices(flp, omit_lateral);
-    
-    // allocate the temp and power arrays	
-    // using hotspot_vector to internally allocate  whatever extra nodes needed	
-    
-    temp = hotspot_vector(flp->n_units);
-    power = hotspot_vector(flp->n_units);
-    steady_temp = hotspot_vector(flp->n_units);
-    overall_power = hotspot_vector(flp->n_units);   
     
    //if we specified a warmup file, initial warmup stage
     if(warmfile != NULL){
@@ -802,12 +787,12 @@ int main(int argc, char **argv)
     
     //Store the list of Stats Labels (on the second line of the therm file) in sescList
     
-    getSescNames(if_warmfile);
+    //getSescNames(if_warmfile);
     
     //Parse the configuration file correlating the energy labels with their respecitve floorplan units
     //Initialize sspotNamesList Entries (but do not store values)
     parseConfigFile(1);
-    
+	sim_init();    
 
       //Begin reading the warmup file (just the labels on the top two lines) 
       strList tmpeNamesList=eNamesList; //save eNamesList data  	
@@ -908,13 +893,13 @@ int main(int argc, char **argv)
       
       //Store the list of Stats Labels (on the second line of the therm file) in sescList
       
-      getSescNames(if_infile);
+      //getSescNames(if_infile);
       
       //Parse the configuration file correlating the energy labels with their respecitve floorplan units
       //Initialize sspotNamesList Entries (but do not store values)
       parseConfigFile(1);
-      
-      set_temp(temp, flp->n_units, init_temp);
+      sim_init();
+      set_temp(temp, flp->n_units, 333.15); //FIXME: init_temp with 60
       //Begin reading the warmup file (just the labels on the top two lines) 
       
       printf("\t\t**** NO WARMUP ****\n");
@@ -953,7 +938,7 @@ int main(int argc, char **argv)
 
     //Store the list of Stats Labels (on the second line of the therm file) in sescList
 
-    getSescNames(if_infile);
+    //getSescNames(if_infile);
     
     //Parse the configuration file correlating the energy labels with their respecitve floorplan units
     //Initialize sspotNamesList Entries (but do not store values)
@@ -966,10 +951,10 @@ int main(int argc, char **argv)
     readSescVals();	// we ignore the first set of values
     int iter = 0;;
     while (readSescVals() != -1) {
-      cout << power[0] << "\t" << power[1] << "\t" << power[2] << endl;
+//      cout << power[0] << "\t" << power[1] << "\t" << power[2] << endl;
 
       // Compute Temperatures
-      compute_temp(power, temp, flp->n_units, (float)cycles/frequency);
+      compute_temp(power, temp, flp->n_units, (float)(cycles/frequency));
       
       dump_tempAppend1(flp, temp, outfile);
       

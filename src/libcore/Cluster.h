@@ -33,6 +33,8 @@ class GMemorySystem;
 class GStatsEnergyCGBase;
 class GProcessor;
 
+//#define WINDOW_USE_HIST 1
+
 class Cluster {
  private:
   void buildUnit(const char *clusterName
@@ -48,6 +50,10 @@ class Cluster {
   long windowSize;
 
   GProcessor *const gproc;
+
+#ifdef WINDOW_USE_HIST
+  GStatsTimingHist winHist;
+#endif
 
   GStatsAvg winNotUsed;
 

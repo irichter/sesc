@@ -275,8 +275,6 @@ void DepWindow::addInst(DInst *dinst)
   
   I(dinst->getResource() != 0); // Resource::schedule must set the resource field
 
-  windowRdWrEnergy->inc();  // Add entry
-
 #ifdef SESC_SEED
   addInstBank = (dinst->getBank()+1) % Banks;
 
@@ -361,7 +359,6 @@ void DepWindow::wakeUpDeps(DInst *dinst)
 {
   I(!dinst->hasDeps());
 
-  windowRdWrEnergy->inc();  // check deps
 
   // Even if it does not wakeup instructions the port is used
   Time_t wakeUpTime= wakeUpPort->nextSlot();
@@ -439,8 +436,6 @@ void DepWindow::select(DInst *dinst)
 
   Time_t schedTime = schedPort->nextSlot() + SchedDelay;
 
-  windowSelEnergy->inc();
-
   dinst->doAtSimTimeCB.scheduleAbs(schedTime);
 }
 
@@ -464,6 +459,9 @@ void DepWindow::executed(DInst *dinst)
 
   resultBusEnergy->inc();
   windowCheckEnergy->inc();
+  windowSelEnergy->inc();
+  windowRdWrEnergy->inc();  // Add entry
+  windowRdWrEnergy->inc();  // check deps
   windowRdWrEnergy->inc();  // Remove the entry
 
   if (!dinst->hasPending())

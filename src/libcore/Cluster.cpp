@@ -60,6 +60,9 @@ Cluster::Cluster(const char *clusterName, GProcessor *gp)
   ,MaxWinSize(SescConf->getLong(clusterName,"winSize"))
   ,windowSize(SescConf->getLong(clusterName,"winSize")) 
   ,gproc(gp)
+#ifdef WINDOW_USE_HIST
+  ,winHist("Proc(%d)_%s_winHist", gp->getId(), clusterName)
+#endif
   ,winNotUsed("Proc(%d)_%s_winNotUsed",gp->getId(), clusterName)
 {
   bzero(res,sizeof(Resource *)*MaxInstType);
@@ -264,6 +267,10 @@ void ExecutedCluster::retire(DInst *dinst)
   dinst->setRetireTime();
 #endif
 
+#ifdef WINDOW_USE_HIST
+  winHist.sample(windowSize);
+#endif
+
   winNotUsed.sample(windowSize);
   // Nothing
 }
@@ -282,6 +289,9 @@ void RetiredCluster::retire(DInst *dinst)
   dinst->setRetireTime();
 #endif
 
+#ifdef WINDOW_USE_HIST
+  winHist.sample(windowSize);
+#endif
   winNotUsed.sample(windowSize);
   delEntry();
 }

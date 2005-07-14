@@ -351,9 +351,9 @@ void GStatsHist::reportValue() const
 void GStatsHist::sample(unsigned long key, unsigned long long weight)
 {
   if(H.find(key)==H.end())
-    H[key]=0;
-
-  H[key]+=weight;
+    H[key] =weight;
+  else
+    H[key]+=weight;
 
   data += key;
   nData+= weight;
@@ -419,8 +419,9 @@ void GStatsTimingHist::reportValue() const
       w = globalClock-lastUpdate;
     else
       w = 0;
-
-    Report::field("%s(%lu)=%llu",name,(*it).first,(*it).second+w);
+    w += (*it).second;
+    if (w)
+      Report::field("%s(%lu)=%llu",name,(*it).first,w);
   }
 }
 

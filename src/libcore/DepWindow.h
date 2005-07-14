@@ -51,6 +51,7 @@ private:
   const long DepTableEntries;
   const long DepTableNumPorts;
 
+
   const TimeDelta_t DepTableDelay;
 
 #ifdef SESC_SEED_OVERFLOW
