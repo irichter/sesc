@@ -144,7 +144,7 @@ void DMemRequest::create(DInst *dinst, GMemorySystem *gmem, MemOperation mop)
   }
 
 
-  r->setPAddr(old_addr);
+  r->setPAddr(ph_addr);
   r->access();
 }
 
