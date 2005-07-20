@@ -132,6 +132,8 @@ public:
   ~SMPCache();
 
   // BEGIN MemObj interface
+
+  const bool isCache() const { return true; }
   
   // port availability
   Time_t getNextFreeCycle() const;

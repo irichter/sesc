@@ -22,10 +22,10 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 This directory implements the memory backend of an SMP
 system. The implementation assumes some simplifications:
 
-1) SMPCache should be used as a private inclusive L2. It shouldn't be
-too hard to make SMPCache work as an L1 (any candidates?). Make it
-work as a shared cache my be a little more complicated (any
-candidates?).
+1) SMPCache should be used as a private inclusive L2. Now it is also
+possible to use it as a private L1 (thanks to Hou Rui for helping with
+that). Making it work as a shared cache my be a little more
+complicated (any candidates?).
 
 2) L1 (from Cache.cpp) used with SMPCache has to be write-through.
 

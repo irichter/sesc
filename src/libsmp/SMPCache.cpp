@@ -450,7 +450,13 @@ SMPCache::Line *SMPCache::allocateLine(PAddr addr, CallbackBase *cb)
   PAddr rpl_addr = 0;
   I(cache->findLineDebug(addr) == 0);
   Line *l = cache->findLine2Replace(addr);
-  I(l);
+
+  if(!l) {
+    // need to schedule allocate line for next cycle
+    doAllocateLineCB::scheduleAbs(globalClock+1, this, addr, 0, cb);
+    return 0;
+  }
+
   rpl_addr = cache->calcAddr4Tag(l->getTag());
   lineFill.inc();
 
@@ -458,7 +464,7 @@ SMPCache::Line *SMPCache::allocateLine(PAddr addr, CallbackBase *cb)
 
   if(!l->isValid()) {
     cb->destroy();
-    cache->fillLine(addr);
+    l->setTag(cache->calcTag(addr));
     return l;
   }
   
@@ -469,7 +475,7 @@ SMPCache::Line *SMPCache::allocateLine(PAddr addr, CallbackBase *cb)
     } 
 
     cb->destroy();
-    cache->fillLine(addr);
+    l->setTag(cache->calcTag(addr));
     return l;
   }
 
