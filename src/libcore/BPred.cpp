@@ -598,7 +598,7 @@ void BPHybrid::switchIn(Pid_t pid)
   if (tc==0 || tc->getPid()==-1)
     return;
 
-  historyTable[0] = tc->getBPHistory(historyTable[0]);
+  ghr = tc->getBPHistory(ghr);
 #endif
 }
 
@@ -609,7 +609,7 @@ void BPHybrid::switchOut(Pid_t pid)
   if (tc==0 || tc->getPid()==-1)
     return;
 
-  tc->setBPHistory(historyTable[0]);
+  tc->setBPHistory(ghr);
 #endif
 }
 

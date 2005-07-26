@@ -108,10 +108,6 @@ protected:
     dinst->setFetchTime();
 #endif
     
-#ifdef TASKSCALAR
-    dinst->setLVID(lvid, lvidVersion);
-#endif //TASKSCALAR
-
 #ifdef TS_PARANOID
     fetchDebugRegisters(dinst);
 #endif
