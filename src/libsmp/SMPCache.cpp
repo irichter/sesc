@@ -475,6 +475,7 @@ SMPCache::Line *SMPCache::allocateLine(PAddr addr, CallbackBase *cb)
     } 
 
     cb->destroy();
+    l->invalidate();
     l->setTag(cache->calcTag(addr));
     return l;
   }
@@ -531,7 +532,12 @@ void SMPCache::invalidateLine(PAddr addr, CallbackBase *cb)
 
   protocol->preInvalidate(l);
 
-  invUpperLevel(addr, cache->getLineSize(), this);
+  if(!isHighestLevel()) {
+    invUpperLevel(addr, cache->getLineSize(), this);
+    return;
+  }
+
+  doInvalidate(addr, cache->getLineSize());
 }
 
 void SMPCache::inclusionCheck(PAddr addr) {
