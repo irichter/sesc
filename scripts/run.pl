@@ -148,7 +148,7 @@ sub runItLowLevel {
 
     # Refresh the automount. Linux AS 2.0 automount problem
     system("ls -al ${op_bhome} ${op_sesc} ${op_bindir} . >/dev/null");
-    system("ls -al /cse/faculty/renau/build >/dev/null");
+    system("ls -al /cse/faculty/renau/build >/dev/null") if ( $ENV{"USER"} =~ /renau/ );
     system("ls -al >/dev/null");
     sleep 5;
 
