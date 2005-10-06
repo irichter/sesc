@@ -51,6 +51,9 @@ class GFlow {
   
  public:
   GFlow(int i, int cId, GMemorySystem *gmem);
+  virtual ~GFlow() {
+    // Nothing
+  }
   
   virtual InstID getNextID() const = 0;
 

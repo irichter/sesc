@@ -91,13 +91,13 @@ FetchEngine::FetchEngine(int cId
 
   missInstID = 0;
 #ifdef SESC_MISPATH
-  issueWrongPath = SescConf->getBool("","issueWrongPath");
+  issueWrongPath = SescConf->getBool("cpucore","issueWrongPath",cId);
 #endif
   nGradInsts  = 0;
   nWPathInsts = 0;
 
   // Get some icache L1 parameters
-  enableICache = SescConf->getBool("","enableICache");
+  enableICache = SescConf->getBool("cpucore","enableICache", cId);
   if (enableICache) {
     IL1HitDelay = 0;
   }else{
@@ -481,6 +481,10 @@ void FetchEngine::fakeFetch(IBucket *bucket, int fetchMax)
     // Ugly note: 4 as parameter? Anything different than 0 works
     DInst *dinst = DInst::createInst(missInstID, 4, cpuId);
     I(dinst);
+
+#ifdef SESC_BAAD
+    dinst->setFetchTime();
+#endif
 
     dinst->setFake();
     n2Fetched--;

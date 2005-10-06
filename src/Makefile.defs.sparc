@@ -28,10 +28,9 @@ LOPTS	:=-O2
 endif
 
 MOPTS:=-static 
-MOPTS+=-mv8 -msoft-float
+MOPTS+=-msoft-float
 CCOPTS:=-fomit-frame-pointer -fno-exceptions -fno-strict-aliasing -finline-limit=1800 
 CCOPTS+=-frename-registers -finline-functions -funroll-loops
-CCOPTS+=-freduce-all-givs -fmove-all-movables -fgcse -fgcse-lm -fgcse-sm 
 
 COPTS += $(CCOPTS) $(MOPTS) 
 LOPTS += $(CCOPTS) $(MOPTS) 

@@ -4,7 +4,7 @@
 
    Contributed by Jose Renau
                   Basilio Fraguela
-		  Luis Ceze
+                  Luis Ceze
 
 This file is part of SESC.
 
@@ -69,6 +69,9 @@ private:
 protected:
 public:
   virtual void call() = 0;
+  virtual ~EventScheduler() {
+    // Nothing
+  }
 
   void dump() const;
 
@@ -461,7 +464,7 @@ public:
 /////////////////////////////////////////////////////////////////////////////
 
 template<class ClassType ,class Parameter1 ,class Parameter2, class Parameter3, class Parameter4 
-	 ,void (ClassType::*memberPtr) (Parameter1, Parameter2, Parameter3, Parameter4)> 
+         ,void (ClassType::*memberPtr) (Parameter1, Parameter2, Parameter3, Parameter4)> 
 class CallbackMember4
   :public CallbackBase {
 private:
@@ -533,7 +536,7 @@ typename CallbackMember4<ClassType,Parameter1,Parameter2,Parameter3,Parameter4,m
 
 
 template<class ClassType ,class Parameter1 ,class Parameter2, class Parameter3 
-	 ,void (ClassType::*memberPtr) (Parameter1, Parameter2, Parameter3)> 
+         ,void (ClassType::*memberPtr) (Parameter1, Parameter2, Parameter3)> 
 class CallbackMember3
   :public CallbackBase {
 private:
@@ -602,7 +605,7 @@ typename CallbackMember3<ClassType,Parameter1,Parameter2,Parameter3,memberPtr>::
   CallbackMember3<ClassType,Parameter1,Parameter2,Parameter3,memberPtr>::cbPool(32, "CBM3");
 
 template<class ClassType ,class Parameter1 ,class Parameter2
-	 ,void (ClassType::*memberPtr) (Parameter1, Parameter2)> 
+         ,void (ClassType::*memberPtr) (Parameter1, Parameter2)> 
 class CallbackMember2
   :public CallbackBase {
 private:
@@ -668,8 +671,8 @@ typename CallbackMember2<ClassType,Parameter1,Parameter2,memberPtr>::poolType
   CallbackMember2<ClassType,Parameter1,Parameter2,memberPtr>::cbPool(32, "CBM2");
 
 template<class ClassType
-	 ,class Parameter1
-	 ,void (ClassType::*memberPtr) (Parameter1)> 
+         ,class Parameter1
+         ,void (ClassType::*memberPtr) (Parameter1)> 
 class CallbackMember1
   :public CallbackBase {
 private:
@@ -734,7 +737,7 @@ typename CallbackMember1<ClassType,Parameter1,memberPtr>::poolType
 
 
 template<class ClassType
-	 ,void (ClassType::*memberPtr) ()> 
+         ,void (ClassType::*memberPtr) ()> 
 class CallbackMember0
   :public CallbackBase {
 private:
@@ -990,7 +993,7 @@ public:
       first = first->getNextCallbackBase();
       IS(t->setNextCallbackBase(0));
       if (first==0)
-	last = 0;
+        last = 0;
       cb->call();
     }while(first);
   }

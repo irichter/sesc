@@ -33,7 +33,7 @@ class GMemorySystem;
 class GStatsEnergyCGBase;
 class GProcessor;
 
-//#define WINDOW_USE_HIST 1
+// #define WINDOW_USE_HIST 1
 
 class Cluster {
  private:

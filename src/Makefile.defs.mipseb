@@ -31,7 +31,7 @@ MOPTS:=-Wl,--script=/usr/local/mipseb-linux/lib/ldscripts/mint.x -static -mno-ab
 MOPTS+=-Wa,-non_shared -mabi=32
 CCOPTS:=-fomit-frame-pointer -fno-exceptions -fno-strict-aliasing -finline-limit=1800 
 CCOPTS+=-frename-registers -finline-functions -funroll-loops
-CCOPTS+=-freduce-all-givs -fmove-all-movables -fgcse -fgcse-lm -fgcse-sm 
+#CCOPTS+=-freduce-all-givs -fmove-all-movables -fgcse -fgcse-lm -fgcse-sm 
 
 COPTS += $(CCOPTS) $(MOPTS) 
 LOPTS += $(CCOPTS) $(MOPTS) 

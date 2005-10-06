@@ -28,7 +28,7 @@ endif
 ifdef MINT_TARGET
 COPTS	+= -mcpu=$(MINT_TARGET)
 else
-COPTS	+= -msupersparc
+#COPTS	+= 
 endif
 # Platform neutral
 COPTS +=-ffast-math -fno-exceptions -fno-strict-aliasing -freg-struct-return 
@@ -42,7 +42,7 @@ SHELL	=/usr/bin/bash
 AS	=as
 LD	=ld
 AR	=ar
-M4	=/usr/local/bin/m4
+M4	=gm4
 MAKE	=gmake
 RANLIB	=ranlib
 FIND	=find

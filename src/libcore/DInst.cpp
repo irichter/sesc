@@ -190,7 +190,11 @@ DInst *DInst::createDInst(const Instruction *inst, VAddr va, int cId)
   DInst *i = dInstPool.out();
 
 #ifdef SESC_BAAD
-  i->fetchTime       = 0;
+  i->fetchTime  = 0;
+  i->renameTime = 0;
+  i->issueTime  = 0;
+  i->schedTime  = 0;
+  i->exeTime    = 0;
 #endif
 
   i->inst       = inst;
@@ -283,7 +287,17 @@ void DInst::killSilently()
   I(getResource()==0);
 
 #ifdef SESC_BAAD
-  I(0);
+  if (renameTime == 0) {
+    fetchQSize--;
+  }else if (issueTime == 0) {
+    issueQSize--;
+  }else if (schedTime == 0) {
+    schedQSize--;
+  }else if (exeTime == 0) {
+    exeQSize--;
+  }else{
+    retireQSize--;
+  }
 #endif
 
   markIssued();
@@ -473,6 +487,7 @@ void DInst::setFetchTime()
 
 void DInst::setRenameTime()
 {
+  I(renameTime == 0);
   renameTime = globalClock;
 
   fetchQHistDown->sample(fetchQSize);
@@ -488,6 +503,7 @@ void DInst::setRenameTime()
 
 void DInst::setIssueTime()
 {
+  I(issueTime == 0);
   issueTime = globalClock;
 
   issueQHistDown->sample(issueQSize);
@@ -504,6 +520,7 @@ void DInst::setIssueTime()
 
 void DInst::setSchedTime()
 {
+  I(schedTime == 0);
   schedTime = globalClock;
 
   schedQHistDown->sample(schedQSize);
@@ -520,6 +537,7 @@ void DInst::setSchedTime()
 
 void DInst::setExeTime()
 {
+  I(exeTime == 0);
   exeTime = globalClock;
 
   exeQHistDown->sample(exeQSize);
@@ -533,8 +551,15 @@ void DInst::setExeTime()
   retireQHist1->sample(retireQSize);
   retireQHist2->sample(retireQSize);
 }
+
 void DInst::setRetireTime()
 {
+  I(fetchTime);
+  I(renameTime);
+  I(issueTime);
+  I(schedTime);
+  I(exeTime);
+
   InstType i = inst->getOpcode();
   // Based on instruction type keep statistics
   avgFetchQTime[i]->sample(renameTime-fetchTime);
@@ -545,6 +570,23 @@ void DInst::setRetireTime()
 
   retireQHistDown->sample(retireQSize);
   retireQSize--;
+
+  long pc = inst->getAddr();
+  if (pc) {
+    printf("BAAD: wp=%d pc=0x%x op=%d src1=%d src2=%d dest=%u "
+	   ,isFake()?1:0
+	   ,pc,inst->getOpcode()
+	   ,inst->getSrc1(), inst->getSrc1(), inst->getDest()
+	   );
+    
+    if (inst->isMemory())
+      printf(" addr=0x%x time=%d", getVaddr(), (int)(exeTime-schedTime));
+    else if (getFetch())
+      printf(" missBr");
+      
+    
+    printf("\n");
+  }
 }
 #endif
 

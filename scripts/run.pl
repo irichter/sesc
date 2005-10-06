@@ -150,7 +150,7 @@ sub runItLowLevel {
     system("ls -al ${op_bhome} ${op_sesc} ${op_bindir} . >/dev/null");
     system("ls -al /cse/faculty/renau/build >/dev/null");
     system("ls -al >/dev/null");
-    sleep 3;
+    sleep 5;
 
     if( $op_dump ) {
         print "[${sprg} ${aprg}]\n";
