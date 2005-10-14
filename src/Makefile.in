@@ -26,7 +26,7 @@ SUBDIRS+=libpower
 VPATH += $(SRC_DIR)/libpower/cacti $(SRC_DIR)/libpower/wattch $(SRC_DIR)/libpower/panalyzer $(SRC_DIR)/libpower/orion
 endif
 ifdef SESC_THERM
-SUBDIRS+=libsescspot
+SUBDIRS+=libsescspot libsesctherm
 endif
 
 
@@ -65,7 +65,10 @@ config.h: Make.defs
 
 ##############################################################################
 #rules for final sesc executables
-EXECS=sesc.tst sesc.mem sesc.ncc sesc.tls sesc.smp sesc.dsm
+EXECS=sesc.tst sesc.mem sesc.ncc sesc.tls sesc.smp sesc.dsm 
+ifdef SESC_THERM
+EXECS+= sesctherm
+endif
 
 TSTLIBS =$(OBJ)/libcore.a $(OBJ)/libmint.a $(OBJ)/libll.a
 TSTLIBS+=$(OBJ)/libpint.a $(OBJ)/libsuc.a
@@ -77,9 +80,6 @@ DSMLIBS =$(OBJ)/libdsm.a
 SMPLIBS =$(OBJ)/libsmp.a
 MEMLIBS =$(OBJ)/libmem.a 
 TLSLIBS =$(OBJ)/libvmem.a
-ifdef SESC_THERM
-TLSLIBS =$(OBJ)/libsescspot.a
-endif
 
 sesc.tst : $(OBJ)/main.o $(TSTLIBS)
 	$(CXX) $(CFLAGS) $(LDFLAGS) -o $@  $^  $(LIBS) $(STDLIBS)
@@ -142,8 +142,8 @@ panalyze: reload $(OBJ)/panalyze.o $(OBJ)/libpanalyzer.a $(OBJ)/libcore.a  $(OBJ
 	$(CXX) $(CFLAGS) -o $@ $(OBJ)/panalyze.o $(OBJ)/libpanalyzer.a $(OBJ)/libcore.a  $(OBJ)/libsuc.a $(LIBS) $(STDLIBS) 
 
 ifdef SESC_THERM
-sescspot: $(OBJ)/libsescspot.a sescspot.sspot sescspot.flp
-	$(CXX) $(CFLAGS) -o $@ $(OBJ)/sescspot.o $(OBJ)/libsescspot.a $(STDLIBS) 
+sescspot: $(OBJ)/libsescspot.a sescspot.sspot sescspot.flp $(OBJ)/libsuc.a
+	$(CXX) $(CFLAGS) -o $@ $(OBJ)/sescspot.o $(OBJ)/libsescspot.a $(OBJ)/libsuc.a $(STDLIBS) 
 
 sescspot.sspot: $(TOPSRC_DIR)/confs/ev6.sspot
 	@echo; echo "Generating EV6 $@ from: $(TOPSRC_DIR)/confs"
@@ -152,6 +152,10 @@ sescspot.sspot: $(TOPSRC_DIR)/confs/ev6.sspot
 sescspot.flp: $(TOPSRC_DIR)/confs/ev6.flp
 	@echo; echo "Generating EV6 $@ from: $(TOPSRC_DIR)/confs"
 	$(CP) $(TOPSRC_DIR)/confs/ev6.flp sescspot.flp
+
+sesctherm: $(OBJ)/libsesctherm.a $(OBJ)/libsuc.a
+	$(CXX) $(CFLAGS) -o $@ $(OBJ)/sesctherm.o $(OBJ)/libsesctherm.a $(OBJ)/libsuc.a $(STDLIBS) 
+
 endif
 
 # libapp
@@ -230,7 +234,7 @@ eclean: sharedclean
 	done
 
 edistclean:
-	-@rm -f config.status config.log cactify wattchify  panalyze
+	-@rm -f config.status config.log cactify wattchify  panalyze sescspot sesctherm
 	-@rm -f config.h Make.defs Makefile sesc.mem sesc.tls sesc.smp sesc.dsm
 	-@rm -rf obj
 

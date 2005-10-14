@@ -38,7 +38,7 @@ SOBJS	+= GEnergy.o
 endif
 
 ifdef SESC_THERM
-SOBJS	+= ReportTherm.o
+SOBJS	+= ReportTherm.o ThermTrace.o
 endif
 
 ifdef SESC_CRIT

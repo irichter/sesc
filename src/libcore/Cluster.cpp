@@ -129,7 +129,7 @@ void Cluster::buildUnit(const char *clusterName
    eng = new GStatsEnergyCG(static_cast<const char*>(strtmp)
 			    ,name
 			    ,gproc->getId()
-			    ,IAluEnergy
+			    ,ExecPower
 			    ,EnergyMgr::get("iALUEnergy",gproc->getId())
 			    ,ecgbase);
 
@@ -144,7 +144,7 @@ void Cluster::buildUnit(const char *clusterName
   eng = new GStatsEnergyCG(static_cast<const char*>(strtmp)
 			   ,name
 			   ,gproc->getId()
-			   ,FPAluEnergy
+			   ,ExecPower
 			   ,EnergyMgr::get("fpALUEnergy", gproc->getId())
 			   ,ecgbase);
  

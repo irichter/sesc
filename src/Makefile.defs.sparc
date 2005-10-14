@@ -29,7 +29,7 @@ endif
 
 MOPTS:=-static 
 MOPTS+=-msoft-float
-CCOPTS:=-fomit-frame-pointer -fno-exceptions -fno-strict-aliasing -finline-limit=1800 
+CCOPTS:=-fomit-frame-pointer -fno-strict-aliasing -finline-limit=1800 
 CCOPTS+=-frename-registers -finline-functions -funroll-loops
 
 COPTS += $(CCOPTS) $(MOPTS) 

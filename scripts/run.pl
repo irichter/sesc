@@ -1081,7 +1081,10 @@ sub setupDirectory {
         sleep 32*rand();
   }
 
-  system("cp -r ${BHOME}/CINT2000/197.parser/data/all/input/words .") unless( -f "words");
+  unless( -d "words") {
+      system("mkdir words");
+      system("cp ${BHOME}/CINT2000/197.parser/data/all/input/words/* words/");
+  }
   system("cp ${BHOME}/CINT2000/300.twolf/${dataset}/${op_data}.* .");
   system("ln -sf ${BHOME}/CINT2000/253.perlbmk/data/all/input/lib lib") unless ( -l "lib")
 }

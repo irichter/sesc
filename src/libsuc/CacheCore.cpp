@@ -28,6 +28,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 #include <stddef.h>
 #include <stdarg.h>
+#include <string.h>
 
 #include "CacheCore.h"
 #include "SescConf.h"
@@ -59,37 +60,43 @@ CacheGeneric<State, Addr_t, Energy> *CacheGeneric<State, Addr_t, Energy>::create
 }
 
 template<class State, class Addr_t, bool Energy>
-EnergyGroup CacheGeneric<State, Addr_t, Energy>::getRightStat(EnergyGroup eg, const char* type)
+PowerGroup CacheGeneric<State, Addr_t, Energy>::getRightStat(const char* type)
 {
-  if(type == 0) 
-    return eg;
+  const char *match = strcasestr(type,"icache");
+  if(match)
+    if(match[0] != 0)
+      return FetchPower;
 
-  if(!strcmp(type,"cache")) 
-    return eg;
+  match = strcasestr(type,"itlb");
+  if(match)
+    if(match[0] != 0)
+      return FetchPower;
 
-  if(!strcmp(type,"dtlb")) 
-    return DTLBEnergy;
+  match = strcasestr(type,"cache");
+  if(match)
+    if(match[0] != 0)
+      return MemPower;
 
-  if(!strcmp(type,"itlb")) 
-    return ITLBEnergy;
+  match = strcasestr(type,"tlb");
+  if(match)
+    if(match[0] != 0)
+      return MemPower;
 
-  if(!strcmp(type,"icache")) {
-    switch(eg) {
-    case RdHitEnergy:
-      return IRdHitEnergy;
-    case RdMissEnergy:
-      return IRdMissEnergy;
-    case WrHitEnergy:
-      return IWrHitEnergy;
-    case WrMissEnergy:
-      return IWrMissEnergy;
-    default:
-      I(0);
-    }
-  }
+  match = strcasestr(type,"dir");
+  if(match)
+    if(match[0] != 0)
+      return MemPower;
+
+  match = strcasestr(type,"revLVIDTable");
+  if(match)
+    if(match[0] != 0)
+      return MemPower;
+
+  MSG("Unknown power group for [%s], add it to CacheCore", type);
+  I(0);
 
   // default case
-  return eg;
+  return MemPower;
 }
 
 template<class State, class Addr_t, bool Energy>
@@ -109,30 +116,27 @@ void CacheGeneric<State, Addr_t, Energy>::createStats(const char *section, const
   }
 
   if (Energy) {
-    EnergyGroup eg;
-    eg = getRightStat(RdHitEnergy, type);
+    PowerGroup pg;
+    pg = getRightStat(type);
     rdEnergy[0] = new GStatsEnergy("rdHitEnergy",name
 				   ,procId
-				   ,eg
-				   ,EnergyMgr::get(section,"rdHitEnergy"),section);
+				   ,pg
+				   ,EnergyMgr::get(section,"rdHitEnergy"));
 
-    eg = getRightStat(RdMissEnergy, type);
     rdEnergy[1] = new GStatsEnergy("rdMissEnergy",name
 				   ,procId
-				   ,eg
-				   ,EnergyMgr::get(section,"rdMissEnergy"),section);
+				   ,pg
+				   ,EnergyMgr::get(section,"rdMissEnergy"));
 
-    eg = getRightStat(WrHitEnergy, type);
     wrEnergy[0]  = new GStatsEnergy("wrHitEnergy",name
 				    ,procId
-				    ,eg
-				    ,EnergyMgr::get(section,"wrHitEnergy"),section);
+				    ,pg
+				    ,EnergyMgr::get(section,"wrHitEnergy"));
 
-    eg = getRightStat(WrMissEnergy, type);
     wrEnergy[1] = new GStatsEnergy("wrMissEnergy",name
 				   ,procId
-				   ,eg
-				   ,EnergyMgr::get(section,"wrMissEnergy"),section);
+				   ,pg
+				   ,EnergyMgr::get(section,"wrMissEnergy"));
 
   }else{
     rdEnergy[0]  = 0;
@@ -205,6 +209,7 @@ CacheGeneric<State, Addr_t, Energy> *CacheGeneric<State, Addr_t, Energy>::create
     vsprintf(cacheName, format, ap);
     va_end(ap);
   }
+
   cache->createStats(section, cacheName);
 
   return cache;

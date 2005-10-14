@@ -82,10 +82,8 @@ protected:
   // Cache Access
   GStatsEnergy *rdHitEnergy;    
   GStatsEnergy *rdMissEnergy;   
-  GStatsEnergy *rdHalfHitEnergy;      
   GStatsEnergy *wrHitEnergy;    
   GStatsEnergy *wrMissEnergy;   
-  GStatsEnergy *wrHalfHitEnergy;
   // END Statistics
 
   void hitInc(MemOperation mop) {
@@ -101,12 +99,12 @@ protected:
 
   void halfHitInc(MemOperation mop) {
     if (mop == MemRead) {
-      rdHalfHitEnergy->inc();
+      rdMissEnergy->inc();
       rdHalfHit.inc();
       return;
     }
     I(mop == MemWrite);
-    wrHalfHitEnergy->inc();
+    wrMissEnergy->inc();
     wrHalfHit.inc();
   }
 

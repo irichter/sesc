@@ -45,6 +45,7 @@ public:
   static void openFile(char *name);
   static void field(int fn, const char *format,...);
   static void field(const char *format,...);
+  static void fieldRaw(float val);
   static void close();
   static void flush();
   static void stopCB();

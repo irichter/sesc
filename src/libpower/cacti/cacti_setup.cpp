@@ -131,7 +131,7 @@ void iterate()
              || strstr(name,"tlb")
              || strstr(name,"mem")
              || strstr(name,"dir") 
-             || !strcmp(name,"revLVIDTable") ){
+             || !strcmp(name,"revLVIDTable") ) {
       double eng = wattch2cactiFactor * getEnergy(block);
       
       // write it

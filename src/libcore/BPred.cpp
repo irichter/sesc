@@ -48,7 +48,7 @@ BPred::BPred(int i, const char *s, const char *n)
   char cadena[100];
   
   sprintf(cadena, "BPred(%d)_%s",i,n);
-  bpredEnergy = new GStatsEnergy("bpredEnergy", cadena, i, BPredEnergy, EnergyMgr::get("bpredEnergy",i));
+  bpredEnergy = new GStatsEnergy("bpredEnergy", cadena, i, FetchPower, EnergyMgr::get("bpredEnergy",i));
   
   // Done
 }
@@ -67,7 +67,7 @@ BPRas::BPRas(int i, const char *section)
   char cadena[100];
 
   sprintf(cadena, "BPred(%d)_RAS", i);
-  rasEnergy = new GStatsEnergy("rasEnergy", cadena, i, RasEnergy,EnergyMgr::get("rasEnergy",i));
+  rasEnergy = new GStatsEnergy("rasEnergy", cadena, i, FetchPower , EnergyMgr::get("rasEnergy",i));
 
   // Constraints
   SescConf->isLong(section, "rasSize");
@@ -147,7 +147,7 @@ BPBTB::BPBTB(int i, const char *section, const char *name)
   char cadena[100];
   
   sprintf(cadena, "BPred(%d)_%s",i, name ? name : "BTB");
-  btbEnergy = new GStatsEnergy("btbEnergy", cadena,i,BTBEnergy,EnergyMgr::get("btbEnergy",i));
+  btbEnergy = new GStatsEnergy("btbEnergy", cadena, i, FetchPower, EnergyMgr::get("btbEnergy",i));
 
   if( SescConf->getLong(section,"btbSize") == 0 ) {
     // Oracle

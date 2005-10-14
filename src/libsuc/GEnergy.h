@@ -31,56 +31,6 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "Config.h"
 #include "SescConf.h"
 
-enum EnergyGroup {
-  NOT_VALID_ENERGY
-  ,BPredEnergy
-  ,RasEnergy
-  ,BTBEnergy
-  ,WindowRdWrEnergy
-  ,WindowSelEnergy
-  ,WindowCheckEnergy
-#ifdef SESC_SEED
-  ,DepTableEnergy
-#endif
-  ,LDQCheckEnergy
-  ,LDQRdWrEnergy
-  ,STQCheckEnergy
-#ifdef SESC_INORDER
-  ,STQCheckEnergyInOrder
-  ,STQRdWrEnergyInOrder
-  ,RenameEnergyInOrder
-#endif  
-  ,STQRdWrEnergy
-  ,RenameEnergy
-  ,IAluEnergy
-  ,FPAluEnergy
-  ,ResultBusEnergy
-  ,ForwardBusEnergy
-  ,ROBEnergy
-  ,WrRegEnergy
-  ,RdRegEnergy
-  ,DTLBEnergy
-  ,RdHitEnergy
-  ,RdMissEnergy
-  ,RdHalfHitEnergy
-  ,WrHitEnergy
-  ,WrMissEnergy
-  ,WrHalfHitEnergy
-  ,ITLBEnergy
-  ,IRdHitEnergy
-  ,IRdMissEnergy
-  ,IWrHitEnergy
-  ,IWrMissEnergy
-  ,RdRevLVIDEnergy
-  ,WrRevLVIDEnergy
-  ,RdLVIDEnergy
-  ,WrLVIDEnergy
-  ,CombWriteEnergy
-  ,LVIDTableRdEnergy
-  ,BusEnergy
-  ,MaxEnergyGroup
-};
-
 enum PowerGroup {
   Not_Valid_Power,
   FetchPower, 
@@ -132,8 +82,8 @@ class GStatsEnergyBase {
 class GStatsEnergy : public GStatsEnergyBase {
 public:
   GStatsEnergy(const char *name, const char *block
-               ,int procId, EnergyGroup grp
-               ,double energy, const char *part="") {
+               ,int procId, PowerGroup grp
+               ,double energy) {
   }
   ~GStatsEnergy() {
   }
@@ -168,8 +118,8 @@ public:
 class GStatsEnergyCG {
 public:
   GStatsEnergyCG(const char *name, const char* block
-                 ,int procId, EnergyGroup grp
-                 ,double energy, GStatsEnergyCGBase *b, const char *part="") {
+                 ,int procId, PowerGroup grp
+                 ,double energy, GStatsEnergyCGBase *b) {
   }
   void inc() {}
   void add(int v){}
@@ -184,10 +134,8 @@ private:
   const char *proc;
 
 public:   
-  static char *getStr(EnergyGroup d);
-  static char *getEnergyStr(PowerGroup d);
-  static char *getStr(PowerGroup d);
-  static PowerGroup getPowerGroup(EnergyGroup d);
+  static const char *getStr(PowerGroup d);
+  static const char *getEnergyStr(PowerGroup d);
 
   EnergyStore();
   double get(const char *block, const char *name, int procId=0);
@@ -214,26 +162,22 @@ class GStatsEnergy : public GStatsEnergyBase {
 protected:
   typedef std::vector< std::vector<GStatsEnergy *> > EProcStoreType;
   typedef std::vector< std::vector<GStatsEnergy *> > EGroupStoreType;
-  typedef HASH_MAP< const char *, std::vector<GStatsEnergy *> > EPartStoreType;
 
   static EProcStoreType  eProcStore;  // Energy store per processor
-  static EProcStoreType  oldEProc;
   static EGroupStoreType eGroupStore; // Energy store per group
-  static EPartStoreType  ePartStore;  // Energy store per block
 
   const double  StepEnergy;
   long long int steps;
   
-  int gid;
+  PowerGroup gid;
 
 public:
   GStatsEnergy(const char *name, const char* block
-               ,int procId, EnergyGroup grp
-               ,double energy, const char *part="");
+               ,int procId, PowerGroup grp
+               ,double energy);
   ~GStatsEnergy() {};
   static double getTotalProc(int procId);
-  static double getTotalGroup(EnergyGroup grp);
-  static double getTotalPart(const char *part);
+  static double getTotalGroup(PowerGroup grp);
   
   static void dump(int procId);
   static void dump();
@@ -241,7 +185,7 @@ public:
 
 #ifdef SESC_THERM
   static void setupDump(int procId);
-  static void printDump(int procId, int cycle);
+  static void printDump(int procId);
 
   void reportValueDump() const;
   void reportValueDumpSetup() const;
@@ -249,7 +193,7 @@ public:
 
   void reportValue() const;
   
-  int getGid() const { return gid; }
+  PowerGroup getGid() const { return gid; }
 
   virtual double getDouble() const;
   virtual void inc();
@@ -278,8 +222,8 @@ protected:
 
 public:
   GStatsEnergyCG(const char *name, const char* block
-                 ,int procId, EnergyGroup grp
-                 ,double energy, GStatsEnergyCGBase *b, const char *part="");
+                 ,int procId, PowerGroup grp
+                 ,double energy, GStatsEnergyCGBase *b);
 
   double getDouble() const;
   void inc();

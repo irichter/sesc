@@ -96,9 +96,9 @@ GProcessor::GProcessor(GMemorySystem *gm, CPU_t i, size_t numFlows)
   sprintf(cadena, "Proc(%d)", (int)i);
 
 #ifdef SESC_INORDER
-  renameEnergyOutOrder = new GStatsEnergy("renameEnergy", cadena, i, RenameEnergy
+  renameEnergyOutOrder = new GStatsEnergy("renameEnergy", cadena, i, IssuePower
                                           ,EnergyMgr::get("renameEnergy",i));
-  robEnergyOutOrder    = new GStatsEnergy("ROBEnergy",cadena,i,ROBEnergy,EnergyMgr::get("robEnergy",i));
+  robEnergyOutOrder    = new GStatsEnergy("ROBEnergy",cadena,i,IssuePower,EnergyMgr::get("robEnergy",i));
 
   renameEnergyInOrder  = new GStatsEnergyNull();
   robEnergyInOrder     = new GStatsEnergyNull();
@@ -111,24 +111,24 @@ GProcessor::GProcessor(GMemorySystem *gm, CPU_t i, size_t numFlows)
   currentMode  = OutOrderMode;
   switching    = false;
 #else
-  renameEnergy = new GStatsEnergy("renameEnergy", cadena, i, RenameEnergy
+  renameEnergy = new GStatsEnergy("renameEnergy", cadena, i, IssuePower
                                   ,EnergyMgr::get("renameEnergy",i));
 
-  robEnergy = new GStatsEnergy("ROBEnergy",cadena,i,ROBEnergy,EnergyMgr::get("robEnergy",i));
+  robEnergy = new GStatsEnergy("ROBEnergy",cadena, i, IssuePower, EnergyMgr::get("robEnergy",i));
 #endif
 
-  wrRegEnergy[0] = new GStatsEnergy("wrIRegEnergy", cadena, i, WrRegEnergy
+  wrRegEnergy[0] = new GStatsEnergy("wrIRegEnergy", cadena, i, ExecPower
                                     ,EnergyMgr::get("wrRegEnergy",i));
 
-  wrRegEnergy[1] = new GStatsEnergy("wrFPRegEnergy", cadena, i, WrRegEnergy
+  wrRegEnergy[1] = new GStatsEnergy("wrFPRegEnergy", cadena, i, ExecPower
                                     ,EnergyMgr::get("wrRegEnergy",i));
 
   wrRegEnergy[2] = new GStatsEnergyNull();
   
-  rdRegEnergy[0] = new GStatsEnergy("rdIRegEnergy", cadena , i, RdRegEnergy
+  rdRegEnergy[0] = new GStatsEnergy("rdIRegEnergy", cadena , i, ExecPower
                                     ,EnergyMgr::get("rdRegEnergy",i));
 
-  rdRegEnergy[1] = new GStatsEnergy("rdFPRegEnergy", cadena , i, RdRegEnergy
+  rdRegEnergy[1] = new GStatsEnergy("rdFPRegEnergy", cadena , i, ExecPower
                                     ,EnergyMgr::get("rdRegEnergy",i));
 
   rdRegEnergy[2] = new GStatsEnergyNull();

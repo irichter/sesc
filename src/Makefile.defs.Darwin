@@ -49,7 +49,7 @@ else
 COPTS	+= -mcpu=7450 -mtune=7450
 endif
 # Platform neutral
-COPTS +=-ffast-math -fno-exceptions -fno-strict-aliasing -freg-struct-return 
+COPTS +=-fno-strict-aliasing -freg-struct-return 
 
 ##############################################################################
 ARFLAGS	:=cr

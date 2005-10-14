@@ -99,37 +99,23 @@ VCache::VCache(MemorySystem *gms, const char *section, const char *name)
   // Cache Access
   rdHitEnergy = new GStatsEnergy("rdHitEnergy",name
 				 ,gms->getId()
-				 ,RdHitEnergy
-				 ,EnergyMgr::get(section,"rdHitEnergy"),section);
+				 ,MemPower
+				 ,EnergyMgr::get(section,"rdHitEnergy"));
   rdMissEnergy = new GStatsEnergy("rdMissEnergy",name
 				  ,gms->getId()
-				  ,RdMissEnergy
-				  ,EnergyMgr::get(section,"rdMissEnergy"),section);
+				  ,MemPower
+				  ,EnergyMgr::get(section,"rdMissEnergy"));
 
-  // TODO: make sure it is ok to use rdHitEnergy value from
-  // configuration file or if we'd better have another value for that.
-  rdHalfHitEnergy = new GStatsEnergy("rdHalfHitEnergy"
-				     ,name
-				     ,gms->getId()
-				     ,RdHalfHitEnergy
-				     ,EnergyMgr::get(section,"rdHitEnergy"),section);
   wrHitEnergy  = new GStatsEnergy("wrHitEnergy"
 				  ,name
 				  ,gms->getId()
-				  ,WrHitEnergy
-				  ,EnergyMgr::get(section,"wrHitEnergy"),section);
+				  ,MemPower
+				  ,EnergyMgr::get(section,"wrHitEnergy"));
   wrMissEnergy = new GStatsEnergy("wrMissEnergy"
 				  ,name
 				  ,gms->getId()
-				  ,WrMissEnergy
-				  ,EnergyMgr::get(section,"wrMissEnergy"),section);
-
-  // TODO: make sure it is ok to use wrHitEnergy value from
-  // configuration file or if we'd better have another value for that.
-  wrHalfHitEnergy  = new GStatsEnergy("wrHalfHitEnergy",name
-				      ,gms->getId()
-				      ,WrHalfHitEnergy
-				      ,EnergyMgr::get(section,"wrHitEnergy"),section);
+				  ,MemPower
+				  ,EnergyMgr::get(section,"wrMissEnergy"));
 }
 
 VCache::~VCache()

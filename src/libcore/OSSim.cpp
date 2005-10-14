@@ -1060,8 +1060,6 @@ void OSSim::report(const char *str)
   Report::field("PowerMgr:totPower=%g",totPower);
   Report::field("EnergyMgr:clockEnergy=%g",EnergyMgr::ptoe(totClockPower));
   Report::field("EnergyMgr:totEnergy=%g",EnergyMgr::ptoe(totPower));
-  Report::field("EnergyMgr:DL1Energy=%g",GStatsEnergy::getTotalPart("AdvMemory"));
-  Report::field("EnergyMgr:DL2Energy=%g",GStatsEnergy::getTotalPart("AdvL2"));
 #endif
   
 #ifdef TASKSCALAR

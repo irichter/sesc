@@ -49,7 +49,7 @@ VBus::VBus(MemorySystem *gms, const char *section, const char *name)
   I(port);
 
   busEnergy = new GStatsEnergy("busEnergy", cadena, 0, 
-			       BusEnergy, 
+			       MemPower, 
 			       EnergyMgr::get(section,"BusEnergy",0));
 
   // Static variables only

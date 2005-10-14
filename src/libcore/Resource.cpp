@@ -88,10 +88,10 @@ MemResource::MemResource(Cluster *cls
 #endif
 
 #ifdef SESC_INORDER
-  ldqCheckEnergyOutOrder = new GStatsEnergy("ldqCheckEnergy",cadena,id,LDQCheckEnergy
+  ldqCheckEnergyOutOrder = new GStatsEnergy("ldqCheckEnergy",cadena,id, ExecPower
 				    ,EnergyMgr::get("ldqCheckEnergy",id),"LSQ");
 
-  ldqRdWrEnergyOutOrder = new GStatsEnergy("ldqRdWrEnergy",cadena,id,LDQRdWrEnergy
+  ldqRdWrEnergyOutOrder = new GStatsEnergy("ldqRdWrEnergy",cadena,id, ExecPower
 				   ,EnergyMgr::get("ldqRdWrEnergy",id),"LSQ");
 
   ldqCheckEnergyInOrder = new GStatsEnergyNull; // No stats
@@ -101,19 +101,19 @@ MemResource::MemResource(Cluster *cls
   ldqRdWrEnergy  = ldqRdWrEnergyOutOrder; // No stats
   
   
-  stqCheckEnergyOutOrder = new GStatsEnergy("stqCheckEnergy",cadena,id,STQCheckEnergy
+  stqCheckEnergyOutOrder = new GStatsEnergy("stqCheckEnergy",cadena,id, ExecPower
 				    ,EnergyMgr::get("stqCheckEnergy",id),"LSQ");
 
 
-  stqRdWrEnergyOutOrder = new GStatsEnergy("stqRdWrEnergy",cadena,id,STQRdWrEnergy
+  stqRdWrEnergyOutOrder = new GStatsEnergy("stqRdWrEnergy",cadena,id, ExecPower
 				   ,EnergyMgr::get("stqRdWrEnergy",id),"LSQ");
 				   
 				   
-  stqCheckEnergyInOrder = new GStatsEnergy("stqCheckEnergyInOrder",cadena,id,STQCheckEnergy
+  stqCheckEnergyInOrder = new GStatsEnergy("stqCheckEnergyInOrder",cadena,id, ExecPower
 				    ,EnergyMgr::get("stqCheckEnergy",id),"LSQ");
 
 
-  stqRdWrEnergyInOrder = new GStatsEnergy("stqRdWrEnergyInOrder",cadena,id,STQRdWrEnergy
+  stqRdWrEnergyInOrder = new GStatsEnergy("stqRdWrEnergyInOrder",cadena,id, ExecPower
 				   ,EnergyMgr::get("stqRdWrEnergy",id),"LSQ");
 				   
   stqCheckEnergy = stqCheckEnergyOutOrder; // No stats
@@ -125,23 +125,23 @@ MemResource::MemResource(Cluster *cls
   currentMode = OutOrderMode;
 
 #else
-  ldqCheckEnergy = new GStatsEnergy("ldqCheckEnergy",cadena,id,LDQCheckEnergy
-				    ,EnergyMgr::get("ldqCheckEnergy",id),"LSQ");
+  ldqCheckEnergy = new GStatsEnergy("ldqCheckEnergy",cadena,id, ExecPower
+				    ,EnergyMgr::get("ldqCheckEnergy",id));
 
-  ldqRdWrEnergy  = new GStatsEnergy("ldqRdWrEnergy",cadena,id,LDQRdWrEnergy
-				    ,EnergyMgr::get("ldqRdWrEnergy",id),"LSQ");
-
-
-  stqCheckEnergy = new GStatsEnergy("stqCheckEnergy",cadena,id,STQCheckEnergy
-				    ,EnergyMgr::get("stqCheckEnergy",id),"LSQ");
+  ldqRdWrEnergy  = new GStatsEnergy("ldqRdWrEnergy",cadena,id, ExecPower
+				    ,EnergyMgr::get("ldqRdWrEnergy",id));
 
 
-  stqRdWrEnergy  = new GStatsEnergy("stqRdWrEnergy",cadena,id,STQRdWrEnergy
-				    ,EnergyMgr::get("stqRdWrEnergy",id),"LSQ");
+  stqCheckEnergy = new GStatsEnergy("stqCheckEnergy",cadena,id, ExecPower
+				    ,EnergyMgr::get("stqCheckEnergy",id));
+
+
+  stqRdWrEnergy  = new GStatsEnergy("stqRdWrEnergy",cadena,id, ExecPower
+				    ,EnergyMgr::get("stqRdWrEnergy",id));
 				   
 #endif
 
-  iAluEnergy = new GStatsEnergy("iAluEnergy", cadena , id, IAluEnergy
+  iAluEnergy = new GStatsEnergy("iAluEnergy", cadena , id, ExecPower
 				,EnergyMgr::get("iALUEnergy",id));
 }
 

@@ -15,7 +15,7 @@ COPTS   :=-O1 -pg
 else
 COPTS   :=-O2 -fomit-frame-pointer
 endif # PERFORMANCE
-COPTS   +=-fno-exceptions -fshort-enums -fno-strict-aliasing -funroll-loops -finline-functions
+COPTS   +=-fshort-enums -fno-strict-aliasing -funroll-loops -finline-functions
 COPTS	+=-mcpu=powerpc
 LOPTS	:=-O2
 endif # DEBUG

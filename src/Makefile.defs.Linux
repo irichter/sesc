@@ -45,13 +45,13 @@ ifdef DEBUG
 COPTS	:=-O0 -g -fno-inline-functions $(PDEFS)
 else
 # -fast does not work by default. Disable some opts
-COPTS	:=-O3 -finline-functions -finline-limit=1800
+COPTS	:=-O3
 endif # DEBUG
 endif # PERFORMANCE
 
 # Shared COPTS (do not affect debugging)
 # Plaform Specific
-COPTS	+=-momit-leaf-frame-pointer -finline-limit=1800
+COPTS	+=-momit-leaf-frame-pointer
 ifdef MINT_TARGET
 COPTS	+= -march=$(MINT_TARGET)
 else
@@ -59,7 +59,7 @@ COPTS	+= -march=i686
 endif 
 # Platform neutral
 COPTS +=-funroll-loops -fsched-interblock -fomit-frame-pointer
-COPTS +=-ffast-math -fno-exceptions -fno-strict-aliasing -freg-struct-return 
+COPTS +=-fno-strict-aliasing -freg-struct-return 
 endif # icc Compiler 
 ##############################################################################
 

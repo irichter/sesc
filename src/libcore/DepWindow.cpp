@@ -59,22 +59,22 @@ DepWindow::DepWindow(GProcessor *gp, const char *clusterName)
   char cadena[100];
   sprintf(cadena,"Proc(%d)_%s", Id, clusterName);
   
-  resultBusEnergy = new GStatsEnergy("resultBusEnergy", cadena , Id, ResultBusEnergy
+  resultBusEnergy = new GStatsEnergy("resultBusEnergy", cadena , Id, IssuePower
                                      ,EnergyMgr::get("resultBusEnergy",Id));
   
-  forwardBusEnergy = new GStatsEnergy("forwardBusEnergy", cadena , Id, ForwardBusEnergy
+  forwardBusEnergy = new GStatsEnergy("forwardBusEnergy", cadena , Id, IssuePower
                                       ,EnergyMgr::get("forwardBusEnergy",Id));
 
  
 
 #ifdef SESC_INORDER
-  windowSelEnergyOutOrder  = new GStatsEnergy("windowSelEnergy",cadena, Id, WindowSelEnergy
+  windowSelEnergyOutOrder  = new GStatsEnergy("windowSelEnergy",cadena, Id, IssuePower
                                       ,EnergyMgr::get("windowSelEnergy",Id));
 
-  windowRdWrEnergyOutOrder = new GStatsEnergy("windowRdWrEnergy", cadena , Id, WindowRdWrEnergy
+  windowRdWrEnergyOutOrder = new GStatsEnergy("windowRdWrEnergy", cadena , Id, IssuePower
                                       ,EnergyMgr::get("windowRdWrEnergy",Id));
   
-  windowCheckEnergyOutOrder = new GStatsEnergy("windowCheckEnergy", cadena, Id, WindowCheckEnergy
+  windowCheckEnergyOutOrder = new GStatsEnergy("windowCheckEnergy", cadena, Id, IssuePower
                                        ,EnergyMgr::get("windowCheckEnergy",Id));
 
   windowSelEnergyInOrder  = new GStatsEnergyNull();
@@ -90,18 +90,18 @@ DepWindow::DepWindow(GProcessor *gp, const char *clusterName)
   currentMode = OutOrderMode;
 
 #else
-  windowSelEnergy  = new GStatsEnergy("windowSelEnergy",cadena, Id, WindowSelEnergy
+  windowSelEnergy  = new GStatsEnergy("windowSelEnergy",cadena, Id, IssuePower
                                       ,EnergyMgr::get("windowSelEnergy",Id));
 
-  windowRdWrEnergy = new GStatsEnergy("windowRdWrEnergy", cadena , Id, WindowRdWrEnergy
+  windowRdWrEnergy = new GStatsEnergy("windowRdWrEnergy", cadena , Id, IssuePower
                                       ,EnergyMgr::get("windowRdWrEnergy",Id));
   
-  windowCheckEnergy = new GStatsEnergy("windowCheckEnergy", cadena, Id, WindowCheckEnergy
+  windowCheckEnergy = new GStatsEnergy("windowCheckEnergy", cadena, Id, IssuePower
                                        ,EnergyMgr::get("windowCheckEnergy",Id));
 #endif
 
 #ifdef SESC_SEED
-  depTableEnergy = new GStatsEnergy("depTableEnergy", cadena, Id, DepTableEnergy
+  depTableEnergy = new GStatsEnergy("depTableEnergy", cadena, Id, IssuePower
                                     ,EnergyMgr::get("depTableEnergy",Id));
 
   depTablePort = (PortGeneric **)malloc(sizeof(PortGeneric *)*Banks);

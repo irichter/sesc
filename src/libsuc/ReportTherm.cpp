@@ -55,31 +55,6 @@ int ReportTherm::rep=0;
 
 StaticCallbackFunction0<ReportTherm::report> ReportTherm::reportCB;
 
-//----------------------------------------------------------------------------
-// Tokenize : Split up a string based upon delimiteres, defaults to space-deliminted (like strok())
-//
-void Tokenize(const std::string& str,std::vector<string>& tokens,const std::string& delimiters)
-{
-    tokens.clear();
-//Skip delimiters at beginning.
-//Fine the location of the first character that is not one of the delimiters starting
-//from the beginning of the line of test
-        string::size_type lastPos = str.find_first_not_of(delimiters,0);
-//Now find the next occurrance of a delimiter after the first one
-// (go to the end of the first character-deliminated item)
-        string::size_type pos = str.find_first_of(delimiters, lastPos);
-//Now keep checking until we reach the end of the line
-        while (string::npos != pos || string::npos != lastPos) {
-                //Found a token, add it to the vector.
-                //Take the most recent token and store it to "tokens"
-                tokens.push_back(str.substr(lastPos, pos - lastPos));
-                //Skip delimiters to find the beginning of the next token
-                lastPos = str.find_first_not_of(delimiters,pos);
-                //Find the end of the next token
-                pos = str.find_first_of(delimiters, lastPos);
-        }
-}
-
 ReportTherm::ReportTherm()
 {
   rfd[0]=stdout;
@@ -97,8 +72,7 @@ void ReportTherm::report()
     rep = 1;
   }
 
-  GStatsEnergy::printDump(0, 5);
-  ReportTherm::field("\n");
+  GStatsEnergy::printDump(0);
   ReportTherm::flush();
 
   if (rep == 1)
@@ -133,43 +107,10 @@ void ReportTherm::openFile(char *name)
   rfd[tos++]=ffd1;
   reportCB.schedule(1);
 
-//We attempt to open sescspot.sspot to obtain frequency information
-//At this point, we assume that the configuration file is sescspot.sspot
-std::ifstream if_conf;
-if_conf.open("sescspot.sspot", std::ifstream::in);
-if (!if_conf)
-	fatal("Cannot open \"sescspot.sspot\" thermal configuration file.");
-std::string tmpstring;
-std::vector<string> tokens;
-while(getline(if_conf,tmpstring)){
-	if((int)tmpstring.find("[SescSpot]",0) != -1)
-		break;
-}
-if(if_conf.eof())
-	fatal("\"sescspot.sspot\" is missing configuration data.");
-
-
-while(getline(if_conf,tmpstring)){
-	if(tmpstring.empty())
-		continue; //ignore blank lines
-	Tokenize(tmpstring, tokens, " \t");
-	if(tokens[0] == "#" || tokens[1] == "#"){
-		continue; //skip comments
-	}
-	if(tokens[0] == "CyclesPerSample"){
-		ReportTherm::cyclesPerSample=atoi(tokens[1].c_str());
-		break; //end after the value was found
-	}
-}
-if(ReportTherm::cyclesPerSample==0){
-	clog << "Could Not Find \"CyclesPerSample\" Data in \"sescspot.sspot\"" << endl;
-	clog << "Default to 10,000 Cycles Between Dumps" << endl;
-	ReportTherm::cyclesPerSample=10000;
+  cyclesPerSample=SescConf->getLong("thermal","cyclesPerSample");
+  SescConf->isBetween("thermal","cyclesPerSample", 100, 1e6);
 }
 
-if_conf.close();
-
-}
 void ReportTherm::close()
 {
   rep = 2;
@@ -210,6 +151,13 @@ void ReportTherm::field(const char *format, ...)
   va_end(ap);
 
   //fprintf(ffd, "\n");
+}
+
+void ReportTherm::fieldRaw(float val)
+{
+  FILE *ffd = rfd[tos-1];
+
+  fwrite(&val, sizeof(float), 1, ffd);
 }
 
 /*

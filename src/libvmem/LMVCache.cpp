@@ -49,9 +49,9 @@ LMVCache::LMVCache(MemorySystem *gms, const char *section, const char *name, VBu
   combWriteEnergy = new GStatsEnergy("combWriteEnergy"
 				     ,name
 				     ,0
-				     ,CombWriteEnergy
+				     ,MemPower
 				     ,EnergyMgr::get("miscEnergy","combWriteEnergy")
-				     ,section);
+				     );
 
 }
 

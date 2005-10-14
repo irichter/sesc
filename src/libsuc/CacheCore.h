@@ -42,7 +42,7 @@ template<class State, class Addr_t = ulong, bool Energy=true>
   private:
   static const int STR_BUF_SIZE=1024;
  
-  static EnergyGroup getRightStat(EnergyGroup eg, const char* type);
+  static PowerGroup getRightStat(const char* type);
 
   protected:
   const ulong  size;
@@ -58,6 +58,7 @@ template<class State, class Addr_t = ulong, bool Energy=true>
 
   GStatsEnergy *rdEnergy[2]; // 0 hit, 1 miss
   GStatsEnergy *wrEnergy[2]; // 0 hit, 1 miss
+
   bool goodInterface;
 
   public:
@@ -99,7 +100,7 @@ template<class State, class Addr_t = ulong, bool Energy=true>
 
   virtual ~CacheGeneric() {}
 
-  GStatsEnergy *getEnergy(const char *section, EnergyGroup grp, const char *format, const char *name);
+  GStatsEnergy *getEnergy(const char *section, PowerGroup grp, const char *format, const char *name);
   void createStats(const char *section, const char *name);
 
   public:

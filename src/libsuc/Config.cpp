@@ -451,8 +451,12 @@ double Config::getDouble(const char *block,
 			 long vectorPos)
 {
   const Record *rec = getRecord(block, name,vectorPos);
-  if(rec)
-    return rec->getDouble();
+  if(rec) {
+    if (rec->isDouble())
+      return rec->getDouble();
+    else if (rec->isLong())
+      return rec->getLong();
+  }
 
   MSG("Config::getDouble for %s in %s[%ld] not found in config file.",
       name, block, vectorPos);
