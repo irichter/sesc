@@ -4,6 +4,11 @@ extern "C" {
 #ifndef _SIM_POWER_H
 #define _SIM_POWER_H
 
+#define PARM_TECH_POINT  7
+#define PARM_Freq        4e9
+#define POWER_TEST       1
+#define PARM_TECH_POINT  7
+
 #include <sys/types.h>
 #include "LIB_defines.h"
 #ifdef	POWER_TEST

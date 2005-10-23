@@ -1,10 +1,5 @@
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #ifndef AREADEF_H
 #define AREADEF_H
-
 /*------------------------------------------------------------
  *                              CACTI 3.0
  *               Copyright 2002 Compaq Computer Corporation
@@ -47,16 +42,16 @@ extern "C" {
  * SOFTWARE.
  *------------------------------------------------------------*/
 
-double area_all_datasubarrays;
-double area_all_tagsubarrays;
-double area_all_dataramcells;
-double area_all_tagramcells;
-double faarea_all_subarrays ;
+extern double area_all_datasubarrays;
+extern double area_all_tagsubarrays;
+extern double area_all_dataramcells;
+extern double area_all_tagramcells;
+extern double faarea_all_subarrays ;
 
-double aspect_ratio_data;
-double aspect_ratio_tag;
-double aspect_ratio_subbank;
-double aspect_ratio_total;
+extern double aspect_ratio_data;
+extern double aspect_ratio_tag;
+extern double aspect_ratio_subbank;
+extern double aspect_ratio_total;
 
 #define Widthptondiff 4.0
 #define Widthtrack    3.2
@@ -114,27 +109,41 @@ double aspect_ratio_total;
 #define tracks_outdrvselinv_p  3
 #define tracks_outdrvfanand_p  6  
 
-typedef struct {
-	double height;
-	double width;
-} area_type;
+struct area_type {
+  double height;
+  double width;
+};
 
-typedef struct {
-        area_type dataarray_area,datapredecode_area;
-        area_type datacolmuxpredecode_area,datacolmuxpostdecode_area;
-	area_type datawritesig_area;
-        area_type tagarray_area,tagpredecode_area;
-        area_type tagcolmuxpredecode_area,tagcolmuxpostdecode_area;
-        area_type tagoutdrvdecode_area;
-        area_type tagoutdrvsig_area;
-        double totalarea;
-	double total_dataarea;
-        double total_tagarea;
-	double max_efficiency, efficiency;
-	double max_aspect_ratio_total, aspect_ratio_total;
-} arearesult_type;
+struct arearesult_type {
+  area_type dataarray_area,datapredecode_area;
+  area_type datacolmuxpredecode_area,datacolmuxpostdecode_area;
+  area_type datawritesig_area;
+  area_type tagarray_area,tagpredecode_area;
+  area_type tagcolmuxpredecode_area,tagcolmuxpostdecode_area;
+  area_type tagoutdrvdecode_area;
+  area_type tagoutdrvsig_area;
+  double totalarea;
+  double total_dataarea;
+  double total_tagarea;
+  double max_efficiency, efficiency;
+  double max_aspect_ratio_total, aspect_ratio_total;
+} ;
 
-#endif
-#ifdef __cplusplus
-}
+
+void xcacti_area_subbanked(int baddr,
+			   int b0,
+			   int RWP, int ERP, int EWP,
+			   int Ndbl, int Ndwl, int Nspd,
+			   int Ntbl, int Ntwl, int Ntspd,
+			   const parameter_type *parameters,
+			   area_type *result_subbanked,
+			   arearesult_type *result);
+
+int xcacti_organizational_parameters_valid(int B, int A, int C, 
+					   int Ndwl, int Ndbl, int Nspd, 
+					   int Ntwl, int Ntbl, int Ntspd,
+					   char assoc);
+
+double xcacti_calculate_area(area_type,double);
+
 #endif

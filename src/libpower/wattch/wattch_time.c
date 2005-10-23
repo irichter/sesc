@@ -846,7 +846,7 @@ int rows,cols,Ndwl,Ndbl,Nspd,Ntwl,Ntbl,Ntspd;
 /*----------------------------------------------------------------------*/
 
 
-void calculate_time(result,parameters)
+void wattch_calculate_time(result,parameters)
 result_type *result;
 parameter_type *parameters;
 {

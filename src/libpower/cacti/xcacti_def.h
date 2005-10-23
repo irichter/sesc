@@ -1,9 +1,5 @@
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-#ifndef DEF_H
-#define DEF_H
+#ifndef XCACTI_H
+#define XCACTI_H
 /*------------------------------------------------------------
  *                              CACTI 3.0
  *               Copyright 2002 Compaq Computer Corporation
@@ -65,10 +61,14 @@ extern "C" {
  * Address bits in a word, and number of output bits from the cache 
  */
 
-#define ADDRESS_BITS 32
+#ifdef XCACTI
+extern int PHASEDCACHE;
+extern int ADDRESS_BITS;
 extern int BITOUT;
-/* #define BITOUT 64 */
-
+#else
+#define ADDRESS_BITS 32
+#define BITOUT 64
+#endif
 
 /* limits on the various N parameters */
 
@@ -83,8 +83,10 @@ extern int BITOUT;
  * To convert from 0.8um to 0.5um, make FUDGEFACTOR = 1.6
  */
  
-static float FUDGEFACTOR;
 #define FEATURESIZE 0.8
+
+#define PICOJ  (1e12)
+#define PICOS  (1e-12)
 
 /*===================================================================*/
 
@@ -105,17 +107,6 @@ static float FUDGEFACTOR;
 #define WIREPITCH (WIRESPACING+WIREWIDTH)
 #define Cmetal 275e-18
 #define Rmetal 48e-3
-
-static double Cwordmetal;
-static double Cbitmetal;
-static double Rwordmetal;
-static double Rbitmetal;
-static double FACwordmetal;
-static double FACbitmetal;
-static double FARwordmetal;
-static double FARbitmetal;
-
-static int muxover;
 
 /* fF/um2 at 1.5V */
 #define Cndiffarea    0.137e-15
@@ -169,7 +160,6 @@ static int muxover;
 
 
 #define Vdd		5
-static float VddPow;
 /* Threshold voltages (as a proportion of Vdd)
    If you don't know them, set all values to 0.5 */
 
@@ -202,8 +192,89 @@ static float VddPow;
 
 #define VTHNAND60x120 0.522
 
-/* transistor widths in um (as described in tech report, appendix 1) */
+#ifdef XCACTI
+extern double Wdecdrivep;
+extern double Wdecdriven;
+extern double Wdec3to8n;
+extern double Wdec3to8p;
+extern double WdecNORn;
+extern double WdecNORp;
+extern double Wdecinvn;
+extern double Wdecinvp;
+extern double Wworddrivemax;
+extern double Wmemcella;
+extern double Wmemcellbscale;
+extern double Wbitpreequ;
+extern double Wbitmuxn;
+extern double WsenseQ1to4;
+extern double Wcompinvp1;
+extern double Wcompinvn1;
+extern double Wcompinvp2;
+extern double Wcompinvn2;
+extern double Wcompinvp3;
+extern double Wcompinvn3;
+extern double Wevalinvp;
+extern double Wevalinvn;
 
+extern double Wfadriven;
+extern double Wfadrivep;
+extern double Wfadrive2n;
+extern double Wfadrive2p;
+extern double Wfadecdrive1n;
+extern double Wfadecdrive1p;
+extern double Wfadecdrive2n;
+extern double Wfadecdrive2p;
+extern double Wfadecdriven;
+extern double Wfadecdrivep;
+extern double Wfaprechn;
+extern double Wfaprechp;
+extern double Wdummyn;
+extern double Wdummyinvn;
+extern double Wdummyinvp;
+extern double Wfainvn;
+extern double Wfainvp;
+extern double Waddrnandn;
+extern double Waddrnandp;
+extern double Wfanandn;
+extern double Wfanandp;
+extern double Wfanorn;
+extern double Wfanorp;
+extern double Wdecnandn;
+extern double Wdecnandp;
+
+extern double Wcompn;
+extern double Wcompp;
+extern double Wmuxdrv12n;
+extern double Wmuxdrv12p;
+extern double WmuxdrvNANDn;
+extern double WmuxdrvNANDp;
+extern double WmuxdrvNORn;
+extern double WmuxdrvNORp;
+extern double Wmuxdrv3n;
+extern double Wmuxdrv3p;
+extern double Woutdrvseln;
+extern double Woutdrvselp;
+extern double Woutdrvnandn;
+extern double Woutdrvnandp;
+extern double Woutdrvnorn;
+extern double Woutdrvnorp;
+extern double Woutdrivern;
+extern double Woutdriverp;
+
+extern double Wsenseextdrv1p;
+extern double Wsenseextdrv1n;
+extern double Wsenseextdrv2p;
+extern double Wsenseextdrv2n;
+
+/* other stuff (from tech report, appendix 1) */
+
+extern double psensedata;
+extern double psensetag;
+
+extern double tsensedata;
+extern double tsensetag;
+#else
+/* transistor widths in um (as described in tech report, appendix 1) */
 #define Wdecdrivep	(360.0)
 #define Wdecdriven	(240.0)
 #define Wdec3to8n     120.0
@@ -279,28 +350,48 @@ static float VddPow;
 
 /* other stuff (from tech report, appendix 1) */
 
-#define krise		(0.4e-9)
 #define tsensedata	(5.8e-10)
 // #define psensedata      (0.025e-9)
 #define psensedata      (0.02e-9)
-#define tsensescale     0.02e-10
-#define tsensetag	(2.6e-10)
+
 // #define psensetag       (0.01e-9)
 #define psensetag	(0.016e-9)
+#define tsensetag	(2.6e-10)
+#endif
+
+#define tsensescale     0.02e-10
+
+#define krise		(0.4e-9)
 #define tfalldata	(7e-10)
 #define tfalltag	(7e-10)
 #define Vbitpre		(3.3)
-static float VbitprePow;
 #define Vt		(1.09)
-#define Vbitsense	(0.10)
 
+#ifdef XCACTI
+extern double Vbitsense;
+
+extern double BitWidth; /* bit width of RAM cell in um */
+extern double BitHeight; /* bit height of RAM cell in um */
+/* output capacitance of the output driver in um */ 
+/* scaling done by Cout / (Geometrical Scaling factor)^2 */
+extern double Cout;
+#else
+#define Vbitsense	(0.10)
 /* bit width of RAM cell in um */
 #define BitWidth	(8.0)
-
 /* bit height of RAM cell in um */
 #define BitHeight	(16.0)
-
 #define Cout		(0.5e-12)
+#endif
+
+extern double Cwordmetal;
+extern double Cbitmetal;
+extern double Rwordmetal;
+extern double Rbitmetal;
+extern double FACwordmetal;
+extern double FACbitmetal;
+extern double FARwordmetal;
+extern double FARbitmetal;
 
 /*===================================================================*/
 
@@ -333,61 +424,88 @@ static float VbitprePow;
 
 /* Used to pass values around the program */
 
-typedef struct {
-   int cache_size;
-   int number_of_sets;
-   int associativity;
-   int block_size;
-   int num_write_ports;
-   int num_readwrite_ports;
-   int num_read_ports;
-   int num_single_ended_read_ports;
+struct parameter_type {
+#ifdef XCACTI
+  int latchsa;
+  int ignore_tag;
+#endif
+  int cache_size;
+  int number_of_sets;
+  int associativity;
+  int block_size;
+  int num_write_ports;
+  int num_readwrite_ports;
+  int num_read_ports;
+  int num_single_ended_read_ports;
+  int NSubbanks;
   char fully_assoc;
   float fudgefactor;
+  float gscalingfactor; // geometry scaling factor
   float tech_size;
   float VddPow;
-} parameter_type;
+  float VbitprePow;
+};
 
-typedef struct {
-   double access_time,cycle_time;
+struct result_type {
+  double access_time,cycle_time;
   double senseext_scale;
   double total_power;
-   int best_Ndwl,best_Ndbl;
+#ifdef XCACTI
+  double total_wrpower;
+#endif
+  int best_Ndwl,best_Ndbl;
   double max_power, max_access_time;
-   int best_Nspd;
-   int best_Ntwl,best_Ntbl;
-   int best_Ntspd;
+  int best_Nspd;
+  int best_Ntwl,best_Ntbl;
+  int best_Ntspd;
   int best_muxover;
-   double total_routing_power;
-   double total_power_without_routing, total_power_allbanks;
-   double subbank_address_routing_delay,subbank_address_routing_power;
-   double decoder_delay_data,decoder_delay_tag;
-   double decoder_power_data,decoder_power_tag;
-   double dec_data_driver,dec_data_3to8,dec_data_inv;
-   double dec_tag_driver,dec_tag_3to8,dec_tag_inv;
-   double wordline_delay_data,wordline_delay_tag;
-   double wordline_power_data,wordline_power_tag;
-   double bitline_delay_data,bitline_delay_tag;
-   double bitline_power_data,bitline_power_tag;
+  double total_routing_power;
+  double total_power_without_routing, total_power_allbanks;
+  double subbank_address_routing_delay,subbank_address_routing_power;
+  double decoder_delay_data,decoder_delay_tag;
+  double decoder_power_data,decoder_power_tag;
+  double dec_data_driver,dec_data_3to8,dec_data_inv;
+  double dec_tag_driver,dec_tag_3to8,dec_tag_inv;
+  double wordline_delay_data,wordline_delay_tag;
+  double wordline_power_data,wordline_power_tag;
+  double bitline_delay_data,bitline_delay_tag;
+  double bitline_power_data,bitline_power_tag;
   double sense_amp_delay_data,sense_amp_delay_tag;
   double sense_amp_power_data,sense_amp_power_tag;
   double total_out_driver_delay_data;
   double total_out_driver_power_data;
-   double compare_part_delay;
-   double drive_mux_delay;
-   double selb_delay;
-   double compare_part_power;
-   double drive_mux_power;
-   double selb_power;
-   double data_output_delay;
-   double data_output_power;
-   double drive_valid_delay;
-   double drive_valid_power;
-   double precharge_delay;
+  double compare_part_delay;
+  double drive_mux_delay;
+  double selb_delay;
+  double compare_part_power;
+  double drive_mux_power;
+  double selb_power;
+  double data_output_delay;
+  double data_output_power;
+  double drive_valid_delay;
+  double drive_valid_power;
+  double precharge_delay;
   int data_nor_inputs;
   int tag_nor_inputs;
-} result_type;
-#endif
-#ifdef __cplusplus
-}
+};
+
+struct arearesult_type;
+struct area_type;
+
+int xcacti_parameter_check(const parameter_type *parameters);
+int xcacti_input_data(int argc,  char *argv[], parameter_type *parameters);
+void xcacti_calculate_time(const parameter_type *parameters,
+			   result_type *result,
+			   arearesult_type *arearesult,
+			   area_type *arearesult_subbanked);
+
+void xcacti_output_data(const result_type *result,
+			const arearesult_type *arearesult,
+			const area_type *arearesult_subbanked,
+			const parameter_type *parameters);
+
+void xcacti_parameters_dump(const parameter_type *parameters);
+
+void xcacti_parameter_adjust(parameter_type *parameters);
+
 #endif

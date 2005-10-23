@@ -132,7 +132,7 @@ result_type *result;
 
 
    
-void output_data(result,parameters)
+void wattch_output_data(result,parameters)
 result_type *result;
 parameter_type *parameters;
 {

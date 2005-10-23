@@ -9,7 +9,7 @@ all	: $(DOTDEPEND) $(OBJ)/libcacti.a
 ##############################################################################
 #                Objects
 ##############################################################################
-OBJS	:= cacti_area.o cacti_io.o cacti_setup.o cacti_time.o
+OBJS	:= xcacti_area.o xcacti_io.o cacti_setup.o xcacti_time.o
 
 ##############################################################################
 #                             Change Rules                                   # 

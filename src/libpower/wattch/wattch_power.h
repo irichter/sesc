@@ -612,8 +612,8 @@ double simple_array_bitline_power(int rows,int cols,int rports,int wports,int ca
 double simple_array_wordline_power(int rows,int cols,int rports,int wports,int cache);
 double squarify_new(int rows,int cols);
 /* register power stats */
-void calculate_time(time_result_type*, time_parameter_type*);
-void output_data(time_result_type*, time_parameter_type*);
+void wattch_calculate_time(time_result_type*, time_parameter_type*);
+void wattch_output_data(time_result_type*, time_parameter_type*);
 void calculate_power(power_result_type*);
 int pop_count(quad_t bits);
 int pop_count_slow(quad_t bits);

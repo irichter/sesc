@@ -58,8 +58,9 @@ endif
 ifdef SESC_ENERGY
 DEFS += -DSESC_ENERGY
 
+DEFS += -DXCACTI
 # Orion Parameters
-DEFS   += -DPOWER_TEST -DPARM_TECH_POINT=7 -DVdd=1.1 -DPARM_Freq=5e9
+#DEFS   += -DPOWER_TEST -DPARM_TECH_POINT=7 -DVdd=1.1 -DPARM_Freq=5e9
 endif
 
 ifdef SESC_SLICE

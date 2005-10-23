@@ -1,60 +1,38 @@
-/*------------------------------------------------------------
- *                              CACTI 3.0
- *               Copyright 2002 Compaq Computer Corporation
- *                         All Rights Reserved
- *
- * Permission to use, copy, and modify this software and its documentation is
- * hereby granted only under the following terms and conditions.  Both the
- * above copyright notice and this permission notice must appear in all copies
- * of the software, derivative works or modified versions, and any portions
- * thereof, and both notices must appear in supporting documentation.
- *
- * Users of this software agree to the terms and conditions set forth herein,
- * and hereby grant back to Compaq a non-exclusive, unrestricted, royalty-
- * free right and license under any changes, enhancements or extensions
- * made to the core functions of the software, including but not limited to
- * those affording compatibility with other hardware or software
- * environments, but excluding applications which incorporate this software.
- * Users further agree to use their best efforts to return to Compaq any
- * such changes, enhancements or extensions that they make and inform Compaq
- * of noteworthy uses of this software.  Correspondence should be provided
- * to Compaq at:
- *
- *                       Director of Licensing
- *                       Western Research Laboratory
- *                       Compaq Computer Corporation
- *                       250 University Avenue
- *                       Palo Alto, California  94301
- *
- * This software may be distributed (but not offered for sale or transferred
- * for compensation) to third parties, provided such third parties agree to
- * abide by the terms and conditions of this notice.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND COMPAQ COMPUTER CORP. DISCLAIMS ALL
- * WARRANTIES WITH REGARD TO THIS SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES
- * OF MERCHANTABILITY AND FITNESS.   IN NO EVENT SHALL COMPAQ COMPUTER
- * CORPORATION BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL
- * DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR
- * PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
- * ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
- * SOFTWARE.
- *------------------------------------------------------------*/
+/* 
+   SESC: Super ESCalar simulator
+   Copyright (C) 2005 University of California, Santa Cruz
+
+   Contributed by Jose Renau
+
+This file is part of SESC.
+
+SESC is free software; you can redistribute it and/or modify it under the terms
+of the GNU General Public License as published by the Free Software Foundation;
+either version 2, or (at your option) any later version.
+
+SESC is    distributed in the  hope that  it will  be  useful, but  WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+
+You should  have received a copy of  the GNU General  Public License along with
+SESC; see the file COPYING.  If not, write to the  Free Software Foundation, 59
+Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+*/
+
 #include <stdio.h>
 #include <ctype.h>
 #include <math.h>
 
-#include "def.h"
-#include "areadef.h"
-#include "SescConf.h"
-#include "cacti_setup.h"
-#include "cacti_time.h"
-#include "io.h"
+#include "nanassert.h"
 #include "Snippets.h"
+#include "SescConf.h"
+
+#include "xcacti_def.h"
+#include "xcacti_area.h"
+
 
 /*------------------------------------------------------------------------------*/
 #include <vector>
-
-int BITOUT=64;
 
 static double tech;
 static int res_memport;
@@ -180,40 +158,57 @@ double getEnergy(int size
     size =64*subBanks;
   }
 
-  size = roundUpPower2(size);
-
-  double NSubbanks;
-  area_type arearesult_subbanked;
-  parameter_type parameters;
-  arearesult_type arearesult;
-  result_type result;
-
   if (rdPorts>1) {
     wrPorts = rdPorts-2;
     rdPorts = 2;
   }
 
-  // input data
-  int argc = 9 ;
-  char *argv[9] ;
-  argv[1] = strfy(size) ;
-  argv[2] = strfy(bsize) ;
-  argv[3] = (nsets == 1) ? strdup("FA") : strfy(assoc) ;
-  argv[4] = strfy(tech) ;
-  argv[5] = strfy(0) ;
-  argv[6] = strfy(rdPorts) ;
-  argv[7] = strfy(wrPorts) ;
-  argv[8] = strfy(subBanks) ;
-
   BITOUT = bits;
 
-  if(ca_input_data(argc,argv,&parameters,&NSubbanks) == ERROR) {
-    exit(0) ;
+  parameter_type parameters;
+
+  if (size == bsize * assoc) {
+    parameters.fully_assoc = 1;
+  }else{
+    parameters.fully_assoc = 0;
   }
-  ca_calculate_time(&result,&arearesult,&arearesult_subbanked,&parameters,&NSubbanks,useTag);
+
+  size = roundUpPower2(size);
+
+  if (parameters.fully_assoc) {
+    parameters.associativity = size/bsize;
+  }else{
+    parameters.associativity = assoc;
+  }
+
+  parameters.latchsa    = 1;
+  parameters.ignore_tag = !useTag;
+  parameters.cache_size = size;
+  parameters.block_size = bsize;
+  parameters.num_readwrite_ports = 0;
+  parameters.num_read_ports = rdPorts;
+  parameters.num_write_ports = wrPorts;
+  parameters.num_single_ended_read_ports =0;
+  parameters.number_of_sets = size/(bsize*assoc);
+  parameters.fudgefactor = .8/tech;   
+  parameters.tech_size=tech;
+  parameters.NSubbanks = subBanks;
+
+  if (!xcacti_parameter_check(&parameters)) {
+    xcacti_parameters_dump(&parameters);
+    exit(0);
+  }
+
+  xcacti_parameter_adjust(&parameters);
+
+  area_type arearesult_subbanked;
+  arearesult_type arearesult;
+  result_type result;
+
+  xcacti_calculate_time(&parameters,&result,&arearesult,&arearesult_subbanked);
 
 #ifdef DEBUG
-  output_data(&result,&arearesult,&arearesult_subbanked,&parameters,&NSubbanks);
+  xcacti_output_data(&result,&arearesult,&arearesult_subbanked,&parameters);
 #endif
 
   return 1e9*(result.total_power_without_routing/subBanks + result.total_routing_power);
@@ -236,6 +231,8 @@ double getEnergy(const char *section)
 
   if(SescConf->checkLong(section,"bits"))
     bits = SescConf->getLong(section,"bits");
+
+  printf("Module [%s]...\n", section);
 
   return getEnergy(cache_size
                    ,block_size

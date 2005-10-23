@@ -1043,7 +1043,7 @@ bpower_result_type calculate_bpred_power(){
   time_parameters.number_of_sets = btb_config[0]; /* C/(B*A) */
 
   /* have Cacti compute optimal cache config */
-  calculate_time(&time_result,&time_parameters);
+  wattch_calculate_time(&time_result,&time_parameters);
 
   /* extract Cacti results */
   ndwl=time_result.best_Ndwl;
@@ -1336,7 +1336,7 @@ void calculate_power(power)
   time_parameters.associativity = cache_il1->assoc; /* A */
   time_parameters.number_of_sets = cache_il1->nsets; /* C/(B*A) */
 
-  calculate_time(&time_result,&time_parameters);
+  wattch_calculate_time(&time_result,&time_parameters);
 
   ndwl=time_result.best_Ndwl;
   ndbl=time_result.best_Ndbl;
@@ -1382,7 +1382,7 @@ void calculate_power(power)
   time_parameters.associativity = cache_dl1->assoc; /* A */
   time_parameters.number_of_sets = cache_dl1->nsets; /* C/(B*A) */
 
-  calculate_time(&time_result,&time_parameters);
+  wattch_calculate_time(&time_result,&time_parameters);
 
   ndwl=time_result.best_Ndwl;
   ndbl=time_result.best_Ndbl;
@@ -1439,7 +1439,7 @@ void calculate_power(power)
   time_parameters.associativity = cache_dl2->assoc; /* A */
   time_parameters.number_of_sets = cache_dl2->nsets; /* C/(B*A) */
 
-  calculate_time(&time_result,&time_parameters);
+  wattch_calculate_time(&time_result,&time_parameters);
 
   ndwl=time_result.best_Ndwl;
   ndbl=time_result.best_Ndbl;
