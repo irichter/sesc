@@ -6,8 +6,9 @@
 #include "ReportGen.h"
 
 #include "wattch/wattch_setup.h"
-#include "cacti/cacti_setup.h"
 #include "orion/orion_setup.h"
+
+void cacti_setup();
 
 int main(int argc, char **argv)
 {
