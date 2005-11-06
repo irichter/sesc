@@ -48,8 +48,10 @@
 #define SGI_INV_SIZEOF  1
 #define SGI_INV_READ    2
 
+// FIXME: to make it portable use #include <ieeefp.h> instead of fpu_control.h
+
 typedef unsigned short NativeFPUControlType; 
-#ifdef __i386__
+#if defined(__i386__) || defined(__x86_64__)
 #include <fpu_control.h>
 /* Sets __i386__ FPU rounding flags according to the rouding bits in
    MIPS. MIPS uses the first two bits (bit1,bit0). I387 uses 11 and 10

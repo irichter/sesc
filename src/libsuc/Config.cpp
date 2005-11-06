@@ -119,7 +119,7 @@ void Config::Record::dump(const char *prev,
 /* ----------------------------------------  */
 bool readConfigFile(Config * ptr,
                     FILE * fp,
-		    const char *fpname); /* Defined in conflex.y */
+                    const char *fpname); /* Defined in conflex.y */
 
 Config::Config(const char *name,
                const char *envstr)
@@ -203,7 +203,7 @@ long Config::getRecordMax(const char *block, const char *name) const
 
 const Config::Record * Config::getRecord(const char *block,
                                          const char *name,
-					 long vectorPos)
+                                         long vectorPos)
 {
   KeyIndex key;
 
@@ -214,14 +214,14 @@ const Config::Record * Config::getRecord(const char *block,
   std::pair<I,I> b = hashRecord.equal_range(key);
   for(I pos = b.first ; pos != b.second ; ++pos ) {
     if( ( pos->second->getVectorFirst() <= vectorPos 
-	  && pos->second->getVectorLast() >= vectorPos ) ) {
+          && pos->second->getVectorLast() >= vectorPos ) ) {
 
 //       if( !pos->second->isUsed()  )
-// 	MSG("found [%s] [%s] [%d-%d]%d",block,name
-// 	    ,pos->second->getVectorFirst(),pos->second->getVectorLast(),vectorPos);
+//      MSG("found [%s] [%s] [%d-%d]%d",block,name
+//          ,pos->second->getVectorFirst(),pos->second->getVectorLast(),vectorPos);
       
       pos->second->setUsed();
-	    
+            
       return pos->second;
     }
   }
@@ -250,21 +250,21 @@ void Config::addRecord(const char *block,
     
   for(I pos = b.first ; pos != b.second ; ++pos ) {
     if( (pos->second->getVectorFirst() <= rec->getVectorFirst()
-	 && pos->second->getVectorLast() >= rec->getVectorFirst()  )
-	|| 
-	( pos->second->getVectorLast() >= rec->getVectorLast() 
-	  && pos->second->getVectorFirst() <= rec->getVectorLast() )
-	||
-	(rec->getVectorFirst() <= pos->second->getVectorFirst()
-	 && rec->getVectorLast() >= pos->second->getVectorFirst()  )
-	|| 
-	( rec->getVectorLast() >= pos->second->getVectorLast() 
-	  && rec->getVectorFirst() <= pos->second->getVectorLast() )
+         && pos->second->getVectorLast() >= rec->getVectorFirst()  )
+        || 
+        ( pos->second->getVectorLast() >= rec->getVectorLast() 
+          && pos->second->getVectorFirst() <= rec->getVectorLast() )
+        ||
+        (rec->getVectorFirst() <= pos->second->getVectorFirst()
+         && rec->getVectorLast() >= pos->second->getVectorFirst()  )
+        || 
+        ( rec->getVectorLast() >= pos->second->getVectorLast() 
+          && rec->getVectorFirst() <= pos->second->getVectorLast() )
       ) {
       MSG("Config:: overlap between %s[%ld:%ld] and %s[%ld:%ld] in section %s"
-	  ,pos->first.s2,pos->second->getVectorFirst(),pos->second->getVectorLast()
-	  ,name,rec->getVectorFirst(),rec->getVectorLast()
-	  ,block);
+          ,pos->first.s2,pos->second->getVectorFirst(),pos->second->getVectorLast()
+          ,name,rec->getVectorFirst(),rec->getVectorLast()
+          ,block);
       errorReading = true;
     }
   }
@@ -318,16 +318,16 @@ void Config::addRecord(const char *block,
 }
 
 void Config::addVRecord(const char *block,
-			const char *name,
-			const char *val,
-			long X,
-			long Y)
+                        const char *name,
+                        const char *val,
+                        long X,
+                        long Y)
 {
   Record *rec;
 
   if( X > Y ) {
     MSG("Config:: [%s] %s[%ld:%ld]=[%s] vector invalid limits %ld < %ld "
-	,block,name,X,Y,val,X,Y);
+        ,block,name,X,Y,val,X,Y);
     errorReading = true;
   }
 
@@ -419,7 +419,7 @@ void Config::addRecord(const char *block,
 
 bool Config::getBool(const char *block,
                      const char *name,
-		     long vectorPos)
+                     long vectorPos)
 {
   const Record *rec = getRecord(block, name,vectorPos);
 
@@ -435,7 +435,7 @@ bool Config::getBool(const char *block,
 
 bool Config::checkBool(const char *block,
                      const char *name,
-		     long vectorPos)
+                     long vectorPos)
 {
   const Record *rec = getRecord(block, name,vectorPos);
 
@@ -448,7 +448,7 @@ bool Config::checkBool(const char *block,
 
 double Config::getDouble(const char *block,
                          const char *name,
-			 long vectorPos)
+                         long vectorPos)
 {
   const Record *rec = getRecord(block, name,vectorPos);
   if(rec) {
@@ -466,7 +466,7 @@ double Config::getDouble(const char *block,
 }
 bool Config::checkDouble(const char *block,
                          const char *name,
-			 long vectorPos)
+                         long vectorPos)
 {
   const Record *rec = getRecord(block, name,vectorPos);
   if(rec)
@@ -479,7 +479,7 @@ bool Config::checkDouble(const char *block,
 
 long Config::getLong(const char *block,
                      const char *name,
-		     long vectorPos)
+                     long vectorPos)
 {
   const Record *rec = getRecord(block, name, vectorPos);
 
@@ -494,7 +494,7 @@ long Config::getLong(const char *block,
 }
 bool Config::checkLong(const char *block,
                      const char *name,
-		     long vectorPos)
+                     long vectorPos)
 {
   const Record *rec = getRecord(block, name, vectorPos);
   if(rec)
@@ -506,7 +506,7 @@ bool Config::checkLong(const char *block,
 
 const char *Config::getCharPtr(const char *block,
                                const char *name,
-			       long vectorPos)
+                               long vectorPos)
 {
   const Record *rec = getRecord(block, name, vectorPos);
 
@@ -522,7 +522,7 @@ const char *Config::getCharPtr(const char *block,
 
 bool Config::checkCharPtr(const char *block,
                                const char *name,
-			       long vectorPos)
+                               long vectorPos)
 {
   const Record *rec = getRecord(block, name, vectorPos);
 
@@ -581,17 +581,17 @@ void Config::dump(bool showAll)
         continue;
 
       if(hiter->second->isPrinted())  // Already printed
-	continue;
+        continue;
 
       if(strcmp(hiter->first.s1, ""))
-	continue;
+        continue;
 
       hiter->second->setPrinted();
 
       if(hiter->second->isEnv())
-	hiter->second->dump(hiter->first.s2, " # Environment Variable");
+        hiter->second->dump(hiter->first.s2, " # Environment Variable");
       else
-	hiter->second->dump(hiter->first.s2, "");
+        hiter->second->dump(hiter->first.s2, "");
 
     }
 
@@ -602,22 +602,22 @@ void Config::dump(bool showAll)
       if((!showAll) && (!hiter->second->isUsed()))
         continue ;
      if(hiter->second->isPrinted())  // Already printed
-	continue;
+        continue;
 
       if(block == 0) {
-	block = hiter->first.s1;
-	Report::field("[%s]", block);
+        block = hiter->first.s1;
+        Report::field("[%s]", block);
       }
 
       if(strcmp(hiter->first.s1, block))
-	continue;
+        continue;
 
       hiter->second->setPrinted();
 
       if(hiter->second->isEnv())
-	hiter->second->dump(hiter->first.s2, " # Environment Variable\n");
+        hiter->second->dump(hiter->first.s2, " # Environment Variable\n");
       else
-	hiter->second->dump(hiter->first.s2, "");
+        hiter->second->dump(hiter->first.s2, "");
     }
   } while (block);
 
@@ -647,13 +647,13 @@ void Config::notCorrect()
 
 bool Config::isPower2(const char *block,
                       const char *name,
-		      long vectorPos)
+                      long vectorPos)
 {
   const Record *rec = getRecord(block, name, vectorPos);
 
   if(rec == 0) {
     MSG("Config::isPower2 for %s in %s[%ld] not found in config file.",
-	name, block, vectorPos);
+        name, block, vectorPos);
     notCorrect();
     return false;
   }
@@ -666,7 +666,7 @@ bool Config::isPower2(const char *block,
     val = rec->getLong();
   else {
     MSG("Config::isPower2 for %s[%ld] [%s] not satisfied. It's not a number"
-	, block, vectorPos, name);
+        , block, vectorPos, name);
     notCorrect();
     return false;
   }
@@ -675,14 +675,14 @@ bool Config::isPower2(const char *block,
 
   if(v != val) {
     MSG("Config::isPower2 for %s[%ld] [%s] not satisfied(1)"
-	, block, vectorPos, name);
+        , block, vectorPos, name);
     notCorrect();
     return false;
   }
 
   if((v & (v - 1)) != 0) {
     MSG("Config::isPower2 for %s[%ld] [%s] not satisfied(2)"
-	, block, vectorPos, name);
+        , block, vectorPos, name);
     notCorrect();
     return false;
   }
@@ -694,13 +694,13 @@ bool Config::isBetween(const char *block,
                        const char *name,
                        double llim,
                        double ulim,
-		       long vectorPos)
+                       long vectorPos)
 {
   const Record *rec = getRecord(block, name, vectorPos);
 
   if(rec == 0) {
     MSG("Config::isBetween for %s in %s[%ld] not found in config file.",
-	name, block, vectorPos);
+        name, block, vectorPos);
     notCorrect();
     return false;
   }
@@ -713,14 +713,14 @@ bool Config::isBetween(const char *block,
     val = rec->getLong();
   else {
     MSG("Config::isBetween for %s[%ld] [%s] not satisfied. It's not a number"
-	, block, vectorPos, name);
+        , block, vectorPos, name);
     notCorrect();
     return false;
   }
 
   if(val < llim || val > ulim) {
     MSG("Config::isBetween for %s[%ld] [%s] not satisfied(1)"
-	, block, vectorPos, name);
+        , block, vectorPos, name);
     notCorrect();
     return false;
   }
@@ -731,13 +731,13 @@ bool Config::isBetween(const char *block,
 bool Config::isGT(const char *block,
                   const char *name,
                   double llim,
-		  long vectorPos)
+                  long vectorPos)
 {
   const Record *rec = getRecord(block, name, vectorPos);
 
   if(rec == 0) {
     MSG("Config::isGT for %s in %s[%ld] not found in config file.",
-	name,block,vectorPos);
+        name,block,vectorPos);
     notCorrect();
     return false;
   }
@@ -750,14 +750,14 @@ bool Config::isGT(const char *block,
     val = rec->getLong();
   else {
     MSG("Config::isGT for %s[%ld] [%s] not satisfied. It's not a number"
-	, block, vectorPos, name);
+        , block, vectorPos, name);
     notCorrect();
     return false;
   }
 
   if(val <= llim) {
     MSG("Config::isGT for %s[%ld] [%s] not satisfied(1)"
-	, block, vectorPos, name);
+        , block, vectorPos, name);
     notCorrect();
     return false;
   }
@@ -769,13 +769,13 @@ bool Config::isGT(const char *block,
 bool Config::isLT(const char *block,
                   const char *name,
                   double ulim,
-		  long vectorPos)
+                  long vectorPos)
 {
   const Record *rec = getRecord(block, name, vectorPos);
 
   if(rec == 0) {
     MSG("Config::isLT for %s in %s[%ld] not found in config file.",
-	name, block, vectorPos);
+        name, block, vectorPos);
     notCorrect();
     return false;
   }
@@ -788,14 +788,14 @@ bool Config::isLT(const char *block,
     val = rec->getLong();
   else {
     MSG("Config::isLT for %s[%ld] [%s] not satisfied. It's not a number"
-	, block, vectorPos, name);
+        , block, vectorPos, name);
     notCorrect();
     return false;
   }
 
   if(val >= ulim) {
     MSG("Config::isLT for %s[%ld] [%s] not satisfied(1)"
-	, block, vectorPos, name);
+        , block, vectorPos, name);
     notCorrect();
     return false;
   }
@@ -805,20 +805,20 @@ bool Config::isLT(const char *block,
 
 bool Config::isBool(const char *block,
                     const char *name,
-		    long vectorPos)
+                    long vectorPos)
 {
   const Record *rec = getRecord(block, name, vectorPos);
 
   if(rec == 0) {
     MSG("Config::isBool for %s in %s[%ld] not found in config file.",
-	name,block,vectorPos);
+        name,block,vectorPos);
     notCorrect();
     return false;
   }
 
   if(!rec->isBool()) {
     MSG("Config::isBool for %s[%ld] [%s] not satisfied"
-	, block, vectorPos, name);
+        , block, vectorPos, name);
     notCorrect();
     return false;
   }
@@ -828,20 +828,20 @@ bool Config::isBool(const char *block,
 
 bool Config::isLong(const char *block,
                     const char *name,
-		    long vectorPos)
+                    long vectorPos)
 {
   const Record *rec = getRecord(block, name, vectorPos);
 
   if(rec == 0) {
     MSG("Config::isLong for %s in %s[%ld] not found in config file.",
-	name,block,vectorPos);
+        name,block,vectorPos);
     notCorrect();
     return false;
   }
 
   if(!rec->isLong()) {
     MSG("Config::isLong for %s[%ld] [%s] not satisfied"
-	, block, vectorPos, name);
+        , block, vectorPos, name);
     notCorrect();
     return false;
   }
@@ -851,20 +851,20 @@ bool Config::isLong(const char *block,
 
 bool Config::isDouble(const char *block,
                       const char *name,
-		      long vectorPos)
+                      long vectorPos)
 {
   const Record *rec = getRecord(block, name, vectorPos);
 
   if(rec == 0) {
     MSG("Config::isDouble for %s in %s[%ld] not found in config file.",
-	name, block, vectorPos);
+        name, block, vectorPos);
     notCorrect();
     return false;
   }
 
   if(!rec->isDouble()) {
     MSG("Config::isDouble for %s[%ld] [%s] not satisfied"
-	, block, vectorPos, name);
+        , block, vectorPos, name);
     notCorrect();
     return false;
   }
@@ -874,20 +874,20 @@ bool Config::isDouble(const char *block,
 
 bool Config::isCharPtr(const char *block,
                        const char *name,
-		       long vectorPos)
+                       long vectorPos)
 {
   const Record *rec = getRecord(block, name, vectorPos);
 
   if(rec == 0) {
     MSG("Config::isCharPtr for %s in %s[%ld] not found in config file.",
-	name, block, vectorPos);
+        name, block, vectorPos);
     notCorrect();
     return false;
   }
 
   if(!rec->isCharPtr()) {
     MSG("Config::isCharPtr for %s[%ld] [%s] not satisfied"
-	, block, vectorPos, name);
+        , block, vectorPos, name);
     notCorrect();
     return false;
   }
@@ -897,20 +897,20 @@ bool Config::isCharPtr(const char *block,
 
 bool Config::isInList(const char *block,
                       const char *name,
-		      const char *l1,
-		      const char *l2,
-		      const char *l3,
-		      const char *l4,
-		      const char *l5,
-		      const char *l6,
-		      const char *l7,
-		      const long vectorPos)
+                      const char *l1,
+                      const char *l2,
+                      const char *l3,
+                      const char *l4,
+                      const char *l5,
+                      const char *l6,
+                      const char *l7,
+                      const long vectorPos)
 {
   const Record *rec = getRecord(block, name, vectorPos);
 
   if(rec == 0) {
     MSG("Config::isInList for %s in %s[%ld] not found in config file.",
-	name, block, vectorPos);
+        name, block, vectorPos);
     notCorrect();
     return false;
   }
@@ -963,7 +963,7 @@ void Config::updateRecord(const char *block, const char *name, double v,int vect
   std::pair<I,I> b = hashRecord.equal_range(key);
   for(I pos = b.first ; pos != b.second ; ++pos ) {
     if( ( pos->second->getVectorFirst() <= vectorPos 
-	  && pos->second->getVectorLast() >= vectorPos ) ) {
+          && pos->second->getVectorLast() >= vectorPos ) ) {
       rec = pos->second;
       break;
     }
@@ -974,6 +974,32 @@ void Config::updateRecord(const char *block, const char *name, double v,int vect
     rec->setDouble(v);
   }else
     addRecord(block,name,v);
+}
+
+void Config::updateRecord(const char *block, const char *name, const char *val, int vectorPos)
+{
+  KeyIndex key;
+
+  key.s1 = block;
+  key.s2 = name;
+  Record *rec = NULL ;
+
+  typedef hashRecord_t::const_iterator I;
+  std::pair<I,I> b = hashRecord.equal_range(key);
+  for(I pos = b.first ; pos != b.second ; ++pos ) {
+    if( ( pos->second->getVectorFirst() <= vectorPos 
+          && pos->second->getVectorLast() >= vectorPos ) ) {
+      rec = pos->second;
+      break;
+    }
+  }
+
+  if(rec) {
+    I(rec->isCharPtr());
+    rec->setCharPtr(val);
+  }else {
+    addVRecord(block, name, val, vectorPos, vectorPos);
+  }
 }
 
 void Config::getAllSections(std::vector<char *>& sections)

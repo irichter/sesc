@@ -223,6 +223,7 @@ DInst *DInst::createDInst(const Instruction *inst, VAddr va, int cId)
   i->deadStore    = false;
   i->resolved     = false;
   i->deadInst     = false;
+  i->waitOnMemory = false;
 #ifdef SESC_CHERRY
   i->earlyRecycled= false;
   i->canBeRecycled= false;

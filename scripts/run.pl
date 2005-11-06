@@ -1067,6 +1067,7 @@ sub processParams {
     print "\t-saveoutput      ; Save output to a .out file\n";
     print "\t-clean           ; DELETE all the outputs from previous runs\n";
     print "\t-condor          ; Submit jobs using condor.\n";
+    print "\t-native          ; native execution.\n";
     print "\t-condorstd       ; Use condor standard universe.\n";
     print "\t-yes             ; Do not ask for questions. Say all yes\n";
     print "\t-help            ; Show this help\n";

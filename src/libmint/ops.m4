@@ -448,7 +448,7 @@ M4_BREAD(lbu_op, pthread->getREG(picode, RT),
   pthread->setREG(picode, RT, (long) *(unsigned char *) addr);
 })
 
-M4_DREAD(ldc1_op, pthread->getDP(picode, FT),
+M4_DREAD(ldc1_op, pthread->getDP(picode, ICODEFT),
 {
 #ifdef ADDRESS_CHK
     if (addr & 7)
@@ -456,7 +456,7 @@ M4_DREAD(ldc1_op, pthread->getDP(picode, FT),
 #endif
 
     /* read value from memory */
-    pthread->setDPFromMem(picode, FT, (double *) addr);
+    pthread->setDPFromMem(picode, ICODEFT, (double *) addr);
 })
 
 M4_READ(ldc2_op, pthread->getREG(picode, RT),
@@ -523,22 +523,22 @@ M4_READ(lw_op, pthread->getREG(picode, RT),
   pthread->setREGFromMem(picode, RT, (long *) addr);
 })
 
-M4_FREAD(lwc1_op, pthread->getFP(picode, FT),
+M4_FREAD(lwc1_op, pthread->getFP(picode, ICODEFT),
 {
 #ifdef ADDRESS_CHK
   if (addr & 3)
     address_exception_op(picode, pthread);
 #endif
   /* read value from memory */
-  pthread->setFPFromMem(picode, FT, (float *) addr);
+  pthread->setFPFromMem(picode, ICODEFT, (float *) addr);
 })
 
-M4_READ(lwc2_op, pthread->getWFP(picode, FT),
+M4_READ(lwc2_op, pthread->getWFP(picode, ICODEFT),
 {
     fatal("lwc2: not yet implemented\n");
 })
 
-M4_READ(lwc3_op, pthread->getWFP(picode, FT),
+M4_READ(lwc3_op, pthread->getWFP(picode, ICODEFT),
 {
     fatal("lwc3: not yet implemented\n");
 })
@@ -644,12 +644,12 @@ M4_WRITE(sdc1_op,
 {
   I(sizeof(double)==sizeof(unsigned long long));
   unsigned long long v1;
-  *((double *)&v1)=pthread->getDP(picode,FT);
+  *((double *)&v1)=pthread->getDP(picode,ICODEFT);
   v1 = SWAP_LONG(v1);
   *((double *)addr)=*((double *)&v1);
 } 
 #else
- *((double *)addr)=pthread->getDP(picode, FT);
+ *((double *)addr)=pthread->getDP(picode, ICODEFT);
 #endif
 })
 
@@ -766,12 +766,12 @@ M4_WRITE(swc1_op,
 {
   I(sizeof(float)==sizeof(unsigned long));
   unsigned long v1;
-  *((float *)&v1)=pthread->getFP(picode,FT);
+  *((float *)&v1)=pthread->getFP(picode,ICODEFT);
   v1 = SWAP_WORD(v1);
   *((float *)addr)=*((float *)&v1);
  } 
 #else
- *(float *) addr = pthread->getFP(picode, FT);
+ *(float *) addr = pthread->getFP(picode, ICODEFT);
 #endif
 })
 

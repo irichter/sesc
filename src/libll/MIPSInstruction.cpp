@@ -644,26 +644,26 @@ void Instruction::MIPSDecodeInstruction(size_t        index
   case add_s_opn:
   case sub_s_opn:
     opcode = fpALU;
-    dest = static_cast < RegType > (picode->getFPN(FD) + static_cast < int >(IntFPBoundary));
-    src1 = static_cast < RegType > (picode->getFPN(FS) + static_cast < int >(IntFPBoundary));
-    src2 = static_cast < RegType > (picode->getFPN(FT) + static_cast < int >(IntFPBoundary));
+    dest = static_cast < RegType > (picode->getFPN(ICODEFD) + static_cast < int >(IntFPBoundary));
+    src1 = static_cast < RegType > (picode->getFPN(ICODEFS) + static_cast < int >(IntFPBoundary));
+    src2 = static_cast < RegType > (picode->getFPN(ICODEFT) + static_cast < int >(IntFPBoundary));
     break;
   case mul_s_opn:
     opcode = fpMult;
-    dest = static_cast < RegType > (picode->getFPN(FD) + static_cast < int >(IntFPBoundary));
-    src1 = static_cast < RegType > (picode->getFPN(FS) + static_cast < int >(IntFPBoundary));
-    src2 = static_cast < RegType > (picode->getFPN(FT) + static_cast < int >(IntFPBoundary));
+    dest = static_cast < RegType > (picode->getFPN(ICODEFD) + static_cast < int >(IntFPBoundary));
+    src1 = static_cast < RegType > (picode->getFPN(ICODEFS) + static_cast < int >(IntFPBoundary));
+    src2 = static_cast < RegType > (picode->getFPN(ICODEFT) + static_cast < int >(IntFPBoundary));
     break;
   case div_s_opn:
     opcode = fpDiv;
-    dest = static_cast < RegType > (picode->getFPN(FD) + static_cast < int >(IntFPBoundary));
-    src1 = static_cast < RegType > (picode->getFPN(FS) + static_cast < int >(IntFPBoundary));
-    src2 = static_cast < RegType > (picode->getFPN(FT) + static_cast < int >(IntFPBoundary));
+    dest = static_cast < RegType > (picode->getFPN(ICODEFD) + static_cast < int >(IntFPBoundary));
+    src1 = static_cast < RegType > (picode->getFPN(ICODEFS) + static_cast < int >(IntFPBoundary));
+    src2 = static_cast < RegType > (picode->getFPN(ICODEFT) + static_cast < int >(IntFPBoundary));
     break;
   case sqrt_s_opn:
     opcode = fpDiv;
-    dest = static_cast < RegType > (picode->getFPN(FD) + static_cast < int >(IntFPBoundary));
-    src1 = static_cast < RegType > (picode->getFPN(FS) + static_cast < int >(IntFPBoundary));
+    dest = static_cast < RegType > (picode->getFPN(ICODEFD) + static_cast < int >(IntFPBoundary));
+    src1 = static_cast < RegType > (picode->getFPN(ICODEFS) + static_cast < int >(IntFPBoundary));
     break;
   case abs_s_opn:
   case mov_s_opn:
@@ -674,13 +674,13 @@ void Instruction::MIPSDecodeInstruction(size_t        index
   case floor_w_s_opn:
   case cvt_w_s_opn:
     opcode = fpALU;
-    dest = static_cast < RegType > (picode->getFPN(FD) + static_cast < int >(IntFPBoundary));
-    src1 = static_cast < RegType > (picode->getFPN(FS) + static_cast < int >(IntFPBoundary));
+    dest = static_cast < RegType > (picode->getFPN(ICODEFD) + static_cast < int >(IntFPBoundary));
+    src1 = static_cast < RegType > (picode->getFPN(ICODEFS) + static_cast < int >(IntFPBoundary));
     break;
   case cvt_d_s_opn:
     opcode = fpALU;
-    dest = static_cast < RegType > (picode->getDPN(FD) + static_cast < int >(IntFPBoundary));
-    src1 = static_cast < RegType > (picode->getFPN(FS) + static_cast < int >(IntFPBoundary));
+    dest = static_cast < RegType > (picode->getDPN(ICODEFD) + static_cast < int >(IntFPBoundary));
+    src1 = static_cast < RegType > (picode->getFPN(ICODEFS) + static_cast < int >(IntFPBoundary));
     break;
   case c_f_s_opn:
   case c_un_s_opn:
@@ -700,32 +700,32 @@ void Instruction::MIPSDecodeInstruction(size_t        index
   case c_ngt_s_opn:
     opcode = fpALU;
     dest = CoprocStatReg;
-    src1 = static_cast < RegType > (picode->getFPN(FS) + static_cast < int >(IntFPBoundary));
-    src2 = static_cast < RegType > (picode->getFPN(FT) + static_cast < int >(IntFPBoundary));
+    src1 = static_cast < RegType > (picode->getFPN(ICODEFS) + static_cast < int >(IntFPBoundary));
+    src2 = static_cast < RegType > (picode->getFPN(ICODEFT) + static_cast < int >(IntFPBoundary));
     break;
   case add_d_opn:
   case sub_d_opn:
     opcode = fpALU;
-    dest = static_cast < RegType > (picode->getDPN(FD) + static_cast < int >(IntFPBoundary));
-    src1 = static_cast < RegType > (picode->getDPN(FS) + static_cast < int >(IntFPBoundary));
-    src2 = static_cast < RegType > (picode->getDPN(FT) + static_cast < int >(IntFPBoundary));
+    dest = static_cast < RegType > (picode->getDPN(ICODEFD) + static_cast < int >(IntFPBoundary));
+    src1 = static_cast < RegType > (picode->getDPN(ICODEFS) + static_cast < int >(IntFPBoundary));
+    src2 = static_cast < RegType > (picode->getDPN(ICODEFT) + static_cast < int >(IntFPBoundary));
     break;
   case mul_d_opn:
     opcode = fpMult;
-    dest = static_cast < RegType > (picode->getDPN(FD) + static_cast < int >(IntFPBoundary));
-    src1 = static_cast < RegType > (picode->getDPN(FS) + static_cast < int >(IntFPBoundary));
-    src2 = static_cast < RegType > (picode->getDPN(FT) + static_cast < int >(IntFPBoundary));
+    dest = static_cast < RegType > (picode->getDPN(ICODEFD) + static_cast < int >(IntFPBoundary));
+    src1 = static_cast < RegType > (picode->getDPN(ICODEFS) + static_cast < int >(IntFPBoundary));
+    src2 = static_cast < RegType > (picode->getDPN(ICODEFT) + static_cast < int >(IntFPBoundary));
     break;
   case div_d_opn:
     opcode = fpDiv;
-    dest = static_cast < RegType > (picode->getDPN(FD) + static_cast < int >(IntFPBoundary));
-    src1 = static_cast < RegType > (picode->getDPN(FS) + static_cast < int >(IntFPBoundary));
-    src2 = static_cast < RegType > (picode->getDPN(FT) + static_cast < int >(IntFPBoundary));
+    dest = static_cast < RegType > (picode->getDPN(ICODEFD) + static_cast < int >(IntFPBoundary));
+    src1 = static_cast < RegType > (picode->getDPN(ICODEFS) + static_cast < int >(IntFPBoundary));
+    src2 = static_cast < RegType > (picode->getDPN(ICODEFT) + static_cast < int >(IntFPBoundary));
     break;
   case sqrt_d_opn:
     opcode = fpDiv;
-    dest = static_cast < RegType > (picode->getDPN(FD) + static_cast < int >(IntFPBoundary));
-    src1 = static_cast < RegType > (picode->getDPN(FS) + static_cast < int >(IntFPBoundary));
+    dest = static_cast < RegType > (picode->getDPN(ICODEFD) + static_cast < int >(IntFPBoundary));
+    src1 = static_cast < RegType > (picode->getDPN(ICODEFS) + static_cast < int >(IntFPBoundary));
     break;
   case abs_d_opn:
   case mov_d_opn:
@@ -735,14 +735,14 @@ void Instruction::MIPSDecodeInstruction(size_t        index
   case ceil_w_d_opn:
   case floor_w_d_opn:
     opcode = fpALU;
-    dest = static_cast < RegType > (picode->getDPN(FD) + static_cast < int >(IntFPBoundary));
-    src1 = static_cast < RegType > (picode->getDPN(FS) + static_cast < int >(IntFPBoundary));
+    dest = static_cast < RegType > (picode->getDPN(ICODEFD) + static_cast < int >(IntFPBoundary));
+    src1 = static_cast < RegType > (picode->getDPN(ICODEFS) + static_cast < int >(IntFPBoundary));
     break;
   case cvt_s_d_opn:
   case cvt_w_d_opn:
     opcode = fpALU;
-    dest = static_cast < RegType > (picode->getFPN(FD) + static_cast < int >(IntFPBoundary));
-    src1 = static_cast < RegType > (picode->getDPN(FS) + static_cast < int >(IntFPBoundary));
+    dest = static_cast < RegType > (picode->getFPN(ICODEFD) + static_cast < int >(IntFPBoundary));
+    src1 = static_cast < RegType > (picode->getDPN(ICODEFS) + static_cast < int >(IntFPBoundary));
     break;
   case c_f_d_opn:
   case c_un_d_opn:
@@ -762,8 +762,8 @@ void Instruction::MIPSDecodeInstruction(size_t        index
   case c_ngt_d_opn:
     opcode = fpALU;
     dest = CoprocStatReg;
-    src1 = static_cast < RegType > (picode->getDPN(FS) + static_cast < int >(IntFPBoundary));
-    src2 = static_cast < RegType > (picode->getDPN(FT) + static_cast < int >(IntFPBoundary));
+    src1 = static_cast < RegType > (picode->getDPN(ICODEFS) + static_cast < int >(IntFPBoundary));
+    src2 = static_cast < RegType > (picode->getDPN(ICODEFT) + static_cast < int >(IntFPBoundary));
     break;
 
     /*
@@ -771,13 +771,13 @@ void Instruction::MIPSDecodeInstruction(size_t        index
      */
   case cvt_s_w_opn:
     opcode = fpALU;
-    dest = static_cast < RegType > (picode->getFPN(FD) + static_cast < int >(IntFPBoundary));
-    src1 = static_cast < RegType > (picode->getFPN(FS) + static_cast < int >(IntFPBoundary));
+    dest = static_cast < RegType > (picode->getFPN(ICODEFD) + static_cast < int >(IntFPBoundary));
+    src1 = static_cast < RegType > (picode->getFPN(ICODEFS) + static_cast < int >(IntFPBoundary));
     break;
   case cvt_d_w_opn:
     opcode = fpALU;
-    dest = static_cast < RegType > (picode->getDPN(FD) + static_cast < int >(IntFPBoundary));
-    src1 = static_cast < RegType > (picode->getFPN(FS) + static_cast < int >(IntFPBoundary));
+    dest = static_cast < RegType > (picode->getDPN(ICODEFD) + static_cast < int >(IntFPBoundary));
+    src1 = static_cast < RegType > (picode->getFPN(ICODEFS) + static_cast < int >(IntFPBoundary));
     break;
 
     /*
@@ -786,12 +786,12 @@ void Instruction::MIPSDecodeInstruction(size_t        index
   case mfc1_opn:
     opcode = fpALU;
     dest = static_cast < RegType > (picode->getRN(RT));
-    src1 = static_cast < RegType > (picode->getFPN(FS) + static_cast < int >(IntFPBoundary));
+    src1 = static_cast < RegType > (picode->getFPN(ICODEFS) + static_cast < int >(IntFPBoundary));
     break;
 
   case mtc1_opn:
     opcode = fpALU;
-    dest = static_cast < RegType > (picode->getFPN(FS) + static_cast < int >(IntFPBoundary));
+    dest = static_cast < RegType > (picode->getFPN(ICODEFS) + static_cast < int >(IntFPBoundary));
     src1 = static_cast < RegType > (picode->getRN(RT));
     break;
   case cfc1_opn:

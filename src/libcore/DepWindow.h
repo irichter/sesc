@@ -72,15 +72,14 @@ private:
 
   long addInstBank;
 
-#ifdef SESC_SEED
   Time_t lastWakeUpTime;
-#endif
   
   PortGeneric **depTablePort;
 
   GStatsEnergy *depTableEnergy; // FIXME: correct energy computed
-
 #endif
+
+  GStatsCntr nReplay;
 
   GStatsEnergy *resultBusEnergy;
   GStatsEnergy *forwardBusEnergy;

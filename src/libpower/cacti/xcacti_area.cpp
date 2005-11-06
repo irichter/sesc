@@ -855,12 +855,12 @@ static area_type fadecode_row(int C, int B,
   return(postdecodearea);
 }
 
-area_type fasubarray(int baddr, 
-		     int C, 
-		     int B, 
-		     int Ndbl,
-		     int RWP, int ERP, int EWP, int NSER,
-		     double techscaling_factor) {
+static area_type fasubarray(int baddr, 
+			    int C, 
+			    int B, 
+			    int Ndbl,
+			    int RWP, int ERP, int EWP, int NSER,
+			    double techscaling_factor) {
 
   area_type FAarea, fadecoderow, faramcell;
   int noof_rowsdata, noof_colnsdata;
@@ -920,11 +920,11 @@ area_type fasubarray(int baddr,
   return(FAarea);
 }
 
-area_type faarea(int baddr, int b0,
-		 int C, int B,
-		 int Ndbl,
-		 int RWP, int ERP, int EWP, int NSER,
-		 double techscaling_factor) {
+static area_type faarea(int baddr, int b0,
+			int C, int B,
+			int Ndbl,
+			int RWP, int ERP, int EWP, int NSER,
+			double techscaling_factor) {
 
   area_type fasubarray_area,fa_area;
   int Tagbits, blocksel;
@@ -1018,9 +1018,9 @@ area_type faarea(int baddr, int b0,
   return(fa_area);
 }
 
-void fatotalarea(int baddr, int b0, int Ndbl,
-		 const parameter_type *parameters,
-		 arearesult_type *faresult) {
+static void fatotalarea(int baddr, int b0, int Ndbl,
+			const parameter_type *parameters,
+			arearesult_type *faresult) {
 
   area_type null_area;
 
@@ -1085,8 +1085,6 @@ void xcacti_area_subbanked(int baddr,
   result->tagoutdrvdecode_area = result_area.tagoutdrvdecode_area;
   result->tagoutdrvsig_area = result_area.tagoutdrvsig_area;
   result->totalarea = result_area.totalarea;
-  result->total_dataarea = result_area.total_dataarea;
-  result->total_tagarea = result_area.total_tagarea;
 
   if (parameters->NSubbanks == 1) {
     total_height = result_area.dataarray_area.height;
@@ -1219,3 +1217,6 @@ double xcacti_calculate_area(area_type module_area,
 
   return(module_area.height*module_area.width*(1/techscaling_factor)*(1/techscaling_factor));
 }
+
+
+

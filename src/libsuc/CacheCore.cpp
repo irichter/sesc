@@ -29,6 +29,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include <stddef.h>
 #include <stdarg.h>
 #include <string.h>
+#include <strings.h>
 
 #include "CacheCore.h"
 #include "SescConf.h"

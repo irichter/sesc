@@ -6,30 +6,40 @@
 #include "nanassert.h"
 
 class ThermTrace {
- private:
-  const char *input_file_;
-  int input_fd_;
-
+ public:
   typedef std::vector<const char *> TokenVectorType;
 
   // Floorplan
   class FLPUnit {
   public:
-    FLPUnit() {
+    FLPUnit(const char *na) : name(na) {
       area  = 0;
       units = 0;
-      name  = 0;
+      x = 0;
+      y = 0;
+      delta_x = 0;
+      delta_y = 0;
     }
     void dump() const {
-      MSG("Block %20s area %4.2g #units %d",name, area*1e6, units);
+      MSG("Block %20s area %4.2g #units %d (%6.5g,%6.5g) -> (%6.5g,%6.5g)",name, area*1e6, units,x,y,x+delta_x,y+delta_y);
     }
 
     const char *name;
+    int id;
+    TokenVectorType match;
     float area;
+    float x;
+    float y;
+    float delta_x;
+    float delta_y;
     int units;
-    float energy;
+    float energy; // used by trace only
   };
-  std::vector<FLPUnit> flp;
+ private:
+  const char *input_file_;
+  int input_fd_;
+
+  std::vector<FLPUnit *> flp;
 
   class Mapping {
   public:
@@ -66,9 +76,11 @@ class ThermTrace {
   
   float get_energy(size_t pos) const {
     I(pos < flp.size());
-    return flp[pos].energy;
+    return flp[pos]->energy;
   }
   size_t get_energy_size() const { return flp.size(); }
+
+  const FLPUnit *findBlock(const char *name) const;
 
   void dump() const;
 };

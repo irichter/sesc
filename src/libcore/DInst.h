@@ -112,6 +112,7 @@ private:
   bool depsAtRetire;
   bool deadStore;
   bool deadInst;
+  bool waitOnMemory;
 
   bool resolved; // For load/stores when the address is computer, for
 		 // the rest of instructions when it is executed
@@ -364,6 +365,7 @@ private:
   void addSrc2(DInst * d) {
     I(d->nDeps < MAX_PENDING_SOURCES);
     d->nDeps++;
+    I(!d->waitOnMemory); // pend[1] reused on memory ops. Not both! 
     
     DInstNext *n = &d->pend[1];
     I(!n->isUsed);
@@ -383,7 +385,9 @@ private:
   void addFakeSrc(DInst * d) {
     I(d->nDeps < MAX_PENDING_SOURCES);
     d->nDeps++;
-    
+    I(!d->waitOnMemory);
+    d->waitOnMemory = true;
+
     DInstNext *n = &d->pend[1];
     I(!n->isUsed);
     n->isUsed = true;
@@ -442,6 +446,7 @@ private:
 
   bool isSrc1Ready() const { return !pend[0].isUsed; }
   bool isSrc2Ready() const { return !pend[1].isUsed; }
+  bool isJustWaitingOnMemory() const { return !pend[0].isUsed && waitOnMemory; }
   bool hasDeps()     const { 
     GI(!pend[0].isUsed && !pend[1].isUsed, nDeps==0);
     return nDeps!=0;

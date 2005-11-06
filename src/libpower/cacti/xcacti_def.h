@@ -136,30 +136,30 @@ extern int BITOUT;
 #define Leff          (0.8)
 
 /* fF/um2 */
-#define Cgate         1.95e-15	
+#define Cgate         1.95e-15  
 
 /* fF/um2 */
-#define Cgatepass     1.45e-15	
+#define Cgatepass     1.45e-15  
 
 /* note that the value of Cgatepass will be different depending on 
    whether or not the source and drain are at different potentials or
    the same potential.  The two values were averaged */
 
 /* fF/um */
-#define Cpolywire	(0.25e-15)			 
+#define Cpolywire       (0.25e-15)                       
 
 /* ohms*um of channel width */
-#define Rnchannelstatic	(25800)
+#define Rnchannelstatic (25800)
 
 /* ohms*um of channel width */
-#define Rpchannelstatic	(61200)
+#define Rpchannelstatic (61200)
 
-#define Rnchannelon	(8751)
+#define Rnchannelon     (8751)
 
-#define Rpchannelon	(20160)
+#define Rpchannelon     (20160)
 
 
-#define Vdd		5
+#define Vdd             5
 /* Threshold voltages (as a proportion of Vdd)
    If you don't know them, set all values to 0.5 */
 
@@ -275,8 +275,8 @@ extern double tsensedata;
 extern double tsensetag;
 #else
 /* transistor widths in um (as described in tech report, appendix 1) */
-#define Wdecdrivep	(360.0)
-#define Wdecdriven	(240.0)
+#define Wdecdrivep      (360.0)
+#define Wdecdriven      (240.0)
 #define Wdec3to8n     120.0
 #define Wdec3to8p     60.0
 #define WdecNORn       2.4
@@ -284,19 +284,19 @@ extern double tsensetag;
 #define Wdecinvn      20.0
 #define Wdecinvp      40.0 
 #define Wworddrivemax 100.0
-#define Wmemcella	(2.4)
-#define Wmemcellbscale	2		/* means 2x bigger than Wmemcella */
-#define Wbitpreequ	(80.0)
-#define Wbitmuxn	(10.0)
-#define WsenseQ1to4	(4.0)
-#define Wcompinvp1	(10.0)
-#define Wcompinvn1	(6.0)
-#define Wcompinvp2	(20.0)
-#define Wcompinvn2	(12.0)
-#define Wcompinvp3	(40.0)
-#define Wcompinvn3	(24.0)
-#define Wevalinvp	(80.0)
-#define Wevalinvn	(40.0)
+#define Wmemcella       (2.4)
+#define Wmemcellbscale  2               /* means 2x bigger than Wmemcella */
+#define Wbitpreequ      (80.0)
+#define Wbitmuxn        (10.0)
+#define WsenseQ1to4     (4.0)
+#define Wcompinvp1      (10.0)
+#define Wcompinvn1      (6.0)
+#define Wcompinvp2      (20.0)
+#define Wcompinvn2      (12.0)
+#define Wcompinvp3      (40.0)
+#define Wcompinvn3      (24.0)
+#define Wevalinvp       (80.0)
+#define Wevalinvn       (40.0)
 
 #define Wfadriven    (50.0)
 #define Wfadrivep    (100.0)
@@ -324,24 +324,24 @@ extern double tsensetag;
 #define Wdecnandn       (10.0)
 #define Wdecnandp       (30.0)
 
-#define Wcompn		(10.0)
-#define Wcompp		(30.0)
-#define Wmuxdrv12n	(60.0)
-#define Wmuxdrv12p	(100.0)
+#define Wcompn          (10.0)
+#define Wcompp          (30.0)
+#define Wmuxdrv12n      (60.0)
+#define Wmuxdrv12p      (100.0)
 #define WmuxdrvNANDn    (60.0)
 #define WmuxdrvNANDp    (80.0)
-#define WmuxdrvNORn	(40.0)
-#define WmuxdrvNORp	(100.0)
-#define Wmuxdrv3n	(80.0)
-#define Wmuxdrv3p	(200.0)
-#define Woutdrvseln	(24.0)
-#define Woutdrvselp	(40.0)
-#define Woutdrvnandn	(10.0)
-#define Woutdrvnandp	(30.0)
-#define Woutdrvnorn	(5.0)
-#define Woutdrvnorp	(20.0)
-#define Woutdrivern	(48.0)
-#define Woutdriverp	(80.0)
+#define WmuxdrvNORn     (40.0)
+#define WmuxdrvNORp     (100.0)
+#define Wmuxdrv3n       (80.0)
+#define Wmuxdrv3p       (200.0)
+#define Woutdrvseln     (24.0)
+#define Woutdrvselp     (40.0)
+#define Woutdrvnandn    (10.0)
+#define Woutdrvnandp    (30.0)
+#define Woutdrvnorn     (5.0)
+#define Woutdrvnorp     (20.0)
+#define Woutdrivern     (48.0)
+#define Woutdriverp     (80.0)
 
 #define Wsenseextdrv1p (80.0)
 #define Wsenseextdrv1n (40.0)
@@ -350,22 +350,22 @@ extern double tsensetag;
 
 /* other stuff (from tech report, appendix 1) */
 
-#define tsensedata	(5.8e-10)
+#define tsensedata      (5.8e-10)
 // #define psensedata      (0.025e-9)
 #define psensedata      (0.02e-9)
 
 // #define psensetag       (0.01e-9)
-#define psensetag	(0.016e-9)
-#define tsensetag	(2.6e-10)
+#define psensetag       (0.016e-9)
+#define tsensetag       (2.6e-10)
 #endif
 
 #define tsensescale     0.02e-10
 
-#define krise		(0.4e-9)
-#define tfalldata	(7e-10)
-#define tfalltag	(7e-10)
-#define Vbitpre		(3.3)
-#define Vt		(1.09)
+#define krise           (0.4e-9)
+#define tfalldata       (7e-10)
+#define tfalltag        (7e-10)
+#define Vbitpre         (3.3)
+#define Vt              (1.09)
 
 #ifdef XCACTI
 extern double Vbitsense;
@@ -376,12 +376,12 @@ extern double BitHeight; /* bit height of RAM cell in um */
 /* scaling done by Cout / (Geometrical Scaling factor)^2 */
 extern double Cout;
 #else
-#define Vbitsense	(0.10)
+#define Vbitsense       (0.10)
 /* bit width of RAM cell in um */
-#define BitWidth	(8.0)
+#define BitWidth        (8.0)
 /* bit height of RAM cell in um */
-#define BitHeight	(16.0)
-#define Cout		(0.5e-12)
+#define BitHeight       (16.0)
+#define Cout            (0.5e-12)
 #endif
 
 extern double Cwordmetal;
@@ -489,23 +489,60 @@ struct result_type {
   int tag_nor_inputs;
 };
 
+struct xcacti_flp {
+  // Layout per bank in ratio of area (there are NSubbanks)
+  //
+  //    +------------------------------+
+  //    |         bank ctrl            |
+  //    +------------------------------+
+  //    |  tag   | de |  data          |
+  //    | array  | co |  array         |
+  //    |        | de |                |
+  //    +------------------------------+
+  //    | tag_ctrl | data_ctrl         |
+  //    +------------------------------+
+
+  double bank_ctrl_a;
+  double decode_a;
+  double tag_array_a;
+  double tag_ctrl_a;
+  double data_array_a;
+  double data_ctrl_a;
+  double total_a;
+
+  double bank_ctrl_e;
+  double decode_e;
+  double tag_array_e;
+  double tag_ctrl_e;
+  double data_array_e;
+  double data_ctrl_e;
+
+  int NSubbanks;
+  int assoc;
+};
+
 struct arearesult_type;
 struct area_type;
 
 int xcacti_parameter_check(const parameter_type *parameters);
 int xcacti_input_data(int argc,  char *argv[], parameter_type *parameters);
 void xcacti_calculate_time(const parameter_type *parameters,
-			   result_type *result,
-			   arearesult_type *arearesult,
-			   area_type *arearesult_subbanked);
+                           result_type *result,
+                           arearesult_type *arearesult,
+                           area_type *arearesult_subbanked);
 
 void xcacti_output_data(const result_type *result,
-			const arearesult_type *arearesult,
-			const area_type *arearesult_subbanked,
-			const parameter_type *parameters);
+                        const arearesult_type *arearesult,
+                        const area_type *arearesult_subbanked,
+                        const parameter_type *parameters);
 
 void xcacti_parameters_dump(const parameter_type *parameters);
 
 void xcacti_parameter_adjust(parameter_type *parameters);
 
+void xcacti_power_flp(const result_type *result,
+                      const arearesult_type *arearesult,
+                      const area_type *arearesult_subbanked,
+                      const parameter_type *parameters,
+                      xcacti_flp *xflp);
 #endif

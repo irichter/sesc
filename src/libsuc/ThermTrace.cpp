@@ -114,43 +114,65 @@ bool ThermTrace::grep(const char *line, const char *pattern) {
   return true;
 }
 
+const ThermTrace::FLPUnit *ThermTrace::findBlock(const char *name) const {
+
+  for(size_t id=0;id<flp.size();id++) {
+    if (strcasecmp(name, flp[id]->name) == 0)
+      return flp[id];
+  }
+
+  return 0; // Not found
+}
+
 void ThermTrace::read_floorplan_mapping() {
 
-  I(!mapping.empty()); // first call read_sesc_variable
+  GI(input_file_[0]!=0,!mapping.empty()); // first call read_sesc_variable
 
   const char *flpSec = SescConf->getCharPtr("","floorplan");
   size_t min = SescConf->getRecordMin(flpSec,"blockDescr");
   size_t max = SescConf->getRecordMax(flpSec,"blockDescr");
 
   // Floor plan parameters
-  flp.resize(max+1);
   for(size_t id=min;id<=max;id++) {
+    if (!SescConf->checkCharPtr(flpSec,"blockDescr", id)) {
+      MSG("There is a WHOLE on the floorplan. This can create problems blockDescr[%d]", id);
+      exit(-1);
+      continue;
+    }
+
     const char *blockDescr = SescConf->getCharPtr(flpSec,"blockDescr", id);
     TokenVectorType descr;
     tokenize(blockDescr, descr);
 
-    flp[id].area = atof(descr[1])*atof(descr[2]);
-    flp[id].name = strdup(descr[0]);
+    FLPUnit *xflp = new FLPUnit(strdup(descr[0]));
+    xflp->id   = id;
+    xflp->area = atof(descr[1])*atof(descr[2]);
+
+    xflp->x       = atof(descr[3]);
+    xflp->y       = atof(descr[4]);
+    xflp->delta_x = atof(descr[1]);
+    xflp->delta_y = atof(descr[2]);
+
+    const char *blockMatch = SescConf->getCharPtr(flpSec,"blockMatch", id);
+    tokenize(blockMatch, xflp->match);
+
+    flp.push_back(xflp);
   }
 
   // Find mappings between variables and flp
 
-  for(size_t id=min;id<=max;id++) {
-    const char *blockMatch = SescConf->getCharPtr(flpSec,"blockMatch", id);
-    TokenVectorType match;
-    tokenize(blockMatch, match);
-
-    for(size_t i=0; i<match.size(); i++) {
+  for(size_t id=0;id<flp.size();id++) {
+    for(size_t i=0; i<flp[id]->match.size(); i++) {
       for(size_t j=0; j<mapping.size(); j++) {
-	if (grep(mapping[j].name, match[i])) {
+	if (grep(mapping[j].name, flp[id]->match[i])) {
 
 	  MSG("mapping[%d].map[%d]=%d (%s -> %s)", 
-	      j, mapping[j].map.size(), id, match[i], mapping[j].name);
+	      j, mapping[j].map.size(), id, flp[id]->match[i], mapping[j].name);
 
 	  I(id < flp.size());
-	  flp[id].units++;
+	  flp[id]->units++;
 	  I(j < mapping.size());
-	  mapping[j].area += flp[id].area;
+	  mapping[j].area += flp[id]->area;
 	  mapping[j].map.push_back(id);
 	}
       }
@@ -159,7 +181,7 @@ void ThermTrace::read_floorplan_mapping() {
 
   for(size_t i=0;i<mapping.size();i++) {
     for(size_t j=0; j<mapping[i].map.size(); j++) {
-      float ratio = flp[mapping[i].map[j]].area/mapping[i].area;
+      float ratio = flp[mapping[i].map[j]]->area/mapping[i].area;
       mapping[i].ratio.push_back(ratio);
     }
   }
@@ -174,18 +196,20 @@ void ThermTrace::read_floorplan_mapping() {
 }
 
 ThermTrace::ThermTrace(const char *input_file)
-  : input_file_(strdup(input_file)) {
-		  
-  read_sesc_variable(input_file);
-  read_floorplan_mapping();
-
-  dump();
+  : input_file_(strdup(input_file?input_file:"")) {
+	
+    if( input_file)
+      read_sesc_variable(input_file);
+    
+    read_floorplan_mapping();
+    
+    dump();
 }
 
 void ThermTrace::dump() const {
 
   for(size_t i=0;i<flp.size();i++) {
-    flp[i].dump();
+    flp[i]->dump();
   }
 
   for(size_t i=0;i<mapping.size();i++) {
@@ -207,7 +231,7 @@ bool ThermTrace::read_energy() {
 
   // Do mapping
   for(size_t k=0;k<flp.size();k++) {
-    flp[k].energy = 0;
+    flp[k]->energy = 0;
   }
 
   for(size_t i=0;i<mapping.size();i++) {
@@ -215,7 +239,7 @@ bool ThermTrace::read_energy() {
     for(size_t k=0;k<mapping[i].map.size();k++) {
       int flp_id  = mapping[i].map[k];
 
-      flp[flp_id].energy += mapping[i].ratio[k]*buffer[i];
+      flp[flp_id]->energy += mapping[i].ratio[k]*buffer[i];
     }
   }
 
@@ -230,7 +254,7 @@ bool ThermTrace::read_energy() {
 #if 0
   printf("[");
   for(size_t i=0;i<flp.size();i++) {
-    printf(" %g",flp[i].area);
+    printf(" %g",flp[i]->area);
   }
   printf("]\n");
 #endif

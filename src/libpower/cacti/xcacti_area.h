@@ -123,8 +123,6 @@ struct arearesult_type {
   area_type tagoutdrvdecode_area;
   area_type tagoutdrvsig_area;
   double totalarea;
-  double total_dataarea;
-  double total_tagarea;
   double max_efficiency, efficiency;
   double max_aspect_ratio_total, aspect_ratio_total;
 } ;
@@ -144,6 +142,6 @@ int xcacti_organizational_parameters_valid(int B, int A, int C,
 					   int Ntwl, int Ntbl, int Ntspd,
 					   char assoc);
 
-double xcacti_calculate_area(area_type,double);
+double xcacti_calculate_area(area_type module_area, double techscaling_factor);
 
 #endif

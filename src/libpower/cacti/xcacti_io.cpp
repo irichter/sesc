@@ -58,8 +58,8 @@ int PHASEDCACHE=0;
 int ADDRESS_BITS=32;
 int BITOUT=64;
 
-double Wdecdrivep=	(360.0);
-double Wdecdriven=	(240.0);
+double Wdecdrivep=      (360.0);
+double Wdecdriven=      (240.0);
 double Wdec3to8n=     120.0;
 double Wdec3to8p=     60.0;
 double WdecNORn=       2.4;
@@ -67,19 +67,19 @@ double WdecNORp=      12.0;
 double Wdecinvn=      20.0;
 double Wdecinvp=      40.0 ;
 double Wworddrivemax= 100.0;
-double Wmemcella=	(2.4);
-double Wmemcellbscale=	2;		/* means 2x bigger than Wmemcella */
-double Wbitpreequ=	(80.0);
-double Wbitmuxn=	(10.0);
-double WsenseQ1to4=	(4.0);
-double Wcompinvp1=	(10.0);
-double Wcompinvn1=	(6.0);
-double Wcompinvp2=	(20.0);
-double Wcompinvn2=	(12.0);
-double Wcompinvp3=	(40.0);
-double Wcompinvn3=	(24.0);
-double Wevalinvp=	(80.0);
-double Wevalinvn=	(40.0);
+double Wmemcella=       (2.4);
+double Wmemcellbscale=  2;              /* means 2x bigger than Wmemcella */
+double Wbitpreequ=      (80.0);
+double Wbitmuxn=        (10.0);
+double WsenseQ1to4=     (4.0);
+double Wcompinvp1=      (10.0);
+double Wcompinvn1=      (6.0);
+double Wcompinvp2=      (20.0);
+double Wcompinvn2=      (12.0);
+double Wcompinvp3=      (40.0);
+double Wcompinvn3=      (24.0);
+double Wevalinvp=       (80.0);
+double Wevalinvn=       (40.0);
 
 double Wfadriven=    (50.0);
 double Wfadrivep=    (100.0);
@@ -107,24 +107,24 @@ double Wfanorp=         (10.0);
 double Wdecnandn=       (10.0);
 double Wdecnandp=       (30.0);
 
-double Wcompn=		(10.0);
-double Wcompp=		(30.0);
-double Wmuxdrv12n=	(60.0);
-double Wmuxdrv12p=	(100.0);
+double Wcompn=          (10.0);
+double Wcompp=          (30.0);
+double Wmuxdrv12n=      (60.0);
+double Wmuxdrv12p=      (100.0);
 double WmuxdrvNANDn=    (60.0);
 double WmuxdrvNANDp=    (80.0);
-double WmuxdrvNORn=	(40.0);
-double WmuxdrvNORp=	(100.0);
-double Wmuxdrv3n=	(80.0);
-double Wmuxdrv3p=	(200.0);
-double Woutdrvseln=	(24.0);
-double Woutdrvselp=	(40.0);
-double Woutdrvnandn=	(10.0);
-double Woutdrvnandp=	(30.0);
-double Woutdrvnorn=	(5.0);
-double Woutdrvnorp=	(20.0);
-double Woutdrivern=	(48.0);
-double Woutdriverp=	(80.0);
+double WmuxdrvNORn=     (40.0);
+double WmuxdrvNORp=     (100.0);
+double Wmuxdrv3n=       (80.0);
+double Wmuxdrv3p=       (200.0);
+double Woutdrvseln=     (24.0);
+double Woutdrvselp=     (40.0);
+double Woutdrvnandn=    (10.0);
+double Woutdrvnandp=    (30.0);
+double Woutdrvnorn=     (5.0);
+double Woutdrvnorp=     (20.0);
+double Woutdrivern=     (48.0);
+double Woutdriverp=     (80.0);
 
 double Wsenseextdrv1p= (80.0);
 double Wsenseextdrv1n= (40.0);
@@ -139,11 +139,11 @@ double tsensetag = (0.02e-9);
 
 double Vbitsense = (0.20); /* Original CACTI 0.1, but amrutur recommend 200mV */ 
 
-double BitWidth	= (8.0);
-double BitHeight	= (16.0);
+double BitWidth = (8.0);
+double BitHeight        = (16.0);
 double Cout = (0.5e-12);
 #endif
-						
+                                                
 /*---------------------------------------------------------------*/
 
 static double logtwo(double x) {
@@ -186,123 +186,123 @@ static void output_time_components(const result_type *result,const parameter_typ
   } else {
     tagpath = result->subbank_address_routing_delay+result->decoder_delay_tag+result->wordline_delay_tag+result->bitline_delay_tag+result->sense_amp_delay_tag+result->compare_part_delay+result->drive_mux_delay+result->selb_delay+result->data_output_delay+result->total_out_driver_delay_data;
   }
-	
+        
   if (!parameters->fully_assoc) {
     printf(" decode data      : %9.3fps %9.3fpJ\n"
-	   ,result->decoder_delay_data/PICOS
-	   ,result->decoder_power_data*PICOJ);
+           ,result->decoder_delay_data/PICOS
+           ,result->decoder_power_data*PICOJ);
   }else{
     printf(" tag comparison   : %9.3fps %9.3fpJ\n"
-	   ,result->decoder_delay_data/PICOS
-	   ,result->decoder_power_data*PICOJ);
+           ,result->decoder_delay_data/PICOS
+           ,result->decoder_power_data*PICOJ);
   }
-	
+        
   printf(" w&b line  data   : %9.3fps %9.3fpJ\n"
-	 ,(result->wordline_delay_data
-	   +result->bitline_delay_data
-	   )/PICOS
-	 ,(result->wordline_power_data
-	   +result->bitline_power_data
-	   )*PICOJ);
-	
+         ,(result->wordline_delay_data
+           +result->bitline_delay_data
+           )/PICOS
+         ,(result->wordline_power_data
+           +result->bitline_power_data
+           )*PICOJ);
+        
   printf("        wordline  : %9.3fps %9.3fpJ\n"
-	 ,result->wordline_delay_data/PICOS
-	 ,result->wordline_power_data*PICOJ);
+         ,result->wordline_delay_data/PICOS
+         ,result->wordline_power_data*PICOJ);
   printf("        bitline   : %9.3fps %9.3fpJ\n"
-	 ,result->bitline_delay_data/PICOS
-	 ,result->bitline_power_data*PICOJ);
+         ,result->bitline_delay_data/PICOS
+         ,result->bitline_power_data*PICOJ);
   printf(" sense amp data   : %9.3fps %9.3fpJ\n"
-	 ,result->sense_amp_delay_data/PICOS
-	 ,result->sense_amp_power_data*PICOJ);
-	
+         ,result->sense_amp_delay_data/PICOS
+         ,result->sense_amp_power_data*PICOJ);
+        
   if (!parameters->fully_assoc) {
     printf(" decode tag       : %9.3fps %9.3fpJ\n"
-	   ,result->decoder_delay_tag/PICOS
-	   ,result->decoder_power_tag*PICOJ);
+           ,result->decoder_delay_tag/PICOS
+           ,result->decoder_power_tag*PICOJ);
     printf(" w&b line tag     : %9.3fps %9.3fpJ\n"
-	   ,(result->wordline_delay_tag+result->bitline_delay_tag)/PICOS
-	   ,(result->wordline_power_tag+result->bitline_power_tag)*PICOJ);
+           ,(result->wordline_delay_tag+result->bitline_delay_tag)/PICOS
+           ,(result->wordline_power_tag+result->bitline_power_tag)*PICOJ);
     printf("       wordline   : %9.3fps %9.3fpJ\n"
-	   ,result->wordline_delay_tag/PICOS
-	   ,result->wordline_power_tag*PICOJ);
+           ,result->wordline_delay_tag/PICOS
+           ,result->wordline_power_tag*PICOJ);
     printf("       bitline    : %9.3fps %9.3fpJ\n"
-	   ,result->bitline_delay_tag/PICOS
-	   ,result->bitline_power_tag*PICOJ);
+           ,result->bitline_delay_tag/PICOS
+           ,result->bitline_power_tag*PICOJ);
     printf(" sense amp tag    : %9.3fps %9.3fpJ\n"
-	   ,result->sense_amp_delay_tag/PICOS
-	   ,result->sense_amp_power_tag*PICOJ);
+           ,result->sense_amp_delay_tag/PICOS
+           ,result->sense_amp_power_tag*PICOJ);
     printf(" compare address  : %9.3fps %9.3fpJ\n"
-	   ,result->compare_part_delay/PICOS
-	   ,result->compare_part_power*PICOJ);
+           ,result->compare_part_delay/PICOS
+           ,result->compare_part_power*PICOJ);
     if (A == 1) {
       printf(" valid driver     : %9.3fps %9.3fpJ\n"
-	     ,result->drive_valid_delay/PICOS
-	     ,result->drive_valid_power*PICOJ);
+             ,result->drive_valid_delay/PICOS
+             ,result->drive_valid_power*PICOJ);
     }else {
       printf(" mux driver       : %9.3fps %9.3fpJ\n"
-	     ,result->drive_mux_delay/PICOS
-	     ,result->drive_mux_power*PICOJ);
+             ,result->drive_mux_delay/PICOS
+             ,result->drive_mux_power*PICOJ);
       printf(" select inverter  : %9.3fps %9.3fpJ\n"
-	     ,result->selb_delay/PICOS
-	     ,result->selb_power*PICOJ);
+             ,result->selb_delay/PICOS
+             ,result->selb_power*PICOJ);
     }
   }
   printf(" data output drv  : %9.3fps %9.3fpJ\n"
-	 ,result->data_output_delay/PICOS
-	 ,result->data_output_power*PICOJ);
+         ,result->data_output_delay/PICOS
+         ,result->data_output_power*PICOJ);
    
   printf(" total data ~drv  : %9.3fps %9.3fpJ\n"
-	 ,(result->decoder_delay_data+result->wordline_delay_data
-	   +result->bitline_delay_data+result->sense_amp_delay_data
-	   )/PICOS
-	 ,(result->decoder_power_data+result->wordline_power_data
-	   +result->bitline_power_data+result->sense_amp_power_data
-	   )*PICOJ);
+         ,(result->decoder_delay_data+result->wordline_delay_data
+           +result->bitline_delay_data+result->sense_amp_delay_data
+           )/PICOS
+         ,(result->decoder_power_data+result->wordline_power_data
+           +result->bitline_power_data+result->sense_amp_power_data
+           )*PICOJ);
    
   if (!parameters->fully_assoc) {
     if (A==1){
       printf(" total tag (DM)   : %9.3fps %9.3fpJ\n"
-	     ,(result->decoder_delay_tag+result->wordline_delay_tag
-	       +result->bitline_delay_tag+result->sense_amp_delay_tag
-	       +result->compare_part_delay+result->drive_valid_delay)/PICOS
-	     ,(result->decoder_power_tag+result->wordline_power_tag
-	       +result->bitline_power_tag+result->sense_amp_power_tag
-	       +result->compare_part_power+result->drive_valid_power)*PICOJ);
+             ,(result->decoder_delay_tag+result->wordline_delay_tag
+               +result->bitline_delay_tag+result->sense_amp_delay_tag
+               +result->compare_part_delay+result->drive_valid_delay)/PICOS
+             ,(result->decoder_power_tag+result->wordline_power_tag
+               +result->bitline_power_tag+result->sense_amp_power_tag
+               +result->compare_part_power+result->drive_valid_power)*PICOJ);
     }else{
       printf(" total tag (~DM)  : %9.3fps %9.3fpJ\n"
-	     ,(result->decoder_delay_tag+result->wordline_delay_tag
-	       +result->bitline_delay_tag+result->sense_amp_delay_tag
-	       +result->compare_part_delay+result->drive_mux_delay
-	       +result->selb_delay)/PICOS
-	     ,(result->decoder_power_tag+result->wordline_power_tag
-	       +result->bitline_power_tag+result->sense_amp_power_tag
-	       +result->compare_part_power+result->drive_mux_power
-	       +result->selb_power)*PICOJ);
+             ,(result->decoder_delay_tag+result->wordline_delay_tag
+               +result->bitline_delay_tag+result->sense_amp_delay_tag
+               +result->compare_part_delay+result->drive_mux_delay
+               +result->selb_delay)/PICOS
+             ,(result->decoder_power_tag+result->wordline_power_tag
+               +result->bitline_power_tag+result->sense_amp_power_tag
+               +result->compare_part_power+result->drive_mux_power
+               +result->selb_power)*PICOJ);
     }
   }
 
    
   if( parameters->fully_assoc ){
     printf("Total Data        : %9.3fps %9.3fpJ\n"
-	   ,datapath/PICOS
-	   ,(result->wordline_power_data+result->bitline_power_data
-	     +result->sense_amp_power_data+result->data_output_power)*PICOJ);
-	   
+           ,datapath/PICOS
+           ,(result->wordline_power_data+result->bitline_power_data
+             +result->sense_amp_power_data+result->data_output_power)*PICOJ);
+           
     printf("Total TAG         : %9.3fps %9.3fpJ\n"
-	   ,0.0
-	   ,result->decoder_power_data*PICOJ);
+           ,0.0
+           ,result->decoder_power_data*PICOJ);
   }else{
     printf("Total Data        : %9.3fps %9.3fpJ\n"
-	   ,datapath/PICOS
-	   ,(result->decoder_power_data+result->wordline_power_data
-	     +result->bitline_power_data+result->sense_amp_power_data
-	     +result->drive_mux_power
-	     +result->selb_power+result->data_output_power)*PICOJ);
+           ,datapath/PICOS
+           ,(result->decoder_power_data+result->wordline_power_data
+             +result->bitline_power_data+result->sense_amp_power_data
+             +result->drive_mux_power
+             +result->selb_power+result->data_output_power)*PICOJ);
 
     printf("Total TAG         : %9.3fps %9.3fpJ\n"
-	   ,tagpath/PICOS
-	   ,(result->decoder_power_tag+result->wordline_power_tag+result->bitline_power_tag
-	     +result->sense_amp_power_tag+result->compare_part_power)*PICOJ);
+           ,tagpath/PICOS
+           ,(result->decoder_power_tag+result->wordline_power_tag+result->bitline_power_tag
+             +result->sense_amp_power_tag+result->compare_part_power)*PICOJ);
   }
   printf("\n");
   printf("Read Energy       :             %9.3fpJ\n",result->total_power*PICOJ);
@@ -316,62 +316,112 @@ static void output_time_components(const result_type *result,const parameter_typ
   printf("Max Precharge     : %9.3fps\n", result->precharge_delay/PICOS);
   if( result->precharge_delay * 2 > result->access_time )
     printf("Pipe Time (1clk)  : %9.3fps (data=%9.3fps) (tag=%9.3fps)\n"
-	   ,(2*result->precharge_delay)/PICOS
-	   ,(2*result->precharge_delay)/PICOS
-	   ,(tagpath)/PICOS
-	   );
+           ,(2*result->precharge_delay)/PICOS
+           ,(2*result->precharge_delay)/PICOS
+           ,(tagpath)/PICOS
+           );
   else
     printf("Pipe Time (1clk)  : %9.3fps (data=%9.3fps) (tag=%9.3fps)\n"
-	   ,(result->access_time)/PICOS
-	   ,(result->access_time)/PICOS
-	   ,(tagpath)/PICOS
-	   );
+           ,(result->access_time)/PICOS
+           ,(result->access_time)/PICOS
+           ,(tagpath)/PICOS
+           );
 
   printf("Pipe Time (2clk)  : %9.3fps (data=%9.3fps) (tag=%9.3fps)\n"
-	 ,(result->access_time/2+result->precharge_delay)/PICOS
-	 ,(datapath/2+result->precharge_delay)/PICOS
-	 ,((tagpath)/2+result->precharge_delay)/PICOS
-	 );
+         ,(result->access_time/2+result->precharge_delay)/PICOS
+         ,(datapath/2+result->precharge_delay)/PICOS
+         ,((tagpath)/2+result->precharge_delay)/PICOS
+         );
   printf("Pipe Time (3clk)  : %9.3fps (data=%9.3fps) (tag=%9.3fps)\n"
-	 ,result->cycle_time/PICOS
-	 ,(datapath/3+result->precharge_delay)/PICOS
-	 ,((tagpath)/3+result->precharge_delay)/PICOS
-	 );
+         ,result->cycle_time/PICOS
+         ,(datapath/3+result->precharge_delay)/PICOS
+         ,((tagpath)/3+result->precharge_delay)/PICOS
+         );
 }
 
-static void output_area_components(const arearesult_type *arearesult,
-				   const area_type *arearesult_subbanked,
-				   const parameter_type *parameters)
+static void print_area(const char *str, area_type module_area, const parameter_type *parameters) {
+  printf("%s %f (mm^2)\n",str,xcacti_calculate_area(module_area, parameters->fudgefactor)/1000000.0);
+}
+
+static void output_area_components(const arearesult_type *ar,
+                                   const area_type *arearesult_subbanked,
+                                   const parameter_type *parameters)
 {
-    printf("\nArea Components:\n\n");
-/*
+  printf("\nArea Components:\n\n");
+
+  printf("Cache data\n");
+  print_area("\tarray         ",ar->dataarray_area, parameters);
+  print_area("\tpred          ",ar->datapredecode_area, parameters);
+  print_area("\tcolmux pred   ",ar->datacolmuxpredecode_area, parameters);
+  print_area("\tcolmux post   ",ar->datacolmuxpostdecode_area, parameters);
+  print_area("\twrite sig     ",ar->datawritesig_area, parameters);
+
+  double total_data = xcacti_calculate_area(ar->dataarray_area, parameters->fudgefactor)+
+    xcacti_calculate_area(ar->datapredecode_area, parameters->fudgefactor)+
+    xcacti_calculate_area(ar->datacolmuxpredecode_area, parameters->fudgefactor)+
+    xcacti_calculate_area(ar->datacolmuxpostdecode_area, parameters->fudgefactor)+
+    xcacti_calculate_area(ar->datawritesig_area, parameters->fudgefactor);
+  printf("\ttotal area     %f (mm^2)\n",total_data/1000000.0);
+
+  printf("Cache tag\n");
+  print_area("\tarray         ",ar->tagarray_area, parameters);
+  print_area("\tpred          ",ar->tagpredecode_area, parameters);
+  print_area("\tcolmux pred   ",ar->tagcolmuxpredecode_area, parameters);
+  print_area("\tcolmux post   ",ar->tagcolmuxpostdecode_area, parameters);
+  print_area("\tout decode    ",ar->tagoutdrvdecode_area, parameters);
+  print_area("\tout sig       ",ar->tagoutdrvsig_area, parameters);
+
+  double total_tag = xcacti_calculate_area(ar->tagarray_area, parameters->fudgefactor)+
+    xcacti_calculate_area(ar->tagpredecode_area, parameters->fudgefactor)+
+    xcacti_calculate_area(ar->tagcolmuxpredecode_area, parameters->fudgefactor)+
+    xcacti_calculate_area(ar->tagcolmuxpostdecode_area, parameters->fudgefactor)+
+    xcacti_calculate_area(ar->tagoutdrvdecode_area, parameters->fudgefactor)+
+    xcacti_calculate_area(ar->tagoutdrvsig_area, parameters->fudgefactor);
+  printf("\ttotal area     %f (mm^2)\n",total_tag/1000000.0);
+
+  printf("Cache\n");
+  printf("\ttotal area    %f (mm^2)\n",ar->totalarea/1000000.0);
+  print_area("\tsubanked     ",*arearesult_subbanked, parameters);
+
+  printf("\n");
+  printf("\taspect ratio    %5.2f\n", ar->aspect_ratio_total);
+  printf("\tdata ramcells   %4.1f%%\n",100*xcacti_calculate_area(ar->dataarray_area, parameters->fudgefactor)/(ar->totalarea));
+  printf("\ttag  ramcells   %4.1f%%\n",100*xcacti_calculate_area(ar->tagarray_area, parameters->fudgefactor)/(ar->totalarea));
+  printf("\tcontrol/routing %4.1f%%\n",100*(ar->totalarea-
+                                            xcacti_calculate_area(ar->dataarray_area, parameters->fudgefactor)-
+                                            xcacti_calculate_area(ar->tagarray_area, parameters->fudgefactor))/(ar->totalarea));
+  printf("\tefficiency      %4.1f%%\n",(parameters->NSubbanks)*(total_data+total_tag)*100/(xcacti_calculate_area(*arearesult_subbanked,parameters->fudgefactor)));
+
+#if 0
+  /*
     printf("Aspect Ratio Data height/width: %f\n", aspect_ratio_data);
     printf("Aspect Ratio Tag height/width: %f\n", aspect_ratio_tag);
     printf("Aspect Ratio Subbank height/width: %f\n", aspect_ratio_subbank);
     printf("Aspect Ratio Total height/width: %f\n\n", aspect_ratio_total);
-*/
-    printf("Aspect Ratio Total height/width: %f\n\n", arearesult->aspect_ratio_total);
+  */
+  printf("Aspect Ratio Total height/width: %f\n\n", arearesult->aspect_ratio_total);
 
-    printf("Data array (cm^2): %f\n",xcacti_calculate_area(arearesult->dataarray_area,parameters->fudgefactor)/100000000.0);
-    printf("Data predecode (cm^2): %f\n",xcacti_calculate_area(arearesult->datapredecode_area,parameters->fudgefactor)/100000000.0);
-    printf("Data colmux predecode (cm^2): %f\n",xcacti_calculate_area(arearesult->datacolmuxpredecode_area,parameters->fudgefactor)/100000000.0);
-    printf("Data colmux post decode (cm^2): %f\n",xcacti_calculate_area(arearesult->datacolmuxpostdecode_area,parameters->fudgefactor)/100000000.0);
-    printf("Data write signal (cm^2): %f\n",(parameters->num_readwrite_ports+parameters->num_read_ports+parameters->num_write_ports)*xcacti_calculate_area(arearesult->datawritesig_area,parameters->fudgefactor)/100000000.0);
+  printf("Data array (cm^2): %f\n",xcacti_calculate_area(arearesult->dataarray_area,parameters->fudgefactor)/100000000.0);
+  printf("Data predecode (cm^2): %f\n",xcacti_calculate_area(arearesult->datapredecode_area,parameters->fudgefactor)/100000000.0);
+  printf("Data colmux predecode (cm^2): %f\n",xcacti_calculate_area(arearesult->datacolmuxpredecode_area,parameters->fudgefactor)/100000000.0);
+  printf("Data colmux post decode (cm^2): %f\n",xcacti_calculate_area(arearesult->datacolmuxpostdecode_area,parameters->fudgefactor)/100000000.0);
+  printf("Data write signal (cm^2): %f\n",(parameters->num_readwrite_ports+parameters->num_read_ports+parameters->num_write_ports)*xcacti_calculate_area(arearesult->datawritesig_area,parameters->fudgefactor)/100000000.0);
 
-    printf("\nTag array (cm^2): %f\n",xcacti_calculate_area(arearesult->tagarray_area,parameters->fudgefactor)/100000000.0);
-    printf("Tag predecode (cm^2): %f\n",xcacti_calculate_area(arearesult->tagpredecode_area,parameters->fudgefactor)/100000000.0);
-    printf("Tag colmux predecode (cm^2): %f\n",xcacti_calculate_area(arearesult->tagcolmuxpredecode_area,parameters->fudgefactor)/100000000.0);
-    printf("Tag colmux post decode (cm^2): %f\n",xcacti_calculate_area(arearesult->tagcolmuxpostdecode_area,parameters->fudgefactor)/100000000.0);
-    printf("Tag output driver decode (cm^2): %f\n",xcacti_calculate_area(arearesult->tagoutdrvdecode_area,parameters->fudgefactor)/100000000.0);
-    printf("Tag output driver enable signals (cm^2): %f\n",(parameters->num_readwrite_ports+parameters->num_read_ports+parameters->num_write_ports)*xcacti_calculate_area(arearesult->tagoutdrvsig_area,parameters->fudgefactor)/100000000.0);
+  printf("\nTag array (cm^2): %f\n",xcacti_calculate_area(arearesult->tagarray_area,parameters->fudgefactor)/100000000.0);
+  printf("Tag predecode (cm^2): %f\n",xcacti_calculate_area(arearesult->tagpredecode_area,parameters->fudgefactor)/100000000.0);
+  printf("Tag colmux predecode (cm^2): %f\n",xcacti_calculate_area(arearesult->tagcolmuxpredecode_area,parameters->fudgefactor)/100000000.0);
+  printf("Tag colmux post decode (cm^2): %f\n",xcacti_calculate_area(arearesult->tagcolmuxpostdecode_area,parameters->fudgefactor)/100000000.0);
+  printf("Tag output driver decode (cm^2): %f\n",xcacti_calculate_area(arearesult->tagoutdrvdecode_area,parameters->fudgefactor)/100000000.0);
+  printf("Tag output driver enable signals (cm^2): %f\n",(parameters->num_readwrite_ports+parameters->num_read_ports+parameters->num_write_ports)*xcacti_calculate_area(arearesult->tagoutdrvsig_area,parameters->fudgefactor)/100000000.0);
 
-   printf("\nPercentage of data ramcells alone of total area: %f %%\n",100*area_all_dataramcells/(arearesult->totalarea/100000000.0));
-    printf("Percentage of tag ramcells alone of total area: %f %%\n",100*area_all_tagramcells/(arearesult->totalarea/100000000.0));
-    printf("Percentage of total control/routing alone of total area: %f %%\n",100*(arearesult->totalarea/100000000.0-area_all_dataramcells-area_all_tagramcells)/(arearesult->totalarea/100000000.0));
-    printf("\nSubbank Efficiency : %f\n",(area_all_dataramcells+area_all_tagramcells)*100/(arearesult->totalarea/100000000.0));
-    printf("Total Efficiency : %f\n",(parameters->NSubbanks)*(area_all_dataramcells+area_all_tagramcells)*100/(xcacti_calculate_area(*arearesult_subbanked,parameters->fudgefactor)/100000000.0));
-    printf("\nTotal area One Subbank (cm^2): %f\n",arearesult->totalarea/100000000.0);
-    printf("Total area subbanked (cm^2): %f\n",xcacti_calculate_area(*arearesult_subbanked,parameters->fudgefactor)/100000000.0); 
+  printf("\nPercentage of data ramcells alone of total area: %f %%\n",100*area_all_dataramcells/(arearesult->totalarea/100000000.0));
+  printf("Percentage of tag ramcells alone of total area: %f %%\n",100*area_all_tagramcells/(arearesult->totalarea/100000000.0));
+  printf("Percentage of total control/routing alone of total area: %f %%\n",100*(arearesult->totalarea/100000000.0-area_all_dataramcells-area_all_tagramcells)/(arearesult->totalarea/100000000.0));
+  printf("\nSubbank Efficiency : %f\n",(area_all_dataramcells+area_all_tagramcells)*100/(arearesult->totalarea/100000000.0));
+  printf("Total Efficiency : %f\n",(parameters->NSubbanks)*(area_all_dataramcells+area_all_tagramcells)*100/(xcacti_calculate_area(*arearesult_subbanked,parameters->fudgefactor)/100000000.0));
+  printf("\nTotal area One Subbank (cm^2): %f\n",arearesult->totalarea/100000000.0);
+  printf("Total area subbanked (cm^2): %f\n",xcacti_calculate_area(*arearesult_subbanked,parameters->fudgefactor)/100000000.0); 
+#endif
 
 }
 
@@ -405,23 +455,22 @@ int xcacti_input_data(int argc,  char *argv[], parameter_type *parameters)
       B = atoi(optarg);
       break;
     case 'a':
-      printf("here[%s]\n",optarg);
       if (!strcmp(optarg,"FA")) {
-	parameters->fully_assoc = 1;
-	A = 0 ;
+        parameters->fully_assoc = 1;
+        A = 0 ;
       }else if (!strcmp(optarg,"DM")) {
-	A=1;
-	parameters->fully_assoc = 0;
+        A=1;
+        parameters->fully_assoc = 0;
       }else{
-	A = atoi(optarg);
-	parameters->fully_assoc = 0;
+        A = atoi(optarg);
+        parameters->fully_assoc = 0;
       }
       break;
     case 't':
       tech = atof(optarg)/1000;
       if (tech <= 0 || tech >= 0.8) {
-	printf("Feature size must be <= 800nm\n");
-	exit(0);
+        printf("Feature size must be <= 800nm\n");
+        exit(0);
       }
       break;
     case 'r':
@@ -606,9 +655,9 @@ void xcacti_parameters_dump(const parameter_type *parameters) {
   else
     {
       if (parameters->associativity==1)
-	printf("  Associativity: direct mapped\n");
+        printf("  Associativity: direct mapped\n");
       else
-	printf("  Associativity: %d\n",parameters->associativity);
+        printf("  Associativity: %d\n",parameters->associativity);
     }
   printf("  Block Size (bytes): %d\n",parameters->block_size);
   printf("  Read/Write Ports: %d\n",parameters->num_readwrite_ports);
@@ -620,9 +669,9 @@ void xcacti_parameters_dump(const parameter_type *parameters) {
 
 
 void xcacti_output_data(const result_type *result,
-		 const arearesult_type *arearesult,
-		 const area_type *arearesult_subbanked,
-		 const parameter_type *parameters)
+                        const arearesult_type *arearesult,
+                        const area_type *arearesult_subbanked,
+                        const parameter_type *parameters)
 {
   double datapath,tagpath;
    
@@ -664,6 +713,7 @@ void xcacti_output_data(const result_type *result,
   printf("Nor inputs (tag): %d\n",result->tag_nor_inputs);
 
   output_area_components(arearesult,arearesult_subbanked,parameters);
+
   printf("\nTime Components:\n");
 
   output_time_components(result,parameters);
@@ -718,13 +768,15 @@ int xcacti_parameter_check(const parameter_type *parameters) {
      return 0;
    }
 
+#if 0
    assoc = logtwo((double)(parameters->associativity));
    assocfloor = floor(assoc);
    
-   if(assoc > assocfloor){
+   if(assoc > assocfloor && !parameters->fully_assoc){
      printf("Associativity should be a power of 2 [%g vs %g]\n",assoc, assocfloor);
      return 0;
    }
+#endif
 
    if (parameters->associativity > 32 && !parameters->fully_assoc) {
      printf("Associativity must <= 32\n or try FA (fully associative)\n");
@@ -742,4 +794,177 @@ int xcacti_parameter_check(const parameter_type *parameters) {
    }   
 
    return 1;
+}
+
+
+void xcacti_power_flp(const result_type *result,
+                      const arearesult_type *ar,
+                      const area_type *arearesult_subbanked,
+                      const parameter_type *parameters,
+                      xcacti_flp *xflp) {
+
+  //---------------------------------------
+  // area calculations
+  double data_array_area = xcacti_calculate_area(ar->dataarray_area, parameters->fudgefactor);
+  double tag_array_area  = xcacti_calculate_area(ar->tagarray_area , parameters->fudgefactor);
+  
+  double decode_area     = xcacti_calculate_area(ar->datapredecode_area, parameters->fudgefactor)+
+    xcacti_calculate_area(ar->tagpredecode_area, parameters->fudgefactor);
+
+  double data_ctrl_area  = xcacti_calculate_area(ar->datacolmuxpredecode_area, parameters->fudgefactor)+
+    xcacti_calculate_area(ar->datacolmuxpostdecode_area, parameters->fudgefactor)+
+    xcacti_calculate_area(ar->datawritesig_area, parameters->fudgefactor);
+
+
+  double tag_ctrl_area = xcacti_calculate_area(ar->tagcolmuxpredecode_area, parameters->fudgefactor)+
+    xcacti_calculate_area(ar->tagcolmuxpostdecode_area, parameters->fudgefactor)+
+    xcacti_calculate_area(ar->tagoutdrvdecode_area, parameters->fudgefactor)+
+    xcacti_calculate_area(ar->tagoutdrvsig_area, parameters->fudgefactor);
+
+  if (parameters->fully_assoc || parameters->ignore_tag) {
+    tag_ctrl_area  = 0;
+    tag_array_area = 0;
+  }
+  
+  double total_area = data_array_area+ tag_array_area + decode_area + 
+    data_ctrl_area + tag_ctrl_area;
+#if 0
+  double bank_ctrl_area = ar->totalarea-
+    xcacti_calculate_area(ar->dataarray_area, parameters->fudgefactor)-
+    xcacti_calculate_area(ar->tagarray_area, parameters->fudgefactor);
+#else
+  double bank_ctrl_area = xcacti_calculate_area(*arearesult_subbanked,parameters->fudgefactor) -
+    (parameters->NSubbanks)*(total_area);
+#endif
+  bank_ctrl_area /= parameters->NSubbanks;
+  total_area += bank_ctrl_area;
+
+  //---------------------------------------
+  // Energy calculations
+  double data_array_e = result->wordline_power_data  + result->bitline_power_data;
+  double data_ctrl_e  = result->sense_amp_power_data + 
+    result->data_output_power + 
+    result->total_out_driver_power_data;
+
+  double decode_e;
+  double tag_array_e;
+  double tag_ctrl_e;
+  if (parameters->fully_assoc || parameters->ignore_tag) {
+    decode_e    = result->decoder_power_data;
+    tag_ctrl_e  = 0;
+    tag_array_e = 0;
+  }else{
+    tag_array_e  = result->wordline_power_tag +result->bitline_power_tag;
+    decode_e     = result->decoder_power_data+result->decoder_power_tag;
+    tag_ctrl_e   = result->sense_amp_power_tag + 
+      result->compare_part_power + 
+      result->drive_valid_power +
+      result->drive_mux_power + 
+      result->selb_power;
+  }
+  
+  double bank_ctrl_e = result->subbank_address_routing_power;
+
+#if 0
+  printf("decode     %6.3g%%  %9.3fpJ\n",100*decode_area/total_area    ,decode_e    *PICOJ);
+  printf("tag  array %6.3g%%  %9.3fpJ\n",100*tag_array_area/total_area ,tag_array_e *PICOJ);
+  printf("tag  ctrl  %6.3g%%  %9.3fpJ\n",100*tag_ctrl_area/total_area  ,tag_ctrl_e  *PICOJ);
+  printf("data array %6.3g%%  %9.3fpJ\n",100*data_array_area/total_area,data_array_e*PICOJ);
+  printf("data ctrl  %6.3g%%  %9.3fpJ\n",100*data_ctrl_area/total_area ,data_ctrl_e *PICOJ);
+  printf("bank ctrl  %6.3g%%  %9.3fpJ\n",100*bank_ctrl_area/total_area ,bank_ctrl_e *PICOJ);
+#endif
+
+  //---------------------------------------
+  // Area Readjustments based on power densities
+
+  double factor = 15;
+  // readjust areas so that no block has a power density 20x the data array (%)
+  double data_array_pd = data_array_e/data_array_area;
+  double data_ctrl_pd = data_ctrl_e/data_ctrl_area;
+  if (data_ctrl_pd > factor*data_array_pd) {
+    data_ctrl_area = data_ctrl_e/(factor*data_array_pd);
+  }
+
+  double tag_array_pd;
+  double tag_ctrl_pd;
+  if (parameters->fully_assoc || parameters->ignore_tag) {
+    tag_array_pd = 0;
+    tag_ctrl_pd  = 0;
+  }else{
+    tag_array_pd = tag_array_e/tag_array_area;
+    if (tag_array_pd > factor*data_array_pd) {
+      tag_array_area = tag_array_e/(factor*data_array_pd);
+    }
+
+    tag_ctrl_pd = tag_ctrl_e/tag_array_area;
+    if (tag_ctrl_pd > factor*data_array_pd) {
+      tag_ctrl_area = tag_ctrl_e/(factor*data_array_pd);
+    }
+  }
+
+  double decode_pd = decode_e/decode_area;
+  if (decode_pd > factor*data_array_pd) {
+    decode_area = decode_e/(factor*data_array_pd);
+  }
+
+  double bank_ctrl_pd = bank_ctrl_e/bank_ctrl_area;
+  if (bank_ctrl_pd > factor*data_array_pd) {
+    bank_ctrl_area = bank_ctrl_e/(factor*data_array_pd);
+  }
+  if (bank_ctrl_area<0 || bank_ctrl_e*PICOJ < 1) {
+    bank_ctrl_area = 0;
+    bank_ctrl_e    = 0;
+  }
+  
+  total_area = data_array_area+ tag_array_area + decode_area + 
+    data_ctrl_area + tag_ctrl_area + 
+    bank_ctrl_area;
+
+  // Layout per bank
+  //
+  //    +------------------------------+
+  //    |         bank ctrl            |
+  //    +------------------------------+
+  //    |  tag   | de |  data          |
+  //    | array  | co |  array         |
+  //    |        | de |                |
+  //    +------------------------------+
+  //    | tag_ctrl | data_ctrl         |
+  //    +------------------------------+
+
+
+  printf("\nCache bank distributions and energy per access (%d banks)\n", parameters->NSubbanks);
+  printf("\tbank ctrl   %5.2g%%  %9.3fpJ\n",100*bank_ctrl_area/total_area ,bank_ctrl_e *PICOJ);
+  printf("\tdecode      %5.2g%%  %9.3fpJ\n",100*decode_area/total_area    ,decode_e    *PICOJ);
+  printf("\ttag  array  %5.2g%%  %9.3fpJ\n",100*tag_array_area/total_area ,tag_array_e *PICOJ);
+  printf("\tdata array  %5.2g%%  %9.3fpJ\n",100*data_array_area/total_area,data_array_e*PICOJ);
+  printf("\ttag  ctrl   %5.2g%%  %9.3fpJ\n",100*tag_ctrl_area/total_area  ,tag_ctrl_e  *PICOJ);
+  printf("\tdata ctrl   %5.2g%%  %9.3fpJ\n",100*data_ctrl_area/total_area ,data_ctrl_e *PICOJ);
+
+  double total_e = data_array_e+ tag_array_e + decode_e + data_ctrl_e + tag_ctrl_e + bank_ctrl_e;
+  
+  printf("\ttotal               %9.3fpJ\n",total_e *PICOJ);
+
+  xflp->bank_ctrl_a = ar->totalarea*bank_ctrl_area/total_area;
+  xflp->decode_a    = ar->totalarea*decode_area/total_area;
+  xflp->tag_array_a = ar->totalarea*tag_array_area/total_area;
+  xflp->data_array_a= ar->totalarea*data_array_area/total_area;
+  xflp->tag_ctrl_a  = ar->totalarea*tag_ctrl_area/total_area;
+  xflp->data_ctrl_a = ar->totalarea*data_ctrl_area/total_area;
+  xflp->total_a     = xflp->bank_ctrl_a + xflp->decode_a + 
+    xflp->tag_array_a + xflp->data_array_a + 
+    xflp->tag_ctrl_a  + xflp->data_ctrl_a;
+
+  xflp->bank_ctrl_e = bank_ctrl_e;
+  xflp->decode_e    = decode_e;
+  xflp->tag_array_e = tag_array_e;
+  xflp->data_array_e= data_array_e;
+  xflp->tag_ctrl_e  = tag_ctrl_e;
+  xflp->data_ctrl_e = data_ctrl_e;
+
+  xflp->NSubbanks = parameters->NSubbanks;
+  xflp->assoc     = parameters->associativity;
+  if (parameters->fully_assoc || parameters->ignore_tag) {
+    xflp->assoc = 1;
+  }
 }

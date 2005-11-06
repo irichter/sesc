@@ -16,11 +16,11 @@ void icode::dump()
 	 args[RS], getRN(RS), args[RS]);
   /*CONSTCOND*/
   printf("  rt: 0x%x (r%d) (ft $f%d)\n",
-	 args[RT], getRN(RT), getFPN(FT));
+	 args[RT], getRN(RT), getFPN(ICODEFT));
   /*CONSTCOND*/
   printf("  rd: 0x%x (r%d) (fs $f%d)\n",
-	 args[RD], getRN(RD), getFPN(FS));
-  printf("  sa: 0x%x (fd $f%d)\n", args[SA], getFPN(FD));
+	 args[RD], getRN(RD), getFPN(ICODEFS));
+  printf("  sa: 0x%x (fd $f%d)\n", args[SA], getFPN(ICODEFD));
   printf("  immed: 0x%x (%d)\n", immed, immed);
   printf("  target: 0x%x\n", (unsigned) target);
 }
@@ -268,7 +268,7 @@ const char *icode::dis_instr()
   case mul_s_opn:
   case div_s_opn:
     sprintf(str, "%s\t$f%d, $f%d, $f%d",
-	    opname, getFPN(FD), getFPN(FS), getFPN(FT));
+	    opname, getFPN(ICODEFD), getFPN(ICODEFS), getFPN(ICODEFT));
     break;
   case sqrt_s_opn:
   case abs_s_opn:
@@ -280,11 +280,11 @@ const char *icode::dis_instr()
   case floor_w_s_opn:
   case cvt_w_s_opn:
     sprintf(str, "%s\t$f%d, $f%d",
-	    opname, getFPN(FD), getFPN(FS));
+	    opname, getFPN(ICODEFD), getFPN(ICODEFS));
     break;
   case cvt_d_s_opn:
     sprintf(str, "%s\t$f%d, $f%d",
-               opname, getDPN(FD), getFPN(FS));
+               opname, getDPN(ICODEFD), getFPN(ICODEFS));
     break;
   case c_f_s_opn:
   case c_un_s_opn:
@@ -303,7 +303,7 @@ const char *icode::dis_instr()
   case c_le_s_opn:
   case c_ngt_s_opn:
     sprintf(str, "%s\t$f%d, $f%d",
-	    opname, getFPN(FS), getFPN(FT));
+	    opname, getFPN(ICODEFS), getFPN(ICODEFT));
         break;
         /* double precision */
   case add_d_opn:
@@ -311,7 +311,7 @@ const char *icode::dis_instr()
   case mul_d_opn:
   case div_d_opn:
     sprintf(str, "%s\t$f%d, $f%d, $f%d",
-	    opname, getDPN(FD), getDPN(FS), getDPN(FT));
+	    opname, getDPN(ICODEFD), getDPN(ICODEFS), getDPN(ICODEFT));
     break;
   case sqrt_d_opn:
   case abs_d_opn:
@@ -321,12 +321,12 @@ const char *icode::dis_instr()
   case trunc_w_d_opn:
   case ceil_w_d_opn:
   case floor_w_d_opn:
-    sprintf(str, "%s\t$f%d, $f%d", opname, getDPN(FD), getDPN(FS));
+    sprintf(str, "%s\t$f%d, $f%d", opname, getDPN(ICODEFD), getDPN(ICODEFS));
     break;
   case cvt_s_d_opn:
   case cvt_w_d_opn:
     sprintf(str, "%s\t$f%d, $f%d",
-	    opname, getFPN(FD), getDPN(FS));
+	    opname, getFPN(ICODEFD), getDPN(ICODEFS));
     break;
   case c_f_d_opn:
   case c_un_d_opn:
@@ -345,24 +345,24 @@ const char *icode::dis_instr()
   case c_le_d_opn:
   case c_ngt_d_opn:
     sprintf(str, "%s\t$f%d, $f%d",
-	    opname, getDPN(FS), getDPN(FT));
+	    opname, getDPN(ICODEFS), getDPN(ICODEFT));
     break;
     
     /* fixed-point precision */
   case cvt_s_w_opn:
     sprintf(str, "%s\t$f%d, $f%d",
-	    opname, getFPN(FD), getFPN(FS));
+	    opname, getFPN(ICODEFD), getFPN(ICODEFS));
     break;
   case cvt_d_w_opn:
     sprintf(str, "%s\t$f%d, $f%d",
-	    opname, getDPN(FD), getFPN(FS));
+	    opname, getDPN(ICODEFD), getFPN(ICODEFS));
     break;
     
     /* other coprocessor instructions */
   case mfc1_opn:
   case mtc1_opn:
     /*CONSTCOND*/
-    sprintf(str, "%s\tr%d, $f%d", opname, getRN(RT), getFPN(FS));
+    sprintf(str, "%s\tr%d, $f%d", opname, getRN(RT), getFPN(ICODEFS));
     break;
   case cfc1_opn:
   case ctc1_opn:

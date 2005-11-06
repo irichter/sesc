@@ -1343,7 +1343,7 @@ sub simStats {
 sub instStats {
   my $file = shift;
 
-  print "           nInst     BJ    Load   Store      INT      FP  : LD Forward : Worst Unit (clk)\n";
+  print "           nInst     BJ    Load   Store      INT      FP  : LD Forward , Replay : Worst Unit (clk)\n";
 
 
   for(my $i=0;$i<$nCPUs;$i++) {
@@ -1375,13 +1375,15 @@ sub instStats {
     $iLoad = 1 if( $iLoad == 0 );
     printf " :     %5.2f%%",100*$nFor/$iLoad;
 
-
     my $cpuType    = $cf->getConfigEntry(key=>"cpucore",index=>$i);
     my $worstUnit;
     my $worstValue = 0;
+    my $nReplay = 0;
     for (my $j=0; ; $j++) {
       my $clusterType = $cf->getConfigEntry(key=>"cluster", section=>$cpuType, index=>$j);
       last unless (defined $clusterType);
+
+      $nReplay += $cf->getResultField("Proc(${i})_${clusterType}_depTable","nReplay");
 
       foreach my $unitID ("iBJUnit", "iLoadUnit", "iStoreUnit", "iALUUnit"
                           , "iMultUnit", "iDivUnit", "fpALUUnit", "fpMultUnit", "fpDivUnit") {
@@ -1396,6 +1398,13 @@ sub instStats {
           $worstUnit  = $tmp;
         }
       }
+    }
+
+      
+    if ($nReplay) {
+	printf "   %5.0f inst/repl ",$nInst/$nReplay;
+    }else{
+	printf "   ????  inst/repl ";
     }
 
     printf " :  ${worstUnit} %4.2f ",$worstValue;

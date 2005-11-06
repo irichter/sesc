@@ -77,10 +77,10 @@ M4_IN(c1_abs_s,
 #if (defined TLS) || (defined TASKSCALAR)
   NativeFPUControlType fpuCtrl=changeFPUControl(pthread->getFPUControl31());
 #endif
-  if (isless(pthread->getFP(picode, FS),(float)0))
-    pthread->setFP(picode, FD, -pthread->getFP(picode, FS));
+  if (isless(pthread->getFP(picode, ICODEFS),(float)0))
+    pthread->setFP(picode, ICODEFD, -pthread->getFP(picode, ICODEFS));
   else
-    pthread->setFP(picode, FD, pthread->getFP(picode, FS));
+    pthread->setFP(picode, ICODEFD, pthread->getFP(picode, ICODEFS));
 #if (defined TLS) || (defined TASKSCALAR)
   restoreFPUControl(fpuCtrl);
 #endif
@@ -91,10 +91,10 @@ M4_IN(c1_abs_d,
 #if (defined TLS) || (defined TASKSCALAR)
   NativeFPUControlType fpuCtrl=changeFPUControl(pthread->getFPUControl31());
 #endif
-  if (isless(pthread->getDP(picode, FS),(double)0))
-    pthread->setDP(picode, FD, -pthread->getDP(picode, FS));
+  if (isless(pthread->getDP(picode, ICODEFS),(double)0))
+    pthread->setDP(picode, ICODEFD, -pthread->getDP(picode, ICODEFS));
   else
-    pthread->setDP(picode, FD, pthread->getDP(picode, FS));
+    pthread->setDP(picode, ICODEFD, pthread->getDP(picode, ICODEFS));
 #if (defined TLS) || (defined TASKSCALAR)
   restoreFPUControl(fpuCtrl);
 #endif
@@ -105,7 +105,7 @@ M4_IN(c1_add_s,
 #if (defined TLS) || (defined TASKSCALAR)
   NativeFPUControlType fpuCtrl=changeFPUControl(pthread->getFPUControl31());
 #endif
-  pthread->setFP(picode, FD, pthread->getFP(picode, FS) + pthread->getFP(picode, FT));
+  pthread->setFP(picode, ICODEFD, pthread->getFP(picode, ICODEFS) + pthread->getFP(picode, ICODEFT));
 #if (defined TLS) || (defined TASKSCALAR)
   restoreFPUControl(fpuCtrl);
 #endif
@@ -116,7 +116,7 @@ M4_IN(c1_add_d,
 #if (defined TLS) || (defined TASKSCALAR)
   NativeFPUControlType fpuCtrl=changeFPUControl(pthread->getFPUControl31());
 #endif
-  pthread->setDP(picode, FD, pthread->getDP(picode, FS) + pthread->getDP(picode, FT));
+  pthread->setDP(picode, ICODEFD, pthread->getDP(picode, ICODEFS) + pthread->getDP(picode, ICODEFT));
 #if (defined TLS) || (defined TASKSCALAR)
   restoreFPUControl(fpuCtrl);
 #endif
@@ -124,14 +124,14 @@ M4_IN(c1_add_d,
 
 M4_IN(c1_c_eq_s,
 {
-  if( pthread->getFP(picode, FS) == pthread->getFP(picode, FT) && !isunordered(pthread->getFP(picode, FS),pthread->getFP(picode, FT)) )
+  if( pthread->getFP(picode, ICODEFS) == pthread->getFP(picode, ICODEFT) && !isunordered(pthread->getFP(picode, ICODEFS),pthread->getFP(picode, ICODEFT)) )
     pthread->setFPUControl31(pthread->getFPUControl31() | 0x00800000);
   else
     pthread->setFPUControl31(pthread->getFPUControl31() & 0xFF7FFFFF);
 })
 M4_IN(c1_c_eq_d,
 {
-  if( pthread->getDP(picode, FS) == pthread->getDP(picode, FT) && !isunordered(pthread->getDP(picode, FS),pthread->getDP(picode, FT)) )
+  if( pthread->getDP(picode, ICODEFS) == pthread->getDP(picode, ICODEFT) && !isunordered(pthread->getDP(picode, ICODEFS),pthread->getDP(picode, ICODEFT)) )
     pthread->setFPUControl31(pthread->getFPUControl31() | 0x00800000);
   else
     pthread->setFPUControl31(pthread->getFPUControl31() & 0xFF7FFFFF);
@@ -148,14 +148,14 @@ M4_IN(c1_c_f_d,
 
 M4_IN(c1_c_le_s,
 {
-  if( islessequal(pthread->getFP(picode, FS),pthread->getFP(picode, FT)) )
+  if( islessequal(pthread->getFP(picode, ICODEFS),pthread->getFP(picode, ICODEFT)) )
     pthread->setFPUControl31(pthread->getFPUControl31() | 0x00800000);
   else
     pthread->setFPUControl31(pthread->getFPUControl31() & 0xFF7FFFFF);
 })
 M4_IN(c1_c_le_d,
 {
-  if( islessequal(pthread->getDP(picode, FS),pthread->getDP(picode, FT)) )
+  if( islessequal(pthread->getDP(picode, ICODEFS),pthread->getDP(picode, ICODEFT)) )
     pthread->setFPUControl31(pthread->getFPUControl31() | 0x00800000);
   else
     pthread->setFPUControl31(pthread->getFPUControl31() & 0xFF7FFFFF);
@@ -163,14 +163,14 @@ M4_IN(c1_c_le_d,
 
 M4_IN(c1_c_lt_s,
 {
-  if( isless(pthread->getFP(picode, FS),pthread->getFP(picode, FT)) )
+  if( isless(pthread->getFP(picode, ICODEFS),pthread->getFP(picode, ICODEFT)) )
     pthread->setFPUControl31(pthread->getFPUControl31() | 0x00800000);
   else
     pthread->setFPUControl31(pthread->getFPUControl31() & 0xFF7FFFFF);
 })
 M4_IN(c1_c_lt_d,
 {
-  if( isless(pthread->getDP(picode, FS),pthread->getDP(picode, FT)) )
+  if( isless(pthread->getDP(picode, ICODEFS),pthread->getDP(picode, ICODEFT)) )
     pthread->setFPUControl31(pthread->getFPUControl31() | 0x00800000);
   else
     pthread->setFPUControl31(pthread->getFPUControl31() & 0xFF7FFFFF);
@@ -183,14 +183,14 @@ M4_COND_FMT(c1_c_ngt)
 
 M4_IN(c1_c_ole_s,
 {
-  if( islessequal(pthread->getFP(picode, FS),pthread->getFP(picode, FT)) )
+  if( islessequal(pthread->getFP(picode, ICODEFS),pthread->getFP(picode, ICODEFT)) )
     pthread->setFPUControl31(pthread->getFPUControl31() | 0x00800000);
   else
     pthread->setFPUControl31(pthread->getFPUControl31() & 0xFF7FFFFF);
 })
 M4_IN(c1_c_ole_d,
 {
-  if( islessequal(pthread->getDP(picode, FS),pthread->getDP(picode, FT)) )
+  if( islessequal(pthread->getDP(picode, ICODEFS),pthread->getDP(picode, ICODEFT)) )
     pthread->setFPUControl31(pthread->getFPUControl31() | 0x00800000);
   else
     pthread->setFPUControl31(pthread->getFPUControl31() & 0xFF7FFFFF);
@@ -198,14 +198,14 @@ M4_IN(c1_c_ole_d,
 
 M4_IN(c1_c_olt_s,
 {
-  if( isless(pthread->getFP(picode, FS),pthread->getFP(picode, FT)) )
+  if( isless(pthread->getFP(picode, ICODEFS),pthread->getFP(picode, ICODEFT)) )
     pthread->setFPUControl31(pthread->getFPUControl31() | 0x00800000);
   else
     pthread->setFPUControl31(pthread->getFPUControl31() & 0xFF7FFFFF);
 })
 M4_IN(c1_c_olt_d,
 {
-  if( isless(pthread->getDP(picode, FS),pthread->getDP(picode, FT)) )
+  if( isless(pthread->getDP(picode, ICODEFS),pthread->getDP(picode, ICODEFT)) )
     pthread->setFPUControl31(pthread->getFPUControl31() | 0x00800000);
   else
     pthread->setFPUControl31(pthread->getFPUControl31() & 0xFF7FFFFF);
@@ -224,14 +224,14 @@ M4_IN(c1_c_sf_d,
 
 M4_IN(c1_c_ueq_s,
 {
-  if( pthread->getFP(picode, FS) == pthread->getFP(picode, FT) )
+  if( pthread->getFP(picode, ICODEFS) == pthread->getFP(picode, ICODEFT) )
     pthread->setFPUControl31(pthread->getFPUControl31() | 0x00800000);
   else
     pthread->setFPUControl31(pthread->getFPUControl31() & 0xFF7FFFFF);
 })
 M4_IN(c1_c_ueq_d,
 {
-  if( pthread->getDP(picode, FS) == pthread->getDP(picode, FT) )
+  if( pthread->getDP(picode, ICODEFS) == pthread->getDP(picode, ICODEFT) )
     pthread->setFPUControl31(pthread->getFPUControl31() | 0x00800000);
   else
     pthread->setFPUControl31(pthread->getFPUControl31() & 0xFF7FFFFF);
@@ -239,14 +239,14 @@ M4_IN(c1_c_ueq_d,
 
 M4_IN(c1_c_ule_s,
 {
-  if( pthread->getFP(picode, FS) <= pthread->getFP(picode, FT) )
+  if( pthread->getFP(picode, ICODEFS) <= pthread->getFP(picode, ICODEFT) )
     pthread->setFPUControl31(pthread->getFPUControl31() | 0x00800000);
   else
     pthread->setFPUControl31(pthread->getFPUControl31() & 0xFF7FFFFF);
 })
 M4_IN(c1_c_ule_d,
 {
-  if( pthread->getDP(picode, FS) <= pthread->getDP(picode, FT) )
+  if( pthread->getDP(picode, ICODEFS) <= pthread->getDP(picode, ICODEFT) )
     pthread->setFPUControl31(pthread->getFPUControl31() | 0x00800000);
   else
     pthread->setFPUControl31(pthread->getFPUControl31() & 0xFF7FFFFF);
@@ -254,14 +254,14 @@ M4_IN(c1_c_ule_d,
 
 M4_IN(c1_c_ult_s,
 {
-  if( pthread->getFP(picode, FS) < pthread->getFP(picode, FT) )
+  if( pthread->getFP(picode, ICODEFS) < pthread->getFP(picode, ICODEFT) )
     pthread->setFPUControl31(pthread->getFPUControl31() | 0x00800000);
   else
     pthread->setFPUControl31(pthread->getFPUControl31() & 0xFF7FFFFF);
 })
 M4_IN(c1_c_ult_d,
 {
-  if( pthread->getDP(picode, FS) < pthread->getDP(picode, FT) )
+  if( pthread->getDP(picode, ICODEFS) < pthread->getDP(picode, ICODEFT) )
     pthread->setFPUControl31(pthread->getFPUControl31() | 0x00800000);
   else
     pthread->setFPUControl31(pthread->getFPUControl31() & 0xFF7FFFFF);
@@ -269,14 +269,14 @@ M4_IN(c1_c_ult_d,
 
 M4_IN(c1_c_un_s,
 {
-  if( isunordered(pthread->getFP(picode, FS),pthread->getFP(picode, FT)) )
+  if( isunordered(pthread->getFP(picode, ICODEFS),pthread->getFP(picode, ICODEFT)) )
     pthread->setFPUControl31(pthread->getFPUControl31() | 0x00800000);
   else
     pthread->setFPUControl31(pthread->getFPUControl31() & 0xFF7FFFFF);
 })
 M4_IN(c1_c_un_d,
 {
-  if( isunordered(pthread->getDP(picode, FS),pthread->getDP(picode, FT)) )
+  if( isunordered(pthread->getDP(picode, ICODEFS),pthread->getDP(picode, ICODEFT)) )
     pthread->setFPUControl31(pthread->getFPUControl31() | 0x00800000);
   else
     pthread->setFPUControl31(pthread->getFPUControl31() & 0xFF7FFFFF);
@@ -297,7 +297,7 @@ M4_IN(c1_cvt_d_s,
 #if (defined TLS) || (defined TASKSCALAR)
   NativeFPUControlType fpuCtrl=changeFPUControl(pthread->getFPUControl31());
 #endif
-  pthread->setDP(picode, FD, (double)pthread->getFP(picode, FS));
+  pthread->setDP(picode, ICODEFD, (double)pthread->getFP(picode, ICODEFS));
 #if (defined TLS) || (defined TASKSCALAR)
   restoreFPUControl(fpuCtrl);
 #endif
@@ -308,7 +308,7 @@ M4_IN(c1_cvt_d_w,
 #if (defined TLS) || (defined TASKSCALAR)
   NativeFPUControlType fpuCtrl=changeFPUControl(pthread->getFPUControl31());
 #endif
-  pthread->setDP(picode, FD, (double)pthread->getWFP(picode, FS));
+  pthread->setDP(picode, ICODEFD, (double)pthread->getWFP(picode, ICODEFS));
 #if (defined TLS) || (defined TASKSCALAR)
   restoreFPUControl(fpuCtrl);
 #endif
@@ -319,7 +319,7 @@ M4_IN(c1_cvt_s_d,
 #if (defined TLS) || (defined TASKSCALAR)
   NativeFPUControlType fpuCtrl=changeFPUControl(pthread->getFPUControl31());
 #endif
-  pthread->setFP(picode, FD, (float)pthread->getDP(picode, FS));
+  pthread->setFP(picode, ICODEFD, (float)pthread->getDP(picode, ICODEFS));
 #if (defined TLS) || (defined TASKSCALAR)
   restoreFPUControl(fpuCtrl);
 #endif
@@ -330,7 +330,7 @@ M4_IN(c1_cvt_s_w,
 #if (defined TLS) || (defined TASKSCALAR)
   NativeFPUControlType fpuCtrl=changeFPUControl(pthread->getFPUControl31());
 #endif
-  pthread->setFP(picode, FD, (float)pthread->getWFP(picode, FS));
+  pthread->setFP(picode, ICODEFD, (float)pthread->getWFP(picode, ICODEFS));
 #if (defined TLS) || (defined TASKSCALAR)
   restoreFPUControl(fpuCtrl);
 #endif
@@ -338,12 +338,12 @@ M4_IN(c1_cvt_s_w,
 
 M4_IN(c1_cvt_w_s,
 {
-  pthread->setWFP(picode, FD, mips_cvt_w_s(pthread->getFP(picode, FS), pthread->getFPUControl31()));
+  pthread->setWFP(picode, ICODEFD, mips_cvt_w_s(pthread->getFP(picode, ICODEFS), pthread->getFPUControl31()));
 })
 
 M4_IN(c1_cvt_w_d,
 {
-  pthread->setWFP(picode, FD, mips_cvt_w_d(pthread->getDP(picode, FS), pthread->getFPUControl31()));
+  pthread->setWFP(picode, ICODEFD, mips_cvt_w_d(pthread->getDP(picode, ICODEFS), pthread->getFPUControl31()));
 })
 
 M4_IN(c1_div_s,
@@ -351,7 +351,7 @@ M4_IN(c1_div_s,
 #if (defined TLS) || (defined TASKSCALAR)
   NativeFPUControlType fpuCtrl=changeFPUControl(pthread->getFPUControl31());
 #endif
-  pthread->setFP(picode, FD, pthread->getFP(picode, FS) / pthread->getFP(picode, FT));
+  pthread->setFP(picode, ICODEFD, pthread->getFP(picode, ICODEFS) / pthread->getFP(picode, ICODEFT));
 #if (defined TLS) || (defined TASKSCALAR)
   restoreFPUControl(fpuCtrl);
 #endif
@@ -363,7 +363,7 @@ M4_IN(c1_div_d,
   NativeFPUControlType fpuCtrl=changeFPUControl(pthread->getFPUControl31());
 #endif
 
-  pthread->setDP(picode, FD, pthread->getDP(picode, FS) / pthread->getDP(picode, FT));
+  pthread->setDP(picode, ICODEFD, pthread->getDP(picode, ICODEFS) / pthread->getDP(picode, ICODEFT));
 
 #if (defined TLS) || (defined TASKSCALAR)
   restoreFPUControl(fpuCtrl);
@@ -382,12 +382,12 @@ M4_IN(c1_floor_w_d,
 
 M4_IN(c1_mov_s,
 {
-  pthread->setFP(picode, FD, pthread->getFP(picode, FS));
+  pthread->setFP(picode, ICODEFD, pthread->getFP(picode, ICODEFS));
 })
 
 M4_IN(c1_mov_d,
 {
-  pthread->setDP(picode, FD, pthread->getDP(picode, FS));
+  pthread->setDP(picode, ICODEFD, pthread->getDP(picode, ICODEFS));
 })
 
 M4_IN(c1_mul_s,
@@ -395,7 +395,7 @@ M4_IN(c1_mul_s,
 #if (defined TLS) || (defined TASKSCALAR)
   NativeFPUControlType fpuCtrl=changeFPUControl(pthread->getFPUControl31());
 #endif
-  pthread->setFP(picode, FD, pthread->getFP(picode, FS) * pthread->getFP(picode, FT));
+  pthread->setFP(picode, ICODEFD, pthread->getFP(picode, ICODEFS) * pthread->getFP(picode, ICODEFT));
 #if (defined TLS) || (defined TASKSCALAR)
   restoreFPUControl(fpuCtrl);
 #endif
@@ -406,7 +406,7 @@ M4_IN(c1_mul_d,
 #if (defined TLS) || (defined TASKSCALAR)
   NativeFPUControlType fpuCtrl=changeFPUControl(pthread->getFPUControl31());
 #endif
-  pthread->setDP(picode, FD, pthread->getDP(picode, FS) * pthread->getDP(picode, FT));
+  pthread->setDP(picode, ICODEFD, pthread->getDP(picode, ICODEFS) * pthread->getDP(picode, ICODEFT));
 #if (defined TLS) || (defined TASKSCALAR)
   restoreFPUControl(fpuCtrl);
 #endif
@@ -417,7 +417,7 @@ M4_IN(c1_neg_s,
 #if (defined TLS) || (defined TASKSCALAR)
   NativeFPUControlType fpuCtrl=changeFPUControl(pthread->getFPUControl31());
 #endif
-  pthread->setFP(picode, FD, -pthread->getFP(picode, FS));
+  pthread->setFP(picode, ICODEFD, -pthread->getFP(picode, ICODEFS));
 #if (defined TLS) || (defined TASKSCALAR)
   restoreFPUControl(fpuCtrl);
 #endif
@@ -428,7 +428,7 @@ M4_IN(c1_neg_d,
 #if (defined TLS) || (defined TASKSCALAR)
   NativeFPUControlType fpuCtrl=changeFPUControl(pthread->getFPUControl31());
 #endif
-  pthread->setDP(picode, FD, -pthread->getDP(picode, FS));
+  pthread->setDP(picode, ICODEFD, -pthread->getDP(picode, ICODEFS));
 #if (defined TLS) || (defined TASKSCALAR)
   restoreFPUControl(fpuCtrl);
 #endif
@@ -450,9 +450,9 @@ M4_IN(c1_sqrt_s,
   NativeFPUControlType fpuCtrl=changeFPUControl(pthread->getFPUControl31());
 #endif
 #ifdef host_mips
-  pthread->setFP(picode, FD, _sqrt_s(pthread->getFP(picode, FS)));
+  pthread->setFP(picode, ICODEFD, _sqrt_s(pthread->getFP(picode, ICODEFS)));
 #else
-  pthread->setFP(picode, FD, sqrt(pthread->getFP(picode, FS)));
+  pthread->setFP(picode, ICODEFD, sqrt(pthread->getFP(picode, ICODEFS)));
 #endif
 #if (defined TLS) || (defined TASKSCALAR)
   restoreFPUControl(fpuCtrl);
@@ -465,9 +465,9 @@ M4_IN(c1_sqrt_d,
   NativeFPUControlType fpuCtrl=changeFPUControl(pthread->getFPUControl31());
 #endif
 #ifdef host_mips
-  pthread->setDP(picode, FD, _sqrt_d(pthread->getDP(picode, FS)));
+  pthread->setDP(picode, ICODEFD, _sqrt_d(pthread->getDP(picode, ICODEFS)));
 #else
-  pthread->setDP(picode, FD, sqrt(pthread->getDP(picode, FS)));
+  pthread->setDP(picode, ICODEFD, sqrt(pthread->getDP(picode, ICODEFS)));
 #endif
 #if (defined TLS) || (defined TASKSCALAR)
   restoreFPUControl(fpuCtrl);
@@ -479,7 +479,7 @@ M4_IN(c1_sub_s,
 #if (defined TLS) || (defined TASKSCALAR)
   NativeFPUControlType fpuCtrl=changeFPUControl(pthread->getFPUControl31());
 #endif
-  pthread->setFP(picode, FD, pthread->getFP(picode, FS) - pthread->getFP(picode, FT));
+  pthread->setFP(picode, ICODEFD, pthread->getFP(picode, ICODEFS) - pthread->getFP(picode, ICODEFT));
 #if (defined TLS) || (defined TASKSCALAR)
   restoreFPUControl(fpuCtrl);
 #endif
@@ -490,7 +490,7 @@ M4_IN(c1_sub_d,
 #if (defined TLS) || (defined TASKSCALAR)
   NativeFPUControlType fpuCtrl=changeFPUControl(pthread->getFPUControl31());
 #endif
-  pthread->setDP(picode, FD, pthread->getDP(picode, FS) - pthread->getDP(picode, FT));
+  pthread->setDP(picode, ICODEFD, pthread->getDP(picode, ICODEFS) - pthread->getDP(picode, ICODEFT));
 #if (defined TLS) || (defined TASKSCALAR)
   restoreFPUControl(fpuCtrl);
 #endif
@@ -498,15 +498,15 @@ M4_IN(c1_sub_d,
 
 M4_IN(c1_trunc_w_s,
 {
-  long pp = (long)(truncf(pthread->getFP(picode, FS)));
-  pthread->setFP(picode, FD, *(float *)&pp);
+  long pp = (long)(truncf(pthread->getFP(picode, ICODEFS)));
+  pthread->setFP(picode, ICODEFD, *(float *)&pp);
 })
 
 
 M4_IN(c1_trunc_w_d,
 {
-  long long pp = (long long)(trunc(pthread->getDP(picode, FS)));
-  pthread->setDP(picode, FD, *(double *)&pp);
+  long long pp = (long long)(trunc(pthread->getDP(picode, ICODEFS)));
+  pthread->setDP(picode, ICODEFD, *(double *)&pp);
 })
 
 
@@ -537,7 +537,7 @@ M4_IN(mfc0_op,
 
 M4_IN(mfc1_op,
 {
-  pthread->setREG(picode, RT, pthread->getWFP(picode, FS));
+  pthread->setREG(picode, RT, pthread->getWFP(picode, ICODEFS));
 })
 
 M4_IN(mfc2_op,
@@ -557,7 +557,7 @@ M4_IN(mtc0_op,
 
 M4_IN(mtc1_op,
 {
-  pthread->setWFP(picode, FS, pthread->getREG(picode, RT));
+  pthread->setWFP(picode, ICODEFS, pthread->getREG(picode, RT));
 })
 
 M4_IN(mtc2_op,
@@ -577,7 +577,7 @@ M4_IN(cfc0_op,
 
 M4_IN(cfc1_op,
 {
-  if (picode->args[FS] == 0)
+  if (picode->args[ICODEFS] == 0)
     pthread->setREG(picode, RT, pthread->getFPUControl0());
   else
     pthread->setREG(picode, RT, pthread->getFPUControl31());
@@ -600,7 +600,7 @@ M4_IN(ctc0_op,
 
 M4_IN(ctc1_op,
 {
-  if (picode->args[FS] == 0)
+  if (picode->args[ICODEFS] == 0)
     pthread->setFPUControl0(pthread->getREG(picode, RT));
   else{
     pthread->setFPUControl31(pthread->getREG(picode, RT));

@@ -286,7 +286,7 @@ define(M4_COND_FMT,
 OP($1_s_0)
 {{{
 #ifdef MIPS2_FNATIVE
-    pthread->fcr31 = s_$1_s (&FP(FS), &FP(FT), pthread->fcr31);
+    pthread->fcr31 = s_$1_s (&FP(ICODEFS), &FP(ICODEFT), pthread->fcr31);
 #else
     unimplemented_op(picode, pthread);
 #endif
@@ -297,7 +297,7 @@ OP($1_s_0)
 OP($1_s_1)
 {{{
 #ifdef MIPS2_FNATIVE
-    pthread->fcr31 = s_$1_s (&FP(FS), &FP(FT), pthread->fcr31);
+    pthread->fcr31 = s_$1_s (&FP(ICODEFS), &FP(ICODEFT), pthread->fcr31);
 #else
     unimplemented_op(picode, pthread);
 #endif
@@ -308,7 +308,7 @@ OP($1_s_1)
 OP($1_d_0)
 {{{
 #ifdef MIPS2_FNATIVE
-    pthread->fcr31 = s_$1_d (DP(FS), DP(FT), pthread->fcr31);
+    pthread->fcr31 = s_$1_d (DP(ICODEFS), DP(ICODEFT), pthread->fcr31);
 #else
     unimplemented_op(picode, pthread);
 #endif
@@ -319,7 +319,7 @@ OP($1_d_0)
 OP($1_d_1)
 {{{
 #ifdef MIPS2_FNATIVE
-    pthread->fcr31 = s_$1_d (DP(FS), DP(FT), pthread->fcr31);
+    pthread->fcr31 = s_$1_d (DP(ICODEFS), DP(ICODEFT), pthread->fcr31);
 #else
     unimplemented_op(picode, pthread);
 #endif

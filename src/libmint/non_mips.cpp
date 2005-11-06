@@ -9,7 +9,7 @@
 #include "icode.h"
 #include "globals.h"
 
-#if defined(__i386__)
+#if defined(__i386__) || defined(__x86_64__)
 void setFPUControl(unsigned long mipsFlag)
 {
   changeFPUControl(mipsFlag & 0x3);
@@ -63,7 +63,7 @@ void setFPUControl(unsigned long mipsFlag)
   fp_swap_rnd(val);
 #endif
 }
-#elif __i386__
+#elif defined(__i386__) || defined(__x86_64__)
 void setFPUControl(unsigned long mipsFlag)
 {
   fpsetround(mipsFlag & 0x3);

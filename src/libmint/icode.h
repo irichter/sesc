@@ -65,9 +65,9 @@ typedef icode_ptr (*PPFPI12[12])(icode_ptr, thread_ptr);
 
 /* mnemonics for the coprocessor register indices into the args[] array */
 #define FMT 0
-#define FT 1
-#define FS 2
-#define FD 3
+#define ICODEFT 1
+#define ICODEFS 2
+#define ICODEFD 3
 
 class icode {
  private:

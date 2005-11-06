@@ -55,6 +55,7 @@ DepWindow::DepWindow(GProcessor *gp, const char *clusterName)
   ,nDepsOverflow("Proc(%d)_%s_depTable:nDepsOverflow", gp->getId(), clusterName)
   ,nDepsUnderflow("Proc(%d)_%s_depTable:nDepsUnderflow", gp->getId(), clusterName)
 #endif
+  ,nReplay("Proc(%d)_%s:nReplay", gp->getId(), clusterName)
 {
   char cadena[100];
   sprintf(cadena,"Proc(%d)_%s", Id, clusterName);
@@ -480,7 +481,9 @@ void DepWindow::executed(DInst *dinst)
   // awake them (other processor instructions)
 
   const DInst *stopAtDst = 0;
-  
+
+  bool replayDetected = false;
+
   while (dinst->hasPending()) {
 
     if (stopAtDst == dinst->getFirstPending())
@@ -538,7 +541,14 @@ void DepWindow::executed(DInst *dinst)
       dstReady->setWakeUpTime(when);
 
       preSelect(dstReady);
+    }else{
+      if (!replayDetected && dstReady->isJustWaitingOnMemory()) {
+	replayDetected = true;
+	//	MSG("pc=0x%x dinst=%p @%lld",dinst->getInst()->getAddr(), dinst, globalClock);
+	nReplay.inc();
+      }
     }
+
 #ifdef SESC_SEED
     // On missprediction:
     //

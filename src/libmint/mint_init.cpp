@@ -876,8 +876,8 @@ decode_instr(icode_ptr picode, int instr)
                 break;
               case 8:
                 /* coprocessor branch */
-                if (regfield[FT] < 4)
-                    opnum = bc_opnums[coproc][regfield[FT]];
+                if (regfield[ICODEFT] < 4)
+                    opnum = bc_opnums[coproc][regfield[ICODEFT]];
                 else
                     opnum = reserved_opn;
                 break;
