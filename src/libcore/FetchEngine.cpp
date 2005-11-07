@@ -45,15 +45,15 @@ long long FetchEngine::nInst2Sim=0;
 long long FetchEngine::totalnInst=0;
 
 FetchEngine::FetchEngine(int cId
-			 ,int i
-			 // TOFIX: GMemorySystem is in GPRocessor too. This is
-			 // not consistent. Remove it from GProcessor and be
-			 // sure that everybody that uses it gets it from
-			 // FetchEngine (note that an SMT may have multiple
-			 // FetchEngine)
-			 ,GMemorySystem *gmem
-			 ,GProcessor *gp
-			 ,FetchEngine *fe)
+                         ,int i
+                         // TOFIX: GMemorySystem is in GPRocessor too. This is
+                         // not consistent. Remove it from GProcessor and be
+                         // sure that everybody that uses it gets it from
+                         // FetchEngine (note that an SMT may have multiple
+                         // FetchEngine)
+                         ,GMemorySystem *gmem
+                         ,GProcessor *gp
+                         ,FetchEngine *fe)
   : Id(i)
   ,cpuId(cId)
   ,gms(gmem)
@@ -160,7 +160,7 @@ FetchEngine::FetchEngine(int cId
     printf("Error, could not open file energy_instr file for writing\n");
   }else{
     int mode = getNextCoreMode();
-    gproc->setMode(mode);	
+    gproc->setMode(mode);       
   }  
 #endif
 #endif
@@ -238,11 +238,11 @@ int FetchEngine::getNextCoreMode()
   int mode; 
 
   if(switchFile == NULL)
-	  return -1;
+          return -1;
 
   c = fgets(line, 128, switchFile);
   if(c == NULL)
-	  return -1;
+          return -1;
 
   pch = strtok(line,"\t");
   interval = atol(pch);
@@ -331,22 +331,19 @@ bool FetchEngine::processBranch(DInst *dinst, ushort n2Fetched)
     return true;
   }
 
-
-
-
 #ifdef SESC_MISPATH
   if (missInstID==0 && !dinst->isFake()) { // Only first mispredicted instruction
     I(missFetchTime == 0);
     missFetchTime = globalClock;
+    missInstID    = inst->calcNextInstID();
     dinst->setFetch(this);
   }
-
-  missInstID = inst->calcNextInstID();
 #else
   I(missInstID==0);
+  I(missFetchTime==0);
 
-  missInstID = inst->currentID();
   missFetchTime = globalClock;
+  missInstID    = inst->calcNextInstID();
 
   if( BTACDelay ) {
     if( prediction == NoBTBPrediction && inst->doesJump2Label() ) {

@@ -722,8 +722,8 @@ void xcacti_output_data(const result_type *result,
 
 int xcacti_parameter_check(const parameter_type *parameters) {
 
-   double logbanks, assoc;
-   double logbanksfloor, assocfloor;
+   double logbanks;
+   double logbanksfloor;
 
    if (parameters->NSubbanks < 1 ) {
      printf("Number of subbanks should be greater than or equal to 1 and should be a power of 2\n");
@@ -767,16 +767,6 @@ int xcacti_parameter_check(const parameter_type *parameters) {
      printf("Associativity must >= 1\n");
      return 0;
    }
-
-#if 0
-   assoc = logtwo((double)(parameters->associativity));
-   assocfloor = floor(assoc);
-   
-   if(assoc > assocfloor && !parameters->fully_assoc){
-     printf("Associativity should be a power of 2 [%g vs %g]\n",assoc, assocfloor);
-     return 0;
-   }
-#endif
 
    if (parameters->associativity > 32 && !parameters->fully_assoc) {
      printf("Associativity must <= 32\n or try FA (fully associative)\n");

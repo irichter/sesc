@@ -70,10 +70,10 @@ bool Resource::retire(DInst *dinst)
 /***********************************************/
 
 MemResource::MemResource(Cluster *cls
-			 ,PortGeneric *aGen
-			 ,GMemorySystem *ms
-			 ,int id
-			 ,const char *cad)
+                         ,PortGeneric *aGen
+                         ,GMemorySystem *ms
+                         ,int id
+                         ,const char *cad)
   : Resource(cls, aGen)
   ,L1DCache(ms->getDataSource())
   ,memorySystem(ms)
@@ -89,10 +89,10 @@ MemResource::MemResource(Cluster *cls
 
 #ifdef SESC_INORDER
   ldqCheckEnergyOutOrder = new GStatsEnergy("ldqCheckEnergy",cadena,id, ExecPower
-				    ,EnergyMgr::get("ldqCheckEnergy",id),"LSQ");
+                                    ,EnergyMgr::get("ldqCheckEnergy",id),"LSQ");
 
   ldqRdWrEnergyOutOrder = new GStatsEnergy("ldqRdWrEnergy",cadena,id, ExecPower
-				   ,EnergyMgr::get("ldqRdWrEnergy",id),"LSQ");
+                                   ,EnergyMgr::get("ldqRdWrEnergy",id),"LSQ");
 
   ldqCheckEnergyInOrder = new GStatsEnergyNull; // No stats
   ldqRdWrEnergyInOrder  = new GStatsEnergyNull; // No stats
@@ -102,23 +102,23 @@ MemResource::MemResource(Cluster *cls
   
   
   stqCheckEnergyOutOrder = new GStatsEnergy("stqCheckEnergy",cadena,id, ExecPower
-				    ,EnergyMgr::get("stqCheckEnergy",id),"LSQ");
+                                    ,EnergyMgr::get("stqCheckEnergy",id),"LSQ");
 
 
   stqRdWrEnergyOutOrder = new GStatsEnergy("stqRdWrEnergy",cadena,id, ExecPower
-				   ,EnergyMgr::get("stqRdWrEnergy",id),"LSQ");
-				   
-				   
+                                   ,EnergyMgr::get("stqRdWrEnergy",id),"LSQ");
+                                   
+                                   
   stqCheckEnergyInOrder = new GStatsEnergy("stqCheckEnergyInOrder",cadena,id, ExecPower
-				    ,EnergyMgr::get("stqCheckEnergy",id),"LSQ");
+                                    ,EnergyMgr::get("stqCheckEnergy",id),"LSQ");
 
 
   stqRdWrEnergyInOrder = new GStatsEnergy("stqRdWrEnergyInOrder",cadena,id, ExecPower
-				   ,EnergyMgr::get("stqRdWrEnergy",id),"LSQ");
-				   
+                                   ,EnergyMgr::get("stqRdWrEnergy",id),"LSQ");
+                                   
   stqCheckEnergy = stqCheckEnergyOutOrder; // No stats
   stqRdWrEnergy  = stqRdWrEnergyOutOrder; // No stats
-  			   
+                           
 
   InOrderMode = true;
   OutOrderMode = false;
@@ -126,23 +126,23 @@ MemResource::MemResource(Cluster *cls
 
 #else
   ldqCheckEnergy = new GStatsEnergy("ldqCheckEnergy",cadena,id, ExecPower
-				    ,EnergyMgr::get("ldqCheckEnergy",id));
+                                    ,EnergyMgr::get("ldqCheckEnergy",id));
 
   ldqRdWrEnergy  = new GStatsEnergy("ldqRdWrEnergy",cadena,id, ExecPower
-				    ,EnergyMgr::get("ldqRdWrEnergy",id));
+                                    ,EnergyMgr::get("ldqRdWrEnergy",id));
 
 
   stqCheckEnergy = new GStatsEnergy("stqCheckEnergy",cadena,id, ExecPower
-				    ,EnergyMgr::get("stqCheckEnergy",id));
+                                    ,EnergyMgr::get("stqCheckEnergy",id));
 
 
   stqRdWrEnergy  = new GStatsEnergy("stqRdWrEnergy",cadena,id, ExecPower
-				    ,EnergyMgr::get("stqRdWrEnergy",id));
-				   
+                                    ,EnergyMgr::get("stqRdWrEnergy",id));
+                                   
 #endif
 
   iAluEnergy = new GStatsEnergy("iAluEnergy", cadena , id, ExecPower
-				,EnergyMgr::get("iALUEnergy",id));
+                                ,EnergyMgr::get("iALUEnergy",id));
 }
 
 #ifdef SESC_INORDER
@@ -254,11 +254,11 @@ void FUMemory::earlyRecycle(DInst *dinst)
 /***********************************************/
 
 FULoad::FULoad(Cluster *cls, PortGeneric *aGen
-	       ,TimeDelta_t l
-	       ,TimeDelta_t lsdelay
-	       ,GMemorySystem *ms
-	       ,size_t maxLoads
-	       ,int id)
+               ,TimeDelta_t l
+               ,TimeDelta_t lsdelay
+               ,GMemorySystem *ms
+               ,size_t maxLoads
+               ,int id)
   : MemResource(cls, aGen, ms, id, "FULoad")
   ,ldqNotUsed("FULoad(%d)_ldqNotUsed", id)
   ,nForwarded("FULoad(%d):nForwarded", id)
@@ -311,7 +311,7 @@ void FULoad::simTime(DInst *dinst)
 
   cluster->getGProcessor()->getLSQ()->executed(dinst);
   ldqRdWrEnergy->inc();
-  ldqCheckEnergy->inc();	
+  ldqCheckEnergy->inc();        
 
   if (dinst->isLoadForwarded()) {
 #ifdef SESC_CHERRY
@@ -405,10 +405,10 @@ void FULoad::misBranchRestore()
 /***********************************************/
 
 FUStore::FUStore(Cluster *cls, PortGeneric *aGen
-		 ,TimeDelta_t l
-		 ,GMemorySystem *ms
-		 ,size_t maxStores
-		 ,int id)
+                 ,TimeDelta_t l
+                 ,GMemorySystem *ms
+                 ,size_t maxStores
+                 ,int id)
   : MemResource(cls, aGen, ms, id, "FUStore")
   ,stqNotUsed("FUStore(%d)_stqNotUsed", id)
   ,nDeadStore("FUStore(%d):nDeadStore", id)
@@ -598,9 +598,9 @@ void FUStore::misBranchRestore()
 
 /***********************************************/
 FUGeneric::FUGeneric(Cluster *cls
-		     ,PortGeneric *aGen
-		     ,TimeDelta_t l
-		     ,GStatsEnergyCG *eb
+                     ,PortGeneric *aGen
+                     ,TimeDelta_t l
+                     ,GStatsEnergyCG *eb
   )
   :Resource(cls, aGen)
   ,lat(l)
@@ -674,6 +674,7 @@ void FUBranch::executed(DInst *dinst)
   // boolean is set? Backup done at fetch 
   if (dinst->getFetch()) {
     dinst->getFetch()->unBlockFetch();
+    IS(dinst->setFetch(0));
 #ifdef SESC_MISPATH
     cluster->getGProcessor()->misBranchRestore(dinst);
 #endif
@@ -697,6 +698,7 @@ bool FUBranch::retire(DInst *dinst)
   // boolean is set? Backup done at fetch 
   if (dinst->getFetch()) {
     dinst->getFetch()->unBlockFetch();
+    IS(dinst->setFetch(0));
 #ifdef SESC_MISPATH
     cluster->getGProcessor()->misBranchRestore(dinst);
 #endif

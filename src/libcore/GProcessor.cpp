@@ -339,7 +339,7 @@ int GProcessor::issue(PipeQueue &pipeQ)
     do{
       I(!bucket->empty());
       if( i >= IssueWidth ) {
-        return i;
+        return i+j;
       }
 
       I(!bucket->empty());

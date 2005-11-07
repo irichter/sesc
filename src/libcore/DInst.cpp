@@ -303,8 +303,10 @@ void DInst::killSilently()
 
   markIssued();
   markExecuted();
-  if( getFetch() )
+  if( getFetch() ) {
     getFetch()->unBlockFetch();
+    IS(setFetch(0));
+  }
 
   if (getInst()->isStore())
     LDSTBuffer::storeLocallyPerformed(this);
@@ -350,6 +352,8 @@ void DInst::killSilently()
   I(lvidVersion==0);
 #endif
 
+  I(!getFetch());
+
   if (hasDeps())
     return;
   
@@ -359,6 +363,7 @@ void DInst::killSilently()
   I(!myEpoch);
 #endif
 
+  I(!getFetch());
   dInstPool.in(this); 
 }
 
@@ -396,12 +401,15 @@ void DInst::scrap()
   }
 #endif
 
+  I(!getFetch());
   dInstPool.in(this);
 }
 
 void DInst::destroy()
 {
   I(nDeps == 0);   // No deps src
+
+  I(!fetch); // if it block the fetch engine. it is unblocked again
 
   I(issued);
   I(executed);
@@ -575,10 +583,10 @@ void DInst::setRetireTime()
   long pc = inst->getAddr();
   if (pc) {
     printf("BAAD: wp=%d pc=0x%x op=%d src1=%d src2=%d dest=%u "
-	   ,isFake()?1:0
-	   ,pc,inst->getOpcode()
-	   ,inst->getSrc1(), inst->getSrc1(), inst->getDest()
-	   );
+           ,isFake()?1:0
+           ,pc,inst->getOpcode()
+           ,inst->getSrc1(), inst->getSrc1(), inst->getDest()
+           );
     
     if (inst->isMemory())
       printf(" addr=0x%x time=%d", getVaddr(), (int)(exeTime-schedTime));

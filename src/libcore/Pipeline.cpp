@@ -200,18 +200,18 @@ IBucket *Pipeline::nextItem()
       I(b->top() != 0);
 
       if (nCleanMarks) {
-	// Swallow fakes if clean mark set
-	do {
-	  if (!b->top()->isFake())
-	    return b;
+        // Swallow fakes if clean mark set
+        do {
+          if (!b->top()->isFake())
+            return b;
 
-	  b->top()->killSilently();
-	  b->pop();
-	} while(!b->empty());
-	I(b->empty());
-	
-	bucketPool.push_back(b);
-	continue;
+          b->top()->killSilently();
+          b->pop();
+        } while(!b->empty());
+        I(b->empty());
+        
+        bucketPool.push_back(b);
+        continue;
       }
 
       return b;
@@ -231,10 +231,10 @@ IBucket *Pipeline::nextItem()
 
 PipeQueue::PipeQueue(CPU_t i)
   :pipeLine(
-	    SescConf->getLong("cpucore", "decodeDelay",i)
-	    +SescConf->getLong("cpucore", "renameDelay",i)
-	    ,SescConf->getLong("cpucore", "fetchWidth",i)
-	    ,SescConf->getLong("cpucore", "maxIRequests",i))
+            SescConf->getLong("cpucore", "decodeDelay",i)
+            +SescConf->getLong("cpucore", "renameDelay",i)
+            ,SescConf->getLong("cpucore", "fetchWidth",i)
+            ,SescConf->getLong("cpucore", "maxIRequests",i))
   ,instQueue(SescConf->getLong("cpucore", "instQueueSize",i))
 {
   SescConf->isLong("cpucore", "decodeDelay", i);
@@ -248,8 +248,8 @@ PipeQueue::PipeQueue(CPU_t i)
     
   SescConf->isLong("cpucore", "instQueueSize",i);
   SescConf->isBetween("cpucore", "instQueueSize"
-		      ,SescConf->getLong("cpucore","fetchWidth",i)
-		      ,32768,i);
+                      ,SescConf->getLong("cpucore","fetchWidth",i)
+                      ,32768,i);
 
 }
 

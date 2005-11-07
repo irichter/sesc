@@ -68,7 +68,7 @@ static double logtwo_area(double x) {
 
 
 static area_type inverter_area(double Widthp, 
-			       double Widthn) {
+                               double Widthn) {
 
   double Width_n,Width_p;
   area_type invarea;
@@ -91,16 +91,16 @@ static area_type inverter_area(double Widthp,
 }
 
 static area_type subarraymem_area(int C, 
-				  int B, 
-				  int A, 
-				  int Ndbl, 
-				  int Ndwl, 
-				  int Nspd,
-				  int RWP,
-				  int ERP,
-				  int EWP,
-				  int NSER,
-				  double techscaling_factor) {
+                                  int B, 
+                                  int A, 
+                                  int Ndbl, 
+                                  int Ndwl, 
+                                  int Nspd,
+                                  int RWP,
+                                  int ERP,
+                                  int EWP,
+                                  int NSER,
+                                  double techscaling_factor) {
   
   area_type memarea;
   int noof_rows, noof_colns;
@@ -115,14 +115,14 @@ static area_type subarraymem_area(int C,
 }
 
 static area_type decodemem_row(int C,
-			       int B,
-			       int A,
-			       int Ndbl,
-			       int Ndwl,
-			       int Nspd,
-			       int RWP,
-			       int ERP,
-			       int EWP) {
+                               int B,
+                               int A,
+                               int Ndbl,
+                               int Ndwl,
+                               int Nspd,
+                               int RWP,
+                               int ERP,
+                               int EWP) {
 
   int noof_colns,numstack;
   double decodeNORwidth;
@@ -158,14 +158,14 @@ static area_type decodemem_row(int C,
   postdecodearea.height = (BitHeight16x2+2*Widthtrack*2*(RWP+ERP+EWP-1));
   postdecodearea.width  = (decodeNORwidth + decinv.height + worddriveinv.height)*(RWP+ERP+EWP);
   return(postdecodearea);
-}	
+}       
 
 /* this puts the different predecode blocks for the different ports side by side
    and does not put them as an array or something */
 static area_type predecode_area(int noof_rows,
-				int RWP,
-				int ERP,
-				int EWP) {
+                                int RWP,
+                                int ERP,
+                                int EWP) {
 
   area_type predecode, predecode_temp;
 
@@ -198,13 +198,13 @@ static area_type predecode_area(int noof_rows,
 
   predecode.height=predecode_temp.height;
   predecode.width=predecode_temp.width*(RWP+ERP+EWP);
-  return(predecode);	
+  return(predecode);    
 }
 
 static area_type postdecode_area(int noof_rows, 
-				 int RWP,
-				 int ERP,
-				 int EWP) { 
+                                 int RWP,
+                                 int ERP,
+                                 int EWP) { 
 
   int numstack = (int)ceil((1.0/3.0)*logtwo_area((double)(noof_rows)));
 
@@ -238,11 +238,11 @@ static area_type postdecode_area(int noof_rows,
 
 /* gives the height of the colmux */
 static area_type colmux(int Ndbl, 
-			int Nspd, 
-			int RWP, 
-			int ERP, 
-			int EWP, 
-			int NSER) { 
+                        int Nspd, 
+                        int RWP, 
+                        int ERP, 
+                        int EWP, 
+                        int NSER) { 
 
   area_type colmux_area;
   colmux_area.height = (2*Wbitmuxn+3*(2*Widthcontact+1))*(RWP+ERP+EWP);
@@ -252,17 +252,17 @@ static area_type colmux(int Ndbl,
 }
 
 static area_type precharge(int Ndbl, 
-			   int Nspd, 
-			   int RWP,
-			   int ERP,
-			   int EWP,
-			   int NSER) {
+                           int Nspd, 
+                           int RWP,
+                           int ERP,
+                           int EWP,
+                           int NSER) {
 
   area_type precharge_area;
 
   if (Ndbl*Nspd > 1) {
     precharge_area.height =(Wbitpreequ+2*Wbitdropv+Wwrite+2*(2*Widthcontact+
-							     1)+3*Widthptondiff)*0.5*(RWP+EWP);
+                                                             1)+3*Widthptondiff)*0.5*(RWP+EWP);
     precharge_area.width  = 2*(BitWidth+Widthtrack*2*(RWP+(ERP-NSER)+EWP-1)+Widthtrack*NSER); }
   else {
     precharge_area.height = (Wbitpreequ+2*Wbitdropv+Wwrite+2*(2*Widthcontact+1)+3*Widthptondiff)*(RWP+EWP);
@@ -273,11 +273,11 @@ static area_type precharge(int Ndbl,
 }
 
 static area_type senseamp(int Ndbl,
-			  int Nspd, 
-			  int RWP,
-			  int ERP,
-			  int EWP,
-			  int NSER) {
+                          int Nspd, 
+                          int RWP,
+                          int ERP,
+                          int EWP,
+                          int NSER) {
 
   area_type senseamp_area;
   if (Ndbl*Nspd > 1) {
@@ -293,17 +293,17 @@ static area_type senseamp(int Ndbl,
 
 /* define OutdriveHeight OutdriveWidth DatainvHeight DatainvWidth */
 static area_type subarraytag_area(int baddr, 
-				  int C, int B, int A,
-				  int Ntdbl, int Ntdwl, int Ntspd,
-				  double NSubbanks,
-				  int RWP, int ERP, int EWP, int NSER,
-				  double techscaling_factor) {
+                                  int C, int B, int A,
+                                  int Ntdbl, int Ntdwl, int Ntspd,
+                                  double NSubbanks,
+                                  int RWP, int ERP, int EWP, int NSER,
+                                  double techscaling_factor) {
   area_type tagarea;
   int noof_rows, noof_colns, Tagbits;
   int conservative_NSER;
-	
+        
   conservative_NSER =0;
-	
+        
   Tagbits = baddr-(int)(logtwo_area((double)(C)))+(int)(logtwo_area((double)(A)))+2-(int)(logtwo_area(NSubbanks));
        
   noof_rows = (C/(B*A*Ntdbl*Ntspd));
@@ -317,10 +317,10 @@ static area_type subarraytag_area(int baddr,
 }
 
 static area_type decodetag_row(int baddr,
-			       int C, int B, int A,
-			       int Ntdbl, int Ntdwl, int Ntspd,
-			       double NSubbanks,
-			       int RWP, int ERP, int EWP) {
+                               int C, int B, int A,
+                               int Ntdbl, int Ntdwl, int Ntspd,
+                               double NSubbanks,
+                               int RWP, int ERP, int EWP) {
 
   int numstack, Tagbits;
   double decodeNORwidth;
@@ -357,8 +357,8 @@ static area_type decodetag_row(int baddr,
 }
 
 static area_type comparatorbit(int RWP,
-			       int ERP,
-			       int EWP) {
+                               int ERP,
+                               int EWP) {
   
   area_type compbit_area;
 
@@ -369,10 +369,10 @@ static area_type comparatorbit(int RWP,
 }
 
 static area_type muxdriverdecode(int B, 
-				 int b0, 
-				 int RWP, int ERP, int EWP) {      
+                                 int b0, 
+                                 int RWP, int ERP, int EWP) {      
   
-  int noof_rows;	
+  int noof_rows;        
   area_type muxdrvdecode_area, predecode,postdecode;
 
   noof_rows=(8*B)/b0;
@@ -428,11 +428,11 @@ static area_type muxdrvsig(int A, int B, int b0) {
   return(muxdrvsig_area);
 }
 
-	  
+          
 static area_type datasubarray(int C, int B, int A,
-			      int Ndbl, int Ndwl, int Nspd,
-			      int RWP, int ERP, int EWP, int NSER,
-			      double techscaling_factor) {
+                              int Ndbl, int Ndwl, int Nspd,
+                              int RWP, int ERP, int EWP, int NSER,
+                              double techscaling_factor) {
 
   area_type datasubarray_area,mem_area,postdecode_area,colmux_area,precharge_area,senseamp_area;
 
@@ -448,10 +448,10 @@ static area_type datasubarray(int C, int B, int A,
 }
  
 static area_type datasubblock(int C, int B, int A,
-			      int Ndbl, int Ndwl, int Nspd, 
-			      int SB, int b0, 
-			      int RWP, int ERP, int EWP, int NSER,
-			      double techscaling_factor) {
+                              int Ndbl, int Ndwl, int Nspd, 
+                              int SB, int b0, 
+                              int RWP, int ERP, int EWP, int NSER,
+                              double techscaling_factor) {
 
   int colmuxtracks_rem, outrdrvtracks_rem, writeseltracks_rem;
   int SB_ ;
@@ -471,7 +471,7 @@ static area_type datasubblock(int C, int B, int A,
   if (N3to8==0) {
     N3to8=1;
   }
-	
+        
   tracks_h=Widthtrack*(N3to8*8*(RWP+ERP+EWP)+(RWP+EWP)*colmuxtracks_rem+Ndbl*Nspd*ERP+4*outrdrvtracks_rem*(RWP+ERP)+4*writeseltracks_rem*(RWP+EWP)+(RWP+ERP+EWP)*b0/SB_);
   tracks_w=Widthtrack*(N3to8*8)*(RWP+ERP+EWP);
   datasubarray_area=datasubarray(C,B,A,Ndbl,Ndwl,Nspd,RWP,ERP,EWP,NSER,techscaling_factor);
@@ -482,9 +482,9 @@ static area_type datasubblock(int C, int B, int A,
 }
 
 static area_type dataarray(int C, int B, int A,
-			   int Ndbl, int Ndwl, int Nspd,
-			   int b0, int RWP, int ERP, int EWP, int NSER,
-			   double techscaling_factor) {
+                           int Ndbl, int Ndwl, int Nspd,
+                           int b0, int RWP, int ERP, int EWP, int NSER,
+                           double techscaling_factor) {
 
   area_type dataarray_area, datasubarray_area, datasubblock_area;
   area_type temp;
@@ -493,7 +493,7 @@ static area_type dataarray(int C, int B, int A,
   double data,driver_select,colmux,predecode,addresslines;
   int blocks, htree, htree_half, i, multiplier, iter_height;
   double inter_height,inter_width, total_height, total_width;
-	
+        
   int SB = Ndwl*Ndbl/4;
   int N3to8 = (int)ceil((1.0/3.0)*logtwo_area( (double)(C/(B*A*Ndbl*Nspd))));
   if (N3to8==0) {
@@ -528,7 +528,7 @@ static area_type dataarray(int C, int B, int A,
     total_width =datasubblock_area.width;
   }else if(SB==2) {
     total_height=datasubblock_area.height;
-    total_width = 2*datasubblock_area.width + fixed_tracks_external+data ;	
+    total_width = 2*datasubblock_area.width + fixed_tracks_external+data ;      
   }else if(SB==4) {
     total_height=2*datasubblock_area.height+fixed_tracks_external+data;
     total_width =2*datasubblock_area.width+fixed_tracks_internal+variable_tracks/2;
@@ -551,26 +551,26 @@ static area_type dataarray(int C, int B, int A,
 
     if (htree % 2 == 0) {
       for (i=0;i<=iter_height;i++) {
-	if (i==iter_height) {
-	  total_height = 2*inter_height+data/blocks*multiplier+fixed_tracks_external; 
-	  total_width = 2*inter_width + data/(2*blocks)*multiplier+fixed_tracks_internal; 
-	} else {
-	  total_height = 2*inter_height+data/blocks*multiplier+fixed_tracks_internal;
-	  total_width = 2*inter_width+data/(2*blocks)*multiplier+fixed_tracks_internal;    
-	  inter_height = total_height ;
-	  inter_width = total_width ;
-	  multiplier = multiplier*4;
-	}
+        if (i==iter_height) {
+          total_height = 2*inter_height+data/blocks*multiplier+fixed_tracks_external; 
+          total_width = 2*inter_width + data/(2*blocks)*multiplier+fixed_tracks_internal; 
+        } else {
+          total_height = 2*inter_height+data/blocks*multiplier+fixed_tracks_internal;
+          total_width = 2*inter_width+data/(2*blocks)*multiplier+fixed_tracks_internal;    
+          inter_height = total_height ;
+          inter_width = total_width ;
+          multiplier = multiplier*4;
+        }
       }
     } else {
       htree_half = htree-1;
       iter_height = htree_half/2; 
       for (i=0;i<=iter_height;i++) {
-	total_height = 2*inter_height+data/blocks*multiplier+fixed_tracks_internal;
-	total_width = 2*inter_width+data/(2*blocks)*multiplier+fixed_tracks_internal;
-	inter_height = total_height ;
-	inter_width = total_width ;
-	multiplier = multiplier*4;
+        total_height = 2*inter_height+data/blocks*multiplier+fixed_tracks_internal;
+        total_width = 2*inter_width+data/(2*blocks)*multiplier+fixed_tracks_internal;
+        inter_height = total_height ;
+        inter_width = total_width ;
+        multiplier = multiplier*4;
       }
       total_width = 2*inter_width+data/(2*blocks)*multiplier+fixed_tracks_external;
     }
@@ -595,11 +595,11 @@ static area_type dataarray(int C, int B, int A,
 }
 
 static area_type tagsubarray(int baddr, 
-			     int C, int B, int A,
-			     int Ndbl, int Ndwl, int Nspd,
-			     double NSubbanks,
-			     int RWP, int ERP, int EWP, int NSER,
-			     double techscaling_factor) {
+                             int C, int B, int A,
+                             int Ndbl, int Ndwl, int Nspd,
+                             double NSubbanks,
+                             int RWP, int ERP, int EWP, int NSER,
+                             double techscaling_factor) {
 
   int conservative_NSER;
   area_type tagsubarray_area,tag_area,postdecode_area,colmux_area,precharge_area,senseamp_area,comp_area;
@@ -618,11 +618,11 @@ static area_type tagsubarray(int baddr,
 }
 
 static area_type tagsubblock(int baddr,
-			     int C, int B, int A,
-			     int Ndbl, int Ndwl, int Nspd,
-			     double NSubbanks,
-			     int SB, int RWP, int ERP, int EWP, int NSER,
-			     double techscaling_factor) {	
+                             int C, int B, int A,
+                             int Ndbl, int Ndwl, int Nspd,
+                             double NSubbanks,
+                             int SB, int RWP, int ERP, int EWP, int NSER,
+                             double techscaling_factor) {       
   double tracks_h, tracks_w;
   area_type tagsubarray_area,tagsubblock_area;
 
@@ -655,11 +655,11 @@ static area_type tagsubblock(int baddr,
 }
 
 static area_type tagarray(int baddr,
-			  int C, int B, int A,
-			  int Ndbl, int Ndwl, int Nspd,
-			  double NSubbanks,
-			  int RWP, int ERP, int EWP, int NSER,
-			  double techscaling_factor) {
+                          int C, int B, int A,
+                          int Ndbl, int Ndwl, int Nspd,
+                          double NSubbanks,
+                          int RWP, int ERP, int EWP, int NSER,
+                          double techscaling_factor) {
 
   int SB, T;
   area_type tagarray_area, tagsubarray_area, tagsubblock_area;
@@ -682,7 +682,7 @@ static area_type tagarray(int baddr,
   T= baddr-
     (int)logtwo_area((double)(C))+
     (int)logtwo_area((double)(A))+2-
-    (int)logtwo_area((double)(NSubbanks));	
+    (int)logtwo_area((double)(NSubbanks));      
         
   tag=T*(RWP+ERP+EWP)*Widthtrack;
   assoc=(RWP+ERP)*A*Widthtrack;
@@ -736,26 +736,26 @@ static area_type tagarray(int baddr,
 
     if (htree % 2 == 0) {
       for (i=0;i<=iter_height;i++) {
-	if (i==iter_height) {
-	  total_height = 2*inter_height+tag/blocks*multiplier+fixed_tracks_external;
-	  total_width = 2*inter_width + tag/(2*blocks)*multiplier+fixed_tracks_internal;
-	} else {
-	  total_height = 2*inter_height+tag/blocks*multiplier+fixed_tracks_internal;
-	  total_width = 2*inter_width+tag/(2*blocks)*multiplier+fixed_tracks_internal;
-	  inter_height = total_height ;
-	  inter_width = total_width ;
-	  multiplier = multiplier*4;
-	}
+        if (i==iter_height) {
+          total_height = 2*inter_height+tag/blocks*multiplier+fixed_tracks_external;
+          total_width = 2*inter_width + tag/(2*blocks)*multiplier+fixed_tracks_internal;
+        } else {
+          total_height = 2*inter_height+tag/blocks*multiplier+fixed_tracks_internal;
+          total_width = 2*inter_width+tag/(2*blocks)*multiplier+fixed_tracks_internal;
+          inter_height = total_height ;
+          inter_width = total_width ;
+          multiplier = multiplier*4;
+        }
       }
     } else {
       htree_half = htree-1;
       iter_height = htree_half/2;
       for (i=0;i<=iter_height;i++) {
-	total_height = 2*inter_height+tag/blocks*multiplier+fixed_tracks_internal;
-	total_width = 2*inter_width+tag/(2*blocks)*multiplier+fixed_tracks_internal;
-	inter_height = total_height ;
-	inter_width = total_width ;
-	multiplier = multiplier*4;
+        total_height = 2*inter_height+tag/blocks*multiplier+fixed_tracks_internal;
+        total_width = 2*inter_width+tag/(2*blocks)*multiplier+fixed_tracks_internal;
+        inter_height = total_height ;
+        inter_width = total_width ;
+        multiplier = multiplier*4;
       }
       total_width = 2*inter_width+tag/(2*blocks)*multiplier+fixed_tracks_external;
     }
@@ -779,10 +779,10 @@ static area_type tagarray(int baddr,
 }
 
 static void area(int baddr, int b0,
-		 int Ndbl, int Ndwl, int Nspd, 
-		 int Ntbl, int Ntwl, int Ntspd,
-		 const parameter_type *parameters,
-		 arearesult_type *result) {
+                 int Ndbl, int Ndwl, int Nspd, 
+                 int Ntbl, int Ntwl, int Ntspd,
+                 const parameter_type *parameters,
+                 arearesult_type *result) {
 
   double NSubbanks = parameters->NSubbanks;
 
@@ -796,7 +796,7 @@ static void area(int baddr, int b0,
 
   result->dataarray_area=dataarray(parameters->cache_size,parameters->block_size,parameters->associativity,Ndbl,Ndwl,Nspd,b0,parameters->num_readwrite_ports,parameters->num_read_ports,parameters->num_write_ports,parameters->num_single_ended_read_ports,parameters->fudgefactor);
 
-  result->datapredecode_area=predecode_area(rows_datasubarray,parameters->num_readwrite_ports,parameters->num_read_ports,parameters->num_write_ports);	
+  result->datapredecode_area=predecode_area(rows_datasubarray,parameters->num_readwrite_ports,parameters->num_read_ports,parameters->num_write_ports);  
   result->datacolmuxpredecode_area=predecode_area(colns_datasubarray,parameters->num_readwrite_ports,parameters->num_read_ports,parameters->num_write_ports);
   result->datacolmuxpostdecode_area=postdecode_area(colns_datasubarray,parameters->num_readwrite_ports,parameters->num_read_ports,parameters->num_write_ports);
   result->datawritesig_area=muxdrvsig(parameters->associativity,parameters->block_size,b0);
@@ -811,8 +811,8 @@ static void area(int baddr, int b0,
 
 /*returns area of post decode */
 static area_type fadecode_row(int C, int B,
-			      int Ndbl,
-			      int RWP, int ERP, int EWP) {
+                              int Ndbl,
+                              int RWP, int ERP, int EWP) {
   
   double decodeNORwidth, firstinv;
   area_type decinv,worddriveinv,postdecodearea;
@@ -856,11 +856,11 @@ static area_type fadecode_row(int C, int B,
 }
 
 static area_type fasubarray(int baddr, 
-			    int C, 
-			    int B, 
-			    int Ndbl,
-			    int RWP, int ERP, int EWP, int NSER,
-			    double techscaling_factor) {
+                            int C, 
+                            int B, 
+                            int Ndbl,
+                            int RWP, int ERP, int EWP, int NSER,
+                            double techscaling_factor) {
 
   area_type FAarea, fadecoderow, faramcell;
   int noof_rowsdata, noof_colnsdata;
@@ -876,31 +876,26 @@ static area_type fasubarray(int baddr,
 
   if ((RWP==1) && (ERP==0) && (EWP==0)) {
     heightoverhead=0;
-    widthoverhead =0; }
-  else {
-    if ((RWP==1) && (ERP==1) && (EWP==0)) {
-      widthoverhead=FAWidthIncrPer_first_r_port ;
-      heightoverhead=FAHeightIncrPer_first_r_port ; }
-    else {
-      if ((RWP==1) && (ERP==0) && (EWP==1)) {
-	widthoverhead=FAWidthIncrPer_first_rw_or_w_port ;
-	heightoverhead=FAHeightIncrPer_first_rw_or_w_port ; }
-      else {
-	if (RWP+EWP >=2) {
-	  widthoverhead = FAWidthIncrPer_first_rw_or_w_port+(RWP+EWP-2)*FAWidthIncrPer_later_rw_or_w_port+ERP*FAWidthIncrPer_later_r_port;
-	  heightoverhead= FAHeightIncrPer_first_rw_or_w_port+(RWP+EWP-2)*FAHeightIncrPer_later_rw_or_w_port+ERP*FAHeightIncrPer_later_r_port; }
-	else {
-	  if ((RWP==0) && (EWP==0)) {
-	    widthoverhead=FAWidthIncrPer_first_r_port + (ERP-1)*FAWidthIncrPer_later_r_port;
-	    heightoverhead=FAHeightIncrPer_first_r_port+ (ERP-1)*FAHeightIncrPer_later_r_port; ; }
-	  else {
-	    if ((RWP==0) && (EWP==1)) {
-              widthoverhead=ERP*FAWidthIncrPer_later_r_port ;
-              heightoverhead=ERP*FAHeightIncrPer_later_r_port ; }
-	    else {
-              if ((RWP==1) && (EWP==0)) {
-		widthoverhead=ERP*FAWidthIncrPer_later_r_port ;
-		heightoverhead=ERP*FAHeightIncrPer_later_r_port ; } } } } } } }
+    widthoverhead =0; 
+  }else if ((RWP==1) && (ERP==1) && (EWP==0)) {
+    widthoverhead=FAWidthIncrPer_first_r_port;
+    heightoverhead=FAHeightIncrPer_first_r_port;
+  }else if ((RWP==1) && (ERP==0) && (EWP==1)) {
+    widthoverhead=FAWidthIncrPer_first_rw_or_w_port;
+    heightoverhead=FAHeightIncrPer_first_rw_or_w_port;
+  }else if (RWP+EWP >=2) {
+    widthoverhead = FAWidthIncrPer_first_rw_or_w_port+(RWP+EWP-2)*FAWidthIncrPer_later_rw_or_w_port+ERP*FAWidthIncrPer_later_r_port;
+    heightoverhead= FAHeightIncrPer_first_rw_or_w_port+(RWP+EWP-2)*FAHeightIncrPer_later_rw_or_w_port+ERP*FAHeightIncrPer_later_r_port;
+  }else if ((RWP==0) && (EWP==0)) {
+    widthoverhead=FAWidthIncrPer_first_r_port + (ERP-1)*FAWidthIncrPer_later_r_port;
+    heightoverhead=FAHeightIncrPer_first_r_port+ (ERP-1)*FAHeightIncrPer_later_r_port;
+  }else if ((RWP==0) && (EWP==1)) {
+    widthoverhead=ERP*FAWidthIncrPer_later_r_port;
+    heightoverhead=ERP*FAHeightIncrPer_later_r_port;
+  }else{ // ((RWP==1) && (EWP==0))
+    widthoverhead=ERP*FAWidthIncrPer_later_r_port;
+    heightoverhead=ERP*FAHeightIncrPer_later_r_port;
+  }
 
   faramcell.height= (int)ceil((double)(noof_rowsdata)/16.0)*stitch_ramv+(CAM2x2Height_1p+2*heightoverhead)*ceil((double)(noof_rowsdata)/2.0);
 
@@ -921,10 +916,10 @@ static area_type fasubarray(int baddr,
 }
 
 static area_type faarea(int baddr, int b0,
-			int C, int B,
-			int Ndbl,
-			int RWP, int ERP, int EWP, int NSER,
-			double techscaling_factor) {
+                        int C, int B,
+                        int Ndbl,
+                        int RWP, int ERP, int EWP, int NSER,
+                        double techscaling_factor) {
 
   area_type fasubarray_area,fa_area;
   int Tagbits, blocksel;
@@ -934,7 +929,7 @@ static area_type faarea(int baddr, int b0,
        
   int blocks, htree, htree_half, i, iter;
   double inter_height,inter_width, total_height, total_width;
-	
+        
   int N3to8 = (int)ceil((1.0/3.0)*logtwo_area( (double)((double)C/(double)(B))));
   if (N3to8==0) {
     N3to8=1;
@@ -951,59 +946,53 @@ static area_type faarea(int baddr, int b0,
   if(Ndbl==1) {
     total_height=fasubarray_area.height+fixed_tracks;
     total_width=fasubarray_area.width+predecode;
-  }
-  if(Ndbl==2) {
+  }else if(Ndbl==2) {
     total_height=2*fasubarray_area.height+fixed_tracks;
     total_width =fasubarray_area.width+predecode;
-  }
-  if(Ndbl==4) {
+  }else if(Ndbl==4) {
     total_height=2*fasubarray_area.height+fixed_tracks+predecode;
     total_width =2*fasubarray_area.width+predecode;
-  }
-  if(Ndbl>4) {
+  }else{ //(Ndbl>4)
     blocks=Ndbl/4;
     htree = (int)(logtwo_area ( (double) (blocks)));
     base_height=2*fasubarray_area.height+fixed_tracks+predecode;
     base_width= 2*fasubarray_area.width+predecode;
-	
+        
     inter_height=base_height;
     inter_width=base_width;
-	
+        
+    total_height=0;
+    total_width =0;
     if(htree % 2 ==0) {
-      iter = htree/2; }
-		  
-    if(htree % 2 ==0) {
-      for (i=1;i<=iter;i++)
-	{
-	  total_height = 2*(inter_height)+fixed_tracks+predecode;
-	  inter_height = total_height ;
-	  total_width = 2*(inter_width)+fixed_tracks+predecode;
-	  inter_width = total_width ;
-	}
-    }
-    else {
+      iter = htree/2;
+
+      for (i=1;i<=iter;i++) {
+        total_height = 2*(inter_height)+fixed_tracks+predecode;
+        inter_height = total_height ;
+        total_width = 2*(inter_width)+fixed_tracks+predecode;
+        inter_width = total_width ;
+      }
+    }else{
       htree_half = htree-1;
       iter = htree_half/2;
       if(iter==0) {
-	total_height = base_height;
-	total_width  = 2*base_width+fixed_tracks+predecode; 
-      }
-      else {
-	for (i=0;i<=iter;i++)
-	  {
-	    total_height = 2*inter_height+fixed_tracks+predecode;
-	    total_width = 2*inter_width+fixed_tracks+predecode;
-	    inter_height = total_height ;
-	    inter_width = total_width ;
-	  }
-	total_width = 2*inter_width+fixed_tracks+predecode;
+        total_height = base_height;
+        total_width  = 2*base_width+fixed_tracks+predecode; 
+      }else{
+        for (i=0;i<=iter;i++) {
+          total_height = 2*inter_height+fixed_tracks+predecode;
+          total_width = 2*inter_width+fixed_tracks+predecode;
+          inter_height = total_height ;
+          inter_width = total_width ;
+        }
+        total_width = 2*inter_width+fixed_tracks+predecode;
       }
     }
   }
-	
+  
   fa_area.height = total_height;
   fa_area.width  = total_width;
-	
+        
   temp.height = fa_area.width;
   temp.width  = fa_area.height;
   temp_aspect = ((temp.height/temp.width) > 1.0) ? (temp.height/temp.width) : 1.0/(temp.height/temp.width);
@@ -1019,8 +1008,8 @@ static area_type faarea(int baddr, int b0,
 }
 
 static void fatotalarea(int baddr, int b0, int Ndbl,
-			const parameter_type *parameters,
-			arearesult_type *faresult) {
+                        const parameter_type *parameters,
+                        arearesult_type *faresult) {
 
   area_type null_area;
 
@@ -1044,13 +1033,13 @@ static void fatotalarea(int baddr, int b0, int Ndbl,
 }
 
 void xcacti_area_subbanked(int baddr,
-			   int b0,
-			   int RWP, int ERP, int EWP,
-			   int Ndbl, int Ndwl, int Nspd,
-			   int Ntbl, int Ntwl, int Ntspd,
-			   const parameter_type *parameters,
-			   area_type *result_subbanked,
-			   arearesult_type *result)
+                           int b0,
+                           int RWP, int ERP, int EWP,
+                           int Ndbl, int Ndwl, int Nspd,
+                           int Ntbl, int Ntwl, int Ntspd,
+                           const parameter_type *parameters,
+                           area_type *result_subbanked,
+                           arearesult_type *result)
 {
   arearesult_type result_area;
   area_type temp;
@@ -1089,45 +1078,40 @@ void xcacti_area_subbanked(int baddr,
   if (parameters->NSubbanks == 1) {
     total_height = result_area.dataarray_area.height;
     total_width = result_area.dataarray_area.width+result_area.tagarray_area.width;
-  }
-  if (parameters->NSubbanks == 2) {
+  }else if (parameters->NSubbanks == 2) {
     total_height = result_area.dataarray_area.height + (RWP+ERP+EWP)*ADDRESS_BITS;
     total_width = (result_area.dataarray_area.width+result_area.tagarray_area.width)*2 + (ADDRESS_BITS+BITOUT)*parameters->NSubbanks*(RWP+ERP+EWP);
-  }
-  if (parameters->NSubbanks == 4) {
+  }else if (parameters->NSubbanks == 4) {
     total_height = 2*result_area.dataarray_area.height+2*(RWP+ERP+EWP)*ADDRESS_BITS;
     total_width = (result_area.dataarray_area.width+result_area.tagarray_area.width)*2 + (ADDRESS_BITS+BITOUT)*parameters->NSubbanks*(RWP+ERP+EWP);
-
-  }
-  if (parameters->NSubbanks == 8) {
+  }else if (parameters->NSubbanks == 8) {
     total_height = (result_area.dataarray_area.width+result_area.tagarray_area.width)*2 + (ADDRESS_BITS+BITOUT)*parameters->NSubbanks*(RWP+ERP+EWP)*0.5;
     total_width = 2*(2*result_area.dataarray_area.height+2*(RWP+ERP+EWP)*ADDRESS_BITS)+(ADDRESS_BITS+BITOUT)*parameters->NSubbanks*(RWP+ERP+EWP);
-  }
-
-  if (parameters->NSubbanks > 8 ) {
+  }else{
     blocks = parameters->NSubbanks / 16;
     htree = (int) (logtwo_area((double) (blocks)));
     base_height = 2*((result_area.dataarray_area.width+result_area.tagarray_area.width)*2 + (ADDRESS_BITS+BITOUT)*16*(RWP+ERP+EWP)*0.25) + (ADDRESS_BITS+BITOUT)*16*(RWP+ERP+EWP)*0.5;
     base_width = 2*(2*result_area.dataarray_area.height+2*(RWP+ERP+EWP)*ADDRESS_BITS)+(ADDRESS_BITS+BITOUT)*16*(RWP+ERP+EWP)*0.25; 
     base_subbanks = 16;
     if ( htree % 2 == 0) {
-      iter_height = htree/2; }
-    else {
-      iter_height = (htree-1)/2 ; }
+      iter_height = htree/2;
+    }else {
+      iter_height = (htree-1)/2 ; 
+    }
 
     inter_height=base_height;
     inter_subbanks=base_subbanks;
 
     if (iter_height==0) {
-      total_height = base_height; }
-    else {
-      for (i=1;i<=iter_height;i++)
-	{
-	  total_height = 2*(inter_height)+(ADDRESS_BITS+BITOUT)*4*inter_subbanks*(RWP+ERP+EWP)*0.5; 
-	  inter_height = total_height ;
-	  inter_subbanks = inter_subbanks*4;
-	}
-    }   
+      total_height = base_height;
+    }else{
+      total_height=0;
+      for (i=1;i<=iter_height;i++) {
+        total_height = 2*(inter_height)+(ADDRESS_BITS+BITOUT)*4*inter_subbanks*(RWP+ERP+EWP)*0.5; 
+        inter_height = total_height ;
+        inter_subbanks = inter_subbanks*4;
+      }
+    } 
 
     inter_width =base_width ;
     inter_subbanks=base_subbanks;
@@ -1137,28 +1121,26 @@ void xcacti_area_subbanked(int baddr,
       iter_width = htree/2; }
 
     if (iter_width==0) {
-      total_width = base_width; }
-    else {
+      total_width = base_width;
+    }else{
+      total_width=0;
       if ( htree % 2 == 0) { 
-	for (i=1;i<=iter_width;i++)
-	  {
-	    total_width = 2*(inter_width)+(ADDRESS_BITS+BITOUT)*inter_subbanks*(RWP+ERP+EWP);
-	    inter_width = total_height ;
-	    inter_subbanks = inter_subbanks*4;
-	  }
+        for (i=1;i<=iter_width;i++) {
+          total_width = 2*(inter_width)+(ADDRESS_BITS+BITOUT)*inter_subbanks*(RWP+ERP+EWP);
+          inter_width = total_height ;
+          inter_subbanks = inter_subbanks*4;
+        }
+      }else{
+        htree_double = htree + 1;
+        iter_width_double=htree_double/2;
+        for (i=1;i<=iter_width_double;i++) {
+          total_width = 2*(inter_width)+(ADDRESS_BITS+BITOUT)*inter_subbanks*(RWP+ERP+EWP);
+          inter_width = total_height ;
+          inter_subbanks = inter_subbanks*4;
+        }
+        total_width+=(ADDRESS_BITS+BITOUT)*(RWP+ERP+EWP)*parameters->NSubbanks/2;
       }
-      else {
-	htree_double = htree + 1;
-	iter_width_double=htree_double/2;
-	for (i=1;i<=iter_width_double;i++)
-	  {
-	    total_width = 2*(inter_width)+(ADDRESS_BITS+BITOUT)*inter_subbanks*(RWP+ERP+EWP);
-	    inter_width = total_height ;
-	    inter_subbanks = inter_subbanks*4;
-	  }
-	total_width+=(ADDRESS_BITS+BITOUT)*(RWP+ERP+EWP)*parameters->NSubbanks/2;
-      }
-    }	
+    }   
   }
 
   result_subbanked->height = total_height ;
@@ -1188,9 +1170,9 @@ void xcacti_area_subbanked(int baddr,
 
 
 int xcacti_organizational_parameters_valid(int B, int A, int C, 
-					   int Ndwl, int Ndbl, int Nspd, 
-					   int Ntwl, int Ntbl, int Ntspd,
-					   char assoc)
+                                           int Ndwl, int Ndbl, int Nspd, 
+                                           int Ntwl, int Ntbl, int Ntspd,
+                                           char assoc)
 {
    /* don't want more than 8 subarrays for each of data/tag */
 
@@ -1213,7 +1195,7 @@ int xcacti_organizational_parameters_valid(int B, int A, int C,
 }
 
 double xcacti_calculate_area(area_type module_area,
-			     double techscaling_factor) {
+                             double techscaling_factor) {
 
   return(module_area.height*module_area.width*(1/techscaling_factor)*(1/techscaling_factor));
 }

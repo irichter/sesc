@@ -84,14 +84,14 @@ static double logtwo(double x)
 
  /* returns gate capacitance in Farads */
 static double gatecap(double width,           /* gate width in um (length is Leff) */
-		      double wirelength)      /* poly wire length going to gate in lambda */
+                      double wirelength)      /* poly wire length going to gate in lambda */
 {
   return(width*Leff*Cgate+wirelength*Cpolywire*Leff);
 }
 
 /* returns gate capacitance in Farads */
 static double gatecappass(double width,           /* gate width in um (length is Leff) */
-			  double wirelength)      /* poly wire length going to gate in lambda */
+                          double wirelength)      /* poly wire length going to gate in lambda */
 {
   return(width*Leff*Cgatepass+wirelength*Cpolywire*Leff);
 }
@@ -104,8 +104,8 @@ static double gatecappass(double width,           /* gate width in um (length is
 
   /* returns drain cap in Farads */
 static double draincap(double width,           /* um */
-		       int nchannel,           /* whether n or p-channel (boolean) */
-		       int stack)              /* number of transistors in series that are on */
+                       int nchannel,           /* whether n or p-channel (boolean) */
+                       int stack)              /* number of transistors in series that are on */
 {
   double Cdiffside,Cdiffarea,Coverlap,cap;
 
@@ -119,12 +119,12 @@ static double draincap(double width,           /* um */
     cap = 3.0*Leff*width/2.0*Cdiffarea + 6.0*Leff*Cdiffside +
       width*Coverlap;
     cap += (double)(stack-1)*(Leff*width*Cdiffarea +
-			      4.0*Leff*Cdiffside + 2.0*width*Coverlap);
+                              4.0*Leff*Cdiffside + 2.0*width*Coverlap);
   } else {
     cap = 3.0*Leff*width*Cdiffarea + (6.0*Leff+width)*Cdiffside +
       width*Coverlap;
     cap += (double)(stack-1)*(Leff*width*Cdiffarea +
-			      2.0*Leff*Cdiffside + 2.0*width*Coverlap);
+                              2.0*Leff*Cdiffside + 2.0*width*Coverlap);
   }
   return(cap);
 }
@@ -138,8 +138,8 @@ static double draincap(double width,           /* um */
 
 /* returns resistance in ohms */
 static double transresswitch(double width,           /* um */
-			     int nchannel,           /* whether n or p-channel (boolean) */
-			     int stack)              /* number of transistors in series */
+                             int nchannel,           /* whether n or p-channel (boolean) */
+                             int stack)              /* number of transistors in series */
 {
   double restrans;
   restrans = (nchannel) ? (Rnchannelstatic):
@@ -153,8 +153,8 @@ static double transresswitch(double width,           /* um */
 
 /* returns resistance in ohms */
 static double transreson(double width,           /* um */
-			 int nchannel,           /* whether n or p-channel (boolean) */
-			 int stack)              /* number of transistors in series */
+                         int nchannel,           /* whether n or p-channel (boolean) */
+                         int stack)              /* number of transistors in series */
 {
   double restrans;
   restrans = (nchannel) ? Rnchannelon : Rpchannelon;
@@ -172,7 +172,7 @@ static double transreson(double width,           /* um */
 
 /* returns width in um */
 static double restowidth(double res,            /* resistance in ohms */
-			 int nchannel)          /* whether N-channel or P-channel */
+                         int nchannel)          /* whether N-channel or P-channel */
 {
   double restrans;
 
@@ -184,10 +184,10 @@ static double restowidth(double res,            /* resistance in ohms */
 /*----------------------------------------------------------------------*/
 
 static double horowitz(double inputramptime,    /* input rise time */
-		       double tf,               /* time constant of gate */
-		       double vs1,
-		       double vs2,              /* threshold voltages */
-		       int rise)                /* whether INPUT rise or fall (boolean) */
+                       double tf,               /* time constant of gate */
+                       double vs1,
+                       double vs2,              /* threshold voltages */
+                       int rise)                /* whether INPUT rise or fall (boolean) */
 {
   double a,b,td;
 
@@ -217,12 +217,12 @@ static double horowitz(double inputramptime,    /* input rise time */
 /*----------------------------------------------------------------------*/
 
 static void subbank_routing_length(int C, int B, int A,
-				   char fullyassoc,
-				   int Ndbl, int Nspd, int Ndwl,
-				   int Ntbl, int Ntwl, int Ntspd,
-				   int NSubbanks,
-				   double *subbank_v, 
-				   double *subbank_h)
+                                   char fullyassoc,
+                                   int Ndbl, int Nspd, int Ndwl,
+                                   int Ntbl, int Ntwl, int Ntspd,
+                                   int NSubbanks,
+                                   double *subbank_v, 
+                                   double *subbank_h)
 {
   double htree;
   int htree_int, tagbits;
@@ -239,22 +239,18 @@ static void subbank_routing_length(int C, int B, int A,
     if(Ndwl*Ndbl==1) {
       sub_v= rows_data_subarray;
       sub_h= cols_data_subarray;
-    }
-    if(Ndwl*Ndbl==2) {
+    }else if(Ndwl*Ndbl==2) {
       sub_v= rows_data_subarray;
       sub_h= 2*cols_data_subarray;
-    }
-
-    if(Ndwl*Ndbl>2) {
+    }else{
       htree=logtwo((double)(Ndwl*Ndbl));
       htree_int = (int) htree;
       if (htree_int % 2 ==0) {
-	sub_v = sqrt(Ndwl*Ndbl)*rows_data_subarray;
-	sub_h = sqrt(Ndwl*Ndbl)*cols_data_subarray;
-      }
-      else {
-	sub_v = sqrt(Ndwl*Ndbl/2)*rows_data_subarray;
-	sub_h = 2*sqrt(Ndwl*Ndbl/2)*cols_data_subarray;
+        sub_v = sqrt(Ndwl*Ndbl)*rows_data_subarray;
+        sub_h = sqrt(Ndwl*Ndbl)*cols_data_subarray;
+      }else{
+        sub_v = sqrt(Ndwl*Ndbl/2)*rows_data_subarray;
+        sub_h = 2*sqrt(Ndwl*Ndbl/2)*cols_data_subarray;
       }
     }
     inter_v=sub_v;
@@ -268,22 +264,18 @@ static void subbank_routing_length(int C, int B, int A,
     if(Ntwl*Ntbl==1) {
       sub_v= rows_tag_subarray;
       sub_h= cols_tag_subarray;
-    }
-    if(Ntwl*Ntbl==2) {
+    }else if(Ntwl*Ntbl==2) {
       sub_v= rows_tag_subarray;
       sub_h= 2*cols_tag_subarray;
-    }
-
-    if(Ntwl*Ntbl>2) {
+    }else{ //    (Ntwl*Ntbl>2)
       htree=logtwo((double)(Ndwl*Ndbl));
       htree_int = (int) htree;
       if (htree_int % 2 ==0) {
-	sub_v = sqrt(Ndwl*Ndbl)*rows_tag_subarray;
-	sub_h = sqrt(Ndwl*Ndbl)*cols_tag_subarray;
-      }
-      else {
-	sub_v = sqrt(Ndwl*Ndbl/2)*rows_tag_subarray;
-	sub_h = 2*sqrt(Ndwl*Ndbl/2)*cols_tag_subarray;
+        sub_v = sqrt(Ndwl*Ndbl)*rows_tag_subarray;
+        sub_h = sqrt(Ndwl*Ndbl)*cols_tag_subarray;
+      } else {
+        sub_v = sqrt(Ndwl*Ndbl/2)*rows_tag_subarray;
+        sub_h = 2*sqrt(Ndwl*Ndbl/2)*cols_tag_subarray;
       }
     }
 
@@ -308,15 +300,15 @@ static void subbank_routing_length(int C, int B, int A,
     while((inter_subbanks > 2.0) && (NSubbanks > 4.0))
       {
 
-	sub_v+=inter_v;
-	sub_h+=inter_h;
+        sub_v+=inter_v;
+        sub_h+=inter_h;
 
-	inter_v=2*inter_v;
-	inter_h=2*inter_h;
-	inter_subbanks=inter_subbanks/4.0;
+        inter_v=2*inter_v;
+        inter_h=2*inter_h;
+        inter_subbanks=inter_subbanks/4.0;
 
-	if(inter_subbanks==4.0) {
-	  inter_h = 0; }
+        if(inter_subbanks==4.0) {
+          inter_h = 0; }
 
       }
     *subbank_v=sub_v;
@@ -330,22 +322,18 @@ static void subbank_routing_length(int C, int B, int A,
     if(Ndbl==1) {
       sub_v= rows_fa_subarray;
       sub_h= cols_fa_subarray;
-    }
-    if(Ndbl==2) {
+    }else if(Ndbl==2) {
       sub_v= rows_fa_subarray;
       sub_h= 2*cols_fa_subarray;
-    }
-
-    if(Ndbl>2) {
+    }else{
       htree=logtwo((double)(Ndbl));
       htree_int = (int) htree;
       if (htree_int % 2 ==0) {
-	sub_v = sqrt(Ndbl)*rows_fa_subarray;
-	sub_h = sqrt(Ndbl)*cols_fa_subarray;
-      }
-      else {
-	sub_v = sqrt(Ndbl/2)*rows_fa_subarray;
-	sub_h = 2*sqrt(Ndbl/2)*cols_fa_subarray;
+        sub_v = sqrt(Ndbl)*rows_fa_subarray;
+        sub_h = sqrt(Ndbl)*cols_fa_subarray;
+      }else{
+        sub_v = sqrt(Ndbl/2)*rows_fa_subarray;
+        sub_h = 2*sqrt(Ndbl/2)*cols_fa_subarray;
       }
     }
     inter_v=sub_v;
@@ -368,15 +356,15 @@ static void subbank_routing_length(int C, int B, int A,
     while((inter_subbanks > 2.0) && (NSubbanks > 4.0))
       {
 
-	sub_v+=inter_v;
-	sub_h+=inter_h;
+        sub_v+=inter_v;
+        sub_h+=inter_h;
 
-	inter_v=2*inter_v;
-	inter_h=2*inter_h;
-	inter_subbanks=inter_subbanks/4.0;
+        inter_v=2*inter_v;
+        inter_h=2*inter_h;
+        inter_subbanks=inter_subbanks/4.0;
 
-	if(inter_subbanks==4.0) {
-	  inter_h = 0; }
+        if(inter_subbanks==4.0) {
+          inter_h = 0; }
 
       }
     *subbank_v=sub_v;
@@ -385,12 +373,12 @@ static void subbank_routing_length(int C, int B, int A,
 }
 
 static void subbank_dim(int C, int B, int A,
-			char fullyassoc,
-			int Ndbl, int Ndwl, int Nspd, 
-			int Ntbl, int Ntwl, int Ntspd,
-			int NSubbanks,
-			double *subbank_h,
-			double *subbank_v)
+                        char fullyassoc,
+                        int Ndbl, int Ndwl, int Nspd, 
+                        int Ntbl, int Ntwl, int Ntspd,
+                        int NSubbanks,
+                        double *subbank_h,
+                        double *subbank_v)
 {
   double htree;
   int htree_int, tagbits;
@@ -407,21 +395,18 @@ static void subbank_dim(int C, int B, int A,
     if(Ndwl*Ndbl==1) {
       sub_v= rows_data_subarray;
       sub_h= cols_data_subarray;
-    }
-    if(Ndwl*Ndbl==2) {
+    }else if(Ndwl*Ndbl==2) {
       sub_v= rows_data_subarray;
       sub_h= 2*cols_data_subarray;
-    }
-    if(Ndwl*Ndbl>2) {
+    }else{
       htree=logtwo((double)(Ndwl*Ndbl));
       htree_int = (int) htree;
       if (htree_int % 2 ==0) {
-	sub_v = sqrt(Ndwl*Ndbl)*rows_data_subarray;
-	sub_h = sqrt(Ndwl*Ndbl)*cols_data_subarray;
-      }
-      else {
-	sub_v = sqrt(Ndwl*Ndbl/2)*rows_data_subarray;
-	sub_h = 2*sqrt(Ndwl*Ndbl/2)*cols_data_subarray;
+        sub_v = sqrt(Ndwl*Ndbl)*rows_data_subarray;
+        sub_h = sqrt(Ndwl*Ndbl)*cols_data_subarray;
+      }else{
+        sub_v = sqrt(Ndwl*Ndbl/2)*rows_data_subarray;
+        sub_h = 2*sqrt(Ndwl*Ndbl/2)*cols_data_subarray;
       }
     }
     inter_v=sub_v;
@@ -435,22 +420,18 @@ static void subbank_dim(int C, int B, int A,
     if(Ntwl*Ntbl==1) {
       sub_v= rows_tag_subarray;
       sub_h= cols_tag_subarray;
-    }
-    if(Ntwl*Ntbl==2) {
+    }else if(Ntwl*Ntbl==2) {
       sub_v= rows_tag_subarray;
       sub_h= 2*cols_tag_subarray;
-    }
-
-    if(Ntwl*Ntbl>2) {
+    }else{
       htree=logtwo((double)(Ndwl*Ndbl));
       htree_int = (int) htree;
       if (htree_int % 2 ==0) {
-	sub_v = sqrt(Ndwl*Ndbl)*rows_tag_subarray;
-	sub_h = sqrt(Ndwl*Ndbl)*cols_tag_subarray;
-      }
-      else {
-	sub_v = sqrt(Ndwl*Ndbl/2)*rows_tag_subarray;
-	sub_h = 2*sqrt(Ndwl*Ndbl/2)*cols_tag_subarray;
+        sub_v = sqrt(Ndwl*Ndbl)*rows_tag_subarray;
+        sub_h = sqrt(Ndwl*Ndbl)*cols_tag_subarray;
+      } else {
+        sub_v = sqrt(Ndwl*Ndbl/2)*rows_tag_subarray;
+        sub_h = 2*sqrt(Ndwl*Ndbl/2)*cols_tag_subarray;
       }
     }
 
@@ -459,9 +440,7 @@ static void subbank_dim(int C, int B, int A,
 
     *subbank_v=inter_v;
     *subbank_h=inter_h;
-  }
-
-  else {
+  }else{
     rows_fa_subarray = (C/(B*Ndbl));
     tagbits = ADDRESS_BITS+2-(int)logtwo((double)B);
     cols_fa_subarray = (8*B)+tagbits;
@@ -469,22 +448,18 @@ static void subbank_dim(int C, int B, int A,
     if(Ndbl==1) {
       sub_v= rows_fa_subarray;
       sub_h= cols_fa_subarray;
-    }
-    if(Ndbl==2) {
+    }else if(Ndbl==2) {
       sub_v= rows_fa_subarray;
       sub_h= 2*cols_fa_subarray;
-    }
-
-    if(Ndbl>2) {
+    }else{
       htree=logtwo((double)(Ndbl));
       htree_int = (int) htree;
       if (htree_int % 2 ==0) {
-	sub_v = sqrt(Ndbl)*rows_fa_subarray;
-	sub_h = sqrt(Ndbl)*cols_fa_subarray;
-      }
-      else {
-	sub_v = sqrt(Ndbl/2)*rows_fa_subarray;
-	sub_h = 2*sqrt(Ndbl/2)*cols_fa_subarray;
+        sub_v = sqrt(Ndbl)*rows_fa_subarray;
+        sub_h = sqrt(Ndbl)*cols_fa_subarray;
+      }else{
+        sub_v = sqrt(Ndbl/2)*rows_fa_subarray;
+        sub_h = 2*sqrt(Ndbl/2)*cols_fa_subarray;
       }
     }
     inter_v=sub_v;
@@ -497,11 +472,11 @@ static void subbank_dim(int C, int B, int A,
 
 
 static void subbanks_routing_power(char fullyassoc,
-				   int A,
-				   int  NSubbanks,
-				   double *subbank_h,
-				   double *subbank_v,
-				   double *power)
+                                   int A,
+                                   int  NSubbanks,
+                                   double *subbank_h,
+                                   double *subbank_v,
+                                   double *power)
 {
   double Ceq,Ceq_outdrv;
   int i,blocks,htree_int,subbank_mod;
@@ -586,13 +561,13 @@ static void subbanks_routing_power(char fullyassoc,
       wire_cap = line_v*Cbitmetal+line_h*Cwordmetal;
  
       Ceq = draincap(Wdecdrivep,PCH,1)+draincap(Wdecdriven,NCH,1) +
-	gatecap(Wdecdrivep+Wdecdriven,0.0);
+        gatecap(Wdecdrivep+Wdecdriven,0.0);
       *power+=6*ADDRESS_BITS*Ceq*.5*VddPow*VddPow;
       Ceq = draincap(Wdecdrivep,PCH,1)+draincap(Wdecdriven,NCH,1) +
-	wire_cap;
+        wire_cap;
       *power+=4*ADDRESS_BITS*Ceq*.5*VddPow*VddPow;
       Ceq = draincap(Wdecdrivep,PCH,1)+draincap(Wdecdriven,NCH,1) +
-	(wire_cap-Cbitmetal*(*subbank_v));
+        (wire_cap-Cbitmetal*(*subbank_v));
       *power+=2*ADDRESS_BITS*Ceq*.5*VddPow*VddPow;
 
       /* calculation of out driver power */
@@ -606,19 +581,19 @@ static void subbanks_routing_power(char fullyassoc,
       *power+=2*Ceq_outdrv*VddPow*VddPow*.5*BITOUT*A*muxover;
 
       if(i % subbank_mod ==0) {
-	line_v+=2*(*subbank_v);
+        line_v+=2*(*subbank_v);
       }
     }
   }
 }
 
 static double address_routing_delay(int C, int B, int A,
-				    char fullyassoc,
-				    int Ndwl, int Ndbl, int Nspd,
-				    int Ntwl, int Ntbl, int Ntspd,
-				    int    NSubbanks,
-				    double *outrisetime,
-				    double *power)
+                                    char fullyassoc,
+                                    int Ndwl, int Ndbl, int Nspd,
+                                    int Ntwl, int Ntbl, int Ntspd,
+                                    int    NSubbanks,
+                                    double *outrisetime,
+                                    double *power)
 {
   double Ceq,tf,nextinputtime,delay_stage1,delay_stage2;
   double addr_h,addr_v;
@@ -636,7 +611,7 @@ static double address_routing_delay(int C, int B, int A,
     gatecap(Wdecdrivep+Wdecdriven,0.0);
   tf = Ceq*transreson(Wdecdriven,NCH,1);
   nextinputtime = horowitz(nextinputtime,tf,VTHINV360x240,VTHINV360x240,
-			   RISE)/
+                           RISE)/
     (1.0-VTHINV360x240);
   addr_h=0; addr_v=0;
   subbank_routing_length(C,B,A,fullyassoc,Ndbl,Nspd,Ndwl,Ntbl,Ntwl,Ntspd,NSubbanks,&addr_v,&addr_h);
@@ -668,15 +643,15 @@ static double address_routing_delay(int C, int B, int A,
 /* Decoder delay:  (see section 6.1 of tech report) */
 
 static double decoder_delay(int C, int B, int A,
-			    int Ndwl, int Ndbl, int Nspd,
-			    int Ntwl, int Ntbl, int Ntspd,
-			    double *Tdecdrive,
-			    double *Tdecoder1,
-			    double *Tdecoder2,
-			    double *outrisetime,
-			    double inrisetime,
-			    int *nor_inputs,
-			    double *power)
+                            int Ndwl, int Ndbl, int Nspd,
+                            int Ntwl, int Ntbl, int Ntspd,
+                            double *Tdecdrive,
+                            double *Tdecoder1,
+                            double *Tdecoder2,
+                            double *outrisetime,
+                            double inrisetime,
+                            int *nor_inputs,
+                            double *power)
 {
   int numstack;
   double Ceq,Req,Rwire,rows,cols,tf,nextinputtime,vth;
@@ -705,7 +680,7 @@ static double decoder_delay(int C, int B, int A,
     gatecap(Wdecdrivep+Wdecdriven,0.0);
   tf = Ceq*transreson(Wdecdriven,NCH,1);
   nextinputtime = horowitz(nextinputtime,tf,VTHINV360x240,VTHINV360x240,
-			   RISE)/
+                           RISE)/
     (1.0-VTHINV360x240);
   //      power+=Ceq*.5*VddPow;
 
@@ -719,14 +694,11 @@ static double decoder_delay(int C, int B, int A,
     l_inv_predecode = 1;
     wire_cap = Cwordmetal*l_inv_predecode*total_edge_length;
     wire_res = 0.5*Rwordmetal*l_inv_predecode*total_edge_length;
-
-  }
-  if(Ndwl*Ndbl==2 ) {
+  }else if(Ndwl*Ndbl==2 ) {
     l_inv_predecode = 0.5;
     wire_cap = Cwordmetal*l_inv_predecode*total_edge_length;
     wire_res = 0.5*Rwordmetal*l_inv_predecode*total_edge_length;
-  }
-  if(Ndwl*Ndbl>2) { 
+  }else{ 
     htree=(int)logtwo((double)(Ndwl*Ndbl));
     htree_int = (int) htree;
     if (htree_int % 2 ==0) {
@@ -734,8 +706,7 @@ static double decoder_delay(int C, int B, int A,
       l_inv_predecode = 0.25/(powers(2,exp));
       wire_cap = Cwordmetal*l_inv_predecode*total_edge_length;
       wire_res = 0.5*Rwordmetal*l_inv_predecode*total_edge_length;
-    }
-    else {
+    }else{
       exp = (htree_int-3)/2;
       l_inv_predecode = powers(2,exp);
       wire_cap = Cbitmetal*l_inv_predecode*rows*8;
@@ -750,7 +721,7 @@ static double decoder_delay(int C, int B, int A,
  
   tf = (Rwire + transreson(Wdecdrivep,PCH,1))*Ceq;
   *Tdecdrive = horowitz(inrisetime,tf,VTHINV360x240,VTHNAND60x120,
-			FALL);
+                        FALL);
 
   nextinputtime = *Tdecdrive/VTHNAND60x120;
   *power+=addr_bits*Ceq*.5*VddPow*VddPow;
@@ -764,23 +735,17 @@ static double decoder_delay(int C, int B, int A,
   if(Ndwl*Ndbl==1 || Ndwl*Ndbl==2 || Ndwl*Ndbl==4) {
     l_predec_nor_v = 0;
     l_predec_nor_h = 0;
-  }
-  else {
-    if(Ndwl*Ndbl==8) {
-      l_predec_nor_v = 0;
-      l_predec_nor_h = cols;
-    }
-  }
-
-  if(Ndwl*Ndbl>8) {
+  }else if(Ndwl*Ndbl==8) {
+    l_predec_nor_v = 0;
+    l_predec_nor_h = cols;
+  }else{
     htree=(int)logtwo((double)(Ndwl*Ndbl));
     htree_int = (int) htree;
     if (htree_int % 2 ==0) {
       exp = (htree_int/2-1);
       l_predec_nor_v = (powers(2,exp)-1)*rows*8;
       l_predec_nor_h = (powers(2,exp)-1)*cols;
-    }
-    else {
+    }else{
       exp = (htree_int-3)/2;
       l_predec_nor_v = (powers(2,exp)-1)*rows*8;
       l_predec_nor_h = (powers(2,(exp+1))-1)*cols;
@@ -817,8 +782,8 @@ static double decoder_delay(int C, int B, int A,
 
   Req = transreson(WdecNORp,PCH,numstack);
   Ceq = (gatecap(Wdecinvn+Wdecinvp,20.0)+
-	 numstack*draincap(WdecNORn,NCH,1)+
-	 draincap(WdecNORp,PCH,numstack));
+         numstack*draincap(WdecNORn,NCH,1)+
+         draincap(WdecNORp,PCH,numstack));
   tf = Req*Ceq;
   *Tdecoder2 = horowitz(nextinputtime,tf,vth,VSINV,FALL);
 
@@ -840,16 +805,16 @@ static double decoder_delay(int C, int B, int A,
 
 
 static double decoder_tag_delay(int C, int B, int A,
-				int Ndwl, int Ndbl, int Nspd,
-				int Ntwl, int Ntbl, int Ntspd,
-				int  NSubbanks,
-				double *Tdecdrive,
-				double *Tdecoder1,
-				double *Tdecoder2,
-				double inrisetime,
-				double *outrisetime,
-				int *nor_inputs,
-				double *power)
+                                int Ndwl, int Ndbl, int Nspd,
+                                int Ntwl, int Ntbl, int Ntspd,
+                                int  NSubbanks,
+                                double *Tdecdrive,
+                                double *Tdecoder1,
+                                double *Tdecoder2,
+                                double inrisetime,
+                                double *outrisetime,
+                                int *nor_inputs,
+                                double *power)
 {
   double Ceq,Req,Rwire,rows,cols,tf,nextinputtime,vth;
   int numstack,tagbits;
@@ -871,7 +836,7 @@ static double decoder_tag_delay(int C, int B, int A,
     gatecap(Wdecdrivep+Wdecdriven,0.0);
   tf = Ceq*transreson(Wdecdriven,NCH,1);
   nextinputtime = horowitz(nextinputtime,tf,VTHINV360x240,VTHINV360x240,
-			   RISE)/
+                           RISE)/
     (1.0-VTHINV360x240);
 
   /* First stage: driving the decoders */
@@ -887,14 +852,11 @@ static double decoder_tag_delay(int C, int B, int A,
     l_inv_predecode = 1;
     wire_cap = Cwordmetal*l_inv_predecode*total_edge_length;
     wire_res = 0.5*Rwordmetal*l_inv_predecode*total_edge_length;
-
-  }
-  if(Ntwl*Ntbl==2 ) {
+  }else if(Ntwl*Ntbl==2 ) {
     l_inv_predecode = 0.5;
     wire_cap = Cwordmetal*l_inv_predecode*total_edge_length;
     wire_res = 0.5*Rwordmetal*l_inv_predecode*total_edge_length;
-  }
-  if(Ntwl*Ntbl>2) {
+  }else{
     htree=logtwo((double)(Ntwl*Ntbl));
     htree_int = (int) htree;
     if (htree_int % 2 ==0) {
@@ -902,8 +864,7 @@ static double decoder_tag_delay(int C, int B, int A,
       l_inv_predecode = 0.25/(powers(2,exp));
       wire_cap = Cwordmetal*l_inv_predecode*total_edge_length;
       wire_res = 0.5*Rwordmetal*l_inv_predecode*total_edge_length;
-    }
-    else {
+    }else{
       exp = (htree_int-3)/2;
       l_inv_predecode = powers(2,exp);
       wire_cap = Cbitmetal*l_inv_predecode*rows*8;
@@ -918,7 +879,7 @@ static double decoder_tag_delay(int C, int B, int A,
 
   tf = (Rwire + transreson(Wdecdrivep,PCH,1))*Ceq;
   *Tdecdrive = horowitz(inrisetime,tf,VTHINV360x240,VTHNAND60x120,
-			FALL);
+                        FALL);
   nextinputtime = *Tdecdrive/VTHNAND60x120;
   *power+=addr_bits*Ceq*.5*VddPow*VddPow;
 
@@ -931,23 +892,17 @@ static double decoder_tag_delay(int C, int B, int A,
   if(Ntwl*Ntbl==1 || Ntwl*Ntbl==2 || Ntwl*Ntbl==4) {
     l_predec_nor_v = 0;
     l_predec_nor_h = 0;
-  }
-  else {
-    if(Ntwl*Ntbl==8) {
-      l_predec_nor_v = 0;
-      l_predec_nor_h = cols;
-    }
-  }
-
-  if(Ntwl*Ntbl>8) {
+  }else if(Ntwl*Ntbl==8) {
+    l_predec_nor_v = 0;
+    l_predec_nor_h = cols;
+  }else{ // (Ntwl*Ntbl>8)
     htree=logtwo((double)(Ntwl*Ntbl));
     htree_int = (int) htree;
     if (htree_int % 2 ==0) {
       exp = (htree_int/2-1);
       l_predec_nor_v = (powers(2,exp)-1)*rows*8;
       l_predec_nor_h = (powers(2,exp)-1)*cols;
-    }
-    else {
+    }else{
       exp = (htree_int-3)/2;
       l_predec_nor_v = (powers(2,exp)-1)*rows*8;
       l_predec_nor_h = (powers(2,(exp+1))-1)*cols;
@@ -987,8 +942,8 @@ static double decoder_tag_delay(int C, int B, int A,
 
   Req = transreson(WdecNORp,PCH,numstack);
   Ceq = (gatecap(Wdecinvn+Wdecinvp,20.0)+
-	 numstack*draincap(WdecNORn,NCH,1)+
-	 draincap(WdecNORp,PCH,numstack));
+         numstack*draincap(WdecNORn,NCH,1)+
+         draincap(WdecNORp,PCH,numstack));
   tf = Req*Ceq;
   *Tdecoder2 = horowitz(nextinputtime,tf,vth,VSINV,FALL);
   *outrisetime = *Tdecoder2/(VSINV);
@@ -1001,17 +956,17 @@ static double decoder_tag_delay(int C, int B, int A,
 }
 
 static double fa_tag_delay(int C, int B,
-			   int Ndwl, int Ndbl, int Nspd,
-			   int Ntwl, int Ntbl, int Ntspd,
-			   double *Tagdrive,
-			   double *Tag1,
-			   double *Tag2,
-			   double *Tag3,
-			   double *Tag4,
-			   double *Tag5,
-			   double *outrisetime,
-			   int *nor_inputs,
-			   double *power)
+                           int Ndwl, int Ndbl, int Nspd,
+                           int Ntwl, int Ntbl, int Ntspd,
+                           double *Tagdrive,
+                           double *Tag1,
+                           double *Tag2,
+                           double *Tag3,
+                           double *Tag4,
+                           double *Tag5,
+                           double *outrisetime,
+                           int *nor_inputs,
+                           double *power)
 {
   double Ceq,Req,Rwire,rows,tf,nextinputtime;
   double Tagdrive1=0, Tagdrive2=0;
@@ -1034,97 +989,97 @@ static double fa_tag_delay(int C, int B,
     gatecap(Wdecdrivep+Wdecdriven,0.0);
   tf = Ceq*transreson(Wdecdrivep,PCH,1);
   nextinputtime = horowitz(nextinputtime,tf,VTHINV360x240,VTHINV360x240,
-			   RISE)/(1.0-VTHINV360x240);
+                           RISE)/(1.0-VTHINV360x240);
         
   // If tag bitline divisions, add extra driver
 
   if (Ntbl>1)
     {
       Ceq = draincap(Wfadrivep,PCH,1)+draincap(Wfadriven,NCH,1) +
-	gatecap(Wfadrive2p+Wfadrive2n,0.0);
+        gatecap(Wfadrive2p+Wfadrive2n,0.0);
       tf = Ceq*transreson(Wfadriven,NCH,1);
       TagdriveA = horowitz(nextinputtime,tf,VSINV,VSINV,FALL);
       nextinputtime = TagdriveA/(VSINV);
       *power+=.5*Ceq*VddPow*VddPow*ADDRESS_BITS;
             
       if (Ntbl<=4)
-	{
-	  Ceq = draincap(Wfadrive2p,PCH,1)+draincap(Wfadrive2n,NCH,1) +
-	    gatecap(Wfadecdrive1p+Wfadecdrive1n,10.0)*2+
-	    + FACwordmetal*sqrt((rows+1)*Ntbl)/2
-	    + FACbitmetal*sqrt((rows+1)*Ntbl)/2;
-	  Rwire = FARwordmetal*sqrt((rows+1)*Ntbl)*.5/2+
-	    FARbitmetal*sqrt((rows+1)*Ntbl)*.5/2;
-	  tf = Ceq*(transreson(Wfadrive2p,PCH,1)+Rwire);
-	  TagdriveB = horowitz(nextinputtime,tf,VSINV,VSINV,RISE);
-	  nextinputtime = TagdriveB/(1.0-VSINV);
-	  *power+=Ceq*VddPow*VddPow*ADDRESS_BITS*.5*2;
-	}
+        {
+          Ceq = draincap(Wfadrive2p,PCH,1)+draincap(Wfadrive2n,NCH,1) +
+            gatecap(Wfadecdrive1p+Wfadecdrive1n,10.0)*2+
+            + FACwordmetal*sqrt((rows+1)*Ntbl)/2
+            + FACbitmetal*sqrt((rows+1)*Ntbl)/2;
+          Rwire = FARwordmetal*sqrt((rows+1)*Ntbl)*.5/2+
+            FARbitmetal*sqrt((rows+1)*Ntbl)*.5/2;
+          tf = Ceq*(transreson(Wfadrive2p,PCH,1)+Rwire);
+          TagdriveB = horowitz(nextinputtime,tf,VSINV,VSINV,RISE);
+          nextinputtime = TagdriveB/(1.0-VSINV);
+          *power+=Ceq*VddPow*VddPow*ADDRESS_BITS*.5*2;
+        }
       else
-	{
-	  Ceq = draincap(Wfadrive2p,PCH,1)+draincap(Wfadrive2n,NCH,1) +
-	    gatecap(Wfadrivep+Wfadriven,10.0)*2+
-	    + FACwordmetal*sqrt((rows+1)*Ntbl)/2
-	    + FACbitmetal*sqrt((rows+1)*Ntbl)/2;
-	  Rwire = FARwordmetal*sqrt((rows+1)*Ntbl)*.5/2+
-	    FARbitmetal*sqrt((rows+1)*Ntbl)*.5/2;
-	  tf = Ceq*(transreson(Wfadrive2p,PCH,1)+Rwire);
-	  TagdriveB = horowitz(nextinputtime,tf,VSINV,VSINV,RISE);
-	  nextinputtime = TagdriveB/(1.0-VSINV);
-	  *power+=Ceq*VddPow*VddPow*ADDRESS_BITS*.5*4;
+        {
+          Ceq = draincap(Wfadrive2p,PCH,1)+draincap(Wfadrive2n,NCH,1) +
+            gatecap(Wfadrivep+Wfadriven,10.0)*2+
+            + FACwordmetal*sqrt((rows+1)*Ntbl)/2
+            + FACbitmetal*sqrt((rows+1)*Ntbl)/2;
+          Rwire = FARwordmetal*sqrt((rows+1)*Ntbl)*.5/2+
+            FARbitmetal*sqrt((rows+1)*Ntbl)*.5/2;
+          tf = Ceq*(transreson(Wfadrive2p,PCH,1)+Rwire);
+          TagdriveB = horowitz(nextinputtime,tf,VSINV,VSINV,RISE);
+          nextinputtime = TagdriveB/(1.0-VSINV);
+          *power+=Ceq*VddPow*VddPow*ADDRESS_BITS*.5*4;
                 
-	  Ceq = draincap(Wfadrivep,PCH,1)+draincap(Wfadriven,NCH,1) +
-	    gatecap(Wfadrive2p+Wfadrive2n,10.0);
-	  tf = Ceq*transreson(Wfadriven,NCH,1);
-	  TagdriveA1 = horowitz(nextinputtime,tf,VSINV,VSINV,FALL);
-	  nextinputtime = TagdriveA1/(VSINV);
-	  *power+=.5*Ceq*VddPow*VddPow*ADDRESS_BITS;
+          Ceq = draincap(Wfadrivep,PCH,1)+draincap(Wfadriven,NCH,1) +
+            gatecap(Wfadrive2p+Wfadrive2n,10.0);
+          tf = Ceq*transreson(Wfadriven,NCH,1);
+          TagdriveA1 = horowitz(nextinputtime,tf,VSINV,VSINV,FALL);
+          nextinputtime = TagdriveA1/(VSINV);
+          *power+=.5*Ceq*VddPow*VddPow*ADDRESS_BITS;
                 
-	  if (Ntbl<=16)
-	    {
-	      Ceq = draincap(Wfadrive2p,PCH,1)+draincap(Wfadrive2n,NCH,1) +
-		gatecap(Wfadecdrive1p+Wfadecdrive1n,10.0)*2+
-		+ FACwordmetal*sqrt((rows+1)*Ntbl)/4
-		+ FACbitmetal*sqrt((rows+1)*Ntbl)/4;
-	      Rwire = FARwordmetal*sqrt((rows+1)*Ntbl)*.5/4+
-		FARbitmetal*sqrt((rows+1)*Ntbl)*.5/4;
-	      tf = Ceq*(transreson(Wfadrive2p,PCH,1)+Rwire);
-	      TagdriveB1 = horowitz(nextinputtime,tf,VSINV,VSINV,RISE);
-	      nextinputtime = TagdriveB1/(1.0-VSINV);
-	      *power+=Ceq*VddPow*VddPow*ADDRESS_BITS*.5*8;
-	    }
-	  else
-	    {
-	      Ceq = draincap(Wfadrive2p,PCH,1)+draincap(Wfadrive2n,NCH,1) +
-		gatecap(Wfadrivep+Wfadriven,10.0)*2+
-		+ FACwordmetal*sqrt((rows+1)*Ntbl)/4
-		+ FACbitmetal*sqrt((rows+1)*Ntbl)/4;
-	      Rwire = FARwordmetal*sqrt((rows+1)*Ntbl)*.5/4+
-		FARbitmetal*sqrt((rows+1)*Ntbl)*.5/4;
-	      tf = Ceq*(transreson(Wfadrive2p,PCH,1)+Rwire);
-	      TagdriveB1 = horowitz(nextinputtime,tf,VSINV,VSINV,RISE);
-	      nextinputtime = TagdriveB1/(1.0-VSINV);
-	      *power+=Ceq*VddPow*VddPow*ADDRESS_BITS*.5*8;
+          if (Ntbl<=16)
+            {
+              Ceq = draincap(Wfadrive2p,PCH,1)+draincap(Wfadrive2n,NCH,1) +
+                gatecap(Wfadecdrive1p+Wfadecdrive1n,10.0)*2+
+                + FACwordmetal*sqrt((rows+1)*Ntbl)/4
+                + FACbitmetal*sqrt((rows+1)*Ntbl)/4;
+              Rwire = FARwordmetal*sqrt((rows+1)*Ntbl)*.5/4+
+                FARbitmetal*sqrt((rows+1)*Ntbl)*.5/4;
+              tf = Ceq*(transreson(Wfadrive2p,PCH,1)+Rwire);
+              TagdriveB1 = horowitz(nextinputtime,tf,VSINV,VSINV,RISE);
+              nextinputtime = TagdriveB1/(1.0-VSINV);
+              *power+=Ceq*VddPow*VddPow*ADDRESS_BITS*.5*8;
+            }
+          else
+            {
+              Ceq = draincap(Wfadrive2p,PCH,1)+draincap(Wfadrive2n,NCH,1) +
+                gatecap(Wfadrivep+Wfadriven,10.0)*2+
+                + FACwordmetal*sqrt((rows+1)*Ntbl)/4
+                + FACbitmetal*sqrt((rows+1)*Ntbl)/4;
+              Rwire = FARwordmetal*sqrt((rows+1)*Ntbl)*.5/4+
+                FARbitmetal*sqrt((rows+1)*Ntbl)*.5/4;
+              tf = Ceq*(transreson(Wfadrive2p,PCH,1)+Rwire);
+              TagdriveB1 = horowitz(nextinputtime,tf,VSINV,VSINV,RISE);
+              nextinputtime = TagdriveB1/(1.0-VSINV);
+              *power+=Ceq*VddPow*VddPow*ADDRESS_BITS*.5*8;
 
-	      Ceq = draincap(Wfadrivep,PCH,1)+draincap(Wfadriven,NCH,1) +
-		gatecap(Wfadrive2p+Wfadrive2n,10.0);
-	      tf = Ceq*transreson(Wfadriven,NCH,1);
-	      TagdriveA2 = horowitz(nextinputtime,tf,VSINV,VSINV,FALL);
-	      nextinputtime = TagdriveA2/(VSINV);
-	      *power+=.5*Ceq*VddPow*VddPow*ADDRESS_BITS;
+              Ceq = draincap(Wfadrivep,PCH,1)+draincap(Wfadriven,NCH,1) +
+                gatecap(Wfadrive2p+Wfadrive2n,10.0);
+              tf = Ceq*transreson(Wfadriven,NCH,1);
+              TagdriveA2 = horowitz(nextinputtime,tf,VSINV,VSINV,FALL);
+              nextinputtime = TagdriveA2/(VSINV);
+              *power+=.5*Ceq*VddPow*VddPow*ADDRESS_BITS;
                 
-	      Ceq = draincap(Wfadrive2p,PCH,1)+draincap(Wfadrive2n,NCH,1) +
-		gatecap(Wfadecdrive1p+Wfadecdrive1n,10.0)*2+
-		+ FACwordmetal*sqrt((rows+1)*Ntbl)/8
-		+ FACbitmetal*sqrt((rows+1)*Ntbl)/8;
-	      Rwire = FARwordmetal*sqrt((rows+1)*Ntbl)*.5/8+
-		FARbitmetal*sqrt((rows+1)*Ntbl)*.5/8;
-	      tf = Ceq*(transreson(Wfadrive2p,PCH,1)+Rwire);
-	      TagdriveB2 = horowitz(nextinputtime,tf,VSINV,VSINV,RISE);
-	      nextinputtime = TagdriveB2/(1.0-VSINV);
-	      *power+=Ceq*VddPow*VddPow*ADDRESS_BITS*.5*16;
-	    }             
-	}
+              Ceq = draincap(Wfadrive2p,PCH,1)+draincap(Wfadrive2n,NCH,1) +
+                gatecap(Wfadecdrive1p+Wfadecdrive1n,10.0)*2+
+                + FACwordmetal*sqrt((rows+1)*Ntbl)/8
+                + FACbitmetal*sqrt((rows+1)*Ntbl)/8;
+              Rwire = FARwordmetal*sqrt((rows+1)*Ntbl)*.5/8+
+                FARbitmetal*sqrt((rows+1)*Ntbl)*.5/8;
+              tf = Ceq*(transreson(Wfadrive2p,PCH,1)+Rwire);
+              TagdriveB2 = horowitz(nextinputtime,tf,VSINV,VSINV,RISE);
+              nextinputtime = TagdriveB2/(1.0-VSINV);
+              *power+=Ceq*VddPow*VddPow*ADDRESS_BITS*.5*16;
+            }             
+        }
     }
         
   /* Two more inverters for enable delay */
@@ -1133,7 +1088,7 @@ static double fa_tag_delay(int C, int B,
     +gatecap(Wfadecdrive2p+Wfadecdrive2n,0.0);
   tf = Ceq*transreson(Wfadecdrive1n,NCH,1);
   Tagdrive0a = horowitz(nextinputtime,tf,VSINV,VSINV,
-			FALL);
+                        FALL);
   nextinputtime = Tagdrive0a/(VSINV);
   *power+=.5*Ceq*VddPow*VddPow*ADDRESS_BITS*Ntbl;
 
@@ -1142,7 +1097,7 @@ static double fa_tag_delay(int C, int B,
     +gatecap(Wfadecdrive2p+Wfadecdrive2n,10.0);
   tf = Ceq*transreson(Wfadecdrive2p,PCH,1);
   Tagdrive0b = horowitz(nextinputtime,tf,VSINV,VSINV,
-			RISE);
+                        RISE);
   nextinputtime = Tagdrive0b/(VSINV);
   *power+=Ceq*VddPow*VddPow*ADDRESS_BITS*.5*Ntbl;
 
@@ -1162,9 +1117,9 @@ static double fa_tag_delay(int C, int B,
 
   Rwire = FARbitmetal*(rows+1)*.5;
   tf = (Rwire + transreson(Wfadecdrivep,PCH,1) + 
-	transresswitch(Wfadecdrivep,PCH,1))*Ceq;
+        transresswitch(Wfadecdrivep,PCH,1))*Ceq;
   Tagdrive2 = horowitz(nextinputtime,tf,VTHFA1,VTHFA2,
-		       RISE);
+                       RISE);
   nextinputtime = Tagdrive2/(1-VTHFA2);
 
   *Tagdrive=Tagdrive1+Tagdrive2+TagdriveA+TagdriveB+TagdriveA1+TagdriveA2+TagdriveB1+TagdriveB2+Tagdrive0a+Tagdrive0b;
@@ -1218,8 +1173,8 @@ static double fa_tag_delay(int C, int B,
   /* final stage */
 
   Ceq = (gatecap(Wdecinvn+Wdecinvp,20.0)+
-	 + draincap(Wfainvn,NCH,1)
-	 +draincap(Wfainvp,PCH,1));
+         + draincap(Wfainvn,NCH,1)
+         +draincap(Wfainvp,PCH,1));
   Req = transresswitch(Wfainvn,NCH,1);
   tf = Req*Ceq;
   *Tag5 = horowitz(nextinputtime,tf,VTHFA6,VSINV,FALL);
@@ -1238,10 +1193,10 @@ static double fa_tag_delay(int C, int B,
 
 
 static double wordline_delay(int B, int A,
-			     int Ndwl, int Nspd,
-			     double inrisetime,
-			     double *outrisetime,
-			     double *power)
+                             int Ndwl, int Nspd,
+                             double inrisetime,
+                             double *outrisetime,
+                             double *power)
 {
   double Rpdrive;
   double desiredrisetime,psize,nsize;
@@ -1262,8 +1217,8 @@ static double wordline_delay(int B, int A,
 
   desiredrisetime = krise*log((double)(cols))/2.0;
   Cline = (gatecappass(Wmemcella,0.0)+
-	   gatecappass(Wmemcella,0.0)+
-	   Cwordmetal)*cols;
+           gatecappass(Wmemcella,0.0)+
+           Cwordmetal)*cols;
   Rpdrive = desiredrisetime/(Cline*log(VSINV)*-1.0);
   psize = restowidth(Rpdrive,PCH);
   if (psize > Wworddrivemax) {
@@ -1286,8 +1241,8 @@ static double wordline_delay(int B, int A,
   nextinputtime = Tworddrivedel/(1.0-VSINV);
 
   Cline = (gatecappass(Wmemcella,(BitWidth-2*Wmemcella)/2.0)+
-	   gatecappass(Wmemcella,(BitWidth-2*Wmemcella)/2.0)+
-	   Cwordmetal)*cols+
+           gatecappass(Wmemcella,(BitWidth-2*Wmemcella)/2.0)+
+           Cwordmetal)*cols+
     draincap(nsize,NCH,1) + draincap(psize,PCH,1);
   Rline = Rwordmetal*cols/2;
   tf = (transreson(psize,PCH,1)+Rline)*Cline;
@@ -1307,11 +1262,11 @@ static double wordline_delay(int B, int A,
 
 
 static double wordline_tag_delay(int C, int A,
-				 int Ntspd, int Ntwl,
-				 int  NSubbanks,
-				 double inrisetime,
-				 double *outrisetime,
-				 double *power)
+                                 int Ntspd, int Ntwl,
+                                 int  NSubbanks,
+                                 double inrisetime,
+                                 double *outrisetime,
+                                 double *power)
 {
   double tf;
   double Cline,Rline,Ceq,nextinputtime;
@@ -1334,8 +1289,8 @@ static double wordline_tag_delay(int C, int A,
 
   /* second stage */
   Cline = (gatecappass(Wmemcella,(BitWidth-2*Wmemcella)/2.0)+
-	   gatecappass(Wmemcella,(BitWidth-2*Wmemcella)/2.0)+
-	   Cwordmetal)*tagbits*A*Ntspd/Ntwl+
+           gatecappass(Wmemcella,(BitWidth-2*Wmemcella)/2.0)+
+           Cwordmetal)*tagbits*A*Ntspd/Ntwl+
     draincap(Wdecinvn,NCH,1) + draincap(Wdecinvp,PCH,1);
   Rline = Rwordmetal*tagbits*A*Ntspd/(2*Ntwl);
   tf = (transreson(Wdecinvp,PCH,1)+Rline)*Cline;
@@ -1352,11 +1307,11 @@ static double wordline_tag_delay(int C, int A,
 
 
 static double bitline_delay(int C, int A, int B,
-			    int Ndwl, int Ndbl, int Nspd,
-			    double inrisetime,
-			    double *outrisetime,
-			    double *power,
-			    double *wrpower) // write power
+                            int Ndwl, int Ndbl, int Nspd,
+                            double inrisetime,
+                            double *outrisetime,
+                            double *power,
+                            double *wrpower) // write power
 {
   double Tbit,Cline,Ccolmux,Rlineb,r1,r2,c1,c2,a,b,c;
   double m,tstep;
@@ -1383,20 +1338,20 @@ static double bitline_delay(int C, int A, int B,
   } else { 
     if (Ndbl*Nspd > MAX_COL_MUX)
       {
-	//muxover=8*B/BITOUT;
-	muxway=MAX_COL_MUX;
+        //muxover=8*B/BITOUT;
+        muxway=MAX_COL_MUX;
       }
     else
       if (8*B*Ndbl*Nspd/BITOUT > MAX_COL_MUX)
-	{
-	  muxway=MAX_COL_MUX;
-	  // muxover=(8*B/BITOUT)/(MAX_COL_MUX/(Ndbl*Nspd));
-	}
+        {
+          muxway=MAX_COL_MUX;
+          // muxover=(8*B/BITOUT)/(MAX_COL_MUX/(Ndbl*Nspd));
+        }
       else
-	{
-	  muxway=8*B*Nspd*Ndbl/BITOUT;
-	  // muxover=1;
-	}
+        {
+          muxway=8*B*Nspd*Ndbl/BITOUT;
+          // muxover=1;
+        }
           
     Cline = rows*(Cbitrow+Cbitmetal) + 2*draincap(Wbitpreequ,PCH,1) +
       draincap(Wbitmuxn,NCH,1);
@@ -1449,12 +1404,12 @@ static double bitline_delay(int C, int A, int B,
 
 
 static double bitline_tag_delay(int C, int A, int B,
-				int Ntwl, int Ntbl, int Ntspd,
-				int  NSubbanks,
-				double inrisetime,
-				double *outrisetime,
-				double *power,
-				double *wrpower) {
+                                int Ntwl, int Ntbl, int Ntspd,
+                                int  NSubbanks,
+                                double inrisetime,
+                                double *outrisetime,
+                                double *power,
+                                double *wrpower) {
 
   double Tbit,Cline,Ccolmux,Rlineb,r1,r2,c1,c2,a,b,c;
   double m,tstep;
@@ -1523,10 +1478,10 @@ static double bitline_tag_delay(int C, int A, int B,
    (see section 6.5) */
 
 static double sense_amp_delay(int A,
-			      double inrisetime,
-			      double *outrisetime,
-			      int rows,
-			      double *power) {
+                              double inrisetime,
+                              double *outrisetime,
+                              int rows,
+                              double *power) {
 
   *outrisetime = tfalldata;
 
@@ -1546,8 +1501,8 @@ static double sense_amp_delay(int A,
 /*--------------------------------------------------------------*/
 
 static double sense_amp_tag_delay(double inrisetime,
-				  double *outrisetime,
-				  double *power) {
+                                  double *outrisetime,
+                                  double *power) {
   
   *outrisetime = tfalltag;
   *power*=psensetag;
@@ -1556,11 +1511,11 @@ static double sense_amp_tag_delay(double inrisetime,
 
 
 static double half_compare_time(int C, int A,
-				int Ntbl, int Ntspd,
-				int  NSubbanks,
-				double inputtime,
-				double *outputtime,
-				double *power) {
+                                int Ntbl, int Ntspd,
+                                int  NSubbanks,
+                                double inputtime,
+                                double *outputtime,
+                                double *power) {
 
   double Req,Ceq,tf,st1del,st2del,st3del,nextinputtime,m;
   double c1,c2,r1,r2,tstep,a,b,c;
@@ -1639,13 +1594,13 @@ static double half_compare_time(int C, int A,
 /*----------------------------------------------------------------------*/
 
 static double mux_driver_delay_dualin(int C, int B, int A,
-				      int Ndbl, int Nspd, int Ndwl,
-				      int Ntbl, int Ntspd,
-				      double inputtime1,
-				      double *outputtime,
-				      double wirelength_v, 
-				      double wirelength_h,
-				      double *power) {
+                                      int Ndbl, int Nspd, int Ndwl,
+                                      int Ntbl, int Ntspd,
+                                      double inputtime1,
+                                      double *outputtime,
+                                      double wirelength_v, 
+                                      double wirelength_h,
+                                      double *power) {
 
   double Ceq,Req,tf,nextinputtime;
   double Tst1,Tst2,Tst3;
@@ -1700,14 +1655,14 @@ static double mux_driver_delay_dualin(int C, int B, int A,
 }
 
 static double senseext_driver_delay(int C, int B, int A,
-				    char fullyassoc,
-				    int Ndbl, int Nspd, int Ndwl,
-				    int Ntbl, int Ntwl, int Ntspd,
-				    double inputtime,
-				    double *outputtime,
-				    double wirelength_sense_v, 
-				    double wirelength_sense_h,
-				    double *power)
+                                    char fullyassoc,
+                                    int Ndbl, int Nspd, int Ndwl,
+                                    int Ntbl, int Ntwl, int Ntspd,
+                                    double inputtime,
+                                    double *outputtime,
+                                    double wirelength_sense_v, 
+                                    double wirelength_sense_h,
+                                    double *power)
 {
   double Ceq,Req,tf,nextinputtime;
   double Tst1,Tst2;
@@ -1755,12 +1710,12 @@ static double senseext_driver_delay(int C, int B, int A,
    Note that this will only be called for a direct mapped cache */
 
 static double valid_driver_delay(int C, int B, int A,
-				 char fullyassoc,
-				 int Ntbl, int Ntwl, int Ntspd,
-				 int Ndbl, int Ndwl, int Nspd,
-				 int NSubbanks,
-				 double inputtime,
-				 double *power) {
+                                 char fullyassoc,
+                                 int Ntbl, int Ntwl, int Ntspd,
+                                 int Ndbl, int Ndwl, int Nspd,
+                                 int NSubbanks,
+                                 double inputtime,
+                                 double *power) {
   double Ceq,Tst1,tf;
   int rows,tagbits,cols,htree_int,l_valdrv_v,l_valdrv_h,exp;
   double wire_cap,wire_res;
@@ -1784,21 +1739,17 @@ static double valid_driver_delay(int C, int B, int A,
   if(Ntwl*Ntbl==1) {
     l_valdrv_v= 0;
     l_valdrv_h= cols;
-  }
-  if(Ntwl*Ntbl==2 || Ntwl*Ntbl==4) {
+  }else if(Ntwl*Ntbl==2 || Ntwl*Ntbl==4) {
     l_valdrv_v= 0;
     l_valdrv_h= 2*cols;
-  }
-
-  if(Ntwl*Ntbl>4) {
+  }else{ //  (Ntwl*Ntbl>4)
     htree=logtwo((double)(Ntwl*Ntbl));
     htree_int = (int) htree;
     if (htree_int % 2 ==0) {
       exp = (htree_int/2-1);
       l_valdrv_v = (powers(2,exp)-1)*rows;
       l_valdrv_h = (int)sqrt(Ntwl*Ntbl)*cols;
-    }
-    else {
+    }else{
       exp = (htree_int+1)/2-1;
       l_valdrv_v = (powers(2,exp)-1)*rows;
       l_valdrv_h = (int)sqrt(Ntwl*Ntbl/2)*cols;
@@ -1826,11 +1777,11 @@ static double valid_driver_delay(int C, int B, int A,
    assuming sel is already present */
 
 static double dataoutput_delay(int C, int B, int A,
-			       char fullyassoc,
-			       int Ndbl, int Nspd, int Ndwl,
-			       double inrisetime,
-			       double *outrisetime,
-			       double *power)
+                               char fullyassoc,
+                               int Ndbl, int Nspd, int Ndwl,
+                               double inrisetime,
+                               double *outrisetime,
+                               double *power)
 {
   double Ceq,Rwire;
   double tf;
@@ -1850,52 +1801,43 @@ static double dataoutput_delay(int C, int B, int A,
     if(Ndwl*Ndbl==1) {
       l_outdrv_v= 0;
       l_outdrv_h= cols;
-    }
-    if(Ndwl*Ndbl==2 || Ndwl*Ndbl==4) {
+    }else if(Ndwl*Ndbl==2 || Ndwl*Ndbl==4) {
       l_outdrv_v= 0;
       l_outdrv_h= 2*cols;
-    }
-
-    if(Ndwl*Ndbl>4) {
+    }else { // (Ndwl*Ndbl>4)
       htree=logtwo((double)(Ndwl*Ndbl));
       htree_int = (int) htree;
       if (htree_int % 2 ==0) {
-	exp = (htree_int/2-1);
-	l_outdrv_v = (powers(2,exp)-1)*rows;
-	l_outdrv_h = sqrt(Ndwl*Ndbl)*cols;
-      }
-      else {
-	exp = (htree_int+1)/2-1;
-	l_outdrv_v = (powers(2,exp)-1)*rows;
-	l_outdrv_h = sqrt(Ndwl*Ndbl/2)*cols;
+        exp = (htree_int/2-1);
+        l_outdrv_v = (powers(2,exp)-1)*rows;
+        l_outdrv_h = sqrt(Ndwl*Ndbl)*cols;
+      }else{
+        exp = (htree_int+1)/2-1;
+        l_outdrv_v = (powers(2,exp)-1)*rows;
+        l_outdrv_h = sqrt(Ndwl*Ndbl/2)*cols;
       }
     }
-  }
-  else {
+  }else{
     rows_fa_subarray = (C/(B*Ndbl));
     tagbits = ADDRESS_BITS+2-(int)logtwo((double)B);
     cols_fa_subarray = (8*B)+tagbits;
     if(Ndbl==1) {
       l_outdrv_v= 0;
       l_outdrv_h= cols_fa_subarray;
-    }
-    if(Ndbl==2 || Ndbl==4) {
+    }else if(Ndbl==2 || Ndbl==4) {
       l_outdrv_v= 0;
       l_outdrv_h= 2*cols_fa_subarray;
-    }
-
-    if(Ndbl>4) {
+    }else{ // (Ndbl>4)
       htree=logtwo((double)(Ndbl));
       htree_int = (int) htree;
       if (htree_int % 2 ==0) {
-	exp = (htree_int/2-1);
-	l_outdrv_v = (powers(2,exp)-1)*rows_fa_subarray;
-	l_outdrv_h = sqrt(Ndbl)*cols_fa_subarray;
-      }
-      else {
-	exp = (htree_int+1)/2-1;
-	l_outdrv_v = (powers(2,exp)-1)*rows_fa_subarray;
-	l_outdrv_h = sqrt(Ndbl/2)*cols_fa_subarray;
+        exp = (htree_int/2-1);
+        l_outdrv_v = (powers(2,exp)-1)*rows_fa_subarray;
+        l_outdrv_h = sqrt(Ndbl)*cols_fa_subarray;
+      }else{
+        exp = (htree_int+1)/2-1;
+        l_outdrv_v = (powers(2,exp)-1)*rows_fa_subarray;
+        l_outdrv_h = sqrt(Ndbl/2)*cols_fa_subarray;
       }
     }
   }
@@ -1928,8 +1870,8 @@ static double dataoutput_delay(int C, int B, int A,
 /* Sel inverter delay (part of the output driver)  see section 6.8 */
 
 static double selb_delay_tag_path(double inrisetime,
-				  double *outrisetime,
-				  double *power) {
+                                  double *outrisetime,
+                                  double *power) {
 
   double Ceq,Tst1,tf;
 
@@ -1947,9 +1889,9 @@ static double selb_delay_tag_path(double inrisetime,
 
 
 void xcacti_calculate_time(const parameter_type *parameters,
-			   result_type *result,
-			   arearesult_type *arearesult,
-			   area_type *arearesult_subbanked) {
+                           result_type *result,
+                           arearesult_type *arearesult,
+                           area_type *arearesult_subbanked) {
 
   arearesult_type arearesult_temp;
   area_type arearesult_subbanked_temp;
@@ -2035,831 +1977,828 @@ void xcacti_calculate_time(const parameter_type *parameters,
     if (!parameters->fully_assoc) {
       /* Set associative or direct map cache model */
       for (Nspd=1;Nspd<=MAXSPD;Nspd=Nspd*2) {
-	for (Ndwl=1;Ndwl<=MAXN;Ndwl=Ndwl*2) {
-	  for (Ndbl=1;Ndbl<=MAXN;Ndbl=Ndbl*2) {
-	    for (Ntspd=1;Ntspd<=MAXSPD;Ntspd=Ntspd*2) {
-	      for (Ntwl=1;Ntwl<=1;Ntwl=Ntwl*2) {
-		for (Ntbl=1;Ntbl<=MAXN;Ntbl=Ntbl*2) {
-		  if (xcacti_organizational_parameters_valid
-		      (parameters->block_size, parameters->associativity, parameters->cache_size,Ndwl,Ndbl,Nspd,Ntwl,Ntbl,Ntspd,parameters->fully_assoc)) {
+        for (Ndwl=1;Ndwl<=MAXN;Ndwl=Ndwl*2) {
+          for (Ndbl=1;Ndbl<=MAXN;Ndbl=Ndbl*2) {
+            for (Ntspd=1;Ntspd<=MAXSPD;Ntspd=Ntspd*2) {
+              for (Ntwl=1;Ntwl<=1;Ntwl=Ntwl*2) {
+                for (Ntbl=1;Ntbl<=MAXN;Ntbl=Ntbl*2) {
+                  if (xcacti_organizational_parameters_valid
+                      (parameters->block_size, parameters->associativity, parameters->cache_size,Ndwl,Ndbl,Nspd,Ntwl,Ntbl,Ntspd,parameters->fully_assoc)) {
         
-		    bank_h=0;
-		    bank_v=0;
+                    bank_h=0;
+                    bank_v=0;
 
-		    if (8*parameters->block_size/BITOUT == 1 && Ndbl*Nspd==1) {
-		      muxover=1;
-		    } 
-		    else {
-		      if (Ndbl*Nspd > MAX_COL_MUX)
-			{
-			  muxover=8*parameters->block_size/BITOUT;
-			}
-		      else {
-			if (8*parameters->block_size*Ndbl*Nspd/BITOUT > MAX_COL_MUX)
-			  {
-			    muxover=(8*parameters->block_size/BITOUT)/(MAX_COL_MUX/(Ndbl*Nspd));
-			  }
-			else
-			  {
-			    muxover=1;
-			  }
-		      }
-		    }
+                    if (8*parameters->block_size/BITOUT == 1 && Ndbl*Nspd==1) {
+                      muxover=1;
+                    } 
+                    else {
+                      if (Ndbl*Nspd > MAX_COL_MUX)
+                        {
+                          muxover=8*parameters->block_size/BITOUT;
+                        }
+                      else {
+                        if (8*parameters->block_size*Ndbl*Nspd/BITOUT > MAX_COL_MUX)
+                          {
+                            muxover=(8*parameters->block_size/BITOUT)/(MAX_COL_MUX/(Ndbl*Nspd));
+                          }
+                        else
+                          {
+                            muxover=1;
+                          }
+                      }
+                    }
 
-		    xcacti_area_subbanked(ADDRESS_BITS,BITOUT,parameters->num_readwrite_ports,parameters->num_read_ports,parameters->num_write_ports,Ndbl,Ndwl,Nspd,Ntbl,Ntwl,Ntspd,parameters,&arearesult_subbanked_temp,&arearesult_temp);
+                    xcacti_area_subbanked(ADDRESS_BITS,BITOUT,parameters->num_readwrite_ports,parameters->num_read_ports,parameters->num_write_ports,Ndbl,Ndwl,Nspd,Ntbl,Ntwl,Ntspd,parameters,&arearesult_subbanked_temp,&arearesult_temp);
            
-		    Subbank_Efficiency= (area_all_dataramcells+area_all_tagramcells)*100/(arearesult_temp.totalarea/100000000.0);
-		    Total_Efficiency= (parameters->NSubbanks)*(area_all_dataramcells+area_all_tagramcells)*100/(xcacti_calculate_area(arearesult_subbanked_temp,parameters->fudgefactor)/100000000.0);
-		    //efficiency = Subbank_Efficiency;
-		    efficiency = Total_Efficiency;
+                    Subbank_Efficiency= (area_all_dataramcells+area_all_tagramcells)*100/(arearesult_temp.totalarea/100000000.0);
+                    Total_Efficiency= (parameters->NSubbanks)*(area_all_dataramcells+area_all_tagramcells)*100/(xcacti_calculate_area(arearesult_subbanked_temp,parameters->fudgefactor)/100000000.0);
+                    //efficiency = Subbank_Efficiency;
+                    efficiency = Total_Efficiency;
 
-		    arearesult_temp.efficiency = efficiency;
-		    aspect_ratio_total_temp = (arearesult_subbanked_temp.height/arearesult_subbanked_temp.width);
-		    aspect_ratio_total_temp = (aspect_ratio_total_temp > 1.0) ? (aspect_ratio_total_temp) : 1.0/(aspect_ratio_total_temp) ;
+                    arearesult_temp.efficiency = efficiency;
+                    aspect_ratio_total_temp = (arearesult_subbanked_temp.height/arearesult_subbanked_temp.width);
+                    aspect_ratio_total_temp = (aspect_ratio_total_temp > 1.0) ? (aspect_ratio_total_temp) : 1.0/(aspect_ratio_total_temp) ;
 
-		    arearesult_temp.aspect_ratio_total = aspect_ratio_total_temp;
+                    arearesult_temp.aspect_ratio_total = aspect_ratio_total_temp;
 
-		    subbank_dim(parameters->cache_size,parameters->block_size,parameters->associativity,parameters->fully_assoc,Ndbl,Ndwl,Nspd,Ntbl,Ntwl,Ntspd,parameters->NSubbanks,&bank_h,&bank_v);
-		    subbanks_routing_power(parameters->fully_assoc,parameters->associativity,parameters->NSubbanks,&bank_h,&bank_v,&total_address_routing_power);
-		    total_address_routing_power*=(parameters->num_readwrite_ports+parameters->num_read_ports+parameters->num_write_ports);
+                    subbank_dim(parameters->cache_size,parameters->block_size,parameters->associativity,parameters->fully_assoc,Ndbl,Ndwl,Nspd,Ntbl,Ntwl,Ntspd,parameters->NSubbanks,&bank_h,&bank_v);
+                    subbanks_routing_power(parameters->fully_assoc,parameters->associativity,parameters->NSubbanks,&bank_h,&bank_v,&total_address_routing_power);
+                    total_address_routing_power*=(parameters->num_readwrite_ports+parameters->num_read_ports+parameters->num_write_ports);
 
-		    if(parameters->NSubbanks > 2 ) {
-		      subbankaddress_routing_delay= address_routing_delay(parameters->cache_size, parameters->block_size, parameters->associativity, parameters->fully_assoc, Ndwl, Ndbl, Nspd, Ntwl, Ntbl,Ntspd,parameters->NSubbanks,&outrisetime,&subbankaddress_routing_power);
-		    }
+                    if(parameters->NSubbanks > 2 ) {
+                      subbankaddress_routing_delay= address_routing_delay(parameters->cache_size, parameters->block_size, parameters->associativity, parameters->fully_assoc, Ndwl, Ndbl, Nspd, Ntwl, Ntbl,Ntspd,parameters->NSubbanks,&outrisetime,&subbankaddress_routing_power);
+                    }
 
-		    subbankaddress_routing_power*=(parameters->num_readwrite_ports+parameters->num_read_ports+parameters->num_write_ports);
+                    subbankaddress_routing_power*=(parameters->num_readwrite_ports+parameters->num_read_ports+parameters->num_write_ports);
 
-		    /* Calculate data side of cache */
-		    inrisetime = outrisetime;
-		    addr_inrisetime=outrisetime;
+                    /* Calculate data side of cache */
+                    inrisetime = outrisetime;
+                    addr_inrisetime=outrisetime;
 
-		    max_delay=0;
-		    decoder_data_power=0;
-		    decoder_data = decoder_delay(parameters->cache_size,parameters->block_size, parameters->associativity,
-						 Ndwl,Ndbl,Nspd,
-						 Ntwl,Ntbl,Ntspd,
-						 &decoder_data_driver,&decoder_data_3to8,
-						 &decoder_data_inv,
-						 &outrisetime, 
-						 inrisetime,
-						 &data_nor_inputs,
-						 &decoder_data_power);
-		    max_delay=MAX(max_delay, decoder_data);
-		    inrisetime = outrisetime;
-		    decoder_data_power*=(parameters->num_readwrite_ports+parameters->num_read_ports+parameters->num_write_ports);
-		    wordline_data_power=0;
-		    wordline_data = wordline_delay(parameters->block_size,
-						   parameters->associativity,Ndwl,Nspd,
-						   inrisetime,&outrisetime,
-						   &wordline_data_power);
-		    wordline_data_power*=(parameters->num_readwrite_ports+parameters->num_read_ports+parameters->num_write_ports);
-		    inrisetime = outrisetime;
-		    max_delay=MAX(max_delay, wordline_data);
+                    max_delay=0;
+                    decoder_data_power=0;
+                    decoder_data = decoder_delay(parameters->cache_size,parameters->block_size, parameters->associativity,
+                                                 Ndwl,Ndbl,Nspd,
+                                                 Ntwl,Ntbl,Ntspd,
+                                                 &decoder_data_driver,&decoder_data_3to8,
+                                                 &decoder_data_inv,
+                                                 &outrisetime, 
+                                                 inrisetime,
+                                                 &data_nor_inputs,
+                                                 &decoder_data_power);
+                    max_delay=MAX(max_delay, decoder_data);
+                    inrisetime = outrisetime;
+                    decoder_data_power*=(parameters->num_readwrite_ports+parameters->num_read_ports+parameters->num_write_ports);
+                    wordline_data_power=0;
+                    wordline_data = wordline_delay(parameters->block_size,
+                                                   parameters->associativity,Ndwl,Nspd,
+                                                   inrisetime,&outrisetime,
+                                                   &wordline_data_power);
+                    wordline_data_power*=(parameters->num_readwrite_ports+parameters->num_read_ports+parameters->num_write_ports);
+                    inrisetime = outrisetime;
+                    max_delay=MAX(max_delay, wordline_data);
 
-		    bitline_data_power=0;
+                    bitline_data_power=0;
 #ifdef XCACTI
-		    write_power_data=0;
-		    bitline_data = bitline_delay(parameters->cache_size,parameters->associativity,
-						 parameters->block_size,Ndwl,Ndbl,Nspd,
-						 inrisetime,&outrisetime, &bitline_data_power, &write_power_data);
+                    write_power_data=0;
+                    bitline_data = bitline_delay(parameters->cache_size,parameters->associativity,
+                                                 parameters->block_size,Ndwl,Ndbl,Nspd,
+                                                 inrisetime,&outrisetime, &bitline_data_power, &write_power_data);
 #else
-		    bitline_data = bitline_delay(parameters->cache_size,parameters->associativity,
-						 parameters->block_size,Ndwl,Ndbl,Nspd,
-						 inrisetime,&outrisetime, &bitline_data_power, 0);
+                    bitline_data = bitline_delay(parameters->cache_size,parameters->associativity,
+                                                 parameters->block_size,Ndwl,Ndbl,Nspd,
+                                                 inrisetime,&outrisetime, &bitline_data_power, 0);
 #endif
-		    bitline_data_power*=(parameters->num_readwrite_ports+parameters->num_read_ports+parameters->num_write_ports);
+                    bitline_data_power*=(parameters->num_readwrite_ports+parameters->num_read_ports+parameters->num_write_ports);
 #ifdef XCACTI
-		    write_power_data  *=(parameters->num_readwrite_ports+parameters->num_read_ports+parameters->num_write_ports);
+                    write_power_data  *=(parameters->num_readwrite_ports+parameters->num_read_ports+parameters->num_write_ports);
 #endif
 
-		    inrisetime = outrisetime;
-		    max_delay=MAX(max_delay, bitline_data);
+                    inrisetime = outrisetime;
+                    max_delay=MAX(max_delay, bitline_data);
 
-		    {
-		      int temp_row;
-		      sense_amp_data_power=BITOUT*parameters->associativity*muxover/2;
-		      temp_row = parameters->cache_size/(parameters->block_size*parameters->associativity*Ndbl*Nspd);
-		      sense_amp_data = sense_amp_delay(parameters->associativity, inrisetime,&outrisetime, temp_row, &sense_amp_data_power);
-		      sense_amp_data_power*=(parameters->num_readwrite_ports+parameters->num_read_ports);
-		      max_delay=MAX(max_delay, sense_amp_data);
-		    }
+                    {
+                      int temp_row;
+                      sense_amp_data_power=BITOUT*parameters->associativity*muxover/2;
+                      temp_row = parameters->cache_size/(parameters->block_size*parameters->associativity*Ndbl*Nspd);
+                      sense_amp_data = sense_amp_delay(parameters->associativity, inrisetime,&outrisetime, temp_row, &sense_amp_data_power);
+                      sense_amp_data_power*=(parameters->num_readwrite_ports+parameters->num_read_ports);
+                      max_delay=MAX(max_delay, sense_amp_data);
+                    }
         
-		    inrisetime = outrisetime;
+                    inrisetime = outrisetime;
         
-		    data_output_power=0;
-		    data_output = dataoutput_delay(parameters->cache_size,parameters->block_size,
-						   parameters->associativity,parameters->fully_assoc,Ndbl,Nspd,Ndwl,
-						   inrisetime,&outrisetime, &data_output_power);
-		    data_output_power*=(parameters->num_readwrite_ports+parameters->num_read_ports);
-		    max_delay=MAX(max_delay, data_output);
-		    inrisetime = outrisetime;
+                    data_output_power=0;
+                    data_output = dataoutput_delay(parameters->cache_size,parameters->block_size,
+                                                   parameters->associativity,parameters->fully_assoc,Ndbl,Nspd,Ndwl,
+                                                   inrisetime,&outrisetime, &data_output_power);
+                    data_output_power*=(parameters->num_readwrite_ports+parameters->num_read_ports);
+                    max_delay=MAX(max_delay, data_output);
+                    inrisetime = outrisetime;
            
-		    total_out_driver_power=0;
+                    total_out_driver_power=0;
             
-		    subbank_v=0;
-		    subbank_h=0;
+                    subbank_v=0;
+                    subbank_h=0;
 
-		    subbank_routing_length(parameters->cache_size,parameters->block_size,parameters->associativity,parameters->fully_assoc,Ndbl,Nspd,Ndwl,Ntbl,Ntwl,Ntspd,parameters->NSubbanks,&subbank_v,&subbank_h) ;
+                    subbank_routing_length(parameters->cache_size,parameters->block_size,parameters->associativity,parameters->fully_assoc,Ndbl,Nspd,Ndwl,Ntbl,Ntwl,Ntspd,parameters->NSubbanks,&subbank_v,&subbank_h) ;
 
-		    if(parameters->NSubbanks > 2 ) {
-		      total_out_driver = senseext_driver_delay(parameters->cache_size,parameters->block_size,parameters->associativity,parameters->fully_assoc,Ndbl,Nspd,Ndwl,Ntbl,Ntwl,Ntspd,inrisetime,&outrisetime, subbank_v, subbank_h, &total_out_driver_power);
-		    }
+                    if(parameters->NSubbanks > 2 ) {
+                      total_out_driver = senseext_driver_delay(parameters->cache_size,parameters->block_size,parameters->associativity,parameters->fully_assoc,Ndbl,Nspd,Ndwl,Ntbl,Ntwl,Ntspd,inrisetime,&outrisetime, subbank_v, subbank_h, &total_out_driver_power);
+                    }
 
-		    total_out_driver_power*=(parameters->num_readwrite_ports+parameters->num_read_ports);
-		    inrisetime = outrisetime;
-		    max_delay=MAX(max_delay, total_out_driver);
+                    total_out_driver_power*=(parameters->num_readwrite_ports+parameters->num_read_ports);
+                    inrisetime = outrisetime;
+                    max_delay=MAX(max_delay, total_out_driver);
  
             
-		    /* if the associativity is 1, the data output can come right
-		       after the sense amp.   Otherwise, it has to wait until 
-		       the data access has been done. */
+                    /* if the associativity is 1, the data output can come right
+                       after the sense amp.   Otherwise, it has to wait until 
+                       the data access has been done. */
             
-		    if (parameters->associativity==1) {
-		      before_mux = subbankaddress_routing_delay +decoder_data + wordline_data + bitline_data +
-			sense_amp_data + total_out_driver + data_output;
-		      after_mux = 0;
-		    } else {  
-		      before_mux = subbankaddress_routing_delay+ decoder_data + wordline_data + bitline_data +
-			sense_amp_data;
-		      after_mux = data_output + total_out_driver;
-		    }
-            
-            
-		    /*
-		     * Now worry about the tag side.
-		     */
+                    if (parameters->associativity==1) {
+                      before_mux = subbankaddress_routing_delay +decoder_data + wordline_data + bitline_data +
+                        sense_amp_data + total_out_driver + data_output;
+                      after_mux = 0;
+                    } else {  
+                      before_mux = subbankaddress_routing_delay+ decoder_data + wordline_data + bitline_data +
+                        sense_amp_data;
+                      after_mux = data_output + total_out_driver;
+                    }
             
             
-		    decoder_tag_power=0;
-		    decoder_tag = decoder_tag_delay(parameters->cache_size,
-						    parameters->block_size,parameters->associativity,
-						    Ndwl,Ndbl,Nspd,Ntwl,Ntbl,Ntspd,parameters->NSubbanks,
-						    &decoder_tag_driver,&decoder_tag_3to8,
-						    &decoder_tag_inv,addr_inrisetime,&outrisetime,&tag_nor_inputs, &decoder_tag_power);
-		    max_delay=MAX(max_delay, decoder_tag);
-		    inrisetime = outrisetime;
-		    decoder_tag_power*=(parameters->num_readwrite_ports+parameters->num_read_ports+parameters->num_write_ports);
+                    /*
+                     * Now worry about the tag side.
+                     */
             
-		    wordline_tag_power=0;
-		    wordline_tag = wordline_tag_delay(parameters->cache_size,
-						      parameters->associativity,Ntspd,Ntwl,parameters->NSubbanks,
-						      inrisetime,&outrisetime, &wordline_tag_power);
-		    max_delay=MAX(max_delay, wordline_tag);
-		    inrisetime = outrisetime;
-		    wordline_tag_power*=(parameters->num_readwrite_ports+parameters->num_read_ports+parameters->num_write_ports);
             
-		    bitline_tag_power=0;
+                    decoder_tag_power=0;
+                    decoder_tag = decoder_tag_delay(parameters->cache_size,
+                                                    parameters->block_size,parameters->associativity,
+                                                    Ndwl,Ndbl,Nspd,Ntwl,Ntbl,Ntspd,parameters->NSubbanks,
+                                                    &decoder_tag_driver,&decoder_tag_3to8,
+                                                    &decoder_tag_inv,addr_inrisetime,&outrisetime,&tag_nor_inputs, &decoder_tag_power);
+                    max_delay=MAX(max_delay, decoder_tag);
+                    inrisetime = outrisetime;
+                    decoder_tag_power*=(parameters->num_readwrite_ports+parameters->num_read_ports+parameters->num_write_ports);
+            
+                    wordline_tag_power=0;
+                    wordline_tag = wordline_tag_delay(parameters->cache_size,
+                                                      parameters->associativity,Ntspd,Ntwl,parameters->NSubbanks,
+                                                      inrisetime,&outrisetime, &wordline_tag_power);
+                    max_delay=MAX(max_delay, wordline_tag);
+                    inrisetime = outrisetime;
+                    wordline_tag_power*=(parameters->num_readwrite_ports+parameters->num_read_ports+parameters->num_write_ports);
+            
+                    bitline_tag_power=0;
 #ifdef XCACTI
-		    write_power_tag=0;
-		    bitline_tag = bitline_tag_delay(parameters->cache_size,parameters->associativity,
-						    parameters->block_size,Ntwl,Ntbl,Ntspd,parameters->NSubbanks,
-						    inrisetime,&outrisetime, &bitline_tag_power, &write_power_tag);
+                    write_power_tag=0;
+                    bitline_tag = bitline_tag_delay(parameters->cache_size,parameters->associativity,
+                                                    parameters->block_size,Ntwl,Ntbl,Ntspd,parameters->NSubbanks,
+                                                    inrisetime,&outrisetime, &bitline_tag_power, &write_power_tag);
 #else
-		    bitline_tag = bitline_tag_delay(parameters->cache_size,parameters->associativity,
-						    parameters->block_size,Ntwl,Ntbl,Ntspd,parameters->NSubbanks,
-						    inrisetime,&outrisetime, &bitline_tag_power, 0);
+                    bitline_tag = bitline_tag_delay(parameters->cache_size,parameters->associativity,
+                                                    parameters->block_size,Ntwl,Ntbl,Ntspd,parameters->NSubbanks,
+                                                    inrisetime,&outrisetime, &bitline_tag_power, 0);
 #endif
-		    max_delay=MAX(max_delay, bitline_tag);
-		    inrisetime = outrisetime;
-		    bitline_tag_power*=(parameters->num_readwrite_ports+parameters->num_read_ports+parameters->num_write_ports);
+                    max_delay=MAX(max_delay, bitline_tag);
+                    inrisetime = outrisetime;
+                    bitline_tag_power*=(parameters->num_readwrite_ports+parameters->num_read_ports+parameters->num_write_ports);
 #ifdef XCACTI
-		    write_power_tag  *=(parameters->num_readwrite_ports+parameters->num_read_ports+parameters->num_write_ports);
+                    write_power_tag  *=(parameters->num_readwrite_ports+parameters->num_read_ports+parameters->num_write_ports);
 #endif
           
-		    sense_amp_tag_power=ADDRESS_BITS+2 - (int)logtwo((double)parameters->cache_size) + (int)logtwo((double)parameters->associativity);
+                    sense_amp_tag_power=ADDRESS_BITS+2 - (int)logtwo((double)parameters->cache_size) + (int)logtwo((double)parameters->associativity);
 
-		    sense_amp_tag = sense_amp_tag_delay(inrisetime,&outrisetime,&sense_amp_tag_power);
+                    sense_amp_tag = sense_amp_tag_delay(inrisetime,&outrisetime,&sense_amp_tag_power);
           
-		    max_delay=MAX(max_delay, sense_amp_tag);
-		    inrisetime = outrisetime;
-		    sense_amp_tag_power*=(parameters->num_readwrite_ports+parameters->num_read_ports);
+                    max_delay=MAX(max_delay, sense_amp_tag);
+                    inrisetime = outrisetime;
+                    sense_amp_tag_power*=(parameters->num_readwrite_ports+parameters->num_read_ports);
 
 
-		    /* split comparator - look at half the address bits only */
-		    compare_tag_power=0;
-		    compare_tag = half_compare_time(parameters->cache_size,parameters->associativity,
-						    Ntbl,Ntspd,parameters->NSubbanks,
-						    inrisetime,&outrisetime, &compare_tag_power);
-		    compare_tag_power*=(parameters->num_readwrite_ports+parameters->num_read_ports);
-		    inrisetime = outrisetime;
-		    max_delay=MAX(max_delay, compare_tag);
+                    /* split comparator - look at half the address bits only */
+                    compare_tag_power=0;
+                    compare_tag = half_compare_time(parameters->cache_size,parameters->associativity,
+                                                    Ntbl,Ntspd,parameters->NSubbanks,
+                                                    inrisetime,&outrisetime, &compare_tag_power);
+                    compare_tag_power*=(parameters->num_readwrite_ports+parameters->num_read_ports);
+                    inrisetime = outrisetime;
+                    max_delay=MAX(max_delay, compare_tag);
             
-		    valid_driver_power=0;
-		    mux_driver_power=0;
-		    selb_power=0;
-		    if (parameters->associativity == 1) {
-		      mux_driver = 0;
-		      valid_driver = valid_driver_delay(parameters->cache_size,parameters->block_size,
-							parameters->associativity,parameters->fully_assoc,Ndbl,Ndwl,Nspd,Ntbl,Ntwl,Ntspd,parameters->NSubbanks,inrisetime,&valid_driver_power);
-		      valid_driver_power*=(parameters->num_readwrite_ports+parameters->num_read_ports);
-		      max_delay=MAX(max_delay, valid_driver);
-		      time_till_compare = subbankaddress_routing_delay+ decoder_tag + wordline_tag + bitline_tag +
-			sense_amp_tag;
+                    valid_driver_power=0;
+                    mux_driver_power=0;
+                    selb_power=0;
+                    if (parameters->associativity == 1) {
+                      mux_driver = 0;
+                      valid_driver = valid_driver_delay(parameters->cache_size,parameters->block_size,
+                                                        parameters->associativity,parameters->fully_assoc,Ndbl,Ndwl,Nspd,Ntbl,Ntwl,Ntspd,parameters->NSubbanks,inrisetime,&valid_driver_power);
+                      valid_driver_power*=(parameters->num_readwrite_ports+parameters->num_read_ports);
+                      max_delay=MAX(max_delay, valid_driver);
+                      time_till_compare = subbankaddress_routing_delay+ decoder_tag + wordline_tag + bitline_tag +
+                        sense_amp_tag;
               
-		      time_till_select = time_till_compare+ compare_tag + valid_driver;
+                      time_till_select = time_till_compare+ compare_tag + valid_driver;
               
               
-		      /*
-		       * From the above info, calculate the total access time
-		       */
+                      /*
+                       * From the above info, calculate the total access time
+                       */
 
-		      if( PHASEDCACHE ){
-			access_time = before_mux+after_mux+time_till_select;
-		      }else{
-			access_time = MAX(before_mux+after_mux,time_till_select);
-		      }
+                      if( PHASEDCACHE ){
+                        access_time = before_mux+after_mux+time_till_select;
+                      }else{
+                        access_time = MAX(before_mux+after_mux,time_till_select);
+                      }
               
-		    } else {
+                    } else {
               
-		      /* default scale is full wirelength */
+                      /* default scale is full wirelength */
 
-		      cols_subarray = (8*parameters->block_size*parameters->associativity*Nspd/Ndwl);
-		      rows_subarray = (parameters->cache_size/(parameters->block_size*parameters->associativity*Ndbl*Nspd));
+                      cols_subarray = (8*parameters->block_size*parameters->associativity*Nspd/Ndwl);
+                      rows_subarray = (parameters->cache_size/(parameters->block_size*parameters->associativity*Ndbl*Nspd));
 
-		      if(Ndwl*Ndbl==1) {
-			l_muxdrv_v= 0;
-			l_muxdrv_h= cols_subarray;
-		      }
-		      if(Ndwl*Ndbl==2 || Ndwl*Ndbl==4) {
-			l_muxdrv_v= 0;
-			l_muxdrv_h= 2*cols_subarray;
-		      }
+                      if(Ndwl*Ndbl==1) {
+                        l_muxdrv_v= 0;
+                        l_muxdrv_h= cols_subarray;
+                      }else if(Ndwl*Ndbl==2 || Ndwl*Ndbl==4) {
+                        l_muxdrv_v= 0;
+                        l_muxdrv_h= 2*cols_subarray;
+                      }else{
+                        htree=logtwo((double)(Ndwl*Ndbl));
+                        htree_int = (int) htree;
+                        if (htree_int % 2 ==0) {
+                          exp = (htree_int/2-1);
+                          l_muxdrv_v = (powers(2,exp)-1)*rows_subarray;
+                          l_muxdrv_h = (int)sqrt(Ndwl*Ndbl)*cols_subarray;
+                        }
+                        else {
+                          exp = (htree_int+1)/2-1;
+                          l_muxdrv_v = (powers(2,exp)-1)*rows_subarray;
+                          l_muxdrv_h = (int)sqrt(Ndwl*Ndbl/2)*cols_subarray;
+                        }
+                      }
 
-		      if(Ndwl*Ndbl>4) {
-			htree=logtwo((double)(Ndwl*Ndbl));
-			htree_int = (int) htree;
-			if (htree_int % 2 ==0) {
-			  exp = (htree_int/2-1);
-			  l_muxdrv_v = (powers(2,exp)-1)*rows_subarray;
-			  l_muxdrv_h = (int)sqrt(Ndwl*Ndbl)*cols_subarray;
-			}
-			else {
-			  exp = (htree_int+1)/2-1;
-			  l_muxdrv_v = (powers(2,exp)-1)*rows_subarray;
-			  l_muxdrv_h = (int)sqrt(Ndwl*Ndbl/2)*cols_subarray;
-			}
-		      }
-
-		      wirelength_v=(l_muxdrv_v);
-		      wirelength_h=(l_muxdrv_h);
+                      wirelength_v=(l_muxdrv_v);
+                      wirelength_h=(l_muxdrv_h);
  
-		      /* dualin mux driver - added for split comparator
-			 - inverter replaced by nand gate */
-		      mux_driver = mux_driver_delay_dualin(parameters->cache_size,
-							   parameters->block_size,
-							   parameters->associativity,
-							   Ndbl,Nspd,Ndwl,Ntbl,Ntspd,
-							   inrisetime,&outrisetime, 
-							   wirelength_v,wirelength_h,&mux_driver_power);
-		      max_delay=MAX(max_delay, mux_driver);
-		      mux_driver_power*=(parameters->num_readwrite_ports+parameters->num_read_ports);
+                      /* dualin mux driver - added for split comparator
+                         - inverter replaced by nand gate */
+                      mux_driver = mux_driver_delay_dualin(parameters->cache_size,
+                                                           parameters->block_size,
+                                                           parameters->associativity,
+                                                           Ndbl,Nspd,Ndwl,Ntbl,Ntspd,
+                                                           inrisetime,&outrisetime, 
+                                                           wirelength_v,wirelength_h,&mux_driver_power);
+                      max_delay=MAX(max_delay, mux_driver);
+                      mux_driver_power*=(parameters->num_readwrite_ports+parameters->num_read_ports);
               
-		      selb = selb_delay_tag_path(inrisetime,&outrisetime,&selb_power);
-		      max_delay=MAX(max_delay, selb);
-		      selb_power*=(parameters->num_readwrite_ports+parameters->num_read_ports);
+                      selb = selb_delay_tag_path(inrisetime,&outrisetime,&selb_power);
+                      max_delay=MAX(max_delay, selb);
+                      selb_power*=(parameters->num_readwrite_ports+parameters->num_read_ports);
               
-		      valid_driver = 0;
+                      valid_driver = 0;
               
-		      time_till_compare = subbankaddress_routing_delay+decoder_tag + wordline_tag + bitline_tag +
-			sense_amp_tag;
+                      time_till_compare = subbankaddress_routing_delay+decoder_tag + wordline_tag + bitline_tag +
+                        sense_amp_tag;
               
-		      time_till_select = time_till_compare+ compare_tag + mux_driver
-			+ selb;
+                      time_till_select = time_till_compare+ compare_tag + mux_driver
+                        + selb;
 
-		      if( PHASEDCACHE ){
-			access_time = before_mux+time_till_select+after_mux;
-		      }else{
-			access_time = MAX(before_mux,time_till_select) +after_mux;
-		      }
-		    }
+                      if( PHASEDCACHE ){
+                        access_time = before_mux+time_till_select+after_mux;
+                      }else{
+                        access_time = MAX(before_mux,time_till_select) +after_mux;
+                      }
+                    }
             
-		    /*
-		     * Calcuate the cycle time
-		     */
+                    /*
+                     * Calcuate the cycle time
+                     */
             
-		    // precharge_del = precharge_delay(wordline_data);
+                    // precharge_del = precharge_delay(wordline_data);
             
-		    //      cycle_time = access_time + precharge_del;
+                    //      cycle_time = access_time + precharge_del;
             
-		    cycle_time=access_time/WAVE_PIPE;
-		    if (max_delay>cycle_time)
-		      cycle_time=max_delay;
+                    cycle_time=access_time/WAVE_PIPE;
+                    if (max_delay>cycle_time)
+                      cycle_time=max_delay;
 
-		    /*
-		     * The parameters are for a 0.8um process.  A quick way to
-		     * scale the results to another process is to divide all
-		     * the results by FUDGEFACTOR.  Normally, FUDGEFACTOR is 1.
-		     */
+                    /*
+                     * The parameters are for a 0.8um process.  A quick way to
+                     * scale the results to another process is to divide all
+                     * the results by FUDGEFACTOR.  Normally, FUDGEFACTOR is 1.
+                     */
 
 #ifdef XCACTI
-		    /* Security checks */
-		    if( bitline_data < 0 )
-		      continue;
+                    /* Security checks */
+                    if( bitline_data < 0 )
+                      continue;
             
-		    if( bitline_tag < 0 )
-		      continue;
+                    if( bitline_tag < 0 )
+                      continue;
             
-		    /*
-		     * The parameters are for a 0.8um process.  A quick way to
-		     * scale the results to another process is to divide all
-		     * the results by FUDGEFACTOR.  Normally, FUDGEFACTOR is 1.
-		     */
+                    /*
+                     * The parameters are for a 0.8um process.  A quick way to
+                     * scale the results to another process is to divide all
+                     * the results by FUDGEFACTOR.  Normally, FUDGEFACTOR is 1.
+                     */
             
-		    if( parameters->latchsa ) {
-		      /* Fancy SA assumes a latched sense amp. Consist of three
-			 modifications:
+                    if( parameters->latchsa ) {
+                      /* Fancy SA assumes a latched sense amp. Consist of three
+                         modifications:
 
-			 1-Latched Sense Amp: Once the time for the bitline and the
-			 sense amp time is over I assume that it can be latched.
+                         1-Latched Sense Amp: Once the time for the bitline and the
+                         sense amp time is over I assume that it can be latched.
                  
-			 2-Temperature margin: Since we need to give margin to for
-			 temperature limits and fabrication margin, I give an extra
-			 10%. The number is a CRUDE approximation that I get from
-			 "Synonym Hit RAM - A 500Mhz CMOS SRAM Macro with 576-bit
-			 Parallel Comparison and Parity Check Functions" - ISSC 2000
+                         2-Temperature margin: Since we need to give margin to for
+                         temperature limits and fabrication margin, I give an extra
+                         10%. The number is a CRUDE approximation that I get from
+                         "Synonym Hit RAM - A 500Mhz CMOS SRAM Macro with 576-bit
+                         Parallel Comparison and Parity Check Functions" - ISSC 2000
 
-		      */
+                      */
                         
-		      sense_amp_data_power*=(wordline_data+bitline_data+sense_amp_data)*1.1*1e9/2;
+                      sense_amp_data_power*=(wordline_data+bitline_data+sense_amp_data)*1.1*1e9/2;
                         
-		      if (!parameters->fully_assoc){
-			sense_amp_tag_power*=(wordline_tag+bitline_tag+sense_amp_tag)*1.1*1e9/2;
-		      }
-		    }else{
-		      sense_amp_data_power*=access_time*1e9/2;
+                      if (!parameters->fully_assoc){
+                        sense_amp_tag_power*=(wordline_tag+bitline_tag+sense_amp_tag)*1.1*1e9/2;
+                      }
+                    }else{
+                      sense_amp_data_power*=access_time*1e9/2;
                         
-		      if (!parameters->fully_assoc){
-			sense_amp_tag_power*=access_time*1e9/2;
-		      }
-		    }
+                      if (!parameters->fully_assoc){
+                        sense_amp_tag_power*=access_time*1e9/2;
+                      }
+                    }
 
-		    write_power_data   *=access_time*1e9/2;
-		    write_power_tag    *=access_time*1e9/2;
+                    write_power_data   *=access_time*1e9/2;
+                    write_power_tag    *=access_time*1e9/2;
 #else
-		    sense_amp_data_power+=(data_output + total_out_driver)*500e-6*5;
-		    if (!parameters->fully_assoc)
-		      sense_amp_tag_power+=(time_till_compare+ compare_tag + mux_driver+ selb +data_output + total_out_driver)*500e-6*5;
+                    sense_amp_data_power+=(data_output + total_out_driver)*500e-6*5;
+                    if (!parameters->fully_assoc)
+                      sense_amp_tag_power+=(time_till_compare+ compare_tag + mux_driver+ selb +data_output + total_out_driver)*500e-6*5;
 #endif
 
 #ifdef XCACTI
-		    if ( parameters->ignore_tag ) {
-		      total_power=
-			(subbankaddress_routing_power
-			 +decoder_data_power
-			 +wordline_data_power
-			 +bitline_data_power
-			 +sense_amp_data_power
-			 +total_out_driver_power
-			 // +decoder_tag_power
-			 // +wordline_tag_power
-			 // +bitline_tag_power
-			 // +sense_amp_tag_power
-			 // +compare_tag_power
-			 // +valid_driver_power
-			 +mux_driver_power
-			 +selb_power
-			 +data_output_power
-			 )/FUDGEFACTOR;   
-		      total_power_without_routing=
-			(parameters->NSubbanks)
-			*(decoder_data_power
-			  +wordline_data_power
-			  +bitline_data_power
-			  +sense_amp_data_power
-			  // +decoder_tag_power
-			  // +wordline_tag_power
-			  // +bitline_tag_power
-			  // +sense_amp_tag_power
-			  // +compare_tag_power
-			  +mux_driver_power
-			  +selb_power
-			  +data_output_power
-			  )/FUDGEFACTOR
-			+valid_driver_power/FUDGEFACTOR;
+                    if ( parameters->ignore_tag ) {
+                      total_power=
+                        (subbankaddress_routing_power
+                         +decoder_data_power
+                         +wordline_data_power
+                         +bitline_data_power
+                         +sense_amp_data_power
+                         +total_out_driver_power
+                         // +decoder_tag_power
+                         // +wordline_tag_power
+                         // +bitline_tag_power
+                         // +sense_amp_tag_power
+                         // +compare_tag_power
+                         // +valid_driver_power
+                         +mux_driver_power
+                         +selb_power
+                         +data_output_power
+                         )/FUDGEFACTOR;   
+                      total_power_without_routing=
+                        (parameters->NSubbanks)
+                        *(decoder_data_power
+                          +wordline_data_power
+                          +bitline_data_power
+                          +sense_amp_data_power
+                          // +decoder_tag_power
+                          // +wordline_tag_power
+                          // +bitline_tag_power
+                          // +sense_amp_tag_power
+                          // +compare_tag_power
+                          +mux_driver_power
+                          +selb_power
+                          +data_output_power
+                          )/FUDGEFACTOR
+                        +valid_driver_power/FUDGEFACTOR;
 
-		      total_power_allbanks = 
-			total_power_without_routing 
-			+total_address_routing_power/FUDGEFACTOR;
-		    }else{
-		      total_power=
-			(subbankaddress_routing_power
-			 +decoder_data_power
-			 +wordline_data_power
-			 +bitline_data_power
-			 +sense_amp_data_power
-			 +total_out_driver_power
-			 +decoder_tag_power
-			 +wordline_tag_power
-			 +bitline_tag_power
-			 +sense_amp_tag_power
-			 +compare_tag_power
-			 +valid_driver_power
-			 +mux_driver_power
-			 +selb_power
-			 +data_output_power
-			 )/FUDGEFACTOR;   
-		      total_power_without_routing=
-			(parameters->NSubbanks)
-			*(decoder_data_power
-			  +wordline_data_power
-			  +bitline_data_power
-			  +sense_amp_data_power
-			  +decoder_tag_power
-			  +wordline_tag_power
-			  +bitline_tag_power
-			  +sense_amp_tag_power
-			  +compare_tag_power
-			  +mux_driver_power
-			  +selb_power
-			  +data_output_power
-			  )/FUDGEFACTOR
-			+valid_driver_power/FUDGEFACTOR;
+                      total_power_allbanks = 
+                        total_power_without_routing 
+                        +total_address_routing_power/FUDGEFACTOR;
+                    }else{
+                      total_power=
+                        (subbankaddress_routing_power
+                         +decoder_data_power
+                         +wordline_data_power
+                         +bitline_data_power
+                         +sense_amp_data_power
+                         +total_out_driver_power
+                         +decoder_tag_power
+                         +wordline_tag_power
+                         +bitline_tag_power
+                         +sense_amp_tag_power
+                         +compare_tag_power
+                         +valid_driver_power
+                         +mux_driver_power
+                         +selb_power
+                         +data_output_power
+                         )/FUDGEFACTOR;   
+                      total_power_without_routing=
+                        (parameters->NSubbanks)
+                        *(decoder_data_power
+                          +wordline_data_power
+                          +bitline_data_power
+                          +sense_amp_data_power
+                          +decoder_tag_power
+                          +wordline_tag_power
+                          +bitline_tag_power
+                          +sense_amp_tag_power
+                          +compare_tag_power
+                          +mux_driver_power
+                          +selb_power
+                          +data_output_power
+                          )/FUDGEFACTOR
+                        +valid_driver_power/FUDGEFACTOR;
 
-		      total_power_allbanks = 
-			total_power_without_routing 
-			+total_address_routing_power/FUDGEFACTOR;
-		    }
+                      total_power_allbanks = 
+                        total_power_without_routing 
+                        +total_address_routing_power/FUDGEFACTOR;
+                    }
 #else
-		    total_power=(subbankaddress_routing_power+decoder_data_power+wordline_data_power+bitline_data_power+sense_amp_data_power+total_out_driver_power+decoder_tag_power+wordline_tag_power+bitline_tag_power+sense_amp_tag_power+compare_tag_power+valid_driver_power+mux_driver_power+selb_power+data_output_power)/FUDGEFACTOR;   
-		    total_power_without_routing=(parameters->NSubbanks)*(decoder_data_power+wordline_data_power+bitline_data_power+sense_amp_data_power+decoder_tag_power+wordline_tag_power+bitline_tag_power+sense_amp_tag_power+compare_tag_power+mux_driver_power+selb_power+data_output_power)/FUDGEFACTOR+valid_driver_power/FUDGEFACTOR;
-		    total_power_allbanks= total_power_without_routing + total_address_routing_power/FUDGEFACTOR;
+                    total_power=(subbankaddress_routing_power+decoder_data_power+wordline_data_power+bitline_data_power+sense_amp_data_power+total_out_driver_power+decoder_tag_power+wordline_tag_power+bitline_tag_power+sense_amp_tag_power+compare_tag_power+valid_driver_power+mux_driver_power+selb_power+data_output_power)/FUDGEFACTOR;   
+                    total_power_without_routing=(parameters->NSubbanks)*(decoder_data_power+wordline_data_power+bitline_data_power+sense_amp_data_power+decoder_tag_power+wordline_tag_power+bitline_tag_power+sense_amp_tag_power+compare_tag_power+mux_driver_power+selb_power+data_output_power)/FUDGEFACTOR+valid_driver_power/FUDGEFACTOR;
+                    total_power_allbanks= total_power_without_routing + total_address_routing_power/FUDGEFACTOR;
 #endif
 
  
-		    //      if (counter==1)
-		    //        fprintf(stderr, "Pow - %f, Acc - %f, Pow - %f, Acc - %f, Combo - %f\n", total_power*1e9, access_time*1e9, total_power/result->max_power, access_time/result->max_access_time, total_power/result->max_power*access_time/result->max_access_time);
+                    //      if (counter==1)
+                    //        fprintf(stderr, "Pow - %f, Acc - %f, Pow - %f, Acc - %f, Combo - %f\n", total_power*1e9, access_time*1e9, total_power/result->max_power, access_time/result->max_access_time, total_power/result->max_power*access_time/result->max_access_time);
 
-		    if (counter==1)
-		      {
-			// if ((result->total_power/result->max_power)/2+(result->access_time/result->max_access_time) > ((total_power/result->max_power)/2+access_time/(result->max_access_time*FUDGEFACTOR))) {
+                    if (counter==1)
+                      {
+                        // if ((result->total_power/result->max_power)/2+(result->access_time/result->max_access_time) > ((total_power/result->max_power)/2+access_time/(result->max_access_time*FUDGEFACTOR))) {
 
-			if ((result->total_power/result->max_power)*4+(result->access_time/result->max_access_time)*2 + (1.0/arearesult->efficiency)*4+ (arearesult->aspect_ratio_total/max_aspect_ratio_total) > ((total_power/result->max_power)*4 +access_time/(result->max_access_time*FUDGEFACTOR)*2 + (1.0/efficiency)*4 + (arearesult_temp.aspect_ratio_total/max_aspect_ratio_total) )) {
-			  //              if (result->access_time+1e-11*(result->best_Ndwl+result->best_Ndbl+result->best_Nspd+result->best_Ntwl+result->best_Ntbl+result->best_Ntspd) > access_time/FUDGEFACTOR+1e-11*(Ndwl+Ndbl+Nspd+Ntwl+Ntbl+Ntspd)) {
-			  //if (result->access_time > access_time/FUDGEFACTOR) {
+                        if ((result->total_power/result->max_power)*4+(result->access_time/result->max_access_time)*2 + (1.0/arearesult->efficiency)*4+ (arearesult->aspect_ratio_total/max_aspect_ratio_total) > ((total_power/result->max_power)*4 +access_time/(result->max_access_time*FUDGEFACTOR)*2 + (1.0/efficiency)*4 + (arearesult_temp.aspect_ratio_total/max_aspect_ratio_total) )) {
+                          //              if (result->access_time+1e-11*(result->best_Ndwl+result->best_Ndbl+result->best_Nspd+result->best_Ntwl+result->best_Ntbl+result->best_Ntspd) > access_time/FUDGEFACTOR+1e-11*(Ndwl+Ndbl+Nspd+Ntwl+Ntbl+Ntspd)) {
+                          //if (result->access_time > access_time/FUDGEFACTOR) {
 
-			  result->senseext_scale = senseext_scale;
-			  result->total_power=total_power;
-			  result->total_power_without_routing=total_power_without_routing;
-			  result->total_routing_power=total_address_routing_power/FUDGEFACTOR;
-			  result->total_power_allbanks=total_power_allbanks;
+                          result->senseext_scale = senseext_scale;
+                          result->total_power=total_power;
+                          result->total_power_without_routing=total_power_without_routing;
+                          result->total_routing_power=total_address_routing_power/FUDGEFACTOR;
+                          result->total_power_allbanks=total_power_allbanks;
 
 #ifdef XCACTI
-			  if ( parameters->ignore_tag ) {
-			    result->total_wrpower=
-			      total_power
-			      +(write_power_data - bitline_data_power)/FUDGEFACTOR;
-			  }else{
-			    result->total_wrpower=
-			      total_power 
-			      +(write_power_data - bitline_data_power)/FUDGEFACTOR
-			      +(write_power_tag  - bitline_tag_power)/FUDGEFACTOR;
-			  }
+                          if ( parameters->ignore_tag ) {
+                            result->total_wrpower=
+                              total_power
+                              +(write_power_data - bitline_data_power)/FUDGEFACTOR;
+                          }else{
+                            result->total_wrpower=
+                              total_power 
+                              +(write_power_data - bitline_data_power)/FUDGEFACTOR
+                              +(write_power_tag  - bitline_tag_power)/FUDGEFACTOR;
+                          }
 #endif
 
-			  result->subbank_address_routing_delay = subbankaddress_routing_delay/FUDGEFACTOR;
-			  result->subbank_address_routing_power = subbankaddress_routing_power/FUDGEFACTOR;
+                          result->subbank_address_routing_delay = subbankaddress_routing_delay/FUDGEFACTOR;
+                          result->subbank_address_routing_power = subbankaddress_routing_power/FUDGEFACTOR;
 
-			  result->cycle_time = cycle_time/FUDGEFACTOR;
-			  result->access_time = access_time/FUDGEFACTOR;
-			  result->best_muxover = muxover;
-			  result->best_Ndwl = Ndwl;
-			  result->best_Ndbl = Ndbl;
-			  result->best_Nspd = Nspd;
-			  result->best_Ntwl = Ntwl;
-			  result->best_Ntbl = Ntbl;
-			  result->best_Ntspd = Ntspd;
-			  result->decoder_delay_data = decoder_data/FUDGEFACTOR;
-			  result->decoder_power_data = decoder_data_power/FUDGEFACTOR;
-			  result->decoder_delay_tag = decoder_tag/FUDGEFACTOR;
-			  result->decoder_power_tag = decoder_tag_power/FUDGEFACTOR;
-			  result->dec_tag_driver = decoder_tag_driver/FUDGEFACTOR;
-			  result->dec_tag_3to8 = decoder_tag_3to8/FUDGEFACTOR;
-			  result->dec_tag_inv = decoder_tag_inv/FUDGEFACTOR;
-			  result->dec_data_driver = decoder_data_driver/FUDGEFACTOR;
-			  result->dec_data_3to8 = decoder_data_3to8/FUDGEFACTOR;
-			  result->dec_data_inv = decoder_data_inv/FUDGEFACTOR;
-			  result->wordline_delay_data = wordline_data/FUDGEFACTOR;
-			  result->wordline_power_data = wordline_data_power/FUDGEFACTOR;
-			  result->wordline_delay_tag = wordline_tag/FUDGEFACTOR;
-			  result->wordline_power_tag = wordline_tag_power/FUDGEFACTOR;
-			  result->bitline_delay_data = bitline_data/FUDGEFACTOR;
-			  result->bitline_power_data = bitline_data_power/FUDGEFACTOR;
-			  result->bitline_delay_tag = bitline_tag/FUDGEFACTOR;
-			  result->bitline_power_tag = bitline_tag_power/FUDGEFACTOR;
-			  result->sense_amp_delay_data = sense_amp_data/FUDGEFACTOR;
-			  result->sense_amp_power_data = sense_amp_data_power/FUDGEFACTOR;
-			  result->sense_amp_delay_tag = sense_amp_tag/FUDGEFACTOR;
-			  result->sense_amp_power_tag = sense_amp_tag_power/FUDGEFACTOR;
-			  result->total_out_driver_delay_data = total_out_driver/FUDGEFACTOR;
-			  result->total_out_driver_power_data = total_out_driver_power/FUDGEFACTOR;
-			  result->compare_part_delay = compare_tag/FUDGEFACTOR;
-			  result->compare_part_power = compare_tag_power/FUDGEFACTOR;
-			  result->drive_mux_delay = mux_driver/FUDGEFACTOR;
-			  result->drive_mux_power = mux_driver_power/FUDGEFACTOR;
-			  result->selb_delay = selb/FUDGEFACTOR;
-			  result->selb_power = selb_power/FUDGEFACTOR;
-			  result->drive_valid_delay = valid_driver/FUDGEFACTOR;
-			  result->drive_valid_power = valid_driver_power/FUDGEFACTOR;
-			  result->data_output_delay = data_output/FUDGEFACTOR;
-			  result->data_output_power = data_output_power/FUDGEFACTOR;
-			  result->precharge_delay = precharge_del/FUDGEFACTOR;
+                          result->cycle_time = cycle_time/FUDGEFACTOR;
+                          result->access_time = access_time/FUDGEFACTOR;
+                          result->best_muxover = muxover;
+                          result->best_Ndwl = Ndwl;
+                          result->best_Ndbl = Ndbl;
+                          result->best_Nspd = Nspd;
+                          result->best_Ntwl = Ntwl;
+                          result->best_Ntbl = Ntbl;
+                          result->best_Ntspd = Ntspd;
+                          result->decoder_delay_data = decoder_data/FUDGEFACTOR;
+                          result->decoder_power_data = decoder_data_power/FUDGEFACTOR;
+                          result->decoder_delay_tag = decoder_tag/FUDGEFACTOR;
+                          result->decoder_power_tag = decoder_tag_power/FUDGEFACTOR;
+                          result->dec_tag_driver = decoder_tag_driver/FUDGEFACTOR;
+                          result->dec_tag_3to8 = decoder_tag_3to8/FUDGEFACTOR;
+                          result->dec_tag_inv = decoder_tag_inv/FUDGEFACTOR;
+                          result->dec_data_driver = decoder_data_driver/FUDGEFACTOR;
+                          result->dec_data_3to8 = decoder_data_3to8/FUDGEFACTOR;
+                          result->dec_data_inv = decoder_data_inv/FUDGEFACTOR;
+                          result->wordline_delay_data = wordline_data/FUDGEFACTOR;
+                          result->wordline_power_data = wordline_data_power/FUDGEFACTOR;
+                          result->wordline_delay_tag = wordline_tag/FUDGEFACTOR;
+                          result->wordline_power_tag = wordline_tag_power/FUDGEFACTOR;
+                          result->bitline_delay_data = bitline_data/FUDGEFACTOR;
+                          result->bitline_power_data = bitline_data_power/FUDGEFACTOR;
+                          result->bitline_delay_tag = bitline_tag/FUDGEFACTOR;
+                          result->bitline_power_tag = bitline_tag_power/FUDGEFACTOR;
+                          result->sense_amp_delay_data = sense_amp_data/FUDGEFACTOR;
+                          result->sense_amp_power_data = sense_amp_data_power/FUDGEFACTOR;
+                          result->sense_amp_delay_tag = sense_amp_tag/FUDGEFACTOR;
+                          result->sense_amp_power_tag = sense_amp_tag_power/FUDGEFACTOR;
+                          result->total_out_driver_delay_data = total_out_driver/FUDGEFACTOR;
+                          result->total_out_driver_power_data = total_out_driver_power/FUDGEFACTOR;
+                          result->compare_part_delay = compare_tag/FUDGEFACTOR;
+                          result->compare_part_power = compare_tag_power/FUDGEFACTOR;
+                          result->drive_mux_delay = mux_driver/FUDGEFACTOR;
+                          result->drive_mux_power = mux_driver_power/FUDGEFACTOR;
+                          result->selb_delay = selb/FUDGEFACTOR;
+                          result->selb_power = selb_power/FUDGEFACTOR;
+                          result->drive_valid_delay = valid_driver/FUDGEFACTOR;
+                          result->drive_valid_power = valid_driver_power/FUDGEFACTOR;
+                          result->data_output_delay = data_output/FUDGEFACTOR;
+                          result->data_output_power = data_output_power/FUDGEFACTOR;
+                          result->precharge_delay = precharge_del/FUDGEFACTOR;
                   
-			  result->data_nor_inputs = data_nor_inputs;
-			  result->tag_nor_inputs = tag_nor_inputs;
-			  xcacti_area_subbanked(ADDRESS_BITS,BITOUT,parameters->num_readwrite_ports,parameters->num_read_ports,parameters->num_write_ports,Ndbl,Ndwl,Nspd,Ntbl,Ntwl,Ntspd,parameters,arearesult_subbanked,arearesult);
-			  arearesult->efficiency = (parameters->NSubbanks)*(area_all_dataramcells+area_all_tagramcells)*100/(xcacti_calculate_area(*arearesult_subbanked,parameters->fudgefactor)/100000000.0);
-			  arearesult->aspect_ratio_total = (arearesult_subbanked->height/arearesult_subbanked->width);
-			  arearesult->aspect_ratio_total = (arearesult->aspect_ratio_total > 1.0) ? (arearesult->aspect_ratio_total) : 1.0/(arearesult->aspect_ratio_total) ;
-			  arearesult->max_efficiency = max_efficiency;
-			  arearesult->max_aspect_ratio_total = max_aspect_ratio_total;
-			}
-		      }
-		    else
-		      {
-			if (result->max_access_time < access_time/FUDGEFACTOR)  
-			  result->max_access_time = access_time/FUDGEFACTOR; 
-			if (result->max_power < total_power) 
-			  result->max_power = total_power;
-			if (arearesult_temp.max_efficiency < efficiency) {
-			  arearesult_temp.max_efficiency = efficiency;
-			  max_efficiency = efficiency; }
-			if (min_efficiency > efficiency) 
-			  min_efficiency = efficiency; 
-			if (max_aspect_ratio_total < aspect_ratio_total_temp) 
-			  max_aspect_ratio_total = aspect_ratio_total_temp;
-		      }
-		  }
+                          result->data_nor_inputs = data_nor_inputs;
+                          result->tag_nor_inputs = tag_nor_inputs;
+                          xcacti_area_subbanked(ADDRESS_BITS,BITOUT,parameters->num_readwrite_ports,parameters->num_read_ports,parameters->num_write_ports,Ndbl,Ndwl,Nspd,Ntbl,Ntwl,Ntspd,parameters,arearesult_subbanked,arearesult);
+                          arearesult->efficiency = (parameters->NSubbanks)*(area_all_dataramcells+area_all_tagramcells)*100/(xcacti_calculate_area(*arearesult_subbanked,parameters->fudgefactor)/100000000.0);
+                          arearesult->aspect_ratio_total = (arearesult_subbanked->height/arearesult_subbanked->width);
+                          arearesult->aspect_ratio_total = (arearesult->aspect_ratio_total > 1.0) ? (arearesult->aspect_ratio_total) : 1.0/(arearesult->aspect_ratio_total) ;
+                          arearesult->max_efficiency = max_efficiency;
+                          arearesult->max_aspect_ratio_total = max_aspect_ratio_total;
+                        }
+                      }
+                    else
+                      {
+                        if (result->max_access_time < access_time/FUDGEFACTOR)  
+                          result->max_access_time = access_time/FUDGEFACTOR; 
+                        if (result->max_power < total_power) 
+                          result->max_power = total_power;
+                        if (arearesult_temp.max_efficiency < efficiency) {
+                          arearesult_temp.max_efficiency = efficiency;
+                          max_efficiency = efficiency; }
+                        if (min_efficiency > efficiency) 
+                          min_efficiency = efficiency; 
+                        if (max_aspect_ratio_total < aspect_ratio_total_temp) 
+                          max_aspect_ratio_total = aspect_ratio_total_temp;
+                      }
+                  }
          
-		}
-	      }
-	    }
-	  }
-	}
+                }
+              }
+            }
+          }
+        }
       }
     } else {
       /* Fully associative model - only vary Ndbl|Ntbl */
 
       for (Ndbl=1;Ndbl<=MAXN;Ndbl=Ndbl*2) {
-	Ntbl=Ndbl;
-	Ndwl=Nspd=Ntwl=Ntspd=1;
+        Ntbl=Ndbl;
+        Ndwl=Nspd=Ntwl=Ntspd=1;
 
 
-	if (xcacti_organizational_parameters_valid
-	    (parameters->block_size, 1, parameters->cache_size,Ndwl,Ndbl,Nspd,Ntwl,Ntbl,Ntspd,parameters->fully_assoc)) {
+        if (xcacti_organizational_parameters_valid
+            (parameters->block_size, 1, parameters->cache_size,Ndwl,Ndbl,Nspd,Ntwl,Ntbl,Ntspd,parameters->fully_assoc)) {
 
-	  if (8*parameters->block_size/BITOUT == 1 && Ndbl*Nspd==1) {
-	    muxover=1;
-	  } 
-	  else {
-	    if (Ndbl*Nspd > MAX_COL_MUX)
-	      {
-		muxover=8*parameters->block_size/BITOUT;
-	      }
-	    else {
-	      if (8*parameters->block_size*Ndbl*Nspd/BITOUT > MAX_COL_MUX)
-		{
-		  muxover=(8*parameters->block_size/BITOUT)/(MAX_COL_MUX/(Ndbl*Nspd));
-		}
-	      else
-		{
-		  muxover=1;
-		}
-	    }
-	  }
+          if (8*parameters->block_size/BITOUT == 1 && Ndbl*Nspd==1) {
+            muxover=1;
+          } 
+          else {
+            if (Ndbl*Nspd > MAX_COL_MUX)
+              {
+                muxover=8*parameters->block_size/BITOUT;
+              }
+            else {
+              if (8*parameters->block_size*Ndbl*Nspd/BITOUT > MAX_COL_MUX)
+                {
+                  muxover=(8*parameters->block_size/BITOUT)/(MAX_COL_MUX/(Ndbl*Nspd));
+                }
+              else
+                {
+                  muxover=1;
+                }
+            }
+          }
 
 
-	  xcacti_area_subbanked(ADDRESS_BITS,BITOUT,parameters->num_readwrite_ports,parameters->num_read_ports,parameters->num_write_ports,Ndbl,Ndwl,Nspd,Ntbl,Ntwl,Ntspd,parameters,&arearesult_subbanked_temp,&arearesult_temp);
+          xcacti_area_subbanked(ADDRESS_BITS,BITOUT,parameters->num_readwrite_ports,parameters->num_read_ports,parameters->num_write_ports,Ndbl,Ndwl,Nspd,Ntbl,Ntwl,Ntspd,parameters,&arearesult_subbanked_temp,&arearesult_temp);
 
-	  Subbank_Efficiency= (area_all_dataramcells+area_all_tagramcells)*100/(arearesult_temp.totalarea/100000000.0);
-	  Total_Efficiency= (parameters->NSubbanks)*(area_all_dataramcells+area_all_tagramcells)*100/(xcacti_calculate_area(arearesult_subbanked_temp,parameters->fudgefactor)/100000000.0);
-	  // efficiency = Subbank_Efficiency;
-	  efficiency = Total_Efficiency;
+          Subbank_Efficiency= (area_all_dataramcells+area_all_tagramcells)*100/(arearesult_temp.totalarea/100000000.0);
+          Total_Efficiency= (parameters->NSubbanks)*(area_all_dataramcells+area_all_tagramcells)*100/(xcacti_calculate_area(arearesult_subbanked_temp,parameters->fudgefactor)/100000000.0);
+          // efficiency = Subbank_Efficiency;
+          efficiency = Total_Efficiency;
         
-	  arearesult_temp.efficiency = efficiency;
-	  aspect_ratio_total_temp = (arearesult_subbanked_temp.height/arearesult_subbanked_temp.width);
-	  aspect_ratio_total_temp = (aspect_ratio_total_temp > 1.0) ? (aspect_ratio_total_temp) : 1.0/(aspect_ratio_total_temp) ;
+          arearesult_temp.efficiency = efficiency;
+          aspect_ratio_total_temp = (arearesult_subbanked_temp.height/arearesult_subbanked_temp.width);
+          aspect_ratio_total_temp = (aspect_ratio_total_temp > 1.0) ? (aspect_ratio_total_temp) : 1.0/(aspect_ratio_total_temp) ;
 
-	  arearesult_temp.aspect_ratio_total = aspect_ratio_total_temp;
+          arearesult_temp.aspect_ratio_total = aspect_ratio_total_temp;
  
-	  bank_h=0;
-	  bank_v=0;
+          bank_h=0;
+          bank_v=0;
 
-	  subbank_dim(parameters->cache_size,parameters->block_size,parameters->associativity,parameters->fully_assoc,Ndbl,Ndwl,Nspd,Ntbl,Ntwl,Ntspd,parameters->NSubbanks,&bank_h,&bank_v);
+          subbank_dim(parameters->cache_size,parameters->block_size,parameters->associativity,parameters->fully_assoc,Ndbl,Ndwl,Nspd,Ntbl,Ntwl,Ntspd,parameters->NSubbanks,&bank_h,&bank_v);
 
-	  subbanks_routing_power(parameters->fully_assoc,parameters->associativity,parameters->NSubbanks,&bank_h,&bank_v,&total_address_routing_power);
-	  total_address_routing_power*=(parameters->num_readwrite_ports+parameters->num_read_ports+parameters->num_write_ports);
+          subbanks_routing_power(parameters->fully_assoc,parameters->associativity,parameters->NSubbanks,&bank_h,&bank_v,&total_address_routing_power);
+          total_address_routing_power*=(parameters->num_readwrite_ports+parameters->num_read_ports+parameters->num_write_ports);
 
-	  if(parameters->NSubbanks > 2 ) {
+          if(parameters->NSubbanks > 2 ) {
             subbankaddress_routing_delay= address_routing_delay(parameters->cache_size, parameters->block_size, parameters->associativity, parameters->fully_assoc, Ndwl, Ndbl, Nspd, Ntwl, Ntbl,Ntspd,parameters->NSubbanks,&outrisetime,&subbankaddress_routing_power);
-	  }
+          }
 
-	  subbankaddress_routing_power*=(parameters->num_readwrite_ports+parameters->num_read_ports+parameters->num_write_ports);
+          subbankaddress_routing_power*=(parameters->num_readwrite_ports+parameters->num_read_ports+parameters->num_write_ports);
 
-	  /* Calculate data side of cache */
-	  inrisetime = outrisetime;
-	  addr_inrisetime=outrisetime;
+          /* Calculate data side of cache */
+          inrisetime = outrisetime;
+          addr_inrisetime=outrisetime;
 
-	  max_delay=0;
-	  /* tag path contained here */
-	  decoder_data_power=0;
-	  decoder_data = fa_tag_delay(parameters->cache_size,
-				      parameters->block_size,
-				      Ndwl,Ndbl,Nspd,Ntwl,Ntbl,Ntspd,
-				      &tag_delay_part1,&tag_delay_part2,
-				      &tag_delay_part3,&tag_delay_part4,
-				      &tag_delay_part5,&tag_delay_part6,
-				      &outrisetime,&tag_nor_inputs, &decoder_data_power);
-	  decoder_data_power*=(parameters->num_readwrite_ports+parameters->num_read_ports+parameters->num_write_ports);
-	  inrisetime = outrisetime;
-	  max_delay=MAX(max_delay, decoder_data);
+          max_delay=0;
+          /* tag path contained here */
+          decoder_data_power=0;
+          decoder_data = fa_tag_delay(parameters->cache_size,
+                                      parameters->block_size,
+                                      Ndwl,Ndbl,Nspd,Ntwl,Ntbl,Ntspd,
+                                      &tag_delay_part1,&tag_delay_part2,
+                                      &tag_delay_part3,&tag_delay_part4,
+                                      &tag_delay_part5,&tag_delay_part6,
+                                      &outrisetime,&tag_nor_inputs, &decoder_data_power);
+          decoder_data_power*=(parameters->num_readwrite_ports+parameters->num_read_ports+parameters->num_write_ports);
+          inrisetime = outrisetime;
+          max_delay=MAX(max_delay, decoder_data);
          
 
-	  wordline_data_power=0;
-	  wordline_data = wordline_delay(parameters->block_size,
-					 1,Ndwl,Nspd,
-					 inrisetime,&outrisetime, &wordline_data_power);
-	  wordline_data_power*=(parameters->num_readwrite_ports+parameters->num_read_ports+parameters->num_write_ports);
-	  inrisetime = outrisetime;
-	  max_delay=MAX(max_delay, wordline_data);
+          wordline_data_power=0;
+          wordline_data = wordline_delay(parameters->block_size,
+                                         1,Ndwl,Nspd,
+                                         inrisetime,&outrisetime, &wordline_data_power);
+          wordline_data_power*=(parameters->num_readwrite_ports+parameters->num_read_ports+parameters->num_write_ports);
+          inrisetime = outrisetime;
+          max_delay=MAX(max_delay, wordline_data);
          
-	  bitline_data_power=0;
+          bitline_data_power=0;
 #ifdef XCACTI
-	  write_power_data=0;
-	  bitline_data = bitline_delay(parameters->cache_size,1,
-				       parameters->block_size,Ndwl,Ndbl,Nspd,
-				       inrisetime,&outrisetime,&bitline_data_power,&write_power_data);
+          write_power_data=0;
+          bitline_data = bitline_delay(parameters->cache_size,1,
+                                       parameters->block_size,Ndwl,Ndbl,Nspd,
+                                       inrisetime,&outrisetime,&bitline_data_power,&write_power_data);
 #else
-	  bitline_data = bitline_delay(parameters->cache_size,1,
-				       parameters->block_size,Ndwl,Ndbl,Nspd,
-				       inrisetime,&outrisetime,&bitline_data_power,0);
+          bitline_data = bitline_delay(parameters->cache_size,1,
+                                       parameters->block_size,Ndwl,Ndbl,Nspd,
+                                       inrisetime,&outrisetime,&bitline_data_power,0);
 #endif
-	  bitline_data_power*=(parameters->num_readwrite_ports+parameters->num_read_ports+parameters->num_write_ports);
+          bitline_data_power*=(parameters->num_readwrite_ports+parameters->num_read_ports+parameters->num_write_ports);
 #ifdef XCACTI
-	  write_power_data  *=(parameters->num_readwrite_ports+parameters->num_read_ports+parameters->num_write_ports);
+          write_power_data  *=(parameters->num_readwrite_ports+parameters->num_read_ports+parameters->num_write_ports);
 #endif
 
-	  inrisetime = outrisetime;
-	  max_delay=MAX(max_delay, bitline_data);
+          inrisetime = outrisetime;
+          max_delay=MAX(max_delay, bitline_data);
          
-	  {
-	    int temp_row;
-	    temp_row = parameters->cache_size/(parameters->block_size*Ndbl);
-	    sense_amp_data_power=BITOUT*muxover/2;
-	    sense_amp_data = sense_amp_delay(parameters->associativity, inrisetime,&outrisetime, temp_row, &sense_amp_data_power);
-	    sense_amp_data_power*=(parameters->num_readwrite_ports+parameters->num_read_ports);
-	    max_delay=MAX(max_delay, sense_amp_data);
-	  }
-	  inrisetime = outrisetime;
+          {
+            int temp_row;
+            temp_row = parameters->cache_size/(parameters->block_size*Ndbl);
+            sense_amp_data_power=BITOUT*muxover/2;
+            sense_amp_data = sense_amp_delay(parameters->associativity, inrisetime,&outrisetime, temp_row, &sense_amp_data_power);
+            sense_amp_data_power*=(parameters->num_readwrite_ports+parameters->num_read_ports);
+            max_delay=MAX(max_delay, sense_amp_data);
+          }
+          inrisetime = outrisetime;
         
-	  data_output_power=0;
-	  data_output = dataoutput_delay(parameters->cache_size,parameters->block_size,1,parameters->fully_assoc,Ndbl,Nspd,Ndwl,inrisetime,&outrisetime, &data_output_power);
-	  data_output_power*=(parameters->num_readwrite_ports+parameters->num_read_ports);
+          data_output_power=0;
+          data_output = dataoutput_delay(parameters->cache_size,parameters->block_size,1,parameters->fully_assoc,Ndbl,Nspd,Ndwl,inrisetime,&outrisetime, &data_output_power);
+          data_output_power*=(parameters->num_readwrite_ports+parameters->num_read_ports);
         
-	  inrisetime = outrisetime;                           
-	  max_delay=MAX(max_delay, data_output);
+          inrisetime = outrisetime;                           
+          max_delay=MAX(max_delay, data_output);
 
-	  total_out_driver_power=0;
+          total_out_driver_power=0;
 
-	  subbank_v=0;
-	  subbank_h=0;
+          subbank_v=0;
+          subbank_h=0;
 
-	  subbank_routing_length(parameters->cache_size,parameters->block_size,parameters->associativity,parameters->fully_assoc,Ndbl,Nspd,Ndwl,Ntbl,Ntwl,Ntspd,parameters->NSubbanks,&subbank_v,&subbank_h) ;
+          subbank_routing_length(parameters->cache_size,parameters->block_size,parameters->associativity,parameters->fully_assoc,Ndbl,Nspd,Ndwl,Ntbl,Ntwl,Ntspd,parameters->NSubbanks,&subbank_v,&subbank_h) ;
 
-	  if(parameters->NSubbanks > 2 ) {
-	    total_out_driver = senseext_driver_delay(parameters->cache_size,parameters->block_size,parameters->associativity,parameters->fully_assoc,Ndbl,Nspd,Ndwl,Ntbl,Ntwl,Ntspd,inrisetime,&outrisetime, subbank_v, subbank_h, &total_out_driver_power);
-	  }
+          if(parameters->NSubbanks > 2 ) {
+            total_out_driver = senseext_driver_delay(parameters->cache_size,parameters->block_size,parameters->associativity,parameters->fully_assoc,Ndbl,Nspd,Ndwl,Ntbl,Ntwl,Ntspd,inrisetime,&outrisetime, subbank_v, subbank_h, &total_out_driver_power);
+          }
 
-	  total_out_driver_power*=(parameters->num_readwrite_ports+parameters->num_read_ports);
-	  inrisetime = outrisetime;
-	  max_delay=MAX(max_delay, total_out_driver);
+          total_out_driver_power*=(parameters->num_readwrite_ports+parameters->num_read_ports);
+          inrisetime = outrisetime;
+          max_delay=MAX(max_delay, total_out_driver);
          
-	  access_time=subbankaddress_routing_delay+ decoder_data+wordline_data+bitline_data+sense_amp_data+data_output+total_out_driver;
+          access_time=subbankaddress_routing_delay+ decoder_data+wordline_data+bitline_data+sense_amp_data+data_output+total_out_driver;
          
-	  /*
-	   * Calcuate the cycle time
-	   */
+          /*
+           * Calcuate the cycle time
+           */
          
-	  //      precharge_del = precharge_delay(wordline_data);
+          //      precharge_del = precharge_delay(wordline_data);
          
-	  //      cycle_time = access_time + precharge_del;
+          //      cycle_time = access_time + precharge_del;
          
-	  cycle_time=access_time/WAVE_PIPE;
-	  if (max_delay>cycle_time)
-	    cycle_time=max_delay;
+          cycle_time=access_time/WAVE_PIPE;
+          if (max_delay>cycle_time)
+            cycle_time=max_delay;
          
-	  /*
-	   * The parameters are for a 0.8um process.  A quick way to
-	   * scale the results to another process is to divide all
-	   * the results by FUDGEFACTOR.  Normally, FUDGEFACTOR is 1.
-	   */
+          /*
+           * The parameters are for a 0.8um process.  A quick way to
+           * scale the results to another process is to divide all
+           * the results by FUDGEFACTOR.  Normally, FUDGEFACTOR is 1.
+           */
 
 #ifdef XCACTI
-	  if( parameters->latchsa ) {
-	    /* See previous Fancy SA comment */
-	    sense_amp_data_power*=(wordline_data+bitline_data+sense_amp_data)*1.1*1e9*0.5/2;
-	  }else{
-	    sense_amp_data_power*=access_time*1e9/2;
-	  }
-	  write_power_data    *=access_time*1e9/2;
+          if( parameters->latchsa ) {
+            /* See previous Fancy SA comment */
+            sense_amp_data_power*=(wordline_data+bitline_data+sense_amp_data)*1.1*1e9*0.5/2;
+          }else{
+            sense_amp_data_power*=access_time*1e9/2;
+          }
+          write_power_data    *=access_time*1e9/2;
 #else         
-	  sense_amp_data_power+=(data_output + total_out_driver)*500e-6*5;
+          sense_amp_data_power+=(data_output + total_out_driver)*500e-6*5;
 #endif
 
-	  // Fully-assoc model does not have ignore_tag parameter
+          // Fully-assoc model does not have ignore_tag parameter
 
-	  total_power=(subbankaddress_routing_power+decoder_data_power+wordline_data_power+bitline_data_power+sense_amp_data_power+data_output_power+total_out_driver_power)/FUDGEFACTOR;          
-	  total_power_without_routing=(parameters->NSubbanks)*(decoder_data_power+wordline_data_power+bitline_data_power+sense_amp_data_power+data_output_power)/FUDGEFACTOR;
-	  total_power_allbanks= total_power_without_routing + total_address_routing_power/FUDGEFACTOR;
+          total_power=(subbankaddress_routing_power+decoder_data_power+wordline_data_power+bitline_data_power+sense_amp_data_power+data_output_power+total_out_driver_power)/FUDGEFACTOR;          
+          total_power_without_routing=(parameters->NSubbanks)*(decoder_data_power+wordline_data_power+bitline_data_power+sense_amp_data_power+data_output_power)/FUDGEFACTOR;
+          total_power_allbanks= total_power_without_routing + total_address_routing_power/FUDGEFACTOR;
 
-	  if (counter==1)
-	    {
+          if (counter==1)
+            {
               // if ((result->total_power/result->max_power)/2+(result->access_time/result->max_access_time) > ((total_power/result->max_power)/2+access_time/(result->max_access_time*FUDGEFACTOR))) {
 
               if ((result->total_power/result->max_power)/2+(result->access_time/result->max_access_time) + (1.0/arearesult->efficiency)*10 + (arearesult->aspect_ratio_total/max_aspect_ratio_total)/(4*10) > ((total_power/result->max_power)/2 +access_time/(result->max_access_time*FUDGEFACTOR) + (1.0/efficiency)*10 + (arearesult_temp.aspect_ratio_total/max_aspect_ratio_total)/(4*10) )) {
-		// if ((result->total_power/result->max_power)/2+(result->access_time/result->max_access_time) + (min_efficiency/arearesult->efficiency)/4 + (arearesult->aspect_ratio_total/max_aspect_ratio_total)/3 > ((total_power/result->max_power)/2+access_time/(result->max_access_time*FUDGEFACTOR)+ (min_efficiency/efficiency)/4 + (arearesult_temp.aspect_ratio_total/max_aspect_ratio_total)/3)) {
+                // if ((result->total_power/result->max_power)/2+(result->access_time/result->max_access_time) + (min_efficiency/arearesult->efficiency)/4 + (arearesult->aspect_ratio_total/max_aspect_ratio_total)/3 > ((total_power/result->max_power)/2+access_time/(result->max_access_time*FUDGEFACTOR)+ (min_efficiency/efficiency)/4 + (arearesult_temp.aspect_ratio_total/max_aspect_ratio_total)/3)) {
 
-		//          if (result->cycle_time+1e-11*(result->best_Ndwl+result->best_Ndbl+result->best_Nspd+result->best_Ntwl+result->best_Ntbl+result->best_Ntspd) > cycle_time/FUDGEFACTOR+1e-11*(Ndwl+Ndbl+Nspd+Ntwl+Ntbl+Ntspd)) {
+                //          if (result->cycle_time+1e-11*(result->best_Ndwl+result->best_Ndbl+result->best_Nspd+result->best_Ntwl+result->best_Ntbl+result->best_Ntspd) > cycle_time/FUDGEFACTOR+1e-11*(Ndwl+Ndbl+Nspd+Ntwl+Ntbl+Ntspd)) {
             
  
-		result->senseext_scale = senseext_scale;
-		result->total_power=total_power;
-		result->total_power_without_routing=total_power_without_routing;
-		result->total_routing_power=total_address_routing_power/FUDGEFACTOR;
-		result->total_power_allbanks=total_power_allbanks;
+                result->senseext_scale = senseext_scale;
+                result->total_power=total_power;
+                result->total_power_without_routing=total_power_without_routing;
+                result->total_routing_power=total_address_routing_power/FUDGEFACTOR;
+                result->total_power_allbanks=total_power_allbanks;
 
 #ifdef XCACTI
-		// FA no tags
-		result->total_wrpower=total_power + (write_power_data - bitline_data_power)/FUDGEFACTOR;
+                // FA no tags
+                result->total_wrpower=total_power + (write_power_data - bitline_data_power)/FUDGEFACTOR;
 #endif
 
-		result->subbank_address_routing_delay = subbankaddress_routing_delay/FUDGEFACTOR;
-		result->subbank_address_routing_power = subbankaddress_routing_power/FUDGEFACTOR;
+                result->subbank_address_routing_delay = subbankaddress_routing_delay/FUDGEFACTOR;
+                result->subbank_address_routing_power = subbankaddress_routing_power/FUDGEFACTOR;
 
-		result->cycle_time = cycle_time/FUDGEFACTOR;
-		result->access_time = access_time/FUDGEFACTOR;
-		result->best_Ndwl = Ndwl;
-		result->best_Ndbl = Ndbl;
-		result->best_Nspd = Nspd;
-		result->best_Ntwl = Ntwl;
-		result->best_Ntbl = Ntbl;
-		result->best_Ntspd = Ntspd;
-		result->decoder_delay_data = decoder_data/FUDGEFACTOR;
-		result->decoder_power_data = decoder_data_power/FUDGEFACTOR;
-		result->decoder_delay_tag = decoder_tag/FUDGEFACTOR;
-		result->dec_tag_driver = decoder_tag_driver/FUDGEFACTOR;
-		result->dec_tag_3to8 = decoder_tag_3to8/FUDGEFACTOR;
-		result->dec_tag_inv = decoder_tag_inv/FUDGEFACTOR;
-		result->dec_data_driver = decoder_data_driver/FUDGEFACTOR;
-		result->dec_data_3to8 = decoder_data_3to8/FUDGEFACTOR;
-		result->dec_data_inv = decoder_data_inv/FUDGEFACTOR;
-		result->wordline_delay_data = wordline_data/FUDGEFACTOR;
-		result->wordline_power_data = wordline_data_power/FUDGEFACTOR;
-		result->wordline_delay_tag = wordline_tag/FUDGEFACTOR;
-		result->bitline_delay_data = bitline_data/FUDGEFACTOR;
-		result->bitline_power_data = bitline_data_power/FUDGEFACTOR;
-		result->bitline_delay_tag = bitline_tag/FUDGEFACTOR;
-		result->sense_amp_delay_data = sense_amp_data/FUDGEFACTOR;
-		result->sense_amp_power_data = sense_amp_data_power/FUDGEFACTOR;
-		result->sense_amp_delay_tag = sense_amp_tag/FUDGEFACTOR;
-		result->total_out_driver_delay_data = total_out_driver/FUDGEFACTOR;
-		result->total_out_driver_power_data = total_out_driver_power/FUDGEFACTOR;
-		result->compare_part_delay = compare_tag/FUDGEFACTOR;
-		result->drive_mux_delay = mux_driver/FUDGEFACTOR;
-		result->selb_delay = selb/FUDGEFACTOR;
-		result->drive_valid_delay = valid_driver/FUDGEFACTOR;
-		result->data_output_delay = data_output/FUDGEFACTOR;
-		result->data_output_power = data_output_power/FUDGEFACTOR;
-		result->precharge_delay = precharge_del/FUDGEFACTOR;
+                result->cycle_time = cycle_time/FUDGEFACTOR;
+                result->access_time = access_time/FUDGEFACTOR;
+                result->best_Ndwl = Ndwl;
+                result->best_Ndbl = Ndbl;
+                result->best_Nspd = Nspd;
+                result->best_Ntwl = Ntwl;
+                result->best_Ntbl = Ntbl;
+                result->best_Ntspd = Ntspd;
+                result->decoder_delay_data = decoder_data/FUDGEFACTOR;
+                result->decoder_power_data = decoder_data_power/FUDGEFACTOR;
+                result->decoder_delay_tag = decoder_tag/FUDGEFACTOR;
+                result->dec_tag_driver = decoder_tag_driver/FUDGEFACTOR;
+                result->dec_tag_3to8 = decoder_tag_3to8/FUDGEFACTOR;
+                result->dec_tag_inv = decoder_tag_inv/FUDGEFACTOR;
+                result->dec_data_driver = decoder_data_driver/FUDGEFACTOR;
+                result->dec_data_3to8 = decoder_data_3to8/FUDGEFACTOR;
+                result->dec_data_inv = decoder_data_inv/FUDGEFACTOR;
+                result->wordline_delay_data = wordline_data/FUDGEFACTOR;
+                result->wordline_power_data = wordline_data_power/FUDGEFACTOR;
+                result->wordline_delay_tag = wordline_tag/FUDGEFACTOR;
+                result->bitline_delay_data = bitline_data/FUDGEFACTOR;
+                result->bitline_power_data = bitline_data_power/FUDGEFACTOR;
+                result->bitline_delay_tag = bitline_tag/FUDGEFACTOR;
+                result->sense_amp_delay_data = sense_amp_data/FUDGEFACTOR;
+                result->sense_amp_power_data = sense_amp_data_power/FUDGEFACTOR;
+                result->sense_amp_delay_tag = sense_amp_tag/FUDGEFACTOR;
+                result->total_out_driver_delay_data = total_out_driver/FUDGEFACTOR;
+                result->total_out_driver_power_data = total_out_driver_power/FUDGEFACTOR;
+                result->compare_part_delay = compare_tag/FUDGEFACTOR;
+                result->drive_mux_delay = mux_driver/FUDGEFACTOR;
+                result->selb_delay = selb/FUDGEFACTOR;
+                result->drive_valid_delay = valid_driver/FUDGEFACTOR;
+                result->data_output_delay = data_output/FUDGEFACTOR;
+                result->data_output_power = data_output_power/FUDGEFACTOR;
+                result->precharge_delay = precharge_del/FUDGEFACTOR;
                
-		result->data_nor_inputs = data_nor_inputs;
-		result->tag_nor_inputs = tag_nor_inputs;
+                result->data_nor_inputs = data_nor_inputs;
+                result->tag_nor_inputs = tag_nor_inputs;
 
-		xcacti_area_subbanked(ADDRESS_BITS,BITOUT,parameters->num_readwrite_ports,parameters->num_read_ports,parameters->num_write_ports,Ndbl,Ndwl,Nspd,Ntbl,Ntwl,Ntspd,parameters,arearesult_subbanked,arearesult);
-		arearesult->efficiency = (parameters->NSubbanks)*(area_all_dataramcells+area_all_tagramcells)*100/(xcacti_calculate_area(*arearesult_subbanked,parameters->fudgefactor)/100000000.0);
-		arearesult->aspect_ratio_total = (arearesult_subbanked->height/arearesult_subbanked->width);
-		arearesult->aspect_ratio_total = (arearesult->aspect_ratio_total > 1.0) ? (arearesult->aspect_ratio_total) : 1.0/(arearesult->aspect_ratio_total) ;
-		arearesult->max_efficiency = max_efficiency;
-		arearesult->max_aspect_ratio_total = max_aspect_ratio_total;
+                xcacti_area_subbanked(ADDRESS_BITS,BITOUT,parameters->num_readwrite_ports,parameters->num_read_ports,parameters->num_write_ports,Ndbl,Ndwl,Nspd,Ntbl,Ntwl,Ntspd,parameters,arearesult_subbanked,arearesult);
+                arearesult->efficiency = (parameters->NSubbanks)*(area_all_dataramcells+area_all_tagramcells)*100/(xcacti_calculate_area(*arearesult_subbanked,parameters->fudgefactor)/100000000.0);
+                arearesult->aspect_ratio_total = (arearesult_subbanked->height/arearesult_subbanked->width);
+                arearesult->aspect_ratio_total = (arearesult->aspect_ratio_total > 1.0) ? (arearesult->aspect_ratio_total) : 1.0/(arearesult->aspect_ratio_total) ;
+                arearesult->max_efficiency = max_efficiency;
+                arearesult->max_aspect_ratio_total = max_aspect_ratio_total;
 
-	      }
-	    }
-	  else
-	    {
+              }
+            }
+          else
+            {
 
-	      if (result->max_access_time < access_time/FUDGEFACTOR) 
-		result->max_access_time = access_time/FUDGEFACTOR;
-	      if (result->max_power < total_power) 
-		result->max_power = total_power;
-	      if (arearesult_temp.max_efficiency < efficiency) {
-		arearesult_temp.max_efficiency = efficiency;
+              if (result->max_access_time < access_time/FUDGEFACTOR) 
+                result->max_access_time = access_time/FUDGEFACTOR;
+              if (result->max_power < total_power) 
+                result->max_power = total_power;
+              if (arearesult_temp.max_efficiency < efficiency) {
+                arearesult_temp.max_efficiency = efficiency;
                 max_efficiency = efficiency; }
-	      if (min_efficiency > efficiency) {
-		min_efficiency = efficiency; }
-	      if (max_aspect_ratio_total < aspect_ratio_total_temp)
-		max_aspect_ratio_total = aspect_ratio_total_temp;
+              if (min_efficiency > efficiency) {
+                min_efficiency = efficiency; }
+              if (max_aspect_ratio_total < aspect_ratio_total_temp)
+                max_aspect_ratio_total = aspect_ratio_total_temp;
 
-	    }
-	}
+            }
+        }
        
       }
     }
