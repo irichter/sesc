@@ -32,10 +32,10 @@ VCache::VCache(MemorySystem *gms, const char *section, const char *name)
   ,lvidTable(section, name)
     // Begin Statistics
   ,lvidTableRdEnergy("lvidTableRdEnergy" // TODO: real energy
-		     ,"VCache"
-		     ,gms->getId() // cpuID
-		     ,RdHitEnergy
-		     ,EnergyMgr::get(section,"rdHitEnergy"),section)
+                     ,"VCache"
+                     ,gms->getId() // cpuID
+                     ,MemPower
+                     ,EnergyMgr::get(section,"rdHitEnergy"))
     // Read
   ,rdHit("%s:readHit"     , name)
   ,rdMiss("%s:readMiss"    , name)
@@ -55,9 +55,9 @@ VCache::VCache(MemorySystem *gms, const char *section, const char *name)
   SescConf->isBetween(section, "MSHRSize", 1, 32768);
   
   mshr = MSHR<PAddr,VCache>::create(name,
-			     SescConf->getCharPtr(section, "MSHRtype"),
-			     SescConf->getLong(section, "MSHRSize"),
-			     SescConf->getLong(section, "bsize"));
+                             SescConf->getCharPtr(section, "MSHRtype"),
+                             SescConf->getLong(section, "MSHRSize"),
+                             SescConf->getLong(section, "bsize"));
   
   SescConf->isLong(section    , "hitDelay");
   hitDelay = SescConf->getLong(section, "hitDelay");
@@ -85,37 +85,37 @@ VCache::VCache(MemorySystem *gms, const char *section, const char *name)
   // Reverse LVID 
   if(SescConf->checkCharPtr(section,"revLVIDTable")){
     const char *revBlock = SescConf->getCharPtr(section,"revLVIDTable");
-    rdRevLVIDEnergy = new GStatsEnergy("rdRevLVIDEnergy",name,0,RdRevLVIDEnergy,EnergyMgr::get(revBlock,"rdHitEnergy"),section);
-    wrRevLVIDEnergy = new GStatsEnergy("wrRevLVIDEnergy",name,0,WrRevLVIDEnergy,EnergyMgr::get(revBlock,"wrHitEnergy"),section);
+    rdRevLVIDEnergy = new GStatsEnergy("rdRevLVIDEnergy",name,0,MemPower,EnergyMgr::get(revBlock,"rdHitEnergy"));
+    wrRevLVIDEnergy = new GStatsEnergy("wrRevLVIDEnergy",name,0,MemPower,EnergyMgr::get(revBlock,"wrHitEnergy"));
   }
   else{
     rdRevLVIDEnergy = 0;
     wrRevLVIDEnergy = 0;
   }
   // LVID 
-  rdLVIDEnergy    = new GStatsEnergy("rdLVIDEnergy",name,0,RdLVIDEnergy,EnergyMgr::get(section,"rdLVIDEnergy"),section); 
-  wrLVIDEnergy    = new GStatsEnergy("wrLVIDEnergy",name,0,WrLVIDEnergy,EnergyMgr::get(section,"wrLVIDEnergy"),section);
+  rdLVIDEnergy    = new GStatsEnergy("rdLVIDEnergy",name,0,MemPower,EnergyMgr::get(section,"rdLVIDEnergy")); 
+  wrLVIDEnergy    = new GStatsEnergy("wrLVIDEnergy",name,0,MemPower,EnergyMgr::get(section,"wrLVIDEnergy"));
 
   // Cache Access
   rdHitEnergy = new GStatsEnergy("rdHitEnergy",name
-				 ,gms->getId()
-				 ,MemPower
-				 ,EnergyMgr::get(section,"rdHitEnergy"));
+                                 ,gms->getId()
+                                 ,MemPower
+                                 ,EnergyMgr::get(section,"rdHitEnergy"));
   rdMissEnergy = new GStatsEnergy("rdMissEnergy",name
-				  ,gms->getId()
-				  ,MemPower
-				  ,EnergyMgr::get(section,"rdMissEnergy"));
+                                  ,gms->getId()
+                                  ,MemPower
+                                  ,EnergyMgr::get(section,"rdMissEnergy"));
 
   wrHitEnergy  = new GStatsEnergy("wrHitEnergy"
-				  ,name
-				  ,gms->getId()
-				  ,MemPower
-				  ,EnergyMgr::get(section,"wrHitEnergy"));
+                                  ,name
+                                  ,gms->getId()
+                                  ,MemPower
+                                  ,EnergyMgr::get(section,"wrHitEnergy"));
   wrMissEnergy = new GStatsEnergy("wrMissEnergy"
-				  ,name
-				  ,gms->getId()
-				  ,MemPower
-				  ,EnergyMgr::get(section,"wrMissEnergy"));
+                                  ,name
+                                  ,gms->getId()
+                                  ,MemPower
+                                  ,EnergyMgr::get(section,"wrMissEnergy"));
 }
 
 VCache::~VCache()
