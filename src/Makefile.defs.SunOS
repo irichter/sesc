@@ -1,6 +1,8 @@
 #################
 # SUNOS specific
 #
+# Path to add on Solaris 10/x86
+# /opt/csw/bin/:/opt/SUNWspro/bin/:/opt/csw/gcc4/bin/:/usr/ccs/bin
 
 MACHINE:=
 
@@ -27,15 +29,16 @@ else
 # -fast does not work by default. Dissable some opts
 COPTS   :=-O3 -g1 -finline-functions -finline-limit=1800
 COPTS +=-funroll-loops -fsched-interblock -fomit-frame-pointer
-LOPTS   :=-O2
+LOPTS   :=-O3
 endif
 
-# Shared COPTS (do not affect debugging)
-# Machine specific. G4 processor by default
+# Machine specific. none by default
 ifdef MINT_TARGET
 COPTS   += -mcpu=$(MINT_TARGET)
+LOPTS   += -mcpu=$(MINT_TARGET)
 else
 COPTS   += 
+LOPTS   += 
 endif
 # Platform neutral
 COPTS +=-fno-strict-aliasing -freg-struct-return 
@@ -53,6 +56,5 @@ M4      =gm4
 MAKE    =gmake
 RANLIB  =ranlib
 FIND    =find
-# The default sed does not accept long lines (POJ of SUN)
 SED     =sed
 

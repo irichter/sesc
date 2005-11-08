@@ -7,7 +7,7 @@
 
 #include "wattch/misc.h"
 #include "wattch/wattch_setup.h"
-#include "orion/orion_setup.h"
+// #include "orion/orion_setup.h"
 
 int main(int argc, char **argv)
 {
@@ -30,9 +30,9 @@ int main(int argc, char **argv)
   wattch_setup();
   fprintf(stderr,"++++++++++++++END   WATCH\n");
 
-  fprintf(stderr,"++++++++++++++BEGIN ORION\n");
-  orion_setup(SescConf);
-  fprintf(stderr,"++++++++++++++END   ORION\n");
+//   fprintf(stderr,"++++++++++++++BEGIN ORION\n");
+//  orion_setup(SescConf);
+//  fprintf(stderr,"++++++++++++++END   ORION\n");
 
   // dump the wattchified configuration
   SescConf->dump(true);

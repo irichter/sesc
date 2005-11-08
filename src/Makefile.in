@@ -27,7 +27,7 @@ SUBDIRS+=libvmem
 endif
 ifdef SESC_ENERGY
 SUBDIRS+=libpower
-VPATH += $(SRC_DIR)/libpower/cacti $(SRC_DIR)/libpower/wattch $(SRC_DIR)/libpower/panalyzer $(SRC_DIR)/libpower/orion
+VPATH += $(SRC_DIR)/libpower/cacti $(SRC_DIR)/libpower/wattch $(SRC_DIR)/libpower/panalyzer
 endif
 ifdef SESC_THERM
 SUBDIRS+=libsescspot libsesctherm
@@ -77,7 +77,7 @@ endif
 TSTLIBS =$(OBJ)/libcore.a $(OBJ)/libmint.a $(OBJ)/libll.a
 TSTLIBS+=$(OBJ)/libpint.a $(OBJ)/libsuc.a
 ifdef SESC_ENERGY
-TSTLIBS += $(OBJ)/libpower.a
+TSTLIBS+=$(OBJ)/libpower.a
 endif
 NETLIBS =$(OBJ)/libnet.a 
 DSMLIBS =$(OBJ)/libdsm.a
@@ -86,41 +86,40 @@ MEMLIBS =$(OBJ)/libmem.a
 TLSLIBS =$(OBJ)/libvmem.a
 
 sesc.tst : $(OBJ)/main.o $(TSTLIBS)
-	$(CXX) $(LDFLAGS) -o $@  $^  $(LIBS) -lm -lz  
+	$(CXX) $(LDFLAGS) -o $@  $^  $(LIBS) $(STDLIBS)
 
 sesc.tst.condor: $(OBJ)/main.o $(TSTLIBS)
-	$(CONDORLD) $(LDFLAGS) -o $@  $^  $(LIBS) -lm -lz  
+	$(CONDORLD) $(LDFLAGS) -o $@  $^  $(LIBS) $(STDLIBS)
 
 sesc.mem : $(OBJ)/mtst1.o $(MEMLIBS) $(TSTLIBS)
-	$(CXX) $(LDFLAGS) -o $@ $^  $(LIBS) -lm -lz 
+	$(CXX) $(LDFLAGS) -o $@ $^  $(LIBS) $(STDLIBS)
 
 sesc.mem.condor : $(OBJ)/mtst1.o $(MEMLIBS) $(TSTLIBS)
-	$(CONDORLD) $(LDFLAGS) -o $@ $^  $(LIBS) -lm -lz 
+	$(CONDORLD) $(LDFLAGS) -o $@ $^  $(LIBS) $(STDLIBS)
 
 sesc.tls: $(OBJ)/tls.o $(TLSLIBS) $(MEMLIBS) $(TSTLIBS) 
-	$(CXX) $(LDFLAGS) -o $@ $^  $(LIBS) -lm -lz 
+	$(CXX) $(LDFLAGS) -o $@ $^  $(LIBS) $(STDLIBS)
 
 sesc.tls.condor: $(OBJ)/tls.o $(TLSLIBS) $(MEMLIBS) $(TSTLIBS) 
-	$(CONDORLD) $(LDFLAGS) -o $@ $^  $(LIBS) -lm -lz 
+	$(CONDORLD) $(LDFLAGS) -o $@ $^  $(LIBS) $(STDLIBS)
 
 sesc.dsm: $(OBJ)/dsm.o $(DSMLIBS) $(SMPLIBS) $(MEMLIBS) $(TSTLIBS)
-	$(CXX) $(LDFLAGS) -o $@ $^ $(LIBS) -lm -lz
+	$(CXX) $(LDFLAGS) -o $@ $^ $(LIBS) $(STDLIBS)
 
 sesc.smp.condor: $(OBJ)/smp.o $(SMPLIBS) $(MEMLIBS) $(TSTLIBS)
-	$(CONDORLD) $(LDFLAGS) -o $@ $^ $(LIBS) -lm -lz 
+	$(CONDORLD) $(LDFLAGS) -o $@ $^ $(LIBS) $(STDLIBS)
 
 sesc.ta: $(OBJ)/ta.o $(TSTLIBS)
-	$(CXX) $(LDFLAGS) -o $@ $^ $(LIBS) -lm -lz 
+	$(CXX) $(LDFLAGS) -o $@ $^ $(LIBS) $(STDLIBS)
 
 sesc.ta.condor: $(OBJ)/ta.o $(TSTLIBS)
-	$(CONDORLD) $(LDFLAGS) -o $@ $^ $(LIBS) -lm -lz 
-
+	$(CONDORLD) $(LDFLAGS) -o $@ $^ $(LIBS) $(STDLIBS)
 
 sesc.sta: $(OBJ)/sta.o $(TSTLIBS)
-	$(CXX) $(LDFLAGS) -o $@ $^ $(LIBS) -lm -lz 
+	$(CXX) $(LDFLAGS) -o $@ $^ $(LIBS) $(STDLIBS)
 
 sesc.sta.condor: $(OBJ)/sta.o $(TSTLIBS)
-	$(CONDORLD) $(LDFLAGS) -o $@ $^ $(LIBS) -lm -lz 
+	$(CONDORLD) $(LDFLAGS) -o $@ $^ $(LIBS) $(STDLIBS)
 
 ############ Simulator Benchmarking (bench the simulator, not the architecture)
 
@@ -158,8 +157,8 @@ runPoolBench : poolBench
 .NOTPARALLEL: wattchify cactify panalyze
 
 # libpower
-wattchify: reload $(OBJ)/powermain.o $(OBJ)/libwattch.a $(OBJ)/libcore.a  $(OBJ)/libsuc.a $(OBJ)/liborion.a
-	$(CXX) $(CFLAGS) -o $@ $(OBJ)/powermain.o $(OBJ)/libwattch.a $(OBJ)/libcore.a  $(OBJ)/libsuc.a $(OBJ)/liborion.a $(LIBS) $(STDLIBS) 
+wattchify: reload $(OBJ)/powermain.o $(OBJ)/libwattch.a $(OBJ)/libcore.a  $(OBJ)/libsuc.a
+	$(CXX) $(CFLAGS) -o $@ $(OBJ)/powermain.o $(OBJ)/libwattch.a $(OBJ)/libcore.a  $(OBJ)/libsuc.a $(LIBS) $(STDLIBS) 
 
 cactify: reload $(OBJ)/cacmain.o  $(OBJ)/libcacti.a $(OBJ)/libcore.a  $(OBJ)/libsuc.a
 	$(CXX) $(CFLAGS) -o $@ $(OBJ)/cacmain.o  $(OBJ)/libcacti.a $(OBJ)/libcore.a  $(OBJ)/libsuc.a $(LIBS) $(STDLIBS) 

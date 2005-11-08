@@ -2,11 +2,10 @@
 SIGNATURE=libpower
 include	../Makefile.defs
 
-DOTDEPENDEXTRA1=$$\(OBJ\)/libpower.a: $$\(OBJ\)/libcacti.a $$\(OBJ\)/libwattch.a $$\(OBJ\)/libpanalyzer.a $$\(OBJ\)/liborion.a
+DOTDEPENDEXTRA1=$$\(OBJ\)/libpower.a: $$\(OBJ\)/libcacti.a $$\(OBJ\)/libwattch.a $$\(OBJ\)/libpanalyzer.a 
 DOTDEPENDEXTRA2=-include $$\(OBJ\)/.depend.libcacti
 DOTDEPENDEXTRA3=-include $$\(OBJ\)/.depend.libwattch
 DOTDEPENDEXTRA4=-include $$\(OBJ\)/.depend.libpanalyzer
-DOTDEPENDEXTRA5=-include $$\(OBJ\)/.depend.liborion
 
 ##############################################################################
 #              Definitions
@@ -14,13 +13,12 @@ DOTDEPENDEXTRA5=-include $$\(OBJ\)/.depend.liborion
 WATTCHENV=$(OBJ)/libwattch.a
 PANALENV=$(OBJ)/libpanalyzer.a
 CACTIENV=$(OBJ)/libcacti.a
-ORIONENV=$(OBJ)/liborion.a
 SRCENV=$(OBJ)/libcore.a
 SUCENV=$(OBJ)/libsuc.a
 MINTENV=$(MINT_O)
-ALLENVS = $(WATTCHENV) $(PANALENV) $(CACTIENV) $(ORIONENV) $(SRCENV) $(SUCENV) $(MINTENV)
+ALLENVS = $(WATTCHENV) $(PANALENV) $(CACTIENV) $(SRCENV) $(SUCENV) $(MINTENV)
 
-POWER_SUBDIRS:= cacti wattch orion panalyzer
+POWER_SUBDIRS:= cacti wattch panalyzer
 
 ##############################################################################
 #                Objects
@@ -46,7 +44,6 @@ $(POWER_SUBDIRS): $(DOTDEPEND)
 
 wattch: cacti
 panalyzer: cacti
-orion: wattch
 
 $(ALLENVS): $(POWER_SUBDIRS)
 

@@ -74,6 +74,7 @@ double logfour(x)
   return( (double) (log(x)/log(4.0)) );
 }
 
+#ifdef HOST_HAS_QUAD2
 /* safer pop count to validate the fast algorithm */
 int pop_count_slow(quad_t bits)
 {
@@ -103,7 +104,7 @@ int pop_count(quad_t bits)
   BSUM(x,5); 
   return x; 
 }
-
+#endif
 
 int opcode_length = 8;
 int inst_length = 32;

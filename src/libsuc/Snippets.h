@@ -124,8 +124,4 @@ void debugAccess();
 #define M(n) (K(n) * 1024)
 #define G(n) (M(n) * 1024)
 
-#ifdef SUNOS
-char *strcasestr(const char *haystack, const char *needle);
-#endif
-
 #endif // SNIPPETS_H

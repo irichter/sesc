@@ -63,35 +63,23 @@ CacheGeneric<State, Addr_t, Energy> *CacheGeneric<State, Addr_t, Energy>::create
 template<class State, class Addr_t, bool Energy>
 PowerGroup CacheGeneric<State, Addr_t, Energy>::getRightStat(const char* type)
 {
-  const char *match = strcasestr(type,"icache");
-  if(match)
-    if(match[0] != 0)
-      return FetchPower;
+  if(strcasecmp(type,"icache")==0)
+    return FetchPower;
 
-  match = strcasestr(type,"itlb");
-  if(match)
-    if(match[0] != 0)
-      return FetchPower;
+  if(strcasecmp(type,"itlb")==0)
+    return FetchPower;
 
-  match = strcasestr(type,"cache");
-  if(match)
-    if(match[0] != 0)
-      return MemPower;
+  if(strcasecmp(type,"cache")==0)
+    return MemPower;
 
-  match = strcasestr(type,"tlb");
-  if(match)
-    if(match[0] != 0)
-      return MemPower;
+  if(strcasecmp(type,"tlb")==0)
+    return MemPower;
 
-  match = strcasestr(type,"dir");
-  if(match)
-    if(match[0] != 0)
-      return MemPower;
+  if(strcasecmp(type,"dir")==0)
+    return MemPower;
 
-  match = strcasestr(type,"revLVIDTable");
-  if(match)
-    if(match[0] != 0)
-      return MemPower;
+  if(strcasecmp(type,"revLVIDTable")==0)
+    return MemPower;
 
   MSG("Unknown power group for [%s], add it to CacheCore", type);
   I(0);

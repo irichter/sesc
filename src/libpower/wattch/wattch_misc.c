@@ -396,15 +396,15 @@ extractl(int word,		/* the word from which to extract */
       *obuf++ = cc;							\
   }
 
-#ifdef HOST_HAS_QUAD
+#ifdef HOST_HAS_QUAD2
 #define HIBITL		LL(0x8000000000000000)
 typedef squad_t slargeint_t;
 typedef quad_t largeint_t;
-#else /* !HOST_HAS_QUAD */
+#else /* !HOST_HAS_QUAD2 */
 #define HIBITL		0x80000000L
 typedef sword_t slargeint_t;
 typedef word_t largeint_t;
-#endif /* HOST_HAS_QUAD */
+#endif /* HOST_HAS_QUAD2 */
 
 static int
 _lowdigit(slargeint_t *valptr)
@@ -542,7 +542,7 @@ myvsprintf(char *obuf, char *format, va_list v)
 	  goto charswitch;
 
 	case 'n': /* host counter */
-#ifdef HOST_HAS_QUAD
+#ifdef HOST_HAS_QUAD2
 	  flagword |= LENGTH;
 	  /* fallthru */
 #else /* !HOST_HAS_QUAD */
@@ -661,7 +661,7 @@ myvsprintf(char *obuf, char *format, va_list v)
 	  }
 	  break;
 
-#ifndef HOST_HAS_QUAD
+#ifndef HOST_HAS_QUAD2
 	process_float:
 #endif /* !HOST_HAS_QUAD */
 
@@ -793,7 +793,7 @@ myfprintf(FILE *stream, char *format, ...)
   fputs(buf, stream);
 }
 
-#ifdef HOST_HAS_QUAD
+#ifdef HOST_HAS_QUAD2
 
 #define LL_MAX		LL(9223372036854775807)
 #define LL_MIN		(-LL_MAX - 1)

@@ -236,7 +236,7 @@ void myvfprintf(FILE *stream, char *format, va_list v);
 /* portable fprintf with quadword support, returns end pointer */
 void myfprintf(FILE *stream, char *format, ...);
 
-#ifdef HOST_HAS_QUAD
+#ifdef HOST_HAS_QUAD2
 
 /* convert a string to a signed result */
 squad_t myatosq(char *nptr, char **endp, int base);
