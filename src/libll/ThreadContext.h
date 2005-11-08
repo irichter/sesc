@@ -98,25 +98,22 @@ private:
   static bool isDataVAddr(VAddr addr)  {
     return addr >= ((ulong) DataStart) && addr <= ((ulong) DataEnd);
   }
-#ifdef TASKSCALAR
 
+#ifdef TASKSCALAR
   void badSpecThread(VAddr addr, short opflags) const;
   bool checkSpecThread(VAddr addr, short opflags) const {
     if (isValidVAddr(addr))
       return false;
 
 #if 0
-    bool badAlign = (
-		     MemBufferEntry::calcAccessMask(opflags
+    bool badAlign = (MemBufferEntry::calcAccessMask(opflags
 						    ,MemBufferEntry::calcChunkOffset(addr))
 		     ) == 0;
 
     if (!badAddr && !badAlign)
       return false;
 #endif
-
     badSpecThread(addr, opflags);
-
     return true;
   }
 #endif

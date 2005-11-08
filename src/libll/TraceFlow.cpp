@@ -90,7 +90,11 @@ DInst *TraceFlow::executePC()
     inst = Instruction::getPPCInstByPC(te.iAddr, te.rawInst);
   } else {
     I(mode == Simics);
+#ifdef SESC_SIMICS
     inst = Instruction::getSimicsInst((TraceSimicsOpc_t) te.rawInst);
+#else
+    inst = 0; //avoiding warning
+#endif
   }
 
   nextPC = te.nextIAddr;
