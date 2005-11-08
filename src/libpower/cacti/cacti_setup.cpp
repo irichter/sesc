@@ -248,7 +248,9 @@ void iterate()
 
     const char *name = SescConf->getCharPtr(block,"deviceType") ;
 
-    if (strcasecmp(name,"niceCache") == 0) {
+    if(strcasecmp(name,"vbus")==0){
+      SescConf->updateRecord(block,"busEnergy",0.0) ; // FIXME: compute BUS energy
+    }else if (strcasecmp(name,"niceCache") == 0) {
       // No energy for ideal caches (DRAM bank)
       SescConf->updateRecord(block, "RdHitEnergy"   ,0.0);
       SescConf->updateRecord(block, "RdMissEnergy"  ,0.0);

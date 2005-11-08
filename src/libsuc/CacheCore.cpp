@@ -81,6 +81,9 @@ PowerGroup CacheGeneric<State, Addr_t, Energy>::getRightStat(const char* type)
   if(strcasecmp(type,"revLVIDTable")==0)
     return MemPower;
 
+  if(strcasecmp(type,"nicecache")==0)
+    return MemPower;
+
   MSG("Unknown power group for [%s], add it to CacheCore", type);
   I(0);
 
