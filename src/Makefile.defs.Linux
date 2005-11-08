@@ -16,11 +16,6 @@
 #export PATH=${PATH}:/opt/intel/intel_cc_80/bin
 #export LD_LIBRARY_PATH=/opt/intel/intel_cc_80/lib
 #export ICC=1
-#
-#In GCC 4.0 or greater, there are errors generated in hash_map<> header
-#file that are very annoying.  To avoid these, I've changed the warning
-#flags for this case. Just export the following:
-#export GCC4=1
 
 DEFS	+=-DLINUX -DLENDIAN  -DSIMICS -DPOSIX_MEMALIGN
 AABI	:=
@@ -40,10 +35,6 @@ else
 PDEFS	:=-W -Wall -Wno-unused
 CXX	=g++ 
 CC	=gcc
-
-ifdef GCC4
-PDEFS   += -Wno-return-type
-endif 
 
 LOPTS	:=-O2
 

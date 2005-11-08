@@ -1383,7 +1383,7 @@ sub instStats {
       my $clusterType = $cf->getConfigEntry(key=>"cluster", section=>$cpuType, index=>$j);
       last unless (defined $clusterType);
 
-      $nReplay += $cf->getResultField("Proc(${i})_${clusterType}_depTable","nReplay");
+      $nReplay += $cf->getResultField("Proc(${i})_${clusterType}","nReplay");
 
       foreach my $unitID ("iBJUnit", "iLoadUnit", "iStoreUnit", "iALUUnit"
                           , "iMultUnit", "iDivUnit", "fpALUUnit", "fpMultUnit", "fpDivUnit") {

@@ -436,17 +436,6 @@ void OSSim::processParams(int argc, char **argv, char **envp)
 
   Instruction::initialize(nargc, nargv, envp);
  
-#ifdef SESC_THERM
-  {
-    thermFile = (char*)malloc(strlen(finalReportFile) + 7);
-    char *pp = strrchr(finalReportFile,'.');
-    *pp = 0;
-    sprintf(thermFile, "%s.therm.%s",finalReportFile, pp + 1);
-    ReportTherm::openFile(thermFile);
-    strcpy(pp, thermFile + ((pp - finalReportFile) +6));
-  }
-#endif
-
   if( reportTo ) {
     reportFile = (char *)malloc(30 + strlen(reportTo));
     sprintf(reportFile, "%s.%s", reportTo, extension ? extension : x6);
@@ -464,6 +453,17 @@ void OSSim::processParams(int argc, char **argv, char **envp)
  
   char *finalReportFile = (char *)strdup(reportFile);
   Report::openFile(finalReportFile);
+
+#ifdef SESC_THERM
+  {
+    thermFile = (char*)malloc(strlen(finalReportFile) + 7);
+    char *pp = strrchr(finalReportFile,'.');
+    *pp = 0;
+    sprintf(thermFile, "%s.therm.%s",finalReportFile, pp + 1);
+    ReportTherm::openFile(thermFile);
+    strcpy(pp, thermFile + ((pp - finalReportFile) +6));
+  }
+#endif
 
   if (trace_flag) {
     traceFile = (char*)malloc(strlen(finalReportFile) + 7);

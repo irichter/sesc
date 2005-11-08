@@ -330,8 +330,8 @@ ClusterManager::ClusterManager(GMemorySystem *ms, GProcessor *gproc)
     }
   }
 
-  ID(int i);
-  IN(forall((i=0;i<int(MaxInstType);i++),res[i]!=0));
+  // 0 is an invalid opcde. All the other should be defined
+  IN(forall((size_t i=1;i<static_cast<size_t>(MaxInstType);i++),res[i]!=0));
 }
 
 #ifdef SESC_MISPATH

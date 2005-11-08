@@ -1,5 +1,5 @@
 #################
-# Linux specific
+# Windows CYGWIN specific
 #
 # If MINT_TARGET is defined, it is assumed to have a gcc 3.2 or newer
 # compiler. Valid values are
@@ -9,29 +9,12 @@
 # setenv MINT_TARGET athlon-mp
 #
 # setenv MINT_TARGET itanium
-#
-# If you want to use the icc compiler (Intel). Use something like this
-#
-#export INTEL_LICENSE_FILE=/opt/intel/licenses/l_cpp_88267802.lic
-#export PATH=${PATH}:/opt/intel/intel_cc_80/bin
-#export LD_LIBRARY_PATH=/opt/intel/intel_cc_80/lib
-#export ICC=1
-#
 
 DEFS	+=-DCYGWIN -DLENDIAN 
 AABI	:=
 ABI	:=
 ABINAME :=CYGWIN
 ##########################################################
-ifdef ICC
-##############
-# icc Compiler
-CXX	=icc
-CC	=icc
-LOPTS	:=-O2
-COPTS	:=-O3
-else
-##############
 # gcc Compiler
 PDEFS	:=-Wall -W -Wno-unused 
 CXX	=g++
@@ -60,7 +43,6 @@ endif
 # Platform neutral
 COPTS +=-funroll-loops -fsched-interblock -fomit-frame-pointer
 COPTS +=-ffast-math -fno-exceptions -fno-strict-aliasing -freg-struct-return 
-endif # icc Compiler 
 ##############################################################################
 
 ##############################################################################
