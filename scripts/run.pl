@@ -1,12 +1,11 @@
 #!/usr/bin/env perl
 
-# TODO: Check that vortex input and word directories are copied to the local path
-
 use strict;
 
 use Getopt::Long;
 use Time::localtime;
 use Env;
+use File::Spec;
 
 my $BHOME;
 
@@ -36,6 +35,7 @@ my $op_bindir="$ENV{'BENCHDIR'}/bin";
 my $op_yes;
 my $op_condor;
 my $op_condorstd;
+my $op_trace;
 
 my $dataset;
 
@@ -59,15 +59,15 @@ my $result = GetOptions("test",\$op_test,
                         "data=s",\$op_data,
                         "procs=i",\$op_numprocs,
                         "rabbit", \$op_rabbit,
-                        "saveoutput",\$op_saveoutput,
-                        "bindir=s",\$op_bindir,
-                        "kinst=i",\$op_kinst,
-                        "native",\$op_native,
-                        "yes",\$op_yes,
-                        "condor",\$op_condor,
-                        "condorstd",\$op_condorstd,
-                        "help",\$op_help
-                       );
+			"saveoutput",\$op_saveoutput,
+			"bindir=s",\$op_bindir,
+			"kinst=i",\$op_kinst,
+			"yes",\$op_yes,
+			"condor",\$op_condor,
+			"condorstd",\$op_condorstd,
+			"trace",\$op_trace,
+			"help",\$op_help
+		       );
 
 
 my $threadsRunning=0;
@@ -209,8 +209,8 @@ sub runIt {
 
 sub newJob {
   my $sparm = shift;
-  my $inp   = shift;
-  my $outp  = shift;
+  my $inp = shift;
+  my $outp = shift;
   
   printf $jobfp "Arguments    = $sparm\n";
   printf $jobfp "Input        = $inp\n";
@@ -218,6 +218,47 @@ sub newJob {
   printf $jobfp "Output       = condorout/$outp.\$(Cluster).\$(Process).out\n";
   printf $jobfp "Error        = condorout/$outp.\$(Cluster).\$(Process).err\n";
   printf $jobfp "Queue\n\n";
+}
+
+sub runTrace {
+  my %param = @_;
+
+  die if( !defined($param{bench}) );
+
+  my $sesc_parms = "";
+
+  $sesc_parms .= " -x" . $param{xtra} if( defined($param{xtra}) );
+  $sesc_parms .= " -f" . $param{xtra2} if( defined($param{xtra2}) );
+  $sesc_parms .= " -t" if( $op_test );
+  $sesc_parms .= " -c" . $op_c if( defined $op_c );
+  $sesc_parms .= " -w1" if ($op_rabbit or $op_vprof);
+  $sesc_parms .= " -r" . $op_prof if (defined $op_prof);
+  $sesc_parms .= " -S" . $op_profsec if (defined $op_profsec);
+  $sesc_parms .= " -y" . $op_kinst if(defined $op_kinst);
+
+  my $baseoutput;
+
+  my $vol;
+  my $dir;
+  my $traceName;
+
+  ($vol,$dir,$traceName) = File::Spec->splitpath($param{bench});
+
+  if ( defined($op_key) ) {
+      if (defined($op_key2) ) {
+	  $baseoutput = "${traceName}${op_ext}.${op_key}.${op_key2}";
+      } else {
+	  $baseoutput = "${traceName}${op_ext}.${op_key}";
+      }
+  } else {
+      if (defined($op_key2) ) {
+	  $baseoutput = "${traceName}${op_ext}.${op_key2}";
+      } else {
+	  $baseoutput = "${traceName}${op_ext}";
+      }
+  }
+  
+  runIt("${sesc_parms} ${param{bench}}", "", $baseoutput);
 }
 
 sub runBench {
@@ -239,15 +280,15 @@ sub runBench {
   my $baseoutput;
   if ( defined($op_key) ) {
       if (defined($op_key2) ) {
-          $baseoutput = "${param{bench}}${op_ext}.${op_key}.${op_key2}";
+	  $baseoutput = "${param{bench}}${op_ext}.${op_key}.${op_key2}";
       } else {
-          $baseoutput = "${param{bench}}${op_ext}.${op_key}";
+	  $baseoutput = "${param{bench}}${op_ext}.${op_key}";
       }
   } else {
       if (defined($op_key2) ) {
-          $baseoutput = "${param{bench}}${op_ext}.${op_key2}";
+	  $baseoutput = "${param{bench}}${op_ext}.${op_key2}";
       } else {
-          $baseoutput = "${param{bench}}${op_ext}";
+	  $baseoutput = "${param{bench}}${op_ext}";
       }
   }
   
@@ -307,7 +348,7 @@ sub runBench {
   }elsif( $param{bench} eq 'gap' ) {
     print "Running gap\n";
 
-    my $marks = getMarks("-1122 -2123", "-1141 -2145");
+    my $marks = getMarks("-1122 -2123", "-1114 -2126");
     my $opt = "-l ${BHOME}/CINT2000/254.gap/data/all/input  -q -n -m ";
     if ($op_data eq 'test') {
       $opt .= "64M";
@@ -318,7 +359,6 @@ sub runBench {
     }
     runIt("${sesc_parms} -h0xC000000 -k0x200000 ${marks}","${executable} ${opt}", 
           "${BHOME}/CINT2000/254.gap/${dataset}/${op_data}.in", $baseoutput);
-
   }elsif( $param{bench} eq 'vortex' ) {
     print "Running vortex\n";
 
@@ -342,7 +382,6 @@ sub runBench {
       $input = "bendian.raw";
     }
     runIt("${sesc_parms} -h0x8000000 ${marks}","${executable} ${BHOME}/CINT2000/255.vortex/${dataset}/${input}", "",  $baseoutput);
-
   }elsif( $param{bench} eq 'bzip2' ) {
     print "Running bzip2\n";
 
@@ -356,13 +395,11 @@ sub runBench {
       $input = "input.source 58";
     }
     runIt("${sesc_parms} -h0xbc00000 ${marks}","${executable} ${BHOME}/CINT2000/256.bzip2/${dataset}/${input}", "",  $baseoutput);
-
   }elsif( $param{bench} eq 'twolf' ) {
     print "Running twolf\n";
 
     my $marks = getMarks("-12 -23", "-12 -23");
     runIt("${sesc_parms} -h0x8000000 ${marks}","${executable} ${op_data}", "",  $baseoutput);
-
   }elsif( $param{bench} eq 'perlbmk' ) {
     print "Running perlbmk\n";
 
@@ -373,7 +410,6 @@ sub runBench {
       $opt = "-Ilib ${BHOME}/CINT2000/253.perlbmk/data/all/input/diffmail.pl 2 550 15 24 23 100";
     }
     runIt("${sesc_parms} -h0x8000000 ${marks}","${executable} ${opt}", "",  $baseoutput);
-
   }
 ####################################################################################
 #  SPEC FP
@@ -398,14 +434,12 @@ sub runBench {
     my $marks = getMarks("-11 -22", "-11 -23");
     runIt("${sesc_parms} -h0xbc00000 ${marks}","${executable}", 
           "${BHOME}/CFP2000/172.mgrid/${dataset}/mgrid.in", $baseoutput);
-
   }elsif( $param{bench} eq 'applu' ) {
     print "Running applu\n";
 
     my $marks = getMarks("-11 -2110", "-11 -2220");
     runIt("${sesc_parms} -h0xb000000  -k0x20000 ${marks}","${executable}", 
           "${BHOME}/CFP2000/173.applu/${dataset}/applu.in", $baseoutput);
-
   }elsif( $param{bench} eq 'mesa' ) {
     print "Running mesa\n";
 
@@ -443,14 +477,11 @@ sub runBench {
       # --OR-- (spec runs both)
       # $params .= " -stride 2 -startx 470 -starty 140 -endx 520 -endy 180 -objects 10";
     }
-    runIt("${sesc_parms} -h0xc000000 ${marks}","${executable} -scanfile ${BHOME}/CFP2000/179.art/${dataset}/c756hel.in -trainfile1 ${BHOME}/CFP2000/179.art/${dataset}/a10.img ${params}", "",  $baseoutput);
-
   }elsif( $param{bench} eq 'equake' ) {
     print "Running equake\n";
 
     my $marks = getMarks("-13 -25", "-13 -213");
     runIt("${sesc_parms} -h0xbc00000 ${marks}","${executable}", "${BHOME}/CFP2000/183.equake/${dataset}/inp.in", $baseoutput);
-
   }elsif( $param{bench} eq 'facerec' ) {
     print "Running facerec\n";
 
@@ -474,7 +505,6 @@ sub runBench {
       system("cp ${BHOME}/CFP2000/188.ammp/${dataset}/init_cond.run.3 .");
     }
     runIt("${sesc_parms} -h0xc000000 ${marks}","${executable}", "${BHOME}/CFP2000/188.ammp/${dataset}/ammp.in", $baseoutput);
-
   }elsif( $param{bench} eq 'lucas' ) {
     print "Running lucas\n";
 
@@ -497,7 +527,6 @@ sub runBench {
     system("cp ${BHOME}/CFP2000/200.sixtrack/data/all/input/fort.16 .");
     runIt("${sesc_parms} -k0x80000 -h0x8000000","${executable}", 
           "${BHOME}/CFP2000/200.sixtrack/${dataset}/inp.in", $baseoutput);
-
   }elsif( $param{bench} eq 'apsi' ) {
     print "Running apsi\n";
 
@@ -829,7 +858,6 @@ sub runBench {
       $params = "-p${op_numprocs} ${BHOME}/splash2/kernels/cholesky/${dataset}/lshp.O"
     }
     runIt("${sesc_parms} -h0x8000000 -k0x80000","${executable} ${params}", "",  $baseoutput);
-
   }elsif( $param{bench} eq 'fft' ) {
     print "Running fft\n";
 
@@ -840,7 +868,6 @@ sub runBench {
       $params = "-m12 -l5 -p${op_numprocs}";
     }
     runIt("${sesc_parms} -h0x8000000","${executable} ${params}", "", $baseoutput);
-
  }elsif( $param{bench} eq 'lu' ) {
     print "Running lu\n";
 
@@ -851,7 +878,6 @@ sub runBench {
      $params = "-n32 -b8 -p${op_numprocs}";
    }
    runIt("${sesc_parms} -h0x8000000","${executable} ${params}", "",  $baseoutput);
-
   }elsif( $param{bench} eq 'radix' ) {
     print "Running radix\n";
 
@@ -867,7 +893,6 @@ sub runBench {
     print "Running barnes\n";
 
     runIt("${sesc_parms} -h0x8000000","${executable}", "${BHOME}/splash2/apps/barnes/${dataset}/i${op_numprocs}", $baseoutput);
-
   }elsif( $param{bench} eq 'fmm' ) {
     print "Running fmm\n";
 
@@ -883,7 +908,6 @@ sub runBench {
       $params = "-n34 -p${op_numprocs}";
     }
     runIt("${sesc_parms} -h0x8000000","${executable} ${params}", "", $baseoutput);
-
   }elsif( $param{bench} eq 'radiosity' ) {
     print "Running radiosity\n";
 
@@ -894,7 +918,6 @@ sub runBench {
       $params = "-batch -room -ae 5000.0 -en 0.050 -bf 0.10 -p ${op_numprocs}";
     }
     runIt("${sesc_parms} -h0x8000000","${executable} ${params}", "", $baseoutput);
-
   }elsif( $param{bench} eq 'raytrace' ) {
     print "Running raytrace\n";
 
@@ -907,7 +930,6 @@ sub runBench {
       $params = "-m64 -p${op_numprocs} ${BHOME}/splash2/apps/raytrace/${dataset}/teapot.env";
     }
     runIt("${sesc_parms} -h0x8000000","${executable} ${params}", "",  $baseoutput);
-
   }elsif( $param{bench} eq 'volrend' ) {
     print "Running volrend\n";
 
@@ -930,7 +952,6 @@ sub runBench {
 
     system("cp ${BHOME}/splash2/apps/water-spatial/${dataset}/random.in .");
     runIt("${sesc_parms} -h0x8000000","${executable} ${BHOME}/splash2/apps/water-spatial/${dataset}/input_${op_numprocs}", "", $baseoutput);
-
   }else{
     die("Unknown benchmark [$param{xtra}]");
   }
@@ -1070,16 +1091,16 @@ sub processParams {
     print "\t-native          ; native execution.\n";
     print "\t-condorstd       ; Use condor standard universe.\n";
     print "\t-yes             ; Do not ask for questions. Say all yes\n";
+    print "\t-trace           ; Interpret benchmarks as trace files\n";
     print "\t-help            ; Show this help\n";
     exit;
   }
 }
 
 sub setupDirectory {
-
-  unless (-d "words") {
-        # wait a bit, maybe someone else is doing it
-        sleep 32*rand();
+  return if ($op_trace);  
+  unless( -f "words") {
+    system("cp -r ${BHOME}/CINT2000/197.parser/data/all/input/words .")
   }
 
   unless( -d "words") {
@@ -1127,9 +1148,13 @@ sub main {
   }
 
   foreach $bench (@ARGV) {
-    runBench( bench => $bench , xtra => $op_key, xtra2 => $op_key2);
+      if($op_trace) {
+	  runTrace( bench => $bench, xtra => $op_key, xtra2 => $op_key2);
+      } else {
+	  runBench( bench => $bench , xtra => $op_key, xtra2 => $op_key2);
+      }  
   }
-
+  
   if($op_condor) {
       close $jobfp;
       close(RUNLOG);
@@ -1144,7 +1169,6 @@ sub main {
   }
 
   close(RUNLOG);
-
   exit(0);
 }
 
