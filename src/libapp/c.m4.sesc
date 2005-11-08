@@ -86,7 +86,14 @@ dnl TLS is defined, BARRIER is defined as follows
 `tls_barrier(&($1), $2);',
 dnl TLS is not defined, BARRIER is defined as follows
 `{
+#ifdef SIMICS
+       SIMICS_ENTER_BARRIER(&($1), $2);
+#endif
 	sesc_barrier(&($1), $2);
+
+#ifdef SIMICS
+       SIMICS_LEAVE_BARRIER(&($1));
+#endif
 }')')
 
 define(GSDEC, `int ($1);')
@@ -139,7 +146,16 @@ dnl TLS is not defined, LOCK is defined as follows
 #ifdef ATOMIC
         sesc_start_transaction();
 #else
+#ifdef SIMICS
+       SIMICS_START_IGNORE();
+       SIMICS_BEGIN_LOCK(&($1));
+#endif
 	sesc_lock(&($1));
+
+#ifdef SIMICS
+       SIMICS_LOCKED(&($1));
+       SIMICS_STOP_IGNORE();
+#endif
 #endif
 }')')
 
@@ -156,7 +172,16 @@ dnl TLS is not defined, UNLOCK is defined as follows
 #ifdef ATOMIC
         sesc_commit_transaction();
 #else
+#ifdef SIMICS
+       SIMICS_START_IGNORE();
+#endif
 	sesc_unlock(&($1));
+
+#ifdef SIMICS
+       SIMICS_UNLOCK(&($1));
+       SIMICS_STOP_IGNORE();
+#endif
+
 #endif
 }')')
 

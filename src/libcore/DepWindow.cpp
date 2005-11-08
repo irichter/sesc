@@ -516,9 +516,11 @@ void DepWindow::executed(DInst *dinst)
       I(dstReady->isSrc2Ready());
       I(dstReady->getInst()->isLoad());
 
-      LOG("across cluster dependence enforcement pc=0x%x [addr=0x%x] vs pc=0x%x [addr=0x%x]"
-          ,(int)dinst->getInst()->getAddr()   , (int)dinst->getVaddr()
-          ,(int)dstReady->getInst()->getAddr(), (int)dstReady->getVaddr());
+      LOG("across cluster dependence enforcement (%p) pc=0x%x [addr=0x%x] vs (%p) pc=0x%x [addr=0x%x]"
+	  ,dinst
+	  ,(int)dinst->getInst()->getAddr()   , (int)dinst->getVaddr()
+	  ,dstReady
+	  ,(int)dstReady->getInst()->getAddr(), (int)dstReady->getVaddr());
 
       dinst->addFakeSrc(dstReady); // Requeue the instruction at the end
 

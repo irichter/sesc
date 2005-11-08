@@ -85,6 +85,19 @@ private:
     return picodePC->instID;
   }
 
+  void exeInstFast();
+
+  // Executes a single instruction. Return value:
+  //   If no instruction could be executed, returns 0 (zero)
+  //   If an instruction was executed, returns non-zero
+  //   For executed load/store instructions, the returned (non-zero)
+  //   value is the virtual address of the data accessed. Note that
+  //   load/store accesses to a virtual address of zero are not allowed.
+  long exeInst();
+
+  // Returns the next dynamic instruction, 0 if none can be executed
+  // Executes instruction(s) as needed to generate the return value
+
 protected:
 public:
   InstID getNextID() const {
@@ -130,19 +143,6 @@ public:
   void switchOut(int i);
 
   int currentPid(void) { return thread.getPid();  }
-
-  void exeInstFast();
-
-  // Executes a single instruction. Return value:
-  //   If no instruction could be executed, returns 0 (zero)
-  //   If an instruction was executed, returns non-zero
-  //   For executed load/store instructions, the returned (non-zero)
-  //   value is the virtual address of the data accessed. Note that
-  //   load/store accesses to a virtual address of zero are not allowed.
-  long exeInst();
-
-  // Returns the next dynamic instruction, 0 if none can be executed
-  // Executes instruction(s) as needed to generate the return value
   DInst *executePC();
 
   void goRabbitMode(long long n2skip=0);

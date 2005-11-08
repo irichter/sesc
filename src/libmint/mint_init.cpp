@@ -114,7 +114,6 @@ void mint_init(int argc, char **argv, char **envp)
 
   ThreadContext::initMainThread();
   
-
 #ifdef DARWIN
   feclearexcept(FE_ALL_EXCEPT);
 #endif

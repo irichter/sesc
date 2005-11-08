@@ -68,7 +68,7 @@ const BitMaskType MemBufferEntry::accessBitMask[16][chunkSize]={
 
 MemBufferEntry::MemBufferEntry()
   : ver(0)
-    ,cIndex(0)
+  ,cIndex(0)
 {
   data = 0;
 }
@@ -219,6 +219,7 @@ MemBuffer *MemBuffer::create(const HVersion *ver)
   mb->mbd = ver->getMemBufferDomain();
   I(mb->mapMemOps.empty());
 
+
   return mb;
 }
 
@@ -300,6 +301,7 @@ RAddr MemBuffer::read(ulong iaddr, short opflags, RAddr addr)
   ulong cOffset = MemBufferEntry::calcChunkOffset(addr);
   BitMaskType accMask=MemBufferEntry::calcAccessMask(opflags, cOffset);
 
+
   e->updateXRDMask(accMask);
   return e->getAddr()+cOffset;
 }
@@ -330,7 +332,9 @@ const HVersion *MemBuffer::postWrite(const unsigned long long *writeData,
   BitMaskType accMask=MemBufferEntry::calcAccessMask(opflags, cOffset);
 
   e->addWRMask(accMask);
+
   bool copied = MemBufferEntry::chunkCopy(e->getAddr(), (RAddr)writeData, accMask);
+
 
 #ifdef SILENT_STORE
   if (!copied)
@@ -371,4 +375,5 @@ const HVersion *MemBuffer::postWrite(const unsigned long long *writeData,
   }
   return 0;
 }
+
 

@@ -3,6 +3,7 @@
    Copyright (C) 2003 University of Illinois.
 
    Contributed by Jose Renau
+                  Luis Ceze
 
 This file is part of SESC.
 
@@ -34,7 +35,6 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "PPCDecoder.h"
 
 void mint_init(int argc, char **argv, char **envp);
-OP(mint_getpid);
 int isFirstInFuncCall(unsigned long addr);
 char *print_instr_regs(icode_ptr picode, thread_ptr pthread, int maxlen);
 
@@ -52,51 +52,6 @@ char *print_instr_regs(icode_ptr picode, thread_ptr pthread, int maxlen);
 // ISA advice
 //
 //#define FOLLOW_MIPSPRO_ADVICE 1
-
-static const char *opcode2NameTable[] = {
-  "iOpInvalid",
-  "iALU",
-  "iMult",
-  "iDiv",
-  "iBJ",
-  "iLoad",
-  "iStore",
-  "fpALU",
-  "fpMult",
-  "fpDiv",
-  "iFence",
-  "iEvent"
-};
-
-
-icode_ptr Instruction::LowerLimit;
-icode_ptr Instruction::UpperLimit;
-
-int Instruction::maxFuncID=0;
-
-Instruction *Instruction::InstTable = 0;
-Instruction::InstHash Instruction::instHash;
-
-
-size_t Instruction::InstTableSize = 0;
-
-void Instruction::initialize(int argc,
-			     char **argv,
-			     char **envp)
-{
-#ifdef TRACE_DRIVEN
-  initializeTrace(argc, argv, envp);
-#else
-  initializeMINT(argc, argv, envp);
-#endif
-}  
-
-void Instruction::initializeTrace(int argc,
-				 char **argv,
-				 char **envp)
-{
-  PPCDecoder::Initialize();
-}
 
 void Instruction::initializeMINT(int argc,
 				 char **argv,
@@ -315,16 +270,6 @@ void Instruction::initializeMINT(int argc,
     InstTable[codeSize + FakeInst + i].src2Pool = whichPool(InstTable[codeSize + FakeInst + i].src2);
     InstTable[codeSize + FakeInst + i].dstPool  = whichPool(InternalReg);
   }
-}
-
-void Instruction::finalize()
-{
-#ifdef TRACE_DRIVEN
-  //TODO: go through the instHash deleting the insts
-#else
-    free(InstTable);
-    InstTable = 0;
-#endif
 }
 
 void Instruction::MIPSDecodeInstruction(size_t        index
@@ -937,39 +882,5 @@ void Instruction::MIPSDecodeInstruction(size_t        index
   if(picode->func == mint_sesc_fork_successor)
     uEvent = SpawnEvent;
 #endif
-}
-
-const char *Instruction::opcode2Name(InstType op)
-{
-  return opcode2NameTable[op];
-}
-
-void Instruction::dump(const char *str) const
-{
-  MSG("%s:0x%8x: reg[%2d] = reg[%2d] [%8s:%2d] reg[%2d] (uEvent=%d)", str,
-      (int)getAddr(), dest, src1, opcode2Name(opcode), subCode, src2, uEvent);
-
-  Itext[currentID()]->dump();
-}
-
-void Instruction::PPCDecodeInstruction(Instruction *inst, ulong rawInst)
-{
-  PPCInstDef *ppcInst = PPCDecoder::getInstDef(rawInst);
-
-  inst->src1 = NoDependence;
-  inst->dest = InvalidOutput;
-  inst->src2 = NoDependence;
-  inst->uEvent = NoEvent;
-  inst->condLikely = false;
-  inst->guessTaken = false;
-  inst->jumpLabel = false;
-
-  inst->opcode = ppcInst->type;
-  inst->subCode = ppcInst->subType;
-
-  // TODO: add the instruction specific sutff here, like register numbers, pools, etc..
-  // most of the instructions can be decoded based on the form.
-  // except some corner cases, so the code can be *very* clean.
-
 }
 

@@ -98,7 +98,9 @@ public:
   bool hasProtectingWrite(WordMask mask) const { return wrmask  & mask;  }
   bool hasExposedRead(WordMask mask)    const { return xrdmask & mask;  }
 
-  bool hasState() const { return xrdmask || wrmask; }
+  bool hasState() const { 
+    return xrdmask || wrmask; 
+  }
 
   void clearMasks() {
     xrdmask = 0;

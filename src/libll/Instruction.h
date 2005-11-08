@@ -35,6 +35,9 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "Snippets.h"
 #include "callback.h"
 
+
+#include "SimicsTraceFormat.h"
+
 // 0 int, 1 FP, 2 none
 #define INSTRUCTION_MAX_DESTPOOL 3
 
@@ -43,12 +46,13 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 typedef ulong InstID;
 
 enum RegType {
-    NoDependence = 0,
+  NoDependence = 0, //fix this, 0 is used by PPC
     ReturnReg = 31,
     InternalReg,
     IntFPBoundary = 32+1,
     HiReg = 65+1,
     CoprocStatReg,
+    CondReg, 
     InvalidOutput,
     NumArchRegs // = BaseInstTypeReg +MaxInstType old times
 };
@@ -56,8 +60,9 @@ enum RegType {
 typedef unsigned char MemDataSize;
 
 //! Static Instruction type
-/*! For each assembler in the binary there is an Instruction
- *  associated. It is an expanded version of the MIPS instruction.
+/*! For each assembly instruction in the binary there is an
+ *  Instruction associated. It is an expanded version of the MIPS
+ *  instruction.
  *
  */
 class Instruction {
@@ -73,6 +78,8 @@ private:
   typedef HASH_MAP<long, Instruction*> InstHash;
   static InstHash instHash;
 
+  static Instruction *simicsInstTable;
+
   static bool inLimits(icode_ptr next) {
     return !(next < LowerLimit || next > UpperLimit);
   }
@@ -81,9 +88,13 @@ private:
 			     char **argv,
 			     char **envp);
   
-  static void initializeTrace(int argc,
-			      char **argv,
-			      char **envp);
+  static void initializePPCTrace(int argc,
+				 char **argv,
+				 char **envp);
+
+  static void initializeSimicsTrace(int argc,
+				    char **argv,
+				    char **envp);
 
   static void MIPSDecodeInstruction(size_t index
 				    ,icode_ptr &picode
@@ -99,6 +110,8 @@ private:
 				    ,bool &jumpLabel);
 
   static void PPCDecodeInstruction(Instruction *inst, ulong rawInst);
+
+  static const Instruction *SimicsDecodeInstruction(TraceSimicsOpc_t op);
 
 protected:
   InstType opcode;
@@ -124,6 +137,8 @@ protected:
   bool condLikely;
   bool jumpLabel; // If iBJ jumps to offset (not register)
 
+  ulong addr;
+  
 #ifdef AIX
   const char *funcName;
 #endif
@@ -140,22 +155,27 @@ public:
     return &InstTable[id];
   }
 
-  // this is what should be called by TraceFlow.
-  static const Instruction *getInstByPC(long addr, ulong rawInst) {
+  // this is what should be called by TraceFlow in TT6PPC mode
+  static const Instruction *getPPCInstByPC(long addr, ulong rawInst) {
     InstHash::iterator it = instHash.find(addr);
 
     if(it == instHash.end()) { // we haven't seen this instruction before
-
       // horrible!! we need to fix this. --luis
       Instruction *inst = new Instruction(); // maybe we should have a pool for 
                                              // Instruction objects
       PPCDecodeInstruction(inst, rawInst);
+      inst->addr = addr;
       instHash[addr] = inst;
       return inst;
     }
 
     // TODO: maybe we should make sure the instruction is still the same...
     return it->second;
+  }
+
+  // this is what should be called by TraceFlow in simics mode
+  static const Instruction *getSimicsInst(TraceSimicsOpc_t op) {
+    return SimicsDecodeInstruction(op);
   }
 
   static const Instruction *getInst4Addr(long addr) {
@@ -178,7 +198,9 @@ public:
   static unsigned char whichPool(RegType r) {
     unsigned char p;
     if( r < IntFPBoundary && r != NoDependence ) {
-      p  = 0;
+      p = 0;
+    }else if(r == CondReg) {
+      p = 0;  // assuming condition register uses the Int pool
     }else if( r >= IntFPBoundary && r <= CoprocStatReg ) {
       p  = 1;
     }else{
@@ -190,24 +212,34 @@ public:
     return p;
   }
   
-  InstID currentID() const {  return (this - InstTable);  }
+  InstID currentID() const {  
+#ifdef TRACE_DRIVEN
+    return addr;
+#else
+    return (this - InstTable);  
+#endif
+  }
 
   long getAddr() const {
+#ifdef TRACE_DRIVEN
+    return addr;
+#else
     icode_ptr picode = Itext[currentID()];
     I(picode->instID == currentID());
     return picode->addr;
+#endif
   }
 
-  icode_ptr getICode() const{ 
+  icode_ptr getICode() const { 
+#ifdef TRACE_DRIVEN
+    return 0;
+#else
     icode_ptr picode = Itext[currentID()];
     I(picode->instID == currentID());
-    return picode ;  
+    return picode;  
+#endif
   }
   
-  long getRawInst() const {
-    return Itext[currentID()]->instr;
-  }
-
   bool guessAsTaken() const { return guessTaken; }
   bool isBJLikely() const   { return condLikely; }
   bool isBJCond() const     { return opcode == iBJ && subCode == BJCond; }
@@ -228,7 +260,13 @@ public:
     return calcNextInstID();
   }
 
-  InstID calcNextInstID() const { return currentID()+skipDelay;  }
+  InstID calcNextInstID() const { 
+#ifdef TRACE_DRIVEN
+    return currentID()+4; // ugly, just bootstrapping the trace driven code
+#else
+    return currentID()+skipDelay;  
+#endif
+  }
 
   RegType getSrc2() const { return src2;  }
   RegType getDest() const { return dest;  }
@@ -243,7 +281,8 @@ public:
     // Important: it is not possible to use (picode->opflags & E_MEM_REF)
     // because some memory instructions at the beginning of the libcall are
     // modeled as returns, not as memory
-    return (subCode == iMemory || opcode == iFence);
+    return (subCode == iMemory || opcode == iFence
+	    || subCode == iFetchOp || subCode == iAtomicMemory);
   }
 
   bool isFence() const { return opcode == iFence; }

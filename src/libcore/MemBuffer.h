@@ -33,6 +33,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 #include "HVersion.h"
 #include "ThreadContext.h"
+#include "AddressSet.h"
 
 class TaskContext;
 class MemBufferEntry;
@@ -162,8 +163,11 @@ private:
 
   const HVersion *memVer; // version
 
+
+
 protected:
 public:
+
   static MemBufferDomain* createMemBufferDomain();
 
   const HVersion *getVersionRef() const { return memVer; }
@@ -179,7 +183,11 @@ public:
   RAddr read(ulong iaddr, short iFlags, RAddr addr);
 
   void silentReadChunk(MemOpsType::iterator it, MemBufferEntry *e, RAddr addr);
-  const HVersion *postWrite(const unsigned long long *data, ulong iaddr, short iFlags, RAddr addr);
+
+  const HVersion *postWrite(const unsigned long long *data, ulong iaddr, 
+			    short iFlags, RAddr addr);
+
+
 };
 
 #endif // MEMBUFFER_H

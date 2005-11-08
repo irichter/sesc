@@ -449,7 +449,7 @@ template<class State, class Addr_t, bool Energy>
 typename CacheDM<State, Addr_t, Energy>::Line 
 *CacheDM<State, Addr_t, Energy>::findLine2Replace(Addr_t addr, bool ignoreLocked)
 { 
-  Addr_t tag    = calcTag(addr);
+  Addr_t tag = calcTag(addr);
   Line *line = content[calcIndex4Tag(tag)];
 
   if (ignoreLocked)

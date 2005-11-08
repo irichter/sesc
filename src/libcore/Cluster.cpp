@@ -120,6 +120,7 @@ void Cluster::buildUnit(const char *clusterName
   sprintf(name, "Cluster(%d)", (int)gproc->getId());
 
   switch(type) {
+  case iOpInvalid: 
   case iALU:
     strtmp = strdup("iALUEnergy");
   case iMult:
@@ -229,6 +230,7 @@ Cluster *Cluster::create(const char *clusterName, GMemorySystem *ms, GProcessor 
   sprintf(strtmp,"%s_energy",clusterName);
   GStatsEnergyCGBase *ecgbase = new GStatsEnergyCGBase(strtmp,gproc->getId());
 
+  cluster->buildUnit(clusterName,ms,cluster,iOpInvalid,ecgbase);
   cluster->buildUnit(clusterName,ms,cluster,iALU,ecgbase);
   cluster->buildUnit(clusterName,ms,cluster,iMult,ecgbase);  
   cluster->buildUnit(clusterName,ms,cluster,iDiv,ecgbase);
@@ -314,9 +316,9 @@ ClusterManager::ClusterManager(GMemorySystem *ms, GProcessor *gproc)
     
     Cluster *cluster = Cluster::create(clusterName, ms, gproc);
 
-    for(int t=0;t<MaxInstType;t++) {
+    for(int t = 0; t < MaxInstType; t++) {
       Resource *r = cluster->getResource(static_cast<InstType>(t));
-      
+
       if (r) {
 	if (res[t]) {
 	  MSG("Multiple cluster have same FUs. Implement replicated clustering");
@@ -329,7 +331,7 @@ ClusterManager::ClusterManager(GMemorySystem *ms, GProcessor *gproc)
   }
 
   ID(int i);
-  IN(forall((i=int(iALU);i<int(MaxInstType);i++),res[i]!=0));
+  IN(forall((i=0;i<int(MaxInstType);i++),res[i]!=0));
 }
 
 #ifdef SESC_MISPATH

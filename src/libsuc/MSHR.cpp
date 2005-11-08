@@ -135,8 +135,10 @@ MSHR<Addr_t, Cache_t>::MSHR(const char *name, int size, int lineSize, int aPolic
 {
   I(size>0 && size<1024*32);
 
+#ifdef MSHR_BASICOCCSTATS
   occStats = new MSHRStats<Addr_t,Cache_t>(name);
   occStats->attach(this);
+#endif
 
   nFreeEntries = size;
 }
@@ -144,6 +146,8 @@ MSHR<Addr_t, Cache_t>::MSHR(const char *name, int size, int lineSize, int aPolic
 template<class Addr_t, class Cache_t>
 void MSHR<Addr_t, Cache_t>::attach(MSHR<Addr_t, Cache_t> *mshr)
 {
+#ifdef MSHR_BASICOCCSTATS
+
   if(!occStatsAttached)
     delete occStats;
 
@@ -151,6 +155,7 @@ void MSHR<Addr_t, Cache_t>::attach(MSHR<Addr_t, Cache_t> *mshr)
 
   occStats = mshr->occStats;
   occStats->attach(this);
+#endif
 }
 
 template<class Addr_t, class Cache_t>
@@ -354,6 +359,7 @@ void FullMSHR<Addr_t, Cache_t>::addEntry(Addr_t paddr, CallbackBase *c, Callback
     f.paddr = paddr;
     f.cb    = c;
     f.ovflwcb = ovflwc;
+    f.mo    = mo;
     overflow.push_back(f);
 
     nOverflows.inc();
@@ -482,11 +488,17 @@ bool SingleMSHR<Addr_t, Cache_t>::issue(Addr_t paddr, MemOperation mo)
 					   nReads, nWrites, mo);
       bf.insert(calcLineAddr(paddr));
       nFreeEntries--;
+
+#ifdef MSHR_BASICOCCSTATS
       updateOccHistogram();
+#endif
+
       nOutsReqs++;
 
+#ifdef MSHR_BASICOCCSTATS
       if(mo == MemRead)
 	occStats->incRdReqs();
+#endif
 
       nIssuesNewEntry.inc();
       avgQueueSize.sample(0);
@@ -568,18 +580,23 @@ void SingleMSHR<Addr_t, Cache_t>::checkOverflow()
 #endif
         bf.insert(calcLineAddr(f.paddr));
         nFreeEntries--;
+
+#ifdef MSHR_BASICOCCSTATS
         updateOccHistogram();
+#endif
         nConsumed++;
         nOutsReqs++;
+
+#ifdef MSHR_BASICOCCSTATS
 	if(f.mo == MemRead)
 	  occStats->incRdReqs();
+#endif
 
         f.ovflwcb->call();
         f.cb->destroy();
         overflow.pop_front();
         nIssuesNewEntry.inc();
         avgQueueSize.sample(0);
-
       } else {
         break;
       }
@@ -591,9 +608,11 @@ void SingleMSHR<Addr_t, Cache_t>::checkOverflow()
         f.ovflwcb->destroy();
         overflow.pop_front();
         nOutsReqs++;
+
+#ifdef MSHR_BASICOCCSTATS
 	if(f.mo == MemRead)
 	  occStats->incRdReqs();
-
+#endif
 
 	checkSubEntries(f.paddr, f.mo);
         //MSG("[%llu] nFullRd=%d nFullWr=%d a:%lu",globalClock,
@@ -633,8 +652,11 @@ void SingleMSHR<Addr_t, Cache_t>::addEntry(Addr_t paddr, CallbackBase *c,
     // ok, the addrequest succeeded, the request was added
     avgQueueSize.sample((*it).second.getPendingReqs() - 1);
     nOutsReqs++;
+
+#ifdef MSHR_BASICOCCSTATS
     if(mo == MemRead)
       occStats->incRdReqs();
+#endif
 
     // there was no overflow, so the callback needs to be destroyed
     ovflwc->destroy();
@@ -674,8 +696,10 @@ bool SingleMSHR<Addr_t, Cache_t>::retire(Addr_t paddr)
     maxUsedEntries.sample(nEntries - nFreeEntries);
     avgWritesPerLine.sample((*it).second.getUsedWrites());
     avgWritesPerLineComb.sample((*it).second.getNWrittenWords());
-    
+
+#ifdef MSHR_BASICOCCSTATS    
     occStats->decRdReqs((*it).second.getUsedReads());
+#endif
 
     if((*it).second.getUsedWrites() > 0)
       nRetiredEntriesWritten.inc();
@@ -690,10 +714,12 @@ bool SingleMSHR<Addr_t, Cache_t>::retire(Addr_t paddr)
       I(nFullWriteEntries>=0);
     }
 
+#ifdef MSHR_BASICOCCSTATS
     if((*it).second.isL2Hit()) 
       occStats->avgReadSubentriesL2Hit.sample((*it).second.getUsedReads());
     else
       occStats->avgReadSubentriesL2Miss.sample((*it).second.getUsedReads());
+#endif
 
 #ifdef MSHR_EXTRAOCCSTATS
     // extra MSHR occ stats
@@ -724,7 +750,11 @@ bool SingleMSHR<Addr_t, Cache_t>::retire(Addr_t paddr)
 #endif
     
     nFreeEntries++;
+
+#ifdef MSHR_BASICOCCSTATS
     updateOccHistogram();
+#endif
+
     bf.remove((*it).second.getLineAddr());
     ms.erase(it);
   }
@@ -839,8 +869,11 @@ void SingleMSHR<Addr_t, Cache_t>::dropEntry(Addr_t lineAddr)
   nOutsReqs -= ( (*it).second.getPendingReqs() );
 
   nFreeEntries++;
+
+#ifdef MSHR_BASICOCCSTATS
   updateOccHistogram();
   occStats->decRdReqs((*it).second.getUsedReads());
+#endif
 #ifdef MSHR_EXTRAOCCSTATS
   if((*it).second.getUsedReads() == 0 &&
      (*it).second.getUsedWrites() > 0) {
@@ -889,8 +922,11 @@ void SingleMSHR<Addr_t, Cache_t>::putEntry(MSHRentry<Addr_t> &me)
   nOutsReqs += pme.getPendingReqs();
 
   nFreeEntries--;
+
+#ifdef MSHR_BASICOCCSTATS
   updateOccHistogram();
   occStats->incRdReqs(me.getUsedReads());
+#endif
 #ifdef MSHR_EXTRAOCCSTATS
   occStats->sampleEntry(me.getLineAddr());
 #endif
@@ -1149,6 +1185,7 @@ void BankedMSHR<Addr_t, Cache_t>::attach( MSHR<Addr_t,Cache_t> *mshr )
     mshrBank[i]->attach(mshr);
   }
 }
+
 
 
 //

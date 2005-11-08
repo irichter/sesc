@@ -47,10 +47,10 @@ class GFlow {
 
   GMemorySystem *gms;
   GMemoryOS *gmos;
-  //GProcessor *gproc;
   
  public:
   GFlow(int i, int cId, GMemorySystem *gmem);
+
   virtual ~GFlow() {
     // Nothing
   }
@@ -73,22 +73,12 @@ class GFlow {
   virtual void switchOut(int i) = 0;
 
   virtual int currentPid(void) = 0;
-  virtual void exeInstFast() = 0;
-
-  // Executes a single instruction. Return value:
-  //   If no instruction could be executed, returns 0 (zero)
-  //   If an instruction was executed, returns non-zero
-  //   For executed load/store instructions, the returned (non-zero)
-  //   value is the virtual address of the data accessed. Note that
-  //   load/store accesses to a virtual address of zero are not allowed.
-  virtual long exeInst() = 0;
-
-  // Returns the next dynamic instruction, 0 if none can be executed
-  // Executes instruction(s) as needed to generate the return value
-  virtual DInst *executePC() = 0;
 
   virtual void goRabbitMode(long long n2skip=0) = 0;
   virtual void dump(const char *str) const = 0;
+
+  // needed by TraceFlow
+  virtual bool hasWork() const { return true; }
 
   static bool isGoingRabbit() { return goingRabbit; }
   static long long getnExecRabbit() { return nExec; }

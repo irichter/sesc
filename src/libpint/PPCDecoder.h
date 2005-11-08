@@ -44,8 +44,11 @@ class PPCDecoder {
     
     I(decodeTable[decodeEntry]);
 
-    if(decodeTable[decodeEntry]->majorOpcode == 0) // found a dummy instruction
-      MSG("Warning: found a dummy instruction. Assuming a nop.");
+    if(decodeTable[decodeEntry]->majorOpcode == 0) {// found a dummy instruction
+      MSG("PPC: found a dummy instruction. Assuming a nop.");
+      MSG("PPC: rawinst %08x opc_main %d  ext_opc %d", 
+	  rawInst, PPC_OPC_MAIN(rawInst), PPC_OPC_EXT(rawInst));
+    }
     
     return decodeTable[decodeEntry];
   }

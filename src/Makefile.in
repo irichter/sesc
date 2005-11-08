@@ -7,6 +7,10 @@ export BUILD_DIR
 DEFEXEC=@DEFEXEC@
 DEFCONF=@DEFCONF@
 
+ifdef CONDOR_LINK
+DEFEXEC=@DEFEXEC@.condor
+endif
+
 SUBDIRS:=libmint libpint libll libsuc libcore
 
 SUBDIRS+=libnet
@@ -82,19 +86,41 @@ MEMLIBS =$(OBJ)/libmem.a
 TLSLIBS =$(OBJ)/libvmem.a
 
 sesc.tst : $(OBJ)/main.o $(TSTLIBS)
-	$(CXX) $(CFLAGS) $(LDFLAGS) -o $@  $^  $(LIBS) $(STDLIBS)
+	$(CXX) $(LDFLAGS) -o $@  $^  $(LIBS) -lm -lz  
+
+sesc.tst.condor: $(OBJ)/main.o $(TSTLIBS)
+	$(CONDORLD) $(LDFLAGS) -o $@  $^  $(LIBS) -lm -lz  
 
 sesc.mem : $(OBJ)/mtst1.o $(MEMLIBS) $(TSTLIBS)
-	$(CXX) $(CFLAGS) $(LDFLAGS) -o $@ $^  $(LIBS) $(STDLIBS)
+	$(CXX) $(LDFLAGS) -o $@ $^  $(LIBS) -lm -lz 
+
+sesc.mem.condor : $(OBJ)/mtst1.o $(MEMLIBS) $(TSTLIBS)
+	$(CONDORLD) $(LDFLAGS) -o $@ $^  $(LIBS) -lm -lz 
 
 sesc.tls: $(OBJ)/tls.o $(TLSLIBS) $(MEMLIBS) $(TSTLIBS) 
-	$(CXX) $(CFLAGS) $(LDFLAGS) -o $@ $^  $(LIBS) $(STDLIBS)
+	$(CXX) $(LDFLAGS) -o $@ $^  $(LIBS) -lm -lz 
 
-sesc.smp: $(OBJ)/smp.o $(SMPLIBS) $(MEMLIBS) $(TSTLIBS)
-	$(CXX) $(CFLAGS) $(LDFLAGS) -o $@ $^ $(LIBS) $(STDLIBS)
+sesc.tls.condor: $(OBJ)/tls.o $(TLSLIBS) $(MEMLIBS) $(TSTLIBS) 
+	$(CONDORLD) $(LDFLAGS) -o $@ $^  $(LIBS) -lm -lz 
 
 sesc.dsm: $(OBJ)/dsm.o $(DSMLIBS) $(SMPLIBS) $(MEMLIBS) $(TSTLIBS)
-	$(CXX) $(LDFLAGS) -o $@ $^ $(LIBS) -lm
+	$(CXX) $(LDFLAGS) -o $@ $^ $(LIBS) -lm -lz
+
+sesc.smp.condor: $(OBJ)/smp.o $(SMPLIBS) $(MEMLIBS) $(TSTLIBS)
+	$(CONDORLD) $(LDFLAGS) -o $@ $^ $(LIBS) -lm -lz 
+
+sesc.ta: $(OBJ)/ta.o $(TSTLIBS)
+	$(CXX) $(LDFLAGS) -o $@ $^ $(LIBS) -lm -lz 
+
+sesc.ta.condor: $(OBJ)/ta.o $(TSTLIBS)
+	$(CONDORLD) $(LDFLAGS) -o $@ $^ $(LIBS) -lm -lz 
+
+
+sesc.sta: $(OBJ)/sta.o $(TSTLIBS)
+	$(CXX) $(LDFLAGS) -o $@ $^ $(LIBS) -lm -lz 
+
+sesc.sta.condor: $(OBJ)/sta.o $(TSTLIBS)
+	$(CONDORLD) $(LDFLAGS) -o $@ $^ $(LIBS) -lm -lz 
 
 ############ Simulator Benchmarking (bench the simulator, not the architecture)
 

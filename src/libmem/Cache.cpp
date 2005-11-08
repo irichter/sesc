@@ -327,7 +327,6 @@ void Cache::activateOverflow(MemRequest *mreq)
       return;
     }
 
-
     readHit.inc();
     PAddr paddr = mreq->getPAddr();
     mreq->goUp(hitDelay);

@@ -23,20 +23,36 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #ifndef TRACEFLOW_H
 #define TRACEFLOW_H
 
+#include "GFlow.h"
+#include "TraceReader.h"
+
 class GMemoryOS;
 class GMemorySystem;
 class MemObj;
 
 
+enum TraceMode {
+  PPCTT6 = 0,
+  Simics
+};
+
 class TraceFlow : public GFlow {
  private:
   bool hasTrace;
   InstID nextPC;
+
+  static TraceReader *trace;
+  static char *traceFile;
+
+  TraceMode mode;
   
  protected:
  public:
   TraceFlow(int cId, int i, GMemorySystem *gms);
 
+  static void setTraceFile(char* tf) { traceFile = strdup(tf); }
+  static const char* getTraceFile() { return traceFile; }
+  
   InstID getNextID() const {
     return nextPC;
   }
@@ -44,41 +60,35 @@ class TraceFlow : public GFlow {
   void addEvent(EventType e, CallbackBase *cb, long addr) {
     I(0);
   }
+	
+  // context-switch not supported in TraceFlow
+  ThreadContext *getThreadContext(void) { I(0); return 0; }
+  void saveThreadContext(int pid) { I(0); }
+  void loadThreadContext(int pid) { I(0); }
+  icode_ptr getInstructionPointer(void) { I(0); return 0; }
+  void setInstructionPointer(icode_ptr picode) { I(0); }
+  void switchIn(int i)  { I(0); }
+  void switchOut(int i) { I(0); }
 
-  ThreadContext *getThreadContext(void);
+  // lets make the pid the same as the processor id
+  // ideally we shold decouple Pid from the flow and sesc from ossim... but fine.
+  int currentPid(void) { return cpuId; }
 
-  void saveThreadContext(int pid);
-
-  void loadThreadContext(int pid);
-
-  icode_ptr getInstructionPointer(void);
-
-  void setInstructionPointer(icode_ptr picode);
-
-  void switchIn(int i);
-  void switchOut(int i);
-
-  int currentPid(void);
-  void exeInstFast();
-
-  // Executes a single instruction. Return value:
-  //   If no instruction could be executed, returns 0 (zero)
-  //   If an instruction was executed, returns non-zero
-  //   For executed load/store instructions, the returned (non-zero)
-  //   value is the virtual address of the data accessed. Note that
-  //   load/store accesses to a virtual address of zero are not allowed.
-  long exeInst();
-
-  // Returns the next dynamic instruction, 0 if none can be executed
-  // Executes instruction(s) as needed to generate the return value
   DInst *executePC();
 
-  void goRabbitMode(long long n2skip=0);
-  void dump(const char *str) const;
+  void goRabbitMode(long long n2skip=0) {
+    GMSG(!n2skip, "TraceFlow::indefinite rabbit mode not supported yet. ;-P");
+    while(n2skip > 0) 
+      executePC();
+  }
 
-  static bool isGoingRabbit();
-  static long long getnExecRabbit();
-  static void dump();
+  bool hasWork() const { 
+    return (hasTrace || 
+	    (trace->hasBufferedEntries() &&  // this is weird, but it saves one  
+	     trace->hasBufferedEntries(cpuId))); // call to an STL method and makes it faster ;-)
+  }
+
+  void dump(const char *str) const;
 };
 
 #endif

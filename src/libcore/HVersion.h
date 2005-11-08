@@ -186,7 +186,7 @@ class HVersion {
 
   int nOutsReqs;  // both outs instructions and mem requests
 
-    
+
   void shiftAllVersions();
   void claim();
   void release();
@@ -204,6 +204,7 @@ class HVersion {
 
  protected:
  public:
+  
   static HVersion *boot(TaskContext *t);
   static HVersion *newFirstVersion(TaskContext *t);
 
@@ -343,6 +344,7 @@ class HVersion {
 
 
   static void report();
+  
 };
 
 class HVersionLessThan {

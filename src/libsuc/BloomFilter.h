@@ -24,6 +24,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define BLOOMFILTER_H
 
 #include "nanassert.h"
+#include "GStats.h"
 
 class BloomFilter {
  private:
@@ -33,19 +34,117 @@ class BloomFilter {
   int *rShift;
   int **countVec;
   int nVectors;
+  int *nonZeroCount;
+  char *desc;
+  int nElements;
+
+  bool BFBuild;
+
+  GStatsTimingHist **timingHistVec;
+  void updateHistogram(int vec);
 
   void initMasks();
   int getIndex(unsigned val, int chunkPos);
   
-  BloomFilter() {
-  };
  public:
-  ~BloomFilter() { }
+  ~BloomFilter();
+
+  //the chunk parameters are from the least significant to 
+  //the most significant portion of the address
   BloomFilter(int nv, ...);
+  BloomFilter(): BFBuild(false) {}
+
+  BloomFilter(const BloomFilter& bf);
+
+  BloomFilter& operator=(const BloomFilter &bf);
+
+  void init(bool build, int nv, ...);
 
   void insert(unsigned e);
   void remove(unsigned e);
+
+  void clear();
+
   bool mayExist(unsigned e);
+  bool mayIntersect(BloomFilter &otherbf);
+
+  void intersectionWith(BloomFilter &otherbf, BloomFilter &inter);
+
+  void mergeWith(BloomFilter &otherbf);
+  void subtract(BloomFilter &otherbf);
+
+  bool isSubsetOf(BloomFilter &otherbf);
+
+  int countAlias(unsigned e);
+
+  void initHistogram(char *name);
+
+  void dump(const char *msg);
+  const char *getDesc() { return desc; }
+
+  int size() {  //# of elements encoded
+    return nElements;
+  }
+
+  int getSize(); // size of the vectors in bits
+  int getSizeRLE(int base = 0, int runBits = 7);
+
+
+  FILE *dumpPtr;
+  static int  numDumps;
+  void begin_dump_pychart(const char *bname = "bf");
+  void end_dump_pychart();
+  void add_dump_line(unsigned e);
 };
+
+class BitSelection {
+ private:
+  int nBits;
+  int bits[32];
+  unsigned mask[32];
+
+ public:
+
+  BitSelection() {
+    nBits = 0;
+    for(int i = 0; i < 32; i++) {
+      bits[i] = 0;
+    }
+  }
+
+  BitSelection(int *bitPos, int n) {
+    nBits = 0;
+    for(int i = 0; i < n; i++) 
+      addBit(bitPos[i]);
+  }
+
+  ~BitSelection() {}
+
+  int getNBits() { return nBits; }
+
+  void addBit(int b) {
+    bits[nBits] = b;
+    mask[nBits] = 1 << b;
+    nBits++;
+  }
+
+  unsigned permute(unsigned val) {
+    unsigned res = 0;
+    for(int i = 0; i < nBits; i++) {
+      unsigned bit = (val & mask[i]) ? 1 : 0;
+      res = res | (bit << i);
+    }
+    return res;
+  }
+  
+  void dump(const char *msg) {
+    printf("%s:", msg);
+    for(int i = 0; i < nBits; i++) {
+      printf(" %d", bits[i]);
+    }
+    printf("\n");
+  }
+};
+
 
 #endif //BLOOMFILTER_H

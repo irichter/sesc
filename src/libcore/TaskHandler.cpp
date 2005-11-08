@@ -3,6 +3,7 @@
    Copyright (C) 2003 University of Illinois.
 
    Contributed by Jose Renau
+                  Luis Ceze
 
 This file is part of SESC.
 
@@ -44,18 +45,6 @@ bool TaskHandler::restart(const HVersion *ver)
   if (ver->getTaskContext() == 0)
     return true;
 
-#ifdef TS_GOAHEAD
-  TaskContext *tc = ver->getTaskContext();
-  if(tc->isNeedRestart()) {
-    // not going ahead, restart really needed
-    tc->setGoingAhead(false);
-    tc->setNeedRestart(false);
-  } else { 
-    ver->getTaskContext()->setGoingAhead(true);
-    return false;
-  }
-#endif
-
   ver->getTaskContext()->localRestart();
 
   TaskContext::tryPropagateSafeToken(ver->getVersionDomain());
@@ -70,6 +59,8 @@ void TaskHandler::setSafe(const HVersion *ver)
   I(tc);
 
   tc->getVersion()->setSafe();
+
+
   // If there was any task waiting to become safe, this is the time to
   // awake it (it is SAFE!!)
   tc->awakeIfWaiting();  
@@ -80,6 +71,8 @@ void TaskHandler::setFinished(const HVersion *ver)
   I(ver->getTaskContext());
   TaskContext *tc=ver->getTaskContext();
   I(tc);
+
+
   tc->getVersion()->setFinished();
 }
 

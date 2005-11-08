@@ -77,6 +77,6 @@ public:
 				      long vectorPos=0);
 };
 
-extern SConfig *SescConf;       // declared in OSSim.cpp
+extern SConfig *SescConf;       // declared in SescConf.cpp
 
 #endif   // SESCCONF_H

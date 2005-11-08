@@ -28,6 +28,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "nanassert.h"
 
 #include "ExecutionFlow.h"
+#include "TraceFlow.h"
 #include "BPred.h"
 #include "GStats.h"
 #include "Events.h"
@@ -202,9 +203,14 @@ public:
   GProcessor* getGProcessor() { return gproc; }
 
   BPredictor *getBPred() const { return bpred; }
-  ExecutionFlow *getExecFlow(){ return &flow ; }
+  GFlow *getFlow(){ return &flow ; }
 
-  bool hasWork() const { return pid >= 0; }
+  bool hasWork() const { 
+#ifdef TRACE_DRIVEN
+    return flow.hasWork();
+#endif
+    return pid >= 0; 
+  }
 
   static void setnInst2Sim(long long a) {
     nInst2Sim = a;

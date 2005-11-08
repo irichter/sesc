@@ -1,4 +1,4 @@
-/* 
+/*
    SESC: Super ESCalar simulator
    Copyright (C) 2003 University of Illinois.
 
@@ -75,6 +75,7 @@ private:
   double  frequency;
 
   char *benchRunning;
+  char *benchSection;
   bool justTest;
 
   bool NoMigration; // Configuration option that dissables migration (optional)
@@ -92,7 +93,7 @@ private:
   ulong simulationMark1;
   ulong simulationMark2;
 #else
-  typedef struct { 
+  typedef struct {
     Pid_t pid;
     ulong total;
     ulong begin;
@@ -106,13 +107,13 @@ private:
   long numIdSimMarks;
   long waitBeginIdSimMarks;
   long waitEndIdSimMarks;
-#endif  
+#endif
 
-#ifdef TS_PROFILING  
+#ifdef TS_PROFILING
   Profile *profiler;
   int profPhase;
   const char *profSectionName;
-#endif  
+#endif
 
 
 #ifdef TS_RISKLOADPROF
@@ -138,7 +139,7 @@ public:
 
   bool trace() const { return (traceFile != 0); }
 
-  
+
 
 
   virtual void preEvent(Pid_t pid, long vaddr, long type, void *sptr) {
@@ -215,25 +216,25 @@ public:
 #endif
 
 #ifndef OLDMARKS
-  ulong getSimulationMark(int id) const { 
+  ulong getSimulationMark(int id) const {
     std::map<int,SimulationMark_t>::const_iterator it = idSimMarks.find(id);
-    return (*it).second.total; 
+    return (*it).second.total;
   }
-  ulong getSimulationMark1(int id) const { 
+  ulong getSimulationMark1(int id) const {
     std::map<int,SimulationMark_t>::const_iterator it = idSimMarks.find(id);
-    return (*it).second.begin; 
+    return (*it).second.begin;
   }
-  ulong getSimulationMark2(int id) const { 
+  ulong getSimulationMark2(int id) const {
     std::map<int,SimulationMark_t>::const_iterator it = idSimMarks.find(id);
     return (*it).second.end;
   }
   bool enoughMarks1(int id) const {
     std::map<int,SimulationMark_t>::const_iterator it = idSimMarks.find(id);
-    return (*it).second.total > (*it).second.begin; 
+    return (*it).second.total > (*it).second.begin;
   }
   bool enoughMarks2(int id) const {
-    std::map<int,SimulationMark_t>::const_iterator it = idSimMarks.find(id); 
-    return (*it).second.total > (*it).second.end; 
+    std::map<int,SimulationMark_t>::const_iterator it = idSimMarks.find(id);
+    return (*it).second.total > (*it).second.end;
   }
   bool enoughMTMarks1() const {
     std::map<int,SimulationMark_t>::const_iterator it = idSimMarks.begin();
@@ -251,9 +252,9 @@ public:
     bool ret=true;
     for(it=idSimMarks.begin(); it!=idSimMarks.end(); it++) {
       if( (*it).second.pid != pid )
-	ret = (ret && enoughMarks1( (*it).first ));
+        ret = (ret && enoughMarks1( (*it).first ));
       else if( (*it).second.mtMarks )
-	me = enoughMarks1( (*it).first );
+        me = enoughMarks1( (*it).first );
     }
     if(justMe)
       ret=me;
@@ -278,7 +279,7 @@ public:
 #ifdef TS_RISKLOADPROF
   RiskLoadProf *getRiskLoadProf() const {
     return riskLoadProf;
-  }  
+  }
 #endif
 
   ThreadContext *getContext(Pid_t pid);
@@ -298,12 +299,12 @@ public:
   // Makes a stopped process runnable
   void unstop(Pid_t pid);
 
-  // Sets the priority of a process 
+  // Sets the priority of a process
   void setPriority(Pid_t pid, int newPrio);
 
-  // Returns the current priority of a process 
+  // Returns the current priority of a process
   int getPriority(Pid_t pid);
-    
+
   // Removes from cpu a running thread (only if necessary), and
   // activates the pid thread.
   Pid_t contextSwitch(CPU_t cpu, Pid_t nPid);
@@ -317,8 +318,13 @@ public:
   static const char *getBenchName(){
     return benchName;
   }
+
   const char *getReportFileName(){
     return reportFile;
+  }
+
+  const char *getBenchSectionName() const {
+    return benchSection;
   }
 
   void initBoot();
@@ -326,7 +332,7 @@ public:
   void postBoot();
 
   void simFinish();
-  
+
   // Boot the whole simulator. Restart is set to true by the exception
   // handler. This may happen in a misspeculation, the simulator would be
   // restarted.
@@ -347,11 +353,17 @@ public:
   void switchOut(CPU_t id, ProcessId *procId) { cpus.switchOut(id, procId); }
 
   long long getnInst2Sim() const { return nInst2Sim;  }
+  long long getnInst2Skip() const { return nInst2Skip;  }
   long long getnInstCommited2Sim() const { return nInstCommited2Sim; }
 
   bool hasWork() const { return cpus.hasWork(); }
 
-  void pseudoReset() {snapshotGlobalClock = globalClock;} 
+  void pseudoReset() {snapshotGlobalClock = globalClock;}
+
+  // ugly, but need for TRACE_DRIVEN for now.
+  void stopProcessor(CPU_t id) {
+    cpus.stopProcessor(id);
+  }
 };
 
 typedef CallbackMember4<OSSim, Pid_t, long, long, const void *, &OSSim::postEvent> postEventCB;

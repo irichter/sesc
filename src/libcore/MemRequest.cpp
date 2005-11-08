@@ -119,10 +119,13 @@ void DMemRequest::create(DInst *dinst, GMemorySystem *gmem, MemOperation mop)
 {
   // turn off address translation
   long old_addr = dinst->getVaddr();
+
+#ifndef TRACE_DRIVEN
   if (!ThreadContext::isValidVAddr(old_addr)) {
     dinstAck(dinst, mop, 0);
     return;
   }
+#endif
 
   DMemRequest *r = actPool.out();
 

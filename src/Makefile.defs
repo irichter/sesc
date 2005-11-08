@@ -71,6 +71,10 @@ ifdef SESC_CRIT
 DEFS += -DSESC_CRIT
 endif
 
+ifdef SESC_CRIT
+DEFS += -DSESC_CRIT
+endif
+
 ifdef TS_SPAWN
 DEFS += -DTS_SPAWN
 endif

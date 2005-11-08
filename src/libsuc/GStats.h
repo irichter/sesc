@@ -5,8 +5,8 @@
    Contributed by Jose Renau
                   Basilio Fraguela
                   Smruti Sarangi
-		              Luis Ceze
-		              James Tuck
+		  Luis Ceze
+		  James Tuck
 
 This file is part of SESC.
 
@@ -52,8 +52,6 @@ private:
   typedef std::list < GStats * >Container;
   typedef std::list < GStats * >::iterator ContainerIter;
   static Container *store;
-  //added 11/19/04 DVDB
-  FILE *traceFile;
 
 protected:
   char *name;
@@ -148,7 +146,10 @@ public:
   }
 
   double getDouble() const;
-  long long getSamples() const { return nData; }
+
+  long long getSamples() const {
+    return nData;
+  }
 
   virtual void reportValue() const;
 };
@@ -177,6 +178,7 @@ public:
 class GStatsProfiler : public GStats {
 private:
 protected:
+
   typedef HASH_MAP<ulong, int> ProfHash;
 
   ProfHash p;
@@ -185,6 +187,7 @@ public:
   GStatsProfiler(const char *format,...);
 
   void reportValue() const;
+
 
   void sample(ulong key);  
 };
@@ -203,6 +206,7 @@ class GStatsMax : public GStats {
   }
 
   void reportValue() const;
+
 };
 
 
@@ -220,33 +224,41 @@ public:
 class GStatsHist : public GStats {
 private:
 protected:
-  long long data;
-  long long nData;
   
   typedef HASH_MAP<unsigned long, unsigned long long> Histogram;
 
+  ulong numSample;
+  unsigned long long cumulative;
+
   Histogram H;
+
 public:
   GStatsHist(const char *format,...);
   GStatsHist() { }
 
   void reportValue() const;
 
-  void sample(unsigned long key, unsigned long long weight=1);
+
+  void sample(unsigned long key, unsigned long long weight);
 };
 
 class GStatsTimingHist : public GStatsHist {
 private:
   Time_t lastUpdate;
   unsigned long lastKey;
+  bool reportWholeHist;
 public:
   GStatsTimingHist(const char *format,...);
 
   void reportValue() const;
 
+
   //Call on each update, it remembes what the last (key,time) pair was
   //and uses that to update the histogram.
-  void sample(unsigned long key=1);
+  void sample(unsigned long key);
+
+  // Call if you want only the timing average to be reported
+  void disableLongOutput() { reportWholeHist = false; }
 };
 
 class GStatsChangeHist : public GStatsHist {
@@ -254,7 +266,6 @@ private:
   Time_t lastUpdate;
 public:
   GStatsChangeHist(const char *format,...);
-
   void reportValue() const;
 
   //Call on each update, it remembes what the last (key,time) pair was
@@ -311,6 +322,7 @@ private:
   long long data;
  public:
   GStatsPeriodicHist(int p, const char* format, ...);
+
 
   void reportValue() const;
   void inc();

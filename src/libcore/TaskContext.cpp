@@ -57,6 +57,7 @@ GStatsCntr *TaskContext::nRestartInvMem=0;
 GStatsCntr *TaskContext::nRestartException=0;
 GStatsCntr *TaskContext::nRestartBubble=0;
 
+
 GStatsCntr *TaskContext::nMergeNext=0;
 GStatsCntr *TaskContext::nMergeLast=0;
 GStatsCntr *TaskContext::nMergeSuccessors=0;
@@ -540,7 +541,7 @@ void TaskContext::tryPropagateSafeToken(const HVersionDomain *vd)
     I(tc);
     I(tc->memVer == v);
 
-    I(!tc->hasDataDepViolation());
+    //I(!tc->hasDataDepViolation());
     if (tc->hasDataDepViolation()) 
       break;
 
@@ -644,6 +645,7 @@ void TaskContext::preBoot()
   nRestartException      = new GStatsCntr("TC:nRestartException");
   nRestartBubble         = new GStatsCntr("TC:nRestartBubble");
 
+
   nMergeNext             = new GStatsCntr("TC:nMergeNext");
   nMergeLast             = new GStatsCntr("TC:nMergeLast");
   nMergeSuccessors       = new GStatsCntr("TC:nMergeSuccessors");
@@ -718,6 +720,7 @@ void TaskContext::preBoot()
   for(int i=0; i<68; i++)
     tc->bad_reg[i] = false;
 #endif
+
 
 
 }
@@ -799,6 +802,8 @@ void TaskContext::spawnSuccessor(Pid_t childPid, PAddr childAddr, int sid)
 #endif
 
   HVersion *childVer = memVer->createSuccessor(tc);
+
+
 #ifdef TS_TIMELINE
   TraceGen::add(childVer->getId(),"base=%lld:spawn=%lld:addr=0x%x",memVer->getBase(), globalClock, spawnAddr);
   TraceGen::add(memVer->getId()  ,"childId=%ld:childT=%lld",childVer->getId(),globalClock);
@@ -877,6 +882,8 @@ void TaskContext::endTaskExecuted(Pid_t fpid)
 
   taskHandler->setFinished(memVer);
 
+  
+
   if (memVer->isOldestTaskContext()) {
     tryPropagateSafeToken(memVer->getVersionDomain());
   }else{
@@ -901,6 +908,7 @@ void TaskContext::invalidMemAccess(int rID, DataDepViolationAt rAt)
 {
   if (rID != dataDepViolationID || !dataDepViolation)
     return;
+
   
   nDataDepViolation[rAt]->inc();
 
@@ -921,6 +929,7 @@ void TaskContext::exception()
   TraceGen::add(memVer->getId(),"Exception=%lld",globalClock);
 #endif
 }
+
 
 bool TaskContext::canMergeNext()
 {
@@ -1138,5 +1147,6 @@ int TaskContext::getCompressedStaticId(int staticId)
 
   return compressedStaticId[staticId];
 }
+
 
 

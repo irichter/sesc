@@ -1,4 +1,4 @@
-/* 
+/*
    SESC: Super ESCalar simulator
    Copyright (C) 2003 University of Illinois.
 
@@ -35,7 +35,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 #ifdef DEBUG
 //#define POOL_TIMEOUT 1
-//#define POOL_SIZE_CHECK
+#define POOL_SIZE_CHECK
 #endif
 
 #ifdef POOL_TIMEOUT
@@ -43,7 +43,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #endif
 
 
-template<class Ttype, class Parameter1, bool noTimeCheck=false> 
+template<class Ttype, class Parameter1, bool noTimeCheck=false>
 class pool1 {
 protected:
   class Holder : public Ttype {
@@ -77,7 +77,7 @@ protected:
 
   void reproduce() {
     I(first==0);
-    
+
     for(int i = 0; i < Size; i++) {
       Holder *h = ::new Holder(p1);
       h->holderNext = first;
@@ -109,7 +109,7 @@ public:
     need2cycle = globalClock + POOL_CHECK_CYCLE;
 #endif
 
-    if( first == 0 ) 
+    if( first == 0 )
       reproduce();
   }
 
@@ -131,8 +131,8 @@ public:
     if( need2cycle < globalClock ) {
       Holder *tmp = allFirst;
       while( tmp ) {
-	GI(!tmp->inPool, (tmp->outCycle+POOL_CHECK_CYCLE)>need2cycle);
-	tmp = tmp->allNext;
+        GI(!tmp->inPool, (tmp->outCycle+POOL_CHECK_CYCLE)>need2cycle);
+        tmp = tmp->allNext;
       }
       need2cycle = globalClock + POOL_CHECK_CYCLE;
     }
@@ -145,7 +145,7 @@ public:
 
     I(!h->inPool);
     IS(h->inPool=true);
-    
+
     h->holderNext = first;
     first = h;
 
@@ -155,7 +155,7 @@ public:
 
     doChecks();
   }
-  
+
   Ttype *out() {
     I(!deleted);
     I(first);
@@ -171,11 +171,11 @@ public:
     psize++;
     if (psize>=warn_psize) {
       I(0);
-      MSG("%s:pool class size grew to %lu", Name, psize);
+      MSG("Pool1 class size grew to %lu", psize);
       warn_psize=4*psize;
     }
 #endif
-    
+
     Ttype *h = static_cast<Ttype *>(first);
     first = first->holderNext;
     if( first == 0 )
@@ -187,7 +187,7 @@ public:
 
 //*********************************************
 
-template<class Ttype, bool noTimeCheck=false> 
+template<class Ttype, bool noTimeCheck=false>
 class pool {
 protected:
   class Holder : public Ttype {
@@ -216,10 +216,10 @@ protected:
   const char *Name;
 
   Holder *first;  // List of free nodes
-  
+
   void reproduce() {
     I(first==0);
-    
+
     for(int i = 0; i < Size; i++) {
       Holder *h = ::new Holder;
       h->holderNext = first;
@@ -246,13 +246,13 @@ public:
 #endif
 
     first  = 0;
-    
+
 #ifdef POOL_TIMEOUT
     allFirst = 0;
     need2cycle = globalClock + POOL_CHECK_CYCLE;
 #endif
 
-    if( first == 0 ) 
+    if( first == 0 )
       reproduce();
   }
 
@@ -274,8 +274,8 @@ public:
     if( need2cycle < globalClock ) {
       Holder *tmp = allFirst;
       while( tmp ) {
-	GI(!tmp->inPool, (tmp->outCycle+POOL_CHECK_CYCLE)>need2cycle);
-	tmp = tmp->allNext;
+        GI(!tmp->inPool, (tmp->outCycle+POOL_CHECK_CYCLE)>need2cycle);
+        tmp = tmp->allNext;
       }
       need2cycle = globalClock + POOL_CHECK_CYCLE;
     }
@@ -298,7 +298,7 @@ public:
 
     doChecks();
   }
-  
+
   Ttype *out() {
     I(!deleted);
     I(first);
@@ -323,6 +323,152 @@ public:
     first = first->holderNext;
     if( first == 0 )
       reproduce();
+
+    return h;
+  }
+};
+
+
+//*********************************************
+
+template<class Ttype, bool noTimeCheck=false>
+class poolplus {
+protected:
+  class Holder : public Ttype {
+  public:
+    Holder *holderNext;
+#ifdef POOL_TIMEOUT
+    Holder *allNext; // List of Holders when active
+    Time_t outCycle; // Only valid if inPool is false
+#endif
+    ID(bool inPool;)
+  };
+
+#ifdef POOL_SIZE_CHECK
+  unsigned long psize;
+  unsigned long warn_psize;
+#endif
+
+  ID(bool deleted;)
+
+#ifdef POOL_TIMEOUT
+  Time_t need2cycle;
+  Holder *allFirst; // List of Holders when active
+#endif
+
+  const int Size; // Reproduction size
+  const char *Name;
+
+  Holder *first;  // List of free nodes
+
+  void reproduce() {
+    I(first==0);
+
+    for(int i = 0; i < Size; i++) {
+      Holder *h = ::new Holder;
+      h->holderNext = first;
+      IS(h->inPool = true);
+#ifdef POOL_TIMEOUT
+      h->allNext = allFirst;
+      allFirst = h;
+#endif
+      first   = h;
+    }
+  }
+
+public:
+    poolplus(int s = 32, const char *n = "poolplus name not declared")
+    : Size(s)
+    , Name(n)
+    {
+    I(Size > 0);
+    IS(deleted=false);
+
+#ifdef POOL_SIZE_CHECK
+    psize=0;
+    warn_psize=s*8;
+#endif
+
+    first  = 0;
+
+#ifdef POOL_TIMEOUT
+    allFirst = 0;
+    need2cycle = globalClock + POOL_CHECK_CYCLE;
+#endif
+
+    if( first == 0 )
+      reproduce();
+  }
+
+  ~poolplus() {
+    // The last pool whould delete all the crap
+    while(first) {
+      Holder *h = first;
+      first = first->holderNext;
+      ::delete h;
+    }
+    first = 0;
+    IS(deleted=true);
+  }
+
+  void doChecks() {
+#ifdef POOL_TIMEOUT
+    if (noTimeCheck)
+      return;
+    if( need2cycle < globalClock ) {
+      Holder *tmp = allFirst;
+      while( tmp ) {
+        GI(!tmp->inPool, (tmp->outCycle+POOL_CHECK_CYCLE)>need2cycle);
+        tmp = tmp->allNext;
+      }
+      need2cycle = globalClock + POOL_CHECK_CYCLE;
+    }
+#endif // POOL_TIMEOUT
+  }
+
+  void in(Ttype *data) {
+    I(!deleted);
+    Holder *h = static_cast<Holder *>(data);
+
+    I(!h->inPool);
+    IS(h->inPool=true);
+
+    h->holderNext = first;
+    first = h;
+
+#ifdef POOL_SIZE_CHECK
+    psize--;
+#endif
+
+    doChecks();
+  }
+
+  Ttype *out() {
+    I(!deleted);
+    I(first);
+
+    I(first->inPool);
+    IS(first->inPool=false);
+#ifdef POOL_TIMEOUT
+    first->outCycle = globalClock;
+    doChecks();
+#endif
+
+#ifdef POOL_SIZE_CHECK
+    psize++;
+    if (psize>=warn_psize) {
+      I(0);
+      MSG("%s:pool class size grew to %lu", Name, psize);
+      warn_psize=4*psize;
+    }
+#endif
+
+    Ttype *h = static_cast<Ttype *>(first);
+    first = first->holderNext;
+    if( first == 0 )
+      reproduce();
+
+    h->Ttype::prepare();
 
     return h;
   }

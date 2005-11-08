@@ -34,11 +34,16 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "MemRequest.h"
 #include "Pipeline.h"
 
+
 #ifdef SESC_INORDER
 #include <time.h>
 #include "GEnergy.h"
 #include "GProcessor.h"
 #include "Signature.h"
+#endif
+
+#ifdef XACTION
+#include "XactionManager.h"
 #endif
 
 long long FetchEngine::nInst2Sim=0;
@@ -117,6 +122,10 @@ FetchEngine::FetchEngine(int cId
   }
 
   gproc = osSim->id2GProcessor(cpuId);
+
+#ifdef TRACE_DRIVEN
+  pid = cId;
+#endif  
 
 #ifdef SESC_INORDER
   char strTime[16], fileName[64];
@@ -257,9 +266,11 @@ int FetchEngine::getNextCoreMode()
 
 FetchEngine::~FetchEngine()
 {
+#ifndef TRACE_DRIVEN
   // There should be a RunningProc::switchOut that clears the statistics
   I(nGradInsts  == 0);
   I(nWPathInsts == 0);
+#endif
 
 #ifdef SESC_INORDER
   if(energyInstFile != NULL)
@@ -398,6 +409,7 @@ void FetchEngine::realFetch(IBucket *bucket, int fetchMax)
 #ifdef TASKSCALAR
     dinst->setLVID(lvid, lvidVersion);
 #endif //TASKSCALAR
+
     const Instruction *inst = dinst->getInst();
 
     if (inst->isStore()) {
@@ -415,6 +427,11 @@ void FetchEngine::realFetch(IBucket *bucket, int fetchMax)
 
     instFetched(dinst);
     bucket->push(dinst);
+
+#ifdef XACTION
+    gproc->getXactionManager()->dinstFetch(dinst);
+#endif
+
     n2Fetched--;
   
     if(inst->isBranch()) {
@@ -447,7 +464,7 @@ void FetchEngine::fetch(IBucket *bucket, int fetchMax)
     fakeFetch(bucket, fetchMax);
   }else{
     realFetch(bucket, fetchMax);
-#ifdef SESC_INORDER
+#ifdef SESC_INORDER  
     long pc = bucket->top()->getInst()->getAddr();
     gatherRunTimeData(pc);
 #endif

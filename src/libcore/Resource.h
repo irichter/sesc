@@ -5,6 +5,7 @@
    Contributed by Jose Renau
                   Basilio Fraguela
                   Smruti Sarangi
+		  Karin Strauss
 
 This file is part of SESC.
 
@@ -50,6 +51,22 @@ enum StallCause {
   MaxStall
 };
 
+enum RetOutcome {
+  Retired=0,
+  NotExecuted,
+  NotFinished,   // for loads only
+  NoCacheSpace,  // for stores and ifetch ops only
+  NoCachePorts,  // for stores only
+  WaitForFence,  // for ifetch ops only
+  MaxRetOutcome
+};
+
+enum NoRetResp { // instruction responsible for stall
+  Self=0,
+  Other,
+  MaxNoRetResp
+};
+
 class Resource {
 protected:
   Cluster *const cluster;
@@ -79,7 +96,7 @@ public:
   virtual StallCause canIssue(DInst *dinst) = 0;
   virtual void simTime(DInst *dinst) = 0;
   virtual void executed(DInst *dinst);
-  virtual bool retire(DInst *dinst);
+  virtual RetOutcome retire(DInst *dinst);
 
 #ifdef SESC_CHERRY
   virtual void earlyRecycle(DInst *dinst) = 0;
@@ -137,7 +154,7 @@ public:
 
   StallCause canIssue(DInst *dinst);
   void simTime(DInst *dinst);
-  bool retire(DInst *dinst);
+  RetOutcome retire(DInst *dinst);
 
 #ifdef SESC_CHERRY
   void earlyRecycle(DInst *dinst);
@@ -166,7 +183,7 @@ public:
 
   StallCause canIssue(DInst *dinst);
   void simTime(DInst *dinst);
-  bool retire(DInst *dinst);
+  RetOutcome retire(DInst *dinst);
 
   void executed(DInst *dinst);
   int freeEntries() const { return freeLoads; }
@@ -209,7 +226,7 @@ public:
   StallCause canIssue(DInst *dinst);
   void simTime(DInst *dinst);
   void executed(DInst *dinst);
-  bool retire(DInst *dinst);
+  RetOutcome retire(DInst *dinst);
 
   int freeEntries() const { return freeStores; }
 
@@ -270,7 +287,7 @@ public:
   void executed(DInst *dinst);
 
 #ifdef SESC_BRANCH_AT_RETIRE
-  bool retire(DInst *dinst);
+  RetOutcome retire(DInst *dinst);
 #endif
 #ifdef SESC_CHERRY
   void earlyRecycle(DInst *dinst);

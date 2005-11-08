@@ -215,10 +215,12 @@ void RunningProcs::makeNonRunnable(ProcessId *proc)
 
 void RunningProcs::setProcessor(CPU_t cpu, GProcessor *newCore)
 {
-  if(cpu>=(CPU_t)size())
+  if(cpu >= (CPU_t)size())
     cpuVector.resize(cpu+1);
+
   GProcessor *oldCore=cpuVector[cpu];
   cpuVector[cpu]=newCore;
+
   // Is there was an old core in this slot
   if(oldCore){
     // Erase all instances of the old core from the available multiset
@@ -226,6 +228,7 @@ void RunningProcs::setProcessor(CPU_t cpu, GProcessor *newCore)
     // Check whether we erased the right number of entries
     I(oldCore->getMaxFlows()==erased);
   }
+
   // If there is a new core in this slot
   if(newCore){
     // Insert the new core into the available mulstiset
@@ -233,6 +236,11 @@ void RunningProcs::setProcessor(CPU_t cpu, GProcessor *newCore)
     for(size_t i=0;i<newCore->getMaxFlows();i++)
       availableProcessors.insert(newCore);
   }
+
+#ifdef TRACE_DRIVEN
+  // in trace-driven mode, all processor must have work in the beggining
+  workingListAdd(newCore);
+#endif
 }
 
 
@@ -248,6 +256,7 @@ void RunningProcs::switchIn(CPU_t id, ProcessId *proc)
 #endif  
   core->switchIn(proc->getPid()); // Must be the last thing because it can generate a switch
 
+
 }
 
 void RunningProcs::switchOut(CPU_t id, ProcessId *proc) 
@@ -261,6 +270,7 @@ void RunningProcs::switchOut(CPU_t id, ProcessId *proc)
   core->switchOut(pid);
 
   workingListRemove(core);
+
 
 }
 

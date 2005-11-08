@@ -3,6 +3,7 @@
    Copyright (C) 2003 University of Illinois.
 
    Contributed by Jose Renau
+                  Karin Strauss
 
 This file is part of SESC.
 
@@ -48,6 +49,10 @@ class GMemorySystem;
 class BPredictor;
 
 
+#ifdef XACTION
+class XactionManager;
+#endif
+
 class GProcessor {
 private:
 protected:
@@ -79,10 +84,14 @@ protected:
 #endif
 
 
+#ifdef XACTION
+  XactionManager *xaction;
+#endif
+
   ClusterManager clusterManager;
 
   // Normal Stats
-  GStatsAvg    robUsed;
+  GStatsAvg robUsed;
 
   // Energy Counters
   GStatsEnergyBase *renameEnergy;
@@ -125,6 +134,11 @@ protected:
   GStatsCntr *nInstFake[MaxInstType];
 #endif
 
+  // "Lack of Retirement" Stats
+  GStatsAvg retired;
+  GStatsCntr *notRetired[MaxNoRetResp][MaxInstType][MaxRetOutcome];
+  GStatsCntr notRetiredOtherCause;
+
   // Construction
   void buildInstStats(GStatsCntr *nInstFake[MaxInstType], const char *txt);
 
@@ -144,6 +158,28 @@ protected:
   virtual DInst **getRAT(const int contextId) = 0;
 
   virtual FetchEngine *currentFlow() = 0;
+
+  void addStatsRetire(ushort index) {
+    retired.sample(index);
+  }
+
+  void addStatsNoRetire(ushort index, DInst *dinst, RetOutcome cause) {
+    I(dinst);
+
+    addStatsRetire(index);
+
+    if(notRetired[Self][dinst->getInst()->getOpcode()][cause])
+      notRetired[Self][dinst->getInst()->getOpcode()][cause]->inc();
+    else
+      notRetiredOtherCause.inc();
+
+    if(notRetired[Other][dinst->getInst()->getOpcode()][cause])
+      notRetired[Other][dinst->getInst()->getOpcode()][cause]->add(RetireWidth - index - 1);
+    else 
+      notRetiredOtherCause.inc(); 
+  }
+
+
 public:
   //Lock counters
   GStatsCntr nLocks;
@@ -225,6 +261,10 @@ public:
   virtual void misBranchRestore(DInst *dinst)= 0;
 #endif
 
+
+#ifdef XACTION
+  XactionManager *getXactionManager() { return xaction; }
+#endif
 
 #ifdef TS_STALL
   virtual void setStallUntil(Time_t t) { stallUntil = t; }

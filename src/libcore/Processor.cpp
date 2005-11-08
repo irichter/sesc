@@ -196,7 +196,6 @@ void Processor::advanceClock()
       //      I(bucket->top()->getInst()->getAddr());
       
       spaceInInstQueue -= bucket->size();
-      
       pipeQ.instQueue.push(bucket);
     }
   }
@@ -342,7 +341,6 @@ StallCause Processor::addInst(DInst *dinst)
   }
 
   dinst->setRATEntry(&RAT[inst->getDest()]);
-
   RAT[inst->getDest()] = dinst;
 
   I(dinst->getResource());

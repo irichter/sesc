@@ -44,6 +44,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "BPred.h"
 
 
+
 struct ltptr
 {
   bool operator()(void *p1, void *p2) const
@@ -93,6 +94,7 @@ class TaskContext {
   static GStatsCntr *nRestartInvMem;
   static GStatsCntr *nRestartException;
   static GStatsCntr *nRestartBubble;
+
 
   static GStatsCntr *nMergeNext;
   static GStatsCntr *nMergeLast;
@@ -249,6 +251,10 @@ public:
   void exception();
 
 
+
+  static void finish() {
+  }
+
   // Merging task functionality. Those both functions are called for
   // all the fork_successor and spawns.
   bool canMergeNext();
@@ -259,12 +265,15 @@ public:
   void localKill(bool inv);
 
   RAddr read(ulong iAddr, short iFlags, RAddr addr) {
+
 #ifdef TC_PARTIALORDER
     if(memVer->isOnly()) 
       return addr;
 #endif
+
     return memBuffer->read(iAddr, iFlags, addr);
   }
+
   // Prepare to write to this version. Returns the address to write to.
   RAddr preWrite(RAddr addr) {
 #ifdef TC_PARTIALORDER
@@ -274,6 +283,7 @@ public:
 #endif
     return (RAddr)(&writeData)+MemBufferEntry::calcChunkOffset(addr);
   }
+
   const HVersion *postWrite(ulong iAddr, short iFlags, RAddr addr) {
 #ifdef TC_PARTIALORDER
     if(memVer->isOnly()) 

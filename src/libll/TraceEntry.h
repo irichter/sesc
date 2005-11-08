@@ -3,8 +3,6 @@
    Copyright (C) 2004 University of Illinois.
 
    Contributed by Luis Ceze
-		  Pablo Montesinos Ortego
-		  Paul Sack
 
 This file is part of SESC.
 
@@ -21,26 +19,51 @@ SESC; see the file COPYING.  If not, write to the  Free Software Foundation, 59
 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 */
 
-/* this is the basic interface for trace readers in Sesc */
-/* for an example of a reader, look TT6Reader */
 
-#ifndef TRACEREADER_H
-#define TRACEREADER_H
+#ifndef TRACEENTRY_H
+#define TRACEENTRY_H
 
-#include "TraceEntry.h"
+#include "nanassert.h"
+#include "Snippets.h"
+#include "ThreadContext.h" // just for the types :-(
 
-class TraceReader {
- private:
+class TraceEntry {
  public:
-  TraceReader() {}
-  virtual ~TraceReader() {}
+  ulong rawInst;
+  VAddr iAddr;
+  VAddr dAddr;
 
-  virtual void openTrace(const char* basename) = 0;
-  virtual void closeTrace() = 0;
+  VAddr nextIAddr;
 
-  virtual TraceEntry getTraceEntry(int id) = 0;
+  ulong cid; // cpu number
+  ulong pid;
+  ulong ppid;
+  
+  int   barrNProcs;
+  
+  int dataSize;
+  unsigned long long value;
 
-  virtual bool hasBufferedEntries(int id=-1) { return false; }
+  bool eot;
+  bool stallEntry;
+  
+  bool contextSwitch;
+  
+  TraceEntry() {
+    rawInst = 0;
+    iAddr = 0;
+    dAddr = 0;
+    nextIAddr = 0;
+
+    pid = 0;
+
+    dataSize = 0;
+    value = 0;
+
+    eot = false;
+    stallEntry = false;
+    contextSwitch = false;
+  }
 };
 
 #endif

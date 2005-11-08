@@ -7,6 +7,7 @@
                   James Tuck
                   Smruti Sarangi
                   Luis Ceze
+		  Karin Strauss
 
 This file is part of SESC.
 
@@ -60,11 +61,11 @@ void Resource::executed(DInst *dinst)
   cluster->executed(dinst);
 }
 
-bool Resource::retire(DInst *dinst)
+RetOutcome Resource::retire(DInst *dinst)
 {
   cluster->retire(dinst);
   dinst->destroy();
-  return true;
+  return Retired;
 }
 
 /***********************************************/
@@ -212,20 +213,20 @@ void FUMemory::simTime(DInst *dinst)
   dinst->doAtExecutedCB.schedule(1); // Next cycle
 }
 
-bool FUMemory::retire(DInst *dinst)
+RetOutcome FUMemory::retire(DInst *dinst)
 {
   const Instruction *inst = dinst->getInst();
 
   if( inst->getSubCode() == iFetchOp ) {
     if (L1DCache->canAcceptStore(static_cast<PAddr>(dinst->getVaddr())) == false)
-      return false;
+      return NoCacheSpace;
     FUStore* r = (FUStore*) getCluster()->getResource(iStore);
 #ifdef TS_CHERRY
     dinst->setCanBeRecycled();
     dinst->setMemoryIssued();
 #endif
     if ( r->waitingOnFence() == true)
-      return false;
+      return WaitForFence;
     else
       r->storeSent();
     DMemRequest::create(dinst, memorySystem, MemWrite);
@@ -241,7 +242,7 @@ bool FUMemory::retire(DInst *dinst)
     dinst->destroy();
   }
 
-  return true;
+  return Retired;
 }
 
 #ifdef SESC_CHERRY
@@ -360,11 +361,12 @@ void FULoad::cacheDispatched(DInst *dinst)
     // infinite loop
     cacheDispatchedCB::scheduleAbs(when+1, this, dinst);
   } else {
+
     DMemRequest::create(dinst, memorySystem, MemRead);
   }
 }
 
-bool FULoad::retire(DInst *dinst)
+RetOutcome FULoad::retire(DInst *dinst)
 {
   ldqNotUsed.sample(freeLoads);
 
@@ -378,7 +380,7 @@ bool FULoad::retire(DInst *dinst)
 
   // ldqRdWrEnergy->inc(); // Loads do not update fields at retire, just update pointers
 
-  return true;
+  return Retired;
 }
 
 #ifdef SESC_CHERRY
@@ -459,8 +461,6 @@ void FUStore::simTime(DInst *dinst)
 void FUStore::executed(DInst *dinst)
 {
   stqRdWrEnergy->inc(); // Update fields
-
-
   ldqCheckEnergy->inc(); // Check st-ld replay traps
 
 
@@ -494,9 +494,10 @@ void FUStore::doRetire(DInst *dinst)
 
   stqRdWrEnergy->inc(); // Read value send to memory, and clear fields
 
+
 }
 
-bool FUStore::retire(DInst *dinst)
+RetOutcome FUStore::retire(DInst *dinst)
 {
   if (dinst->isDeadInst() || dinst->isFake() || dinst->isEarlyRecycled()
 #ifdef SESC_CHERRY
@@ -516,14 +517,14 @@ bool FUStore::retire(DInst *dinst)
 #else
     dinst->destroy();
 #endif
-    return true;
+    return Retired;
   }
 
-  if( L1DCache->getNextFreeCycle() > globalClock)
-    return false;
+  if(L1DCache->getNextFreeCycle() > globalClock)
+    return NoCachePorts;
 
   if (!L1DCache->canAcceptStore(static_cast<PAddr>(dinst->getVaddr())) ) {
-    return false;
+    return NoCacheSpace;
   }
 
 
@@ -541,7 +542,7 @@ bool FUStore::retire(DInst *dinst)
   if (dinst->getPendEvent())
     dinst->getPendEvent()->call();
   if (waitingOnFence() == true)
-    return false;
+    return WaitForFence;
   else
     storeSent();
 
@@ -549,7 +550,7 @@ bool FUStore::retire(DInst *dinst)
 
   doRetire(dinst);
 
-  return true;
+  return Retired;
 }
 
 #ifdef SESC_CHERRY
@@ -692,7 +693,7 @@ void FUBranch::executed(DInst *dinst)
 }
 
 #ifdef SESC_BRANCH_AT_RETIRE
-bool FUBranch::retire(DInst *dinst)
+RetOutcome FUBranch::retire(DInst *dinst)
 {
   // TODO: change it to remove getFetch only call missBranch when a
   // boolean is set? Backup done at fetch 
@@ -707,7 +708,7 @@ bool FUBranch::retire(DInst *dinst)
   cluster->retire(dinst);
   dinst->destroy();
 
-  return true;
+  return Retired;
 }
 #endif
 

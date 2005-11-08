@@ -161,7 +161,7 @@ void ExecutionFlow::exeInstFast()
 {
   I(goingRabbit);
   
-  // This exeInstFast can be called when the for sure there are not speculative
+  // This exeInstFast can be called when for sure there are no speculative
   // threads (TLS, or TASKSCALAR)
   int iAddr   =picodePC->addr;
   short iFlags=picodePC->opflags;

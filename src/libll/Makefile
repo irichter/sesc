@@ -6,13 +6,18 @@ include	../Makefile.defs
 
 default: all
 
-all: $(OBJ)/main.o $(OBJ)/libll.a 
+all: $(OBJ)/ta.o $(OBJ)/main.o $(OBJ)/libll.a $(OBJ)/sta.o	
 
 ##############################################################################
 #                Objects
 ##############################################################################
-OBJS	:=MIPSInstruction.o GFlow.o ExecutionFlow.o Events.o ThreadContext.o \
-	HeapManager.o TraceReader.o
+OBJS	:=Instruction.o MIPSInstruction.o PPCInstruction.o GFlow.o \
+	ExecutionFlow.o Events.o ThreadContext.o HeapManager.o TraceReader.o \
+	TraceFlow.o TT6Reader.o 
+
+
+##############################################################################
+
 
 ##############################################################################
 #                             Change Rules                                   # 

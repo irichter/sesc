@@ -93,7 +93,7 @@ void PPCDecoder::expandDecodeEntry(PPCInstDef *instDef, int extOpSize)
                             + instDef->extOpcode;
 
   for(int i = 0; i < PPC_EXTOPS; i += nOffset) {
-    I(decodeTable[(constIndex + i)] == NULL);
+    I(decodeTable[(constIndex + i)] == 0);
     decodeTable[(constIndex + i)] = instDef;
   }
 }
@@ -107,3 +107,4 @@ void PPCDecoder::fillDummyEntries()
       decodeTable[i] = dummyDef;
   }
 }
+

@@ -119,11 +119,12 @@ struct TableField
 
 static struct TableField table[SESC_TABLESIZE];
 
-#define TABLE_HASHFUNC(x)  (x % SESC_TABLESIZE)
+#define TABLE_HASHFUNC(x)  ((x < 0 ? (-1*x) : x) % SESC_TABLESIZE)
 
 static struct TableField *TableFindEntry(int nPid) 
 {
   int pos = TABLE_HASHFUNC(nPid);
+  assert(pos > 0);
   int i;
 
   for(i=0;i<SESC_TABLESIZE;i++ ) {
@@ -139,6 +140,7 @@ static struct TableField *TableFindEntry(int nPid)
 static struct TableField *TableNewEntry(int nPid)
 {
   int pos = TABLE_HASHFUNC(nPid);
+  assert(pos > 0);
 
   // assert(nConcurrentThreads < SESC_TABLESIZE);
 

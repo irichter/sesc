@@ -1,6 +1,10 @@
 #ifndef SESCAPI_H
 #define SESCAPI_H
 
+#ifdef SIMICS
+#include "simicsapi.h"
+#endif
+
 
 /*
  * Flags specification:

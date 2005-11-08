@@ -131,7 +131,6 @@ OSSim::OSSim(int argc, char **argv, char **envp)
   signal(SIGUSR1,signalCatcher);
   signal(SIGQUIT,signalCatcher);
 
-  // Instruction
   char *tmp=(char *)alloca(argc*50+4096);
   tmp[0] = 0;
   for(int i = 0; i < argc; i++) {
@@ -140,6 +139,8 @@ OSSim::OSSim(int argc, char **argv, char **envp)
   }
 
   benchRunning=strdup(tmp);
+
+  benchSection = 0;
 
 #ifdef TS_PROFILING
   profSectionName = NULL;
@@ -209,8 +210,12 @@ void OSSim::processParams(int argc, char **argv, char **envp)
     fprintf(stderr,"\t-xTEXT      ; Extra key added in the report file name\n");
     fprintf(stderr,"\t-dTEXT      ; Change the name of the report file\n");
     fprintf(stderr,"\t-fTEXT      ; Fix the extension of the report file\n");
-    fprintf(stderr,"\t-wINT       ; Number of instructions to skip in Rabbit Mode (-w1 means forever)\n");
+    fprintf(stderr,"\t-t          ; Do not execute, just test the configuration file\n");
     fprintf(stderr,"\t-yINT       ; Number of instructions to simulate in thousands\n");
+    fprintf(stderr,"\t-bTEXT      ; Benchmark specific configuration section\n");
+
+#ifndef TRACE_DRIVEN
+    fprintf(stderr,"\t-wINT       ; Number of instructions to skip in Rabbit Mode (-w1 means forever)\n");
     fprintf(stderr,"\t-1INT -2INT ; Simulate between marks -1 and -2 (start in rabbitmode)\n");
 #ifdef TS_PROFILING
     fprintf(stderr,"\t-rINT       ; Define the profiling phase\n");
@@ -219,16 +224,20 @@ void OSSim::processParams(int argc, char **argv, char **envp)
     fprintf(stderr,"\t-sINT       ; Total amount of shared memory reserved\n");
     fprintf(stderr,"\t-hINT       ; Total amount of heap memory reserved\n");
     fprintf(stderr,"\t-kINT       ; Stack size per thread\n");
-    fprintf(stderr,"\t-t          ; Do not execute, just test the configuration file\n");
     fprintf(stderr,"\t-T          ; Generate trace-file\n");
     fprintf(stderr,"\n\nExamples:\n");
     fprintf(stderr,"%s -k65536 -dreportName ./simulation \n",argv[0]);
     fprintf(stderr,"%s -h0x8000000 -xtest ../tests/crafty <../tests/tt.in\n",argv[0]);
+#else  // !TRACE_DRIVEN
+    fprintf(stderr,"\n\nExample:\n");
+    fprintf(stderr,"%s -csescconf.conf tracefile\n",argv[0]);
+#endif // !TRACE_DRIVEN
     exit(0);
   }
   
   for(; i < argc; i++) {
     if(argv[i][0] == '-') {
+
       if( argv[i][1] == 'w' ){
 	if( isdigit(argv[i][2]) )
 	  nInst2Skip = strtol(&argv[i][2], 0, 0 );
@@ -236,22 +245,19 @@ void OSSim::processParams(int argc, char **argv, char **envp)
 	  i++;
 	  nInst2Skip = strtol(argv[i], 0, 0 );
 	}
-      }else if( argv[i][1] == 'y' ){
+      }
+
+      else if( argv[i][1] == 'y' ){
         if( isdigit(argv[i][2]) )
 	  nInst2Sim = 1000*strtol(&argv[i][2], 0, 0 );
 	else {
 	  i++;
 	  nInst2Sim = 1000*strtol(argv[i], 0, 0 );
 	}
-      }else if( argv[i][1] == 'x' ) {
-	if( argv[i][2] != 0 )
-	  xtraPat = &argv[i][2];
-	else {
-	  i++;
-	  xtraPat = argv[i];
-	}
+      }
+
 #ifndef OLDMARKS
-      }else if( argv[i][1] == 'm' ) {
+      else if( argv[i][1] == 'm' ) {
 	useMTMarks=true;
 	simMarks.mtMarks=true;
 	if( argv[i][2] != 0 ) 
@@ -264,7 +270,9 @@ void OSSim::processParams(int argc, char **argv, char **envp)
 	idSimMarks[mtId].begin = 0;
 	idSimMarks[mtId].end = (~0UL)-1;
 	idSimMarks[mtId].mtMarks=false;
-      }else if( argv[i][1] == '1' ) {
+      }
+
+      else if( argv[i][1] == '1' ) {
 	if( argv[i][2] != 0 ) {
 	  if( useMTMarks )
 	    idSimMarks[mtId].begin = strtol(&argv[i][2], 0, 0);
@@ -279,8 +287,9 @@ void OSSim::processParams(int argc, char **argv, char **envp)
 	}
 	if(!useMTMarks)
 	  simMarks.total = 0;
+      }
 
-      }else if( argv[i][1] == '2' ) {
+      else if( argv[i][1] == '2' ) {
 	if( argv[i][2] != 0 ) {
 	  if( useMTMarks)
 	    idSimMarks[mtId].end = strtol(&argv[i][2], 0, 0 );
@@ -295,8 +304,9 @@ void OSSim::processParams(int argc, char **argv, char **envp)
 	}
 	if(!useMTMarks)
 	  simMarks.total = 0;
+      }
 #else
-      }else if( argv[i][1] == '1' ) {
+      else if( argv[i][1] == '1' ) {
 	if( argv[i][2] != 0 )
 	  simulationMark1 = strtol(&argv[i][2], 0, 0 );
 	else {
@@ -304,7 +314,9 @@ void OSSim::processParams(int argc, char **argv, char **envp)
 	  simulationMark1 = strtol(argv[i], 0, 0 );
 	}
 	simulationMarks = 0;
-      }else if( argv[i][1] == '2' ) {
+      }
+      
+      else if( argv[i][1] == '2' ) {
 	if( argv[i][2] != 0 )
 	  simulationMark2 = strtol(&argv[i][2], 0, 0 );
 	else {
@@ -312,30 +324,54 @@ void OSSim::processParams(int argc, char **argv, char **envp)
 	  simulationMark2 = strtol(argv[i], 0, 0 );
 	}
 	simulationMarks = 0;
+      }
 #endif
+
 #ifdef TS_PROFILING        
-      }else if( argv[i][1] == 'r' ) {
+      else if( argv[i][1] == 'r' ) {
 	if( argv[i][2] != 0 )
 	  profPhase = strtol(&argv[i][2], 0, 0 );
 	else {
           profPhase = 1;
 	}
-      }else if( argv[i][1] == 'S' ) {
+      }
+      else if( argv[i][1] == 'S' ) {
 	if( argv[i][2] != 0 )
 	  profSectionName = &argv[i][2];
 	else {
 	  i++;
 	  profSectionName = argv[i];
 	}
+      }
 #endif        
-      }else if( argv[i][1] == 'c' ) {
+      else if( argv[i][1] == 'b' ) {
+	if( argv[i][2] != 0 )
+	  benchSection = &argv[i][2];
+	else {
+	  i++;
+	  benchSection = argv[i];
+	}
+      }
+      
+      else if( argv[i][1] == 'c' ) {
 	if( argv[i][2] != 0 )
 	  confName = &argv[i][2];
 	else {
 	  i++;
 	  confName = argv[i];
 	}
-      }else if( argv[i][1] == 'd' ) {
+      }
+
+      else if( argv[i][1] == 'x' ) {
+	if( argv[i][2] != 0 )
+	  xtraPat = &argv[i][2];
+	else {
+	  i++;
+	  xtraPat = argv[i];
+	}
+      }
+
+      else if( argv[i][1] == 'd' ) {
 	I(reportTo==0);
 	if( argv[i][2] != 0 )
 	  reportTo = &argv[i][2];
@@ -343,7 +379,9 @@ void OSSim::processParams(int argc, char **argv, char **envp)
 	  i++;
 	  reportTo = argv[i];
 	}
-      }else if( argv[i][1] == 'f' ) {
+      }
+      
+      else if( argv[i][1] == 'f' ) {
 	I(extension==0);
 	if( argv[i][2] != 0 )
 	  extension = &argv[i][2];
@@ -351,11 +389,17 @@ void OSSim::processParams(int argc, char **argv, char **envp)
 	  i++;
 	  extension = argv[i];
 	}
-      }else if( argv[i][1] == 'P' ) {
+      }
+
+      else if( argv[i][1] == 'P' ) {
 	justTest = true;
-      }else if( argv[i][1] == 't' ) {
+      }
+
+      else if( argv[i][1] == 't' ) {
 	justTest = true;
-      }else if( argv[i][1] == 'T' ) {
+      }
+
+      else if( argv[i][1] == 'T' ) {
 	trace_flag = true;
       }else{
 	nargv[ni] = strdup(argv[i]);
@@ -367,6 +411,7 @@ void OSSim::processParams(int argc, char **argv, char **envp)
       nargv[ni] = strdup(argv[i]);
       continue;
     }
+
     break;
   }
 
@@ -387,9 +432,20 @@ void OSSim::processParams(int argc, char **argv, char **envp)
   }
   nargc = ni;
 
-  Instruction::initialize(nargc, nargv, envp);
-
   SescConf = new SConfig(confName);   // First thing to do
+
+  Instruction::initialize(nargc, nargv, envp);
+ 
+#ifdef SESC_THERM
+  {
+    thermFile = (char*)malloc(strlen(finalReportFile) + 7);
+    char *pp = strrchr(finalReportFile,'.');
+    *pp = 0;
+    sprintf(thermFile, "%s.therm.%s",finalReportFile, pp + 1);
+    ReportTherm::openFile(thermFile);
+    strcpy(pp, thermFile + ((pp - finalReportFile) +6));
+  }
+#endif
 
   if( reportTo ) {
     reportFile = (char *)malloc(30 + strlen(reportTo));
@@ -407,18 +463,8 @@ void OSSim::processParams(int argc, char **argv, char **envp)
   }
  
   char *finalReportFile = (char *)strdup(reportFile);
- 
-#ifdef SESC_THERM
-  {
-    thermFile = (char*)malloc(strlen(finalReportFile) + 7);
-    char *pp = strrchr(finalReportFile,'.');
-    *pp = 0;
-    sprintf(thermFile, "%s.therm.%s",finalReportFile, pp + 1);
-    ReportTherm::openFile(thermFile);
-    strcpy(pp, thermFile + ((pp - finalReportFile) +6));
-  }
-#endif
-  
+  Report::openFile(finalReportFile);
+
   if (trace_flag) {
     traceFile = (char*)malloc(strlen(finalReportFile) + 7);
     char *p = strrchr(finalReportFile,'.');
@@ -427,8 +473,6 @@ void OSSim::processParams(int argc, char **argv, char **envp)
     Report::openFile(traceFile);
       strcpy(p, traceFile + ((p - finalReportFile) +6));
   }
-
-  Report::openFile(finalReportFile);
 
   free(finalReportFile);
 
@@ -440,8 +484,8 @@ void OSSim::processParams(int argc, char **argv, char **envp)
     free(nargv[i]);
 
   free(nargv);
+  
 }
-
 
 OSSim::~OSSim() 
 {
@@ -460,7 +504,6 @@ OSSim::~OSSim()
   delete SescConf;
 
   free(benchName);
-  //free(traceFile);
   if (trace())
     free(traceFile);
 
@@ -857,11 +900,18 @@ void OSSim::initBoot()
   else
     NoMigration = false;
 
+#ifndef TRACE_DRIVEN
+  // this is only necessary when running execution-driven
+
   // Launch the boot flow
   // -1 is the parent pid
   // 0 is the current thread, and it has no flags
 
   eventSpawn(-1,0,0);
+#else
+  // in TRACE_DRIVEN, processors get added to the workingList when they
+  // instantiated
+#endif
 
 #ifdef TASKSCALAR
   TaskContext::postBoot();
@@ -898,6 +948,8 @@ void OSSim::preBoot()
 #ifdef TS_PROFILING
   profiler = new Profile();
 #endif  
+
+
 #ifdef TS_RISKLOADPROF
   riskLoadProf = new RiskLoadProf();
 #endif
@@ -981,6 +1033,11 @@ void OSSim::simFinish()
   // Work finished, dump statistics
   report("Final");
 
+#ifdef TASKSCALAR
+  TaskContext::finish();
+#endif
+
+
   time_t t = time(0);
   Report::field("OSSim:endTime=%s", ctime(&t));
 
@@ -991,8 +1048,9 @@ void OSSim::simFinish()
   ReportTherm::close();
 #endif
 
-  if(trace())
-    Report::close();
+  // hein? what is this? merge problems?
+  //  if(trace()) 
+  //  Report::close();
 }
 
 void OSSim::report(const char *str)

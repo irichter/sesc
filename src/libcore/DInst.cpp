@@ -30,6 +30,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 
 pool<DInst> DInst::dInstPool(512, "DInst");
+
 #ifdef DEBUG
 long DInst::currentID=0;
 #endif

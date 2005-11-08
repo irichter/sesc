@@ -70,6 +70,13 @@ public:
   RunningProcs();
   void run();
   void finishWorkNow();
+  
+  // ugly, but need for TRACE_DRIVEN for now.
+  void stopProcessor(CPU_t cpu) {
+    GProcessor *core = getProcessor(cpu);
+    I(core);
+    workingListRemove(core);
+  }
 
   GProcessor *getCurrentCPU() const {
     return currentCPU;

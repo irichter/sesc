@@ -188,6 +188,11 @@ void sesc_fast_sim_begin_()
 void sesc_fast_sim_begin()
 {
   notifyEvent("sesc_fast_sim_begin", 0, 0, 0);
+
+#ifdef SIMICS
+  SIMICS_SESC_END();  
+  fprintf(stderr, "simicsapi:sesc_end\n");
+#endif
 }
 
 void sesc_fast_sim_end_()
@@ -198,6 +203,11 @@ void sesc_fast_sim_end_()
 void sesc_fast_sim_end()
 {
   notifyEvent("sesc_fast_sim_end", 0, 0, 0);
+
+#ifdef SIMICS
+  SIMICS_SESC_BEGIN();
+  fprintf(stderr, "simicsapi:sesc_begin\n");
+#endif
 }
 
 void sesc_sysconf(int tid, long flags)

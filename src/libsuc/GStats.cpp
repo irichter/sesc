@@ -71,6 +71,7 @@ void GStatsCntr::reportValue() const
   Report::field("%s=%lld", name, data);
 }
 
+
 /*********************** GStatsAvg */
 
 GStatsAvg::GStatsAvg(const char *format,...)
@@ -104,7 +105,9 @@ void GStatsAvg::reportValue() const
   Report::field("%s:v=%g:n=%lld", name, getDouble(), nData);
 }
 
+
 /*********************** GStatsPDF */
+
 GStatsPDF::GStatsPDF(const char *format,...)
 {
   char *str;
@@ -241,7 +244,6 @@ void GStats::unsubscribe()
 void GStats::report(const char *str)
 {
   Report::field("BEGIN GStats::report %s", str);
-
   if (store) {
     for(ContainerIter i = store->begin(); i != store->end(); i++) {
       (*i)->prepareReport(); //give class a chance to do any calculations
@@ -252,11 +254,14 @@ void GStats::report(const char *str)
   Report::field("END GStats::report %s", str);
 }
 
+
 GStats *GStats::getRef(const char *str)
 {
-  for(ContainerIter i = store->begin(); i != store->end(); i++)
+  for(ContainerIter i = store->begin(); i != store->end(); i++) {
+
     if(strcasecmp((*i)->name, str) == 0)
       return *i;
+  }
 
   return 0;
 }
@@ -272,6 +277,7 @@ GStatsProfiler::GStatsProfiler(const char *format, ...)
   str = getText(format, ap);
   va_end(ap);
 
+
   name = str;
   subscribe();
 }
@@ -279,12 +285,14 @@ GStatsProfiler::GStatsProfiler(const char *format, ...)
 void GStatsProfiler::sample(ulong key)
 {
   ProfHash::iterator it = p.find(key);
-
-  if(it != p.end()) {
-    (*it).second++;
-  } else {
-    p[key] = 1;
-  }
+  if(it != p.end())
+    {
+      (*it).second++;
+    }
+  else
+    {
+      p[key] = 1;
+    }
 }
 
 void GStatsProfiler::reportValue() const 
@@ -295,6 +303,8 @@ void GStatsProfiler::reportValue() const
       Report::field("%s(%d)=%d",name,(*it).first,(*it).second);
     }
 }
+
+
 
 /*********************** GStatsMax */
 
@@ -337,26 +347,28 @@ GStatsHist::GStatsHist(const char *format,...)
 void GStatsHist::reportValue() const
 {
   Histogram::const_iterator it;
+    
+  unsigned long maxKey = 0;
 
-  if(nData)
-    Report::field("%s:v=%g:n=%lld", name, (double)data / nData, nData);
-  else
-    Report::field("%s:v=%g:n=%lld", name, 0, nData);
-  
   for(it=H.begin();it!=H.end();it++) {
     Report::field("%s(%lu)=%llu",name,(*it).first,(*it).second);
+    if((*it).first > maxKey)
+      maxKey = (*it).first;
   }
+  Report::field("%s_MaxKey=%lu",name,maxKey);
+  Report::field("%s_Avg=%f",name,((float) cumulative)/((float) numSample));
+  Report::field("%s_Samples=%lu",name,numSample);
 }
 
 void GStatsHist::sample(unsigned long key, unsigned long long weight)
 {
   if(H.find(key)==H.end())
-    H[key] =weight;
-  else
-    H[key]+=weight;
+    H[key]=0;
 
-  data += key;
-  nData+= weight;
+  H[key]+=weight;
+
+  numSample += weight;
+  cumulative += weight * key;
 }
 
 /*********************** GStatsTimingAvg */
@@ -406,12 +418,15 @@ GStatsTimingHist::GStatsTimingHist(const char *format,...)
   
   lastUpdate = 0;
   lastKey = 0;
+
+  reportWholeHist = true;
 }
 
 void GStatsTimingHist::reportValue() const
 {
   Histogram::const_iterator it;
-  unsigned long long w=0;
+  unsigned long long w = 0;
+  double wavg = 0;
 
   for(it=H.begin();it!=H.end();it++) {
 
@@ -419,10 +434,14 @@ void GStatsTimingHist::reportValue() const
       w = globalClock-lastUpdate;
     else
       w = 0;
-    w += (*it).second;
-    if (w)
-      Report::field("%s(%lu)=%llu",name,(*it).first,w);
+
+    wavg += ((*it).first * ((*it).second + w)) / globalClock;
+
+    if(reportWholeHist) 
+      Report::field("%s(%lu)=%llu",name,(*it).first,(*it).second+w);
   }
+
+  Report::field("%s_AutoAvg=%f", name, wavg);
 }
 
 void GStatsTimingHist::sample(unsigned long key)
@@ -638,7 +657,7 @@ void GStatsChangeHist::reportValue() const
 void GStatsChangeHist::sample(unsigned long key)
 {
   if (lastUpdate != globalClock)
-    GStatsHist::sample(key);
+    GStatsHist::sample(key, 1);
 
   lastUpdate = globalClock;
 }

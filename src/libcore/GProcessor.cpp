@@ -4,6 +4,7 @@
 
    Contributed by Jose Renau
                   Luis Ceze
+		  Karin Strauss
 
 This file is part of SESC.
 
@@ -32,6 +33,11 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "GMemorySystem.h"
 #include "LDSTBuffer.h"
 
+
+#ifdef XACTION
+#include "XactionManager.h"
+#endif
+
 GProcessor::GProcessor(GMemorySystem *gm, CPU_t i, size_t numFlows)
   :Id(i)
   ,FetchWidth(SescConf->getLong("cpucore", "fetchWidth",i))
@@ -48,6 +54,8 @@ GProcessor::GProcessor(GMemorySystem *gm, CPU_t i, size_t numFlows)
   ,lsq(this, i)
   ,clusterManager(gm, this)
   ,robUsed("Proc(%d)_robUsed", i)
+  ,retired("ExeEngine(%d)_retired", i)
+  ,notRetiredOtherCause("ExeEngine(%d):noRetOtherCause", i)
   ,nLocks("Processor(%d):nLocks", i)
   ,nLockContCycles("Processor(%d):nLockContCycles", i)
 {
@@ -90,6 +98,84 @@ GProcessor::GProcessor(GMemorySystem *gm, CPU_t i, size_t numFlows)
   nStall[PortConflictStall] = new GStatsCntr("ExeEngine(%d):PortConflict",i);
   nStall[SwitchStall]       = new GStatsCntr("ExeEngine(%d):switch",i);
 
+  for(unsigned r = 0; r < MaxNoRetResp; r++) {
+    for(unsigned s = 0; s < MaxInstType; s++) {
+      for(unsigned t = 0; t < MaxRetOutcome; t++) {
+	notRetired[r][s][t] = 0;
+      }
+    }
+  }
+
+  notRetired[Self][iOpInvalid][NotExecuted] = 
+    new GStatsCntr("ExeEngine(%d):noRetSelf_iOpInvalid_NotExecuted",i);
+  notRetired[Self][iALU][NotExecuted] = 
+    new GStatsCntr("ExeEngine(%d):noRetSelf_iALU_NotExecuted",i);
+  notRetired[Self][iMult][NotExecuted] = 
+    new GStatsCntr("ExeEngine(%d):noRetSelf_iMult_NotExecuted",i);
+  notRetired[Self][iDiv][NotExecuted] = 
+    new GStatsCntr("ExeEngine(%d):noRetSelf_iDiv_NotExecuted",i);
+  notRetired[Self][iBJ][NotExecuted] = 
+    new GStatsCntr("ExeEngine(%d):noRetSelf_iBJ_NotExecuted",i);
+  notRetired[Self][iLoad][NotExecuted] = 
+    new GStatsCntr("ExeEngine(%d):noRetSelf_iLoad_NotExecuted",i);
+  notRetired[Self][iStore][NotExecuted] = 
+    new GStatsCntr("ExeEngine(%d):noRetSelf_iStore_NotExecuted",i);
+  notRetired[Self][fpALU][NotExecuted] = 
+    new GStatsCntr("ExeEngine(%d):noRetSelf_fpALU_NotExecuted",i);
+  notRetired[Self][fpMult][NotExecuted] = 
+    new GStatsCntr("ExeEngine(%d):noRetSelf_fpMult_NotExecuted",i);
+  notRetired[Self][fpDiv][NotExecuted] = 
+    new GStatsCntr("ExeEngine(%d):noRetSelf_fpDiv_NotExecuted",i);
+  notRetired[Self][iFence][NotExecuted] = 
+    new GStatsCntr("ExeEngine(%d):noRetSelf_iFence_NotExecuted",i);
+  notRetired[Self][iLoad][NotFinished] = 
+    new GStatsCntr("ExeEngine(%d):noRetSelf_iLoad_NotFinished",i);
+  notRetired[Self][iStore][NoCacheSpace] = 
+    new GStatsCntr("ExeEngine(%d):noRetSelf_iStore_NoCacheSpace",i);
+  notRetired[Self][iStore][NoCachePorts] = 
+    new GStatsCntr("ExeEngine(%d):noRetSelf_iStore_NoCachePorts",i);
+  notRetired[Self][iStore][WaitForFence] = 
+    new GStatsCntr("ExeEngine(%d):noRetSelf_iStore_WaitForFence",i);
+  notRetired[Self][iFence][NoCacheSpace] = 
+    new GStatsCntr("ExeEngine(%d):noRetSelf_iFence_NoCacheSpace",i);
+  notRetired[Self][iFence][WaitForFence] = 
+    new GStatsCntr("ExeEngine(%d):noRetSelf_iFence_WaitForFence",i);
+
+  notRetired[Other][iOpInvalid][NotExecuted] = 
+    new GStatsCntr("ExeEngine(%d):noRetOther_iOpInvalid_NotExecuted",i);
+  notRetired[Other][iALU][NotExecuted] = 
+    new GStatsCntr("ExeEngine(%d):noRetOther_iALU_NotExecuted",i);
+  notRetired[Other][iMult][NotExecuted] = 
+    new GStatsCntr("ExeEngine(%d):noRetOther_iMult_NotExecuted",i);
+  notRetired[Other][iDiv][NotExecuted] = 
+    new GStatsCntr("ExeEngine(%d):noRetOther_iDiv_NotExecuted",i);
+  notRetired[Other][iBJ][NotExecuted] = 
+    new GStatsCntr("ExeEngine(%d):noRetOther_iBJ_NotExecuted",i);
+  notRetired[Other][iLoad][NotExecuted] = 
+    new GStatsCntr("ExeEngine(%d):noRetOther_iLoad_NotExecuted",i);
+  notRetired[Other][iStore][NotExecuted] = 
+    new GStatsCntr("ExeEngine(%d):noRetOther_iStore_NotExecuted",i);
+  notRetired[Other][fpALU][NotExecuted] = 
+    new GStatsCntr("ExeEngine(%d):noRetOther_fpALU_NotExecuted",i);
+  notRetired[Other][fpMult][NotExecuted] = 
+    new GStatsCntr("ExeEngine(%d):noRetOther_fpMult_NotExecuted",i);
+  notRetired[Other][fpDiv][NotExecuted] = 
+    new GStatsCntr("ExeEngine(%d):noRetOther_fpDiv_NotExecuted",i);
+  notRetired[Other][iFence][NotExecuted] = 
+    new GStatsCntr("ExeEngine(%d):noRetOther_iFence_NotExecuted",i);
+  notRetired[Other][iLoad][NotFinished] = 
+    new GStatsCntr("ExeEngine(%d):noRetOther_iLoad_NotFinished",i);
+  notRetired[Other][iStore][NoCacheSpace] = 
+    new GStatsCntr("ExeEngine(%d):noRetOther_iStore_NoCacheSpace",i);
+  notRetired[Other][iStore][NoCachePorts] = 
+    new GStatsCntr("ExeEngine(%d):noRetOther_iStore_NoCachePorts",i);
+  notRetired[Other][iStore][WaitForFence] = 
+    new GStatsCntr("ExeEngine(%d):noRetOther_iStore_WaitForFence",i);
+  notRetired[Other][iFence][NoCacheSpace] = 
+    new GStatsCntr("ExeEngine(%d):noRetOther_iFence_NoCacheSpace",i);
+  notRetired[Other][iFence][WaitForFence] = 
+    new GStatsCntr("ExeEngine(%d):noRetOther_iFence_WaitForFence",i);
+  
   clockTicks=0;
 
   char cadena[100];
@@ -152,6 +238,10 @@ GProcessor::GProcessor(GMemorySystem *gm, CPU_t i, size_t numFlows)
   buildInstStats(nInstFake, "FakePendingWindow");
 #endif
 
+
+#ifdef XACTION
+  xaction = new XactionManager(Id);
+#endif
 }
 
 GProcessor::~GProcessor()
@@ -195,7 +285,8 @@ void GProcessor::setMode(bool mode)
 void GProcessor::buildInstStats(GStatsCntr *i[MaxInstType], const char *txt)
 {
   bzero(i, sizeof(GStatsCntr *) * MaxInstType);
-  
+
+  i[iOpInvalid] = new GStatsCntr("%s(%d)_iOpInvalid:n", txt, Id);
   i[iALU]   = new GStatsCntr("%s(%d)_iALU:n", txt, Id);
   i[iMult]  = new GStatsCntr("%s(%d)_iComplex:n", txt, Id);
   i[iDiv]   = i[iMult];
@@ -464,12 +555,16 @@ void GProcessor::retire()
 #endif
 
   robUsed.sample(ROB.size());
+
+  ushort i;
   
-  for(ushort i=0;i<RetireWidth && !ROB.empty();i++) {
+  for(i=0;i<RetireWidth && !ROB.empty();i++) {
     DInst *dinst = ROB.top();
 
-    if( !dinst->isExecuted() )
+    if( !dinst->isExecuted() ) {
+      addStatsNoRetire(i, dinst, NotExecuted);
       return;
+    }
 
     // save it now because retire can destroy DInst
     int rp = dinst->getInst()->getDstPool();
@@ -480,8 +575,11 @@ void GProcessor::retire()
 #endif
 
     I(dinst->getResource());
-    if( !dinst->getResource()->retire(dinst) )
+    RetOutcome retOutcome = dinst->getResource()->retire(dinst);
+    if( retOutcome != Retired) {
+      addStatsNoRetire(i, dinst, retOutcome);
       return;
+    }
     // dinst CAN NOT be used beyond this point
 
     if (!fake)
@@ -500,6 +598,10 @@ void GProcessor::retire()
 
     robEnergy->inc(); // read ROB entry (finished?, update retirement rat...)
   }
+
+  if(!ROB.empty() || i != 0) 
+    addStatsRetire(i);
+  
 }
 
 #ifdef SESC_CHERRY

@@ -194,6 +194,7 @@ private:
   GLVID      *lvid;
   SubLVIDType subLVID;
 
+
 #endif
 
   CallbackBase *pendEvent;
@@ -365,8 +366,9 @@ private:
   void addSrc2(DInst * d) {
     I(d->nDeps < MAX_PENDING_SOURCES);
     d->nDeps++;
+
     I(!d->waitOnMemory); // pend[1] reused on memory ops. Not both! 
-    
+
     DInstNext *n = &d->pend[1];
     I(!n->isUsed);
     n->isUsed = true;

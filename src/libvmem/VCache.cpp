@@ -98,9 +98,9 @@ VCache::VCache(MemorySystem *gms, const char *section, const char *name)
 
   // Cache Access
   rdHitEnergy = new GStatsEnergy("rdHitEnergy",name
-                                 ,gms->getId()
-                                 ,MemPower
-                                 ,EnergyMgr::get(section,"rdHitEnergy"));
+				 ,gms->getId()
+				 ,MemPower
+				 ,EnergyMgr::get(section,"rdHitEnergy"));
   rdMissEnergy = new GStatsEnergy("rdMissEnergy",name
                                   ,gms->getId()
                                   ,MemPower

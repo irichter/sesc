@@ -3,6 +3,7 @@
    Copyright (C) 2003 University of Illinois.
 
    Contributed by Jose Renau
+                  Luis Ceze
 
 This file is part of SESC.
 
@@ -142,12 +143,19 @@ void LDSTBuffer::getLoadEntry(DInst *dinst)
 
     // Different processor or window. Queue the instruction even if executed
     dinst->setDepsAtRetire();
-    I(pdinst->getInst()->getAddr() != dinst->getInst()->getAddr());
+
+#ifndef TRACE_DRIVEN
+    I(pdinst->getInst()->getAddr() != dinst->getInst()->getAddr()); 
+#endif
+
     pdinst->addFakeSrc(dinst);
+
+    I(calcWord(dinst) == calcWord(pdinst));
 
     GLOG(DEBUG2, "FORWARD pc=0x%x [addr=0x%x] (%p)-> pc=0x%x [addr=0x%x] (%p)"
 	,(int)pdinst->getInst()->getAddr() , (int)pdinst->getVaddr(), pdinst
 	,(int)dinst->getInst()->getAddr()  , (int)dinst->getVaddr(), dinst);
+
     return;
   }
 #endif
@@ -156,7 +164,9 @@ void LDSTBuffer::getLoadEntry(DInst *dinst)
   dinst->setLoadForwarded();
 #endif
   if (!pdinst->isExecuted()) {
+#ifndef TRACE_DRIVEN
     I(pdinst->getInst()->getAddr() != dinst->getInst()->getAddr());
+#endif
     pdinst->addFakeSrc(dinst);
   }
 }

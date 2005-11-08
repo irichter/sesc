@@ -46,16 +46,17 @@ enum InstType {
 
 enum InstSubType {
   iSubInvalid = 0,
-  iNop,        // Nop
-  iMemory,     // Load & Store
-  iFetchOp,    // Fetch&Op IMem opcode
-  iMemFence,   // Release Consistency iMem opcode
-  iAcquire,    // Release Consistency iMem opcode
-  iRelease,    // Release Consistency iMem opcode
-  BJUncond,    // iBJ opcode
-  BJCall,      // iBJ opcode
-  BJRet,       // iBJ opcode
-  BJCond,      // iBJ opcode
+  iNop,          // Nop
+  iMemory,       // Load & Store
+  iAtomicMemory, // Atomic Read or Write
+  iFetchOp,      // Fetch&Op IMem opcode
+  iMemFence,     // Release Consistency iMem opcode
+  iAcquire,      // Release Consistency iMem opcode
+  iRelease,      // Release Consistency iMem opcode
+  BJUncond,      // iBJ opcode
+  BJCall,        // iBJ opcode
+  BJRet,         // iBJ opcode
+  BJCond,        // iBJ opcode
   iFake,       // Internally generated instruction (store-address...)
   InstSubTypeMax
 };

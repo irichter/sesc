@@ -4,6 +4,7 @@
 
    Contributed by Paul Sack
                   Luis Ceze
+		  Pablo Montesinos Ortego
 
 This file is part of SESC.
 
@@ -23,48 +24,6 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include <sys/types.h>
 #include <dirent.h>
 #include "nanassert.h"
+
 #include "TraceReader.h"
 
-void TraceReader::openTrace(char* basename) {
-  char filename[80];
-  int  count;
-
-  strcpy(filename, basename);
-  strcat(filename, "/thread_001.tt6e");
-  trace = fopen(filename, "r");
-
-  if (trace == NULL)
-    exit(-1);
-
-  readPC();
-}
-
-VAddr TraceReader::getNextPC() {
-  ulong oldPC = PC;
-
-  readInst();
-  if (isBranch()) {
-    readPC();
-    I(!isMemory());
-    IS(address = count = 0);
-  }
-  else {
-    PC += 4;
-
-    if (isMemory()) {
-      readAddress();
-      I(!isBranch());
-      IS(count = 0);
-    }
-    else if (isMemoryExtended()) {
-      readCount();
-    }
-    else { /* arithmetic/regular inst */
-      IS(address = count = 0);
-    }
-
-  }
-
-
-  return oldPC;
-}
