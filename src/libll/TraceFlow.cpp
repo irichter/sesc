@@ -24,7 +24,9 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "OSSim.h"
 #include "SescConf.h"
 #include "TT6Reader.h"
+#ifdef SESC_SIMICS
 #include "SimicsReader.h"
+#endif
 
 char *TraceFlow::traceFile = 0;
 TraceReader *TraceFlow::trace = 0;
@@ -47,8 +49,13 @@ TraceFlow::TraceFlow(int cId, int i, GMemorySystem *gms)
     mode = PPCTT6;
   } else if(strcmp(traceMode, "simics") == 0) {
 
+#ifdef SESC_SIMICS
     if(createReader)
       trace = new SimicsReader();
+#else
+    MSG("Simics mode not fully supported yet. Sorry.");
+    exit(0);
+#endif
 
     mode = Simics;
   } else {

@@ -35,8 +35,9 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "Snippets.h"
 #include "callback.h"
 
-
+#ifdef SESC_SIMICS
 #include "SimicsTraceFormat.h"
+#endif
 
 // 0 int, 1 FP, 2 none
 #define INSTRUCTION_MAX_DESTPOOL 3
@@ -92,9 +93,11 @@ private:
 				 char **argv,
 				 char **envp);
 
+#ifdef SESC_SIMICS
   static void initializeSimicsTrace(int argc,
 				    char **argv,
 				    char **envp);
+#endif
 
   static void MIPSDecodeInstruction(size_t index
 				    ,icode_ptr &picode
@@ -111,7 +114,9 @@ private:
 
   static void PPCDecodeInstruction(Instruction *inst, ulong rawInst);
 
+#ifdef SESC_SIMICS
   static const Instruction *SimicsDecodeInstruction(TraceSimicsOpc_t op);
+#endif
 
 protected:
   InstType opcode;
@@ -173,10 +178,12 @@ public:
     return it->second;
   }
 
+#ifdef SESC_SIMICS
   // this is what should be called by TraceFlow in simics mode
   static const Instruction *getSimicsInst(TraceSimicsOpc_t op) {
     return SimicsDecodeInstruction(op);
   }
+#endif
 
   static const Instruction *getInst4Addr(long addr) {
     icode_ptr picode = addr2icode(addr);
