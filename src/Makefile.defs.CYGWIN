@@ -1,0 +1,78 @@
+#################
+# Linux specific
+#
+# If MINT_TARGET is defined, it is assumed to have a gcc 3.2 or newer
+# compiler. Valid values are
+#
+# setenv MINT_TARGET pentium3
+#
+# setenv MINT_TARGET athlon-mp
+#
+# setenv MINT_TARGET itanium
+#
+# If you want to use the icc compiler (Intel). Use something like this
+#
+#export INTEL_LICENSE_FILE=/opt/intel/licenses/l_cpp_88267802.lic
+#export PATH=${PATH}:/opt/intel/intel_cc_80/bin
+#export LD_LIBRARY_PATH=/opt/intel/intel_cc_80/lib
+#export ICC=1
+#
+
+DEFS	+=-DCYGWIN -DLENDIAN 
+AABI	:=
+ABI	:=
+ABINAME :=CYGWIN
+##########################################################
+ifdef ICC
+##############
+# icc Compiler
+CXX	=icc
+CC	=icc
+LOPTS	:=-O2
+COPTS	:=-O3
+else
+##############
+# gcc Compiler
+PDEFS	:=-Wall -W -Wno-unused 
+CXX	=g++
+CC	=gcc
+
+LOPTS	:=-O2
+ifdef PERFORMANCE
+COPTS	:=-O1 -pg 
+else
+ifdef DEBUG
+COPTS	:=-O0 -g -fno-inline-functions $(PDEFS)
+else
+# -fast does not work by default. Disable some opts
+COPTS	:=-O3 -finline-functions -finline-limit=1800
+endif # DEBUG
+endif # PERFORMANCE
+
+# Shared COPTS (do not affect debugging)
+# Plaform Specific
+COPTS	+=-momit-leaf-frame-pointer -finline-limit=1800
+ifdef MINT_TARGET
+COPTS	+= -march=$(MINT_TARGET)
+else
+COPTS	+= -march=i686
+endif 
+# Platform neutral
+COPTS +=-funroll-loops -fsched-interblock -fomit-frame-pointer
+COPTS +=-ffast-math -fno-exceptions -fno-strict-aliasing -freg-struct-return 
+endif # icc Compiler 
+##############################################################################
+
+##############################################################################
+
+ARFLAGS	:=cr
+SHELL	=/bin/sh
+AS	=as
+LD	=ld
+AR	=ar
+M4	=m4
+MAKE	=make
+RANLIB	=ranlib
+FIND	=find
+SED	=sed
+
