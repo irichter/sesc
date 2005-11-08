@@ -273,7 +273,7 @@ PACKAGE_VERSION='2'
 PACKAGE_STRING='esesc 2'
 PACKAGE_BUGREPORT='renau@soe.ucsc.edu luisceze@cs.uiuc.edu'
 
-ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS $1_OPT BUILD_DIR SRC_DIR TOPSRC_DIR DEFEXEC DEFCONF TASKSCALAR_OPT VALUEPRED_OPT SESC_ENERGY_OPT SESC_THERM_OPT SESC_MISPATH_OPT TS_VMEM_OPT DEBUG_OPT DEBUG_SILENT_OPT DIRECTORY_OPT TS_PROFILING_OPT TS_RISKLOADPROF_OPT NO_MERGELAST_OPT NO_MERGENEXT_OPT SESC_SMP_OPT SESC_SMP_DEBUG_OPT SESC_CHERRY_OPT SESC_SEED_OPT SESC_BAAD_OPT SESC_INORDER_OPT LIBOBJS LTLIBOBJS'
+ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS $1_OPT BUILD_DIR SRC_DIR TOPSRC_DIR DEFEXEC DEFCONF TASKSCALAR_OPT VALUEPRED_OPT SESC_ENERGY_OPT SESC_THERM_OPT SESC_MISPATH_OPT TS_VMEM_OPT DEBUG_OPT DEBUG_SILENT_OPT DIRECTORY_OPT TS_PROFILING_OPT TS_RISKLOADPROF_OPT NO_MERGELAST_OPT NO_MERGENEXT_OPT SESC_SMP_OPT SESC_SMP_DEBUG_OPT SESC_CHERRY_OPT SESC_SEED_OPT SESC_BAAD_OPT SESC_INORDER_OPT CONDOR_LINK_OPT LIBOBJS LTLIBOBJS'
 ac_subst_files=''
 
 # Initialize some variables set by options.
@@ -812,6 +812,8 @@ Optional Features:
   --enable-baad           Enables Bandwidth analyzer performance statistics
                           (default is no)
   --enable-inorder        Enables optimized inorder pipeline (default is no)
+  --enable-condor         Enables linking sesc with condor libraries. Needed
+                          to run with standard universe. (default is no)
 
 Report bugs to <renau@soe.ucsc.edu luisceze@cs.uiuc.edu>.
 _ACEOF
@@ -1304,6 +1306,7 @@ DEFCONF=mem.conf
 
 
 
+
 #we are not defining compiler options yet, but we should
 #AC_PROG_CC
 
@@ -1521,6 +1524,18 @@ if test "${enable_inorder+set}" = set; then
   enableval="$enable_inorder"
   if test "$enableval" = "yes"; then SESC_INORDER_OPT=SESC_INORDER=1
  fi
+fi;
+
+### Condor linking
+
+CONDOR_LINK_OPT=#CONDOR_LINK=1
+
+# Check whether --enable-condor or --disable-condor was given.
+if test "${enable_condor+set}" = set; then
+  enableval="$enable_condor"
+  if test "$enableval" = "yes"; then CONDOR_LINK_OPT=CONDOR_LINK=1
+
+fi
 fi;
 
 cat >confcache <<\_ACEOF
@@ -2183,6 +2198,7 @@ s,@SESC_CHERRY_OPT@,$SESC_CHERRY_OPT,;t t
 s,@SESC_SEED_OPT@,$SESC_SEED_OPT,;t t
 s,@SESC_BAAD_OPT@,$SESC_BAAD_OPT,;t t
 s,@SESC_INORDER_OPT@,$SESC_INORDER_OPT,;t t
+s,@CONDOR_LINK_OPT@,$CONDOR_LINK_OPT,;t t
 s,@LIBOBJS@,$LIBOBJS,;t t
 s,@LTLIBOBJS@,$LTLIBOBJS,;t t
 CEOF

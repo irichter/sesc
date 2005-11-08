@@ -39,6 +39,7 @@ AC_SUBST(SESC_CHERRY_OPT)
 AC_SUBST(SESC_SEED_OPT)
 AC_SUBST(SESC_BAAD_OPT)
 AC_SUBST(SESC_INORDER_OPT)
+AC_SUBST(CONDOR_LINK_OPT)
 
 
 #we are not defining compiler options yet, but we should
@@ -212,6 +213,16 @@ AC_ARG_ENABLE(inorder,
 AC_HELP_STRING([--enable-inorder],
                [Enables optimized inorder pipeline (default is no)]),
 [if test "$enableval" = "yes"; then AC_COMPOPT(SESC_INORDER) fi],
+)
+
+### Condor linking
+
+AC_NOCOMPOPT(CONDOR_LINK)
+AC_ARG_ENABLE(condor, 
+AC_HELP_STRING([--enable-condor],
+               [Enables linking sesc with condor libraries. Needed to run with standard universe. (default is no)]),
+[if test "$enableval" = "yes"; then AC_COMPOPT(CONDOR_LINK) 
+fi],
 )
 
 AC_OUTPUT
