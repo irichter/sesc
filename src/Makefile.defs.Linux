@@ -55,8 +55,10 @@ endif # PERFORMANCE
 COPTS	+=-momit-leaf-frame-pointer
 ifdef MINT_TARGET
 COPTS	+= -march=$(MINT_TARGET)
+LOPTS	+= -march=$(MINT_TARGET)
 else
 COPTS	+= -march=i686
+LOPTS	+= -march=i686
 endif 
 # Platform neutral
 COPTS +=-funroll-loops -fsched-interblock #-fomit-frame-pointer
