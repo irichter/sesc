@@ -33,7 +33,6 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 #include "HVersion.h"
 #include "ThreadContext.h"
-#include "AddressSet.h"
 
 class TaskContext;
 class MemBufferEntry;
