@@ -206,13 +206,9 @@ public:
 
   LVID *getLVID2Recycle();
 
-  LVIDSafest *getSafestEntry() {
-    return lvidSafest;
-  }
+  LVIDSafest *getSafestEntry() const { return lvidSafest; }
 
-  bool hasFreeLVIDs() const {
-    return !freeLVIDs.empty();
-  }
+  bool hasFreeLVIDs() const { return !freeLVIDs.empty(); }
 
   static void kill(const HVersion *v);
   static void restart(const HVersion *v);

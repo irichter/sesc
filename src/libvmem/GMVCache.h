@@ -75,7 +75,7 @@ protected:
 #ifdef VMEM_CVBASE_IN_ADDR
     I(0);
 #endif
-    I(static_cast<LPAddr>(paddr) == lvidTable.getSafestEntry()->calcLPAddr(paddr));
+    I(static_cast<LPAddr>(paddr) == lvidTable.getSafestEntry()->calcLPAddr(paddr)); //??? add by hr
     return cache->calcIndex4Addr(static_cast<LPAddr>(paddr));
   }
 

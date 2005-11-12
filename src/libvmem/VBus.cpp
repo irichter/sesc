@@ -91,7 +91,10 @@ void VBus::returnAccess(MemRequest *mreq)
     return;
   }
 
-  I(mreq->getMemOperation() == MemWrite);
+#if TS_WRITE
+  I((mreq->getMemOperation() == MemWrite)|| ((mreq->getMemOperation() == MemReadW)));
+#endif
+  
   VMemWriteReq *vreq = static_cast<VMemWriteReq *>(mreq->getVMemReq());
   I(vreq);
 
@@ -107,6 +110,7 @@ void VBus::localRead(MemRequest *mreq)
   I(0); // Not allowed in VBUS
 }
 
+//it seem sthe interface between FMVCache and VBus . add by hr
 void VBus::read(VMemReadReq *vreq)
 {
   I(vreq->getType() == VRead);
@@ -198,6 +202,7 @@ void VBus::readAck(VMemReadReq *readAckReq)
     VMemReadReq *readReq = readAckReq->getOrigRequest();
     readReq->incPendingMsg();
     victimCache.read(readReq);
+    // I think a return is needed here! add by hr
   }
 
   sendReadAck(readAckReq);
@@ -252,7 +257,7 @@ void VBus::doSendReadAck(VMemReadReq *readAckReq)
     }
   }
 
-  readReq->incPendingMsg();
+  readReq->incPendingMsg();// why ????
 
   readAckReq->getVMem()->readAck(readAckReq); 
 }
@@ -262,6 +267,7 @@ void VBus::localWrite(MemRequest *mreq)
   I(0); // Not allowed in VBUS
 }
 
+// the interface between FMVCache and VBus. add by hr
 void VBus::writeCheck(VMemWriteReq *vreq)
 {
   I(vreq->getType() == VWriteCheck);
@@ -286,19 +292,23 @@ void VBus::doWriteCheck(VMemWriteReq *vreq)
 
   // visit all caches
   // visit L1s
+  // also vist viticmcache //add by hr
   size_t nL1s = upperLevel.size();
-
+  
+  for(size_t i=0;i<nL1s;i++) 
+     vreq->incnRequests();
+  
   for(size_t i=0;i<nL1s;i++) {
     VMemObj *obj = static_cast<VMemObj *>(upperLevel[i]);
     if(obj == vreq->getVMem())
       continue;
 
-    vreq->incnRequests();
+    //vreq->incnRequests();
 
     sendWriteCheck(vreq, obj);
   }
 
-  vreq->incnRequests();
+  //vreq->incnRequests();
 
   sendWriteCheck(vreq, &victimCache);
 }
@@ -314,12 +324,9 @@ void VBus::writeCheckAck(VMemWriteReq *vreq)
   I(vreq->getnRequests() == 0);
 
   oreq->decnRequests(); // FIXME: move
-
   vcr.addCheck(oreq, vreq);
 
   if (oreq->getnRequests() == 0) { // FIXME
-
-    // MSG("1.vreq 0x%x oreq 0x%x", vreq, oreq);
 
     TimeDelta_t lat = vreq->getLatency();
     vreq->clearLatency();
@@ -344,21 +351,23 @@ void VBus::doWriteCheckAck(VMemWriteReq *vreq)
 
   GI(!oreq->hasCacheSentData() && oreq->getnRequests() == 0
      ,!(victimCache.isCombining(vreq->getPAddr())));
-  
+ 
   if (oreq->getnRequests() == 0) {
     // no more caches to ask for data, start sending invalidates if needed
-
     bool canSetMostSpec = vcr.performCheck(oreq);
     if (canSetMostSpec)
-      vreq->getState()->setMostSpecLine();
+      oreq->getState()->setMostSpecLine();
     
     I(!oreq->hasMemSentData());
 
     // call upper level ack
-    if(oreq->hasCacheSentData()) 
+    if(oreq->hasCacheSentData()) {  
+      //the condition should be oreq->hasCacheSentData() || weitrhit. add by hr 
       sendWriteCheckAck(oreq);
-    else 
+    }else{
+      I(!oreq->isWriteHit());
       nonVersionRead(oreq->getMemRequest());
+    }
   }
 
   vreq->destroy();
@@ -472,6 +481,9 @@ void VBus::askPushLine(VMemPushLineReq *vreq)
     VMemObj *obj = static_cast<VMemObj *>(upperLevel[i]);
 
     vreq->incPendingMsg();
+
+    I(vreq->getVersion());
+
     doSendAskPushLineCB::scheduleAbs(port->nextSlot()+delay+lat, this, vreq, obj);
   }
 #endif /* DIRECTORY */
@@ -483,6 +495,8 @@ void VBus::askPushLine(VMemPushLineReq *vreq)
 
 void VBus::doSendAskPushLine(VMemPushLineReq *vreq, VMemObj *obj)
 {
+  I(vreq->getVersion());
+		   
   obj->askPushLine(vreq);
 }
 

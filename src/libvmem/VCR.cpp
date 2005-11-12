@@ -115,7 +115,7 @@ bool VCR::performCheck(const VMemWriteReq *oreq)
   VCRMap::iterator vit = vcrMap.find(oreq);
   if(vit == vcrMap.end())
     return true;
-
+  
   VCRType *versionList = vit->second;
 
   if(versionList->empty()) {
@@ -129,20 +129,17 @@ bool VCR::performCheck(const VMemWriteReq *oreq)
   // not included here. It is OK because we use
   // notifyDataDepViolation, if we were calling restart directly it
   // would generate more restarts than necessary.
-
   PAddr paddr = oreq->getPAddr();
 
   VMemState::WordMask wrmask = VMemState::calcWordMask(paddr);
 
   for(VCRType::iterator it = versionList->begin(); it != versionList->end(); it++) {
-
-    const VMemState  *state   = (*it)->getState();
+   const VMemState  *state   = (*it)->getState();
 
     if(state->hasExposedRead(wrmask)) {
       const HVersion  *version = (*it)->getVersionRef();
       // must be latter version. Otherwise, we shouldn't be here
       I(*(oreq->getVersionRef()) < *version); 
-
       if(!version->isKilled()) {
 	// The store may have an ack, but it still has a pending request
 	I(oreq->hasMemRequestPending());
@@ -154,7 +151,6 @@ bool VCR::performCheck(const VMemWriteReq *oreq)
     if(state->hasProtectingWrite(wrmask))
       break; // stop looking for more versions
   }
-
 #endif
 
   // do some housekeeping

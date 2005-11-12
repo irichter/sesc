@@ -48,12 +48,14 @@ LVID::LVID(const char *section, LVIDTable *m, ushort i)
 
 void LVID::init(HVersion *v)
 {
+  I(v);
   I(clver == 0);
   
   I(!v->isKilled());
   
   clver = v->duplicate();
-
+  I(clver->getVersionDomain()); //add by hr
+  
   subLVID       = 0;
   lvidcRecycled = false;
   nLinesPinned   = 0;
@@ -153,12 +155,12 @@ LVIDSafest::LVIDSafest(const char *section, LVIDTable *m, ushort i)
 
 const HVersion *LVIDSafest::getVersionRef() const 
 {
-  return HVersion::getOldestRef(clver->getVersionDomain());
+  return clver;
 }
 
 HVersion *LVIDSafest::getVersionDuplicate() const 
 {
-  return HVersion::getOldestDuplicate(clver->getVersionDomain());
+  return clver->duplicate();
 }
 
 void LVIDSafest::decLinesUsed()

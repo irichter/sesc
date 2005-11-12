@@ -65,6 +65,8 @@ VMemReadReq *GMVCache::read(VMemReadReq *readReq, TimeDelta_t latency)
 
   PAddr        paddr = readReq->getPAddr();
 
+  //this case is what??? the version is killed, 
+  //then why need to set the setCacheSentData()??? add by hr
   if (readReq->getVersionRef()->isKilled()) {
     VMemReadReq *readAckReq = VMemReadReq::createReadAck(this, readReq
 							 ,readReq->getVersionDuplicate());
@@ -160,8 +162,7 @@ VMemWriteReq *GMVCache::writeCheck(VMemWriteReq *vreq, VMemObj *mobj)
     I(vreq->getVersionRef());
 
     if(*(cl->getVersionRef()) <= *(vreq->getVersionRef())) {
-      if(vreq->getType() != VWriteCheck) 
-	vreq->getOrigRequest()->setCacheSentData();
+      vreq->setCacheSentData();
     }
 
     if(cl->getVersionRef() == vreq->getVersionRef()) {
@@ -182,6 +183,7 @@ VMemWriteReq *GMVCache::writeCheck(VMemWriteReq *vreq, VMemObj *mobj)
       }
 
       vreq->incnRequests();
+
       nreq = VMemWriteReq::createWriteCheckAck(this, cl->getVersionDuplicate(), cl, vreq); 
     }
   }
@@ -375,7 +377,8 @@ GMVCache::CacheLine *GMVCache::locallySatisfyLine(const HVersion *ver, PAddr pad
 
     GI(cl->getLVID(), !cl->getLVID()->isKilled());
 
-    if (!cl->isHit(paddr))
+    if (!cl->isHit(paddr)) //this isHit() ensure that the cacheline is same 
+      			   //but has different version. add by hr
       continue;
   
 #ifdef VMEM_PRED_FORWARD

@@ -92,6 +92,10 @@ void FMVCache::displaceLine(CacheLine *cl)
     return;
   }
 
+  //is not dirty, and is safe then can invalidate????
+  //If the safe line later become unsafe, and unfortunately,
+  //the line is readed by this thread and written by pre-thread
+  //then this memory violation may be ignored!!!!! add by hr
   if (!cl->isDirty() && cl->isSafe()) {
     cl->invalidate();
     return;
@@ -107,7 +111,7 @@ void FMVCache::displaceLine(CacheLine *cl)
 	continue;
       if (!ncl->isHit(cl->getPAddr()))
 	continue;
-      GI(ncl->getVersionRef(), *(ncl->getVersionRef()) >= *(cl->getVersionRef()));
+    //  GI(ncl->getVersionRef(), *(ncl->getVersionRef()) >= *(cl->getVersionRef()));
     }
   }
 #endif
@@ -245,7 +249,7 @@ FMVCache::CacheLine *FMVCache::allocateLine(LVID *lvid, LPAddr addr)
   if (cl) {
     if (cl->accessLine())
       wrLVIDEnergy->inc();
-
+    
     return cl; // Already allocated :)
   }
 
@@ -283,15 +287,13 @@ FMVCache::CacheLine *FMVCache::allocateLine(LVID *lvid, LPAddr addr)
     }
   }
 
-  if (cl) {
-    if (cl->isRestarted() || !cl->hasState()) {
-      wrLVIDEnergy->inc();
-      cl->invalidate();
-      return cl;
-    }
-  }else{
+  if (!cl) {
     // Look for a more spec task
     cl = getLineMoreSpecThan(lvid->getVersionRef(), paddr);
+  }else if (cl->isRestarted() || !cl->hasState()) {
+    wrLVIDEnergy->inc();
+    cl->invalidate();
+    return cl;
   }
 
   // Otherwise get a random line (even locked lines are valid)
@@ -328,7 +330,7 @@ FMVCache::CacheLine *FMVCache::allocateLine(LVID *lvid, LPAddr addr)
 #endif
 
   I(!cl->isInvalid());
-  displaceLine(cl);
+  displaceLine(cl);//notice this entry. this is the pushline due to cache miss. add by hr
   I(cl->isInvalid());
 
   return cl;
@@ -355,7 +357,7 @@ void FMVCache::createNewLine(const VRWReq *vreq, const VMemState *state)
   if(cl->isInvalid()) {
     cl->resetState(addr, lvid);
   } else {
-    I(cl->isHit(vreq->getPAddr()) && cl->getLVID() == lvid);
+    I(cl->isHit(vreq->getPAddr()) && cl->getLVID() == lvid);//this condition is important. add by hr 
   }
   cl->combineStateFrom(state);
   cl->updateWord(mreq->getMemOperation(), vreq->getPAddr());
@@ -368,9 +370,12 @@ void FMVCache::initWriteCheck(LVID *lvid, MemRequest *mreq, bool writeHit)
   VMemWriteReq *vreq = VMemWriteReq::createWriteCheck(this
 						      ,lvid->getVersionDuplicate()
 						      ,mreq->getPAddr()
-						      ,mreq);
-  if (writeHit)
+						      ,mreq
+						      ,writeHit);
+  
+  if (writeHit) {// why sent data when cachehit????
     vreq->setCacheSentData();
+  }
 
   // add the request
   vreq->setLatency(cachePort->nextSlotDelta()+missDelay);
@@ -386,18 +391,21 @@ bool FMVCache::performAccess(MemRequest *mreq)
   if(lvid->isKilled()) 
     return true;
 
+  //these two addrs have any difference?
   const PAddr    paddr  = mreq->getPAddr();
   const LPAddr    addr  = lvid->calcLPAddr(paddr);
-
+    
+  
   // retrieve data
   CacheLine *cl = cache->findLine(addr);
   if (cl == 0) {
     CacheLine *pred = locallySatisfyLine(lvid->getVersionRef(), paddr);
     if (pred == 0) {
-      cleanupSet(paddr);
+      cleanupSet(paddr);// what this func do? I guess it just find a safe line to repalce. add by hr
       handleMiss(mreq);
       return false;
     }
+    
     I(!pred->isInvalid());
     // local miss means no same version
     I(pred->getVersionRef() != lvid->getVersionRef());
@@ -457,7 +465,6 @@ bool FMVCache::performAccess(MemRequest *mreq)
     if (cl->isMostSpecLine())
       return true;
 
-
     initWriteCheck(lvid, mreq, true);
     return false;
   }
@@ -483,6 +490,7 @@ void FMVCache::sendPushLine(HVersion *verDup, PAddr paddr, const VMemState *stat
   }
 
   if (!extMSHR->issue(paddr)) {
+    //put it first in the extMSHR. add by hr
     extMSHR->addEntry(paddr, doSendPushLineCB::create(this, vreq));
   }else{
     doSendPushLine(vreq);
@@ -521,14 +529,14 @@ void FMVCache::handleMiss(MemRequest *mreq)
   // can be optimized if the write sends at the same time a writeCheck
   // (very likely it would have sent a writeCheck after the miss, so
   // why to wait?)
-
+  
   initWriteCheck(lvid, mreq, false);
 }
 
 void FMVCache::doAccess(MemRequest *mreq)  
 {  
   bool done = performAccess(mreq);
-  if(!done) { // it was a miss
+  if (!done) { // it was a miss
     return;
   }
 
@@ -581,37 +589,11 @@ void FMVCache::localWrite(MemRequest *mreq)
 {
   I(mreq->getMemOperation() == MemWrite);
 
-#if 1
-  rdHitEnergy->inc();
-
-  LVID    *lvid   = static_cast<LVID *>(mreq->getLVID());
-  I(lvid);
-  if(!lvid->isKilled()) {
-    PAddr paddr = mreq->getPAddr();
-    const LPAddr    addr  = lvid->calcLPAddr(paddr);
-
-    CacheLine *cl = cache->findLine(addr);
-    if (cl == 0)
-      cl = allocateLine(lvid, addr);
-
-    if (cl) {
-      if (!cl->isMostSpecLine()) {
-      // Assume that all successor lines get invalidated
-	wrLVIDEnergy->inc();
-	cl->setMostSpecLine();
-      
-	rdHitEnergy->inc(); // around 3 checks per miss
-	rdHitEnergy->inc();
-	rdHitEnergy->inc();
-      }
-    }
-  }
-#endif
-
-  
-  mreq->goUp(0);
+/*
+  mreq->goUp(0); //why??????????!!!!!!!!!!!!!!!!!
   return;
-
+*/  
+//CHECK:
   PAddr paddr = mreq->getPAddr();
   I(paddr);
   
@@ -668,13 +650,14 @@ void FMVCache::readAck(VMemReadReq *readAckReq)
   //  LOG("%lld %s 0x%lx readAck", globalClock, getSymbolicName(), readAckReq->getPAddr());
 
   VMemReadReq *readReq = readAckReq->getOrigRequest();
+
   I(readReq);
   I(readReq->getType() == VRead);
   I(readAckReq->getType() == VReadAck);
 
   readReq->decPendingMsg();
 
-  if (readReq->hasMemRequestPending()) {
+  if (readReq->hasMemRequestPending()) { // what is the meaning of this condition???? add by hr
     bool doIt = false;
     MemRequest *mreq = readReq->getMemRequest();
 
@@ -690,16 +673,17 @@ void FMVCache::readAck(VMemReadReq *readAckReq)
 		      && *(readReq->getVersionRef()) > *(readAckReq->getVersionRef()));
     }
     // It is the last request
-    doIt = doIt || !readReq->hasPendingMsg();
+    doIt = doIt || !readReq->hasPendingMsg();// why use || ??? add by hr
+    // I think if use ||, then if two or more FMVCache have the different version cacheline
+    // then , what should this func do? createNewLine more times??? 
 
     if (doIt) {
       createNewLine(readReq, readAckReq->getStateRef());
-    
-      mshr->retire(readReq->getPAddr());
-
-      I(mreq->isTopLevel());
-      readReq->markMemRequestAck();
-      mreq->goUp(0);
+      if(!readReq->hasPendingMsg()) { 
+	mshr->retire(readReq->getPAddr());
+	readReq->markMemRequestAck();
+        mreq->goUp(0);
+      }
     }
   }
 
@@ -709,6 +693,7 @@ void FMVCache::readAck(VMemReadReq *readAckReq)
   
   readAckReq->destroy();
 }
+
 
 void FMVCache::writeCheck(VMemWriteReq *vreq)
 {
@@ -735,8 +720,9 @@ void FMVCache::writeCheckAck(VMemWriteReq *vreq)
   // VMemReq is not built.
   I(vreq->getType() == VWriteCheck);
   I(vreq->getnRequests() == 0);
-  createNewLine(vreq, vreq->getStateRef());
-
+  if(!vreq->isWriteHit())
+    createNewLine(vreq, vreq->getStateRef());
+  
   MemRequest *mreq = vreq->getMemRequest();
 
   mshr->retire(vreq->getPAddr());
@@ -761,7 +747,9 @@ void FMVCache::pushLineAck(VMemPushLineReq *pushAckReq)
   extMSHR->retire(paddr);
 
   if (pushAckReq->getVersionRef()) {
-
+   // It the forward entry, inited from LMVCache, when push req from FMVCache arrive the
+   // LMVCache, and it find there are no room(cache no room, or lvid are used out)  to find 
+   // it, so, it will forward the req back again. add by hr
     if (pushAckReq->getVersionRef()->isKilled()) {
       // KILLED: just do nothing
     }else if (pushAckReq->getVersionRef()->isSafe()) {

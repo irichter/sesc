@@ -75,8 +75,8 @@ void VMemObj::access(MemRequest *mreq)
     return;
   }
 
+  // Main API with Processor
   switch(mreq->getMemOperation()) {
-    // Main API with Processor
   case MemRead:    localRead(mreq);       break;
   case MemWrite:   localWrite(mreq);      break;
   default:

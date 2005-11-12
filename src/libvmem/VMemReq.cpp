@@ -43,6 +43,7 @@ void VMemReq::init(VMemReqType t, VMemObj *m, HVersion *v, PAddr p)
   paddr = p;
   vmem  = m;
   ver   = v;
+  nReq  = 0;
 
   I(m);
 
@@ -128,18 +129,20 @@ void VMemReadReq::destroy()
  **********************************/
 
 VMemWriteReq *VMemWriteReq::createWriteCheck(VMemObj *c, HVersion *v
-					     ,PAddr paddr, MemRequest *mreq)
+					     ,PAddr paddr, MemRequest *mreq
+					     ,bool wrHit)
 {
   VMemWriteReq *req = rPool.out();
+//  printf("createWriteCheck: req is %x\n", req);
 
   req->init(VWriteCheck, c, v, paddr);
 
   req->mreq    = mreq;
-  req->origReq = 0;
+  req->origReq = 0; //right???? add by hr
   req->state.clearState();
   req->cacheSentData = false;
   req->memSentData   = false;
-
+  req->writeHit = wrHit;
   mreq->setVMemReq(req);
 
   return req;
@@ -179,7 +182,7 @@ void VMemWriteReq::destroy()
   if(ver)
     ver->garbageCollect();
   IS(ver=0);
-
+  
   rPool.in(this);
 }
 

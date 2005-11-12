@@ -100,21 +100,6 @@ void LMVCache::displaceLine(CacheLine *cl)
 
   PAddr paddr = cl->getPAddr();
 
-#ifdef DEBUG
-  // If the line displaced is safe, it must displace the safest from the set
-  {
-    ulong index = calcIndex4PAddr(paddr);
-    for(ulong i=0; i < cache->getAssoc(); i++) {
-      CacheLine *ncl = cache->getPLine(index+i);
-      if (ncl->isInvalid() || ncl->isKilled())
-	continue;
-      if (!ncl->isHit(paddr))
-	continue;
-      I(*(ncl->getVersionRef()) >= *(cl->getVersionRef()));
-    }
-  }
-#endif
-
   I(!isCombining(paddr));
 
 #ifdef TS_VICTIM_DISPLACE_CLEAN
@@ -204,7 +189,7 @@ LMVCache::CacheLine *LMVCache::allocateLine(LVID *lvid, LPAddr addr)
     combineInit(cl);
 #else
     if (cl->isDirty()) {
-      I(!isCombining(cl->getPAddr()));
+      I(!isCombining(cl->getPAddr()));//delete by hr
       combineInit(cl);
     }else{
       cl->invalidate();
@@ -257,17 +242,21 @@ bool LMVCache::isCombining(PAddr paddr) const
 
 void LMVCache::combineInit(PAddr paddr, HVersion *verDup, const VMemState *state)
 {
+  I(verDup);
   VMemPushLineReq *askReq = VMemPushLineReq::createAskPushLine(this
 							       ,verDup
 							       ,paddr
 							       ,state);
+  I(askReq->getVersion());
+  
   askReq->incPendingMsg();
 
   I(askReq->getType() == VAskPushLine);
-  I(cMap.find(calcLine(paddr)) == cMap.end());
+
   cMap[calcLine(paddr)] = askReq;
 
   // Combine All
+  // combine all the safe???? add by hr
   ulong index = calcIndex4PAddr(paddr);
   for(ulong i=0; i < cache->getAssoc(); i++) {
     CacheLine *cl = cache->getPLine(index+i);
@@ -281,10 +270,19 @@ void LMVCache::combineInit(PAddr paddr, HVersion *verDup, const VMemState *state
     if (!cl->isHit(paddr))
       continue;
 
+#if TS_WRITE
+    if(!cl->isSafe())
+      continue;
+#endif
+
     askReq->getState()->combineStateFrom(cl);
     cl->invalidate();
     wrLVIDEnergy->inc();
   }
+
+  // I guess that , here, the LMVCache actively request the safe cacheline form the upper 
+  // level FMVCache. add by hr
+  I(askReq->getVersion());
 
   vbus->askPushLine(askReq);
 }
@@ -301,9 +299,9 @@ void LMVCache::combineInit(CacheLine *cl)
 
   wrLVIDEnergy->inc();
   combWriteEnergy->inc();
-  
-  I(!isCombining(paddr));
 
+  I(!isCombining(paddr));
+  
   if (cl->isLeastSpecLine()) {
 #ifndef TS_VICTIM_DISPLACE_CLEAN
     I(cl->isDirty());
@@ -384,6 +382,7 @@ void LMVCache::combinePushLine(const VMemPushLineReq *pushReq)
       askPushReq->changeVersion(pushReq->getVersionDuplicate());
     
     askPushReq->getState()->combineStateFrom(pushReq->getStateRef());
+    // why the conbine is done to askPushReq, not the cacheline??? add by hr
   }
 
   // Maybe we left an address on the case (not safe), and now it has
@@ -401,13 +400,21 @@ void LMVCache::combinePushLine(const VMemPushLineReq *pushReq)
     if (!cl->isHit(paddr))
       continue;
 
+#if TS_WRITE
+    if(!cl->isSafe())
+      continue;
+#endif
+
     askPushReq->getState()->combineStateFrom(cl);
     cl->invalidate();
     wrLVIDEnergy->inc();
   }
-
+  
+  // when the pushReq is caused by the displace() in allocateLine() in FMVCache,
+  // and it will return here. add by hr
   if (!pushReq->getAskPushReq())
     return;
+  
   I(pushReq->getAskPushReq() == askPushReq);
 
   askPushReq->decPendingMsg();
@@ -417,49 +424,18 @@ void LMVCache::combinePushLine(const VMemPushLineReq *pushReq)
   // combineEnd
   cMap.erase(it);
 
-  LVID    *lvid = lvidTable.getSafestEntry();
-  LPAddr   addr = lvid->calcLPAddr(paddr);
-  CacheLine *cl = cache->findLine2Replace(addr);
-
-  if (cl == 0) {
-    combineMiss.inc();
-    // Not enough local space, send to memory
-#ifdef TS_VICTIM_DISPLACE_CLEAN
-    writeMemory(paddr);
-#else
-    if (askPushReq->getStateRef()->isDirty())
-      writeMemory(paddr);
+#if TS_WRITE
+  writeMemory(paddr);
 #endif
-  }else{
-    // cl can not be the safest entry because this is a combine operation
-    if( cl->accessLine() ) {
-      wrLVIDEnergy->inc();
-    }else if(cl->isInvalid()) {
-      // Do nothing
-    }else{
-#ifdef TS_VICTIM_DISPLACE_CLEAN
-      writeMemory(cl->getPAddr());
-#else
-      if (cl->isDirty())
-	writeMemory(cl->getPAddr());
-#endif
-      cl->invalidate();
-    }
-
-    I(cl->isInvalid());
-    combineHit.inc();
-    cl->resetState(addr, lvid, askPushReq->getStateRef());
-    cl->setLeastSpecLine();
-  }
 
   askPushReq->destroy();
 }
 
 void LMVCache::writeMemory(PAddr paddr)
 {
-#ifndef TS_VICTIM_DISPLACE_CLEAN
-  I(0); // FIXME when writes activated
-#endif
+//#ifndef TS_VICTIM_DISPLACE_CLEAN
+//  I(0); // FIXME when writes activated
+//#endif
 
   CBMemRequest::create(0 // Latency
 		       ,vbus->getLowerLevel() // memory or bus
@@ -484,7 +460,7 @@ void LMVCache::ackPushLine(VMemPushLineReq *pushReq)
 {
   pushHit.inc();
 
-  pushReq->changeVersion(0);
+  pushReq->changeVersion(0); //why set 0?? 
   pushReq->convert2Ack();
   vbus->pushLineAck(pushReq);
 }
@@ -516,7 +492,7 @@ void LMVCache::read(VMemReadReq *readReq)
 
     remReadAck = VMemReadReq::createReadAck(this
 					    ,readReq
-					    ,lvidTable.getSafestEntry()->getVersionDuplicate());
+					    ,readReq->getVersionDuplicate());
     readReq->incPendingMsg();
 
     remReadAck->getState()->setLeastSpecLine();
@@ -551,7 +527,7 @@ void LMVCache::writeCheckAck(VMemWriteReq *writeReq){
 }
 
 void LMVCache::writeCheck(VMemWriteReq *vreq)
-{  
+{ 
   VMemWriteReq *nreq = GMVCache::writeCheck(vreq, vbus);
   I(nreq);
 
@@ -589,8 +565,14 @@ void LMVCache::pushLine(VMemPushLineReq *pushReq)
   //
   // 3-Otherwise forwardLine
 
-  if (isCombining(paddr)) {
+  if (isCombining(paddr) && (pushReq->getVersionRef()->isSafe())) {
     // Already combining, so add this line too
+    // when the first push cauesd by displace() in allocateLine() in FMVCache,
+    // if it hit the combine, it will enter this func.
+    // Also, if it is not hit, then if is safe, it will enter the combineInit();
+    // this fuc will init a askPushLine(), and combine all the possible cacheline
+    // from the upper level FMVCache.
+    // add by hr
     combinePushLine(pushReq);
 #ifdef DEBUG
     if (isCombining(paddr) ){
@@ -605,6 +587,8 @@ void LMVCache::pushLine(VMemPushLineReq *pushReq)
       }
     }
 #endif
+    //if the pushReq is in combing, and it is safe, so just return the req to FMVCache,
+    //the FMVCache do nothing but destroy thr req. add by hr
     if (pushReq->getVersionRef()->isSafe()) {
       ackPushLine(pushReq);
       return;
@@ -619,16 +603,23 @@ void LMVCache::pushLine(VMemPushLineReq *pushReq)
     return;
   }
 
+  // when the pushReq is not safe and it is NOT getAskPushReq(), 
+  // then put it in the victim. add by hr
+  //
+  // first, try to transform the version in the pushReq to lvid. add by hr
   LVID *lvid = findCreateLVID(pushReq);
   
   if (lvid==0) {
     wrRevLVIDEnergy->inc();
     if (pushReq->getVersionRef()->isSafe()) {
       I(!isCombining(pushReq->getPAddr()));
-      combineInit(pushReq);
+      combineInit(pushReq); // This func deal with the safe and not hit combine pushReq. It will 
+      			    // combine all the possible safe cacheline. and just put the safe line 
+			    // in the combine, that is cMap. and init the askReq, which will later 
+			    // hit the combine. add by hr
       ackPushLine(pushReq);
     }else{
-      recycleAllCache(pushReq->getVersionRef());
+      recycleAllCache(pushReq->getVersionRef());// bao li!!!! add by hr
       forwardPushLine(pushReq);
       pushMiss.inc();
     }

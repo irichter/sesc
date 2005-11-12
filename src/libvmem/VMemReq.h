@@ -75,6 +75,8 @@ protected:
   static unsigned int snCount; // serial number counter
   unsigned int serialNumber;   // serial number itself
 #endif
+
+  int nReq;
   
 public:
   TimeDelta_t getLatency() const { return lat; }
@@ -110,10 +112,10 @@ public:
     return nPendingMsg != 0;
   }
 
-  int getnRequests() const { I(0); return 0; }
-  void incnRequests() { I(0); }
-  void decnRequests() { I(0); }
-
+  int getnRequests()  const {return nReq; }
+  void incnRequests() { nReq++; }
+  void decnRequests() { nReq--; }
+  
 #ifdef DEBUG
   unsigned int getSerialNumber() const { return serialNumber; }
 #else
@@ -139,7 +141,6 @@ class VRWReq : public VMemReq {
     I(mreq);
     mreq = 0; // mreq is no longer valid
   }
-
   bool hasCacheSentData() const { return cacheSentData; }
   void setCacheSentData() {
     cacheSentData = true;
@@ -196,13 +197,16 @@ private:
 
 protected:
   bool lastMsg;
+  bool writeHit;
 
 public:
   static VMemWriteReq *createWriteCheck(VMemObj *c, HVersion *v
-					,PAddr paddr, MemRequest *mreq);
+					,PAddr paddr, MemRequest *mreq, bool wHit);
   
   static VMemWriteReq *createWriteCheckAck(VMemObj *c, HVersion *v
 					   ,VMemState *state, VMemWriteReq *vreq);
+
+  bool isWriteHit() const { return writeHit; }
 
   void destroy();
 

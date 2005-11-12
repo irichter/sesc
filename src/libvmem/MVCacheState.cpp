@@ -112,7 +112,8 @@ void MVCacheState::invalidate()
 void MVCacheState::resetState(LPAddr addr, LVID *l, const VMemState *st)
 {
   I(lvid==0);
-  lvid = l;
+  lvid = l; 
+  
   lvid->incLinesUsed();
  
   I(!l->isKilled());
@@ -129,7 +130,7 @@ void MVCacheState::resetState(LPAddr addr, LVID *l, const VMemState *st)
   }else
     VMemState::clearState();
 
-  I(l->getVersionRef());
+//  I(l->getVersionRef());  //new delete by hr
 
   // Too optimistic
   //if (l->getVersionRef()->isOldest())
@@ -156,8 +157,10 @@ bool MVCacheState::accessLine()
     return false;
 
   I(isRestarted());
+
   // task got restarted, upgrade flags accordingly
 #ifdef TS_VMNOPROMOTE
+  MSG("TS_VMNOPROMOTE!!!!!!!!!\n");
   invalidate(); 
   return true;
 #endif
