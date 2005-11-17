@@ -9,13 +9,12 @@ use File::Spec;
 
 my $BHOME;
 
-my $op_ext;
-my $op_help=0;
 my $op_test=0;
 my $op_dump=0;
 my $op_sesc="$ENV{'SESCBUILDDIR'}/sesc";
 my $op_key;
 my $op_key2;
+my $op_ext;
 my $op_load=1;
 my $op_mload=2;
 my $op_clean;
@@ -36,10 +35,7 @@ my $op_yes;
 my $op_condor;
 my $op_condorstd;
 my $op_trace;
-
-my $dataset;
-
-my $jobfp;
+my $op_help=0;
 
 my $result = GetOptions("test",\$op_test,
                         "dump",\$op_dump,
@@ -61,6 +57,7 @@ my $result = GetOptions("test",\$op_test,
                         "rabbit", \$op_rabbit,
 			"saveoutput",\$op_saveoutput,
 			"bindir=s",\$op_bindir,
+			"native",\$op_native,
 			"kinst=i",\$op_kinst,
 			"yes",\$op_yes,
 			"condor",\$op_condor,
@@ -70,6 +67,8 @@ my $result = GetOptions("test",\$op_test,
 		       );
 
 
+my $dataset;
+my $jobfp;
 my $threadsRunning=0;
 
 sub waitUntilLoad {

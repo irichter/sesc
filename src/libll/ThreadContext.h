@@ -212,8 +212,20 @@ public:
     *pos = *addr;
 #endif
   }
-  
+
+#ifdef SPARC 
+  // MIPS supports 32 bit align double access
+  double getDP( icode_ptr pi, int R) { 
+    ulong w1 = *(ulong *) ((long)(fp) + pi->args[R]);
+    ulong w2 = *(ulong *) ((long)(fp) + pi->args[R]+4);
+    static unsigned long long ret = w2;
+    ret = w2;
+    ret = (ret<<32) | w1;
+    return *(double *) (&ret);
+  }
+#else 
   double getDP( icode_ptr pi, int R) { return *(double *) ((long)(fp) + pi->args[R]); }
+#endif
   void   setDP( icode_ptr pi, int R, double val) { 
     (*(double *) ((long)(fp) + pi->args[R])) = val; 
   }

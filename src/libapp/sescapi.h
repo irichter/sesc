@@ -160,16 +160,21 @@ extern "C" {
   void sesc_wait(void);
 
   void sesc_pseudoreset(void); /* Reset/Capture some stats for parallel
-				        applications to subtract spawning
-				        overheads                            */
+                                        applications to subtract spawning
+                                        overheads                            */
 
   long sesc_fetch_op(enum FetchOpType op, volatile long *addr, long val); 
   void sesc_unlock_op(volatile long *addr, long val);
 
   void sesc_simulation_mark(void);
   void sesc_simulation_mark_(void);
+#ifdef SESCAPI_NATIVE
+  void sesc_simulation_mark_id(int id);
+  void sesc_simulation_mark_id_(int id);
+#else
   void sesc_simulation_mark_id(int id) __attribute__((noinline));
   void sesc_simulation_mark_id_(int id) __attribute__((noinline));;
+#endif
   void sesc_fast_sim_begin(void);
   void sesc_fast_sim_begin_(void);
   void sesc_fast_sim_end(void);
@@ -279,97 +284,97 @@ extern "C" {
 
   static inline void tls_begin_epochs(void){
     asm volatile ("jal sesc_begin_epochs"
-		  :
-		  :
-		  : "cc", "memory", "a0", "a1", "a2", "a3", "v0", "v1",
-		  "t0", "t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9",
-		  "s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7", "ra",
-		  "$f0",  "$f1",  "$f2",  "$f3",  "$f4",  "$f5",  "$f6",  "$f7",
-		  "$f8",  "$f9",  "$f10", "$f11", "$f12", "$f13", "$f14", "$f15",
-		  "$f16", "$f17", "$f18", "$f19", "$f20", "$f21", "$f22", "$f23",
-		  "$f24", "$f25", "$f26", "$f27", "$f28", "$f29", "$f30", "$f31",
-		  "$fcc0", "$fcc1", "$fcc2", "$fcc3", "$fcc4", "$fcc5", "$fcc6", "$fcc7");
+                  :
+                  :
+                  : "cc", "memory", "a0", "a1", "a2", "a3", "v0", "v1",
+                  "t0", "t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9",
+                  "s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7", "ra",
+                  "$f0",  "$f1",  "$f2",  "$f3",  "$f4",  "$f5",  "$f6",  "$f7",
+                  "$f8",  "$f9",  "$f10", "$f11", "$f12", "$f13", "$f14", "$f15",
+                  "$f16", "$f17", "$f18", "$f19", "$f20", "$f21", "$f22", "$f23",
+                  "$f24", "$f25", "$f26", "$f27", "$f28", "$f29", "$f30", "$f31",
+                  "$fcc0", "$fcc1", "$fcc2", "$fcc3", "$fcc4", "$fcc5", "$fcc6", "$fcc7");
   }
   static inline void tls_change_epoch(void){
     asm volatile ("jal sesc_change_epoch"
-		  :
-		  : 
-		  : "cc", "memory", "a0", "a1", "a2", "a3", "v0", "v1",
-		  "t0", "t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9",
-		  "s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7", "ra",
-		  "$f0",  "$f1",  "$f2",  "$f3",  "$f4",  "$f5",  "$f6",  "$f7",
-		  "$f8",  "$f9",  "$f10", "$f11", "$f12", "$f13", "$f14", "$f15",
-		  "$f16", "$f17", "$f18", "$f19", "$f20", "$f21", "$f22", "$f23",
-		  "$f24", "$f25", "$f26", "$f27", "$f28", "$f29", "$f30", "$f31",
-		  "$fcc0", "$fcc1", "$fcc2", "$fcc3", "$fcc4", "$fcc5", "$fcc6", "$fcc7");
+                  :
+                  : 
+                  : "cc", "memory", "a0", "a1", "a2", "a3", "v0", "v1",
+                  "t0", "t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9",
+                  "s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7", "ra",
+                  "$f0",  "$f1",  "$f2",  "$f3",  "$f4",  "$f5",  "$f6",  "$f7",
+                  "$f8",  "$f9",  "$f10", "$f11", "$f12", "$f13", "$f14", "$f15",
+                  "$f16", "$f17", "$f18", "$f19", "$f20", "$f21", "$f22", "$f23",
+                  "$f24", "$f25", "$f26", "$f27", "$f28", "$f29", "$f30", "$f31",
+                  "$fcc0", "$fcc1", "$fcc2", "$fcc3", "$fcc4", "$fcc5", "$fcc6", "$fcc7");
   }
   static inline void tls_end_epochs(void){
     asm volatile ("jal sesc_end_epochs"
-		  :
-		  : 
-		  : "cc", "memory", "a0", "a1", "a2", "a3", "v0", "v1",
-		  "t0", "t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9",
-		  "s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7", "ra",
-		  "$f0",  "$f1",  "$f2",  "$f3",  "$f4",  "$f5",  "$f6",  "$f7",
-		  "$f8",  "$f9",  "$f10", "$f11", "$f12", "$f13", "$f14", "$f15",
-		  "$f16", "$f17", "$f18", "$f19", "$f20", "$f21", "$f22", "$f23",
-		  "$f24", "$f25", "$f26", "$f27", "$f28", "$f29", "$f30", "$f31",
-		  "$fcc0", "$fcc1", "$fcc2", "$fcc3", "$fcc4", "$fcc5", "$fcc6", "$fcc7");
+                  :
+                  : 
+                  : "cc", "memory", "a0", "a1", "a2", "a3", "v0", "v1",
+                  "t0", "t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9",
+                  "s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7", "ra",
+                  "$f0",  "$f1",  "$f2",  "$f3",  "$f4",  "$f5",  "$f6",  "$f7",
+                  "$f8",  "$f9",  "$f10", "$f11", "$f12", "$f13", "$f14", "$f15",
+                  "$f16", "$f17", "$f18", "$f19", "$f20", "$f21", "$f22", "$f23",
+                  "$f24", "$f25", "$f26", "$f27", "$f28", "$f29", "$f30", "$f31",
+                  "$fcc0", "$fcc1", "$fcc2", "$fcc3", "$fcc4", "$fcc5", "$fcc6", "$fcc7");
   }
   static inline void tls_acquire_begin(void){
     asm volatile ("jal sesc_change_epoch\njal sesc_acquire_begin"
-		  :
-		  : 
-		  : "cc", "memory", "a0", "a1", "a2", "a3", "v0", "v1",
-		  "t0", "t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9",
-		  "s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7", "ra",
-		  "$f0",  "$f1",  "$f2",  "$f3",  "$f4",  "$f5",  "$f6",  "$f7",
-		  "$f8",  "$f9",  "$f10", "$f11", "$f12", "$f13", "$f14", "$f15",
-		  "$f16", "$f17", "$f18", "$f19", "$f20", "$f21", "$f22", "$f23",
-		  "$f24", "$f25", "$f26", "$f27", "$f28", "$f29", "$f30", "$f31",
-		  "$fcc0", "$fcc1", "$fcc2", "$fcc3", "$fcc4", "$fcc5", "$fcc6", "$fcc7");
+                  :
+                  : 
+                  : "cc", "memory", "a0", "a1", "a2", "a3", "v0", "v1",
+                  "t0", "t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9",
+                  "s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7", "ra",
+                  "$f0",  "$f1",  "$f2",  "$f3",  "$f4",  "$f5",  "$f6",  "$f7",
+                  "$f8",  "$f9",  "$f10", "$f11", "$f12", "$f13", "$f14", "$f15",
+                  "$f16", "$f17", "$f18", "$f19", "$f20", "$f21", "$f22", "$f23",
+                  "$f24", "$f25", "$f26", "$f27", "$f28", "$f29", "$f30", "$f31",
+                  "$fcc0", "$fcc1", "$fcc2", "$fcc3", "$fcc4", "$fcc5", "$fcc6", "$fcc7");
   }
   static inline void tls_acquire_retry(void){
     sesc_acquire_retry();
   }
   static inline void tls_acquire_end(void){
     asm volatile ("jal sesc_acquire_end"
-		  :
-		  : 
-		  : "cc", "memory", "a0", "a1", "a2", "a3", "v0", "v1",
-		  "t0", "t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9",
-		  "s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7", "ra",
-		  "$f0",  "$f1",  "$f2",  "$f3",  "$f4",  "$f5",  "$f6",  "$f7",
-		  "$f8",  "$f9",  "$f10", "$f11", "$f12", "$f13", "$f14", "$f15",
-		  "$f16", "$f17", "$f18", "$f19", "$f20", "$f21", "$f22", "$f23",
-		  "$f24", "$f25", "$f26", "$f27", "$f28", "$f29", "$f30", "$f31",
-		  "$fcc0", "$fcc1", "$fcc2", "$fcc3", "$fcc4", "$fcc5", "$fcc6", "$fcc7");
+                  :
+                  : 
+                  : "cc", "memory", "a0", "a1", "a2", "a3", "v0", "v1",
+                  "t0", "t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9",
+                  "s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7", "ra",
+                  "$f0",  "$f1",  "$f2",  "$f3",  "$f4",  "$f5",  "$f6",  "$f7",
+                  "$f8",  "$f9",  "$f10", "$f11", "$f12", "$f13", "$f14", "$f15",
+                  "$f16", "$f17", "$f18", "$f19", "$f20", "$f21", "$f22", "$f23",
+                  "$f24", "$f25", "$f26", "$f27", "$f28", "$f29", "$f30", "$f31",
+                  "$fcc0", "$fcc1", "$fcc2", "$fcc3", "$fcc4", "$fcc5", "$fcc6", "$fcc7");
   }
   static inline void tls_release_begin(void){
     asm volatile ("jal sesc_release_begin"
-		  :
-		  : 
-		  : "cc", "memory", "a0", "a1", "a2", "a3", "v0", "v1",
-		  "t0", "t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9",
-		  "s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7", "ra",
-		  "$f0",  "$f1",  "$f2",  "$f3",  "$f4",  "$f5",  "$f6",  "$f7",
-		  "$f8",  "$f9",  "$f10", "$f11", "$f12", "$f13", "$f14", "$f15",
-		  "$f16", "$f17", "$f18", "$f19", "$f20", "$f21", "$f22", "$f23",
-		  "$f24", "$f25", "$f26", "$f27", "$f28", "$f29", "$f30", "$f31",
-		  "$fcc0", "$fcc1", "$fcc2", "$fcc3", "$fcc4", "$fcc5", "$fcc6", "$fcc7");
+                  :
+                  : 
+                  : "cc", "memory", "a0", "a1", "a2", "a3", "v0", "v1",
+                  "t0", "t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9",
+                  "s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7", "ra",
+                  "$f0",  "$f1",  "$f2",  "$f3",  "$f4",  "$f5",  "$f6",  "$f7",
+                  "$f8",  "$f9",  "$f10", "$f11", "$f12", "$f13", "$f14", "$f15",
+                  "$f16", "$f17", "$f18", "$f19", "$f20", "$f21", "$f22", "$f23",
+                  "$f24", "$f25", "$f26", "$f27", "$f28", "$f29", "$f30", "$f31",
+                  "$fcc0", "$fcc1", "$fcc2", "$fcc3", "$fcc4", "$fcc5", "$fcc6", "$fcc7");
   }
   static inline void tls_release_end(void){
     asm volatile ("jal sesc_release_end\njal sesc_change_epoch"
-		  :
-		  : 
-		  : "cc", "memory", "a0", "a1", "a2", "a3", "v0", "v1",
-		  "t0", "t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9",
-		  "s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7", "ra",
-		  "$f0",  "$f1",  "$f2",  "$f3",  "$f4",  "$f5",  "$f6",  "$f7",
-		  "$f8",  "$f9",  "$f10", "$f11", "$f12", "$f13", "$f14", "$f15",
-		  "$f16", "$f17", "$f18", "$f19", "$f20", "$f21", "$f22", "$f23",
-		  "$f24", "$f25", "$f26", "$f27", "$f28", "$f29", "$f30", "$f31",
-		  "$fcc0", "$fcc1", "$fcc2", "$fcc3", "$fcc4", "$fcc5", "$fcc6", "$fcc7");
+                  :
+                  : 
+                  : "cc", "memory", "a0", "a1", "a2", "a3", "v0", "v1",
+                  "t0", "t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9",
+                  "s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7", "ra",
+                  "$f0",  "$f1",  "$f2",  "$f3",  "$f4",  "$f5",  "$f6",  "$f7",
+                  "$f8",  "$f9",  "$f10", "$f11", "$f12", "$f13", "$f14", "$f15",
+                  "$f16", "$f17", "$f18", "$f19", "$f20", "$f21", "$f22", "$f23",
+                  "$f24", "$f25", "$f26", "$f27", "$f28", "$f29", "$f30", "$f31",
+                  "$fcc0", "$fcc1", "$fcc2", "$fcc3", "$fcc4", "$fcc5", "$fcc6", "$fcc7");
   }
   static inline void tls_lock_init(slock_t *lock_ptr){
     lock_ptr->spin=UNLOCKED;
@@ -404,7 +409,7 @@ extern "C" {
     }else{
       tls_acquire_begin();
       if(barr_ptr->gsense!=lsense)
-	tls_acquire_retry();
+        tls_acquire_retry();
       tls_acquire_end();
     }
   }

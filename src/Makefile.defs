@@ -238,6 +238,7 @@ endif
 ifdef TASKSCALAR 
 DEFS    += -DTASKSCALAR -DTS_COUNT_TASKS_AHEAD
 
+DEFS    +=-DTS_WRITE
 
 ################################################
 # Reset Branch History at task Start

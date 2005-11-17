@@ -11,6 +11,7 @@ ABINAME :=SunOSi386
 DEFS    +=-DLENDIAN
 else
 ABINAME :=SunOSSparc
+DEFS    +=-DSPARC
 endif
 DEFS    +=-DSUNOS
 AABI    :=
@@ -23,13 +24,13 @@ CXX     =g++
 CC      =gcc
 
 ifdef DEBUG
-COPTS   :=-O0 -g -fno-inline-functions $(PDEFS)
-LOPTS   :=-O0
+COPTS   :=-O0 -m32 -g -fno-inline-functions $(PDEFS)
+LOPTS   :=-O0 -m32
 else
 # -fast does not work by default. Dissable some opts
-COPTS   :=-O3 -g1 -finline-functions -finline-limit=1800
+COPTS   :=-O3 -m32 -g1 -finline-functions -finline-limit=1800
 COPTS +=-funroll-loops -fsched-interblock -fomit-frame-pointer
-LOPTS   :=-O3
+LOPTS   :=-O3 -m32
 endif
 
 # Machine specific. none by default
