@@ -34,6 +34,17 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define HASH_MULTIMAP  stlport::hash_multimap
 #define HASH           std::hash
 #define SLIST          std::slist
+#elif USE_STL_PORT
+/* Sun Studio or Standard compiler -library=stlport5 */
+#include <hash_map>
+#include <hash_set>
+#include <slist>
+#include <algorithm>
+#define HASH_MAP       std::hash_map
+#define HASH_SET       std::hash_set
+#define HASH_MULTIMAP  std::hash_multimap
+#define HASH           std::hash
+#define SLIST          std::slist
 #else
 /* GNU C Compiler */
 #include <ext/hash_map>

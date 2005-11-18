@@ -304,7 +304,10 @@ void *allocate2(long nbytes)
   /* round nbytes up to the next power of 2 */
   size2 = nbytes;
   logbase2(&size2);
-#ifdef POSIX_MEMALIGN
+#ifdef SUNOS
+  ptr = memalign(0x1000000,nbytes);
+  status = (ptr == NULL);
+#elif POSIX_MEMALIGN
   /* MCH: memalign is obsolete, but on iacoma3 posix_memalign is not yet supported */
   // Milos: align to a 16-megabyte boundary so small
   // changes to the simulator are unlikely to change the

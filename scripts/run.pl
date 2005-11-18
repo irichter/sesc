@@ -1098,9 +1098,6 @@ sub processParams {
 
 sub setupDirectory {
   return if ($op_trace);  
-  unless( -f "words") {
-    system("cp -r ${BHOME}/CINT2000/197.parser/data/all/input/words .")
-  }
 
   unless( -d "words") {
       system("mkdir words");
