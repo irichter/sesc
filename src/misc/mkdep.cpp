@@ -101,11 +101,11 @@ void addPendingDeps(const char *dep)
   
   if( pendingDepsSize == 0 ) {
     pendingDepsSize = 2048;
-    pendingDeps = malloc(sizeof(char *)*pendingDepsSize);
+    pendingDeps = (char **)malloc(sizeof(char *)*pendingDepsSize);
   }else{
     if((nPendingDeps+1) >= pendingDepsSize ){
       pendingDepsSize *= 2;
-      pendingDeps = realloc(pendingDeps, sizeof(char *)*pendingDepsSize);
+      pendingDeps = (char **)realloc(pendingDeps, sizeof(char *)*pendingDepsSize);
     }
     
     if (pendingDeps == NULL) { 
@@ -312,7 +312,7 @@ void grow_config(int len)
   while (len_config + len > size_config) {
     if (size_config == 0)
       size_config = 2048;
-    str_config = realloc(str_config, size_config *= 2);
+    str_config = (char *)realloc(str_config, size_config *= 2);
     if (str_config == NULL) { 
       perror("malloc config"); 
       exit(1); 
@@ -426,7 +426,7 @@ void add_path(const char *name)
     name2 = "";
   }
 
-  path_array = realloc(path_array, (++paths)*sizeof(*path_array));
+  path_array = (struct path_struct *)realloc(path_array, (++paths)*sizeof(*path_array));
   if (!path_array) {
     fprintf(stderr, "cannot expand path_arry\n");
     exit(1);
@@ -434,7 +434,7 @@ void add_path(const char *name)
 
   path = path_array+paths-1;
   path->len = strlen(name2);
-  path->buffer = malloc(path->len+1+256+1);
+  path->buffer = (char *)malloc(path->len+1+256+1);
   if (!path->buffer) {
     fprintf(stderr, "cannot allocate path buffer\n");
     exit(1);
@@ -738,7 +738,7 @@ void do_depend(const char * filename, const char * command)
 
   mapsize = st.st_size;
   mapsize = (mapsize+pagesizem1) & ~pagesizem1;
-  map = mmap(NULL, mapsize, PROT_READ, MAP_PRIVATE, fd, 0);
+  map = (char *)mmap(NULL, mapsize, PROT_READ, MAP_PRIVATE, fd, 0);
   if ((long) map == -1) {
     perror("mkdep: mmap");
     close(fd);

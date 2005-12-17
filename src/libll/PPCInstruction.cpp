@@ -33,7 +33,7 @@ void Instruction::initializePPCTrace(int argc,
   PPCDecoder::Initialize();
 }
 
-void Instruction::PPCDecodeInstruction(Instruction *inst, ulong rawInst)
+void Instruction::PPCDecodeInstruction(Instruction *inst, uint rawInst)
 {
   PPCInstDef *ppcInst = PPCDecoder::getInstDef(rawInst);
 

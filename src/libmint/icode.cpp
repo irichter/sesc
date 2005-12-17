@@ -1,4 +1,5 @@
 
+#include <stdint.h>
 #include <string.h>
 
 #include "icode.h"
@@ -6,11 +7,11 @@
 
 void icode::dump()
 {
-  printf("icode 0x%x:\n", (unsigned) this);
-  printf("  next: 0x%x\n", (unsigned) next);
-  printf("  addr: 0x%x\n", (unsigned) addr);
-  printf("  func: 0x%x\n", (unsigned) func);
-  printf("  instr: 0x%x\n", (unsigned) instr);
+  printf("icode 0x%p:\n", this);
+  printf("  next: 0x%p\n", next);
+  printf("  addr: 0x%x\n", addr);
+  printf("  func: 0x%p\n", func);
+  printf("  instr: 0x%x\n", instr);
   /*CONSTCOND*/
   printf("  rs: 0x%x (r%d) (fmt %d)\n",
 	 args[RS], getRN(RS), args[RS]);
@@ -22,7 +23,7 @@ void icode::dump()
 	 args[RD], getRN(RD), getFPN(ICODEFS));
   printf("  sa: 0x%x (fd $f%d)\n", args[SA], getFPN(ICODEFD));
   printf("  immed: 0x%x (%d)\n", immed, immed);
-  printf("  target: 0x%x\n", (unsigned) target);
+  printf("  target: 0x%p\n", (void*) target);
 }
 
 const char *icode::dis_instr()

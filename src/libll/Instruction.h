@@ -34,7 +34,8 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "Events.h"
 #include "Snippets.h"
 #include "callback.h"
-
+#include "QemuSescReader.h"
+# include "QemuSescTrace.h"
 #ifdef SESC_SIMICS
 #include "SimicsTraceFormat.h"
 #endif
@@ -44,14 +45,14 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 #include "InstType.h"
 
-typedef ulong InstID;
+typedef uint InstID;
 
 enum RegType {
   NoDependence = 0, //fix this, 0 is used by PPC
     ReturnReg = 31,
     InternalReg,
     IntFPBoundary = 32+1,
-    HiReg = 65+1,
+    HiReg = 65+1,  //Y register
     CoprocStatReg,
     CondReg, 
     InvalidOutput,
@@ -76,7 +77,7 @@ private:
   static int    maxFuncID;
   static Instruction *InstTable;
   
-  typedef HASH_MAP<long, Instruction*> InstHash;
+  typedef HASH_MAP<int, Instruction*> InstHash;
   static InstHash instHash;
 
   static Instruction *simicsInstTable;
@@ -92,7 +93,9 @@ private:
   static void initializePPCTrace(int argc,
 				 char **argv,
 				 char **envp);
-
+  static void initializeQemuSescTrace(int argc, 
+                                      char **argv,
+                                      char **envp); 
 #ifdef SESC_SIMICS
   static void initializeSimicsTrace(int argc,
 				    char **argv,
@@ -112,7 +115,8 @@ private:
 				    ,bool &guessTaken
 				    ,bool &jumpLabel);
 
-  static void PPCDecodeInstruction(Instruction *inst, ulong rawInst);
+  static void PPCDecodeInstruction(Instruction *inst, uint rawInst);
+  static void QemuSparcDecodeInstruction(Instruction *inst,QemuSescTrace *qst); 
 
 #ifdef SESC_SIMICS
   static const Instruction *SimicsDecodeInstruction(TraceSimicsOpc_t op);
@@ -142,16 +146,17 @@ protected:
   bool condLikely;
   bool jumpLabel; // If iBJ jumps to offset (not register)
 
-  ulong addr;
+  uint addr;
   
 #ifdef AIX
   const char *funcName;
 #endif
 
 public:
-  static void initialize(int argc,
-			 char **argv,
-			 char **envp);  
+  static void initialize(int argc
+			 ,char **argv
+			 ,char **envp
+			 ,int start_argc);  
   
   static void finalize();
 
@@ -161,21 +166,39 @@ public:
   }
 
   // this is what should be called by TraceFlow in TT6PPC mode
-  static const Instruction *getPPCInstByPC(long addr, ulong rawInst) {
+
+//  static const Instruction *getPPCInstByPC(long addr, ulong rawInst) {    //here we will pass our structure...and then call PPCDecode passing our structure alone.
+
+  static const Instruction *getPPCInstByPC(int addr, uint rawInst) {
+
     InstHash::iterator it = instHash.find(addr);
 
     if(it == instHash.end()) { // we haven't seen this instruction before
       // horrible!! we need to fix this. --luis
       Instruction *inst = new Instruction(); // maybe we should have a pool for 
                                              // Instruction objects
-      PPCDecodeInstruction(inst, rawInst);
-      inst->addr = addr;
+      PPCDecodeInstruction(inst, rawInst);  //calling PPCDecodeInstruction....go to PPCInsruction.cpp 
+      inst->addr = addr;  //
+                          //
       instHash[addr] = inst;
-      return inst;
+      return inst;   // to TraceFlow.cpp
     }
 
     // TODO: maybe we should make sure the instruction is still the same...
     return it->second;
+  }
+  
+  static const Instruction *getSescInstByPC(unsigned int addr, QemuSescTrace *qst) {      	
+    InstHash::iterator it = instHash.find(addr); 
+    if (it == instHash.end()) {
+      Instruction *inst = new Instruction();
+      
+      QemuSparcDecodeInstruction(inst, qst);
+      inst->addr = addr;  
+      instHash[addr] = inst; 
+      return inst;
+    }  
+    return it->second; 
   }
 
 #ifdef SESC_SIMICS
@@ -185,7 +208,7 @@ public:
   }
 #endif
 
-  static const Instruction *getInst4Addr(long addr) {
+  static const Instruction *getInst4Addr(int addr) {
     icode_ptr picode = addr2icode(addr);
     return getInst(picode->instID);
   }
@@ -227,7 +250,7 @@ public:
 #endif
   }
 
-  long getAddr() const {
+  int getAddr() const {
 #ifdef TRACE_DRIVEN
     return addr;
 #else
@@ -325,10 +348,11 @@ public:
   // the default % size
   class HashAddress{
   public: 
-    size_t operator()(const long &addr) const {
+	 size_t operator()(const int &addr) const {
       return ((addr>>2) ^ (addr>>18));
     }
   };
 };
 
 #endif   // INSTRUCTION_H
+

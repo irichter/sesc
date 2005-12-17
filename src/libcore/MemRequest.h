@@ -153,7 +153,7 @@ protected:
   VMemReq *vmemReq;
 #endif
 
-  long wToRLevel;
+  int wToRLevel;
 
   ID(int reqId;) // It can be used as a printf trigger
 

@@ -4,6 +4,8 @@
 # Path to add on Solaris 10/x86
 # /opt/csw/bin/:/opt/SUNWspro/bin/:/opt/csw/gcc4/bin/:/usr/ccs/bin
 
+# SUNCC=1
+
 MACHINE:=
 
 ifeq ($(shell uname -p),i386)
@@ -17,6 +19,18 @@ DEFS    +=-DSUNOS
 AABI    :=
 ABI     :=
 ##########################################################
+ifdef SUNCC
+PDEFS   :=
+CXX     =CC
+CC      =cc
+ifdef DEBUG
+COPTS   :=-library=stlport4 -g $(PDEFS)
+LOPTS   :=-library=stlport4 -g
+else
+COPTS   :=-xO2 -library=stlport4 -g $(PDEFS)
+LOPTS   :=-xO2 -library=stlport4 -g
+endif
+else
 ##############
 # gcc
 PDEFS   :=-Wall -W -Wno-unused 
@@ -32,6 +46,7 @@ COPTS   :=-O3 -m32 -g1 -finline-functions -finline-limit=1800
 COPTS +=-funroll-loops -fsched-interblock -fomit-frame-pointer
 LOPTS   :=-O3 -m32
 endif
+endif
 
 # Machine specific. none by default
 ifdef MINT_TARGET
@@ -42,7 +57,11 @@ COPTS   +=
 LOPTS   += 
 endif
 # Platform neutral
+ifdef SUNCC
+COPTS +=-DUSE_STL_PORT -DSUNSTUDIO
+else
 COPTS +=-fno-strict-aliasing -freg-struct-return 
+endif
 XSTDLIBS=-lsocket
 ##############################################################################
 

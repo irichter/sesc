@@ -62,7 +62,7 @@ public:
 class GMemorySystem {
 private:
   static ushort Log2PageSize;
-  static long   PageMask;
+  static int   PageMask;
 
   typedef HASH_MAP<const char*, unsigned int, HASH<const char*>, MemObjCaseeqstr > StrCounterType;
   static StrCounterType usedNames;
@@ -104,12 +104,12 @@ public:
   // operate with virtual functions at construction time
   virtual void buildMemorySystem();
 
-  static long  getPageSize()  { return 1<<Log2PageSize; }
-  static long  calcPage(PAddr paddr)  { return paddr >> Log2PageSize; }
-  static PAddr calcPAddr4Page(long p) { return p << Log2PageSize; }
-  static long  calcFullPage(long p) { return p << Log2PageSize; }
-  static long  calcPageMask(long p) { return p & PageMask; }
-  static PAddr calcPAddr(long p, VAddr a) { 
+  static int  getPageSize()  { return 1<<Log2PageSize; }
+  static int  calcPage(PAddr paddr)  { return paddr >> Log2PageSize; }
+  static PAddr calcPAddr4Page(int p) { return p << Log2PageSize; }
+  static int  calcFullPage(int p) { return p << Log2PageSize; }
+  static int  calcPageMask(int p) { return p & PageMask; }
+  static PAddr calcPAddr(int p, VAddr a) {
     I((p & PageMask) == 0);
     return p | (a & PageMask); 
   }

@@ -34,9 +34,9 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 enum    ReplacementPolicy  {LRU, RANDOM};
 
 #ifdef SESC_ENERGY
-template<class State, class Addr_t = ulong, bool Energy=true>
+template<class State, class Addr_t = uint, bool Energy=true>
 #else
-  template<class State, class Addr_t = ulong, bool Energy=false>
+  template<class State, class Addr_t = uint, bool Energy=false>
 #endif
   class CacheGeneric {
   private:
@@ -45,16 +45,16 @@ template<class State, class Addr_t = ulong, bool Energy=true>
   static PowerGroup getRightStat(const char* type);
 
   protected:
-  const ulong  size;
-  const ulong  lineSize;
-  const ulong  addrUnit; //Addressable unit: for most caches = 1 byte
-  const ulong  assoc;
-  const ulong  log2Assoc;
-  const ulong  log2AddrLs;
-  const ulong  maskAssoc;
-  const ulong  sets;
-  const ulong  maskSets;
-  const ulong  numLines;
+  const uint  size;
+  const uint  lineSize;
+  const uint  addrUnit; //Addressable unit: for most caches = 1 byte
+  const uint  assoc;
+  const uint  log2Assoc;
+  const uint  log2AddrLs;
+  const uint  maskAssoc;
+  const uint  sets;
+  const uint  maskSets;
+  const uint  numLines;
 
   GStatsEnergy *rdEnergy[2]; // 0 hit, 1 miss
   GStatsEnergy *wrEnergy[2]; // 0 hit, 1 miss
@@ -83,7 +83,7 @@ template<class State, class Addr_t = ulong, bool Energy=true>
   virtual CacheLine *findLineTag(Addr_t tag)=0;
   protected:
 
-  CacheGeneric(ulong s, ulong a, ulong b, ulong u)
+  CacheGeneric(uint s, uint a, uint b, uint u)
   : size(s)
   ,lineSize(b)
   ,addrUnit(u)
@@ -121,7 +121,7 @@ template<class State, class Addr_t = ulong, bool Energy=true>
   // cleaner interface so that Cache.cpp does not touch the internals.
   //
   // Access the line directly without checking TAG
-  virtual CacheLine *getPLine(ulong l) = 0;
+  virtual CacheLine *getPLine(uint l) = 0;
 
   //ALL USERS OF THIS CLASS PLEASE READ:
   //
@@ -201,7 +201,7 @@ template<class State, class Addr_t = ulong, bool Energy=true>
     if (l->isValid()) {
       Addr_t curTag = l->getTag();
       if (curTag != newTag) {
-	rplcAddr = calcAddr4Tag(curTag);
+        rplcAddr = calcAddr4Tag(curTag);
       }
     }
     
@@ -210,30 +210,30 @@ template<class State, class Addr_t = ulong, bool Energy=true>
     return l;
   }
 
-  ulong  getLineSize() const   { return lineSize;    }
-  ulong  getAssoc() const      { return assoc;       }
-  ulong  getLog2AddrLs() const { return log2AddrLs;  }
-  ulong  getLog2Assoc() const  { return log2Assoc;   }
-  ulong  getMaskSets() const   { return maskSets;    }
-  ulong  getNumLines() const   { return numLines;    }
-  ulong  getNumSets() const    { return sets;        }
+  uint  getLineSize() const   { return lineSize;    }
+  uint  getAssoc() const      { return assoc;       }
+  uint  getLog2AddrLs() const { return log2AddrLs;  }
+  uint  getLog2Assoc() const  { return log2Assoc;   }
+  uint  getMaskSets() const   { return maskSets;    }
+  uint  getNumLines() const   { return numLines;    }
+  uint  getNumSets() const    { return sets;        }
 
   Addr_t calcTag(Addr_t addr)       const { return (addr >> log2AddrLs);              }
 
-  ulong calcSet4Tag(Addr_t tag)     const { return (tag & maskSets);                  }
-  ulong calcSet4Addr(Addr_t addr)   const { return calcSet4Tag(calcTag(addr));        }
+  uint calcSet4Tag(Addr_t tag)     const { return (tag & maskSets);                  }
+  uint calcSet4Addr(Addr_t addr)   const { return calcSet4Tag(calcTag(addr));        }
 
-  ulong calcIndex4Set(ulong set)    const { return (set << log2Assoc);                }
-  ulong calcIndex4Tag(ulong tag)    const { return calcIndex4Set(calcSet4Tag(tag));   }
-  ulong calcIndex4Addr(Addr_t addr) const { return calcIndex4Set(calcSet4Addr(addr)); }
+  uint calcIndex4Set(uint set)    const { return (set << log2Assoc);                }
+  uint calcIndex4Tag(uint tag)    const { return calcIndex4Set(calcSet4Tag(tag));   }
+  uint calcIndex4Addr(Addr_t addr) const { return calcIndex4Set(calcSet4Addr(addr)); }
 
   Addr_t calcAddr4Tag(Addr_t tag)   const { return (tag << log2AddrLs);                   }
 };
 
 #ifdef SESC_ENERGY
-template<class State, class Addr_t = ulong, bool Energy=true>
+template<class State, class Addr_t = uint, bool Energy=true>
 #else
-template<class State, class Addr_t = ulong, bool Energy=false>
+template<class State, class Addr_t = uint, bool Energy=false>
 #endif
 class CacheAssoc : public CacheGeneric<State, Addr_t, Energy> {
   using CacheGeneric<State, Addr_t, Energy>::numLines;
@@ -257,10 +257,13 @@ protected:
 
   Line *findLineTag(Addr_t addr);
 public:
-  virtual ~CacheAssoc();
+  virtual ~CacheAssoc() {
+    delete content;
+    delete mem;
+  }
 
   // TODO: do an iterator. not this junk!!
-  Line *getPLine(ulong l) {
+  Line *getPLine(uint l) {
     // Lines [l..l+assoc] belong to the same set
     I(l<numLines);
     return content[l];
@@ -270,9 +273,9 @@ public:
 };
 
 #ifdef SESC_ENERGY
-template<class State, class Addr_t = ulong, bool Energy=true>
+template<class State, class Addr_t = uint, bool Energy=true>
 #else
-template<class State, class Addr_t = ulong, bool Energy=false>
+template<class State, class Addr_t = uint, bool Energy=false>
 #endif
 class CacheDM : public CacheGeneric<State, Addr_t, Energy> {
   using CacheGeneric<State, Addr_t, Energy>::numLines;
@@ -292,10 +295,13 @@ protected:
 
   Line *findLineTag(Addr_t addr);
 public:
-  virtual ~CacheDM();
+  virtual ~CacheDM() {
+    delete content;
+    delete mem;
+  };
 
   // TODO: do an iterator. not this junk!!
-  Line *getPLine(ulong l) {
+  Line *getPLine(uint l) {
     // Lines [l..l+assoc] belong to the same set
     I(l<numLines);
     return content[l];
@@ -305,7 +311,7 @@ public:
 };
 
 
-template<class Addr_t=ulong>
+template<class Addr_t=uint>
 class StateGeneric {
 private:
   Addr_t tag;
@@ -325,7 +331,7 @@ public:
    clearTag(); 
  }
 
- virtual bool isValid() { return tag; }
+ virtual bool isValid() const { return tag; }
 
  virtual void invalidate() { clearTag(); }
 

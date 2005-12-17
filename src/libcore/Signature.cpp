@@ -13,12 +13,12 @@ SignatureVector::SignatureVector(){
 SignatureVector::~SignatureVector(){}
 
 
-void SignatureVector::setPCBit(unsigned long pc)
+void SignatureVector::setPCBit(unsigned int pc)
 {
   setBit(hashPC(pc));
 }
 
-int SignatureVector::hashPC(unsigned long pc)
+int SignatureVector::hashPC(unsigned int pc)
 {
 #ifdef ADVANCED_HASH
   unsigned int temp9;
@@ -68,8 +68,8 @@ int SignatureVector::hashPC(unsigned long pc)
 }
 
 #if 0
-int SignatureVector::hashPC(unsigned long pc){
-  unsigned long t1, bits_4, bits_3, bits_2;
+int SignatureVector::hashPC(unsigned int pc){
+  unsigned int t1, bits_4, bits_3, bits_2;
   unsigned int result = 0;
   
   t1 = (pc & 0xFFFF0000) >> 16;
@@ -131,7 +131,7 @@ int SignatureVector::getNumberOfBits()
   I(0);
 
   int bitCount = 0;
-  long tempLong = 0;
+  int tempLong = 0;
   for(int i = 0; i < 16; i++){
     tempLong =signator[i];
     for(int j = 0; j < 32; j++){
@@ -145,13 +145,13 @@ int SignatureVector::getNumberOfBits()
   return 1;
 }
 
-int SignatureVector::getNumberOfBits(unsigned long input)
+int SignatureVector::getNumberOfBits(unsigned int input)
 {
   int bitCount = 0;
-  unsigned long tempLong = 0;
+  unsigned int tempLong = 0;
  
   tempLong =input;
-  for(int j = 0; j < sizeof(unsigned long); j++) {
+  for(int j = 0; j < sizeof(unsigned int); j++) {
     
     bitCount = bitCount + (tempLong & 0x1);
 
@@ -161,14 +161,14 @@ int SignatureVector::getNumberOfBits(unsigned long input)
   return bitCount;
 }
 
-float SignatureVector::getSignatureDifference(unsigned long compareSig[])
+float SignatureVector::getSignatureDifference(unsigned int compareSig[])
 {
   float percentDif = 0.0;
   int bitCountCommon = 0;
   int bitCountDiff = 0;
 
-  unsigned long bitsCommon[16];
-  unsigned long bitsDiff[16];
+  unsigned int bitsCommon[16];
+  unsigned int bitsDiff[16];
 
 
   for(int i = 0; i < 16; i++){
@@ -189,14 +189,14 @@ float SignatureVector::getSignatureDifference(unsigned long compareSig[])
   return percentDif;
 }
 
-unsigned long* SignatureVector::getSignature(){
+unsigned int* SignatureVector::getSignature(){
 	return signator;
 }
 
-int SignatureVector::matchBits(unsigned long compareSig[16]){
+int SignatureVector::matchBits(unsigned int compareSig[16]){
 
-  unsigned long tempLong;
-  unsigned long tempComp;
+  unsigned int tempLong;
+  unsigned int tempComp;
   for(int i = 0; i < 16; i++){
     tempLong = signator[i];
     tempComp = compareSig[i];
@@ -208,7 +208,7 @@ int SignatureVector::matchBits(unsigned long compareSig[16]){
   return 1;
 }
 
-int SignatureVector:: copySignature(unsigned long copySig[]){
+int SignatureVector:: copySignature(unsigned int copySig[]){
   for(int i = 0; i < 16; i++){
     signator[i] = copySig[i];
   }// End Array
@@ -300,19 +300,19 @@ PipeLineSelector::~PipeLineSelector()
 }
 
 //=====================================================
-void PipeLineSelector::updateCurrSignature(unsigned long pc)
+void PipeLineSelector::updateCurrSignature(unsigned int pc)
 {
   signatureCurr.setPCBit(pc);
 }
 
 
-double PipeLineSelector::calculateEDD(long currClockCount, double currTotEnergy)
+double PipeLineSelector::calculateEDD(int currClockCount, double currTotEnergy)
 { 
   double caculatedEDD = 0;
   //double energy =  GStatsEnergy::getTotalEnergy();
   
   double delta_energy = currTotEnergy - totEnergy;       
-  long  delta_time = currClockCount - clockCount;
+  int  delta_time = currClockCount - clockCount;
   caculatedEDD = (delta_energy/100) * ((double)delta_time/100.0* (double)delta_time/100.0);
   
   return caculatedEDD;
@@ -327,7 +327,7 @@ void PipeLineSelector::report(const char* str)
 }
 
 //====================================================================================
-int PipeLineSelector::getPipeLineMode(unsigned long pc)
+int PipeLineSelector::getPipeLineMode(unsigned int pc)
 { 
  
 
@@ -348,7 +348,7 @@ int PipeLineSelector::getPipeLineMode(unsigned long pc)
    double currTotEnergy =0;
 #endif
 
-   long currClockCount = globalClock;
+	int currClockCount = globalClock;
   // FIXME: begin of getPipeLineMode (move previous instructions to updateHashPC)
   float signatureDiff = 0.0;
   int tableIndex;

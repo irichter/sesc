@@ -89,24 +89,24 @@ private:
   unsigned long long snapshotGlobalClock;
 
 #ifdef OLDMARKS
-  ulong simulationMarks;
-  ulong simulationMark1;
-  ulong simulationMark2;
+  uint simulationMarks;
+  uint simulationMark1;
+  uint simulationMark2;
 #else
   typedef struct {
     Pid_t pid;
-    ulong total;
-    ulong begin;
-    ulong end;
+	 uint total;
+	 uint begin;
+	 uint end;
     bool  mtMarks;
   } SimulationMark_t;
 
   SimulationMark_t simMarks;
   std::map<int,SimulationMark_t> idSimMarks;
 
-  long numIdSimMarks;
-  long waitBeginIdSimMarks;
-  long waitEndIdSimMarks;
+  int numIdSimMarks;
+  int waitBeginIdSimMarks;
+  int waitEndIdSimMarks;
 #endif
 
 #ifdef TS_PROFILING
@@ -142,21 +142,21 @@ public:
 
 
 
-  virtual void preEvent(Pid_t pid, long vaddr, long type, void *sptr) {
-    MSG("preevent(%ld, %ld, %p) pid %d", vaddr, type, sptr, pid);
+  virtual void preEvent(Pid_t pid, int vaddr, int type, void *sptr) {
+    MSG("preevent(%d, %d, %p) pid %d", vaddr, type, sptr, pid);
   }
 
-  virtual void postEvent(Pid_t pid, long vaddr, long type, const void *sptr) {
+  virtual void postEvent(Pid_t pid, int vaddr, int type, const void *sptr) {
     // Notice that the sptr is a const. This is because the postEvent
     // is notified much latter than it was really executed. If the
     // backend tryies to modify (give data back) to the application
     // through the postEvent, it would NOT WORK. Instead use preEvent
     // to pass data from the backend to the application.
-    MSG("postevent(%ld, %ld, %p) pid %d @%lld", vaddr, type, sptr, pid, (long long)globalClock);
+    MSG("postevent(%d, %d, %p) pid %d @%lld", vaddr, type, sptr, pid, (long long)globalClock);
   }
 
-  virtual void memBarrierEvent(Pid_t pid, long vaddr, long type, const void *sptr) {
-    MSG("membarrier(%ld, %ld, %p) pid %d @%lld", vaddr, type, sptr, pid, (long long)globalClock);
+  virtual void memBarrierEvent(Pid_t pid, int vaddr, int type, const void *sptr) {
+    MSG("membarrier(%d, %d, %p) pid %d @%lld", vaddr, type, sptr, pid, (long long)globalClock);
   }
 
   // Those functions are only callable through the events. Not
@@ -168,9 +168,9 @@ public:
 
   // Spawns a new process newPid with given flags
   // If stopped is true, the new process will not be made runnable
-  void eventSpawn(Pid_t curPid, Pid_t newPid, long flags, bool stopped=false);
-  void eventSysconf(Pid_t curPid, Pid_t targPid, long flags);
-  long eventGetconf(Pid_t curPid, Pid_t targPid);
+  void eventSpawn(Pid_t curPid, Pid_t newPid, int flags, bool stopped=false);
+  void eventSysconf(Pid_t curPid, Pid_t targPid, int flags);
+  int eventGetconf(Pid_t curPid, Pid_t targPid);
   void eventExit(Pid_t cpid, int err);
   void tryWakeupParent(Pid_t cpid);
   void eventWait(Pid_t cpid);
@@ -188,9 +188,9 @@ public:
   void eventSimulationMark() {
     simulationMarks++;
   }
-  ulong getSimulationMark() const { return simulationMarks; }
-  ulong getSimulationMark1() const { return simulationMark1; }
-  ulong getSimulationMark2() const { return simulationMark2; }
+  uint getSimulationMark() const { return simulationMarks; }
+  uint getSimulationMark1() const { return simulationMark1; }
+  uint getSimulationMark2() const { return simulationMark2; }
   bool enoughMarks1() const { return simulationMarks > simulationMark1; }
   bool enoughMarks2() const { return simulationMarks > simulationMark2; }
 #else
@@ -208,23 +208,23 @@ public:
     idSimMarks[id].pid=pid;
     idSimMarks[id].mtMarks=true;
   }
-  ulong getSimulationMark() const { return simMarks.total; }
-  ulong getSimulationMark1() const { return simMarks.begin; }
-  ulong getSimulationMark2() const { return simMarks.end; }
+  uint getSimulationMark() const { return simMarks.total; }
+  uint getSimulationMark1() const { return simMarks.begin; }
+  uint getSimulationMark2() const { return simMarks.end; }
   bool enoughMarks1() const { return simMarks.total > simMarks.begin; }
   bool enoughMarks2() const { return simMarks.total > simMarks.end; }
 #endif
 
 #ifndef OLDMARKS
-  ulong getSimulationMark(int id) const {
+  uint getSimulationMark(int id) const {
     std::map<int,SimulationMark_t>::const_iterator it = idSimMarks.find(id);
     return (*it).second.total;
   }
-  ulong getSimulationMark1(int id) const {
+  uint getSimulationMark1(int id) const {
     std::map<int,SimulationMark_t>::const_iterator it = idSimMarks.find(id);
     return (*it).second.begin;
   }
-  ulong getSimulationMark2(int id) const {
+  uint getSimulationMark2(int id) const {
     std::map<int,SimulationMark_t>::const_iterator it = idSimMarks.find(id);
     return (*it).second.end;
   }
@@ -284,7 +284,7 @@ public:
 
   ThreadContext *getContext(Pid_t pid);
 
-  long getContextRegister(Pid_t pid, int regnum);
+  int getContextRegister(Pid_t pid, int regnum);
 
   void suspend(Pid_t pid) {
     eventSuspend(-1,pid);
@@ -366,7 +366,7 @@ public:
   }
 };
 
-typedef CallbackMember4<OSSim, Pid_t, long, long, const void *, &OSSim::postEvent> postEventCB;
+typedef CallbackMember4<OSSim, Pid_t, int, int, const void *, &OSSim::postEvent> postEventCB;
 
 extern OSSim *osSim;
 extern double etop(double energy);

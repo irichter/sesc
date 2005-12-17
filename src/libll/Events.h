@@ -68,9 +68,9 @@ extern icode_t invalidIcode;
 int  rsesc_become_safe(int pid);
 int  rsesc_is_safe(int pid);
 int  rsesc_is_versioned(int pid);
-long rsesc_OS_prewrite(int pid, int addr, int iAddr, long flags);
-void rsesc_OS_postwrite(int pid, int addr, int iAddr, long flags);
-long rsesc_OS_read(int pid, int addr, int iAddr, long flags);
+int rsesc_OS_prewrite(int pid, int addr, int iAddr, int flags);
+void rsesc_OS_postwrite(int pid, int addr, int iAddr, int flags);
+int rsesc_OS_read(int pid, int addr, int iAddr, int flags);
 void rsesc_exception(int pid);
 void mint_termination(int pid);
 #endif

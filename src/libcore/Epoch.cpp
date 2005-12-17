@@ -76,20 +76,20 @@ namespace tls{
   typedef std::set<Address> AddressSet;
   AddressSet raceInstAddr, anomalyInstAddr;
 
-  unsigned long numBegThread=0;
-  unsigned long numEndThread=0;
+  unsigned int numBegThread=0;
+  unsigned int numEndThread=0;
 
   ClockValue syncClockDelta;
 
   void Epoch::staticConstructor(void){
-    syncClockDelta=SescConf->getLong("TLS","syncClockDelta");
+    syncClockDelta=SescConf->getInt("TLS","syncClockDelta");
     //    SescConf->isBool("TLS","ignoreRaces");
     //    dataRacesIgnored=SescConf->getBool("TLS","ignoreRaces");
     dataRacesIgnored=false;
-    //    SescConf->isLong("TLS","epochBufferSizeLimit");
+    //    SescConf->isInt("TLS","epochBufferSizeLimit");
     //    SescConf->isGT("TLS","epochBufferSizeLimit",-1);
-    //    long epochBufferSizeLimit=SescConf->getLong("TLS","epochBufferSizeLimit");
-    long epochBufferSizeLimit=0;
+    //    long epochBufferSizeLimit=SescConf->getInt("TLS","epochBufferSizeLimit");
+	 int epochBufferSizeLimit=0;
     I(epochBufferSizeLimit>=0);
     maxBlocksPerEpoch=(size_t)(epochBufferSizeLimit/blockSize);
     I(maxBlocksPerEpoch*blockSize==(size_t)epochBufferSizeLimit);

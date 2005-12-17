@@ -6,8 +6,8 @@
                   Basilio Fraguela
                   James Tuck
                   Smruti Sarangi
-		  Luis Ceze
-		  Karin Strauss
+                  Luis Ceze
+                  Karin Strauss
 
 This file is part of SESC.
 
@@ -111,24 +111,24 @@ void CacheGeneric<State, Addr_t, Energy>::createStats(const char *section, const
     PowerGroup pg;
     pg = getRightStat(type);
     rdEnergy[0] = new GStatsEnergy("rdHitEnergy",name
-				   ,procId
-				   ,pg
-				   ,EnergyMgr::get(section,"rdHitEnergy"));
+                                   ,procId
+                                   ,pg
+                                   ,EnergyMgr::get(section,"rdHitEnergy"));
 
     rdEnergy[1] = new GStatsEnergy("rdMissEnergy",name
-				   ,procId
-				   ,pg
-				   ,EnergyMgr::get(section,"rdMissEnergy"));
+                                   ,procId
+                                   ,pg
+                                   ,EnergyMgr::get(section,"rdMissEnergy"));
 
     wrEnergy[0]  = new GStatsEnergy("wrHitEnergy",name
-				    ,procId
-				    ,pg
-				    ,EnergyMgr::get(section,"wrHitEnergy"));
+                                    ,procId
+                                    ,pg
+                                    ,EnergyMgr::get(section,"wrHitEnergy"));
 
     wrEnergy[1] = new GStatsEnergy("wrMissEnergy",name
-				   ,procId
-				   ,pg
-				   ,EnergyMgr::get(section,"wrMissEnergy"));
+                                   ,procId
+                                   ,pg
+                                   ,EnergyMgr::get(section,"wrMissEnergy"));
 
   }else{
     rdEnergy[0]  = 0;
@@ -154,16 +154,16 @@ CacheGeneric<State, Addr_t, Energy> *CacheGeneric<State, Addr_t, Energy>::create
   snprintf(assoc,STR_BUF_SIZE,"%sAssoc",append);
   snprintf(repl ,STR_BUF_SIZE,"%sReplPolicy",append);
 
-  int s = SescConf->getLong(section, size);
-  int a = SescConf->getLong(section, assoc);
-  int b = SescConf->getLong(section, bsize);
+  int s = SescConf->getInt(section, size);
+  int a = SescConf->getInt(section, assoc);
+  int b = SescConf->getInt(section, bsize);
   
   //For now, tolerate caches that don't have this defined.
   int u;
-  if ( SescConf->checkLong(section,addrUnit) ) {
+  if ( SescConf->checkInt(section,addrUnit) ) {
     if ( SescConf->isBetween(section, addrUnit, 0, b) &&
-	 SescConf->isPower2(section, addrUnit) )
-      u = SescConf->getLong(section,addrUnit);
+         SescConf->isPower2(section, addrUnit) )
+      u = SescConf->getInt(section,addrUnit);
     else
       u = 1;
   } else {
@@ -185,10 +185,10 @@ CacheGeneric<State, Addr_t, Energy> *CacheGeneric<State, Addr_t, Energy>::create
     // this is just to keep the configuration going, 
     // sesc will abort before it begins
     cache = new CacheAssoc<State, Addr_t, Energy>(2, 
-						  1, 
-						  1,
-						  1,
-						  pStr);
+                                                  1, 
+                                                  1,
+                                                  1,
+                                                  pStr);
   }
 
   I(cache);
@@ -229,7 +229,7 @@ CacheAssoc<State, Addr_t, Energy>::CacheAssoc(int size, int assoc, int blksize, 
   mem     = new Line [numLines + 1];
   content = new Line* [numLines + 1];
 
-  for(ulong i = 0; i < numLines; i++) {
+  for(uint i = 0; i < numLines; i++) {
     mem[i].initialize(this);
     mem[i].invalidate();
     content[i] = &mem[i];
@@ -239,21 +239,13 @@ CacheAssoc<State, Addr_t, Energy>::CacheAssoc(int size, int assoc, int blksize, 
 }
 
 template<class State, class Addr_t, bool Energy>
-CacheAssoc<State, Addr_t, Energy>::~CacheAssoc<State, Addr_t, Energy>()
-{
-  delete content;
-  delete mem;
-}
-
-
-template<class State, class Addr_t, bool Energy>
 typename CacheAssoc<State, Addr_t, Energy>::Line *CacheAssoc<State, Addr_t, Energy>::findLineTag(Addr_t tag)
 {
   GI(Energy, goodInterface); // If modeling energy. Do not use this
-			     // interface directly. use readLine and
-			     // writeLine instead. If it is called
-			     // inside debugging only use
-			     // findLineDebug instead
+                             // interface directly. use readLine and
+                             // writeLine instead. If it is called
+                             // inside debugging only use
+                             // findLineDebug instead
 
   Line **theSet = &content[calcIndex4Tag(tag)];
 
@@ -274,8 +266,8 @@ typename CacheAssoc<State, Addr_t, Energy>::Line *CacheAssoc<State, Addr_t, Ener
     Line **l = theSet + 1;
     while(l < setEnd) {
       if ((*l)->getTag() == tag) {
-	lineHit = l;
-	break;
+        lineHit = l;
+        break;
       }
       l++;
     }
@@ -325,13 +317,13 @@ typename CacheAssoc<State, Addr_t, Energy>::Line
     Line **l = setEnd -1;
     while(l >= theSet) {
       if ((*l)->getTag() == tag) {
-	lineHit = l;
-	break;
+        lineHit = l;
+        break;
       }
       if (!(*l)->isValid())
-	lineFree = l;
+        lineFree = l;
       else if (lineFree == 0 && !(*l)->isLocked())
-	lineFree = l;
+        lineFree = l;
 
       // If line is invalid, isLocked must be false
       GI(!(*l)->isValid(), !(*l)->isLocked()); 
@@ -403,7 +395,7 @@ CacheDM<State, Addr_t, Energy>::CacheDM(int size, int blksize, int addrUnit, con
   mem     = new Line[numLines + 1];
   content = new Line* [numLines + 1];
 
-  for(ulong i = 0; i < numLines; i++) {
+  for(uint i = 0; i < numLines; i++) {
     mem[i].initialize(this);
     mem[i].invalidate();
     content[i] = &mem[i];
@@ -411,20 +403,13 @@ CacheDM<State, Addr_t, Energy>::CacheDM(int size, int blksize, int addrUnit, con
 }
 
 template<class State, class Addr_t, bool Energy>
-CacheDM<State, Addr_t, Energy>::~CacheDM<State, Addr_t, Energy>()
-{
-  delete content;
-  delete mem;
-}
-
-template<class State, class Addr_t, bool Energy>
 typename CacheDM<State, Addr_t, Energy>::Line *CacheDM<State, Addr_t, Energy>::findLineTag(Addr_t tag)
 {
   GI(Energy, goodInterface); // If modeling energy. Do not use this
-			     // interface directly. use readLine and
-			     // writeLine instead. If it is called
-			     // inside debugging only use
-			     // findLineDebug instead
+                             // interface directly. use readLine and
+                             // writeLine instead. If it is called
+                             // inside debugging only use
+                             // findLineDebug instead
 
   Line *line = content[calcIndex4Tag(tag)];
 

@@ -437,7 +437,7 @@ read_nmlist()
     qsort((void *) Nmlist, Num_symbols, sizeof(namelist_t), nm_cmp_name);
 }
 
-int isFirstInFuncCall(unsigned long addr)
+int isFirstInFuncCall(unsigned int addr)
 {
   int i;
   
@@ -608,12 +608,13 @@ read_linenum()
  * If a mapping (file:line) is found, but the source file does not exist
  * then 1 is returned but "buf" is not modified.
  */
-int addr2src(long iaddr, char **fname, int *linenum, char *buf, int buflen)
+int addr2src(int iaddr, const char **fname, int *linenum, char *buf, int buflen)
 {
     int i, lnum, delta, count;
-    long addr;
+	 int addr;
     int index = 0;
-    unsigned char *ptr, *last;
+    unsigned char *ptr;
+    unsigned const char *last;
 
     if (File_info == NULL || iaddr < File_info[0].addr)
         return 0;
@@ -752,5 +753,5 @@ print_nmlist()
     int i;
 
     for (i = 0; i < Num_symbols; i++)
-        printf("0x%lx %2d %s\n",Nmlist[i].n_value, Nmlist[i].n_type, Nmlist[i].n_name);
+        printf("0x%x %2d %s\n",Nmlist[i].n_value, Nmlist[i].n_type, Nmlist[i].n_name);
 }

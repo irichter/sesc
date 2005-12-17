@@ -9,8 +9,8 @@
 RoutingPolicy::RoutingPolicy(const char *section, size_t ports) 
   : nRouters(SescConf->getRecordSize("","cpucore"))
   ,nPorts(ports)
-  ,crossLat(SescConf->getLong(section, "crossLat"))
-  ,wireLat(SescConf->getLong(section,"wireLat"))
+  ,crossLat(SescConf->getInt(section, "crossLat"))
+  ,wireLat(SescConf->getInt(section,"wireLat"))
 {
   table.resize(nRouters);
 }

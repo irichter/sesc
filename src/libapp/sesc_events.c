@@ -11,7 +11,7 @@ void chud_begin();
 void chud_end();
 #endif
 
-static void notifyEvent(const char *ev, long vaddr, long type, const void *sptr)
+static void notifyEvent(const char *ev, int vaddr, int type, const void *sptr)
 {
 #ifdef DEBUG
   fprintf(stderr, "%s(0x%x,%d,0x%x) invoked\n", ev, (unsigned)vaddr, (int)type,
@@ -20,54 +20,54 @@ static void notifyEvent(const char *ev, long vaddr, long type, const void *sptr)
 }
 
 /***********************************/
-void sesc_preevent_(long vaddr, long type, void *sptr)
+void sesc_preevent_(int vaddr, int type, void *sptr)
 {
   sesc_preevent(vaddr, type, sptr);
 }
 
-void sesc_preevent(long vaddr, long type, void *sptr)
+void sesc_preevent(int vaddr, int type, void *sptr)
 {
   notifyEvent("sesc_preevent", vaddr, type, sptr);
 }
 
 /***********************************/
-void sesc_postevent_(long vaddr, long type, const void *sptr)
+void sesc_postevent_(int vaddr, int type, const void *sptr)
 {
   sesc_postevent(vaddr, type, sptr);
 }
 
-void sesc_postevent(long vaddr, long type, const void *sptr)
+void sesc_postevent(int vaddr, int type, const void *sptr)
 {
   notifyEvent("sesc_postevent", vaddr, type, sptr);
 }
 
 /***********************************/
-void sesc_memfence_(long vaddr)
+void sesc_memfence_(int vaddr)
 {
     sesc_memfence(vaddr);
 }
 
-void sesc_memfence(long vaddr)
+void sesc_memfence(int vaddr)
 {
   notifyEvent("sesc_memfence", vaddr, 0, 0);
 }
 
-void sesc_acquire_(long vaddr)
+void sesc_acquire_(int vaddr)
 {
   sesc_acquire(vaddr);
 }
 
-void sesc_acquire(long vaddr)
+void sesc_acquire(int vaddr)
 {
   notifyEvent("sesc_acquire", vaddr, 0, 0);
 }
 
-void sesc_release_(long vaddr)
+void sesc_release_(int vaddr)
 {
     sesc_release(vaddr);
 }
 
-void sesc_release(long vaddr)
+void sesc_release(int vaddr)
 {
   notifyEvent("sesc_release", vaddr, 0, 0);
 }
@@ -210,7 +210,7 @@ void sesc_fast_sim_end()
 #endif
 }
 
-void sesc_sysconf(int tid, long flags)
+void sesc_sysconf(int tid, int flags)
 {
   notifyEvent("sesc_sysconf", 0, 0, 0);
 }

@@ -31,7 +31,7 @@
 
 OP(reserved_op1)
 {
-  fprintf(stderr, "0x%lx: reserved instruction (0x%lx)\n",
+  fprintf(stderr, "0x%x: reserved instruction (0x%x)\n",
 	  picode->addr, picode->instr);
   pthread->dump();
   picode->dump();
@@ -41,7 +41,7 @@ OP(reserved_op1)
 
 OP(address_exception)
 {
-  fprintf(stderr, "0x%lx: address exception\n", picode->addr);
+  fprintf(stderr, "0x%x: address exception\n", picode->addr);
   pthread->dump();
   picode->dump();
   exit(1);
@@ -50,7 +50,7 @@ OP(address_exception)
 
 OP(cop_reserved)
 {
-  fprintf(stderr, "0x%lx: reserved coprocessor instruction (0x%lx)\n",
+  fprintf(stderr, "0x%x: reserved coprocessor instruction (0x%x)\n",
 	  picode->addr, picode->instr);
   pthread->dump();
   picode->dump();
@@ -60,7 +60,7 @@ OP(cop_reserved)
 
 OP(unimplemented_op)
 {
-  fprintf(stderr, "0x%lx: unimplemented operation (0x%lx)\n",
+  fprintf(stderr, "0x%x: unimplemented operation (0x%x)\n",
 	  picode->addr, picode->instr);
   pthread->dump();
   picode->dump();

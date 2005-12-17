@@ -1,9 +1,11 @@
 /* 
    SESC: Super ESCalar simulator
-   Copyright (C) 2004 University of Illinois.
+   Copyright (C) 2005 University California, Santa Cruz.
 
-   Contributed by  Wei Liu
-                 
+   Contributed by Saangetha
+                  Keertika
+		  Jose Renau
+
 This file is part of SESC.
 
 SESC is free software; you can redistribute it and/or modify it under the terms
@@ -18,26 +20,38 @@ You should  have received a copy of  the GNU General  Public License along with
 SESC; see the file COPYING.  If not, write to the  Free Software Foundation, 59
 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 */
-#ifndef _RISK_LOAD_PROF_H
-#define _RISK_LOAD_PROF_H
 
-#include <stdlib.h>
 
-#include "Instruction.h"
+#ifndef QEMU_SESC_READER_H
+#define QEMU_SESC_READER_H
 
-class RiskLoadProf {
-private:
-  typedef HASH_MAP<uint, int> HashType;
+#include "ThreadContext.h"
+#include "minidecoder.h"
+#include "TraceEntry.h"
+#include "TraceReader.h"
+#include "QemuSescTrace.h"
 
-  FILE *fout;
-  HashType riskLoads;
+class QemuSescReader : public TraceReader {
+ private:
+  FILE* trace;
+  unsigned int  PC;
+  
+  bool tracEof;
+  void readPC();
+  void readInst();
 
-public:
-  RiskLoadProf();
-  ~RiskLoadProf() {}
+  unsigned int  getCurrentPC() { return PC; }
+  void advancePC();
 
-  void insert(uint ldInst);
-  void finalize();
+ public:
+  QemuSescTrace *qst;
+  QemuSescReader();
+
+  void openTrace(const char* basename);
+  void closeTrace();
+
+  TraceEntry getTraceEntry(int id);
+
 };
 
 #endif

@@ -119,7 +119,7 @@ void parseConfigFile() {
   // Read initialization parameters
   frequency = SescConf->getDouble("technology","Frequency");
 
-  cycles    = SescConf->getLong("thermal","CyclesPerSample");
+  cycles    = SescConf->getInt("thermal","CyclesPerSample");
   init_temp = SescConf->getDouble("thermal","InitialTemp") + 273.15;
   ambient   = SescConf->getDouble("thermal","ambientTemp") + 273.15;
 

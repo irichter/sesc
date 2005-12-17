@@ -45,7 +45,7 @@ protected:
 
 #ifdef SESC_INORDER  
   Time_t RATTIME[NumArchRegs];
-  long latencyVal[MaxInstType];
+  int latencyVal[MaxInstType];
   
   bool isStall(DInst *dinst);
 #endif             

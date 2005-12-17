@@ -51,34 +51,34 @@ VCache::VCache(MemorySystem *gms, const char *section, const char *name)
   ,pushMiss("%s:pushMiss"    , name)
   ,pushHalfMiss("%s:pushHalfMiss", name)
 {
-  SescConf->isLong(section   , "MSHRSize");
+  SescConf->isInt(section   , "MSHRSize");
   SescConf->isBetween(section, "MSHRSize", 1, 32768);
   
   mshr = MSHR<PAddr,VCache>::create(name,
                              SescConf->getCharPtr(section, "MSHRtype"),
-                             SescConf->getLong(section, "MSHRSize"),
-                             SescConf->getLong(section, "bsize"));
+                             SescConf->getInt(section, "MSHRSize"),
+                             SescConf->getInt(section, "bsize"));
   
-  SescConf->isLong(section    , "hitDelay");
-  hitDelay = SescConf->getLong(section, "hitDelay");
+  SescConf->isInt(section    , "hitDelay");
+  hitDelay = SescConf->getInt(section, "hitDelay");
 
-  SescConf->isLong(section    , "missDelay");
-  missDelay = SescConf->getLong(section, "missDelay");
+  SescConf->isInt(section    , "missDelay");
+  missDelay = SescConf->getInt(section, "missDelay");
 
-  SescConf->isLong(section    , "bsize");
+  SescConf->isInt(section    , "bsize");
   SescConf->isPower2(section  , "bsize");
   SescConf->isBetween(section , "bsize",1,128); // 32bis in VMemState
   
   // all cache line sizes should be the same across the versioned
   // system
-  I(SescConf->getLong(section, "bsize") == 
-    SescConf->getLong("TaskScalar", "bsize"));
+  I(SescConf->getInt(section, "bsize") == 
+    SescConf->getInt("TaskScalar", "bsize"));
 
-  SescConf->isLong(section, "numPorts");
-  SescConf->isLong(section, "portOccp");
+  SescConf->isInt(section, "numPorts");
+  SescConf->isInt(section, "portOccp");
 
-  NumUnits_t  num = SescConf->getLong(section, "numPorts");
-  TimeDelta_t occ = SescConf->getLong(section, "portOccp");
+  NumUnits_t  num = SescConf->getInt(section, "numPorts");
+  TimeDelta_t occ = SescConf->getInt(section, "portOccp");
   
   cachePort = PortGeneric::create(name, num, occ);
 

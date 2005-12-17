@@ -35,7 +35,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "PPCDecoder.h"
 
 void mint_init(int argc, char **argv, char **envp);
-int isFirstInFuncCall(unsigned long addr);
+int isFirstInFuncCall(unsigned int addr);
 char *print_instr_regs(icode_ptr picode, thread_ptr pthread, int maxlen);
 
 // iBJUncond is also true for all the conditional instruction

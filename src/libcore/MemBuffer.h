@@ -51,7 +51,7 @@ enum {
 };
 
 typedef std::set<MemBufferEntry *, MemBufferEntryLessThan> MemOpsType;
-typedef HASH_MAP<ulong, MemOpsType::iterator> MapMemOpsType;
+typedef HASH_MAP<uint, MemOpsType::iterator> MapMemOpsType;
 
 class MemBufferEntry {
 private:
@@ -70,9 +70,9 @@ protected:
   // TaskControl is responsible for the allocation/deallocation of HVersion
   const HVersion *ver; // Version that the rd/wr belongs
 
-  ulong  cIndex; // chunkIndex (addr>>logChunkSize)
+  uint  cIndex; // chunkIndex (addr>>logChunkSize)
 
-  ulong  instAddr; // the ST/LD instruction
+  uint  instAddr; // the ST/LD instruction
 
   void initializeData(const MemBufferEntry *srcEntry) {
     data = srcEntry->data;
@@ -80,7 +80,7 @@ protected:
 
 
 public:
-  static MemBufferEntry *create(const HVersion *v, ulong ci, RAddr raddr, ulong iaddr=0);
+  static MemBufferEntry *create(const HVersion *v, uint ci, RAddr raddr, uint iaddr=0);
   void initializeData(MemOpsType::iterator mit);
 
   static bool chunkCopy(RAddr dstAddr, RAddr srcAddr, BitMaskType rbitmask);
@@ -89,7 +89,7 @@ public:
 
   RAddr getRealAddr() const { return realAddr; }
 
-  static BitMaskType calcAccessMask(short opflags, ulong cOffset) {
+  static BitMaskType calcAccessMask(short opflags, uint cOffset) {
     I(cOffset < chunkSize);
     BitMaskType bm = accessBitMask[opflags & (E_RIGHT|E_LEFT|E_SIZE)][cOffset];
     // bm can be zero because an illegal access can have invalid mask
@@ -113,23 +113,23 @@ public:
     wrmask = wrmask | accMask;
   }
 
-  static ulong calcChunkIndex(RAddr addr) {
-    I(sizeof(RAddr) == sizeof(ulong));
-    return static_cast<ulong>(addr) >> logChunkSize;
+  static uint calcChunkIndex(RAddr addr) {
+	 I(sizeof(RAddr) == sizeof(uint));
+	 return static_cast<uint>(addr) >> logChunkSize;
   }
 
-  static ulong calcChunkOffset(RAddr addr) {
-    return static_cast<ulong>(addr) & chunkAddrMask;
+  static uint calcChunkOffset(RAddr addr) {
+	 return static_cast<uint>(addr) & chunkAddrMask;
   }
 
-  static ulong calcAlignChunk(RAddr addr) {
-    return static_cast<ulong>(addr) & (~0UL ^chunkAddrMask);
+  static uint calcAlignChunk(RAddr addr) {
+	 return static_cast<uint>(addr) & (~0UL ^chunkAddrMask);
   }
 
   RAddr getAddr(RAddr addr)       const { return (RAddr)(&data)+calcChunkOffset(addr);  }
   RAddr getAddr()                 const { return (RAddr)(&data);  }
-  ulong getChunkIndex()           const { return cIndex;          }
-  ulong getInstAddr()             const { return instAddr;        }
+  uint getChunkIndex()           const { return cIndex;          }
+  uint getInstAddr()             const { return instAddr;        }
   const HVersion *getVersionRef() const { return ver;             }
 
   bool getDataIfNeeded(const MemBufferEntry *stEntry, BitMaskType cpmask);
@@ -179,11 +179,11 @@ public:
   void justDestroy();
 
   // Prepare to read from this version. Returns the address to read from.
-  RAddr read(ulong iaddr, short iFlags, RAddr addr);
+  RAddr read(uint iaddr, short iFlags, RAddr addr);
 
   void silentReadChunk(MemOpsType::iterator it, MemBufferEntry *e, RAddr addr);
 
-  const HVersion *postWrite(const unsigned long long *data, ulong iaddr, 
+  const HVersion *postWrite(const unsigned long long *data, uint iaddr,
 			    short iFlags, RAddr addr);
 
 

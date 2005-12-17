@@ -35,7 +35,7 @@ class TT6Reader : public TraceReader {
  private:
   FILE* trace;
   VAddr PC;
-  ulong inst;
+  uint inst;
   VAddr address;
   int   count;
   
@@ -47,7 +47,7 @@ class TT6Reader : public TraceReader {
   void readCount();
 
   VAddr getCurrentPC() { return PC; }
-  long  getCurrentInst() { return inst; }
+  int  getCurrentInst() { return inst; }
   VAddr getCurrentDataAddress() { return address; }
   int   getCurrentCount() { return count;}
   

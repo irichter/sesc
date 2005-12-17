@@ -71,12 +71,12 @@ protected:
 
 private:
 
-  inline int 	SEG(int address) { return (address / rowSize) % segment; }
-  inline int	BANK(int address) { return (address / rowSize / segment * 2)	% subBank; }
-  inline bool RBHIT(int address);
-  inline void DESTROYNEIGHBOR(int seg, int bank, int i);
-  void initialize_bank(int rb_num, int rb_width, char* p, 
-		       int id, int org, bool pipe, bool seg);
+  int  SEG(int addr) const { return (addr / rowSize) % segment; }
+  int  BANK(int addr) const { return (addr / rowSize / segment * 2) % subBank; }
+  bool RBHIT(int addr) const ;
+  void DESTROYNEIGHBOR(int seg, int bank, int i);
+  void initialize_bank(int rb_num, int rb_width, const char *p, 
+		       int org, bool pipe, bool seg);
 
 public:
   Bank(MemorySystem* current, const char *device_descr_section,

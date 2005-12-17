@@ -10,9 +10,9 @@ class TLB {
 private:
   class TLBState : public StateGeneric<> {
   public:
-    long  physicalPage;
+	 int  physicalPage;
 
-    TLBState(long iphysicalPage = -1) {  physicalPage = iphysicalPage; }
+	 TLBState(int iphysicalPage = -1) {  physicalPage = iphysicalPage; }
 
     bool operator==(TLBState s) const {
       return physicalPage == s.physicalPage;
@@ -28,8 +28,8 @@ public:
   TLB(const char *section, bool dataTLB, int i);
   ~TLB();
 
-  long translate(VAddr vAddr);
-  void insert(VAddr vAddr, long  phPage);
+  int translate(VAddr vAddr);
+  void insert(VAddr vAddr, int  phPage);
 };
 
 #endif

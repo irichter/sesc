@@ -133,15 +133,15 @@ public:
   }
 
   //! Get a unique id for any pair of MessageType and NetDevice
-  static long getUniqueProtID(MessageType t, NetDevice_t p) {
+  static int getUniqueProtID(MessageType t, NetDevice_t p) {
     I(sizeof(NetDevice_t)<=2);
     I(MaxMessageType<32700); // less than 16 bits
-    long id = p;
-    id = (id<<16) ^ static_cast<long>(t);
+	 int id = p;
+	 id = (id<<16) ^ static_cast<int>(t);
     return id;
   }
   
-  long getUniqueProtID() const;
+  int getUniqueProtID() const;
 
   MemRequest *getMemRequest() {
     return mreq;

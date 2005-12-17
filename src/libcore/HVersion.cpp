@@ -54,7 +54,7 @@ void HVersion::IDP::boot()
   if (section==0)
     return;
 
-  nChildMax = SescConf->getLong(section,"IDPnChildMax");
+  nChildMax = SescConf->getInt(section,"IDPnChildMax");
 
   SescConf->isBetween(section,"IDPnChildMax",0,32);
   // 0 means no predictor
@@ -98,7 +98,7 @@ void HVersion::IDP::executed(Pid_t pid, PAddr addr, size_t nChild)
   cl->setnChild(nChild);
 }
 
-long HVersion::IDP::predict(Pid_t pid, PAddr addr)
+int HVersion::IDP::predict(Pid_t pid, PAddr addr)
 {
   I(nChildMax !=0);
 
@@ -495,18 +495,18 @@ HVersion *HVersion::createSuccessor(TaskContext *t)
     else if (prange <= 64 || IDP::deactivated())
       prange = prange/4;
     else { 
-      long c = IDP::predict(tc->getPid(), t->getSpawnAddr());
-      long p = IDP::predict(tc->getPid(), tc->getSpawnAddr());
-      if ((long)nChild >= p && c>0) {
+		int c = IDP::predict(tc->getPid(), t->getSpawnAddr());
+		int p = IDP::predict(tc->getPid(), tc->getSpawnAddr());
+		if ((int)nChild >= p && c>0) {
 	// last spawn, child spawns
 	prange = prange/64;
       }else if (t->getSpawnAddr() == tc->getSpawnAddr()) {
 	// Freaking loop
 	prange = prange/64;
-      }else if ((long)nChild >= p && p == 1) {
+		}else if ((int)nChild >= p && p == 1) {
 	// last spawn
 	prange = prange/32;
-      }else if ((long)nChild < p && c == 0) {
+		}else if ((int)nChild < p && c == 0) {
 	// Oscilates betwen c==0 & c==1
 	prange = prange/4;
       }else{

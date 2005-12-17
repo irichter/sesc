@@ -8,11 +8,11 @@ typedef struct {
     unsigned char e_ident[EI_NIDENT];
     unsigned short e_type;
     unsigned short e_machine;
-    unsigned long e_version;
-    unsigned long e_entry;
-    unsigned long e_phoff;
-    unsigned long e_shoff;
-    unsigned long e_flags;
+	 unsigned int e_version;
+	 unsigned int e_entry;
+	 unsigned int e_phoff;
+	 unsigned int e_shoff;
+	 unsigned int e_flags;
     unsigned short e_ehsize;
     unsigned short e_phentsize;
     unsigned short e_phnum;
@@ -40,16 +40,16 @@ typedef struct {
 
 /* section header */
 typedef struct {
-    unsigned long sh_name;
-    unsigned long sh_type;
-    unsigned long sh_flags;
-    unsigned long sh_addr;
-    unsigned long sh_offset;
-    unsigned long sh_size;
-    unsigned long sh_link;
-    unsigned long sh_info;
-    unsigned long sh_addralign;
-    unsigned long sh_entsize;
+	 unsigned int sh_name;
+	 unsigned int sh_type;
+	 unsigned int sh_flags;
+	 unsigned int sh_addr;
+	 unsigned int sh_offset;
+	 unsigned int sh_size;
+	 unsigned int sh_link;
+	 unsigned int sh_info;
+	 unsigned int sh_addralign;
+	 unsigned int sh_entsize;
 } Elf32_Shdr;
 
 #define SHT_PROGBITS	1
@@ -57,9 +57,9 @@ typedef struct {
 #define SHT_MDEBUG	0x70000005
 
 typedef struct {
-    unsigned long st_name;
-    unsigned long st_value;
-    unsigned long st_size;
+	 unsigned int st_name;
+	 unsigned int st_value;
+	 unsigned int st_size;
     unsigned char st_info;
     unsigned char st_other;
     unsigned short st_shndx;

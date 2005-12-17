@@ -114,8 +114,8 @@ typedef signed long long squad_t;
 #endif
 #elif defined(__alpha)
 #define HOST_HAS_QUAD
-typedef unsigned long quad_t;		/* quad - 64 bits */
-typedef signed long squad_t;
+typedef unsigned int quad_t;		/* quad - 64 bits */
+typedef signed int squad_t;
 #ifdef ANSI_SYMCAT
 #define ULL(N)		N##UL		/* quad_t constant */
 #define LL(N)		N##L		/* squad_t constant */

@@ -45,7 +45,7 @@ Processor::Processor(GMemorySystem *gm, CPU_t i)
   l1Cache = gm->getDataSource();
 
 #ifdef SESC_INORDER
-  TimeDelta_t l1HitDelay = SescConf->getLong(l1Cache->getDescrSection(),"hitDelay");
+  TimeDelta_t l1HitDelay = SescConf->getInt(l1Cache->getDescrSection(),"hitDelay");
 
   bzero(RATTIME,sizeof(Time_t*)*NumArchRegs);
   const char *cpucore = SescConf->getCharPtr("","cpucore", i);
@@ -56,24 +56,24 @@ Processor::Processor(GMemorySystem *gm, CPU_t i)
     const char *cluster = SescConf->getCharPtr(cpucore,"cluster", i);
     I(cluster);
 
-    if (SescConf->checkLong(cluster, "iALULat"))
-      latencyVal[iALU]       = SescConf->getLong(cluster, "iALULat");
-    if (SescConf->checkLong(cluster, "iMultLat"))
-      latencyVal[iMult]      = SescConf->getLong(cluster, "iMultLat");
-    if (SescConf->checkLong(cluster, "iDivLat"))
-      latencyVal[iDiv]       = SescConf->getLong(cluster, "iDivLat");
-    if (SescConf->checkLong(cluster, "iBJLat"))
-      latencyVal[iBJ]        = SescConf->getLong(cluster, "iBJLat");
-    if (SescConf->checkLong(cluster, "iLoadLat"))
-      latencyVal[iLoad]      = SescConf->getLong(cluster, "iLoadLat") + l1HitDelay;
-    if (SescConf->checkLong(cluster, "iStorelat"))
-      latencyVal[iStore]     = SescConf->getLong(cluster, "iStorelat");
-    if (SescConf->checkLong(cluster, "fpALULat"))
-      latencyVal[fpALU]      = SescConf->getLong(cluster, "fpALULat");
-    if (SescConf->checkLong(cluster, "fpMultLat"))
-      latencyVal[fpMult]     = SescConf->getLong(cluster, "fpMultLat");
-    if (SescConf->checkLong(cluster, "fpDivLat"))
-      latencyVal[fpDiv]      = SescConf->getLong(cluster, "fpDivLat");
+    if (SescConf->checkInt(cluster, "iALULat"))
+      latencyVal[iALU]       = SescConf->getInt(cluster, "iALULat");
+    if (SescConf->checkInt(cluster, "iMultLat"))
+      latencyVal[iMult]      = SescConf->getInt(cluster, "iMultLat");
+    if (SescConf->checkInt(cluster, "iDivLat"))
+      latencyVal[iDiv]       = SescConf->getInt(cluster, "iDivLat");
+    if (SescConf->checkInt(cluster, "iBJLat"))
+      latencyVal[iBJ]        = SescConf->getInt(cluster, "iBJLat");
+    if (SescConf->checkInt(cluster, "iLoadLat"))
+      latencyVal[iLoad]      = SescConf->getInt(cluster, "iLoadLat") + l1HitDelay;
+    if (SescConf->checkInt(cluster, "iStorelat"))
+      latencyVal[iStore]     = SescConf->getInt(cluster, "iStorelat");
+    if (SescConf->checkInt(cluster, "fpALULat"))
+      latencyVal[fpALU]      = SescConf->getInt(cluster, "fpALULat");
+    if (SescConf->checkInt(cluster, "fpMultLat"))
+      latencyVal[fpMult]     = SescConf->getInt(cluster, "fpMultLat");
+    if (SescConf->checkInt(cluster, "fpDivLat"))
+      latencyVal[fpDiv]      = SescConf->getInt(cluster, "fpDivLat");
   }
 
 #endif
@@ -127,14 +127,14 @@ icode_ptr Processor::getInstructionPointer(Pid_t pid)
 
 void Processor::switchIn(Pid_t pid)
 {
-  GLOG(DEBUG2,"Processor(%ld):switchIn %d", Id, pid);
+  LOG("Processor(%ld):switchIn %d", Id, pid);
     
   IFID.switchIn(pid);
 }
 
 void Processor::switchOut(Pid_t pid)
 {
-  GLOG(DEBUG2,"Processor(%ld):switchOut %d", Id, pid);
+  LOG("Processor(%ld):switchOut %d", Id, pid);
 
   IFID.switchOut(pid);
 }

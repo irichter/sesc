@@ -97,7 +97,7 @@ protected:
 public:
   MeshMultiPathRoutingPolicy(const char *section)
     : RoutingPolicy(section,4)
-    ,width(SescConf->getLong(section, "width")) {
+    ,width(SescConf->getInt(section, "width")) {
     SescConf->isBetween(section, "width",1,128);
     make(section);
   }

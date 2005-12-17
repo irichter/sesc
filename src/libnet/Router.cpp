@@ -8,11 +8,11 @@
 Router::Router(const char *section, RouterID_t id, 
 	       InterConnection *n, RoutingTable *rt)
   : myID(id)
-   ,crossLat(SescConf->getLong(section, "crossLat"))
-   ,localNum(SescConf->getLong(section, "localNum"))
-   ,localLat(SescConf->getLong(section, "localLat"))
-   ,localOcc(SescConf->getLong(section, "localOcc"))
-   ,localPort(SescConf->getLong(section, "localPort"))
+   ,crossLat(SescConf->getInt(section, "crossLat"))
+   ,localNum(SescConf->getInt(section, "localNum"))
+   ,localLat(SescConf->getInt(section, "localLat"))
+   ,localOcc(SescConf->getInt(section, "localOcc"))
+   ,localPort(SescConf->getInt(section, "localPort"))
    ,congestionFree(SescConf->getBool(section, "congestionFree"))
    ,addFixDelay(SescConf->getBool(section, "addFixDelay"))
    ,net(n)
@@ -26,7 +26,7 @@ Router::Router(const char *section, RouterID_t id,
   SescConf->isBetween(section , "localOcc",0,32700);
   SescConf->isBetween(section , "localPort",0,32700);
 
-  SescConf->isLong(section, "addFixDelay");
+  SescConf->isInt(section, "addFixDelay");
   SescConf->isBetween(section, "addFixDelay",0,32768); // TimeDelta_t
 
   SescConf->isBool(section, "congestionFree");
@@ -227,7 +227,7 @@ void Router::dump()
   fprintf(stderr, "Router #%d\n", myID);
 }
 
-void Router::registerProtocol(ProtocolCBBase *pcb, PortID_t pID, long id) 
+void Router::registerProtocol(ProtocolCBBase *pcb, PortID_t pID, int id)
 {
   I(localPortProtocol.find(id) == localPortProtocol.end());
   localPortProtocol[id] = pcb;

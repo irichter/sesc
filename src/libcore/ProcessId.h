@@ -96,9 +96,9 @@ public:
     long long nGradInsts;       // Graduated instructions
     long long nWPathInsts;      // wrong path instructions
 #ifdef TASKSCALAR
-    long nRestarts;
-    long niKills;
-    long nrKills;
+	 int nRestarts;
+	 int niKills;
+	 int nrKills;
     long long niKillGradInsts;
     long long niKillWPathInsts;
     long long nrKillGradInsts;
@@ -134,7 +134,7 @@ private:
   int     parentId;
   Pid_t   ppid; // Parent pid
   Pid_t   pid;
-  ulong   nChilds;
+  uint   nChilds;
 
   Time_t  spawnTime;
   Time_t  startTime;
@@ -197,10 +197,10 @@ public:
   // Returns the highest-priority process that can run on a given processor
   static ProcessId *queueGet(const CPU_t cpu);
 
-  bool sysconf(long flags);
-  long getconf(void);
+  bool sysconf(int flags);
+  int getconf(void);
 
-  static ProcessId *create(Pid_t ppid, Pid_t id, long flags);
+  static ProcessId *create(Pid_t ppid, Pid_t id, int flags);
   void destroy();
   static void destroyAll();
 
@@ -223,7 +223,7 @@ public:
   CPU_t getCPU() const     { return cpu;  }
   void setCPU(CPU_t nCPU)  { cpu = nCPU;  }
 
-  ulong getNChilds() const { return nChilds; }
+  uint getNChilds() const { return nChilds; }
 
   Pid_t getPid()  const    { return pid;  }
   Pid_t getPPid() const    { return ppid; }
@@ -303,10 +303,10 @@ public:
   }
 
   // Called when this thread stops running on a processor
-  void switchOut(long long nGradInsts, long long nWPathInsts) {
+  void switchOut(long long nGradInsts_, long long nWPathInsts_) {
     stats.totalTime  += globalClock - startTime;
-    stats.nGradInsts += nGradInsts;
-    stats.nWPathInsts+= nWPathInsts;
+    stats.nGradInsts += nGradInsts_;
+    stats.nWPathInsts+= nWPathInsts_;
 
     startTime  = globalClock;
 

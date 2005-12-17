@@ -33,7 +33,8 @@ class MemObj;
 
 enum TraceMode {
   PPCTT6 = 0,
-  Simics
+  Simics,
+  QemuSp
 };
 
 class TraceFlow : public GFlow {
@@ -50,14 +51,14 @@ class TraceFlow : public GFlow {
  public:
   TraceFlow(int cId, int i, GMemorySystem *gms);
 
-  static void setTraceFile(char* tf) { traceFile = strdup(tf); }
+  static void setTraceFile(const char* tf) { traceFile = strdup(tf); }
   static const char* getTraceFile() { return traceFile; }
   
   InstID getNextID() const {
     return nextPC;
   }
 
-  void addEvent(EventType e, CallbackBase *cb, long addr) {
+  void addEvent(EventType e, CallbackBase *cb, int addr) {
     I(0);
   }
 	

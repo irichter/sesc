@@ -86,7 +86,7 @@ PMessage *PMessage::createMsg(MessageType msgType,
 }
 
 
-long PMessage::getUniqueProtID() const 
+int PMessage::getUniqueProtID() const
 {
   return getUniqueProtID(msgType,dstPB->getNetDeviceID());
 }

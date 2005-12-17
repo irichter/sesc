@@ -53,7 +53,7 @@ InterConnection::InterConnection(const char *section)
 
   SescConf->isBetween(descrSection, "linkBits", 1, 32700);
 
-  linkBits  = SescConf->getLong(section, "linkBits");
+  linkBits  = SescConf->getInt(section, "linkBits");
   linkBytes = (float) linkBits/8;
 
 }
@@ -150,7 +150,7 @@ void InterConnection::updateAvgMsgLatency(Time_t launchTime)
 class TestMessage : public Message {
   void garbageCollect();
   void trace(const char *format,...) {};
-  long getUniqueProtID() const {return 0;}
+  int getUniqueProtID() const {return 0;}
 };
 pool<TestMessage> tmpool;
 

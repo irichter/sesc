@@ -26,7 +26,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "GMemorySystem.h"
 
 ushort GMemorySystem::Log2PageSize=0;
-long GMemorySystem::PageMask;
+int GMemorySystem::PageMask;
 
 MemoryObjContainer GMemorySystem::sharedMemoryObjContainer;
 GMemorySystem::StrCounterType  GMemorySystem::usedNames;
@@ -94,7 +94,7 @@ GMemorySystem::GMemorySystem(int processorId)
     SescConf->isPower2("", "pageSize");
     SescConf->isGT("", "pageSize", 2048);
 
-    ulong page_size = SescConf->getLong("", "pageSize");
+	 uint page_size = SescConf->getInt("", "pageSize");
     Log2PageSize = log2i(page_size);
     PageMask = (1 << Log2PageSize) - 1;
   }

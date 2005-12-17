@@ -185,7 +185,7 @@ void EndianPDR(PDR *h)
 void EndianSYMR(SYMR *h)
 {
 #ifdef LENDIAN
-  unsigned long swaped;
+  unsigned int swaped;
 	
   h->iss = SWAP_WORD((unsigned)h->iss);
   h->value = SWAP_WORD((unsigned)h->value);

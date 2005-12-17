@@ -51,48 +51,31 @@ void nanassertexit(){
   return;
 }
 
-#ifndef __GNUCX295__            /* Compile only when there is no GCC compiler */
+/* Compile only when there is no GCC compiler */
+#if (defined SUNSTUDIO) || !(defined __GNUC__)
 
-void NoGCCMSG(const char *format,
-              ...)
-{
-    va_list ap;
+void NoGCCMSG(const char *format, ...) {
 
-    va_start(ap, format);
-    vfprintf(ASSERTSTREAM, format, ap);
-    va_end(ap);
-    fprintf(ASSERTSTREAM, "\n");
+  va_list ap;
+
+  va_start(ap, format);
+  vfprintf(ASSERTSTREAM, format, ap);
+  va_end(ap);
+  fprintf(ASSERTSTREAM, "\n");
 }
 
-void NoGCCGMSG(int g,
-               const char *format,
-               ...)
-{
-    va_list ap;
+void NoGCCGMSG(int g, const char *format, ...) {
 
-    if(!g)
-        return;
+  va_list ap;
 
-    va_start(ap, format);
-    vfprintf(ASSERTSTREAM, format, ap);
-    va_end(ap);
-    fprintf(ASSERTSTREAM, "\n");
+  if(!g)
+    return;
+
+  va_start(ap, format);
+  vfprintf(ASSERTSTREAM, format, ap);
+  va_end(ap);
+  fprintf(ASSERTSTREAM, "\n");
 }
-
-#ifndef DEBUG
-
-/* With DEBUG nanassert.h use the NoGCCGMSG and NOGCCMSG */
-
-void NoGCCLOG(const char *format,
-              ...)
-{                               /* nodebug */
-};
-void NoGCCGLOG(int g,
-               const char *format,
-               ...)
-{                               /* nodebug */
-};
-#endif   /* DEBUG */
 
 #endif   /* __GNUC__ */
 
@@ -148,9 +131,9 @@ void nanassertTRACE(const char *envvar,
       doTrace = 0;
     else {
       if(doTrace == 1)
-	MSG("nanassert::Activating TRACE selectivelly");
+        MSG("nanassert::Activating TRACE selectivelly");
       else
-	MSG("nanassert::Activating all the TRACEs");
+        MSG("nanassert::Activating all the TRACEs");
     }
 #ifdef __cplusplus
     // new allocation because the object never should be destroyed

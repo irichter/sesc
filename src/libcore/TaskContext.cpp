@@ -194,7 +194,7 @@ void TaskContext::mergeDestroy()
   nCorrectOutOrderSpawn->cinc(memVer->getTaskContext()->wasSpawnedOO);
   nCorrectInOrderSpawn->cinc(!memVer->getTaskContext()->wasSpawnedOO);
 
-  long nInst = ProcessId::getProcessId(tid)->getNGradInsts();
+  int nInst = ProcessId::getProcessId(tid)->getNGradInsts();
 
 #ifdef OOO_PAPER_STATS
   TaskEntriesType::iterator it = taskEntries.find(spawnAddr);
@@ -687,10 +687,10 @@ void TaskContext::preBoot()
 
   collectCB.schedule(63023);
 
-  MLThreshold = SescConf->getLong("TaskScalar","MLThreshold");
-  MFThreshold = SescConf->getLong("TaskScalar","MFThreshold");
+  MLThreshold = SescConf->getInt("TaskScalar","MLThreshold");
+  MFThreshold = SescConf->getInt("TaskScalar","MFThreshold");
 
-  SyncOnRestart = SescConf->getLong("TaskScalar","SyncOnRestart");
+  SyncOnRestart = SescConf->getInt("TaskScalar","SyncOnRestart");
 
   // First must be lower than Last
   
@@ -708,7 +708,7 @@ void TaskContext::preBoot()
 
   TaskContext *tc = tcPool.out();
 
-  tc->spawnAddr       = (ulong) -1;
+  tc->spawnAddr       = (uint) -1;
   tc->memVer          = HVersion::boot(tc);
   tc->memVer->getVersionDomain()->setMemBufferDomain(mbd);
 
@@ -832,7 +832,7 @@ void TaskContext::normalForkNewDomain(Pid_t cpid)
   MSG("normal fork. new pid: %d", cpid);
   TaskContext *nTC = tcPool.out();
 
-  nTC->spawnAddr       = (ulong) -1;
+  nTC->spawnAddr       = (uint) -1;
   nTC->memVer          = HVersion::newFirstVersion(nTC);
 
   MemBufferDomain *mbd = MemBuffer::createMemBufferDomain();

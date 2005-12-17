@@ -43,8 +43,8 @@ public:
   }
   virtual ~GMemoryOS() {
   }
-  virtual long TLBTranslate(unsigned long vAddr) = 0;
-  virtual long ITLBTranslate(unsigned long iAddr) = 0 ;
+  virtual int TLBTranslate(unsigned int vAddr) = 0;
+  virtual int ITLBTranslate(unsigned int iAddr) = 0 ;
   virtual void solveRequest(MemRequest *r) = 0;
   virtual void boot() = 0;
   virtual void report(const char *str) = 0;
@@ -54,9 +54,9 @@ class DummyMemoryOS : public GMemoryOS {
 private:
   class DTLBState : public StateGeneric<> {
   public:
-    long  physicalPage;
+	 int  physicalPage;
 
-    DTLBState(long iphysicalPage = -1) {  physicalPage = iphysicalPage; }
+	 DTLBState(int iphysicalPage = -1) {  physicalPage = iphysicalPage; }
 
     bool operator==(DTLBState s) const {
       return physicalPage == s.physicalPage;
@@ -71,8 +71,8 @@ public:
   DummyMemoryOS(int i);
   virtual ~DummyMemoryOS();
 
-  long ITLBTranslate(unsigned long iAddr);
-  long TLBTranslate(unsigned long vAddr);
+  int ITLBTranslate(unsigned int iAddr);
+  int TLBTranslate(unsigned int vAddr);
 
   void solveRequest(MemRequest *r);
 

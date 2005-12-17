@@ -74,10 +74,10 @@ void iterate(SConfig* SescConf)
 
 double getEnergy(SConfig *SescConf, const char* section)
 {
-  int numPorts = SescConf->getLong(section,"numPorts");
-  double busLength = (double) SescConf->getLong(section,"busLength");
-  int busWidth = SescConf->getLong(section,"busWidth");
-  double delay = (double) SescConf->getLong(section,"delay");
+  int numPorts = SescConf->getInt(section,"numPorts");
+  double busLength = (double) SescConf->getInt(section,"busLength");
+  int busWidth = SescConf->getInt(section,"busWidth");
+  double delay = (double) SescConf->getInt(section,"delay");
   double fac = 1.0;
 
   SIM_power_bus_t bt ;

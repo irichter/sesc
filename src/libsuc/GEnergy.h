@@ -167,7 +167,7 @@ protected:
   static EGroupStoreType eGroupStore; // Energy store per group
 
   const double  StepEnergy;
-  long long int steps;
+  long long steps;
   
   PowerGroup gid;
 
@@ -203,12 +203,12 @@ public:
 class GStatsEnergyCGBase {
 protected:
   Time_t lastCycleUsed;
-  long  numCycles;
+  int  numCycles;
   char *name;
   int   id;
 
 public:
-  long getNumCycles(){ return numCycles; }
+  int getNumCycles(){ return numCycles; }
   GStatsEnergyCGBase(const char* str,int id);
   
   void use();

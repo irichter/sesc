@@ -83,8 +83,8 @@ int getdents(unsigned int fd, struct dirent *dirp, unsigned int count);
 #endif
 
 struct glibc_stat64 {
-  unsigned long	st_dev;
-  unsigned long	st_pad0[3];	/* Reserved for st_dev expansion  */
+  unsigned int	st_dev;
+  unsigned int	st_pad0[3];	/* Reserved for st_dev expansion  */
 
   unsigned long long	st_ino;
 
@@ -94,8 +94,8 @@ struct glibc_stat64 {
   int           st_uid;
   int           st_gid;
 
-  unsigned long	st_rdev;
-  unsigned long	st_pad1[3];	/* Reserved for st_rdev expansion  */
+  unsigned int	st_rdev;
+  unsigned int	st_pad1[3];	/* Reserved for st_rdev expansion  */
 
   long long	st_size;
 
@@ -103,17 +103,17 @@ struct glibc_stat64 {
    * Actually this should be timestruc_t st_atime, st_mtime and st_ctime
    * but we don't have it under Linux.
    */
-  long          st_atim;
-  unsigned long	reserved0;	/* Reserved for st_atime expansion  */
+  int          st_atim;
+  unsigned int	reserved0;	/* Reserved for st_atime expansion  */
 
-  long          st_mtim;
-  unsigned long	reserved1;	/* Reserved for st_mtime expansion  */
+  int          st_mtim;
+  unsigned int	reserved1;	/* Reserved for st_mtime expansion  */
 
-  long          st_ctim;
-  unsigned long	reserved2;	/* Reserved for st_ctime expansion  */
+  int          st_ctim;
+  unsigned int	reserved2;	/* Reserved for st_ctime expansion  */
 
-  unsigned long	st_blksize;
-  unsigned long	st_pad2;
+  unsigned int	st_blksize;
+  unsigned int	st_pad2;
 
   long long	st_blocks;
 };
@@ -121,29 +121,29 @@ struct glibc_stat64 {
 /* defines to survive the 64 bits mix */
 struct glibc_stat32 {
   unsigned int    st_dev;
-  long		st_pad1[3];		/* Reserved for network id */
-  unsigned long   st_ino;
+  int		st_pad1[3];		/* Reserved for network id */
+  unsigned int   st_ino;
   unsigned int    st_mode;
   int             st_nlink;
   int             st_uid;
   int             st_gid;
   unsigned int    st_rdev;
-  long		st_pad2[2];
-  long            st_size;
-  long		st_pad3;
+  int		st_pad2[2];
+  int            st_size;
+  int		st_pad3;
   /*
    * Actually this should be timestruc_t st_atime, st_mtime and st_ctime
    * but we don't have it under Linux.
    */
-  long            st_atim;
-  long		reserved0;
-  long            st_mtim;
-  long		reserved1;
-  long            st_ctim;
-  long		reserved2;
-  long		st_blksize;
-  long		st_blocks;
-  long		st_pad4[14];
+  int            st_atim;
+  int		reserved0;
+  int            st_mtim;
+  int		reserved1;
+  int            st_ctim;
+  int		reserved2;
+  int		st_blksize;
+  int		st_blocks;
+  int		st_pad4[14];
 };
 
 void conv_stat32_native2glibc(const struct stat *statp, struct glibc_stat32 *stat32p)
@@ -638,7 +638,7 @@ void subst_functions()
   icode_ptr picode, pcopy;
   func_desc_ptr pfname;
   struct namelist *pnlist, *psym;
-  long base;
+  int base;
   
   pnlist = Func_nlist;
   pfname = Func_subst;
@@ -679,7 +679,7 @@ void subst_functions()
 
 OP(mint_assert_fail)
 {
-  printf("assertion failed in simulated program: (%s) %s:%ld\n",
+  printf("assertion failed in simulated program: (%s) %s:%d\n",
          (const char *)pthread->virt2real(REGNUM(4)), (const char *)pthread->virt2real(REGNUM(5)), REGNUM(6)); 
 
   mint_exit(0,pthread);
@@ -695,10 +695,10 @@ OP(mint_notimplemented)
   return 0;
 }
 
-void rsesc_sysconf(int pid, int id, long flags);
+void rsesc_sysconf(int pid, int id, int flags);
 icode_ptr rsesc_get_instruction_pointer(int pid);
 void rsesc_set_instruction_pointer(int pid, icode_ptr picode);
-void rsesc_spawn_stopped(int pid, int id, long flags);
+void rsesc_spawn_stopped(int pid, int id, int flags);
 
 OP(mint_sesc_sysconf)
 {
@@ -716,7 +716,7 @@ OP(mint_sesc_spawn){
   // Arguments of the sesc_spawn call
   RAddr entry = pthread->getGPR(Arg1stGPR);
   RAddr arg   = pthread->getGPR(Arg2ndGPR);
-  long    flags = pthread->getGPR(Arg3rdGPR);
+  int    flags = pthread->getGPR(Arg3rdGPR);
   // Set things up for the return from this call
   osSim->eventSetInstructionPointer(pthread->getPid(),addr2icode(pthread->getGPR(RetAddrGPR)));
   // Process ID of the parent thread
@@ -862,7 +862,7 @@ OP(mint_sesc_release_begin){
 OP(mint_sesc_release_end){
   int pid=pthread->getPid();
   /* The address to return to from this call */
-  long returnAddr=REGNUM(31);
+  int returnAddr=REGNUM(31);
   /* Next instruction is after this call */
   rsesc_set_instruction_pointer(pid,addr2icode(returnAddr));
   /* Do the actual call */
@@ -886,7 +886,7 @@ OP(mint_sesc_release_end){
 OP(mint_sesc_future_epoch){
   int pid=pthread->getPid();
   /* The address to return to from this call */
-  long returnAddr=REGNUM(31);
+  int returnAddr=REGNUM(31);
   /* Next instruction is after this call */
   rsesc_set_instruction_pointer(pid,addr2icode(returnAddr));
   /* Do the actual call to create the successor */
@@ -898,9 +898,9 @@ OP(mint_sesc_future_epoch){
 OP(mint_sesc_future_epoch_jump){
   int pid=pthread->getPid();
   /* The address to return to from this call */
-  long returnAddr=REGNUM(31);
+  int returnAddr=REGNUM(31);
   /* The address where the successor is to start */
-  long successorAddr=REGNUM(4);
+  int successorAddr=REGNUM(4);
   /* Next instruction is after this call */
   rsesc_set_instruction_pointer(pid,addr2icode(returnAddr));
   /* Do the actual call to create the successor */
@@ -948,11 +948,11 @@ OP(mint_sesc_change_epoch){
 #endif
 
 #ifdef TASKSCALAR
-void rsesc_fork_successor(int ppid, long where, int tid);
+void rsesc_fork_successor(int ppid, int where, int tid);
 OP(mint_sesc_fork_successor)
 {
   int ppid=pthread->getPid();
-  long returnAddr=REGNUM(31);
+  int returnAddr=REGNUM(31);
 
   /* Next instruction in the parent is after this call */
   rsesc_set_instruction_pointer(ppid,addr2icode(returnAddr));
@@ -967,7 +967,7 @@ OP(mint_sesc_prof_fork_successor)
 {
   int tid = REGNUM(4);
   int ppid=pthread->getPid();
-  long returnAddr=REGNUM(31);
+  int returnAddr=REGNUM(31);
 
   /* Next instruction in the parent is after this call */
   rsesc_set_instruction_pointer(ppid,addr2icode(returnAddr));
@@ -994,7 +994,7 @@ int rsesc_is_safe(int pid);
 OP(mint_sesc_is_safe)
 {
   int pid=REGNUM(4);
-  REGNUM(2)=(long)(rsesc_is_safe(pid));
+  REGNUM(2)=(int)(rsesc_is_safe(pid));
   return addr2icode(REGNUM(31));  
 }
 #endif
@@ -1067,9 +1067,9 @@ OP(mint_sesc_verify_value)
 /* ARGSUSED */
 OP(mint_sysmp)
 {
-    long command;
+	 int command;
 #if 0
-    long arg1, arg2, arg3, arg4;
+	 int arg1, arg2, arg3, arg4;
 #endif
 
     command = REGNUM(4);
@@ -1102,18 +1102,21 @@ OP(mint_sysmp)
     return addr2icode(REGNUM(31));
 }
 
+#ifndef __x86_64__
+// FIXME: the following code is not ready for 64 bit architectures
+
 /* Please, someone should port mint to execute mint3 and glibc from
  * gcc. glibc is a fully reentrant library, not like this crap!
  */
 OP(mint_printf)
 {
-    long addr;
-    long *sp;
+	 int addr;
+	 int *sp;
     int index;
     char *cp;
-    long args[100];
+	 int args[100];
 #if (defined TASKSCALAR) || (defined TLS)
-    long *wdata;
+	 int *wdata;
     unsigned char *tempbuff2 = (unsigned char *) alloca (8000);
 #endif
  
@@ -1122,13 +1125,13 @@ OP(mint_printf)
 #endif
 
 #if (defined TASKSCALAR) || (defined TLS)
-    sp = (long *) REGNUM(29);
+	 sp = (int *) REGNUM(29);
     rsesc_OS_read_string(pthread->getPid(), picode->addr, tempbuff2, (const void *)REGNUM(4) , 100);
-    addr = (long)tempbuff2;
+	 addr = (int)tempbuff2;
     tempbuff2 += 100;
 #else
     addr = pthread->virt2real(REGNUM(4));
-    sp = (long *) pthread->virt2real(REGNUM(29));
+    sp = (int *) pthread->virt2real(REGNUM(29));
 #endif
     args[0] = addr;
     args[1] = REGNUM(5);
@@ -1145,7 +1148,7 @@ OP(mint_printf)
 
       if(index>3){
 #if (defined TASKSCALAR) || (defined TLS)
-	wdata = (long *)rsesc_OS_read(pthread->getPid(), (int)(sp + index), picode->addr, E_WORD);
+	wdata = (int *)rsesc_OS_read(pthread->getPid(), (int)(sp + index), picode->addr, E_WORD);
 	args[index]=SWAP_WORD(*wdata);
 #else
 	args[index]=SWAP_WORD(*(sp+index));
@@ -1158,13 +1161,13 @@ OP(mint_printf)
 	if(args[index]) {
 #if (defined TASKSCALAR) || (defined TLS)
 	  rsesc_OS_read_string(pthread->getPid(), picode->addr, tempbuff2, (const void *) args[index], 100);
-	  args[index]=(long)tempbuff2;
+	  args[index]=(int)tempbuff2;
 	  tempbuff2 += 100;
 #else
 	  args[index]=pthread->virt2real(args[index]);
 #endif
 	}else
-	  args[index]=(long)"(nil)";
+	  args[index]=(int)"(nil)";
       }else if(*cp=='f'||*cp=='g') {
 	/* found a double */
 	/* need to fix this sometime; for now don't use both %f and %s */
@@ -1198,6 +1201,7 @@ OP(mint_printf)
 
     return addr2icode(REGNUM(31));
 }
+#endif
 
 // enum FetchOpType {
 //   FetchIncOp  =0,
@@ -1207,25 +1211,25 @@ OP(mint_printf)
 
 #include "sescapi.h"
 
-long rsesc_fetch_op(int pid, enum FetchOpType op, long addr, long *data, long val);
+int rsesc_fetch_op(int pid, enum FetchOpType op, int addr, int *data, int val);
 OP(mint_sesc_fetch_op)
 {
   int  op   = REGNUM(4);
-  long addr = REGNUM(5);
-  long val  = REGNUM(6);
-  long *data = (long *)pthread->virt2real(addr);
+  int addr = REGNUM(5);
+  int val  = REGNUM(6);
+  int *data = (int *)pthread->virt2real(addr);
 
   REGNUM(2) = rsesc_fetch_op(pthread->getPid(),(enum FetchOpType)op,addr,data,val);
   
   return addr2icode(REGNUM(31));
 }
 
-void rsesc_unlock_op(int pid, long addr, long *data, int val);
+void rsesc_unlock_op(int pid, int addr, int *data, int val);
 OP(mint_sesc_unlock_op)
 {
-  long addr = REGNUM(4);
-  long val  = REGNUM(5);
-  long *data = (long *)pthread->virt2real(addr);
+  int addr = REGNUM(4);
+  int val  = REGNUM(5);
+  int *data = (int *)pthread->virt2real(addr);
   rsesc_unlock_op(pthread->getPid(), addr, data, val);
 
   return addr2icode(REGNUM(31));
@@ -1329,7 +1333,7 @@ OP(mint_isatty)
 /* ARGSUSED */
 OP(mint_ioctl)
 {
-  long fd, cmd, arg;
+  int fd, cmd, arg;
   int err;
 
 #ifdef DEBUG_VERBOSE
@@ -1379,7 +1383,7 @@ OP(mint_ioctl)
     fatal("ioctl command %d (0x%x) not supported.\n", cmd, cmd);
     break;
   }
-  err = ioctl(fd, cmd, (char *) arg);
+  err = ioctl(fd, cmd, (char *) pthread->virt2real(arg));
   REGNUM(2) = err;
   if (err == -1)
     pthread->setperrno(errno);
@@ -1389,7 +1393,7 @@ OP(mint_ioctl)
 /* ARGSUSED */
 OP(mint_prctl)
 {
-    long option;
+	 int option;
     int err = 0;
 
 #ifdef DEBUG_VERBOSE
@@ -1421,7 +1425,7 @@ OP(mint_prctl)
 /* ARGSUSED */
 OP(mint_fcntl)
 {
-  long fd, cmd, arg;
+  int fd, cmd, arg;
   int err;
 
 #ifdef DEBUG_VERBOSE
@@ -1475,7 +1479,7 @@ struct  mint_utsname {
 /* ARGSUSED */
 OP(mint_uname)
 {
-  long r4 = REGNUM(4);
+  int r4 = REGNUM(4);
   struct mint_utsname *tp;
 
 #ifdef DEBUG_VERBOSE
@@ -1499,8 +1503,8 @@ OP(mint_uname)
 /* ARGSUSED */
 OP(mint_getrlimit)
 {
-  long r4 = REGNUM(4);
-  long r5 = REGNUM(5);
+  int r4 = REGNUM(4);
+  int r5 = REGNUM(5);
   int  ret;
   
 #ifdef DEBUG_VERBOSE
@@ -1522,8 +1526,8 @@ OP(mint_getrlimit)
 /* ARGSUSED */
 OP(mint_getrusage)
 {
-  long r4 = REGNUM(4);
-  long r5 = REGNUM(5);
+  int r4 = REGNUM(4);
+  int r5 = REGNUM(5);
   int  ret;
   
 #ifdef DEBUG_VERBOSE
@@ -1568,7 +1572,7 @@ OP(mint_getppid)
   return addr2icode(REGNUM(31));
 }
 
-long rsesc_usecs();
+int rsesc_usecs();
 
 /* ARGSUSED */
 OP(mint_clock)
@@ -1625,8 +1629,8 @@ OP(mint_cerror)
 /* ARGSUSED */
 OP(mint_gettimeofday)
 {
-  long tp, tzp;
-  long r4, r5;
+  int tp, tzp;
+  int r4, r5;
 
   r4 = REGNUM(4);
   r5 = REGNUM(5);
@@ -1642,14 +1646,14 @@ OP(mint_gettimeofday)
   else
     tzp = 0;
 
-  static long native_usecs=0;
+  static int native_usecs=0;
   if (native_usecs == 0) {
     struct timeval tv;
     gettimeofday(&tv,0);
     native_usecs = tv.tv_sec * 1000000 + tv.tv_usec;
   }
 
-  long usecs = native_usecs + rsesc_usecs();
+  int usecs = native_usecs + rsesc_usecs();
   struct timeval tv;
 
   tv.tv_sec  = SWAP_WORD(usecs / 1000000);
@@ -1697,7 +1701,7 @@ OP(mint_sesc_pseudoreset)
 /* ARGSUSED */
 OP(mint_ulimit)
 {
-    long cmd, newlimit;
+	 int cmd, newlimit;
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -1779,7 +1783,7 @@ OP(mint_execvp)
 
 OP(mint_munmap)
 {
-  long r4   = REGNUM(4);
+  int r4   = REGNUM(4);
 
 #ifdef DEBUG_VERBOSE
   printf("mint_unmmap(%d)\n", (int) r4);
@@ -1795,7 +1799,7 @@ OP(mint_munmap)
 /* ARGSUSED */
 OP(mint_mmap)
 {
-  long r4   = REGNUM(4);
+  int r4   = REGNUM(4);
 
 #ifdef DEBUG_VERBOSE
   printf("mint_mmap(%d)\n", (int) REGNUM(5));
@@ -1847,7 +1851,7 @@ int conv_flags_to_native(int flags)
 /* ARGSUSED */
 OP(mint_open)
 {
-  long r4, r5, r6;
+  int r4, r5, r6;
   int err;
 
   r4 = REGNUM(4);
@@ -1894,7 +1898,7 @@ OP(mint_open)
 /* ARGSUSED */
 OP(mint_close)
 {
-    long r4;
+	 int r4;
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -1916,7 +1920,7 @@ OP(mint_close)
 /* ARGSUSED */
 OP(mint_read)
 {
-    long r4, r5, r6;
+	 int r4, r5, r6;
     int err;
 
     r4 = REGNUM(4);
@@ -1984,7 +1988,7 @@ OP(mint_write){
 /* ARGSUSED */
 OP(mint_readv)
 {
-    long r4, r5, r6;
+	 int r4, r5, r6;
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -1994,7 +1998,7 @@ OP(mint_readv)
     r5 = REGNUM(5);
     r6 = REGNUM(6);
 
-    r5 = pthread->virt2real(r5);
+    // r5 = pthread->virt2real(r5);
 
 #ifdef TASKSCALAR
     {
@@ -2002,10 +2006,10 @@ OP(mint_readv)
       
       err = readv(r4, (const iovec *)tempbuff, r6);
       if (err > 0)
-	rsesc_OS_write_block(pthread->getPid(), picode->addr, (void *) REGNUM(5), tempbuff, err);
+	rsesc_OS_write_block(pthread->getPid(), picode->addr, (void *) pthread->virt2real(REGNUM(5)), tempbuff, err);
     }
 #else
-    err = readv(r4, (const iovec *) r5, r6);
+    err = readv(r4, (const iovec *) pthread->virt2real(r5), r6);
 #endif
 
     REGNUM(2) = err;
@@ -2017,7 +2021,7 @@ OP(mint_readv)
 /* ARGSUSED */
 OP(mint_writev)
 {
-    long r4, r5, r6;
+	 int r4, r5, r6;
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -2027,17 +2031,17 @@ OP(mint_writev)
     r5 = REGNUM(5);
     r6 = REGNUM(6);
 
-    r5 = pthread->virt2real(r5);
+    // r5 = pthread->virt2real(r5);
 
 #ifdef TASKSCALAR
     {
       void *tempbuff =  alloca (r6);
-      rsesc_OS_read_block(pthread->getPid(), picode->addr, tempbuff, (const void *)REGNUM(5), r6);
+      rsesc_OS_read_block(pthread->getPid(), picode->addr, tempbuff, (const void *)pthread->virt2real(REGNUM(5)), r6);
 
       err = writev(r4, (const iovec *)tempbuff, r6);
     }
 #else
-    err = writev(r4, (const iovec *) r5, r6);
+    err = writev(r4, (const iovec *) pthread->virt2real(r5), r6);
 #endif
 
     REGNUM(2) = err;
@@ -2049,7 +2053,7 @@ OP(mint_writev)
 /* ARGSUSED */
 OP(mint_creat)
 {
-    long r4, r5;
+	 int r4, r5;
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -2058,18 +2062,18 @@ OP(mint_creat)
     r4 = REGNUM(4);
     r5 = REGNUM(5);
 
-    r4 = pthread->virt2real(r4);
+    // r4 = pthread->virt2real(r4);
 
 #ifdef TASKSCALAR
     {
       char cadena[100];
 
-      rsesc_OS_read_string(pthread->getPid(), picode->addr, cadena, (const void *) REGNUM(4), 100);
+      rsesc_OS_read_string(pthread->getPid(), picode->addr, cadena, (const void *) pthread->virt2real(REGNUM(4)), 100);
       
       err = open((const char *) cadena, r5);
     }
 #else
-    err = creat((const char *) r4, r5);
+    err = creat((const char *) pthread->virt2real(r4), r5);
 #endif
 
     REGNUM(2) = err;
@@ -2081,7 +2085,7 @@ OP(mint_creat)
 /* ARGSUSED */
 OP(mint_link)
 {
-    long r4, r5;
+	 int r4, r5;
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -2095,16 +2099,16 @@ OP(mint_link)
       char cad1[100];
       char cad2[100];
 
-      rsesc_OS_read_string(pthread->getPid(), picode->addr, cad1, (const void *) REGNUM(4), 100);
-      rsesc_OS_read_string(pthread->getPid(), picode->addr, cad2, (const void *) REGNUM(5), 100);
+      rsesc_OS_read_string(pthread->getPid(), picode->addr, cad1, (const void *) pthread->virt2real(REGNUM(4)), 100);
+      rsesc_OS_read_string(pthread->getPid(), picode->addr, cad2, (const void *) pthread->virt2real(REGNUM(5)), 100);
       
       err = link((const char *) cad1, cad2);
     }
 #else
-    r4 = pthread->virt2real(r4);
-    r5 = pthread->virt2real(r5);
+    // r4 = pthread->virt2real(r4);
+    // r5 = pthread->virt2real(r5);
 
-    err = link((const char *) r4, (const char *) r5);
+    err = link((const char *) pthread->virt2real(r4), (const char *) pthread->virt2real(r5));
 #endif
 
     REGNUM(2) = err;
@@ -2116,7 +2120,7 @@ OP(mint_link)
 /* ARGSUSED */
 OP(mint_unlink)
 {
-    long r4;
+	 int r4;
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -2124,18 +2128,18 @@ OP(mint_unlink)
 #endif
     r4 = REGNUM(4);
 
-    r4 = pthread->virt2real(r4);
+    // r4 = pthread->virt2real(r4);
 
 #ifdef TASKSCALAR
     {
       char cad1[100];
 
-      rsesc_OS_read_string(pthread->getPid(), picode->addr, cad1, (const void *) REGNUM(4), 100);
+      rsesc_OS_read_string(pthread->getPid(), picode->addr, cad1, (const void *) pthread->virt2real(REGNUM(4)), 100);
       
       err = unlink((const char *) cad1);
     }
 #else
-    err = unlink((const char *) r4);
+    err = unlink((const char *) pthread->virt2real(r4));
 #endif
     REGNUM(2) = err;
     if (err == -1)
@@ -2146,7 +2150,7 @@ OP(mint_unlink)
 /* ARGSUSED */
 OP(mint_rename)
 {
-    long r4, r5;
+	 int r4, r5;
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -2160,16 +2164,16 @@ OP(mint_rename)
       char cad1[100];
       char cad2[100];
 
-      rsesc_OS_read_string(pthread->getPid(), picode->addr, cad1, (const void *) REGNUM(4), 100);
-      rsesc_OS_read_string(pthread->getPid(), picode->addr, cad2, (const void *) REGNUM(5), 100);
+      rsesc_OS_read_string(pthread->getPid(), picode->addr, cad1, (const void *) pthread->virt2real(REGNUM(4)), 100);
+      rsesc_OS_read_string(pthread->getPid(), picode->addr, cad2, (const void *) pthread->virt2real(REGNUM(5)), 100);
       
       err = rename((const char *) cad1, (const char *)cad2);
     }
 #else
-    r4 = pthread->virt2real(r4);
-    r5 = pthread->virt2real(r5);
+    // r4 = pthread->virt2real(r4);
+    // r5 = pthread->virt2real(r5);
 
-    err = rename((const char *) r4, (const char *) r5);
+    err = rename((const char *) pthread->virt2real(r4), (const char *) pthread->virt2real(r5));
 #endif
 
     REGNUM(2) = err;
@@ -2181,7 +2185,7 @@ OP(mint_rename)
 /* ARGSUSED */
 OP(mint_chdir)
 {
-    long r4;
+	 int r4;
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -2189,18 +2193,18 @@ OP(mint_chdir)
 #endif
     r4 = REGNUM(4);
 
-    r4 = pthread->virt2real(r4);
+    // r4 = pthread->virt2real(r4);
 
 #ifdef TASKSCALAR
     {
       char cad1[100];
 
-      rsesc_OS_read_string(pthread->getPid(), picode->addr, cad1, (const void *) REGNUM(4), 100);
+      rsesc_OS_read_string(pthread->getPid(), picode->addr, cad1, (const void *) pthread->virt2real(REGNUM(4)), 100);
       
       err = chdir((const char *) cad1);
     }
 #else
-    err = chdir((const char *) r4);
+    err = chdir((const char *) pthread->virt2real(r4));
 #endif
     REGNUM(2) = err;
     if (err == -1)
@@ -2211,7 +2215,7 @@ OP(mint_chdir)
 /* ARGSUSED */
 OP(mint_chmod)
 {
-    long r4, r5;
+	 int r4, r5;
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -2220,18 +2224,18 @@ OP(mint_chmod)
     r4 = REGNUM(4);
     r5 = REGNUM(5);
 
-    r4 = pthread->virt2real(r4);
+    // r4 = pthread->virt2real(r4);
 
 #ifdef TASKSCALAR
     {
       char cad1[100];
 
-      rsesc_OS_read_string(pthread->getPid(), picode->addr, cad1, (const void *) REGNUM(4), 100);
+      rsesc_OS_read_string(pthread->getPid(), picode->addr, cad1, (const void *) pthread->virt2real(REGNUM(4)), 100);
       
       err = chmod(cad1, r5);
     }
 #else
-    err = chmod((char *) r4, r5);
+    err = chmod((char *) pthread->virt2real(r4), r5);
 #endif
     REGNUM(2) = err;
     if (err == -1)
@@ -2242,7 +2246,7 @@ OP(mint_chmod)
 /* ARGSUSED */
 OP(mint_fchmod)
 {
-    long r4, r5;
+	 int r4, r5;
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -2261,7 +2265,7 @@ OP(mint_fchmod)
 /* ARGSUSED */
 OP(mint_chown)
 {
-    long r4, r5, r6;
+	 int r4, r5, r6;
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -2271,18 +2275,18 @@ OP(mint_chown)
     r5 = REGNUM(5);
     r6 = REGNUM(6);
 
-    r4 = pthread->virt2real(r4);
+    // r4 = pthread->virt2real(r4);
 
 #ifdef TASKSCALAR
     {
       char cad1[100];
 
-      rsesc_OS_read_string(pthread->getPid(), picode->addr, cad1, (const void *) REGNUM(4), 100);
+      rsesc_OS_read_string(pthread->getPid(), picode->addr, cad1, (const void *) pthread->virt2real(REGNUM(4)), 100);
       
       err = chown((const char *) cad1, r5, r6);
     }
 #else
-    err = chown((const char *) r4, r5, r6);
+    err = chown((const char *) pthread->virt2real(r4), r5, r6);
 #endif
 
     REGNUM(2) = err;
@@ -2294,7 +2298,7 @@ OP(mint_chown)
 /* ARGSUSED */
 OP(mint_fchown)
 {
-    long r4, r5, r6;
+	 int r4, r5, r6;
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -2338,9 +2342,9 @@ OP(mint_lseek64)
 /* ARGSUSED */
 OP(mint_lseek)
 {
-    long r4 = REGNUM(4);
-    long r5 = REGNUM(5);
-    long r6 = REGNUM(6);
+	 int r4 = REGNUM(4);
+	 int r5 = REGNUM(5);
+	 int r6 = REGNUM(6);
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -2358,7 +2362,7 @@ OP(mint_lseek)
 /* ARGSUSED */
 OP(mint_access)
 {
-    long r4, r5;
+	 int r4, r5;
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -2367,18 +2371,18 @@ OP(mint_access)
     r4 = REGNUM(4);
     r5 = REGNUM(5);
 
-    r4 = pthread->virt2real(r4);
+    // r4 = pthread->virt2real(r4);
 
 #ifdef TASKSCALAR
     {
       char cad1[100];
 
-      rsesc_OS_read_string(pthread->getPid(), picode->addr, cad1, (const void *) REGNUM(4), 100);
+      rsesc_OS_read_string(pthread->getPid(), picode->addr, cad1, (const void *) pthread->virt2real(REGNUM(4)), 100);
       
       err = access((const char *) cad1, r5);
     }
 #else
-    err = access((const char *) r4, r5);
+    err = access((const char *) pthread->virt2real(r4), r5);
 #endif
 
     REGNUM(2) = err;
@@ -2390,8 +2394,8 @@ OP(mint_access)
 /* ARGSUSED */
 OP(mint_stat)
 {
-  long r4 = REGNUM(4);
-  long r5 = REGNUM(5);
+  int r4 = REGNUM(4);
+  int r5 = REGNUM(5);
   int  err;
 
 #ifdef DEBUG_VERBOSE
@@ -2435,8 +2439,8 @@ OP(mint_stat)
 /* ARGSUSED */
 OP(mint_lstat)
 {
-  long r4 = REGNUM(4);
-  long r5 = REGNUM(5);
+  int r4 = REGNUM(4);
+  int r5 = REGNUM(5);
   int  err;
 
 #ifdef DEBUG_VERBOSE
@@ -2480,8 +2484,8 @@ OP(mint_lstat)
 /* ARGSUSED */
 OP(mint_fstat)
 {
-  long r4 = REGNUM(4);
-  long r5 = REGNUM(5);
+  int r4 = REGNUM(4);
+  int r5 = REGNUM(5);
   int  err;
 
 #ifdef DEBUG_VERBOSE
@@ -2529,7 +2533,7 @@ OP(mint_fstat64)
 /* ARGSUSED */
 OP(mint_xstat)
 {
-  long r4, r5, r6;
+  int r4, r5, r6;
 
   r4 = REGNUM(4);
   r5 = REGNUM(5);
@@ -2547,7 +2551,7 @@ OP(mint_xstat)
 
 OP(mint_xstat64)
 {
-  long r4, r5, r6;
+  int r4, r5, r6;
 
   r4 = REGNUM(4);
   r5 = REGNUM(5);
@@ -2565,7 +2569,7 @@ OP(mint_xstat64)
 
 OP(mint_fxstat64)
 {
-  long r4, r5, r6;
+  int r4, r5, r6;
 
   r4 = REGNUM(4);
   r5 = REGNUM(5);
@@ -2584,8 +2588,8 @@ OP(mint_fxstat64)
 /* ARGSUSED */
 OP(mint_lstat64)
 {
-  long r4 = REGNUM(4);
-  long r5 = REGNUM(5);
+  int r4 = REGNUM(4);
+  int r5 = REGNUM(5);
   int  err;
 
 #ifdef DEBUG_VERBOSE
@@ -2629,8 +2633,8 @@ OP(mint_lstat64)
 /* ARGSUSED */
 OP(mint_stat64)
 {
-  long r4 = REGNUM(4);
-  long r5 = REGNUM(5);
+  int r4 = REGNUM(4);
+  int r5 = REGNUM(5);
   int  err;
   
 #ifdef DEBUG_VERBOSE
@@ -2675,7 +2679,7 @@ OP(mint_stat64)
 /* ARGSUSED */
 OP(mint_dup)
 {
-    long r4;
+	 int r4;
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -2697,9 +2701,9 @@ OP(mint_dup)
 /* ARGSUSED */
 OP(mint_getcwd)
 {
-  long r4 = REGNUM(4);
-  long r5 = REGNUM(5);
-  int err;
+  int r4 = REGNUM(4);
+  int r5 = REGNUM(5);
+  RAddr err;
   
 #ifdef DEBUG_VERBOSE
   printf("mint_getcwd()");
@@ -2712,24 +2716,27 @@ OP(mint_getcwd)
 #if (defined TLS) || (defined TASKSCALAR)
   {
     char tmpbuf[4096];
-    if (r5 > 4096)
+    if (r5 >= 4096)
       fatal("getcwd(): please increase tmpbuf to %ld\n", r5);
-    err = (int)getcwd(tmpbuf, (size_t)r5);
+    err = (RAddr)getcwd(tmpbuf, (size_t)r5);
     rsesc_OS_write_block(pthread->getPid(), picode->addr, (void *)REGNUM(4), (const void *)tmpbuf, r5);
   }
 #else
   {
-    err = (int)getcwd((char *)pthread->virt2real(r4), (size_t)r5);
+    err = (RAddr)getcwd((char *)pthread->virt2real(r4), (size_t)r5);
   }
 #endif  
 
-  if(err == 0)
+  if(err == 0) {
     pthread->setperrno(errno);
+    REGNUM(2) = 0;
+  }else{
+    REGNUM(2) = pthread->real2virt(err);
+  }
   
-  REGNUM(2) = err;
 
 #ifdef DEBUG_VERBOSE
-  printf("=%s\n", (char *)REGNUM(2));
+  printf("=%s\n", (char *)pthread->virt2real(REGNUM(2)));
 #endif
 
   return addr2icode(REGNUM(31));
@@ -2739,7 +2746,7 @@ OP(mint_getcwd)
 /* ARGSUSED */
 OP(mint_pipe)
 {
-    long r4;
+	 int r4;
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -2747,18 +2754,18 @@ OP(mint_pipe)
 #endif
     r4 = REGNUM(4);
 
-    r4 = pthread->virt2real(r4);
+    // r4 = pthread->virt2real(r4);
 
 #ifdef TASKSCALAR
     {
       char cad1[100];
 
-      rsesc_OS_read_block(pthread->getPid(), picode->addr, cad1, (const void *) REGNUM(4), 2*4);
+      rsesc_OS_read_block(pthread->getPid(), picode->addr, cad1, (const void *) pthread->virt2real(REGNUM(4)), 2*4);
 
       err = pipe((int *) cad1);
     }
 #else
-    err = pipe((int *) r4);
+    err = pipe((int *) pthread->virt2real(r4));
 #endif
     REGNUM(2) = err;
     if (err == -1)
@@ -2769,7 +2776,7 @@ OP(mint_pipe)
 /* ARGSUSED */
 OP(mint_symlink)
 {
-    long r4, r5;
+	 int r4, r5;
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -2778,20 +2785,20 @@ OP(mint_symlink)
     r4 = REGNUM(4);
     r5 = REGNUM(5);
 
-    r4 = pthread->virt2real(r4);
-    r5 = pthread->virt2real(r5);
+    // r4 = pthread->virt2real(r4);
+    // r5 = pthread->virt2real(r5);
 #ifdef TASKSCALAR
     {
       char cad1[1024];
       char cad2[1024];
 
-      rsesc_OS_read_string(pthread->getPid(), picode->addr, cad1, (const void *) REGNUM(4), 1024);
-      rsesc_OS_read_string(pthread->getPid(), picode->addr, cad2, (const void *) REGNUM(5), 1024);
+      rsesc_OS_read_string(pthread->getPid(), picode->addr, cad1, (const void *) pthread->virt2real(REGNUM(4)), 1024);
+      rsesc_OS_read_string(pthread->getPid(), picode->addr, cad2, (const void *) pthread->virt2real(REGNUM(5)), 1024);
 
       err = symlink((const char *) cad1, (const char *) cad2);
     }
 #else
-    err = symlink((const char *) r4, (const char *) r5);
+    err = symlink((const char *) pthread->virt2real(r4), (const char *) pthread->virt2real(r5));
 #endif
     REGNUM(2) = err;
     if (err == -1)
@@ -2802,7 +2809,7 @@ OP(mint_symlink)
 /* ARGSUSED */
 OP(mint_readlink)
 {
-    long r4, r5, r6;
+	 int r4, r5, r6;
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -2812,24 +2819,24 @@ OP(mint_readlink)
     r5 = REGNUM(5);
     r6 = REGNUM(6);
 
-    r4 = pthread->virt2real(r4);
+    // r4 = pthread->virt2real(r4);
 #ifdef TASKSCALAR
     {
       char cad1[1024];
       char *cad2 = (char *)alloca(r6);
       
-      rsesc_OS_read_string(pthread->getPid(), picode->addr, cad1, (const void *) REGNUM(4), 1024);
+      rsesc_OS_read_string(pthread->getPid(), picode->addr, cad1, (const void *) pthread->virt2real(REGNUM(4)), 1024);
 
       err = readlink(cad1, cad2, r6);
 
       if (r5)
-	rsesc_OS_write_block(pthread->getPid(), picode->addr, (void *) REGNUM(5), cad2, r6);
+	rsesc_OS_write_block(pthread->getPid(), picode->addr, (void *) pthread->virt2real(REGNUM(5)), cad2, r6);
     }
 #else
     if (r5)
         r5 = pthread->virt2real(r5);
 
-    err = readlink((const char *) r4, (char *)r5, r6);
+    err = readlink((const char *) pthread->virt2real(r4), (char *)pthread->virt2real(r5), r6);
 #endif
     REGNUM(2) = err;
     if (err == -1)
@@ -2840,14 +2847,14 @@ OP(mint_readlink)
 /* ARGSUSED */
 OP(mint_umask)
 {
-    long r4;
+	 int r4;
 
 #ifdef DEBUG_VERBOSE
     printf("mint_umask()\n");
 #endif
     r4 = REGNUM(4);
 
-    REGNUM(2) = (long) umask((mode_t)r4);
+	 REGNUM(2) = (int) umask((mode_t)r4);
     return addr2icode(REGNUM(31));
 }
 
@@ -2858,7 +2865,7 @@ OP(mint_getuid)
     printf("mint_getuid()\n");
 #endif
 
-    REGNUM(2) = (long) getuid();
+	 REGNUM(2) = (int) getuid();
     return addr2icode(REGNUM(31));
 }
 
@@ -2869,7 +2876,7 @@ OP(mint_geteuid)
     printf("mint_geteuid()\n");
 #endif
 
-    REGNUM(2) = (long) geteuid();
+	 REGNUM(2) = (int) geteuid();
     return addr2icode(REGNUM(31));
 }
 
@@ -2880,7 +2887,7 @@ OP(mint_getgid)
     printf("mint_getgid()\n");
 #endif
 
-    REGNUM(2) = (long) getgid();
+	 REGNUM(2) = (int) getgid();
     return addr2icode(REGNUM(31));
 }
 
@@ -2891,14 +2898,14 @@ OP(mint_getegid)
     printf("mint_getegid()\n");
 #endif
 
-    REGNUM(2) = (long) getegid();
+	 REGNUM(2) = (int) getegid();
     return addr2icode(REGNUM(31));
 }
 
 /* ARGSUSED */
 OP(mint_getdomainname)
 {
-    long r4, r5;
+	 int r4, r5;
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -2918,13 +2925,13 @@ OP(mint_getdomainname)
       err = getdomainname(cad1, r5);
 
       if (r4)
-	rsesc_OS_write_block(pthread->getPid(), picode->addr, (void *) REGNUM(4), cad1, r5);
+	rsesc_OS_write_block(pthread->getPid(), picode->addr, (void *) pthread->virt2real(REGNUM(4)), cad1, r5);
     }
 #else
-    if (r4)
-        r4 = pthread->virt2real(r4);
+    // if (r4)
+    //     r4 = pthread->virt2real(r4);
 
-    err = getdomainname((char *) r4, r5);
+    err = getdomainname((char *) pthread->virt2real(r4), r5);
 #endif
 #endif
 
@@ -2938,7 +2945,7 @@ OP(mint_getdomainname)
 /* ARGSUSED */
 OP(mint_setdomainname)
 {
-    long r4, r5;
+	 int r4, r5;
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -2956,7 +2963,7 @@ OP(mint_setdomainname)
       char *cad1 = (char *)alloca(r5);
       
       if (r4)
-	rsesc_OS_read_block(pthread->getPid(), picode->addr, cad1, (const void *) REGNUM(4), r5);
+	rsesc_OS_read_block(pthread->getPid(), picode->addr, cad1, (const void *) pthread->virt2real(REGNUM(4)), r5);
       else
 	cad1 = 0;
 #ifndef CYGWIN
@@ -2966,10 +2973,10 @@ OP(mint_setdomainname)
 #endif
     }
 #else
-    if (r4)
-        r4 = pthread->virt2real(r4);
+    // if (r4)
+    //     r4 = pthread->virt2real(r4);
 #ifndef CYGWIN
-    err = setdomainname((char *) r4, r5);
+    err = setdomainname((char *) pthread->virt2real(r4), r5);
 #else
     fatal("cygwin does not support setdomainname") ;
 #endif
@@ -2987,7 +2994,7 @@ OP(mint_setdomainname)
 /* ARGSUSED */
 OP(mint_gethostname)
 {
-    long r4, r5;
+	 int r4, r5;
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -3004,13 +3011,13 @@ OP(mint_gethostname)
       err = gethostname(cad1, r5);
 
       if (r4)
-	rsesc_OS_write_block(pthread->getPid(), picode->addr, (void *) REGNUM(4), cad1, r5);
+	rsesc_OS_write_block(pthread->getPid(), picode->addr, (void *) pthread->virt2real(REGNUM(4)), cad1, r5);
     }
 #else
-    if (r4)
-        r4 = pthread->virt2real(r4);
+    // if (r4)
+    //     r4 = pthread->virt2real(r4);
 
-    err = gethostname((char *) r4, r5);
+    err = gethostname((char *) pthread->virt2real(r4), r5);
 #endif
 
     REGNUM(2) = err;
@@ -3023,7 +3030,7 @@ OP(mint_gethostname)
 /* ARGSUSED */
 OP(mint_socket)
 {
-    long r4, r5, r6;
+	 int r4, r5, r6;
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -3047,7 +3054,7 @@ OP(mint_socket)
 /* ARGSUSED */
 OP(mint_connect)
 {
-  long r4, r5, r6;
+  int r4, r5, r6;
   int err;
 
 #ifdef DEBUG_VERBOSE
@@ -3060,13 +3067,13 @@ OP(mint_connect)
 #ifdef TASKSCALAR
   fatal("connect not implemented with TLS\n");
 #endif
-  if (r5)
-    r5 = pthread->virt2real(r5);
+  // if (r5)
+  //   r5 = pthread->virt2real(r5);
 
 #ifdef sparc
-  err = connect(r4, (struct sockaddr *) r5, r6);
+  err = connect(r4, (struct sockaddr *) pthread->virt2real(r5), r6);
 #else
-  err = connect(r4, (const struct sockaddr *) r5, r6);
+  err = connect(r4, (const struct sockaddr *) pthread->virt2real(r5), r6);
 #endif
   REGNUM(2) = err;
   if (err == -1)
@@ -3081,7 +3088,7 @@ OP(mint_connect)
 /* ARGSUSED */
 OP(mint_send)
 {
-    long r4, r5, r6, r7;
+	 int r4, r5, r6, r7;
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -3098,17 +3105,17 @@ OP(mint_send)
       char *cad1 = (char *)alloca(r6);
       
       if (r5)
-	rsesc_OS_read_block(pthread->getPid(), picode->addr, cad1, (const void *) REGNUM(5), r6);
+	rsesc_OS_read_block(pthread->getPid(), picode->addr, cad1, (const void *) pthread->virt2real(REGNUM(5)), r6);
       else
 	cad1 = 0;
 
       err = send(r4, (const void *) cad1, r6, r7);
     }
 #else
-    if (r5)
-        r5 = pthread->virt2real(r5);
+    // if (r5)
+    //     r5 = pthread->virt2real(r5);
 
-    err = send(r4, (const void *) r5, r6, r7);
+    err = send(r4, (const void *) pthread->virt2real(r5), r6, r7);
 #endif
 
     REGNUM(2) = err;
@@ -3121,8 +3128,8 @@ OP(mint_send)
 /* ARGSUSED */
 OP(mint_sendto)
 {
-    long r4, r5, r6, r7;
-    long *sp, arg5, arg6;
+	 int r4, r5, r6, r7;
+	 int *sp, arg5, arg6;
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -3137,16 +3144,16 @@ OP(mint_sendto)
     r5 = REGNUM(5);
     r6 = REGNUM(6);
     r7 = REGNUM(7);
-    sp = (long *) pthread->virt2real(REGNUM(29));
+	 sp = (int *) pthread->virt2real(REGNUM(29));
     arg5=SWAP_WORD(sp[4]);
     arg6=SWAP_WORD(sp[5]);
 
-    if (r5)
-        r5 = pthread->virt2real(r5);
-    if (arg5)
-        arg5 = pthread->virt2real(arg5);
+    // if (r5)
+    //     r5 = pthread->virt2real(r5);
+    // if (arg5)
+    //     arg5 = pthread->virt2real(arg5);
 
-    err = sendto(r4, (const void *) r5, r6, r7, (struct sockaddr *) arg5, arg6);
+    err = sendto(r4, (const void *) pthread->virt2real(r5), r6, r7, (struct sockaddr *) pthread->virt2real(arg5), arg6);
     REGNUM(2) = err;
     if (err == -1)
         pthread->setperrno(errno);
@@ -3157,9 +3164,9 @@ OP(mint_sendto)
 /* ARGSUSED */
 OP(mint_sendmsg)
 {
-    long r4, r5, r6;
+	 int r4, r5, r6;
     int err;
-    unsigned i;
+    uint i;
     struct msghdr *msg;
     struct iovec *iovp;
 
@@ -3175,49 +3182,49 @@ OP(mint_sendmsg)
     r5 = REGNUM(5);
     r6 = REGNUM(6);
 
-    if (r5) {
-        r5 = pthread->virt2real(r5);
-        msg = (struct msghdr *) r5;
-        if (msg->msg_name)
-	  msg->msg_name = (char *) pthread->virt2real((unsigned long) msg->msg_name);
-        iovp = msg->msg_iov;
-        if (iovp) {
-            iovp = (struct iovec *) pthread->virt2real((unsigned long) iovp);
-            msg->msg_iov = iovp;
-            for (i = 0; i < msg->msg_iovlen; i++, iovp++)
-                if (iovp->iov_base)
-                    iovp->iov_base = (char *) pthread->virt2real((unsigned long) iovp->iov_base);
-        }
-#ifdef IRIX64
-	/* This is BSB4.3 neither implemented in Linux nor AIX */
-        if (msg->msg_accrights)
-            msg->msg_accrights = (char *) pthread->virt2real(msg->msg_accrights);
-#endif
-    }
+    // if (r5) {
+        // r5 = pthread->virt2real(r5);
+        // msg = (struct msghdr *) pthread->virt2real(r5);
+    //     if (msg->msg_name)
+	  // msg->msg_name = (char *) pthread->real2virt((VAddr) msg->msg_name);
+        // iovp = msg->msg_iov;
+        // if (iovp) {
+				// iovp = (struct iovec *) pthread->virt2real(iovp);
+        //     msg->msg_iov = iovp;
+        //     for (i = 0; i < msg->msg_iovlen; i++, iovp++)
+        //         if (iovp->iov_base)
+				// 		  iovp->iov_base = (char *) pthread->virt2real((VAddr) iovp->iov_base);
+        // }
+// #ifdef IRIX64
+// 	/* This is BSB4.3 neither implemented in Linux nor AIX */
+//         if (msg->msg_accrights)
+//             msg->msg_accrights = (char *) pthread->virt2real(msg->msg_accrights);
+// #endif
+    // }
 
 #ifdef sparc
-    err = sendmsg(r4, (struct msghdr *) r5, r6);
+    err = sendmsg(r4, (struct msghdr *) pthread->virt2real(r5), r6);
 #else
-    err = sendmsg(r4, (const struct msghdr *) r5, r6);
+    err = sendmsg(r4, (const struct msghdr *) pthread->virt2real(r5), r6);
 #endif
 
-    if (r5) {
-        msg = (struct msghdr *) r5;
-        if (msg->msg_name)
-	  msg->msg_name = (char *) pthread->real2virt((unsigned long) msg->msg_name);
-        iovp = msg->msg_iov;
-        if (iovp) {
-            for (i = 0; i < msg->msg_iovlen; i++, iovp++)
-                if (iovp->iov_base)
-		  iovp->iov_base = (char *) pthread->real2virt((unsigned long) iovp->iov_base);
-            msg->msg_iov = (struct iovec *) pthread->real2virt((unsigned long) msg->msg_iov);
-        }
-#ifdef IRIX64
-	/* This is BSB4.3 neither implemented in Linux nor AIX */
-        if (msg->msg_accrights)
-            msg->msg_accrights = (char *) pthread->real2virt(msg->msg_accrights);
-#endif
-    }
+    // if (r5) {
+    //     msg = (struct msghdr *) pthread->virt2real(r5);
+    //     if (msg->msg_name)
+	  // msg->msg_name = (char *) pthread->real2virt((VAddr) msg->msg_name);
+        // iovp = msg->msg_iov;
+//         if (iovp) {
+//             for (i = 0; i < msg->msg_iovlen; i++, iovp++)
+//                 if (iovp->iov_base)
+// 		  iovp->iov_base = (char *) pthread->real2virt((VAddr) iovp->iov_base);
+// 				msg->msg_iov = (struct iovec *) pthread->real2virt((VAddr) msg->msg_iov);
+//         }
+// #ifdef IRIX64
+// 	/* This is BSB4.3 neither implemented in Linux nor AIX */
+//         if (msg->msg_accrights)
+//             msg->msg_accrights = (char *) pthread->real2virt(msg->msg_accrights);
+// #endif
+    // }
 
     REGNUM(2) = err;
     if (err == -1)
@@ -3229,7 +3236,7 @@ OP(mint_sendmsg)
 /* ARGSUSED */
 OP(mint_recv)
 {
-    long r4, r5, r6, r7;
+	 int r4, r5, r6, r7;
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -3245,10 +3252,10 @@ OP(mint_recv)
     r6 = REGNUM(6);
     r7 = REGNUM(7);
 
-    if (r5)
-        r5 = pthread->virt2real(r5);
+    // if (r5)
+    //     r5 = pthread->virt2real(r5);
 
-    err = recv(r4, (void *) r5, r6, r7);
+    err = recv(r4, (void *) pthread->virt2real(r5), r6, r7);
     REGNUM(2) = err;
     if (err == -1)
         pthread->setperrno(errno);
@@ -3259,8 +3266,8 @@ OP(mint_recv)
 /* ARGSUSED */
 OP(mint_recvfrom)
 {
-    long r4, r5, r6, r7;
-    long *sp, arg5, arg6;
+	 int r4, r5, r6, r7;
+	 int *sp, arg5, arg6;
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -3275,18 +3282,18 @@ OP(mint_recvfrom)
     r5 = REGNUM(5);
     r6 = REGNUM(6);
     r7 = REGNUM(7);
-    sp = (long *) pthread->virt2real(REGNUM(29));
+	 sp = (int *) pthread->virt2real(REGNUM(29));
     arg5 = SWAP_WORD(sp[4]);
     arg6 = SWAP_WORD(sp[5]);
 
-    if (r5)
-        r5 = pthread->virt2real(r5);
-    if (arg5)
-        arg5 = pthread->virt2real(arg5);
-    if (arg6)
-        arg6 = pthread->virt2real(arg6);
+    // if (r5)
+    //     r5 = pthread->virt2real(r5);
+    // if (arg5)
+    //     arg5 = pthread->virt2real(arg5);
+    // if (arg6)
+    //     arg6 = pthread->virt2real(arg6);
 
-    err = recvfrom(r4, (void *) r5, r6, r7, (struct sockaddr *) arg5, (socklen_t *) arg6);
+    err = recvfrom(r4, (void *) pthread->virt2real(r5), r6, r7, (struct sockaddr *) pthread->virt2real(arg5), (socklen_t *) pthread->virt2real(arg6));
     REGNUM(2) = err;
     if (err == -1)
         pthread->setperrno(errno);
@@ -3297,9 +3304,9 @@ OP(mint_recvfrom)
 /* ARGSUSED */
 OP(mint_recvmsg)
 {
-    long r4, r5, r6;
+	 int r4, r5, r6;
     int err;
-    unsigned i;
+    uint i;
     struct msghdr *msg;
     struct iovec *iovp;
 
@@ -3315,45 +3322,45 @@ OP(mint_recvmsg)
     r5 = REGNUM(5);
     r6 = REGNUM(6);
 
-    if (r5) {
-        r5 = pthread->virt2real(r5);
-        msg = (struct msghdr *) r5;
-        if (msg->msg_name)
-            msg->msg_name = (char *) pthread->virt2real((unsigned long) msg->msg_name);
-        iovp = msg->msg_iov;
-        if (iovp) {
-            iovp = (struct iovec *) pthread->virt2real((unsigned long) iovp);
-            msg->msg_iov = iovp;
-            for (i = 0; i < msg->msg_iovlen; i++, iovp++)
-                if (iovp->iov_base)
-                    iovp->iov_base = (char *) pthread->virt2real((unsigned long) iovp->iov_base);
-        }
-#ifdef IRIX64
-	/* This is BSB4.3 neither implemented in Linux nor AIX */
-        if (msg->msg_accrights)
-            msg->msg_accrights = (char *) pthread->virt2real(msg->msg_accrights);
-#endif
-    }
+    // if (r5) {
+        // r5 = pthread->virt2real(r5);
+        // msg = (struct msghdr *) pthread->virt2real(r5);
+        // if (msg->msg_name)
+				// msg->msg_name = (char *) pthread->virt2real((VAddr) msg->msg_name);
+        // iovp = msg->msg_iov;
+        // if (iovp) {
+				// iovp = (struct iovec *) pthread->virt2real((VAddr) iovp);
+        //     msg->msg_iov = iovp;
+        //     for (i = 0; i < msg->msg_iovlen; i++, iovp++)
+        //         if (iovp->iov_base)
+				// 		  iovp->iov_base = (char *) pthread->virt2real((VAddr) iovp->iov_base);
+        // }
+// #ifdef IRIX64
+// 	/* This is BSB4.3 neither implemented in Linux nor AIX */
+//         if (msg->msg_accrights)
+//             msg->msg_accrights = (char *) pthread->virt2real(msg->msg_accrights);
+// #endif
+    // }
 
-    err = recvmsg(r4, (struct msghdr *) r5, r6);
+    err = recvmsg(r4, (struct msghdr *) pthread->virt2real(r5), r6);
     
-    if (r5) {
-        msg = (struct msghdr *) r5;
-        if (msg->msg_name)
-            msg->msg_name = (char *) pthread->real2virt((unsigned long) msg->msg_name);
-        iovp = msg->msg_iov;
-        if (iovp) {
-            for (i = 0; i < msg->msg_iovlen; i++, iovp++)
-                if (iovp->iov_base)
-                    iovp->iov_base = (char *) pthread->real2virt((unsigned long) iovp->iov_base);
-            msg->msg_iov = (struct iovec *) pthread->real2virt((unsigned long) msg->msg_iov);
-        }
-#ifdef IRIX64
-	/* This is BSB4.3 neither implemented in Linux nor AIX */
-        if (msg->msg_accrights)
-            msg->msg_accrights = (char *) pthread->real2virt(msg->msg_accrights);
-#endif
-    }
+    // if (r5) {
+        // msg = (struct msghdr *) pthread->virt2real(r5);
+        // if (msg->msg_name)
+				// msg->msg_name = (char *) pthread->real2virt((VAddr) msg->msg_name);
+        // iovp = msg->msg_iov;
+        // if (iovp) {
+        //     for (i = 0; i < msg->msg_iovlen; i++, iovp++)
+        //         if (iovp->iov_base)
+				// 		  iovp->iov_base = (char *) pthread->real2virt((VAddr) iovp->iov_base);
+				// msg->msg_iov = (struct iovec *) pthread->real2virt((VAddr) msg->msg_iov);
+        // }
+// #ifdef IRIX64
+// 	/* This is BSB4.3 neither implemented in Linux nor AIX */
+//         if (msg->msg_accrights)
+//             msg->msg_accrights = (char *) pthread->real2virt(msg->msg_accrights);
+// #endif
+    // }
 
     REGNUM(2) = err;
     if (err == -1)
@@ -3365,8 +3372,8 @@ OP(mint_recvmsg)
 /* ARGSUSED */
 OP(mint_select)
 {
-    long r4, r5, r6, r7;
-    long *sp, arg5;
+	 int r4, r5, r6, r7;
+	 int *sp, arg5;
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -3381,19 +3388,19 @@ OP(mint_select)
     r5 = REGNUM(5);
     r6 = REGNUM(6);
     r7 = REGNUM(7);
-    sp = (long *) pthread->virt2real(REGNUM(29));
+	 sp = (int *) pthread->virt2real(REGNUM(29));
     arg5 = SWAP_WORD(sp[4]);
 
-    if (r5)
-        r5 = pthread->virt2real(r5);
-    if (r6)
-        r6 = pthread->virt2real(r6);
-    if (r7)
-        r7 = pthread->virt2real(r7);
-    if (arg5)
-        arg5 = pthread->virt2real(arg5);
+    // if (r5)
+    //     r5 = pthread->virt2real(r5);
+    // if (r6)
+    //     r6 = pthread->virt2real(r6);
+    // if (r7)
+    //     r7 = pthread->virt2real(r7);
+    // if (arg5)
+    //     arg5 = pthread->virt2real(arg5);
 
-    err = select(r4, (fd_set *) r5, (fd_set *) r6, (fd_set *) r7, (struct timeval *) arg5);
+    err = select(r4, (fd_set *) pthread->virt2real(r5), (fd_set *) pthread->virt2real(r6), (fd_set *) pthread->virt2real(r7), (struct timeval *) pthread->virt2real(arg5));
     REGNUM(2) = err;
     if (err == -1)
         pthread->setperrno(errno);
@@ -3404,8 +3411,8 @@ OP(mint_select)
 /* ARGSUSED */
 OP(mint_getsockopt)
 {
-    long r4, r5, r6, r7;
-    long *sp, arg5;
+	 int r4, r5, r6, r7;
+	 int *sp, arg5;
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -3420,15 +3427,15 @@ OP(mint_getsockopt)
     r5 = REGNUM(5);
     r6 = REGNUM(6);
     r7 = REGNUM(7);
-    sp = (long *) pthread->virt2real(REGNUM(29));
+	 sp = (int *) pthread->virt2real(REGNUM(29));
     arg5 = SWAP_WORD(sp[4]);
 
-    if (r7)
-        r7 = pthread->virt2real(r7);
-    if (arg5)
-        arg5 = pthread->virt2real(arg5);
+    // if (r7)
+    //     r7 = pthread->virt2real(r7);
+    // if (arg5)
+    //     arg5 = pthread->virt2real(arg5);
 
-    err = getsockopt(r4, r5, r6, (void *) r7, (socklen_t *) arg5);
+    err = getsockopt(r4, r5, r6, (void *) pthread->virt2real(r7), (socklen_t *) pthread->virt2real(arg5));
     REGNUM(2) = err;
     if (err == -1)
         pthread->setperrno(errno);
@@ -3439,8 +3446,8 @@ OP(mint_getsockopt)
 /* ARGSUSED */
 OP(mint_setsockopt)
 {
-    long r4, r5, r6, r7;
-    long *sp, arg5;
+	 int r4, r5, r6, r7;
+	 int *sp, arg5;
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -3455,13 +3462,13 @@ OP(mint_setsockopt)
     r5 = REGNUM(5);
     r6 = REGNUM(6);
     r7 = REGNUM(7);
-    sp = (long *) pthread->virt2real(REGNUM(29));
+	 sp = (int *) pthread->virt2real(REGNUM(29));
     arg5 = SWAP_WORD(sp[4]);
 
-    if (r7)
-        r7 = pthread->virt2real(r7);
+    // if (r7)
+    //     r7 = pthread->virt2real(r7);
 
-    err = setsockopt(r4, r5, r6, (const void *) r7, arg5);
+    err = setsockopt(r4, r5, r6, (const void *) pthread->virt2real(r7), arg5);
     REGNUM(2) = err;
     if (err == -1)
         pthread->setperrno(errno);
@@ -3483,7 +3490,7 @@ OP(mint_oserror)
 /* ARGSUSED */
 OP(mint_setoserror)
 {
-    long r4;
+	 int r4;
 
 #ifdef DEBUG_VERBOSE
     printf("mint_oserror()\n");
@@ -3498,26 +3505,26 @@ OP(mint_setoserror)
 /* ARGSUSED */
 OP(mint_perror)
 {
-    long r4;
+	 int r4;
 
 #ifdef DEBUG_VERBOSE
     printf("mint_oserror()\n");
 #endif
 
     r4 = REGNUM(4);
-    r4 = pthread->virt2real(r4);
+    // r4 = pthread->virt2real(r4);
 
     errno = pthread->getperrno();
 #ifdef TASKSCALAR
     {
       char cad1[100];
       
-      rsesc_OS_read_string(pthread->getPid(), picode->addr, cad1, (const void *) REGNUM(4), 100);
+      rsesc_OS_read_string(pthread->getPid(), picode->addr, cad1, (const void *) pthread->virt2real(REGNUM(4)), 100);
 
       perror((char *) cad1);
     }
 #else
-    perror((char *) r4);
+    perror((char *) pthread->virt2real(r4));
 #endif
 
     return addr2icode(REGNUM(31));
@@ -3532,15 +3539,15 @@ OP(mint_times)
     {
       char *cad1 = (char *)alloca(sizeof(struct tms));
       
-      err = (long) times((struct tms *)cad1);
+		err = (int) times((struct tms *)cad1);
 
-      rsesc_OS_write_block(pthread->getPid(), picode->addr, (void *) REGNUM(4), cad1 , sizeof(struct tms));
+      rsesc_OS_write_block(pthread->getPid(), picode->addr, (void *) pthread->virt2real(REGNUM(4)), cad1 , sizeof(struct tms));
     }
 #else
-    long r4 = REGNUM(4);
+	 int r4 = REGNUM(4);
 
-    r4 = pthread->virt2real(r4);
-    err = (long) times((struct tms *)r4);
+    // r4 = pthread->virt2real(r4);
+	 err = (int) times((struct tms *)pthread->virt2real(r4));
 #endif
 
 #ifdef DEBUG_VERBOSE
@@ -3556,7 +3563,7 @@ OP(mint_times)
 /* ARGSUSED */
 OP(mint_time)
 {
-    long r4;
+	 int r4;
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -3568,16 +3575,16 @@ OP(mint_time)
     {
       char *cad1 = (char *)alloca(sizeof(time_t));
       
-      err = (long) time((time_t *)cad1);
+		err = (int) time((time_t *)cad1);
 
       if (r4)
-	rsesc_OS_write_block(pthread->getPid(), picode->addr, (void *) REGNUM(4), cad1, sizeof(time_t));
+	rsesc_OS_write_block(pthread->getPid(), picode->addr, (void *) pthread->virt2real(REGNUM(4)), cad1, sizeof(time_t));
     }
 #else
-    if (r4)
-        r4 = pthread->virt2real(r4);
+    // if (r4)
+    //     r4 = pthread->virt2real(r4);
 
-    err = (long) time((time_t *) r4);
+	 err = (int) time((time_t *) pthread->virt2real(r4));
 #endif
     REGNUM(2) = err;
     if (err == -1)
@@ -3588,7 +3595,7 @@ OP(mint_time)
 /* ARGSUSED */
 OP(mint_getdents)
 {
-    long r4, r5, r6;
+	 int r4, r5, r6;
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -3603,14 +3610,14 @@ OP(mint_getdents)
     {
       char *cad1 = (char *)alloca(r6);
       
-      err = (long) getdents(r4, (struct dirent *)cad1, r6);
+		err = (int) getdents(r4, (struct dirent *)cad1, r6);
 
       rsesc_OS_write_block(pthread->getPid(), picode->addr, (void *) REGNUM(5), cad1, r6);
     }
 #else
     r5 = pthread->virt2real(r5);
 
-    err = (long) getdents(r4, (struct dirent *)r5, r6);
+	 err = (int) getdents(r4, (struct dirent *)r5, r6);
 #endif
 #else
     err = -1;
@@ -3636,7 +3643,7 @@ OP(mint_getdtablesize)
 /* ARGSUSED */
 OP(mint_syssgi)
 {
-  long r4, r5, r6;
+  int r4, r5, r6;
 
 #ifdef DEBUG_VERBOSE
   printf("mint_syssgi()\n");

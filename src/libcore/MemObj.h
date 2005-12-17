@@ -49,7 +49,7 @@ private:
 
 protected:
   
-  ulong nUpperCaches;
+  uint nUpperCaches;
   LevelType upperLevel;
   LevelType lowerLevel;
 
@@ -70,7 +70,7 @@ protected:
 
     I(oc);
     
-    for(ulong i=0; i<upperLevel.size(); i++) 
+	 for(uint i=0; i<upperLevel.size(); i++)
       upperLevel[i]->invalidate(addr, size, oc);    
   }
 
@@ -92,11 +92,11 @@ public:
   const LevelType *getLowerLevel() const { return &lowerLevel; }
   const LevelType *getUpperLevel() const { return &upperLevel; }
 
-  const ulong getUpperLevelSize() const { return upperLevel.size(); }
+  const uint getUpperLevelSize() const { return upperLevel.size(); }
 
   virtual const bool isCache() const { return false; }
 
-  const ulong getNumCachesInUpperLevels() const {
+  const uint getNumCachesInUpperLevels() const {
     return nUpperCaches;
   }
 

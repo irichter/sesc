@@ -42,7 +42,7 @@ enum SMPState_t {
   // other masks 
   SMP_DIRTY_BIT     = 0x00000001, // data is different from memory
   SMP_READABLE_BIT  = 0x00100000, // has permission to be read
-  SMP_WRITEABLE_BIT = 0x00200000, // has permission to be written
+  SMP_WRITEABLE_BIT = 0x00200000  // has permission to be written
 };
 
 class SMPCacheState : public StateGeneric<> {
@@ -52,13 +52,12 @@ protected:
   uint state;
 public:
   SMPCacheState() 
-      : StateGeneric<>()
-    {
+      : StateGeneric<>() {
       state = SMP_INVALID;
     }
 
     // BEGIN CacheCore interface 
-    bool isValid() {
+    bool isValid() const {
       return (state != SMP_INVALID);
     }
 
@@ -76,7 +75,7 @@ public:
 
     // END CacheCore interface
 
-    unsigned getState() {
+    unsigned getState() const {
       return state;
     }
 
@@ -90,15 +89,15 @@ public:
 
     // all these functions rely on the fact that 
     // the rules described above are followed by all protocols
-    bool isDirty() {
+    bool isDirty() const {
       return (state & SMP_DIRTY_BIT);
     }
 
-    bool canBeRead() {
+    bool canBeRead() const {
       return (state & SMP_READABLE_BIT);
     }
 
-    bool canBeWritten() {
+    bool canBeWritten() const {
       return (state & SMP_WRITEABLE_BIT);
     }
 };

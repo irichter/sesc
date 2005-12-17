@@ -26,7 +26,7 @@
 
 /* define a type that can hold all machine types */
 typedef union numeric {
-    long lval;
+	 int lval;
     float fval;
     double dval;
 } numeric_t, *numeric_ptr;

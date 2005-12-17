@@ -22,6 +22,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 #include <string.h>
 #include <strings.h>
+#include <math.h>
 
 #include "ReportGen.h"
 #include "BPred.h"
@@ -43,7 +44,7 @@ BPred::BPred(int i, const char *s, const char *n)
 {
   if (strstr(n,"RAS") || strstr(n,"BTB"))
     return; // RAS and BTB have their own energy counters (do not
-	    // replicate counters)
+            // replicate counters)
 
   char cadena[100];
   
@@ -62,7 +63,7 @@ BPred::~BPred()
  */
 BPRas::BPRas(int i, const char *section)
   :BPred(i,section,"RAS")
-   ,RasSize(SescConf->getLong(section,"rasSize"))
+   ,RasSize(SescConf->getInt(section,"rasSize"))
 {
   char cadena[100];
 
@@ -70,7 +71,7 @@ BPRas::BPRas(int i, const char *section)
   rasEnergy = new GStatsEnergy("rasEnergy", cadena, i, FetchPower , EnergyMgr::get("rasEnergy",i));
 
   // Constraints
-  SescConf->isLong(section, "rasSize");
+  SescConf->isInt(section, "rasSize");
   SescConf->isBetween(section, "rasSize", 0, 128);    // More than 128???
 
   if(RasSize == 0) {
@@ -105,7 +106,7 @@ PredType BPRas::predict(const Instruction *inst, InstID oracleID, bool doUpdate)
     if (doUpdate) {
       index--;
       if( index < 0 )
-	index = RasSize-1;
+        index = RasSize-1;
     }
 
     if( stack[index] == oracleID )
@@ -120,7 +121,7 @@ PredType BPRas::predict(const Instruction *inst, InstID oracleID, bool doUpdate)
       index++;
 
       if( index >= RasSize )
-	index = 0;
+        index = 0;
     }
   }
 
@@ -149,7 +150,7 @@ BPBTB::BPBTB(int i, const char *section, const char *name)
   sprintf(cadena, "BPred(%d)_%s",i, name ? name : "BTB");
   btbEnergy = new GStatsEnergy("btbEnergy", cadena, i, FetchPower, EnergyMgr::get("btbEnergy",i));
 
-  if( SescConf->getLong(section,"btbSize") == 0 ) {
+  if( SescConf->getInt(section,"btbSize") == 0 ) {
     // Oracle
     data = 0;
     return;
@@ -171,7 +172,7 @@ void BPBTB::updateOnly(const Instruction *inst, InstID oracleID)
     return;
 
   bool ntaken = inst->calcNextInstID() == oracleID;
-  ulong key   = calcInstID(inst);
+  uint key   = calcInstID(inst);
   
   // Update only in taken branches
   if( ntaken )
@@ -202,7 +203,7 @@ PredType BPBTB::predict(const Instruction * inst, InstID oracleID, bool doUpdate
     return CorrectPrediction;
   }
 
-  ulong key = calcInstID(inst);
+  uint key = calcInstID(inst);
 
   if ( ntaken || !doUpdate ) {
     // The branch is not taken. Do not update the cache
@@ -355,11 +356,11 @@ BP2bit::BP2bit(int i, const char *section)
   :BPred(i,section,"2bit")
   ,btb(i,  section)
   ,table(i,section
-	 ,SescConf->getLong(section,"size")
-	 ,SescConf->getLong(section,"bits"))
+         ,SescConf->getInt(section,"size")
+         ,SescConf->getInt(section,"bits"))
 {
   // Constraints
-  SescConf->isLong(section, "size");
+  SescConf->isInt(section, "size");
   SescConf->isPower2(section, "size");
   SescConf->isGT(section, "size", 1);
 
@@ -409,23 +410,23 @@ void BP2bit::switchOut(Pid_t pid)
 BP2level::BP2level(int i, const char *section)
   :BPred(i,section,"2level")
    ,btb(i, section)
-   ,l1Size(SescConf->getLong(section,"l1Size"))
+   ,l1Size(SescConf->getInt(section,"l1Size"))
    ,l1SizeMask(l1Size - 1)
-   ,historySize(SescConf->getLong(section,"historySize"))
+   ,historySize(SescConf->getInt(section,"historySize"))
    ,historyMask((1 << historySize) - 1)
    ,globalTable(i,section
-		,SescConf->getLong(section,"l2Size")
-		,SescConf->getLong(section,"l2Bits"))
+                ,SescConf->getInt(section,"l2Size")
+                ,SescConf->getInt(section,"l2Bits"))
 {
   // Constraints
-  SescConf->isLong(section, "l1Size");
+  SescConf->isInt(section, "l1Size");
   SescConf->isPower2(section, "l1Size");
   SescConf->isBetween(section, "l1Size", 0, 32768);
 
-  SescConf->isLong(section, "historySize");
+  SescConf->isInt(section, "historySize");
   SescConf->isBetween(section, "historySize", 1, 63);
 
-  SescConf->isLong(section, "l2Size");
+  SescConf->isInt(section, "l2Size");
   SescConf->isPower2(section, "l2Size");
   SescConf->isBetween(section, "l2Bits", 1, 7);
 
@@ -503,32 +504,32 @@ void BP2level::switchOut(Pid_t pid)
 BPHybrid::BPHybrid(int i, const char *section)
   :BPred(i,section,"Hybrid")
   ,btb(i, section)
-   ,historySize(SescConf->getLong(section,"historySize"))
+   ,historySize(SescConf->getInt(section,"historySize"))
    ,historyMask((1 << historySize) - 1)
    ,globalTable(i,section
-		,SescConf->getLong(section,"l2Size")
-		,SescConf->getLong(section,"l2Bits"))
+                ,SescConf->getInt(section,"l2Size")
+                ,SescConf->getInt(section,"l2Bits"))
    ,localTable(i,section
-	       ,SescConf->getLong(section,"localSize")
-	       ,SescConf->getLong(section,"localBits"))
+               ,SescConf->getInt(section,"localSize")
+               ,SescConf->getInt(section,"localBits"))
    ,metaTable(i,section
-	      ,SescConf->getLong(section,"MetaSize")
-	      ,SescConf->getLong(section,"MetaBits"))
+              ,SescConf->getInt(section,"MetaSize")
+              ,SescConf->getInt(section,"MetaBits"))
 
 {
   // Constraints
-  SescConf->isLong(section,    "localSize");
+  SescConf->isInt(section,    "localSize");
   SescConf->isPower2(section,  "localSize");
   SescConf->isBetween(section, "localBits", 1, 7);
 
-  SescConf->isLong(section    , "MetaSize");
+  SescConf->isInt(section    , "MetaSize");
   SescConf->isPower2(section  , "MetaSize");
   SescConf->isBetween(section , "MetaBits", 1, 7);
 
-  SescConf->isLong(section,    "historySize");
+  SescConf->isInt(section,    "historySize");
   SescConf->isBetween(section, "historySize", 1, 63);
 
-  SescConf->isLong(section,   "l2Size");
+  SescConf->isInt(section,   "l2Size");
   SescConf->isPower2(section, "l2Size");
   SescConf->isBetween(section,"l2Bits", 1, 7);
 }
@@ -577,7 +578,6 @@ PredType BPHybrid::predict(const Instruction *inst, InstID oracleID, bool doUpda
     metaOut = metaTable.predict(l2Index, true);
   }else{
     metaOut = metaTable.predict(l2Index); // do not update meta
-    globalTable.predict(l2Index, taken);
   }
 
   bool ptaken = metaOut ? localTaken : globalTaken;
@@ -627,41 +627,41 @@ void BPHybrid::switchOut(Pid_t pid)
 BP2BcgSkew::BP2BcgSkew(int i, const char *section)
   : BPred(i,section,"2BcgSkew")
   ,btb(i, section)
-  ,BIM(i,section,SescConf->getLong(section,"BIMSize"))
-  ,G0(i,section,SescConf->getLong(section,"G0Size"))
-  ,G0HistorySize(SescConf->getLong(section,"G0HistorySize"))
+  ,BIM(i,section,SescConf->getInt(section,"BIMSize"))
+  ,G0(i,section,SescConf->getInt(section,"G0Size"))
+  ,G0HistorySize(SescConf->getInt(section,"G0HistorySize"))
   ,G0HistoryMask((1 << G0HistorySize) - 1)
-  ,G1(i,section,SescConf->getLong(section,"G1Size"))
-  ,G1HistorySize(SescConf->getLong(section,"G1HistorySize"))
+  ,G1(i,section,SescConf->getInt(section,"G1Size"))
+  ,G1HistorySize(SescConf->getInt(section,"G1HistorySize"))
   ,G1HistoryMask((1 << G1HistorySize) - 1)
-  ,metaTable(i,section,SescConf->getLong(section,"MetaSize"))
-  ,MetaHistorySize(SescConf->getLong(section,"MetaHistorySize"))
+  ,metaTable(i,section,SescConf->getInt(section,"MetaSize"))
+  ,MetaHistorySize(SescConf->getInt(section,"MetaHistorySize"))
   ,MetaHistoryMask((1 << MetaHistorySize) - 1)
 {
   // Constraints
-  SescConf->isLong(section    , "BIMSize");
+  SescConf->isInt(section    , "BIMSize");
   SescConf->isPower2(section  , "BIMSize");
   SescConf->isGT(section      , "BIMSize", 1);
 
-  SescConf->isLong(section    , "G0Size");
+  SescConf->isInt(section    , "G0Size");
   SescConf->isPower2(section  , "G0Size");
   SescConf->isGT(section      , "G0Size", 1);
 
-  SescConf->isLong(section    , "G0HistorySize");
+  SescConf->isInt(section    , "G0HistorySize");
   SescConf->isBetween(section , "G0HistorySize", 1, 63);
 
-  SescConf->isLong(section    , "G1Size");
+  SescConf->isInt(section    , "G1Size");
   SescConf->isPower2(section  , "G1Size");
   SescConf->isGT(section      , "G1Size", 1);
 
-  SescConf->isLong(section    , "G1HistorySize");
+  SescConf->isInt(section    , "G1HistorySize");
   SescConf->isBetween(section , "G1HistorySize", 1, 63);
 
-  SescConf->isLong(section    , "MetaSize");
+  SescConf->isInt(section    , "MetaSize");
   SescConf->isPower2(section  , "MetaSize");
   SescConf->isGT(section      , "MetaSize", 1);
 
-  SescConf->isLong(section    , "MetaHistorySize");
+  SescConf->isInt(section    , "MetaHistorySize");
   SescConf->isBetween(section , "MetaHistorySize", 1, 63);
 
   history = 0x55555555;
@@ -730,11 +730,11 @@ PredType BP2BcgSkew::predict(const Instruction * inst, InstID oracleID, bool doU
       BIM.predict(iID,taken);
     }else{
       if (BIMOut == taken)
-	BIM.predict(iID,taken);
+        BIM.predict(iID,taken);
       if (G0Out == taken)
-	G0.predict(G0Index,taken);
+        G0.predict(G0Index,taken);
       if (G1Out == taken)
-	G1.predict(G1Index,taken);
+        G1.predict(G1Index,taken);
     }
     
     if (BIMOut != gskewOut)
@@ -803,29 +803,29 @@ BPyags::BPyags(int i, const char *section)
   ,historySize(24)
   ,historyMask((1 << 24) - 1)
   ,table(i,section
-           ,SescConf->getLong(section,"size")
-           ,SescConf->getLong(section,"bits"))
+           ,SescConf->getInt(section,"size")
+           ,SescConf->getInt(section,"bits"))
   ,ctableTaken(i,section
-                ,SescConf->getLong(section,"l1size")
-                ,SescConf->getLong(section,"l1bits"))
+                ,SescConf->getInt(section,"l1size")
+                ,SescConf->getInt(section,"l1bits"))
   ,ctableNotTaken(i,section
-                   ,SescConf->getLong(section,"l2size")
-                   ,SescConf->getLong(section,"l2bits"))
+                   ,SescConf->getInt(section,"l2size")
+                   ,SescConf->getInt(section,"l2bits"))
 {
   // Constraints
-  SescConf->isLong(section, "size");
+  SescConf->isInt(section, "size");
   SescConf->isPower2(section, "size");
   SescConf->isGT(section, "size", 1);
 
   SescConf->isBetween(section, "bits", 1, 7);
 
-  SescConf->isLong(section, "l1size");
+  SescConf->isInt(section, "l1size");
   SescConf->isPower2(section, "l1bits");
   SescConf->isGT(section, "l1size", 1);
 
   SescConf->isBetween(section, "l1bits", 1, 7);
 
-  SescConf->isLong(section, "l2size");
+  SescConf->isInt(section, "l2size");
   SescConf->isPower2(section, "l2bits");
   SescConf->isGT(section, "size", 1);
 
@@ -833,13 +833,13 @@ BPyags::BPyags(int i, const char *section)
 
   SescConf->isBetween(section, "tagbits", 1, 7);
 
-  CacheTaken = new uchar[SescConf->getLong(section,"l1size")];
-  CacheTakenMask = SescConf->getLong(section,"l1size") - 1;
-  CacheTakenTagMask = (1 << SescConf->getLong(section,"tagbits")) - 1;
+  CacheTaken = new uchar[SescConf->getInt(section,"l1size")];
+  CacheTakenMask = SescConf->getInt(section,"l1size") - 1;
+  CacheTakenTagMask = (1 << SescConf->getInt(section,"tagbits")) - 1;
 
-  CacheNotTaken = new uchar[SescConf->getLong(section,"l2size")];
-  CacheNotTakenMask = SescConf->getLong(section,"l2size") - 1;
-  CacheNotTakenTagMask = (1 << SescConf->getLong(section,"tagbits")) - 1;
+  CacheNotTaken = new uchar[SescConf->getInt(section,"l2size")];
+  CacheNotTakenMask = SescConf->getInt(section,"l2size") - 1;
+  CacheNotTakenTagMask = (1 << SescConf->getInt(section,"tagbits")) - 1;
 
   // Done
 }
@@ -911,7 +911,7 @@ PredType BPyags::predict(const Instruction *inst, InstID oracleID,bool doUpdate)
     } else if ((doUpdate) && (taken == true)) {
         CacheTaken[cacheIndex] = tag;
         (void)ctableTaken.predict(iIDHist, taken);
-	ptaken = false;
+        ptaken = false;
     }
   }
 
@@ -934,7 +934,259 @@ void BPyags::switchOut(Pid_t pid)
 
 }
 
+/*****************************************
+ * BPOgehl
+ *
+ * Based on "The O-GEHL Branch Predictor" by Andre Seznec
+ * Code ported from Andre's CBP 2004 entry by Jay Boice (boice@soe.ucsc.edu)
+ * 
+ */
+ 
+BPOgehl::BPOgehl(int i, const char *section)
+  :BPred(i,section,"ogehl")
+  ,btb(i,section)
+  ,M_SIZ(SescConf->getInt(section,"mtables"))
+  ,glength(200)
+  ,nentry(3)
+  ,addwidth(8)
+  ,logpred(log2i(SescConf->getInt(section,"tsize")))
+  ,THETA(SescConf->getInt(section,"mtables"))
+  ,MAXTHETA(31)
+  ,THETAUP(1 << (SescConf->getInt(section,"tcbits") - 1))
+  ,PREDUP(1 << (SescConf->getInt(section,"tbits") - 1))
+  ,TC(0)
+{
+  SescConf->isInt(section, "tsize");
+  SescConf->isPower2(section, "tsize");
+  SescConf->isGT(section, "tsize", 1);
+  SescConf->isBetween(section, "tbits", 1, 15);
+  SescConf->isBetween(section, "tcbits", 1, 15);
+  SescConf->isBetween(section, "mtables", 6, 32);
 
+  pred = new char*[M_SIZ];
+  for (int i = 0; i < M_SIZ; i++) {
+    pred[i] = new char[1 << logpred];
+    for (int j = 0; j < (1 << logpred); j++)
+      pred[i][j] = 0;
+  }
+
+  T = new int[nentry * logpred + 1];
+  ghist = new long long[(glength >> 6) + 1];
+  MINITAG = new char[(1 << (logpred - 1))];
+  
+  for (int i = 0; i < (glength >> 6) + 1; i++)
+    ghist[i] = 0;
+  phist = 0;
+
+  for (int j = 0; j < (1 << (logpred - 1)); j++)
+    MINITAG[j] = 0;
+  AC=0;
+
+  double initset = 3;
+  double tt = ((double)glength) / initset;
+  double Pow = pow(tt, 1.0/(M_SIZ + 1));
+  
+  histLength = new int[M_SIZ + 3];
+  usedHistLength = new int[M_SIZ];
+  histLength[0] = 0;
+  histLength[1] = 3;
+  for (int i = 2; i < M_SIZ + 3; i++)
+    histLength[i] = (int) ((initset * pow (Pow, (double) (i - 1))) + 0.5);
+  for (int i = 0; i < M_SIZ; i++) {
+    usedHistLength[i] = histLength[i];
+  }
+}
+
+BPOgehl::~BPOgehl()
+{
+}
+
+PredType BPOgehl::predict(const Instruction *inst, InstID oracleID, bool doUpdate)
+{
+  bpredEnergy->inc();
+
+  if( inst->isBranchTaken() )
+    return btb.predict(inst, oracleID, doUpdate);
+
+  bool taken = (inst->calcNextInstID() != oracleID);
+  bool ptaken = false;
+
+  int S = (M_SIZ/2);
+  HistoryType iID[M_SIZ];
+
+  // Prediction is sum of entries in M tables (table 1 is half-size to fit in 64k)
+  for (int i = 0; i < M_SIZ; i++) {
+    if (i == 1)
+      logpred--;
+    iID[i] = geoidx(inst->currentID(), ghist, phist, usedHistLength[i], (i & 3) + 1);    
+    if (i == 1)
+      logpred++;
+    S += pred[i][iID[i]];
+  }
+  ptaken = (S >= 0);
+
+  if( doUpdate ) {
+ 
+    // Update theta (threshold)
+    if (taken != ptaken) {
+      TC++;
+      if (TC > THETAUP - 1) {
+        TC = THETAUP - 1;
+        if (THETA < MAXTHETA) {
+          TC = 0;
+          THETA++;
+        }
+      }
+    } else if (S < THETA && S >= -THETA) {
+      TC--;
+      if (TC < -THETAUP) {
+        TC = -THETAUP;
+        if (THETA > 0) {
+          TC = 0;
+          THETA--;
+        }
+      }
+    }
+  
+    if( taken != ptaken || (S < THETA && S >= -THETA)) {
+
+      // Update M tables
+      for (int i = 0; i < M_SIZ; i++) {
+        if (taken) {
+          if (pred[i][iID[i]] < PREDUP - 1)
+            pred[i][iID[i]]++;
+        } else {
+          if (pred[i][iID[i]] > -PREDUP)
+            pred[i][iID[i]]--;
+        }
+      }
+      btb.updateOnly(inst,oracleID);
+
+      // Update history lengths
+      if ((iID[M_SIZ - 1] & 1) == 0) {
+        if (taken != ptaken) {
+          miniTag = MINITAG[iID[M_SIZ - 1] >> 1];
+          if (miniTag != ((int)(inst->currentID() & 1))) {
+            AC -= 4;
+            if (AC < -256) {
+              AC = -256;
+              usedHistLength[6] = histLength[6];
+              usedHistLength[4] = histLength[4];
+              usedHistLength[2] = histLength[2];
+            }
+          }else{
+            AC++;
+            if (AC > 256 - 1) {
+              AC = 256 - 1;
+                usedHistLength[6] = histLength[M_SIZ + 2];
+                usedHistLength[4] = histLength[M_SIZ + 1];
+                usedHistLength[2] = histLength[M_SIZ];
+            }
+          }
+        }
+        MINITAG[iID[M_SIZ - 1] >> 1] = (char) (inst->currentID() & 1);
+      }
+    }
+  
+    // Update branch/path histories
+    phist = (phist << 1) + (inst->currentID() & 1);
+    for (int i = (glength >> 6); i > 0; i--)
+      ghist[i] = (ghist[i] << 1) + (ghist[i - 1] < 0);
+    ghist[0] = ghist[0] << 1;
+    if (taken)
+      ghist[0]++;
+  }
+
+  if (taken != ptaken)
+    return MissPrediction;
+  
+  return ptaken ? btb.predict(inst, oracleID, doUpdate) : CorrectPrediction;
+}
+
+int BPOgehl::geoidx(long long Add, long long *histo, long long phisto, int m, int funct)
+{
+  long long inter, Hh, Res;
+  int x, i, shift;
+  int PT;
+  int MinAdd;
+  int FUNCT;
+  int plength;
+
+  if (m < 16)
+    plength = m;
+  else
+    plength = 16;
+  MinAdd = nentry * logpred - m - plength;
+  if (MinAdd > 20)
+    MinAdd = 20;
+
+  if (MinAdd >= 8) {
+    inter =
+      ((histo[0] & ((1 << m) - 1)) << (MinAdd + plength)) +
+      ((Add & ((1 << MinAdd) - 1)) << plength) +
+      ((phisto & ((1 << plength) - 1)));
+  }else{
+    for (x = 0; x < nentry * logpred; x++) {
+      T[x] = ((x * (addwidth + m + plength - 1)) / (nentry * logpred - 1));
+    }
+
+    T[nentry * logpred] = addwidth + m + plength;
+    inter = 0;
+
+    Hh = histo[0];
+    Hh >>= T[0];
+    inter = (Hh & 1);
+    PT = 1;
+
+    for (i = 1; T[i] < m; i++) {
+      if ((T[i] & 0xffc0) == (T[i - 1] & 0xffc0)) {
+        shift = T[i] - T[i - 1];
+      }else{
+        Hh = histo[PT];
+        PT++;
+        shift = T[i] & 63;
+      }
+      
+      inter = (inter << 1);
+      Hh = Hh >> shift;
+      inter ^= (Hh & 1);
+    }
+
+    Hh = Add;
+    for (; T[i] < m + addwidth; i++) {
+      shift = T[i] - m;
+      inter = (inter << 1);
+      inter ^= ((Hh >> shift) & 1);
+    }
+
+    Hh = phisto;
+    for (; T[i] < m + plength + addwidth; i++) {
+      shift = T[i] - (m + addwidth);
+      inter = (inter << 1);
+      inter ^= ((Hh >> shift) & 1);
+    }
+  }
+
+  FUNCT = funct;
+  Res = inter & ((1 << logpred) - 1);
+  for (i = 1; i < nentry; i++) {
+    inter = inter >> logpred;
+    Res ^=
+      ((inter & ((1 << logpred) - 1)) >> FUNCT) ^
+      ((inter & ((1 << FUNCT) - 1)) << ((logpred - FUNCT)));
+      FUNCT = (FUNCT + 1) % logpred;
+  }
+
+  return ((int) Res);
+}
+
+void BPOgehl::switchIn(Pid_t pid)
+{
+}
+
+void BPOgehl::switchOut(Pid_t pid)
+{
+}
 
 /*****************************************
  * BPredictor
@@ -966,6 +1218,8 @@ BPred *BPredictor::getBPred(int id, const char *sec)
     pred = new BPHybrid(id, sec);
   } else if (strcasecmp(type, "yags") == 0) {
     pred = new BPyags(id, sec);
+  } else if (strcasecmp(type, "ogehl") == 0) {
+    pred = new BPOgehl(id, sec);
   } else {
     MSG("BPredictor::BPredictor Invalid branch predictor type [%s] in section [%s]", type,sec);
     exit(0);

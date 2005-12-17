@@ -16,24 +16,24 @@
 //==================================================================
 class SignatureVector {
  private:
-  unsigned long signator[16];
+  unsigned int signator[16];
  public:
   SignatureVector();
   ~SignatureVector();
   
-  unsigned long* getSignature();
+  unsigned int* getSignature();
   
-  int  hashPC(unsigned long pc);
+  int  hashPC(unsigned int pc);
 
-  void setPCBit(unsigned long pc); // Calls hashPC
+  void setPCBit(unsigned int pc); // Calls hashPC
   void setBit(int index);
 
   int getNumberOfBits();
-  int getNumberOfBits(unsigned long input);
-  int matchBits(unsigned long compareSig[]);
+  int getNumberOfBits(unsigned int input);
+  int matchBits(unsigned int compareSig[]);
 
-  float getSignatureDifference(unsigned long compareSig[]);
-  int copySignature(unsigned long copySig[]);
+  float getSignatureDifference(unsigned int compareSig[]);
+  int copySignature(unsigned int copySig[]);
   int clearBits();
 };
 
@@ -83,20 +83,20 @@ class PipeLineSelector {
   SignatureTable table;
   
   double totEnergy;
-  long clockCount;
+  int clockCount;
   double inOrderEDD, outOrderEDD; // Energy * delay^2
   
-  long windowInstCount; // counter from 0 - 10,000
+  int windowInstCount; // counter from 0 - 10,000
   int trainWindowCount;  
   int currPipelineMode, currState; 
   
-  void updateCurrSignature(unsigned long pc);
-  double calculateEDD(long currClockCount, double currTotEnergy); 						 
+  void updateCurrSignature(unsigned int pc);
+  double calculateEDD(int currClockCount, double currTotEnergy);
         
  public:
   PipeLineSelector();
   ~PipeLineSelector();
-  int getPipeLineMode(unsigned long pc, long currClockCount, double currTotEnergy); // called on every clock
+  int getPipeLineMode(unsigned int pc, int currClockCount, double currTotEnergy); // called on every clock
 };
 
 #endif   // SIGNATURE_H

@@ -4,7 +4,7 @@
 
    Contributed by Paul Sack
                   Luis Ceze
-		  Pablo Montesinos Ortego
+                  Pablo Montesinos Ortego
 
 This file is part of SESC.
 
@@ -21,8 +21,11 @@ SESC; see the file COPYING.  If not, write to the  Free Software Foundation, 59
 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 */
 
+#include <string.h>
+#include <strings.h>
 #include <sys/types.h>
 #include <dirent.h>
+
 #include "nanassert.h"
 #include "TT6Reader.h"
 
@@ -103,22 +106,22 @@ void TT6Reader::readPC() {
 }
 
 void TT6Reader::readInst() { 
-	
+        
   if (fread(&inst, sizeof(inst), 1,trace)!=1)
     if (feof(trace))
-      tracEof=true;		
+      tracEof=true;             
     else{
       MSG("Error while reading the trace file.");
       exit(1);
     }
-	
+        
 }
 
 void TT6Reader::readAddress() { 
-	
-  if (fread(&address, sizeof(address), 1,trace)!=1) 		
+        
+  if (fread(&address, sizeof(address), 1,trace)!=1)             
     if (feof(trace))
-      tracEof=true;		
+      tracEof=true;             
     else{
       MSG("Error while reading the trace file.");
       exit(1);
@@ -128,7 +131,7 @@ void TT6Reader::readAddress() {
 void TT6Reader::readCount() { 
   if (fread(&count, sizeof(count), 1,trace)!=1) 
     if (feof(trace))
-      tracEof=true;		
+      tracEof=true;             
     else{
       MSG("Error while reading the trace file.");
       exit(1);

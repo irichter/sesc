@@ -47,14 +47,14 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 static long long NES=0; // Number of exits pending to scape
 
-long rsesc_usecs(void)
+int rsesc_usecs(void)
 {
   // as in 1000000 clocks per second report (Linux is 100)
 
   double usecs = 1000000*globalClock;
   usecs /= osSim->getFrequency();
   
-  return (long)usecs;
+  return (int)usecs;
 }
 
 /*
@@ -75,7 +75,7 @@ long rsesc_usecs(void)
  * As soon as the instructions is fetched this event is called. Its
  * called before anything is done inside the sesc simulator.
  */
-void rsesc_preevent(int pid, long vaddr, long type, void *sptr)
+void rsesc_preevent(int pid, int vaddr, int type, void *sptr)
 {
   osSim->preEvent(pid, vaddr, type, sptr);
 }
@@ -87,7 +87,7 @@ void rsesc_preevent(int pid, long vaddr, long type, void *sptr)
  * fetch, issue, dispatch width, and occupy an instruction window
  * slot). It also enforces the dependences for the registers R4, R6.
  */
-void rsesc_postevent(int pid, long vaddr, long type, void *sptr)
+void rsesc_postevent(int pid, int vaddr, int type, void *sptr)
 {
   postEventCB *cb = postEventCB::create(osSim, pid, vaddr, type, sptr);
     
@@ -99,7 +99,7 @@ void rsesc_postevent(int pid, long vaddr, long type, void *sptr)
  * sesc_postevent, with the difference that it is not dispatched until
  * all the previous memory operations have been performed.
  */
-void rsesc_memfence(int pid, long vaddr)
+void rsesc_memfence(int pid, int vaddr)
 {
   osSim->pid2GProcessor(pid)->addEvent(MemFenceEvent, 0, vaddr);
 }
@@ -112,7 +112,7 @@ void rsesc_memfence(int pid, long vaddr)
  * the ENDIAN is respected (this is a problem in little endian
  * machines like x86)
  */
-void rsesc_acquire(int pid, long vaddr)
+void rsesc_acquire(int pid, int vaddr)
 {
 #ifndef JOE_MUST_DO_IT_OR_ELSE
   return;
@@ -127,7 +127,7 @@ void rsesc_acquire(int pid, long vaddr)
  * the ENDIAN is respected (this is a problem in little endian
  * machines like x86)
  */
-void rsesc_release(int pid, long vaddr)
+void rsesc_release(int pid, int vaddr)
 {
 #ifndef JOE_MUST_DO_IT_OR_ELSE
   return;
@@ -143,7 +143,7 @@ void rsesc_release(int pid, long vaddr)
  * constructor must use this parameter. ppid is the parent thread
  */
 #if (!defined TASKSCALAR)
-void rsesc_spawn(int ppid, int cpid, long flags)
+void rsesc_spawn(int ppid, int cpid, int flags)
 {
   osSim->eventSpawn(ppid, cpid, flags);
 }
@@ -177,7 +177,7 @@ void rsesc_finish(int pid)
 }
 
 /* Same as rsesc_spawn, except that the new thread does not become ready */
-void rsesc_spawn_stopped(int cpid, int pid, long flags){
+void rsesc_spawn_stopped(int cpid, int pid, int flags){
   osSim->eventSpawn(cpid, pid, flags, true);
 }
 
@@ -186,7 +186,7 @@ int rsesc_get_num_cpus(void){
   return osSim->getNumCPUs();
 }
 
-void rsesc_sysconf(int cpid, int pid, long flags)
+void rsesc_sysconf(int cpid, int pid, int flags)
 {
   osSim->eventSysconf(cpid, pid, flags);
 }
@@ -252,10 +252,10 @@ void mint_termination(int pid)
 void rsesc_simulation_mark(int pid)
 {
   if (GFlow::isGoingRabbit()) {
-    MSG("sesc_simulation_mark %ld (rabbit) inst=%lld", osSim->getSimulationMark(), GFlow::getnExecRabbit());
+    MSG("sesc_simulation_mark %d (rabbit) inst=%lld", osSim->getSimulationMark(), GFlow::getnExecRabbit());
     GFlow::dump();
   }else
-    MSG("sesc_simulation_mark %ld (simulated) @%lld", osSim->getSimulationMark(), globalClock);
+    MSG("sesc_simulation_mark %d (simulated) @%lld", osSim->getSimulationMark(), globalClock);
 
   osSim->eventSimulationMark();
 
@@ -276,10 +276,10 @@ void rsesc_simulation_mark(int pid)
 void rsesc_simulation_mark_id(int pid, int id)
 {
   if (GFlow::isGoingRabbit()) {
-    MSG("sesc_simulation_mark(%d) %ld (rabbit) inst=%lld", id, osSim->getSimulationMark(id), GFlow::getnExecRabbit());
+    MSG("sesc_simulation_mark(%d) %d (rabbit) inst=%lld", id, osSim->getSimulationMark(id), GFlow::getnExecRabbit());
     GFlow::dump();
   }else
-    MSG("sesc_simulation_mark(%d) %ld (simulated) @%lld", id, osSim->getSimulationMark(id), globalClock);
+    MSG("sesc_simulation_mark(%d) %d (simulated) @%lld", id, osSim->getSimulationMark(id), globalClock);
 
   osSim->eventSimulationMark(id,pid);
 
@@ -303,12 +303,12 @@ void rsesc_fast_sim_end(int pid)
   LOG("End Rabbit mode (embeded)");
 }
 
-long rsesc_fetch_op(int pid, enum FetchOpType op, long addr, long *data, long val)
+int rsesc_fetch_op(int pid, enum FetchOpType op, int addr, int *data, int val)
 {
   I(addr);
 
   osSim->pid2GProcessor(pid)->addEvent(FetchOpEvent, 0, addr);
-  long odata = SWAP_WORD(*data);
+  int odata = SWAP_WORD(*data);
 
   if (odata)
     osSim->pid2GProcessor(pid)->nLockContCycles.inc();
@@ -324,24 +324,24 @@ long rsesc_fetch_op(int pid, enum FetchOpType op, long addr, long *data, long va
     *data = SWAP_WORD(val);
     break;
   default:
-    MSG("sesc_fetch_op(%d,0x%p,%ld) has invalid Op",(int)op,data,val);
+    MSG("sesc_fetch_op(%d,0x%p,%d) has invalid Op",(int)op,data,val);
     exit(-1);
   }
 
-/*  MSG("%d. sesc_fetch_op: %d@0x%lx [%ld]->[%ld] ",pid, (int)op,addr, odata,SWAP_WORD(*data)); */
+/*  MSG("%d. sesc_fetch_op: %d@0x%lx [%d]->[%d] ",pid, (int)op,addr, odata,SWAP_WORD(*data)); */
  
   return odata;
 }
 
-void rsesc_do_unlock(long* data, int val)
+void rsesc_do_unlock(int* data, int val)
 {
   I(data);
   *data = SWAP_WORD(val);
 }
 
-typedef CallbackFunction2<long*, int, &rsesc_do_unlock> do_unlockCB;
+typedef CallbackFunction2<int*, int, &rsesc_do_unlock> do_unlockCB;
 
-void rsesc_unlock_op(int pid, long addr, long *data, int val)
+void rsesc_unlock_op(int pid, int addr, int *data, int val)
 {
   I(addr);
   osSim->pid2GProcessor(pid)->addEvent(UnlockEvent, 
@@ -474,7 +474,7 @@ void rsesc_fatal(void)
 //       epoch->complete();
 //   }
   
-  long rsesc_OS_read(int pid, int addr, int iAddr, long flags) {
+  int rsesc_OS_read(int pid, int addr, int iAddr, int flags) {
     ThreadContext *pthread = ThreadContext::getContext(pid);
     I((flags & E_WRITE) == 0);
     flags = (E_READ | flags); 
@@ -484,7 +484,7 @@ void rsesc_fatal(void)
     return pthread->virt2real(addr, flags);
   }
   
-  long rsesc_OS_prewrite(int pid, int addr, int iAddr, long flags){
+  int rsesc_OS_prewrite(int pid, int addr, int iAddr, int flags){
     ThreadContext *pthread = ThreadContext::getContext(pid);
     I((flags & E_READ) == 0);
     flags = (E_WRITE | flags); 
@@ -494,7 +494,7 @@ void rsesc_fatal(void)
     return pthread->virt2real(addr, flags);
   }
   
-  void rsesc_OS_postwrite(int pid, int addr, int iAddr, long flags){
+  void rsesc_OS_postwrite(int pid, int addr, int iAddr, int flags){
     // Do nothing
   }
   
@@ -564,12 +564,12 @@ void  rsesc_verify_value(int pid, int rval, int pval)
 
 // Copy data from srcStart (logical) to version memory (can generate squash/restart)
 void rsesc_OS_write_block(int pid, int iAddr, void *dstStart, const void *srcStart, size_t size){
-  long addr;
+  int addr;
   const unsigned char *src = (const unsigned char *)srcStart;
   const unsigned char *end;
   unsigned char *dst = (unsigned char *)dstStart;
   
-  addr = (long)dst;
+  addr = (int)dst;
   
   addr = addr & (~0UL ^ 0x7); // 3 bits 2^3 = 8 bytes align (DWORD)
   addr = addr + 0x08;
@@ -587,11 +587,11 @@ void rsesc_OS_write_block(int pid, int iAddr, void *dstStart, const void *srcSta
     dst++;
   }
   
-  GI(size, ((long)dst & 0x7) == 0); // DWORD align
+  GI(size, ((int)dst & 0x7) == 0); // DWORD align
   // DWORD copy (64 bits)
   while(size) {
-    long flags;
-    long bsize;
+	 int flags;
+	 int bsize;
     
     if (size >= 8) {
       flags = E_DWORD;
@@ -618,7 +618,7 @@ void rsesc_OS_write_block(int pid, int iAddr, void *dstStart, const void *srcSta
 }
 
 void rsesc_OS_read_string(int pid, int iAddr, void *dstStart, const void *srcStart, size_t size){
-  long addr;
+  int addr;
   const unsigned char *src = (const unsigned char *)srcStart;
   const unsigned char *end;
   unsigned char *dst = (unsigned char *)dstStart;
@@ -644,12 +644,12 @@ void rsesc_OS_read_string(int pid, int iAddr, void *dstStart, const void *srcSta
 //
 // TODO: Maybe it should not track the read (screw the restart!)
 void rsesc_OS_read_block(int pid, int iAddr, void *dstStart, const void *srcStart, size_t size){
-  long addr;
+  int addr;
   const unsigned char *src = (unsigned char *)srcStart;
   const unsigned char *end;
   unsigned char *dst = (unsigned char *)dstStart;
   
-  addr = (long)src;
+  addr = (int)src;
   
   addr = addr & (~0UL ^ 0x7); // 3 bits 2^3 = 8 bytes align (DWORD)
   addr = addr + 0x08;
@@ -666,11 +666,11 @@ void rsesc_OS_read_block(int pid, int iAddr, void *dstStart, const void *srcStar
     dst++;
   }
   
-  GI(size, ((long)src & 0x7) == 0); // DWORD align
+  GI(size, ((int)src & 0x7) == 0); // DWORD align
   // DWORD copy (64 bits)
   while(size) {
-    long flags;
-    long bsize;
+	 int flags;
+	 int bsize;
     
     if (size >= 8) {
       flags = E_DWORD;
@@ -725,7 +725,7 @@ void rsesc_exception(int pid)
   tc->exception();
 }
 
-void rsesc_spawn(int ppid, int cpid, long flags)
+void rsesc_spawn(int ppid, int cpid, int flags)
 {
   //if (ExecutionFlow::isGoingRabbit()) {
   //  MSG("spawn not supported in rabbit mode. Sorry");
@@ -787,7 +787,7 @@ void rsesc_prof_commit(int pid, int tid)
 #endif
 }
 
-void rsesc_fork_successor(int ppid, long where, int tid)
+void rsesc_fork_successor(int ppid, int where, int tid)
 {
   if (ExecutionFlow::isGoingRabbit()) {
 #ifdef TS_PROFILING  
@@ -887,7 +887,7 @@ int rsesc_is_safe(int pid)
 
 ID(static bool preWriteCalled=false);
 
-long rsesc_OS_prewrite(int pid, int addr, int iAddr, long flags)
+int rsesc_OS_prewrite(int pid, int addr, int iAddr, int flags)
 {
   ThreadContext *pthread = ThreadContext::getContext(pid);
 
@@ -899,10 +899,10 @@ long rsesc_OS_prewrite(int pid, int addr, int iAddr, long flags)
   if (ExecutionFlow::isGoingRabbit())
     return pthread->virt2real(addr, flags);
 
-  return (long)TaskContext::getTaskContext(pid)->preWrite(pthread->virt2real(addr, flags));
+  return (int)TaskContext::getTaskContext(pid)->preWrite(pthread->virt2real(addr, flags));
 }
 
-void rsesc_OS_postwrite(int pid, int addr, int iAddr, long flags)
+void rsesc_OS_postwrite(int pid, int addr, int iAddr, int flags)
 {
   I(preWriteCalled);
   IS(preWriteCalled=false);
@@ -918,7 +918,7 @@ void rsesc_OS_postwrite(int pid, int addr, int iAddr, long flags)
   TaskContext::getTaskContext(pid)->postWrite(iAddr, flags, pthread->virt2real(addr, flags));
 }
 
-long rsesc_OS_read(int pid, int addr, int iAddr, long flags)
+int rsesc_OS_read(int pid, int addr, int iAddr, int flags)
 {
   I((flags & E_WRITE) == 0);
   flags = (E_READ | flags); 

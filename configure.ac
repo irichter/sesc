@@ -8,8 +8,8 @@ AC_SUBST([[$1]_OPT],[[[#$1]=1]]))
 
 
 AC_SUBST(BUILD_DIR, `pwd`)
-AC_SUBST(SRC_DIR, `pwd`/$srcdir/src)
-AC_SUBST(TOPSRC_DIR, `pwd`/$srcdir)
+AC_SUBST(SRC_DIR, $srcdir/src)
+AC_SUBST(TOPSRC_DIR, $srcdir)
 
 AC_CONFIG_FILES([Makefile:src/Makefile.in] 
 	  	[Make.defs:src/Make.defs.in])

@@ -177,7 +177,7 @@ void ProcessId::squash()
 }
 #endif
 
-bool ProcessId::sysconf(long flags)
+bool ProcessId::sysconf(int flags)
 {
   // Reject if running and it must be pinned to another processor
   if(((state==RunningState)||(state==ReadyState))&&(flags&SESC_FLAG_NOMIGRATE)&&
@@ -213,9 +213,9 @@ bool ProcessId::sysconf(long flags)
   return true;
 }
 
-long ProcessId::getconf(void)
+int ProcessId::getconf(void)
 {
-  long flags=0;
+  int flags=0;
   if(!migrable)
     flags|=SESC_FLAG_NOMIGRATE;
   if(cpu!=-1){
@@ -225,7 +225,7 @@ long ProcessId::getconf(void)
   return flags;
 }
 
-ProcessId *ProcessId::create(Pid_t ppid, Pid_t id, long flags)
+ProcessId *ProcessId::create(Pid_t ppid, Pid_t id, int flags)
 {
   ProcessId *proc = pidPool.out();
   int parentId = -1;
@@ -407,7 +407,7 @@ void ProcessId::printQueue(char *where)
     }else{
       printf("P");
     }
-    printf("%ld",queueProc->getCPU());
+    printf("%d",queueProc->getCPU());
     switch(queueProc->getState()){
     case InvalidState:
       printf(" INV ");

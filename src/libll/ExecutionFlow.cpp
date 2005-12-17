@@ -56,7 +56,7 @@ ExecutionFlow::ExecutionFlow(int cId, int i, GMemorySystem *gmem)
   pendingDInst = 0;
 }
 
-long ExecutionFlow::exeInst(void)
+int ExecutionFlow::exeInst(void)
 {
   // Instruction address
   int iAddr = picodePC->addr;
@@ -77,7 +77,7 @@ long ExecutionFlow::exeInst(void)
   if (tc==0) {
     if(picodePC->func == mint_exit) {
       do{
-	picodePC=(picodePC->func)(picodePC, &thread);
+        picodePC=(picodePC->func)(picodePC, &thread);
       }while(picodePC->addr==iAddr);
     }
     return 0;
@@ -91,7 +91,7 @@ long ExecutionFlow::exeInst(void)
   // For load/store instructions, need to translate the data address
   if(opflags&E_MEM_REF) {
     // Get the Virtual address
-    dAddrV = (*(long *)((long)(thread.reg) + picodePC->args[RS])) + picodePC->immed;
+	 dAddrV = (*((int *)&thread.reg[picodePC->args[RS]])) + picodePC->immed;
     // Get the Real address
     dAddrR = thread.virt2real(dAddrV, opflags);
 
@@ -111,11 +111,11 @@ long ExecutionFlow::exeInst(void)
     tls::Epoch *epoch=tls::Epoch::getEpoch(thread.getPid());
     if(epoch) {
       if(opflags&E_READ)
-	dAddrR=epoch->read(iAddr, opflags, dAddrV, dAddrR);
+        dAddrR=epoch->read(iAddr, opflags, dAddrV, dAddrR);
       if(opflags&E_WRITE)
-	dAddrR=epoch->write(iAddr, opflags, dAddrV, dAddrR);
+        dAddrR=epoch->write(iAddr, opflags, dAddrV, dAddrR);
       if(!dAddrR)
-	return 0;
+        return 0;
     }
 #endif
     
@@ -146,6 +146,8 @@ long ExecutionFlow::exeInst(void)
 #endif
     picodePC=(picodePC->func)(picodePC, &thread);
   }while(picodePC->addr==iAddr);
+
+  //  MSG("0x%x",iAddr);
 
 #ifdef TASKSCALAR
   if(opflags&E_WRITE) {
@@ -182,7 +184,7 @@ void ExecutionFlow::exeInstFast()
 
   if(iFlags&E_MEM_REF) {
     // Get the Logical address
-    VAddr vaddr = (*(long *)((long)(thread.reg) + picodePC->args[RS])) + picodePC->immed;
+	 VAddr vaddr = (*((int *)&thread.reg[picodePC->args[RS]])) + picodePC->immed;
     // Get the Real address
     thread.setRAddr(thread.virt2real(vaddr, iFlags));
     if (trainCache)
@@ -191,8 +193,8 @@ void ExecutionFlow::exeInstFast()
 #ifdef TS_PROFILING
     if (osSim->enoughMarks1()) {
       if(iFlags&E_WRITE) {
-        long value = *(long *)((long)(thread.reg) + picodePC->args[RT]);
-        if ((unsigned long)value == SWAP_WORD(*(long *)thread.getRAddr())) {
+	  int value = *((int *)&thread.reg[picodePC->args[RT]]);
+	  if (value == SWAP_WORD(*(int *)thread.getRAddr())) {
           //silent store
           //LOG("silent store@0x%lx, %ld", picodePC->addr, value);
           osSim->getProfiler()->recWrite(vaddr, picodePC, true);
@@ -227,7 +229,7 @@ void ExecutionFlow::switchIn(int i)
   TraceGen::add(verID,"in=%lld",globalClock);
 #endif
 
-  GLOG(DEBUG2,"ExecutionFlow[%d] switchIn pid(%d) 0x%lx @%lld"
+  LOG("ExecutionFlow[%d] switchIn pid(%d) 0x%lx @%lld"
        , fid, i, picodePC->addr, globalClock);
 
   //I(!pendingDInst);
@@ -248,7 +250,7 @@ void ExecutionFlow::switchOut(int i)
   verID = 0;
 #endif
 
-  GLOG(DEBUG2,"ExecutionFlow[%d] switchOut pid(%d) 0x%lx @%lld", 
+  LOG("ExecutionFlow[%d] switchOut pid(%d) 0x%lx @%lld", 
        fid, i, picodePC->addr, globalClock);
 
   // Must be running thread i
@@ -352,7 +354,7 @@ DInst *ExecutionFlow::executePC()
   if(epoch) epoch->pendInstr();
 #endif // (defined TLS)
 
-  long vaddr = exeInst();
+  int vaddr = exeInst();
 
 #if (defined TASKSCALAR) || (defined TLS)
   // No instruction executed?
@@ -553,16 +555,16 @@ void ExecutionFlow::goRabbitMode(long long n2skip)
       nFastSims++;
     }else if( ev ) {
       if( evCB )
-	evCB->call();
+        evCB->call();
       else{
-	// Those kind of events have no callbacks because they
-	// go through the memory backend. Since we are in
-	// FastMode and everything happens atomically, we
-	// don't need to notify the backend.
-	I(ev == ReleaseEvent ||
-	  ev == AcquireEvent ||
-	  ev == MemFenceEvent||
-	  ev == FetchOpEvent );
+        // Those kind of events have no callbacks because they
+        // go through the memory backend. Since we are in
+        // FastMode and everything happens atomically, we
+        // don't need to notify the backend.
+        I(ev == ReleaseEvent ||
+          ev == AcquireEvent ||
+          ev == MemFenceEvent||
+          ev == FetchOpEvent );
       }
     }
 

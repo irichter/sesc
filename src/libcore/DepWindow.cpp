@@ -35,21 +35,21 @@ DepWindow::DepWindow(GProcessor *gp, const char *clusterName)
   :gproc(gp)
   ,Id(gp->getId())
   ,InOrderCore(SescConf->getBool("cpucore","inorder",gp->getId()))
-  ,InterClusterLat(SescConf->getLong("cpucore", "interClusterLat",gp->getId()))
-  ,WakeUpDelay(SescConf->getLong(clusterName, "wakeupDelay"))
-  ,SchedDelay(SescConf->getLong(clusterName, "schedDelay"))
-  ,RegFileDelay(SescConf->getLong("cpucore", "regFileDelay"))
+  ,InterClusterLat(SescConf->getInt("cpucore", "interClusterLat",gp->getId()))
+  ,WakeUpDelay(SescConf->getInt(clusterName, "wakeupDelay"))
+  ,SchedDelay(SescConf->getInt(clusterName, "schedDelay"))
+  ,RegFileDelay(SescConf->getInt("cpucore", "regFileDelay"))
 #ifdef SESC_SEED
-  ,Banks(SescConf->getLong(clusterName,"banks"))
-  ,DepTableEntries(SescConf->getLong(clusterName, "DepTableEntries"))
-  ,DepTableNumPorts(SescConf->getLong(clusterName,"DepTableNumPorts"))
-  ,DepTableDelay(SescConf->getLong(clusterName,   "DepTableDelay"))
+  ,Banks(SescConf->getInt(clusterName,"banks"))
+  ,DepTableEntries(SescConf->getInt(clusterName, "DepTableEntries"))
+  ,DepTableNumPorts(SescConf->getInt(clusterName,"DepTableNumPorts"))
+  ,DepTableDelay(SescConf->getInt(clusterName,   "DepTableDelay"))
 #ifdef SESC_SEED_OVERFLOW
-  ,MaxOverflowing(SescConf->getLong(clusterName,  "MaxOverflowing"))
-  ,MaxUnderflowing(SescConf->getLong(clusterName, "MaxUnderflowing"))
+  ,MaxOverflowing(SescConf->getInt(clusterName,  "MaxOverflowing"))
+  ,MaxUnderflowing(SescConf->getInt(clusterName, "MaxUnderflowing"))
   ,nOverflowing(0)
 #endif
-  ,depPred(gp->getId(),"depPred", SescConf->getLong(clusterName, "depPredSize"), 2)
+  ,depPred(gp->getId(),"depPred", SescConf->getInt(clusterName, "depPredSize"), 2)
   ,nDepsCorrect("Proc(%d)_%s_depTable:nDepsCorrect", gp->getId(), clusterName)
   ,nDepsMiss("Proc(%d)_%s_depTable:nDepsMiss", gp->getId(), clusterName)
   ,nDepsOverflow("Proc(%d)_%s_depTable:nDepsOverflow", gp->getId(), clusterName)
@@ -122,31 +122,31 @@ DepWindow::DepWindow(GProcessor *gp, const char *clusterName)
 
   addInstBank = 0;
 
-  SescConf->isLong(clusterName    , "DepTableEntries");
+  SescConf->isInt(clusterName    , "DepTableEntries");
   SescConf->isBetween(clusterName , "DepTableEntries", 1, 1024);
 #endif
 
   sprintf(cadena,"Proc(%d)_%s_wakeUp", Id, clusterName);
   wakeUpPort = PortGeneric::create(cadena
-                                 ,SescConf->getLong(clusterName, "wakeUpNumPorts")
-                                 ,SescConf->getLong(clusterName, "wakeUpPortOccp"));
+                                 ,SescConf->getInt(clusterName, "wakeUpNumPorts")
+                                 ,SescConf->getInt(clusterName, "wakeUpPortOccp"));
 
-  SescConf->isLong(clusterName, "wakeupDelay");
+  SescConf->isInt(clusterName, "wakeupDelay");
   SescConf->isBetween(clusterName, "wakeupDelay", 0, 1024);
 
   sprintf(cadena,"Proc(%d)_%s_sched", Id, clusterName);
   schedPort = PortGeneric::create(cadena
-                                  ,SescConf->getLong(clusterName, "SchedNumPorts")
-                                  ,SescConf->getLong(clusterName, "SchedPortOccp"));
+                                  ,SescConf->getInt(clusterName, "SchedNumPorts")
+                                  ,SescConf->getInt(clusterName, "SchedPortOccp"));
 
   // Constraints
-  SescConf->isLong(clusterName    , "schedDelay");
+  SescConf->isInt(clusterName    , "schedDelay");
   SescConf->isBetween(clusterName , "schedDelay", 0, 1024);
 
-  SescConf->isLong("cpucore"    , "interClusterLat",Id);
+  SescConf->isInt("cpucore"    , "interClusterLat",Id);
   SescConf->isBetween("cpucore" , "interClusterLat", 0, 1024,Id);
 
-  SescConf->isLong("cpucore"    , "regFileDelay");
+  SescConf->isInt("cpucore"    , "regFileDelay");
   SescConf->isBetween("cpucore" , "regFileDelay", 0, 1024);
 }
 
@@ -258,7 +258,7 @@ StallCause DepWindow::canIssue(DInst *dinst) const
         return PortConflictStall;
   }
 
-  long bank = addInstBank; // updated on addInst
+  int bank = addInstBank; // updated on addInst
   if (depTablePort[bank]->calcNextSlot() > globalClock) {
     bank = (bank+1) % Banks;
     if (depTablePort[bank]->calcNextSlot() > globalClock)

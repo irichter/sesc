@@ -31,7 +31,7 @@ RiskLoadProf::RiskLoadProf()
   I(fout);
 }
 
-void RiskLoadProf::insert(ulong ldInst)
+void RiskLoadProf::insert(uint ldInst)
 {
   HashType::iterator it = riskLoads.find(ldInst);
   if(it != riskLoads.end())

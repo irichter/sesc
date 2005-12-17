@@ -124,7 +124,7 @@ int main(int argc, char **argv)
 
   cache = MyCacheType::create("tst1","","tst1");
 
-  int assoc = SescConf->getLong("tst1","assoc");
+  int assoc = SescConf->getInt("tst1","assoc");
   for(int i=0;i<assoc;i++) {
     ulong addr = (i<<8)+0xfa;
 

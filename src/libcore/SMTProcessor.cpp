@@ -40,11 +40,11 @@ SMTProcessor::Fetch::~Fetch()
 }
 
 SMTProcessor::SMTProcessor(GMemorySystem *gm, CPU_t i)
-  :GProcessor(gm,i,SescConf->getLong("cpucore", "smtContexts",i))
-  ,smtContexts(SescConf->getLong("cpucore", "smtContexts",i))
-  ,smtFetchs4Clk(SescConf->getLong("cpucore", "smtFetchs4Clk",i))
-  ,smtDecodes4Clk(SescConf->getLong("cpucore", "smtDecodes4Clk",i))
-  ,smtIssues4Clk(SescConf->getLong("cpucore", "smtIssues4Clk",i))
+  :GProcessor(gm,i,SescConf->getInt("cpucore", "smtContexts",i))
+  ,smtContexts(SescConf->getInt("cpucore", "smtContexts",i))
+  ,smtFetchs4Clk(SescConf->getInt("cpucore", "smtFetchs4Clk",i))
+  ,smtDecodes4Clk(SescConf->getInt("cpucore", "smtDecodes4Clk",i))
+  ,smtIssues4Clk(SescConf->getInt("cpucore", "smtIssues4Clk",i))
   ,firstContext(i*smtContexts)
   ,fetchDist("P(%d)_fetchDist", i)
   ,noFetch("P(%d)_noFetch", i)
@@ -53,16 +53,16 @@ SMTProcessor::SMTProcessor(GMemorySystem *gm, CPU_t i)
   ,fetchFromSpec("P(%d)_fetchFromSpec", i)
 #endif
 {
-  SescConf->isLong("cpucore", "smtContexts",Id);
+  SescConf->isInt("cpucore", "smtContexts",Id);
   SescConf->isGT("cpucore", "smtContexts", 1,Id);
 
-  SescConf->isLong("cpucore", "smtFetchs4Clk",Id);
+  SescConf->isInt("cpucore", "smtFetchs4Clk",Id);
   SescConf->isBetween("cpucore", "smtFetchs4Clk", 1,smtContexts,Id);
 
-  SescConf->isLong("cpucore", "smtDecodes4Clk",Id);
+  SescConf->isInt("cpucore", "smtDecodes4Clk",Id);
   SescConf->isBetween("cpucore", "smtDecodes4Clk", 1,smtContexts,Id);
 
-  SescConf->isLong("cpucore", "smtIssues4Clk",Id);
+  SescConf->isInt("cpucore", "smtIssues4Clk",Id);
   SescConf->isBetween("cpucore", "smtIssues4Clk", 1,smtContexts,Id);
 
   flow.resize(smtContexts);

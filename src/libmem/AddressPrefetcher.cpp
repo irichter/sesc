@@ -33,29 +33,29 @@ AddressPrefetcher::AddressPrefetcher(MemorySystem* current
 				     ,const char *section
 				     ,const char *name)
   : MemObj(section, name)
-  ,bsize(SescConf->getLong(section, "bsize"))
+  ,bsize(SescConf->getInt(section, "bsize"))
   ,gms(current)
 {
   MemObj *lower_level = NULL;
 
-  SescConf->isLong(section, "numPorts");
-  SescConf->isLong(section, "portOccp");
+  SescConf->isInt(section, "numPorts");
+  SescConf->isInt(section, "portOccp");
 
-  SescConf->isLong(section, "bsize");
+  SescConf->isInt(section, "bsize");
 
-  NumUnits_t  num = SescConf->getLong(section, "numPorts");
-  TimeDelta_t occ = SescConf->getLong(section, "portOccp");
+  NumUnits_t  num = SescConf->getInt(section, "numPorts");
+  TimeDelta_t occ = SescConf->getInt(section, "portOccp");
 
   cachePort = PortGeneric::create(name, num, occ);
 
   const char *cacheSection = SescConf->getCharPtr(section, "cache");
   cache = CacheType::create(cacheSection, "", name);
 
-  SescConf->isLong(cacheSection, "hitDelay");
-  hitDelay = SescConf->getLong(cacheSection, "hitDelay");
+  SescConf->isInt(cacheSection, "hitDelay");
+  hitDelay = SescConf->getInt(cacheSection, "hitDelay");
 
-  SescConf->isLong(cacheSection, "missDelay");
-  missDelay = SescConf->getLong(cacheSection, "missDelay");
+  SescConf->isInt(cacheSection, "missDelay");
+  missDelay = SescConf->getInt(cacheSection, "missDelay");
 
   I(current);
   lower_level = current->declareMemoryObj(section, k_lowerLevel);   
@@ -81,17 +81,20 @@ void AddressPrefetcher::tryPrefetch(MemRequest *mreq)
   // brough to the cache. Keep it in the small cache
   RAddr start = ThreadContext::getMainThreadContext()->virt2real(vaddr);
 
-  I(ThreadContext::isPrivateVAddr(start));
+  I(ThreadContext::isPrivateRAddr(start));
 
   RAddr end   = start + bsize;
 
   for(RAddr addr = start ; addr < end ; addr+=4) {
-    long *pos = (long *)addr;
+	 int *pos = (int *)addr;
     VAddr val = SWAP_WORD(*pos);
-    if (ThreadContext::isPrivateVAddr(val)) {
+#if 0
+    // FIXME: val is a virtual address, it must be translated
+    if (ThreadContext::isPrivateRAddr(val)) {
       cache->fillLine(val); // FIXME
       MSG("prefetch [0x%x]",(uint) val);
     }
+#endif
   }
 }
 

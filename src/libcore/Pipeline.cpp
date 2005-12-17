@@ -231,24 +231,24 @@ IBucket *Pipeline::nextItem()
 
 PipeQueue::PipeQueue(CPU_t i)
   :pipeLine(
-            SescConf->getLong("cpucore", "decodeDelay",i)
-            +SescConf->getLong("cpucore", "renameDelay",i)
-            ,SescConf->getLong("cpucore", "fetchWidth",i)
-            ,SescConf->getLong("cpucore", "maxIRequests",i))
-  ,instQueue(SescConf->getLong("cpucore", "instQueueSize",i))
+            SescConf->getInt("cpucore", "decodeDelay",i)
+            +SescConf->getInt("cpucore", "renameDelay",i)
+            ,SescConf->getInt("cpucore", "fetchWidth",i)
+            ,SescConf->getInt("cpucore", "maxIRequests",i))
+  ,instQueue(SescConf->getInt("cpucore", "instQueueSize",i))
 {
-  SescConf->isLong("cpucore", "decodeDelay", i);
+  SescConf->isInt("cpucore", "decodeDelay", i);
   SescConf->isBetween("cpucore", "decodeDelay", 1, 64,i);
 
-  SescConf->isLong("cpucore", "renameDelay", i);
+  SescConf->isInt("cpucore", "renameDelay", i);
   SescConf->isBetween("cpucore", "renameDelay", 1, 64, i);
 
-  SescConf->isLong("cpucore", "maxIRequests",i);
+  SescConf->isInt("cpucore", "maxIRequests",i);
   SescConf->isBetween("cpucore", "maxIRequests", 0, 32000,i);
     
-  SescConf->isLong("cpucore", "instQueueSize",i);
+  SescConf->isInt("cpucore", "instQueueSize",i);
   SescConf->isBetween("cpucore", "instQueueSize"
-                      ,SescConf->getLong("cpucore","fetchWidth",i)
+                      ,SescConf->getInt("cpucore","fetchWidth",i)
                       ,32768,i);
 
 }

@@ -75,14 +75,14 @@ Cache::Cache(MemorySystem *gms, const char *section, const char *name)
   char busName[512];
   char tmpName[512];
   
-  if(SescConf->checkLong(section,"nBanks")) 
-    nBanks = SescConf->getLong(section,"nBanks");
+  if(SescConf->checkInt(section,"nBanks")) 
+    nBanks = SescConf->getInt(section,"nBanks");
   else
     nBanks = 1;
 
   int nMSHRsharers = 1;
-  if(SescConf->checkLong(section, "nMSHRsharers"))
-    nMSHRsharers = SescConf->getLong(section, "nMSHRsharers");
+  if(SescConf->checkInt(section, "nMSHRsharers"))
+    nMSHRsharers = SescConf->getInt(section, "nMSHRsharers");
 
   nAccesses = (GStatsCntr **) malloc(nBanks * sizeof(GStatsCntr *));
   cacheBanks = (CacheType **) malloc(nBanks * sizeof(CacheType*));
@@ -126,26 +126,26 @@ Cache::Cache(MemorySystem *gms, const char *section, const char *name)
   GMSG(lower_level == NULL, 
        "You are defining a cache with void as lowerLevel\n");
 
-  int cacheNumPorts = SescConf->getLong(section, k_numPorts);
-  int cachePortOccp = SescConf->getLong(section, k_portOccp);
+  int cacheNumPorts = SescConf->getInt(section, k_numPorts);
+  int cachePortOccp = SescConf->getInt(section, k_portOccp);
   int bankNumPorts = cacheNumPorts;
   int bankPortOccp = cachePortOccp;
 
-  if(SescConf->checkLong(section, "bankNumPorts")) {
-    bankNumPorts = SescConf->getLong(section, "bankNumPorts");
+  if(SescConf->checkInt(section, "bankNumPorts")) {
+    bankNumPorts = SescConf->getInt(section, "bankNumPorts");
   }
-  if(SescConf->checkLong(section, "bankPortOccp")) {
-    bankPortOccp = SescConf->getLong(section, "bankPortOccp");
+  if(SescConf->checkInt(section, "bankPortOccp")) {
+    bankPortOccp = SescConf->getInt(section, "bankPortOccp");
   }
 
   int mshrNumPorts = bankNumPorts;
   int mshrPortOccp = bankPortOccp;
 
-  if(SescConf->checkLong(section, "mshrNumPorts")) {
-    mshrNumPorts = SescConf->getLong(section, "mshrNumPorts");
+  if(SescConf->checkInt(section, "mshrNumPorts")) {
+    mshrNumPorts = SescConf->getInt(section, "mshrNumPorts");
   }
-  if(SescConf->checkLong(section, "mshrPortOccp")) {
-    mshrPortOccp = SescConf->getLong(section, "mshrPortOccp");
+  if(SescConf->checkInt(section, "mshrPortOccp")) {
+    mshrPortOccp = SescConf->getInt(section, "mshrPortOccp");
   }
 
   cachePort = PortGeneric::create(name, cacheNumPorts, cachePortOccp);
@@ -163,25 +163,25 @@ Cache::Cache(MemorySystem *gms, const char *section, const char *name)
     }
   }
 
-  SescConf->isLong(section, k_hitDelay);
-  hitDelay = SescConf->getLong(section, k_hitDelay);
+  SescConf->isInt(section, k_hitDelay);
+  hitDelay = SescConf->getInt(section, k_hitDelay);
 
-  SescConf->isLong(section, k_missDelay);
-  missDelay = SescConf->getLong(section, k_missDelay);
+  SescConf->isInt(section, k_missDelay);
+  missDelay = SescConf->getInt(section, k_missDelay);
 
   if (SescConf->checkBool(section, "wbfwd"))
     doWBFwd = SescConf->getBool(section, "wbfwd");
   else
     doWBFwd = true;
 
-  if (SescConf->checkLong(section, "fwdDelay")) 
-    fwdDelay = SescConf->getLong(section, "fwdDelay");
+  if (SescConf->checkInt(section, "fwdDelay")) 
+    fwdDelay = SescConf->getInt(section, "fwdDelay");
   else
     fwdDelay = missDelay;
 
   pendingWrites = 0;
-  if (SescConf->checkLong(section, "maxWrites")) 
-    maxPendingWrites = SescConf->getLong(section, "maxWrites");
+  if (SescConf->checkInt(section, "maxWrites")) 
+    maxPendingWrites = SescConf->getInt(section, "maxWrites");
   else
     maxPendingWrites = -1;
   
@@ -600,7 +600,7 @@ bool Cache::canAcceptLoad(PAddr addr)
 bool Cache::isInCache(PAddr addr) const
 {
   unsigned int index = getCacheBank(addr)->calcIndex4Addr(addr);
-  unsigned long tag = getCacheBank(addr)->calcTag(addr);
+  unsigned int tag = getCacheBank(addr)->calcTag(addr);
 
   // check the cache not affecting the LRU state
   for(unsigned int i = 0; i < cacheBanks[0]->getAssoc(); i++) {
@@ -640,7 +640,7 @@ void Cache::doInvalidate(PAddr addr, ushort size)
      pendInvTable.erase(addr);
   }
 
-  signed long leftSize = size; // use signed because cacheline can be bigger
+  signed int leftSize = size; // use signed because cacheline can be bigger
   while (leftSize > 0) {
     Line *l = getCacheBank(addr)->readLine(addr);
     
@@ -1009,7 +1009,7 @@ void SVCache::preReturnAccess(MemRequest *mreq)
 void SVCache::ckpRestart(unsigned int ckpId)
 {
   for(int b = 0; b < nBanks; b++) {
-    for(ulong i = 0; i < cacheBanks[b]->getNumLines(); i++) {
+	 for(uint i = 0; i < cacheBanks[b]->getNumLines(); i++) {
       Line *l = cacheBanks[b]->getPLine(i);
       if(l->isValid() && l->isSpec()) {
 	I(l->isLocked());
@@ -1025,7 +1025,7 @@ void SVCache::ckpRestart(unsigned int ckpId)
 void SVCache::ckpCommit(unsigned int ckpId)
 {
   for(int b = 0; b < nBanks; b++) {
-    for(ulong i = 0; i < cacheBanks[b]->getNumLines(); i++) {
+	 for(uint i = 0; i < cacheBanks[b]->getNumLines(); i++) {
       Line *l = cacheBanks[b]->getPLine(i);
       if(l->isValid() && l->isSpec()) {
 	I(l->isLocked());

@@ -22,13 +22,18 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #ifndef _AC_ALLOCA_H
 #define _AC_ALLOCA_H
 
-#ifdef __GNUC__
+#ifdef SUNSTUDIO
+#include <sys/types.h>
+
+#define alloca(x)       __builtin_alloca(x)
+extern void *__builtin_alloca(size_t);
+extern void *alloca(size_t);
+
+#elif (defined __GNUC__)
 #define alloca __builtin_alloca
-#else
-#ifdef _AIX
+#elif (defined _AIX)
 #pragma alloca
-#else
-#ifdef __ICC
+#elif (defined __ICC)
 #include <stddef.h>
 /* Allocate a block.  */
 
@@ -39,8 +44,6 @@ extern void *_alloca (size_t __size);
 #else
 extern void *alloca (unsigned int __size);
 #define alloca  __builtin_alloca
-#endif /* ICC */
-#endif /* _AIX */
 #endif /* __GNUC__ */
 
 

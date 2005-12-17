@@ -37,11 +37,11 @@ VBus::VBus(MemorySystem *gms, const char *section, const char *name)
   ,lineDirectory(SescConf->getCharPtr(section, "directory", 0), "VBusDirectory")
 #endif
 { 
-  SescConf->isLong(section, "numPorts");
-  SescConf->isLong(section, "portOccp");
+  SescConf->isInt(section, "numPorts");
+  SescConf->isInt(section, "portOccp");
 
-  NumUnits_t  num = SescConf->getLong(section, "numPorts");
-  TimeDelta_t occ = SescConf->getLong(section, "portOccp");
+  NumUnits_t  num = SescConf->getInt(section, "numPorts");
+  TimeDelta_t occ = SescConf->getInt(section, "portOccp");
   
   char cadena[100];
   sprintf(cadena,"Data%s", name);
@@ -53,8 +53,8 @@ VBus::VBus(MemorySystem *gms, const char *section, const char *name)
 			       EnergyMgr::get(section,"BusEnergy",0));
 
   // Static variables only
-  SescConf->isLong(section, "delay");
-  delay= SescConf->getLong(section, "delay");
+  SescConf->isInt(section, "delay");
+  delay= SescConf->getInt(section, "delay");
 }
 
 VBus::~VBus()

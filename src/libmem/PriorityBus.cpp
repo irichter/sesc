@@ -25,7 +25,7 @@ PriorityBus::PriorityBus(MemorySystem* current, const char *section,
 			 const char *name) 
   : MemObj(section, name)
   ,enablePrio(SescConf->getBool(section, "enablePrio"))
-  ,delay(SescConf->getLong(section, "delay"))
+  ,delay(SescConf->getInt(section, "delay"))
   ,nBypassDown("PBusPort%s_nBypassDown", name)
   ,nBypassUp("PBusPort%s_nBypassUp", name)
   ,nBypassDirection("PBusPort%s_nBypassDirection", name)
@@ -33,9 +33,9 @@ PriorityBus::PriorityBus(MemorySystem* current, const char *section,
 {
   MemObj *lower_level = NULL;
 
-  NumUnits_t  num = SescConf->getLong(section, "numPorts");
-  dataOcc = SescConf->getLong(section, "dataOccp");
-  controlOcc = SescConf->getLong(section, "controlOccp");
+  NumUnits_t  num = SescConf->getInt(section, "numPorts");
+  dataOcc = SescConf->getInt(section, "dataOccp");
+  controlOcc = SescConf->getInt(section, "controlOccp");
 
   char portName[256];
   sprintf(portName, "PBusPort%s", name);

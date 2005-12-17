@@ -92,14 +92,14 @@ private:
 #ifdef SESC_INORDER
   PipeLineSelector pipeLineSelector;
   FILE *energyInstFile, *switchFile;
-  long instrCount;
-  long subIntervalCount;
-  long previousClockCount;
+  int instrCount;
+  int subIntervalCount;
+  int previousClockCount;
   int intervalCount;
   double previousTotEnergy;
   
   int getNextCoreMode(); 
-  int gatherRunTimeData(long pc);
+  int gatherRunTimeData(int pc);
 #endif
 
  
@@ -133,7 +133,7 @@ public:
 	      ,FetchEngine *fe = 0);
   ~FetchEngine();
 
-  void addEvent(EventType ev, CallbackBase *cb, long vaddr) {
+  void addEvent(EventType ev, CallbackBase *cb, int vaddr) {
     flow.addEvent(ev,cb,vaddr);
   }
  

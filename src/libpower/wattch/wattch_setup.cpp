@@ -129,25 +129,25 @@ void wattch_setup()
   const char *technology = SescConf->getCharPtr("","technology");
   fprintf(stderr,"technology = [%s]\n",technology);
   Mhz = SescConf->getDouble(technology,"frequency");
-  double tech = SescConf->getLong(technology,"tech");
+  double tech = SescConf->getInt(technology,"tech");
   fprintf(stderr, "Freq : %9.2fGHz\n", Mhz/1e9);
   fprintf(stderr, "tech : %9.0fnm\n" , tech);
   tech /= 1000; // Use um (not nm)
 
-  ruu_fetch_width  = SescConf->getLong(proc,"fetchWidth") ;
-  ruu_decode_width = SescConf->getLong(proc,"issueWidth") ;
-  ruu_issue_width  = SescConf->getLong(proc,"issueWidth") ;
-  ruu_commit_width = SescConf->getLong(proc,"retireWidth") ;
+  ruu_fetch_width  = SescConf->getInt(proc,"fetchWidth") ;
+  ruu_decode_width = SescConf->getInt(proc,"issueWidth") ;
+  ruu_issue_width  = SescConf->getInt(proc,"issueWidth") ;
+  ruu_commit_width = SescConf->getInt(proc,"retireWidth") ;
   areaFactor       = SescConf->getDouble(proc,"areaFactor");
 
-  decode_stages = SescConf->getLong(proc,"decodeDelay");
-  rename_stages = SescConf->getLong(proc,"renameDelay");
+  decode_stages = SescConf->getInt(proc,"decodeDelay");
+  rename_stages = SescConf->getInt(proc,"renameDelay");
 
   {
     const char* cc = SescConf->getCharPtr(proc,"cluster",0) ;
 
-    wakeup_stages = SescConf->getLong(cc,"wakeupDelay");
-    wakeup_stages += SescConf->getLong(cc,"schedDelay");
+    wakeup_stages = SescConf->getInt(cc,"wakeupDelay");
+    wakeup_stages += SescConf->getInt(cc,"schedDelay");
   }
  
   dieLenght =.018*sqrt(areaFactor)*(tech/.18);
@@ -160,10 +160,10 @@ void wattch_setup()
   printf("RUU_size = %d cro = %g\n", RUU_size, crossover_scaling);
   
   // TODO: Currently, only IREgs. Add FPReg
-  REG_size = SescConf->getLong(proc,"intRegs");
-  LDQ_size = SescConf->getLong(proc,"maxLoads");
-  STQ_size = SescConf->getLong(proc,"maxStores") ;
-  rob_size = SescConf->getLong(proc,"robSize") ;
+  REG_size = SescConf->getInt(proc,"intRegs");
+  LDQ_size = SescConf->getInt(proc,"maxLoads");
+  STQ_size = SescConf->getInt(proc,"maxStores") ;
+  rob_size = SescConf->getInt(proc,"robSize") ;
   data_width = 32 ;
   const char *l1Cache = SescConf->getCharPtr(proc,"dataSource");
   const char *l1CacheSpace = strstr(l1Cache," ");
@@ -171,17 +171,17 @@ void wattch_setup()
   if (l1CacheSpace)
     l1Section[l1CacheSpace - l1Cache] = 0;
   
-  int sets = SescConf->getLong(l1Section,"size");
-  sets = sets / SescConf->getLong(l1Section,"bsize");
-  sets = sets / SescConf->getLong(l1Section,"assoc");
+  int sets = SescConf->getInt(l1Section,"size");
+  sets = sets / SescConf->getInt(l1Section,"bsize");
+  sets = sets / SescConf->getInt(l1Section,"assoc");
 
-  res_memport = SescConf->getLong(l1Section,"numPorts");
+  res_memport = SescConf->getInt(l1Section,"numPorts");
   cache_dl1 = cache_create("dl1"
 			   ,sets
-			   ,SescConf->getLong(l1Section,"bsize")
+			   ,SescConf->getInt(l1Section,"bsize")
 			   ,/* balloc */0
 			   ,/* usize */0
-			   ,SescConf->getLong(l1Section,"assoc")
+			   ,SescConf->getInt(l1Section,"assoc")
 			   ,cache_char2policy('l')
 			   ,/* hit lat */3);
 
@@ -191,7 +191,7 @@ void wattch_setup()
   printf("Branch Begin\n");
   processBranch(proc) ;
 
-  if (SescConf->checkLong("TaskScalar", "VersionSize")) {
+  if (SescConf->checkInt("TaskScalar", "VersionSize")) {
     printf("LVIDTable Begin\n");
     processLVIDTable();
     printf("Combine Table Begin\n");
@@ -300,11 +300,11 @@ void processAlu(const char* proc)
     const char* cc = SescConf->getCharPtr(proc,"cluster",i) ;
     if(SescConf->checkCharPtr(cc,"fpALUUnit")){
       const char *sec = SescConf->getCharPtr(cc,"fpALUUnit") ;
-      res_fpalu = (int)SescConf->getLong(sec,"Num") ;
+      res_fpalu = (int)SescConf->getInt(sec,"Num") ;
     }
     if(SescConf->checkCharPtr(cc,"iALUUnit")){
       const char *sec = SescConf->getCharPtr(cc,"iALUUnit") ;
-      res_ialu = (int)SescConf->getLong(sec,"Num") ;
+      res_ialu = (int)SescConf->getInt(sec,"Num") ;
     }
   }
 
@@ -329,8 +329,8 @@ int getInstQueueSize(const char* proc)
   
   for(int i = min ; i <= max ; i++){
     const char* cc = SescConf->getCharPtr(proc,"cluster",i) ;
-    if(SescConf->checkLong(cc,"winSize")){
-      int sz = SescConf->getLong(cc,"winSize") ;
+    if(SescConf->checkInt(cc,"winSize")){
+      int sz = SescConf->getInt(cc,"winSize") ;
       total += sz;
       num++;
     }
@@ -365,20 +365,20 @@ void processBranch(const char* proc)
   if(!strcmp(type,"hybrid")) bp_type = COMB ;
 
   if(bp_type != ORACLE){
-    ras_size = (int) SescConf->getLong(bpred,"rasSize") ;
-    int btbSize = (int)SescConf->getLong(bpred,"btbSize") ;
-    int btbAssoc = (int)SescConf->getLong(bpred,"btbAssoc") ;
+    ras_size = (int) SescConf->getInt(bpred,"rasSize") ;
+    int btbSize = (int)SescConf->getInt(bpred,"btbSize") ;
+    int btbAssoc = (int)SescConf->getInt(bpred,"btbAssoc") ;
     btb_config[0] = btbSize/btbAssoc ;
     btb_config[1] = btbAssoc ;
   }
   
   if(bp_type == BIMOD){
-    bimod_config[0] = (int) SescConf->getLong(bpred,"size") ;    
+    bimod_config[0] = (int) SescConf->getInt(bpred,"size") ;    
   }
   if((bp_type == TWOLEV) || (bp_type == COMB)){
-    int l1size = (int) SescConf->getLong(bpred,"l1size") ;
-    int l2size = (int) SescConf->getLong(bpred,"l2size") ;
-    int historySize = (int) SescConf->getLong(bpred,"historySize") ;
+    int l1size = (int) SescConf->getInt(bpred,"l1size") ;
+    int l2size = (int) SescConf->getInt(bpred,"l2size") ;
+    int historySize = (int) SescConf->getInt(bpred,"historySize") ;
     bool xorflag = false ;
     if(SescConf->checkBool(bpred,"xor"))
       xorflag = (bool) SescConf->getBool(bpred,"xor") ;
@@ -389,8 +389,8 @@ void processBranch(const char* proc)
     twolev_config[3] = (int) xorflag ;
   }
   if(bp_type == COMB){
-    bimod_config[0] = (int) SescConf->getLong(bpred,"localSize") ;
-    comb_config[0] = (int) SescConf->getLong(bpred,"Metasize") ;
+    bimod_config[0] = (int) SescConf->getInt(bpred,"localSize") ;
+    comb_config[0] = (int) SescConf->getInt(bpred,"Metasize") ;
   }
   if(bp_type == OTHER){
     fprintf(stderr,"branch predictor type %s not recognized\n",bpred);
@@ -406,17 +406,17 @@ int getLog(int val){
 
 int getLVIDBlkSize(const char* section)
 {
-  int gtid = SescConf->getLong("TaskScalar","VersionSize");
-  int lidoff = getLog(SescConf->getLong(section,"nSubLVID"));
+  int gtid = SescConf->getInt("TaskScalar","VersionSize");
+  int lidoff = getLog(SescConf->getInt(section,"nSubLVID"));
   int statoff = 2;
-  int nextfree = getLog(SescConf->getLong(section,"nLVID"));
+  int nextfree = getLog(SescConf->getInt(section,"nLVID"));
 
-  int mm = SescConf->getLong("TaskScalar","MLThreshold");
+  int mm = SescConf->getInt("TaskScalar","MLThreshold");
   int tpointer = getLog(mm);
 
-  int size = SescConf->getLong(section,"size");
-  int assoc = SescConf->getLong(section,"assoc");
-  int bsize = SescConf->getLong(section,"bsize");
+  int size = SescConf->getInt(section,"size");
+  int assoc = SescConf->getInt(section,"assoc");
+  int bsize = SescConf->getInt(section,"bsize");
   int lines = size/(assoc * bsize);
   int llines = getLog(lines);
 
@@ -438,9 +438,9 @@ void processLVIDTable()
     const char *name = SescConf->getCharPtr(block,"deviceType") ;
    
     if(!strcasecmp(name,"mvcache") || !strcasecmp(name,"dirmvcache")) {
-      int rows = SescConf->getLong(block,"nLVID");
+      int rows = SescConf->getInt(block,"nLVID");
       int cols = getLVIDBlkSize(block);
-      int ports = SescConf->getLong(block,"LVIDTablePort");
+      int ports = SescConf->getInt(block,"LVIDTablePort");
       double eng = simple_array_power(rows,cols,ports-1,1,0);
 
       // write it
@@ -457,7 +457,7 @@ void processCombTable(const char* proc)
    const char *section = SescConf->getCharPtr(proc,"dataSource");
    char *tok = strdup(section);
    const char *tok1 = strtok(tok," ");
-   int bsize = SescConf->getLong(tok1,"bsize");
+   int bsize = SescConf->getInt(tok1,"bsize");
    
    double eng = simple_array_power(4,bsize,1,1,0);
    double div = Mhz/1e9;

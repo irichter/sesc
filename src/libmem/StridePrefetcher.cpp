@@ -46,26 +46,26 @@ StridePrefetcher::StridePrefetcher(MemorySystem* current
 {
   MemObj *lower_level = NULL;
 
-  SescConf->isLong(section, "depth");
-  depth = SescConf->getLong(section, "depth");
+  SescConf->isInt(section, "depth");
+  depth = SescConf->getInt(section, "depth");
 
-  SescConf->isLong(section, "missWindow");
-  missWindow = SescConf->getLong(section, "missWindow");
+  SescConf->isInt(section, "missWindow");
+  missWindow = SescConf->getInt(section, "missWindow");
 
-  SescConf->isLong(section, "maxStride");
-  maxStride = SescConf->getLong(section, "maxStride");
+  SescConf->isInt(section, "maxStride");
+  maxStride = SescConf->getInt(section, "maxStride");
 
-  SescConf->isLong(section, "hitDelay");
-  hitDelay = SescConf->getLong(section, "hitDelay");
+  SescConf->isInt(section, "hitDelay");
+  hitDelay = SescConf->getInt(section, "hitDelay");
 
-  SescConf->isLong(section, "missDelay");
-  missDelay = SescConf->getLong(section, "missDelay");
+  SescConf->isInt(section, "missDelay");
+  missDelay = SescConf->getInt(section, "missDelay");
 
-  SescConf->isLong(section, "learnHitDelay");
-  learnHitDelay = SescConf->getLong(section, "learnHitDelay");
+  SescConf->isInt(section, "learnHitDelay");
+  learnHitDelay = SescConf->getInt(section, "learnHitDelay");
 
-  SescConf->isLong(section, "learnMissDelay");
-  learnMissDelay = SescConf->getLong(section, "learnMissDelay");
+  SescConf->isInt(section, "learnMissDelay");
+  learnMissDelay = SescConf->getInt(section, "learnMissDelay");
 
   I(depth > 0);
 
@@ -73,11 +73,11 @@ StridePrefetcher::StridePrefetcher(MemorySystem* current
   if (buffSection) {
     buff = BuffType::create(buffSection, "", name);
     
-    SescConf->isLong(buffSection, "numPorts");
-    numBuffPorts = SescConf->getLong(buffSection, "numPorts");
+    SescConf->isInt(buffSection, "numPorts");
+    numBuffPorts = SescConf->getInt(buffSection, "numPorts");
     
-    SescConf->isLong(buffSection, "portOccp");
-    buffPortOccp = SescConf->getLong(buffSection, "portOccp");
+    SescConf->isInt(buffSection, "portOccp");
+    buffPortOccp = SescConf->getInt(buffSection, "portOccp");
   }
 
   const char *streamSection = SescConf->getCharPtr(section, "streamCache");
@@ -86,14 +86,14 @@ StridePrefetcher::StridePrefetcher(MemorySystem* current
     sprintf(tableName, "%sPrefTable", name);
     table = PfTable::create(streamSection, "", tableName);
 
-    GMSG(pEntrySize != SescConf->getLong(streamSection, "BSize"),
+    GMSG(pEntrySize != SescConf->getInt(streamSection, "BSize"),
 	 "The prefetch buffer streamBSize field in the configuration file should be %d.", pEntrySize);
 
-    SescConf->isLong(streamSection, "numPorts");
-    numTablePorts = SescConf->getLong(streamSection, "numPorts");
+    SescConf->isInt(streamSection, "numPorts");
+    numTablePorts = SescConf->getInt(streamSection, "numPorts");
 
-    SescConf->isLong(streamSection, "portOccp");
-    tablePortOccp = SescConf->getLong(streamSection, "portOccp");
+    SescConf->isInt(streamSection, "portOccp");
+    tablePortOccp = SescConf->getInt(streamSection, "portOccp");
   }
 
   char portName[128];
@@ -112,7 +112,7 @@ StridePrefetcher::StridePrefetcher(MemorySystem* current
 
 void StridePrefetcher::read(MemRequest *mreq)
 {
-  ulong paddr = mreq->getPAddr() & defaultMask;
+  uint paddr = mreq->getPAddr() & defaultMask;
   bLine *l = buff->readLine(paddr);
 
   if(l) { //hit
@@ -149,7 +149,7 @@ void StridePrefetcher::read(MemRequest *mreq)
 
 void StridePrefetcher::learnHit(PAddr addr)
 {
-  ulong paddr = addr & defaultMask;
+  uint paddr = addr & defaultMask;
   pEntry *pe = table->readLine(paddr);
   Time_t lat = nextTableSlot() - globalClock;
 
@@ -163,11 +163,11 @@ void StridePrefetcher::learnHit(PAddr addr)
 
 void StridePrefetcher::learnMiss(PAddr addr)
 {
-  ulong paddr = addr & defaultMask;
+  uint paddr = addr & defaultMask;
   Time_t lat = nextTableSlot() - globalClock;
   bool foundUnitStride = false;
-  ulong newStride = 0;
-  ulong minDelta = (ulong) -1;
+  uint newStride = 0;
+  uint minDelta = (uint) -1;
   bool goingUp = true;
 
   if(lastMissesQ.empty()) {
@@ -179,7 +179,7 @@ void StridePrefetcher::learnMiss(PAddr addr)
   std::deque<PAddr>::iterator it = lastMissesQ.begin();
   while(it != lastMissesQ.end()) {
 
-    ulong delta;
+	 uint delta;
     if(paddr < (*it)) {
       goingUp = false;
       delta = (*it) - paddr;
@@ -212,7 +212,7 @@ void StridePrefetcher::learnMiss(PAddr addr)
 
   LOG("minDelta = %ld", minDelta);
   
-  if(newStride == 0 || newStride == (ulong) -1 || newStride > maxStride) {
+  if(newStride == 0 || newStride == (uint) -1 || newStride > maxStride) {
     ignoredStreams.inc();
     return;
   }
@@ -232,7 +232,7 @@ void StridePrefetcher::learnMiss(PAddr addr)
 
 void StridePrefetcher::prefetch(pEntry *pe, Time_t lat)
 {
-  ulong bsize = buff->getLineSize();
+  uint bsize = buff->getLineSize();
   PAddr prefAddr = pe->nextAddr(table);
 
   for(int i = 0; i < depth; i++) {
@@ -254,7 +254,7 @@ void StridePrefetcher::prefetch(pEntry *pe, Time_t lat)
 
 void StridePrefetcher::access(MemRequest *mreq)
 {
-  ulong paddr = mreq->getPAddr() & defaultMask;
+  uint paddr = mreq->getPAddr() & defaultMask;
   LOG("SP:access addr=%08lx", paddr);
 
   // TODO: should i really consider all these read types? 
@@ -275,7 +275,7 @@ void StridePrefetcher::access(MemRequest *mreq)
 
 void StridePrefetcher::returnAccess(MemRequest *mreq)
 {
-  ulong paddr = mreq->getPAddr() & defaultMask;
+  uint paddr = mreq->getPAddr() & defaultMask;
   LOG("SP:returnAccess addr=%08lx", paddr);
 
   mreq->goUp(0);
@@ -283,7 +283,7 @@ void StridePrefetcher::returnAccess(MemRequest *mreq)
 
 void StridePrefetcher::processAck(PAddr addr)
 {
-  ulong paddr = addr & defaultMask;
+  uint paddr = addr & defaultMask;
 
   penFetchSet::iterator itF = pendingFetches.find(paddr);
   if(itF == pendingFetches.end()) 
@@ -314,7 +314,7 @@ bool StridePrefetcher::canAcceptStore(PAddr addr)
 
 void StridePrefetcher::invalidate(PAddr addr,ushort size,MemObj *oc)
 { 
-   ulong paddr = addr & defaultMask;
+	uint paddr = addr & defaultMask;
    nextBuffSlot();
 
    bLine *l = buff->readLine(paddr);

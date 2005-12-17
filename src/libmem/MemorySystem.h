@@ -41,8 +41,8 @@ protected:
   virtual MemObj *buildMemoryObj(const char *type, const char *section, const char *name);
   virtual GMemoryOS *buildMemoryOS(const char *descr_section);
 
-  ulong procsPerNode;
-  ulong pID;
+  uint procsPerNode;
+  uint pID;
 
 public:
   // old Intf. MemorySystem(const char *descr_section = "memHierarchy");

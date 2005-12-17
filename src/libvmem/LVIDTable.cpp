@@ -37,9 +37,9 @@ LVID::LVID(const char *section, LVIDTable *m, ushort i)
     ,randSetId(((static_cast<PAddr>(i))<<8) | ((static_cast<PAddr>(i))<<16))
 {
   if (nSubLVID == 0) {
-    SescConf->isLong(section    , "nSubLVID");
+    SescConf->isInt(section    , "nSubLVID");
     SescConf->isBetween(section , "nSubLVID", 1, 32);
-    nSubLVID = SescConf->getLong(section, "nSubLVID");
+    nSubLVID = SescConf->getInt(section, "nSubLVID");
   }
 
   subLVID  = 0;
@@ -224,10 +224,10 @@ LVIDTable::LVIDTable(const char *section, const char *n)
   ,nLinesOnSetSafe("%s_LVIDTable_nLinesOnSetSafe", n)
   ,nLinesOnSetFinished("%s_LVIDTable_nLinesOnSetFinished", n)
 {
-  SescConf->isLong(section    , "nLVID");
+  SescConf->isInt(section    , "nLVID");
   SescConf->isBetween(section , "nLVID",2 ,32768);
   SescConf->isPower2(section  , "nLVID");
-  long nLVID = SescConf->getLong(section, "nLVID");
+  long nLVID = SescConf->getInt(section, "nLVID");
 
   lvidSafest = new LVIDSafest(section, this, 0);
     

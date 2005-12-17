@@ -80,7 +80,7 @@ void subst_functions();
 
 /* exported functions */
 void mint_init(int argc, char **argv, char **envp);
-void allocate_fixed(long addr, long nbytes);
+void allocate_fixed(int addr, int nbytes);
 
 /* private functions */
 static void parse_args(int argc, char **argv);
@@ -137,7 +137,7 @@ static void parse_args(int argc, char **argv)
   extern char *optarg;
 
   /* Value of command line option -n, -321 means 'not specified' */
-  long int NiceValue=-321;
+  int NiceValue=-321;
   
   /* set up the default values */
   Stack_size = STACK_SIZE;
@@ -188,7 +188,7 @@ static void
 copy_argv(int arg_start, int argc, char **argv, char **envp)
 {
     int i, size, nenv;
-    long *sp;
+    unsigned int *sp;
     int argc_obj;
     char **argv_obj, **eptr, **envp_obj;
     ThreadContext *pthread;
@@ -200,7 +200,7 @@ copy_argv(int arg_start, int argc, char **argv, char **envp)
     /* add up sizes of all the arguments */
     size = 0;
     for (i = arg_start; i < argc; i++) {
-	unsigned long val =size + strlen(argv[i]) + 1;
+	unsigned int val =size + strlen(argv[i]) + 1;
 	val = (val + 0x1f) & ~0x1f;
 	size = val;
     }
@@ -210,7 +210,7 @@ copy_argv(int arg_start, int argc, char **argv, char **envp)
      */
     nenv = 0;
     for (eptr = envp; *eptr; eptr++) {
-	unsigned long val =size + strlen(*eptr) + 1;
+	unsigned int val =size + strlen(*eptr) + 1;
 	val = (val + 0x1f) & ~0x1f;
 	size = val;
         nenv++;
@@ -235,10 +235,10 @@ copy_argv(int arg_start, int argc, char **argv, char **envp)
     /* allocate stack space for all the args */
     pthread->setREGNUM(29, pthread->getREGNUM(29) - size);
 
-    I(pthread->getREGNUM(29) >= Stack_start && pthread->getREGNUM(29) <= Stack_end);
+    I((size_t)pthread->virt2real(pthread->getREGNUM(29)) >= (size_t)Stack_start && (size_t)pthread->virt2real(pthread->getREGNUM(29)) <= (size_t)Stack_end);
 
     /* get the real address */
-    sp = (long *) pthread->virt2real(pthread->getREGNUM(29));
+    sp = (unsigned int *)pthread->virt2real(pthread->getREGNUM(29));
 
     /* the first stack item is the number of args (argc) */
     *sp++ = SWAP_WORD(argc_obj);
@@ -256,23 +256,22 @@ copy_argv(int arg_start, int argc, char **argv, char **envp)
     /* copy the args to the stack of the main thread */
     for (i = arg_start; i < argc; i++) {
         strcpy((char *) sp, argv[i]);
-	argv_obj[i - arg_start] = (char *) SWAP_WORD(pthread->real2virt((long)sp));
-	unsigned long val =(unsigned long) sp + strlen(argv[i]) + 1;
+	argv_obj[i - arg_start] = (char *) SWAP_WORD(pthread->real2virt((RAddr)sp));
+	RAddr val = (RAddr)sp + strlen(argv[i]) + 1;
 	/* Align word */
 	val = (val + 0x1f) & ~0x1f;
-        sp = (long *)(val);
-	
+	sp = (unsigned int *)(val);
     }
     argv_obj[argc - arg_start] = NULL;
 
     /* copy the environment variables to the stack of the main thread */
     for (i = 0, eptr = envp; i < nenv; i++, eptr++) {
         strcpy((char *) sp, *eptr);
-	envp_obj[i] = (char *) SWAP_WORD(pthread->real2virt((long)sp));
-	unsigned long val =(unsigned long) sp + strlen(*eptr) + 1;
+	envp_obj[i] = (char *) SWAP_WORD(pthread->real2virt((RAddr)sp));
+	RAddr val =(RAddr)sp + strlen(*eptr) + 1;
 	/* Align word */
 	val = (val + 0x1f) & ~0x1f;
-        sp = (long *)(val);
+        sp = (unsigned int *)(val);
     }
     envp_obj[nenv] = NULL;
 }
@@ -282,10 +281,10 @@ copy_argv(int arg_start, int argc, char **argv, char **envp)
  * It also rounds up its argument to the next higher power of 2.
  */
 static int
-logbase2(long *pnum)
+logbase2(int *pnum)
 {
     unsigned int logsize;
-    long exp;
+	 int exp;
 
     for (logsize = 0, exp = 1; exp < *pnum; logsize++)
         exp *= 2;
@@ -296,10 +295,10 @@ logbase2(long *pnum)
     return logsize;
 }
 
-void *allocate2(long nbytes)
+void *allocate2(int nbytes)
 {
   void *ptr;
-  long size2;
+  int size2;
   int status = 0;
   /* round nbytes up to the next power of 2 */
   size2 = nbytes;
@@ -319,9 +318,8 @@ void *allocate2(long nbytes)
 #endif
 
   if(status) {
-    fprintf(stderr,"allocate2: %x\n",status);
-    fprintf(stderr, "allocate_aligned: cannot allocate 0x%x bytes at a 0x%x boundary.\n",
-	    (unsigned) nbytes, (unsigned) size2);
+    fprintf(stderr, "allocate2: cannot allocate 0x%x bytes rounded to 0x%x bytes (status %d).\n",
+	    (unsigned) nbytes, (unsigned) size2, status);
     exit(-1);
   }
   /* Slow as hell  bzero(ptr, size2); */
@@ -335,14 +333,14 @@ void *allocate2(long nbytes)
  */
 static void create_addr_space()
 {
-  int size, multiples;
+  size_t size, multiples;
   unsigned i;
   unsigned dwords;
-  long *addr;
+  unsigned int *addr;
   thread_ptr pthread;
-  unsigned long min_seek, total_size;
-  signed long heap_start;
-  unsigned long heap_size;
+  size_t min_seek, total_size;
+  MINTAddrType heap_start;
+  size_t heap_size;
 
   /* this assumes that the bss is located higher in memory than the data */
 
@@ -367,11 +365,11 @@ static void create_addr_space()
 
   Mem_size = DB_size;
   Mem_size = (Mem_size + M_ALIGN - 1) & ~(M_ALIGN - 1);     // Page align
-  unsigned long Heap_start_rel = Mem_size;
+  size_t Heap_start_rel = Mem_size;
 
   Mem_size = Mem_size+Heap_size;
   Mem_size = (Mem_size + M_ALIGN - 1) & ~(M_ALIGN - 1);     // Page align
-  unsigned long Stack_start_rel = Mem_size;
+  size_t Stack_start_rel = Mem_size;
 
   Stack_size = (Stack_size + M_ALIGN - 1) & ~(M_ALIGN - 1); // Page align
 
@@ -381,25 +379,24 @@ static void create_addr_space()
   Data_end  = Data_start  + Heap_start_rel;
   Rdata_end = Rdata_start + Rdata_size;
 
-  Private_start = (long)allocate2(Mem_size);
+  Private_start = (MINTAddrType)allocate2(Mem_size);
   Private_end   = Private_start + Mem_size;
 
-  if (((ulong)Private_end > (ulong)Data_start  && (ulong)Private_end < (ulong)Data_end)
-      || ((ulong)Private_start > (ulong)Data_start  && (ulong)Private_start < (ulong)Data_end)) {
-    long oldSpace = Private_start;
-    Private_start = (long)allocate2(Mem_size);
-    fprintf(stderr,"Overlap: Shifting address space [0x%x] -> [0x%x]\n",(unsigned long)oldSpace, (unsigned long)Private_start);
+  if (((MINTAddrType)Private_end > (MINTAddrType)Data_start  && (MINTAddrType)Private_end < (MINTAddrType)Data_end)
+		|| ((MINTAddrType)Private_start > (MINTAddrType)Data_start  && (MINTAddrType)Private_start < (MINTAddrType)Data_end)) {
+    RAddr oldSpace = Private_start;
+    Private_start = (MINTAddrType)allocate2(Mem_size);
+    fprintf(stderr,"Overlap: Shifting address space [0x%p] -> [0x%p]\n",(void*)oldSpace, (void*)Private_start);
     free((void *)oldSpace);
     Private_end   = Private_start + Mem_size;
   }
 
   pthread = ThreadContext::getMainThreadContext();
 
-  signed long addrSpace = Private_start;
-  signed long rdataMap  = Private_start - Rdata_start;
- 
+  MINTAddrType addrSpace = Private_start;
+  MINTAddrType rdataMap  = Private_start - Rdata_start;
 
-  addr = (long *) addrSpace;
+  addr = (unsigned int *) addrSpace;
 
   if (Rdata_start < Data_start) {
     /* Read in the .rdata section first since the .rdata section is not
@@ -414,8 +411,8 @@ static void create_addr_space()
 	fatal("create_addr_space: end-of-file reading rdata section\n");
 
       /* move "addr" to prepare for reading in the data and bss */
-      addr = (long *) (Private_start + Rsize_round);
-      addrSpace = (signed long) addr;
+      addr = (unsigned int *) (Private_start + Rsize_round);
+      addrSpace = (MINTAddrType) addr;
     }
     rdataMap = Private_start - Data_start;
   }
@@ -424,25 +421,25 @@ static void create_addr_space()
    * .data first. DECstations have .rdata first except sometimes the
    * .rdata section is before the .text section.
    */
-  min_seek = ULONG_MAX;
+  min_seek = UINT_MAX;
   if (Rdata_start >= Data_start && Rdata_seek != 0)
     min_seek = Rdata_seek;
   if (Data_seek != 0 && Data_seek < min_seek)
     min_seek = Data_seek;
   if (Sdata_seek != 0 && Sdata_seek < min_seek)
     min_seek = Sdata_seek;
-  if (min_seek == ULONG_MAX)
+  if (min_seek >= UINT_MAX)
     fatal("create_addr_space: no .rdata or .data section\n");
         
   fseek(Fobj, min_seek, SEEK_SET);
   dwords = Data_size / 4;
 
   /* read in the initialized data from the object file */
-  if (fread(addr, sizeof(long), dwords, Fobj) < dwords)
+  if (fread(addr, sizeof(int), dwords, Fobj) < dwords)
     fatal("create_addr_space: end-of-file reading data section\n");
 
   /* zero out the bss section */
-  addr = (long *) (addrSpace + Bss_start - Data_start);
+  addr = (unsigned int *) (addrSpace + Bss_start - Data_start);
   dwords = Bss_size / 4;
   for (i = 0; i < dwords; i++)
     *addr++ = 0;
@@ -450,8 +447,7 @@ static void create_addr_space()
   heap_start = Private_start + Heap_start_rel;
   heap_size = Stack_start_rel - Heap_start_rel; // Next to heap is the stack
   if (heap_size < HEAP_SIZE_MIN) {
-    fprintf(stderr, "Not enough memory for private malloc: %ld (0x%lx)\n",
-	    heap_size,heap_size);
+    fprintf(stderr, "Not enough memory for private malloc: %u\n", heap_size);
     fprintf(stderr, "Try increasing it using the \"-h\" option.\n");
     usage();
     exit(1);
@@ -466,15 +462,14 @@ static void create_addr_space()
   /* (The stack grows down toward lower memory addresses.) */
   Stack_start = Private_start + Stack_start_rel;
   Stack_end   = Private_end;
-  pthread->setREGNUM(29, Stack_start + Stack_size);
-
   /* Change the sp so that mapping will work for sp-relative addresses. */
-  pthread->setREGNUM(29, pthread->real2virt(pthread->getREGNUM(29)));
 
-  pthread->initAddressing(rdataMap  // RDataMap
-			  ,addrSpace - Data_start  // memMap
-			  ,pthread->getREGNUM(29) - Stack_size // Stack Top
+  pthread->initAddressing(rdataMap                // RDataMap
+			  ,addrSpace - Data_start // memMap
+			  ,Stack_start            // Stack Top
 			  );
+
+  pthread->setREGNUM(29, pthread->real2virt(Stack_start+Stack_size));
 }
 
 
@@ -531,7 +526,7 @@ read_text()
   int make_copy, voffset, err;
   unsigned i;
   unsigned num_pointers;
-  long instr, opflags, iflags;
+  int instr, opflags, iflags;
   icode_ptr picode, prev_picode, dslot, pcopy, *pitext, pcopy2;
   struct op_desc *pdesc;
   unsigned int addr;
@@ -598,7 +593,7 @@ read_text()
   picode = Itext[0];
   addr = Text_start;
   for (i = 0; i < Text_size; i++, addr += 4, picode++) {
-    err = fread(&instr, sizeof(long), 1, Fobj);
+	 err = fread(&instr, sizeof(int), 1, Fobj);
     if (err < 1)
       fatal("read_text: end-of-file reading text section\n");
     instr = SWAP_WORD((unsigned)instr);
@@ -697,7 +692,7 @@ read_text()
       }
     } else if (opnum == lui_opn)
       /* precompute the shift, use the target field */
-      picode->target = (icode_ptr) (immed << 16);
+    picode->target =  (icode_ptr)(((int)immed) << 16)/*addr2icode(((int)immed) << 16)*/;
     picode->not_taken = picode + 2;
 
     /* Find user define opnums and handle them appropriately
@@ -715,7 +710,7 @@ read_text()
 	
       for(ud_i=0; ud_i < ud_size; ud_i++,ud_addr+=4,ud_picode++) {
 
-	err = fread(&ud_params[ud_i], sizeof(long), 1, Fobj);
+	err = fread(&ud_params[ud_i], sizeof(int), 1, Fobj);
 	if (err < 1)
 	  fatal("read_text: end-of-file reading text section\n");
 	ud_params[ud_i] = SWAP_WORD((unsigned)ud_params[ud_i]);
@@ -914,20 +909,19 @@ decode_instr(icode_ptr picode, int instr)
                 } else
                     regfield[j] = 32;
 	  }
-        /* shift the register values so they can be used
-         * as indices directly */
         if ((pdesc->regflags[j] & REG0) || (pdesc->regflags[j] & DREG1))
-            picode->args[j] = regfield[j] << 2;
+	  picode->args[j] = regfield[j];
         else if (pdesc->regflags[j] & REG1) {
 	  /* ENDIANA TRASH */
 #ifdef LENDIAN
-	  picode->args[j] = regfield[j] << 2;
+	  picode->args[j] = regfield[j];
 #else
 	  /* flip the low order bit of single precision fp regs */
-	  picode->args[j] = (regfield[j] ^ 1) << 2;
+	  picode->args[j] = (regfield[j] ^ 1);
 #endif
         } else
-            picode->args[j] = regfield[j];
+	  picode->args[j] = regfield[j];
+	//       picode->args[j] = regfield[j];
     }
     return opnum;
 }

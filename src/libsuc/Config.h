@@ -24,6 +24,8 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #ifndef CONFIGCLASS_H
 #define CONFIGCLASS_H
 
+#include <string.h>
+#include <strings.h>
 #include <ctype.h>
 #include <stdio.h>
 #include <vector>
@@ -52,7 +54,7 @@ protected:
   private:
     enum RCType {
       RCDouble = 0,
-      RCLong,
+      RCInt,
       RCBool,
       RCCharPtr
     };
@@ -64,7 +66,7 @@ protected:
 
     union {
       bool Bool;
-      long Long;
+      int Int;
       double Double;
       const char *CharPtr;
     } v;
@@ -78,8 +80,8 @@ protected:
       return *this;
     }
 
-    long X;
-    long Y;
+    int X;
+    int Y;
 
   public:
     Record(const Record & rec) {
@@ -92,10 +94,10 @@ protected:
     }
 
     Record(bool val);
-    Record(long val);
+	 Record(int val);
     Record(double val);
     Record(const char *val);
-    Record(const char *val,long x, long y);
+	 Record(const char *val,int x, int y);
 
     bool isEnv() const {
       return env;
@@ -143,11 +145,11 @@ protected:
       return v.Bool;
     }
 
-    bool isLong() const {
-      return type == RCLong;
+    bool isInt() const {
+      return type == RCInt;
     }
-    long getLong() const {
-      return v.Long;
+	 int getInt() const {
+      return v.Int;
     }
 
     bool isDouble() const {
@@ -170,8 +172,8 @@ protected:
       v.CharPtr = strdup(val);
     }
 
-    long getVectorFirst() const { return X; }
-    long getVectorLast() const { return Y; }
+	 int getVectorFirst() const { return X; }
+	 int getVectorLast() const { return Y; }
                 
     void dump(const char *pre,
               const char *post);
@@ -224,7 +226,7 @@ protected:
   /* Overwritten by SescConf */
   virtual const Record *getRecord(const char *block,
                                   const char *name,
-                                  long vectorPos);
+											 int vectorPos);
 
   void addRecord(const char *block,
                  const char *name,
@@ -243,14 +245,14 @@ public:
   void addVRecord(const char *block,
                   const char *name,
                   const char *val,
-                  long X,
-                  long Y);
+						int X,
+						int Y);
   void addRecord(const char *block,
                  const char *name,
                  bool val);
   void addRecord(const char *block,
                  const char *name,
-                 long val);
+					  int val);
   void addRecord(const char *block,
                  const char *name,
                  double val);
@@ -262,35 +264,35 @@ public:
   
   bool getBool(const char *block,
                const char *name,
-               long vectorPos=0);
+					int vectorPos=0);
   double getDouble(const char *block,
                    const char *name,
-                   long vectorPos=0);
-  long getLong(const char *block,
+						 int vectorPos=0);
+  int getInt(const char *block,
                const char *name,
-               long vectorPos=0);
+					int vectorPos=0);
   const char *getCharPtr(const char *block,
                          const char *name,
-                         long vectorPos=0);
+								 int vectorPos=0);
 
   // checking functions
   bool checkBool(const char *block,
                const char *name,
-               long vectorPos=0);
+					int vectorPos=0);
   bool checkDouble(const char *block,
                    const char *name,
-                   long vectorPos=0);
-  bool checkLong(const char *block,
+						 int vectorPos=0);
+  bool checkInt(const char *block,
                    const char *name,
-                   long vectorPos=0);
+						 int vectorPos=0);
   bool checkCharPtr(const char *block,
                    const char *name,
-                   long vectorPos=0);
+						 int vectorPos=0);
 
-  virtual long getRecordMin(const char *block, const char *name) const;
-  virtual long getRecordMax(const char *block, const char *name) const;
+  virtual ssize_t getRecordMin(const char *block, const char *name) const;
+  virtual ssize_t getRecordMax(const char *block, const char *name) const;
 
-  long getRecordSize(const char *block, const char *name) const {
+  int getRecordSize(const char *block, const char *name) const {
     return getRecordMax(block,name)-getRecordMin(block,name)+1;
   }
 
@@ -306,32 +308,32 @@ public:
 
   bool isPower2(const char *block,
                 const char *name,
-                long vectorPos=0);
+					 int vectorPos=0);
   bool isBetween(const char *block,
                  const char *name,
                  double llim,
                  double ulim,
-                 long vectorPos=0); // llim <= v <= ulim; or v in [llim, ulim]
+					  int vectorPos=0); // llim <= v <= ulim; or v in [llim, ulim]
   bool isGT(const char *block,
             const char *name,
             double val,
-            long vectorPos=0);      // Greater Than
+				int vectorPos=0);      // Greater Than
   bool isLT(const char *block,
             const char *name,
             double val,
-            long vectorPos=0);      // Less Than
+				int vectorPos=0);      // Less Than
   bool isBool(const char *block,
               const char *name,
-              long vectorPos=0);
-  bool isLong(const char *block,
+				  int vectorPos=0);
+  bool isInt(const char *block,
               const char *name,
-              long vectorPos=0);
+				  int vectorPos=0);
   bool isDouble(const char *block,
                 const char *name,
-                long vectorPos=0);
+					 int vectorPos=0);
   bool isCharPtr(const char *block,
                  const char *name,
-                 long vectorPos=0);
+					  int vectorPos=0);
 
 
   bool isInList(const char *block,
@@ -343,7 +345,7 @@ public:
                 const char *l5,
                 const char *l6,
                 const char *l7,
-                const long vectorPos=0);
+					 const int vectorPos=0);
 
   bool isInList(const char *block,
                 const char *name,
@@ -353,21 +355,21 @@ public:
                 const char *l4,
                 const char *l5,
                 const char *l6,
-                const long vectorPos=0) {
+					 const int vectorPos=0) {
     return isInList(block,name,l1,l2,l3,l4,l5,l6,0,vectorPos);
   }
     
   bool isInList(const char *block,
                 const char *name,
                 const char *l1,
-                long vectorPos=0) {
+					 int vectorPos=0) {
     return isInList(block,name,l1,0,0,0,0,0,0,vectorPos);
   }
   bool isInList(const char *block,
                 const char *name,
                 const char *l1,
                 const char *l2,
-                long vectorPos=0) {
+					 int vectorPos=0) {
     return isInList(block,name,l1,l2,0,0,0,0,0,vectorPos);
   }
   bool isInList(const char *block,
@@ -375,7 +377,7 @@ public:
                 const char *l1,
                 const char *l2,
                 const char *l3,
-                long vectorPos=0) {
+					 int vectorPos=0) {
     return isInList(block,name,l1,l2,l3,0,0,0,0,vectorPos);
   }
   bool isInList(const char *block,
@@ -384,7 +386,7 @@ public:
                 const char *l2,
                 const char *l3,
                 const char *l4,
-                long vectorPos=0) {
+					 int vectorPos=0) {
     return isInList(block,name,l1,l2,l3,l4,0,0,0,vectorPos);
   }
   bool isInList(const char *block,
@@ -394,7 +396,7 @@ public:
                 const char *l3,
                 const char *l4,
                 const char *l5,
-                long vectorPos=0) {
+					 int vectorPos=0) {
     return isInList(block,name,l1,l2,l3,l4,l5,0,0,vectorPos);
   }
   void dump(bool showAll = false);

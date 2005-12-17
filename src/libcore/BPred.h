@@ -133,7 +133,7 @@ private:
     }
   };
 
-  typedef CacheGeneric<BTBState, ulong, false> BTBCache;
+  typedef CacheGeneric<BTBState, uint, false> BTBCache;
   
   BTBCache *data;
   
@@ -237,7 +237,7 @@ private:
   BPBTB btb;
 
   const ushort l1Size;
-  const ulong  l1SizeMask;
+  const uint  l1SizeMask;
 
   const ushort historySize;
   const HistoryType historyMask;
@@ -336,6 +336,45 @@ protected:
 public:
   BPyags(int i, const char *section);
   ~BPyags();
+  
+  PredType predict(const Instruction * inst, InstID oracleID, bool doUpdate);
+
+  void switchIn(Pid_t pid);
+  void switchOut(Pid_t pid);
+};
+
+class BPOgehl : public BPred {
+private:
+  BPBTB btb;
+  
+  const int M_SIZ;
+  const int glength;
+  const int nentry;
+  const int addwidth;
+  int logpred;
+
+  int THETA;
+  int MAXTHETA;
+  int THETAUP;
+  int PREDUP;
+
+  long long phist;
+  long long *ghist;
+  int *histLength;
+  int *usedHistLength;
+  
+  int *T;
+  int AC;  
+  int miniTag;
+  char *MINITAG;
+  
+  char **pred;
+  int TC;
+protected:
+  int geoidx(long long Add, long long *histo, long long phisto, int m, int funct);
+public:
+  BPOgehl(int i, const char *section);
+  ~BPOgehl();
   
   PredType predict(const Instruction * inst, InstID oracleID, bool doUpdate);
 

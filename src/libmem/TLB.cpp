@@ -23,7 +23,7 @@ TLB::~TLB()
     cache->destroy();
 }
 
-long TLB::translate(VAddr vAddr) 
+int TLB::translate(VAddr vAddr)
 {
   if(GMemorySystem::calcPage(vAddr) == 0)
     return 0;
@@ -37,7 +37,7 @@ long TLB::translate(VAddr vAddr)
   return cl->physicalPage;
 }
 
-void TLB::insert(VAddr vAddr, long  phPage) 
+void TLB::insert(VAddr vAddr, int  phPage)
 {
   if(GMemorySystem::calcPage(vAddr) == 0)
     return;

@@ -58,7 +58,7 @@ class TaskContext {
 #ifdef OOO_PAPER_STATS
   class TaskEntry {
   public:
-    long nSpawns;
+	 int nSpawns;
     long long nInst;
     bool outOrder;
     TaskEntry() {
@@ -75,7 +75,7 @@ class TaskContext {
   class Hash4TaskContext {
   public:
     size_t operator()(const TaskContext *tc) const {
-      return (long)tc;
+		return (int)tc;
     }
   };
 
@@ -157,7 +157,7 @@ class TaskContext {
   PAddr spawnAddr;
   int   staticId;  // Static Task Id
 
-  long NES; // Number of Exists to Skipt (mergeNext)
+  int NES; // Number of Exists to Skipt (mergeNext)
   BPred::HistoryType startBPHistory; // Original history used
   BPred::HistoryType newBPHistory;
   BPred *currentBranchPredictor;
@@ -264,7 +264,7 @@ public:
   void localRestart();
   void localKill(bool inv);
 
-  RAddr read(ulong iAddr, short iFlags, RAddr addr) {
+  RAddr read(uint iAddr, short iFlags, RAddr addr) {
 
 #ifdef TC_PARTIALORDER
     if(memVer->isOnly()) 
@@ -284,7 +284,7 @@ public:
     return (RAddr)(&writeData)+MemBufferEntry::calcChunkOffset(addr);
   }
 
-  const HVersion *postWrite(ulong iAddr, short iFlags, RAddr addr) {
+  const HVersion *postWrite(uint iAddr, short iFlags, RAddr addr) {
 #ifdef TC_PARTIALORDER
     if(memVer->isOnly()) 
       return 0;

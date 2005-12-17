@@ -36,7 +36,7 @@ Dnum2   {digit}+\.?[eE][-+]?{digit}+
 Dnum3   {digit}*\.{digit}+([eE][-+]?{digit}+)?
 Double  {Dnum1}|{Dnum2}|{Dnum3}
 
-Long    {digit}+
+Int     {digit}+
 
 name    {alpha}({alnum})*
 
@@ -58,9 +58,9 @@ QString {QString1}|{QString2}
 
 {Double} { yyConflval.Double = atof(yyConftext); return CFDOUBLE; }
 
- /***************** Long ***************/
+ /***************** Int ***************/
 
-{Long}  { yyConflval.Long = strtol(yyConftext,0,10); return CFLONG; }
+{Int}  { yyConflval.Int = strtol(yyConftext,0,10); return CFLONG; }
 
  /***************** Bool ***************/
 

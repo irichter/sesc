@@ -75,12 +75,12 @@ SMPCache::SMPCache(SMemorySystem *dms, const char *section, const char *name)
     protocol = new MESIProtocol(this);    
   }
 
-  SescConf->isLong(section, "numPorts");
-  SescConf->isLong(section, "portOccp");
+  SescConf->isInt(section, "numPorts");
+  SescConf->isInt(section, "portOccp");
 
   cachePort = PortGeneric::create(name, 
-				  SescConf->getLong(section, "numPorts"), 
-				  SescConf->getLong(section, "portOccp"));
+				  SescConf->getInt(section, "numPorts"), 
+				  SescConf->getInt(section, "portOccp"));
 
   // MSHR is used as an outstanding request buffer
   // even hits are added to MSHR
@@ -95,13 +95,13 @@ SMPCache::SMPCache(SMemorySystem *dms, const char *section, const char *name)
     mutExclBuffer = MSHR<PAddr,SMPCache>::create("mutExclBuffer", 
 				  SescConf->getCharPtr(mshrSection, "type"),
 				  32000,
-				  SescConf->getLong(mshrSection, "bsize"));
+				  SescConf->getInt(mshrSection, "bsize"));
   
-  SescConf->isLong(section, "hitDelay");
-  hitDelay = SescConf->getLong(section, "hitDelay");
+  SescConf->isInt(section, "hitDelay");
+  hitDelay = SescConf->getInt(section, "hitDelay");
 
-  SescConf->isLong(section, "missDelay");
-  missDelay = SescConf->getLong(section, "missDelay");
+  SescConf->isInt(section, "missDelay");
+  missDelay = SescConf->getInt(section, "missDelay");
 }
 
 SMPCache::~SMPCache() 

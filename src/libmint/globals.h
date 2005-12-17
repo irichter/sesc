@@ -24,6 +24,8 @@
 #ifndef GLOBALS_H
 #define GLOBALS_H
 
+#include <stdint.h>
+
 #ifdef EXTERN
 #undef EXTERN
 #endif
@@ -60,35 +62,36 @@ EXTERN struct icode **Itext;
 /* All the xxx_start variables are addresses in object's memory space,
  * except for Private_start.
  */
-EXTERN signed long Text_start;/* text address when loaded in memory */
-EXTERN signed long Text_end;		/* addr of word past end of text */
-EXTERN signed long Text_entry;		/* addr of first instruction to execute */
-EXTERN signed long Data_start;		/* start of data section in memory */
-EXTERN signed long Data_end;		/* end of all private memory */
-EXTERN signed long Rdata_start;	/* start of rdata section in memory */
-EXTERN signed long Rdata_end;		/* end of rdata section */
-EXTERN signed long Bss_start;		/* start of bss section in memory */
-EXTERN signed long Private_start;	/* start of private memory */
-EXTERN signed long Private_end;	/* end of private memory */
-EXTERN signed long Heap_start;         /* start of malloc memory */
-EXTERN signed long Heap_end;		/* malloc memory allocated so far */
-EXTERN signed long Stack_start;         /* start of stack memory */
-EXTERN signed long Stack_end;
+typedef intptr_t MINTAddrType;
+EXTERN MINTAddrType Text_start;/* text address when loaded in memory */
+EXTERN MINTAddrType Text_end;		/* addr of word past end of text */
+EXTERN MINTAddrType Text_entry;		/* addr of first instruction to execute */
+EXTERN MINTAddrType Data_start;		/* start of data section in memory */
+EXTERN MINTAddrType Data_end;		/* end of all private memory */
+EXTERN MINTAddrType Rdata_start;	/* start of rdata section in memory */
+EXTERN MINTAddrType Rdata_end;		/* end of rdata section */
+EXTERN MINTAddrType Bss_start;		/* start of bss section in memory */
+EXTERN MINTAddrType Private_start;	/* start of private memory */
+EXTERN MINTAddrType Private_end;	/* end of private memory */
+EXTERN MINTAddrType Heap_start;         /* start of malloc memory */
+EXTERN MINTAddrType Heap_end;		/* malloc memory allocated so far */
+EXTERN MINTAddrType Stack_start;         /* start of stack memory */
+EXTERN MINTAddrType Stack_end;
 
-EXTERN unsigned long Text_size;		/* text size in words (instructions) */
-EXTERN unsigned long Data_size;		/* data size in bytes */
-EXTERN unsigned long Rdata_size;		/* rdata size in bytes */
-EXTERN signed long Rsize_round;	/* rdata size rounded up to a nice boundary */
-EXTERN unsigned long Bss_size;		/* bss size in bytes */
-EXTERN unsigned long Stack_size;		/* stack size in bytes */
-EXTERN unsigned long Heap_size;		/* heap size in bytes (for private malloc) */
-EXTERN unsigned long DB_size;		/* data + bss size in bytes */
-EXTERN unsigned long Mem_size;		/* data+bss+heap+(stack) size in bytes */
+EXTERN size_t Text_size;		/* text size in words (instructions) */
+EXTERN size_t Data_size;		/* data size in bytes */
+EXTERN size_t Rdata_size;		/* rdata size in bytes */
+EXTERN MINTAddrType Rsize_round;	/* rdata size rounded up to a nice boundary */
+EXTERN size_t Bss_size;		/* bss size in bytes */
+EXTERN size_t Stack_size;		/* stack size in bytes */
+EXTERN size_t Heap_size;		/* heap size in bytes (for private malloc) */
+EXTERN size_t DB_size;		/* data + bss size in bytes */
+EXTERN size_t Mem_size;		/* data+bss+heap+(stack) size in bytes */
 
-EXTERN unsigned long Text_seek;		/* seek offset in file for text section */
-EXTERN unsigned long Rdata_seek;		/* seek offset in file for rdata section */
-EXTERN unsigned long Data_seek;		/* seek offset in file for data section */
-EXTERN unsigned long Sdata_seek;		/* seek offset in file for sdata section */
+EXTERN size_t Text_seek;		/* seek offset in file for text section */
+EXTERN size_t Rdata_seek;		/* seek offset in file for rdata section */
+EXTERN size_t Data_seek;		/* seek offset in file for data section */
+EXTERN size_t Sdata_seek;		/* seek offset in file for sdata section */
 
 /* default stack size */
 #ifndef STACK_SIZE
@@ -114,13 +117,13 @@ EXTERN unsigned long Sdata_seek;		/* seek offset in file for sdata section */
 #endif
 
 /* address of the errno variable in the object program */
-EXTERN long Errno_addr;
+EXTERN int Errno_addr;
 
 /* address of the environ variable in the object program */
-EXTERN long Environ_addr;
+EXTERN int Environ_addr;
 
 /* text address of the exit() routine (used by the sproc() call) */
-EXTERN long Exit_addr;
+EXTERN int Exit_addr;
 
 /* All queues are circular doubly linked lists with a head node.
  * When a thread exits, it goes on the Done_q until the parent waits on
@@ -173,7 +176,7 @@ typedef enum OpReplayClassEnum{
  * lock functions.
  */
 typedef struct func_desc_t{
-  char *name;	      // Name of function pointer to replace
+  const char *name;	      // Name of function pointer to replace
   PFPI func;	      // Substitute function that acts as a replacement
   int no_spec;        // The func calls can not be executed speculatively, sync to non-spec
   OpReplayClass replayClass; // Replay classification of this function for TLS
@@ -183,16 +186,16 @@ extern func_desc_t Func_subst[];
 
 #ifndef MAIN
 /* array of starting addresses for sections, used in relocation */
-EXTERN long Section_start[];
+EXTERN int Section_start[];
 #endif
 
 /* The minimum value of a function symbol in the list of names looked up.
  * Anything after this point is assumed to be library code.
  */
-EXTERN unsigned long Min_lib_value;
+EXTERN unsigned int Min_lib_value;
 
 EXTERN int Nlocalsyms;
-EXTERN long Gp_value;
+EXTERN int Gp_value;
 
 /* function prototypes */
 icode_ptr newcopy_icode(icode_ptr picode);

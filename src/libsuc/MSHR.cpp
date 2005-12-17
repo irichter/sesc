@@ -68,8 +68,8 @@ MSHR<Addr_t, Cache_t> *MSHR<Addr_t, Cache_t>::create(const char *name, const cha
   int aPolicy = SPECIAL;
 
   const char *type = SescConf->getCharPtr(section, "type");
-  int size = SescConf->getLong(section, "size");
-  int lineSize = SescConf->getLong(section, "bsize");
+  int size = SescConf->getInt(section, "size");
+  int lineSize = SescConf->getInt(section, "bsize");
 
   const char *alloc;
   if(SescConf->checkCharPtr(section,"alloc")) {
@@ -80,14 +80,14 @@ MSHR<Addr_t, Cache_t> *MSHR<Addr_t, Cache_t>::create(const char *name, const cha
     }
   }
 
-  if(SescConf->checkLong(section, "rpl"))
-    nrd = SescConf->getLong(section, "rpl");
+  if(SescConf->checkInt(section, "rpl"))
+    nrd = SescConf->getInt(section, "rpl");
 
-  if(SescConf->checkLong(section, "maxWrites"))
-    nwr = SescConf->getLong(section, "maxWrites");
+  if(SescConf->checkInt(section, "maxWrites"))
+    nwr = SescConf->getInt(section, "maxWrites");
 
   if(strcmp(type, "banked") == 0) {
-    int nb = SescConf->getLong(section, "banks");
+    int nb = SescConf->getInt(section, "banks");
     mshr = new BankedMSHR<Addr_t, Cache_t>(name, size, lineSize, nb, nrd, nwr,
                                            aPolicy);
   } else {

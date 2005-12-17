@@ -32,7 +32,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 pool<DInst> DInst::dInstPool(512, "DInst");
 
 #ifdef DEBUG
-long DInst::currentID=0;
+int DInst::currentID=0;
 #endif
 
 #ifdef SESC_BAAD
@@ -581,7 +581,7 @@ void DInst::setRetireTime()
   retireQHistDown->sample(retireQSize);
   retireQSize--;
 
-  long pc = inst->getAddr();
+  int pc = inst->getAddr();
   if (pc) {
     printf("BAAD: wp=%d pc=0x%x op=%d src1=%d src2=%d dest=%u "
            ,isFake()?1:0

@@ -52,8 +52,8 @@ FMVCache::FMVCache(MemorySystem *gms, const char *section, const char *name)
 
   extMSHR = MSHR<PAddr,FMVCache>::create(getExtMSHRName(name),
 				SescConf->getCharPtr(section, "ExtMSHRtype"),
-				SescConf->getLong(section, "ExtMSHRSize"),
-				SescConf->getLong(section, "bsize"));
+				SescConf->getInt(section, "ExtMSHRSize"),
+				SescConf->getInt(section, "bsize"));
 
 #ifdef DEBUG
   ulong nLines = cache->getNumLines();

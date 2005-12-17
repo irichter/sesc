@@ -39,7 +39,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 void mint_init(int argc, char **argv, char **envp);
 OP(mint_getpid);
-int isFirstInFuncCall(unsigned long addr);
+int isFirstInFuncCall(unsigned int addr);
 char *print_instr_regs(icode_ptr picode, thread_ptr pthread, int maxlen);
 
 // iBJUncond is also true for all the conditional instruction
@@ -83,25 +83,29 @@ Instruction::InstHash Instruction::instHash;
 
 size_t Instruction::InstTableSize = 0;
 
-void Instruction::initialize(int argc,
-			     char **argv,
-			     char **envp)
+void Instruction::initialize(int argc
+			     ,char **argv
+			     ,char **envp
+			     ,int start_argc)
 {
 #ifdef TRACE_DRIVEN
   const char *traceMode = SescConf->getCharPtr("","traceMode");
-
+  printf("getting the trace mode parameter parameter from the Instruction.cpp file");
   if(argc < 1) {
     MSG("No trace parameter given");
     exit(0);
   }
 
-  TraceFlow::setTraceFile(argv[2]);
+  TraceFlow::setTraceFile(argv[start_argc]);
 
   if(strcmp(traceMode, "ppctt6") == 0) {
     initializePPCTrace(argc, argv, envp);
   } else if(strcmp(traceMode, "simics") == 0) {
-    initializeSimicsTrace(argc, argv, envp);
-  } else {
+    //initializeSimicsTrace(argc, argv, envp);
+  } else if(strcmp(traceMode, "qemusparc") ==0) {
+    initializeQemuSescTrace(argc, argv,envp); 
+  }
+   else {
     MSG("invalid taceMode in configuration file: %s", traceMode);
     exit(-1);
   }
@@ -136,5 +140,4 @@ void Instruction::dump(const char *str) const
   Itext[currentID()]->dump();
 #endif
 }
-
 

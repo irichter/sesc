@@ -1,6 +1,7 @@
 #ifndef THREADCONTEXT_H
 #define THREADCONTEXT_H
 
+#include <stdint.h>
 #include <vector>
 #include "event.h"
 #include "HeapManager.h"
@@ -12,23 +13,23 @@ namespace tls {
 }
 #endif
 
-typedef ulong VAddr; // Virtual Addresses inside the simulator
-typedef ulong RAddr; // Real Addresses. Where is the data mapped
-typedef ulong PAddr; // Phisical translation (memory subsystem view of VAddr)
+typedef uint32_t VAddr; // Virtual Addresses inside the simulator
+typedef uint32_t PAddr; // Physical translation (memory subsystem view of VAddr)
+typedef uintptr_t RAddr; // Real Addresses. Where is the data mapped (32 or 64 bits, depends on architecture)
 
 /* For future support of the exec() call. Information needed about
  * the object file goes here.
  */
 typedef struct objfile {
-  long rdata_size;
-  long db_size;
+  int rdata_size;
+  int db_size;
   char *objname;
 } objfile_t, *objfile_ptr;
 
 /* The maximum number of file descriptors per thread. */
 #define MAX_FDNUM 20
 
-typedef long ValueGPR;
+typedef int ValueGPR;
 enum NameGPR {
   RetValGPR  = 2,
   Arg1stGPR  = 4,
@@ -56,28 +57,28 @@ class ThreadContext {
   static ThreadContext *mainThreadContext;
 
   // Memory Mapping
-  static ulong DataStart;
-  static ulong DataEnd;
-  static signed long DataMap;  // Must be signed because it may increase or decrease
+  static RAddr DataStart;
+  static RAddr DataEnd;
+  static MINTAddrType DataMap;  // Must be signed because it may increase or decrease
 
-  static ulong HeapStart;
-  static ulong HeapEnd;
+  static RAddr HeapStart;
+  static RAddr HeapEnd;
   
-  static ulong StackStart;
-  static ulong StackEnd;
+  static RAddr StackStart;
+  static RAddr StackEnd;
 
-  static ulong PrivateStart;
-  static ulong PrivateEnd;
+  static RAddr PrivateStart;
+  static RAddr PrivateEnd;
 
   // Local Variables
  public:
   ValueGPR reg[33];	// The extra register is for writes to r0
-  long lo;
-  long hi;
+  int lo;
+  int hi;
  private:
-  long fcr0;		// floating point control register 0
+  unsigned int fcr0;	// floating point control register 0
   float fp[32];	        // floating point (and double) registers
-  unsigned long fcr31;	// floating point control register 31
+  unsigned int fcr31;	// floating point control register 31
   icode_ptr picode;	// pointer to the next instruction (the "pc")
   int pid;		// process id
   RAddr raddr;		// real address computed by an event function
@@ -96,7 +97,7 @@ class ThreadContext {
 
 private:
   static bool isDataVAddr(VAddr addr)  {
-    return addr >= ((ulong) DataStart) && addr <= ((ulong) DataEnd);
+	 return addr >= DataStart && addr <= DataEnd;
   }
 
 #ifdef TASKSCALAR
@@ -172,40 +173,39 @@ public:
 
   void copy(const ThreadContext *src);
 
-  unsigned long getFPUControl31() const { return fcr31; }
-  void setFPUControl31(unsigned long v) {
+  unsigned int getFPUControl31() const { return fcr31; }
+  void setFPUControl31(unsigned int v) {
     fcr31 = v;
   }
 
-  long getFPUControl0() const { return fcr0; }
-  void setFPUControl0(long v) {
+  unsigned int getFPUControl0() const { return fcr0; }
+  void setFPUControl0(unsigned int v) {
     fcr0 = v;
   }
 
-  long getREG(icode_ptr pi, int R) { return *(long   *) ((long)(reg) + pi->args[R]);}
-  void setREG(icode_ptr pi, int R, long val) { 
-    (*(long   *) ((long)(reg) + pi->args[R])) = val;
+  int getREG(icode_ptr pi, int R) { return reg[pi->args[R]];}
+  void setREG(icode_ptr pi, int R, int val) { 
+    reg[pi->args[R]] = val;
   }
 
-  void setREGFromMem(icode_ptr pi, int R, long *addr) {
-    long *pos = (long   *) ((long)(reg) + pi->args[R]);
-    
+  void setREGFromMem(icode_ptr pi, int R, int *addr) {
 #ifdef LENDIAN
-    *pos = SWAP_WORD(*addr);
+    int val = SWAP_WORD(*addr);
 #else
-    *pos = *addr;
+    int val = *addr;
 #endif
+    setREG(pi, R, val);
   }
 
-  float getFP( icode_ptr pi, int R) { return *(float  *) ((long)(fp) + pi->args[R]); }
+  float getFP( icode_ptr pi, int R) { return fp[pi->args[R]]; }
   void  setFP( icode_ptr pi, int R, float val) { 
-    (*(float  *) ((long)(fp) + pi->args[R])) = val; 
+    fp[pi->args[R]] = val; 
   }
   void  setFPFromMem( icode_ptr pi, int R, float *addr) { 
-    float *pos = (float  *) ((long)(fp) + pi->args[R]);
+    float *pos = &fp[pi->args[R]];
 #ifdef LENDIAN
-    unsigned long v1;
-    v1 = *(unsigned long *)addr;
+    unsigned int v1;
+    v1 = *(unsigned int *)addr;
     v1 = SWAP_WORD(v1);
     *pos = *(float *)&v1;
 #else
@@ -213,24 +213,40 @@ public:
 #endif
   }
 
+  double getDP( icode_ptr pi, int R) const { 
 #ifdef SPARC 
   // MIPS supports 32 bit align double access
-  double getDP( icode_ptr pi, int R) { 
-    ulong w1 = *(ulong *) ((long)(fp) + pi->args[R]);
-    ulong w2 = *(ulong *) ((long)(fp) + pi->args[R]+4);
+    unsigned int w1 = *(unsigned int *) &fp[pi->args[R]];
+    unsigned int w2 = *(unsigned int *) &fp[pi->args[R]+1];
     static unsigned long long ret = w2;
     ret = w2;
     ret = (ret<<32) | w1;
     return *(double *) (&ret);
-  }
 #else 
-  double getDP( icode_ptr pi, int R) { return *(double *) ((long)(fp) + pi->args[R]); }
+    return *(double *) &fp[pi->args[R]];
 #endif
-  void   setDP( icode_ptr pi, int R, double val) { 
-    (*(double *) ((long)(fp) + pi->args[R])) = val; 
   }
+
+  void   setDP( icode_ptr pi, int R, double val) { 
+#ifdef SPARC 
+    unsigned int *pos = (unsigned int*)&fp[pi->args[R]];
+    unsigned int b1 = ((unsigned int *)&val)[0];
+    unsigned int b2 = ((unsigned int *)&val)[1];
+    pos[0] = b1;
+    pos[1] = b2;	
+#else
+    *((double *)&fp[pi->args[R]]) = val; 
+#endif
+  }
+
+
   void   setDPFromMem( icode_ptr pi, int R, double *addr) { 
-    double *pos = (double *) ((long)(fp) + pi->args[R]);
+#ifdef SPARC 
+    unsigned int *pos = (unsigned int*) ((long)(fp) + pi->args[R]);
+    pos[0] = (unsigned int) addr[0];
+    pos[1] = (unsigned int) addr[1];
+#else
+    double *pos = (double *) &fp[pi->args[R]];
 #ifdef LENDIAN
     unsigned long long v1;
     v1 = *(unsigned long long *)(addr);
@@ -238,42 +254,30 @@ public:
     *pos = *(double *)&v1;
 #else
     *pos = *addr;
-#endif
+#endif // LENDIAN
+#endif // SPARC
   }
 
-  long getWFP(icode_ptr pi, int R) { return *(long   *) ((long)(fp) + pi->args[R]); }
-  void setWFP(icode_ptr pi, int R, long val) { 
-    (*(long   *) ((long)(fp) + pi->args[R])) = val ; 
+  int getWFP(icode_ptr pi, int R) { return *(int   *)&fp[pi->args[R]]; }
+  void setWFP(icode_ptr pi, int R, int val) { 
+    *((int   *)&fp[pi->args[R]]) = val; 
   }
 
   // Methods used by ops.m4 and coproc.m4 (mostly)
-  long getREGNUM(int R) { return (* (long *) ((long)(reg) + ((R) << 2))); }
-  void setREGNUM(int R, long val) {
-    (* (long *) ((long)(reg) + ((R) << 2))) = val;
+  int getREGNUM(int R) const { return reg[R]; }
+  void setREGNUM(int R, int val) {
+    reg[R] = val;
   }
 
-  double getDPNUM(int R) {return (* (double *) ((long)(fp) + ((R) << 2))); }
+  // FIXME: SPARC
+  double getDPNUM(int R) {return *((double *)&fp[R]); }
   void   setDPNUM(int R, double val) {
-    (* (double *) ((long)(fp) + ((R) << 2))) = val; 
+    *((double *) &fp[R]) = val; 
   }
 
   // for constant (or unshifted) register indices
-
-#if defined(LENDIAN)
-  float getFPNUM(int i) {
-    return (* (float *) ((long)(fp) + ((i) << 2)));
-  }
-  long getWFPNUM(int i) {
-    return (* (long *) ((long)(fp) + ((i) << 2)));
-  }
-#else
-  float getFPNUM(int i) {
-    return (* (float *) ((long)(fp) + ((i^1) << 2)));
-  }
-  long getWFPNUM(int i) {
-    return (* (long *) ((long)(fp) + ((i^1) << 2)));
-  }
-#endif
+  float getFPNUM(int i) const { return fp[i]; }
+  int getWFPNUM(int i) const  { return *((int *)&fp[i]); }
 
   RAddr getRAddr() const { return raddr; }
   void setRAddr(RAddr a) {
@@ -299,12 +303,19 @@ public:
   static unsigned long long getMemValue(RAddr p, unsigned dsize); 
 
   // BEGIN Memory Mapping
-  static bool isPrivateVAddr(VAddr addr)  {
-    return addr >= ((ulong) PrivateStart) &&  addr <= ((ulong) PrivateEnd);
+  static bool isPrivateRAddr(RAddr raddr)  {
+	 return raddr >= PrivateStart &&  raddr <= PrivateEnd;
   }
 
   static bool isValidVAddr(VAddr addr)  {
-    return isPrivateVAddr(addr) || isDataVAddr(addr);
+    if (isDataVAddr(addr))
+       return true;
+
+#ifdef __x86_64__
+    return isPrivateRAddr((signed long long)addr+DataMap);
+#else
+    return isPrivateRAddr((RAddr)addr);
+#endif
   }
 
   void setHeapManager(HeapManager *newHeapManager) {
@@ -318,28 +329,16 @@ public:
     return heapManager;
   }
 
-  void initAddressing(signed long rMap, signed long mMap, signed long sTop);
+  void initAddressing(MINTAddrType rMap, MINTAddrType mMap, MINTAddrType sTop);
 
-  RAddr virt2real(VAddr vaddr, short opflags =E_READ | E_BYTE) const {
-#ifdef TASKSCALAR
-    if(checkSpecThread(vaddr, opflags))
-      return 0;
-#endif
-    RAddr r = (vaddr >= DataStart && vaddr < DataEnd) ? 
-      static_cast<RAddr>(((signed)vaddr+ DataMap)) : vaddr;
-    
-    I(isPrivateVAddr(r)); // Once it is translated, it should map to
-			  // the beginning of the private map
-    
-    return r;
-  }
-  VAddr real2virt(RAddr addr);
+  RAddr virt2real(VAddr vaddr, short opflags=E_READ | E_BYTE) const;
+  VAddr real2virt(RAddr addr) const;
 
-  bool isHeapData(RAddr addr) {
+  bool isHeapData(RAddr addr) const {
     return addr >= HeapStart && addr <= HeapEnd;
   }
 
-  bool isStackData(RAddr addr) {
+  bool isStackData(RAddr addr) const {
     return addr >= StackStart && addr <= StackEnd;
   }
 
@@ -367,7 +366,7 @@ public:
     target = p;
   }
 
-  long getperrno() const { return *perrno; }
+  int getperrno() const { return *perrno; }
   void setperrno(int v) {
     I(perrno);
     *perrno = v;
@@ -383,6 +382,6 @@ public:
 
 typedef ThreadContext mint_thread_t;
 
-#define REGNUM(R) (* (long *) ((long)(pthread->reg) + ((R) << 2)))
+#define REGNUM(R) (*((int *) &pthread->reg[R]))
 
 #endif // THREADCONTEXT_H

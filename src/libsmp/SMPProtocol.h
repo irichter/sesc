@@ -36,7 +36,7 @@ class SMPCache;
 enum Protocol_t {
   MESI_Protocol     = 10,
   MESITO_Protocol   = 11,
-  MESITOGL_Protocol = 12,
+  MESITOGL_Protocol = 12
 }; 
 
 class SMPProtocol {

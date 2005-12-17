@@ -33,21 +33,21 @@ MemCtrl::MemCtrl(MemorySystem* current, const char *device_descr_section,
     busyUntil(0),
     chWait("%s:chWait", device_name)
 {
-  SescConf->isLong(device_descr_section, k_rowDelay);
-  SescConf->isLong(device_descr_section, k_dataXfer);
-  SescConf->isLong(device_descr_section, k_pagesPerBank);
-  SescConf->isLong(device_descr_section, k_numBanks);
-  SescConf->isLong(device_descr_section, k_numChips);
+  SescConf->isInt(device_descr_section, k_rowDelay);
+  SescConf->isInt(device_descr_section, k_dataXfer);
+  SescConf->isInt(device_descr_section, k_pagesPerBank);
+  SescConf->isInt(device_descr_section, k_numBanks);
+  SescConf->isInt(device_descr_section, k_numChips);
 
   SescConf->isGT(device_descr_section, k_pagesPerBank, 0);
   SescConf->isGT(device_descr_section, k_numBanks, 0);
   SescConf->isGT(device_descr_section, k_numChips, 0);
 
-  rowAccessDelay = SescConf->getLong(device_descr_section, k_rowDelay);
-  hitDelay       = SescConf->getLong(device_descr_section, k_dataXfer);
-  pagesPerBank   = SescConf->getLong(device_descr_section, k_pagesPerBank);
-  numBanksPerChip= SescConf->getLong(device_descr_section, k_numBanks);
-  numChips       = SescConf->getLong(device_descr_section, k_numChips);
+  rowAccessDelay = SescConf->getInt(device_descr_section, k_rowDelay);
+  hitDelay       = SescConf->getInt(device_descr_section, k_dataXfer);
+  pagesPerBank   = SescConf->getInt(device_descr_section, k_pagesPerBank);
+  numBanksPerChip= SescConf->getInt(device_descr_section, k_numBanks);
+  numChips       = SescConf->getInt(device_descr_section, k_numChips);
 
   if (!numChips)
     numChips = 1;

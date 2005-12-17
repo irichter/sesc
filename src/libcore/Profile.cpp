@@ -126,30 +126,30 @@ void Profile::readParameters(const char *section)
   if (section == NULL)
     section = "Profiling";
 
-  if (SescConf->checkLong(section, "taskSizeThrd"))
-    taskSizeThrd = SescConf->getLong(section, "taskSizeThrd");
+  if (SescConf->checkInt(section, "taskSizeThrd"))
+    taskSizeThrd = SescConf->getInt(section, "taskSizeThrd");
   else  
-    taskSizeThrd = SescConf->getLong(defaultSection, "taskSizeThrd");
+    taskSizeThrd = SescConf->getInt(defaultSection, "taskSizeThrd");
 
-  if (SescConf->checkLong(section, "staticHoistThrd"))
-    staticHoistThrd = SescConf->getLong(section, "staticHoistThrd");
+  if (SescConf->checkInt(section, "staticHoistThrd"))
+    staticHoistThrd = SescConf->getInt(section, "staticHoistThrd");
   else  
-    staticHoistThrd = SescConf->getLong(defaultSection, "staticHoistThrd");
+    staticHoistThrd = SescConf->getInt(defaultSection, "staticHoistThrd");
 
-  if (SescConf->checkLong(section, "dynamicHoistThrd"))
-    dynamicHoistThrd = SescConf->getLong(section, "dynamicHoistThrd");
+  if (SescConf->checkInt(section, "dynamicHoistThrd"))
+    dynamicHoistThrd = SescConf->getInt(section, "dynamicHoistThrd");
   else  
-    dynamicHoistThrd = SescConf->getLong(defaultSection, "dynamicHoistThrd");
+    dynamicHoistThrd = SescConf->getInt(defaultSection, "dynamicHoistThrd");
 
-  if (SescConf->checkLong(section, "maxHoistThrd"))
-    maxHoistThrd = SescConf->getLong(section, "maxHoistThrd");
+  if (SescConf->checkInt(section, "maxHoistThrd"))
+    maxHoistThrd = SescConf->getInt(section, "maxHoistThrd");
   else  
-    maxHoistThrd = SescConf->getLong(defaultSection, "maxHoistThrd");
+    maxHoistThrd = SescConf->getInt(defaultSection, "maxHoistThrd");
 
-  if (SescConf->checkLong(section, "spawnOverhead"))
-    spawnOverhead = SescConf->getLong(section, "spawnOverhead");
+  if (SescConf->checkInt(section, "spawnOverhead"))
+    spawnOverhead = SescConf->getInt(section, "spawnOverhead");
   else  
-    spawnOverhead = SescConf->getLong(defaultSection, "spawnOverhead");
+    spawnOverhead = SescConf->getInt(defaultSection, "spawnOverhead");
 
   if (SescConf->checkDouble(section, "violationThrd"))
     violationThrd = SescConf->getDouble(section, "violationThrd");
@@ -176,25 +176,25 @@ void Profile::readParameters(const char *section)
   else  
     extraWorkRate = SescConf->getDouble(defaultSection, "extraWorkRate");
 
-  if (SescConf->checkLong(section, "latReadHit"))
-    latReadHit = SescConf->getLong(section, "latReadHit");
+  if (SescConf->checkInt(section, "latReadHit"))
+    latReadHit = SescConf->getInt(section, "latReadHit");
   else  
-    latReadHit = SescConf->getLong(defaultSection, "latReadHit");
+    latReadHit = SescConf->getInt(defaultSection, "latReadHit");
 
-  if (SescConf->checkLong(section, "latReadMiss"))
-    latReadMiss = SescConf->getLong(section, "latReadMiss");
+  if (SescConf->checkInt(section, "latReadMiss"))
+    latReadMiss = SescConf->getInt(section, "latReadMiss");
   else  
-    latReadMiss = SescConf->getLong(defaultSection, "latReadMiss");
+    latReadMiss = SescConf->getInt(defaultSection, "latReadMiss");
 
-  if (SescConf->checkLong(section, "latWriteHit"))
-    latWriteHit = SescConf->getLong(section, "latWriteHit");
+  if (SescConf->checkInt(section, "latWriteHit"))
+    latWriteHit = SescConf->getInt(section, "latWriteHit");
   else  
-    latWriteHit = SescConf->getLong(defaultSection, "latWriteHit");
+    latWriteHit = SescConf->getInt(defaultSection, "latWriteHit");
 
-  if (SescConf->checkLong(section, "latWriteMiss"))
-    latWriteMiss = SescConf->getLong(section, "latWriteMiss");
+  if (SescConf->checkInt(section, "latWriteMiss"))
+    latWriteMiss = SescConf->getInt(section, "latWriteMiss");
   else  
-    latWriteMiss = SescConf->getLong(defaultSection, "latWriteMiss");
+    latWriteMiss = SescConf->getInt(defaultSection, "latWriteMiss");
 }
 
 void Profile::mergeProfFile(const char *dstFile, char *srcFile1, char *srcFile2) const

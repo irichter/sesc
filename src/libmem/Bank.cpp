@@ -26,8 +26,8 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 #include "Bank.h"
 
-void Bank::initialize_bank(int rb_num, int rb_width, char* p, 
-			   int b_id, int org, bool pipeline, bool segm)
+void Bank::initialize_bank(int rb_num, int rb_width, const char *p, 
+			   int org, bool pipeline, bool segm)
 {
   // the last two parameters are read timing which is not used 
   // the reuse of code is the book keeping for different policy
@@ -45,40 +45,34 @@ void Bank::initialize_bank(int rb_num, int rb_width, char* p,
   // non segmented mode = (subBank = 1)
   if (!isSegm) subBank = 1;
 
-  if (rb_num < 0)
-    {
-      isSharing = true;
-      numRB = -rb_num;
+  if (rb_num < 0) {
+    isSharing = true;
+    numRB = -rb_num;
+  } else {
+    numRB = rb_num;
+    isSharing = false;
+  }
+  
+  for (int i = 0; i < segment; i++) {
+    segBusy[i] = 0;
+    for (int j = 0; j < subBank; j++) {
+      bankBusy[i][j] = 0;
+      bankPC[i][j] = 0;
+      nextRBN[i][j] = 0;
+      for (int k = 0; k < numRB; k ++)
+	address[i][j][k] = -1;
     }
-  else
-    {
-      numRB = rb_num;
-      isSharing = false;
-    }
-
-  for (int i = 0; i < segment; i++)
-    {
-      segBusy[i] = 0;
-      for (int j = 0; j < subBank; j++)
-	{
-	  bankBusy[i][j] = 0;
-	  bankPC[i][j] = 0;
-	  nextRBN[i][j] = 0;
-	  for (int k = 0; k < numRB; k ++)
-	    address[i][j][k] = -1;
-	}
-    }
+  }
 
   rowSize = rb_width/segment/subBank*2;
-  id = b_id;
   active = false;
 }
 
 Bank::Bank(MemorySystem* current, const char *device_descr_section,
 	   const char *device_name)
   : MemObj(device_descr_section, device_name)
-  ,HitDelay(SescConf->getLong(device_descr_section,"RBHit"))
-  ,MissDelay(SescConf->getLong(device_descr_section,"RBMiss"))
+  ,HitDelay(SescConf->getInt(device_descr_section,"RBHit"))
+  ,MissDelay(SescConf->getInt(device_descr_section,"RBMiss"))
   ,nWrites("%s:nWrites", device_name)
   ,readHit("%s:readHit", device_name)
   ,readMiss("%s:readMiss", device_name)
@@ -86,21 +80,21 @@ Bank::Bank(MemorySystem* current, const char *device_descr_section,
   ,bankWait("%s:bankWait", device_name)
   ,busyUntil(0)
 { 
-  int rb_num, rb_width, id, org;
-  const char* p;
-  bool pipe, seg;
 
-  rb_num=SescConf->getLong(device_descr_section, "numRBs");
-  rb_width=SescConf->getLong(device_descr_section, "rowWidth");
-  p=SescConf->getCharPtr(device_descr_section, "RBRepl");
-  id=SescConf->getLong(device_descr_section,"RBBank");
-  org=SescConf->getLong(device_descr_section,"RBOrg");
-  pipe=SescConf->getBool(device_descr_section,"RBPipelined");
-  seg=SescConf->getBool(device_descr_section,"RBSegmented");
-  initialize_bank(rb_num, rb_width, (char*)p, id, org, pipe, seg);
+  int rb_num   = SescConf->getInt(device_descr_section, "numRBs");
+  int rb_width = SescConf->getInt(device_descr_section, "rowWidth");
+
+  const char *p= SescConf->getCharPtr(device_descr_section, "RBRepl");
+  int org      = SescConf->getInt(device_descr_section,"RBOrg");
+  bool pipe    = SescConf->getBool(device_descr_section,"RBPipelined");
+  bool seg     = SescConf->getBool(device_descr_section,"RBSegmented");
+
+  id=SescConf->getInt(device_descr_section,"RBBank");
+
+  initialize_bank(rb_num, rb_width, p, org, pipe, seg);
 }
 
-inline bool Bank::RBHIT(int addr)
+bool Bank::RBHIT(int addr) const
 { 
   for (int i = 0; i < numRB; i++)
     if (address[SEG(addr)][BANK(addr)][i] == addr / rowSize)

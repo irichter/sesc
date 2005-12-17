@@ -10,7 +10,7 @@
                   Luis Ceze
                   Smruti Sarangi
                   Paul Sack
-		  Karin Strauss
+                  Karin Strauss
 
 This file is part of SESC.
 
@@ -106,7 +106,7 @@ void OSSim::reportOnTheFly(const char *file)
   if( !file )
     file = reportFile;
 
-  tmp = (char *)alloca(strlen(file));
+  tmp = (char *)malloc(strlen(file));
   strcpy(tmp,file);
   
   Report::openFile(tmp);
@@ -116,6 +116,8 @@ void OSSim::reportOnTheFly(const char *file)
   report("Signal");
 
   Report::close();
+
+  free(tmp);
 }
 
 OSSim::OSSim(int argc, char **argv, char **envp)
@@ -131,14 +133,14 @@ OSSim::OSSim(int argc, char **argv, char **envp)
   signal(SIGUSR1,signalCatcher);
   signal(SIGQUIT,signalCatcher);
 
-  char *tmp=(char *)alloca(argc*50+4096);
+  char *tmp=(char *)malloc(argc*50+4096);
   tmp[0] = 0;
   for(int i = 0; i < argc; i++) {
     strcat(tmp,argv[i]);
     strcat(tmp," ");
   }
 
-  benchRunning=strdup(tmp);
+  benchRunning=tmp;
 
   benchSection = 0;
 
@@ -214,7 +216,10 @@ void OSSim::processParams(int argc, char **argv, char **envp)
     fprintf(stderr,"\t-yINT       ; Number of instructions to simulate in thousands\n");
     fprintf(stderr,"\t-bTEXT      ; Benchmark specific configuration section\n");
 
-#ifndef TRACE_DRIVEN
+#ifdef TRACE_DRIVEN
+    fprintf(stderr,"\n\nExample:\n");
+    fprintf(stderr,"%s -csescconf.conf tracefile\n",argv[0]);
+#else
     fprintf(stderr,"\t-wINT       ; Number of instructions to skip in Rabbit Mode (-w1 means forever)\n");
     fprintf(stderr,"\t-1INT -2INT ; Simulate between marks -1 and -2 (start in rabbitmode)\n");
 #ifdef TS_PROFILING
@@ -228,9 +233,6 @@ void OSSim::processParams(int argc, char **argv, char **envp)
     fprintf(stderr,"\n\nExamples:\n");
     fprintf(stderr,"%s -k65536 -dreportName ./simulation \n",argv[0]);
     fprintf(stderr,"%s -h0x8000000 -xtest ../tests/crafty <../tests/tt.in\n",argv[0]);
-#else  // !TRACE_DRIVEN
-    fprintf(stderr,"\n\nExample:\n");
-    fprintf(stderr,"%s -csescconf.conf tracefile\n",argv[0]);
 #endif // !TRACE_DRIVEN
     exit(0);
   }
@@ -239,171 +241,171 @@ void OSSim::processParams(int argc, char **argv, char **envp)
     if(argv[i][0] == '-') {
 
       if( argv[i][1] == 'w' ){
-	if( isdigit(argv[i][2]) )
-	  nInst2Skip = strtol(&argv[i][2], 0, 0 );
-	else {
-	  i++;
-	  nInst2Skip = strtol(argv[i], 0, 0 );
-	}
+        if( isdigit(argv[i][2]) )
+          nInst2Skip = strtol(&argv[i][2], 0, 0 );
+        else {
+          i++;
+          nInst2Skip = strtol(argv[i], 0, 0 );
+        }
       }
 
       else if( argv[i][1] == 'y' ){
         if( isdigit(argv[i][2]) )
-	  nInst2Sim = 1000*strtol(&argv[i][2], 0, 0 );
-	else {
-	  i++;
-	  nInst2Sim = 1000*strtol(argv[i], 0, 0 );
-	}
+          nInst2Sim = 1000*strtol(&argv[i][2], 0, 0 );
+        else {
+          i++;
+          nInst2Sim = 1000*strtol(argv[i], 0, 0 );
+        }
       }
 
 #ifndef OLDMARKS
       else if( argv[i][1] == 'm' ) {
-	useMTMarks=true;
-	simMarks.mtMarks=true;
-	if( argv[i][2] != 0 ) 
-	  mtId = strtol(&argv[i][2], 0, 0 );
-	else {
-	  i++;
-	  mtId = strtol(argv[i], 0, 0 );
-	}
-	idSimMarks[mtId].total = 0;
-	idSimMarks[mtId].begin = 0;
-	idSimMarks[mtId].end = (~0UL)-1;
-	idSimMarks[mtId].mtMarks=false;
+        useMTMarks=true;
+        simMarks.mtMarks=true;
+        if( argv[i][2] != 0 ) 
+          mtId = strtol(&argv[i][2], 0, 0 );
+        else {
+          i++;
+          mtId = strtol(argv[i], 0, 0 );
+        }
+        idSimMarks[mtId].total = 0;
+        idSimMarks[mtId].begin = 0;
+        idSimMarks[mtId].end = (~0UL)-1;
+        idSimMarks[mtId].mtMarks=false;
       }
 
       else if( argv[i][1] == '1' ) {
-	if( argv[i][2] != 0 ) {
-	  if( useMTMarks )
-	    idSimMarks[mtId].begin = strtol(&argv[i][2], 0, 0);
-	  else
-	    simMarks.begin = strtol(&argv[i][2], 0, 0 );
-	} else {
-	  i++;
-	  if( useMTMarks )
-	    idSimMarks[mtId].begin = strtol(argv[i], 0, 0 );
-	  else
-	    simMarks.begin = strtol(argv[i], 0, 0 );
-	}
-	if(!useMTMarks)
-	  simMarks.total = 0;
+        if( argv[i][2] != 0 ) {
+          if( useMTMarks )
+            idSimMarks[mtId].begin = strtol(&argv[i][2], 0, 0);
+          else
+            simMarks.begin = strtol(&argv[i][2], 0, 0 );
+        } else {
+          i++;
+          if( useMTMarks )
+            idSimMarks[mtId].begin = strtol(argv[i], 0, 0 );
+          else
+            simMarks.begin = strtol(argv[i], 0, 0 );
+        }
+        if(!useMTMarks)
+          simMarks.total = 0;
       }
 
       else if( argv[i][1] == '2' ) {
-	if( argv[i][2] != 0 ) {
-	  if( useMTMarks)
-	    idSimMarks[mtId].end = strtol(&argv[i][2], 0, 0 );
-	  else
-	    simMarks.end = strtol(&argv[i][2], 0, 0 );
-	} else {
-	  i++;
-	  if( useMTMarks )
-	    idSimMarks[mtId].end = strtol(argv[i], 0, 0 );
-	  else
-	    simMarks.end = strtol(argv[i], 0, 0 );
-	}
-	if(!useMTMarks)
-	  simMarks.total = 0;
+        if( argv[i][2] != 0 ) {
+          if( useMTMarks)
+            idSimMarks[mtId].end = strtol(&argv[i][2], 0, 0 );
+          else
+            simMarks.end = strtol(&argv[i][2], 0, 0 );
+        } else {
+          i++;
+          if( useMTMarks )
+            idSimMarks[mtId].end = strtol(argv[i], 0, 0 );
+          else
+            simMarks.end = strtol(argv[i], 0, 0 );
+        }
+        if(!useMTMarks)
+          simMarks.total = 0;
       }
 #else
       else if( argv[i][1] == '1' ) {
-	if( argv[i][2] != 0 )
-	  simulationMark1 = strtol(&argv[i][2], 0, 0 );
-	else {
-	  i++;
-	  simulationMark1 = strtol(argv[i], 0, 0 );
-	}
-	simulationMarks = 0;
+        if( argv[i][2] != 0 )
+          simulationMark1 = strtol(&argv[i][2], 0, 0 );
+        else {
+          i++;
+          simulationMark1 = strtol(argv[i], 0, 0 );
+        }
+        simulationMarks = 0;
       }
       
       else if( argv[i][1] == '2' ) {
-	if( argv[i][2] != 0 )
-	  simulationMark2 = strtol(&argv[i][2], 0, 0 );
-	else {
-	  i++;
-	  simulationMark2 = strtol(argv[i], 0, 0 );
-	}
-	simulationMarks = 0;
+        if( argv[i][2] != 0 )
+          simulationMark2 = strtol(&argv[i][2], 0, 0 );
+        else {
+          i++;
+          simulationMark2 = strtol(argv[i], 0, 0 );
+        }
+        simulationMarks = 0;
       }
 #endif
 
 #ifdef TS_PROFILING        
       else if( argv[i][1] == 'r' ) {
-	if( argv[i][2] != 0 )
-	  profPhase = strtol(&argv[i][2], 0, 0 );
-	else {
+        if( argv[i][2] != 0 )
+          profPhase = strtol(&argv[i][2], 0, 0 );
+        else {
           profPhase = 1;
-	}
+        }
       }
       else if( argv[i][1] == 'S' ) {
-	if( argv[i][2] != 0 )
-	  profSectionName = &argv[i][2];
-	else {
-	  i++;
-	  profSectionName = argv[i];
-	}
+        if( argv[i][2] != 0 )
+          profSectionName = &argv[i][2];
+        else {
+          i++;
+          profSectionName = argv[i];
+        }
       }
 #endif        
       else if( argv[i][1] == 'b' ) {
-	if( argv[i][2] != 0 )
-	  benchSection = &argv[i][2];
-	else {
-	  i++;
-	  benchSection = argv[i];
-	}
+        if( argv[i][2] != 0 )
+          benchSection = &argv[i][2];
+        else {
+          i++;
+          benchSection = argv[i];
+        }
       }
       
       else if( argv[i][1] == 'c' ) {
-	if( argv[i][2] != 0 )
-	  confName = &argv[i][2];
-	else {
-	  i++;
-	  confName = argv[i];
-	}
+        if( argv[i][2] != 0 )
+          confName = &argv[i][2];
+        else {
+          i++;
+          confName = argv[i];
+        }
       }
 
       else if( argv[i][1] == 'x' ) {
-	if( argv[i][2] != 0 )
-	  xtraPat = &argv[i][2];
-	else {
-	  i++;
-	  xtraPat = argv[i];
-	}
+        if( argv[i][2] != 0 )
+          xtraPat = &argv[i][2];
+        else {
+          i++;
+          xtraPat = argv[i];
+        }
       }
 
       else if( argv[i][1] == 'd' ) {
-	I(reportTo==0);
-	if( argv[i][2] != 0 )
-	  reportTo = &argv[i][2];
-	else {
-	  i++;
-	  reportTo = argv[i];
-	}
+        I(reportTo==0);
+        if( argv[i][2] != 0 )
+          reportTo = &argv[i][2];
+        else {
+          i++;
+          reportTo = argv[i];
+        }
       }
       
       else if( argv[i][1] == 'f' ) {
-	I(extension==0);
-	if( argv[i][2] != 0 )
-	  extension = &argv[i][2];
-	else {
-	  i++;
-	  extension = argv[i];
-	}
+        I(extension==0);
+        if( argv[i][2] != 0 )
+          extension = &argv[i][2];
+        else {
+          i++;
+          extension = argv[i];
+        }
       }
 
       else if( argv[i][1] == 'P' ) {
-	justTest = true;
+        justTest = true;
       }
 
       else if( argv[i][1] == 't' ) {
-	justTest = true;
+        justTest = true;
       }
 
       else if( argv[i][1] == 'T' ) {
-	trace_flag = true;
+        trace_flag = true;
       }else{
-	nargv[ni] = strdup(argv[i]);
-	ni++;
+        nargv[ni] = strdup(argv[i]);
+        ni++;
       }
       continue;
     }
@@ -424,7 +426,8 @@ void OSSim::processParams(int argc, char **argv, char **envp)
   benchName = strdup(name);
 
   I(nInst2Skip>=0);
-  
+
+  int start_argc = i;
   nargv[ni++]= strdup("--");
   
   for(; i < argc; i++) {
@@ -434,7 +437,7 @@ void OSSim::processParams(int argc, char **argv, char **envp)
 
   SescConf = new SConfig(confName);   // First thing to do
 
-  Instruction::initialize(nargc, nargv, envp);
+  Instruction::initialize(nargc, nargv, envp, start_argc);
  
   if( reportTo ) {
     reportFile = (char *)malloc(30 + strlen(reportTo));
@@ -445,9 +448,9 @@ void OSSim::processParams(int argc, char **argv, char **envp)
     }else{
       reportFile = (char *)malloc(30 + 2*(strlen(benchName) + strlen(xtraPat?xtraPat:benchName)));
       if( xtraPat )
-	sprintf(reportFile, "sesc_%s_%s.%s", xtraPat, benchName, extension ? extension : x6);
+        sprintf(reportFile, "sesc_%s_%s.%s", xtraPat, benchName, extension ? extension : x6);
       else
-	sprintf(reportFile, "sesc_%s.%s", benchName, extension ? extension : x6);
+        sprintf(reportFile, "sesc_%s.%s", benchName, extension ? extension : x6);
     }
   }
  
@@ -510,7 +513,7 @@ OSSim::~OSSim()
   //printf("destructed..\n");
 }
 
-void OSSim::eventSysconf(Pid_t ppid, Pid_t fid, long flags)
+void OSSim::eventSysconf(Pid_t ppid, Pid_t fid, int flags)
 {
   LOG("OSSim::sysconf(%d,%d,0x%lx)", ppid, fid, flags);
   ProcessId *myProcessId=ProcessId::getProcessId(fid);
@@ -528,18 +531,18 @@ void OSSim::eventSysconf(Pid_t ppid, Pid_t fid, long flags)
   }
 }
 
-long OSSim::eventGetconf(Pid_t curPid, Pid_t targPid)
+int OSSim::eventGetconf(Pid_t curPid, Pid_t targPid)
 {
   ProcessId *myProcessId=ProcessId::getProcessId(targPid);
   return myProcessId->getconf();
 }
 
-void OSSim::eventSpawn(Pid_t ppid, Pid_t fid, long flags, bool stopped)
+void OSSim::eventSpawn(Pid_t ppid, Pid_t fid, int flags, bool stopped)
 {
   if (NoMigration)
     flags |= SESC_FLAG_NOMIGRATE;
   
-  GLOG(DEBUG2,"OSSim::spawn(%d,%d,0x%lx,%d)", ppid, fid, flags,stopped);
+  LOG("OSSim::spawn(%d,%d,0x%lx,%d)", ppid, fid, flags,stopped);
   ProcessId *procId = ProcessId::create(ppid, fid, flags);
   if(!stopped)
     cpus.makeRunnable(procId);
@@ -582,12 +585,12 @@ void OSSim::setPriority(Pid_t pid, int newPrio)
     if(proc->getState()==RunningState){
       // Is there a process we need to swap with
       if(otherProc){
-	// Get the cpu where the demoted process is running
-	CPU_t cpu=proc->getCPU();
-	// Switch the demoted process out
-	cpus.switchOut(cpu,proc);
-	// Switch the new process in
-	cpus.switchIn(cpu,otherProc);
+        // Get the cpu where the demoted process is running
+        CPU_t cpu=proc->getCPU();
+        // Switch the demoted process out
+        cpus.switchOut(cpu,proc);
+        // Switch the new process in
+        cpus.switchIn(cpu,otherProc);
       }
     }
   }else{
@@ -595,12 +598,12 @@ void OSSim::setPriority(Pid_t pid, int newPrio)
     if(proc->getState()==ReadyState){
       // Is there a process we need to swap with
       if(otherProc){
-	// Get the cpu where the other process is running
-	CPU_t cpu=otherProc->getCPU();
-	// Switch the victim process out
-	cpus.switchOut(cpu,otherProc);
-	// Switch the promoted process in
-	cpus.switchIn(cpu,proc);
+        // Get the cpu where the other process is running
+        CPU_t cpu=otherProc->getCPU();
+        // Switch the victim process out
+        cpus.switchOut(cpu,otherProc);
+        // Switch the promoted process in
+        cpus.switchIn(cpu,proc);
       }
     }
   }
@@ -631,7 +634,7 @@ void OSSim::tryWakeupParent(Pid_t cpid)
     return;
   
   if(pproc->getState()==WaitingState) {
-    GLOG(DEBUG2,"Waiting pid(%d) is awaked (child %d call)",ppid,cpid);
+    LOG("Waiting pid(%d) is awaked (child %d call)",ppid,cpid);
     pproc->setState(InvalidState);
     cpus.makeRunnable(pproc);
   }
@@ -639,7 +642,7 @@ void OSSim::tryWakeupParent(Pid_t cpid)
 
 void OSSim::eventExit(Pid_t cpid, int err)
 {
-  GLOG(DEBUG2,"OSSim::exit err[%d] (cpid %d)", err, cpid);
+  LOG("OSSim::exit err[%d] (cpid %d)", err, cpid);
   ProcessId *proc = ProcessId::getProcessId(cpid);
   I(proc);
   // If not in InvalidState, removefrom the running queue
@@ -703,10 +706,10 @@ ThreadContext *OSSim::getContext(Pid_t pid)
   return ThreadContext::getContext(pid);
 }
 
-long OSSim::getContextRegister(Pid_t pid, int regnum)
+int OSSim::getContextRegister(Pid_t pid, int regnum)
 {
   ThreadContext *s = getContext(pid);
-  return (* (long *) ((long)(s->reg) + ((regnum) << 2)));
+  return (* (int *) (s->reg + ((regnum) << 2)));
 }
 
 void OSSim::eventSetInstructionPointer(Pid_t pid, icode_ptr picode){
@@ -762,7 +765,7 @@ void OSSim::eventSetPPid(Pid_t pid, Pid_t ppid)
 
 int OSSim::eventSuspend(Pid_t cpid, Pid_t pid)
 {
-  GLOG(DEBUG2,"OSSim::suspend(%d) Received from pid %d",pid,cpid);
+  LOG("OSSim::suspend(%d) Received from pid %d",pid,cpid);
   ProcessId *proc = ProcessId::getProcessId(pid);
   if( proc == 0 ) {
     LOG("OSSim::suspend(%d) non existing process???", pid);
@@ -774,7 +777,7 @@ int OSSim::eventSuspend(Pid_t cpid, Pid_t pid)
   if(proc->getState()==SuspendedState){
     I(0);
     LOG("OSSim::suspend(%d) already suspended (recursive=%d)"
-	, pid, proc->getSuspendedCounter());
+        , pid, proc->getSuspendedCounter());
     return 0;
   }
   // The process should be ready or running
@@ -794,7 +797,7 @@ int OSSim::eventSuspend(Pid_t cpid, Pid_t pid)
 
 int OSSim::eventResume(Pid_t cpid, Pid_t pid)
 {
-  GLOG(DEBUG2,"OSSim::resume(%d,%d)", cpid, pid);
+  LOG("OSSim::resume(%d,%d)", cpid, pid);
   ProcessId *proc = ProcessId::getProcessId(pid);
   if( proc == 0 ) {
     LOG("OSSim::resume(%d,%d) non existing process???", cpid, pid);
@@ -813,7 +816,7 @@ int OSSim::eventResume(Pid_t cpid, Pid_t pid)
     return 1;
   }else{
     I(0);
-    GLOG(DEBUG2,"OSSim::resume(%d,%d) OOO suspend/resume (%d)", cpid, pid, proc->getSuspendedCounter());
+    LOG("OSSim::resume(%d,%d) OOO suspend/resume (%d)", cpid, pid, proc->getSuspendedCounter());
   }
   return 0;
 }
@@ -908,9 +911,6 @@ void OSSim::initBoot()
   // 0 is the current thread, and it has no flags
 
   eventSpawn(-1,0,0);
-#else
-  // in TRACE_DRIVEN, processors get added to the workingList when they
-  // instantiated
 #endif
 
 #ifdef TASKSCALAR
@@ -1004,12 +1004,12 @@ void OSSim::preBoot()
       MSG("Rabbit mode preempted by new thread.");
 
       if( !cpus.getProcessor(i)->availableFlows() ) {
-	cpus.getProcessor(i)->goRabbitMode(1);
+        cpus.getProcessor(i)->goRabbitMode(1);
       }
 
       i++;
       if(i==cpus.size())
-	i=0;
+        i=0;
     }
     MSG("...End Skipping Initialization (Rabbit mode)");
     //MSG("Start Skipping Initialization (skipping %ld simulation marks)...", simMarks.begin);
@@ -1077,9 +1077,9 @@ void OSSim::report(const char *str)
     + (endTime.tv_usec - stTime.tv_usec) / 1000;
 
   Report::field("OSSim:msecs=%8.2f:nCPUs=%d:nCycles=%lld"
-		,(double)msecs / 1000
-		,cpus.size()
-		,globalClock);
+                ,(double)msecs / 1000
+                ,cpus.size()
+                ,globalClock);
 
   Report::field("OSSim:pseudoreset=%lld",snapshotGlobalClock);
 
@@ -1132,7 +1132,7 @@ void OSSim::report(const char *str)
 GProcessor *OSSim::pid2GProcessor(Pid_t pid)
 {
   I(ProcessId::getProcessId(pid));
-  signed long cpu = ProcessId::getProcessId(pid)->getCPU();
+  signed int cpu = ProcessId::getProcessId(pid)->getCPU();
   // -1 when it has never started to execute
   I(cpu>=0);
     

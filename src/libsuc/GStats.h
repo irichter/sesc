@@ -92,12 +92,12 @@ protected:
 public:
   GStatsCntr(const char *format,...);
 
-  GStatsCntr & operator += (const long v) {
+  GStatsCntr & operator += (const int v) {
     data += v;
     return *this;
   }
 
-  void add(const long v) {
+  void add(const int v) {
     data += v;
   }
   // TODO? (Volunteer wanted!)
@@ -130,7 +130,7 @@ public:
   GStatsAvg(const char *format,...);
   GStatsAvg() { }
 
-  virtual void sample(const long v) {
+  virtual void sample(const int v) {
     data += v;
     nData++;
   }
@@ -157,12 +157,12 @@ public:
 class GStatsPDF : public GStatsAvg {
 private:
 protected:
-  HASH_MAP<long,long> density;
+  HASH_MAP<int,int> density;
 public:
   GStatsPDF(const char *format,...);
   GStatsPDF() { }
 
-  void sample(const long v);
+  void sample(const int v);
 
   // Merge two GStatsPDF together
   void sample(GStatsPDF &g);
@@ -179,7 +179,7 @@ class GStatsProfiler : public GStats {
 private:
 protected:
 
-  typedef HASH_MAP<ulong, int> ProfHash;
+  typedef HASH_MAP<uint, int> ProfHash;
 
   ProfHash p;
 
@@ -189,18 +189,18 @@ public:
   void reportValue() const;
 
 
-  void sample(ulong key);  
+  void sample(uint key);
 };
 
 class GStatsMax : public GStats {
  private:
  protected:
-  long maxValue;
+  int maxValue;
   long long nData;
  public:
   GStatsMax(const char *format,...);
 
-  void sample(const long v) {
+  void sample(const int v) {
     maxValue = v > maxValue ? v : maxValue;
     nData++;
   }
@@ -213,21 +213,21 @@ class GStatsMax : public GStats {
 class GStatsTimingAvg : public GStatsAvg {
 private:
   Time_t lastUpdate;
-  long lastValue;
+  int lastValue;
 protected:
 public:
   GStatsTimingAvg(const char *format,...);
 
-  void sample(const long v);
+  void sample(const int v);
 };
 
 class GStatsHist : public GStats {
 private:
 protected:
   
-  typedef HASH_MAP<unsigned long, unsigned long long> Histogram;
+  typedef HASH_MAP<unsigned int, unsigned long long> Histogram;
 
-  ulong numSample;
+  uint numSample;
   unsigned long long cumulative;
 
   Histogram H;
@@ -239,13 +239,13 @@ public:
   void reportValue() const;
 
 
-  void sample(unsigned long key, unsigned long long weight);
+  void sample(unsigned int key, unsigned long long weight);
 };
 
 class GStatsTimingHist : public GStatsHist {
 private:
   Time_t lastUpdate;
-  unsigned long lastKey;
+  unsigned int lastKey;
   bool reportWholeHist;
 public:
   GStatsTimingHist(const char *format,...);
@@ -255,7 +255,7 @@ public:
 
   //Call on each update, it remembes what the last (key,time) pair was
   //and uses that to update the histogram.
-  void sample(unsigned long key);
+  void sample(unsigned int key);
 
   // Call if you want only the timing average to be reported
   void disableLongOutput() { reportWholeHist = false; }
@@ -270,7 +270,7 @@ public:
 
   //Call on each update, it remembes what the last (key,time) pair was
   //and uses that to update the histogram.
-  void sample(unsigned long key=1);
+  void sample(unsigned int key=1);
 };
 
 class GStatsEventTimingHist : protected GStatsHist {

@@ -8,8 +8,8 @@
 typedef int (*PFI)(void *,...);
 typedef void (*PFV)(void *,...);
 
-void fatal(char *s, ...);
-void error(char *fmt, ...);
-void warning(char *fmt, ...);
+void fatal(const char *s, ...);
+void error(const char *fmt, ...);
+void warning(const char *fmt, ...);
 
 #endif /* !__common_h */

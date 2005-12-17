@@ -22,20 +22,21 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #ifndef SNIPPETS_H
 #define SNIPPETS_H
 
+#include <stdint.h>
 #include "mendian.h"
 
 //**************************************************
 // Generic typedefs
 typedef unsigned char      uchar;
 typedef unsigned short int ushort;
-typedef unsigned long int  ulong;
+typedef unsigned long  ulong;
 typedef unsigned long long ulonglong;
 
 //**************************************************
 // Process typedefs
 
 // CPU_t is signed because -1 means that it is not mapped to any CPU.
-typedef long CPU_t;
+typedef int CPU_t;
 
 // Only the lower 16 bits are valid (at most 64K threads), but
 // negative values may have special meaning (invalid == -1)
@@ -53,11 +54,9 @@ const unsigned short MaxDeltaTime = (65535 - 1024);  // -1024 is to give a littl
 
 //**************************************************
 // Memory subsystem
-typedef long Address;
+typedef intptr_t Address;
 
-ushort log2i(ulong n);
-short  log2i(long n);
-short  log2i(int n);
+short  log2i(unsigned int n);
 
 //x, y are integers and x,y > 0
 #define CEILDiv(x,y)            ((x)-1)/(y)+1

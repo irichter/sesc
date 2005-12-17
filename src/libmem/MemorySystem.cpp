@@ -40,8 +40,8 @@ MemorySystem::MemorySystem(int processorId)
   : GMemorySystem(processorId)
   ,pID(processorId)
 {
-  if (SescConf->isLong("",k_procsPerNode))
-    procsPerNode = SescConf->getLong("",k_procsPerNode);
+  if (SescConf->isInt("",k_procsPerNode))
+    procsPerNode = SescConf->getInt("",k_procsPerNode);
   else
     procsPerNode = 1;
 }

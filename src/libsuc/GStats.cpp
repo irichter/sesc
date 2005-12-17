@@ -124,7 +124,7 @@ GStatsPDF::GStatsPDF(const char *format,...)
   subscribe();
 }
 
-void GStatsPDF::sample(const long v) 
+void GStatsPDF::sample(const int v)
 {
   data += v;
   nData++;
@@ -142,7 +142,7 @@ void GStatsPDF::sample(GStatsPDF &g)
   data += g.data;
   nData += g.nData;
 
-  HASH_MAP<long,long>::iterator it;
+  HASH_MAP<int,int>::iterator it;
   for(it=g.density.begin(); it!=g.density.end(); it++) {
     if( density.find( (*it).first ) == density.end() ) {
       density[ (*it).first ] = (*it).second;
@@ -170,7 +170,7 @@ double GStatsPDF::getStdDev() const
 
   double sum = 0.0;
 
-  HASH_MAP<long,long>::const_iterator it;
+  HASH_MAP<int,int>::const_iterator it;
 
   for(it=density.begin(); it!=density.end(); it++) {
     double value = (*it).first;
@@ -185,9 +185,9 @@ double GStatsPDF::getSpread(double p) const
 {
   double avg = getDouble();
   double perAvg = p*avg;
-  long cnt=0;
+  int cnt=0;
 
-  HASH_MAP<long,long>::const_iterator it;
+  HASH_MAP<int,int>::const_iterator it;
     
   for(it=density.begin(); it!=density.end(); it++) {
     if( double((*it).first) > perAvg ) {
@@ -282,7 +282,7 @@ GStatsProfiler::GStatsProfiler(const char *format, ...)
   subscribe();
 }
 
-void GStatsProfiler::sample(ulong key)
+void GStatsProfiler::sample(uint key)
 {
   ProfHash::iterator it = p.find(key);
   if(it != p.end())
@@ -348,7 +348,7 @@ void GStatsHist::reportValue() const
 {
   Histogram::const_iterator it;
     
-  unsigned long maxKey = 0;
+  unsigned int maxKey = 0;
 
   for(it=H.begin();it!=H.end();it++) {
     Report::field("%s(%lu)=%llu",name,(*it).first,(*it).second);
@@ -360,7 +360,7 @@ void GStatsHist::reportValue() const
   Report::field("%s_Samples=%lu",name,numSample);
 }
 
-void GStatsHist::sample(unsigned long key, unsigned long long weight)
+void GStatsHist::sample(unsigned int key, unsigned long long weight)
 {
   if(H.find(key)==H.end())
     H[key]=0;
@@ -391,7 +391,7 @@ GStatsTimingAvg::GStatsTimingAvg(const char *format,...)
   subscribe();
 }
 
-void GStatsTimingAvg::sample(const long v) 
+void GStatsTimingAvg::sample(const int v)
 {
   if(lastUpdate != globalClock && lastUpdate != 0) {
     data += lastValue;
@@ -444,7 +444,7 @@ void GStatsTimingHist::reportValue() const
   Report::field("%s_AutoAvg=%f", name, wavg);
 }
 
-void GStatsTimingHist::sample(unsigned long key)
+void GStatsTimingHist::sample(unsigned int key)
 {
   GStatsHist::sample(lastKey, (unsigned long long) (globalClock-lastUpdate));
   lastUpdate = globalClock;
@@ -654,7 +654,7 @@ void GStatsChangeHist::reportValue() const
 
 }
 
-void GStatsChangeHist::sample(unsigned long key)
+void GStatsChangeHist::sample(unsigned int key)
 {
   if (lastUpdate != globalClock)
     GStatsHist::sample(key, 1);

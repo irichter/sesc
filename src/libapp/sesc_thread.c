@@ -22,7 +22,7 @@ int sesc_get_num_cpus(void)
   return 1;
 }
 
-int sesc_spawn(void (*start_routine) (void *), void *arg, long flags)
+int sesc_spawn(void (*start_routine) (void *), void *arg, int flags)
 {
   fprintf(stderr,"sesc_spawn shouldn't be called without a simulator. This is a simulator only code\n");
   exit(-1);
@@ -67,13 +67,13 @@ void sesc_wait(void){
 void sesc_pseudoreset(void){
 }
 
-long sesc_fetch_op(enum FetchOpType op, volatile long *addr, long val){
+int sesc_fetch_op(enum FetchOpType op, volatile int *addr, int val){
   fprintf(stderr,"sesc_fetch_op shouldn't be called without a simulator\n");
   exit(-1);
   return 0l;
 }
 
-void sesc_unlock_op(volatile long *addr, long val)
+void sesc_unlock_op(volatile int *addr, int val)
 {
   fprintf(stderr,"sesc_unlock_op shouldn't be called without a simulator\n");
   exit(-1);
@@ -92,7 +92,7 @@ static pthread_mutex_t wait_lock    = PTHREAD_MUTEX_INITIALIZER;
 /* sesc_fetch_op lock */
 static pthread_mutex_t fetchop_lock = PTHREAD_MUTEX_INITIALIZER;
 
-static volatile long nConcurrentThreads=1;
+static volatile int nConcurrentThreads=1;
 
 /* sescapi mapping between native pid (nPid) to internal pid (iPid)
  */
@@ -300,7 +300,7 @@ void *sesc_spawn_wrapper(void *p)
 }
 
 
-int sesc_spawn(void (*routine) (void *), void *arg, long flags)
+int sesc_spawn(void (*routine) (void *), void *arg, int flags)
 {
   struct TableField *tf;
 
@@ -394,11 +394,11 @@ void sesc_exit(int err)
   pthread_exit(0);
 }
 
-long sesc_fetch_op(enum FetchOpType op, volatile long *data, long val){
+int sesc_fetch_op(enum FetchOpType op, volatile int *data, int val){
   assert(data);
   pthread_mutex_lock(&fetchop_lock);
   {
-    long odata;
+	 int odata;
     odata = *data;
     
     switch (op) {
@@ -420,7 +420,7 @@ long sesc_fetch_op(enum FetchOpType op, volatile long *data, long val){
   }
 }
 
-void sesc_unlock_op(volatile long *addr, long val)
+void sesc_unlock_op(volatile int *addr, int val)
 {
   *addr = val;
 }

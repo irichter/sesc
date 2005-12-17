@@ -163,7 +163,7 @@ protected:
   PortGeneric **bankPorts;
   PortGeneric **mshrPorts;
 
-  long defaultMask;
+  int defaultMask;
   TimeDelta_t missDelay;
   TimeDelta_t hitDelay;
   TimeDelta_t fwdDelay;

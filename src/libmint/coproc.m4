@@ -30,8 +30,8 @@
 #include "non_mips.h"
 
 #ifdef SUNOS
-#define trunc(a) ((long)(a))
-#define truncf(a) ((long)(a))
+#define trunc(a) ((int)(a))
+#define truncf(a) ((int)(a))
 #elif AIX
 #define truncf(a) (trunc(a))
 #endif
@@ -52,10 +52,10 @@
  * "float *" is used instead of "float" since otherwise some compilers might
  * promote a float to a double at the call site.
  */
-#define FOP1(X) float X(float *, long *)
-#define DOP1(X) double X(double, long *)
-#define FOP2(X) float X(float *, float *, long *)
-#define DOP2(X) double X(double, double, long *)
+#define FOP1(X) float X(float *, int *)
+#define DOP1(X) double X(double, int *)
+#define FOP2(X) float X(float *, float *, int *)
+#define DOP2(X) double X(double, double, int *)
 
 FOP1(s_abs_s); DOP1(s_abs_d);
 FOP2(s_add_s); DOP2(s_add_d);
@@ -65,12 +65,12 @@ FOP1(s_neg_s); DOP1(s_neg_d);
 FOP2(s_sub_s); DOP2(s_sub_d);
 FOP1(s_trunc_w_s); DOP1(s_trunc_w_d); /* VK */
 FOP1(s_sqrt_s); DOP1(s_sqrt_d);       /* VK */
-double s_cvt_d_s(float *, long *);
-double s_cvt_d_w(long *, long *);
-float s_cvt_s_d(double, long *);
-float s_cvt_s_w(long *, long *);
-long s_cvt_w_d(double, long *);
-long s_cvt_w_s(float *, long *);
+double s_cvt_d_s(float *, int *);
+double s_cvt_d_w(int *, int *);
+float s_cvt_s_d(double, int *);
+float s_cvt_s_w(int *, int *);
+int s_cvt_w_d(double, int *);
+int s_cvt_w_s(float *, int *);
 
 M4_IN(c1_abs_s,
 {
@@ -498,7 +498,7 @@ M4_IN(c1_sub_d,
 
 M4_IN(c1_trunc_w_s,
 {
-  long pp = (long)(truncf(pthread->getFP(picode, ICODEFS)));
+  int pp = (int)(truncf(pthread->getFP(picode, ICODEFS)));
   pthread->setFP(picode, ICODEFD, *(float *)&pp);
 })
 

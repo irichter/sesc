@@ -23,8 +23,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.
 */
 
-#include <alloca.h>
-
 #include "Port.h"
 
 PortGeneric::PortGeneric(const char *name)
@@ -46,7 +44,7 @@ PortGeneric *PortGeneric::create(const char *unitName,
   // everything can be solved with PortNPipe, but it is the slowest.
   // Sorry, but I'm a performance freak!
 
-  char *name = (char*)alloca(strlen(unitName)+10);
+  char *name = (char*)malloc(strlen(unitName)+10);
   sprintf(name,"%s_occ",unitName);
 
   PortGeneric *gen;
@@ -66,6 +64,8 @@ PortGeneric *PortGeneric::create(const char *unitName,
       gen = new PortNPipe(name,nUnits,occ);
     }
   }
+
+  free(name);
   
   return gen;
 }

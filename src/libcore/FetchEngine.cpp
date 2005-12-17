@@ -22,8 +22,6 @@ SESC; see the file COPYING.  If not, write to the  Free Software Foundation, 59
 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 */
 
-#include <alloca.h>
-
 #include "SescConf.h"
 #include "FetchEngine.h"
 #include "OSSim.h"
@@ -74,12 +72,12 @@ FetchEngine::FetchEngine(int cId
   ,unBlockFetchCB(this)
 {
   // Constraints
-  SescConf->isLong("cpucore", "fetchWidth",cId);
+  SescConf->isInt("cpucore", "fetchWidth",cId);
   SescConf->isBetween("cpucore", "fetchWidth", 1, 1024, cId);
-  FetchWidth = SescConf->getLong("cpucore", "fetchWidth", cId);
+  FetchWidth = SescConf->getInt("cpucore", "fetchWidth", cId);
 
   SescConf->isBetween("cpucore", "bb4Cycle",0,1024,cId);
-  BB4Cycle = SescConf->getLong("cpucore", "bb4Cycle",cId);
+  BB4Cycle = SescConf->getInt("cpucore", "bb4Cycle",cId);
   if( BB4Cycle == 0 )
     BB4Cycle = USHRT_MAX;
   
@@ -90,9 +88,9 @@ FetchEngine::FetchEngine(int cId
   else
     bpred = new BPredictor(i,bpredSection);
 
-  SescConf->isLong(bpredSection, "BTACDelay");
+  SescConf->isInt(bpredSection, "BTACDelay");
   SescConf->isBetween(bpredSection, "BTACDelay", 0, 1024);
-  BTACDelay = SescConf->getLong(bpredSection, "BTACDelay");
+  BTACDelay = SescConf->getInt(bpredSection, "BTACDelay");
 
   missInstID = 0;
 #ifdef SESC_MISPATH
@@ -115,7 +113,7 @@ FetchEngine::FetchEngine(int cId
       // Must be the i-cache
       SescConf->isInList(sec,"deviceType","icache");
 
-      IL1HitDelay = SescConf->getLong(sec,"hitDelay");
+      IL1HitDelay = SescConf->getInt(sec,"hitDelay");
     }else{
       IL1HitDelay = 1; // 1 cycle if impossible to find the information required
     }
@@ -176,7 +174,7 @@ FetchEngine::FetchEngine(int cId
 }
 
 #ifdef SESC_INORDER
-int FetchEngine::gatherRunTimeData(long pc)
+int FetchEngine::gatherRunTimeData(int pc)
 {
  //int mode = 1;
  instrCount++;
@@ -198,7 +196,7 @@ int FetchEngine::gatherRunTimeData(long pc)
      
      double energy = GStatsEnergy::getTotalEnergy();
      double delta_energy = energy - previousTotEnergy;
-     long delta_time = globalClock - previousClockCount;
+	  int delta_time = globalClock - previousClockCount;
      
      fprintf(energyInstFile,"%d\t%.3f\t%ld\n", intervalCount * 10 + subIntervalCount, delta_energy, delta_time);
      
@@ -226,7 +224,7 @@ int FetchEngine::gatherRunTimeData(long pc)
    if(energyInstFile != NULL) {
      double energy =  GStatsEnergy::getTotalEnergy();
      double delta_energy = energy - previousTotEnergy; 
-     long  delta_time = globalClock - previousClockCount;
+	  int  delta_time = globalClock - previousClockCount;
      
      fprintf(energyInstFile,"%d\t%.3f\t%ld\n", intervalCount * 10, delta_energy, delta_time);
    }
@@ -243,7 +241,7 @@ int FetchEngine::getNextCoreMode()
 {
   char line[128];
   char *c, *pch;
-  long interval;
+  int interval;
   int mode; 
 
   if(switchFile == NULL)
@@ -373,7 +371,7 @@ bool FetchEngine::processBranch(DInst *dinst, ushort n2Fetched)
 
 void FetchEngine::realFetch(IBucket *bucket, int fetchMax)
 {
-  long n2Fetched=fetchMax > 0 ? fetchMax : FetchWidth;
+  int n2Fetched=fetchMax > 0 ? fetchMax : FetchWidth;
   maxBB = BB4Cycle; // Reset the max number of BB to fetch in this cycle (decreased in processBranch)
 
   // This method only can be called once per cycle or the restriction of the
@@ -465,7 +463,7 @@ void FetchEngine::fetch(IBucket *bucket, int fetchMax)
   }else{
     realFetch(bucket, fetchMax);
 #ifdef SESC_INORDER  
-    long pc = bucket->top()->getInst()->getAddr();
+	 int pc = bucket->top()->getInst()->getAddr();
     gatherRunTimeData(pc);
 #endif
   }
@@ -521,12 +519,14 @@ void FetchEngine::fakeFetch(IBucket *bucket, int fetchMax)
 
 void FetchEngine::dump(const char *str) const
 {
-  char *nstr = (char *)alloca(strlen(str) + 20);
+  char *nstr = (char *)malloc(strlen(str) + 20);
 
   sprintf(nstr, "%s_FE", str);
  
   bpred->dump(nstr);
   flow.dump(nstr);
+
+  free(nstr);
 }
 
 void FetchEngine::unBlockFetch()

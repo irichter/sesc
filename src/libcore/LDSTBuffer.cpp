@@ -152,9 +152,9 @@ void LDSTBuffer::getLoadEntry(DInst *dinst)
 
     I(calcWord(dinst) == calcWord(pdinst));
 
-    GLOG(DEBUG2, "FORWARD pc=0x%x [addr=0x%x] (%p)-> pc=0x%x [addr=0x%x] (%p)"
-	,(int)pdinst->getInst()->getAddr() , (int)pdinst->getVaddr(), pdinst
-	,(int)dinst->getInst()->getAddr()  , (int)dinst->getVaddr(), dinst);
+    LOG( "FORWARD pc=0x%x [addr=0x%x] (%p)-> pc=0x%x [addr=0x%x] (%p)"
+        ,(int)pdinst->getInst()->getAddr() , (int)pdinst->getVaddr(), pdinst
+        ,(int)dinst->getInst()->getAddr()  , (int)dinst->getVaddr(), dinst);
 
     return;
   }
@@ -199,9 +199,9 @@ void LDSTBuffer::dump(const char *str)
        sit++ ) {
 
     fprintf(stderr,": pc=0x%x, addr=0x%x %d"
-	    ,(int)(sit->second->getInst()->getAddr())
-	    ,(int)((sit->first)<<2)
-	    ,sit->second->getContextId()
+            ,(int)(sit->second->getInst()->getAddr())
+            ,(int)((sit->first)<<2)
+            ,sit->second->getContextId()
       );
   }
   fprintf(stderr,"\n");

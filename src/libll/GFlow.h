@@ -57,7 +57,7 @@ class GFlow {
   
   virtual InstID getNextID() const = 0;
 
-  virtual void addEvent(EventType e, CallbackBase *cb, long addr) = 0;
+  virtual void addEvent(EventType e, CallbackBase *cb, int addr) = 0;
 
   virtual ThreadContext *getThreadContext(void) = 0;
 

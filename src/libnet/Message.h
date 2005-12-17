@@ -136,7 +136,7 @@ public:
   }
 #endif
 
-  virtual long getUniqueProtID() const = 0;
+  virtual int getUniqueProtID() const = 0;
   
   void setSize(unsigned int size);
 

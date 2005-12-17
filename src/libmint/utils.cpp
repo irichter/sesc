@@ -24,7 +24,7 @@ int Max_warnings = MAX_WARNINGS;
 void mint_termination(int);
 
 /*VARARGS1*/
-void fatal(char *fmt, ...)
+void fatal(const char *fmt, ...)
 {
     va_list ap;
 #if 0
@@ -51,7 +51,7 @@ void fatal(char *fmt, ...)
  */
 
 /*VARARGS1*/
-void error(char *fmt, ...)
+void error(const char *fmt, ...)
 {
     va_list ap;
 #if 0
@@ -81,7 +81,7 @@ void error(char *fmt, ...)
  */
 
 /*VARARGS1*/
-void warning(char *fmt, ...)
+void warning(const char *fmt, ...)
 {
     va_list ap;
 #if 0
@@ -104,7 +104,7 @@ void warning(char *fmt, ...)
 /* strlen_expand() returns the length of the string, counting tabs
  * as the equivalent number of spaces that would be generated.
  */
-int strlen_expand(char *str)
+int strlen_expand(const char *str)
 {
     int len;
 
@@ -143,7 +143,7 @@ base2roundup(int *pnum)
 
 /* returns the number of newlines in "buf"
  */
-int newlines(char *buf)
+int newlines(const char *buf)
 {
     int count;
 

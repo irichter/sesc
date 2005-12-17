@@ -87,11 +87,11 @@ enum FetchOpType {
 
 #else
 typedef struct {
-  volatile long spin;            /* lock spins */
-  volatile long dummy;
+  volatile int spin;            /* lock spins */
+  volatile int dummy;
 #ifdef NOSPIN_DOSUSPEND
-  volatile long waitSpin;
-  volatile long waitingPos;
+  volatile int waitSpin;
+  volatile int waitingPos;
   int waiting[MAXLOCKWAITING+1];
 #endif
 } slock_t;
@@ -103,17 +103,17 @@ typedef struct {
 #ifdef SESCAPI_NATIVE_IRIX
   atomic_var_t *count;
 #else /* !SESCAPI_NATIVE_IRIX */
-  volatile long count;    /* the count of entered processors */
+  volatile int count;    /* the count of entered processors */
 #ifdef NOSPIN_DOSUSPEND
   /* Only for the enter phase */
-  volatile long waitingPos;
+  volatile int waitingPos;
   int waiting[MAXLOCKWAITING+1];
 #endif
 #endif /* SESCAPI_NATIVE_IRIX */
 } sbarrier_t;
 
 typedef struct {
-  long count;                   /* shared object, the number of arrived processors */
+  int count;                   /* shared object, the number of arrived processors */
   volatile int gsen;            /* shared object, the global sense */
 } sgbarr_t;
 
@@ -122,7 +122,7 @@ typedef struct {
 } slbarr_t;
 
 typedef struct {
-  volatile long count;          /* the number of resource available to the semaphore */
+  volatile int count;          /* the number of resource available to the semaphore */
 } ssema_t;
 
 /* A flag, implemented an in the original ANL macros for Splash-2 */
@@ -136,21 +136,21 @@ typedef struct{
 #ifdef __cplusplus
 extern "C" {
 #endif
-  void sesc_preevent_(long vaddr, long type, void *sptr);
-  void sesc_preevent(long vaddr, long type, void *sptr);
-  void sesc_postevent_(long vaddr, long type, const void *sptr);
-  void sesc_postevent(long vaddr, long type, const void *sptr);
-  void sesc_memfence_(long vaddr);
-  void sesc_memfence(long vaddr);
-  void sesc_acquire_(long vaddr);
-  void sesc_acquire(long vaddr);
-  void sesc_release_(long vaddr);
-  void sesc_release(long vaddr);
+  void sesc_preevent_(int vaddr, int type, void *sptr);
+  void sesc_preevent(int vaddr, int type, void *sptr);
+  void sesc_postevent_(int vaddr, int type, const void *sptr);
+  void sesc_postevent(int vaddr, int type, const void *sptr);
+  void sesc_memfence_(int vaddr);
+  void sesc_memfence(int vaddr);
+  void sesc_acquire_(int vaddr);
+  void sesc_acquire(int vaddr);
+  void sesc_release_(int vaddr);
+  void sesc_release(int vaddr);
 
   void sesc_init(void);
   int  sesc_get_num_cpus(void);
-  void sesc_sysconf(int tid, long flags);
-  int  sesc_spawn(void (*start_routine) (void *), void *arg, long flags);
+  void sesc_sysconf(int tid, int flags);
+  int  sesc_spawn(void (*start_routine) (void *), void *arg, int flags);
   int  sesc_self(void);
   int  sesc_suspend(int tid);
   int  sesc_resume(int tid);
@@ -163,17 +163,17 @@ extern "C" {
                                         applications to subtract spawning
                                         overheads                            */
 
-  long sesc_fetch_op(enum FetchOpType op, volatile long *addr, long val); 
-  void sesc_unlock_op(volatile long *addr, long val);
+  int sesc_fetch_op(enum FetchOpType op, volatile int *addr, int val); 
+  void sesc_unlock_op(volatile int *addr, int val);
 
   void sesc_simulation_mark(void);
   void sesc_simulation_mark_(void);
-#ifdef SESCAPI_NATIVE
+#if (defined SESCAPI_NATIVE) || (defined SUNSTUDIO)
   void sesc_simulation_mark_id(int id);
   void sesc_simulation_mark_id_(int id);
 #else
   void sesc_simulation_mark_id(int id) __attribute__((noinline));
-  void sesc_simulation_mark_id_(int id) __attribute__((noinline));;
+  void sesc_simulation_mark_id_(int id) __attribute__((noinline));
 #endif
   void sesc_fast_sim_begin(void);
   void sesc_fast_sim_begin_(void);
@@ -195,7 +195,7 @@ extern "C" {
    * a two-phase centralized barrier
    */
   void sesc_barrier_init(sbarrier_t *barr);
-  void sesc_barrier(sbarrier_t *barr, long num_proc);
+  void sesc_barrier(sbarrier_t *barr, int num_proc);
 
   /*
    * Semaphore
@@ -280,7 +280,7 @@ extern "C" {
   static inline void tls_unlock(slock_t *lock_ptr) __attribute__ ((always_inline));
 
   static inline void tls_barrier_init(sbarrier_t *barr_ptr) __attribute__ ((always_inline));
-  static inline void tls_barrier(sbarrier_t *barr_ptr, long num_proc) __attribute__ ((always_inline));
+  static inline void tls_barrier(sbarrier_t *barr_ptr, int num_proc) __attribute__ ((always_inline));
 
   static inline void tls_begin_epochs(void){
     asm volatile ("jal sesc_begin_epochs"
@@ -395,9 +395,9 @@ extern "C" {
     barr_ptr->count=0;
     barr_ptr->gsense=0;
   }
-  static inline void tls_barrier(sbarrier_t *barr_ptr, long num_proc){
+  static inline void tls_barrier(sbarrier_t *barr_ptr, int num_proc){
     register int  lsense=!barr_ptr->gsense;
-    register long lcount;
+	 register int lcount;
     tls_acquire_begin();
     lcount=barr_ptr->count++;
     tls_acquire_end();

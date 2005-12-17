@@ -118,7 +118,7 @@ void DMemRequest::dinstAck(DInst *dinst, MemOperation memOp, TimeDelta_t lat)
 void DMemRequest::create(DInst *dinst, GMemorySystem *gmem, MemOperation mop)
 {
   // turn off address translation
-  long old_addr = dinst->getVaddr();
+  int old_addr = dinst->getVaddr();
 
 #ifndef TRACE_DRIVEN
   if (!ThreadContext::isValidVAddr(old_addr)) {
@@ -140,7 +140,7 @@ void DMemRequest::create(DInst *dinst, GMemorySystem *gmem, MemOperation mop)
   r->prefetch= false;
   r->priority = 0;
 
-  long ph_addr = gmem->getMemoryOS()->TLBTranslate(old_addr);
+  int ph_addr = gmem->getMemoryOS()->TLBTranslate(old_addr);
   if (ph_addr == -1) {
     gmem->getMemoryOS()->solveRequest(r);
     return;
@@ -204,8 +204,8 @@ void IMemRequest::create(DInst *dinst, GMemorySystem *gmem, IBucket *bb)
   r->prefetch= false;
   r->priority= 0;
 
-  long old_addr = dinst->getInst()->getAddr();
-  long ph_addr = gmem->getMemoryOS()->ITLBTranslate(old_addr);
+  int old_addr = dinst->getInst()->getAddr();
+  int ph_addr = gmem->getMemoryOS()->ITLBTranslate(old_addr);
   if (ph_addr == -1) {
     gmem->getMemoryOS()->solveRequest(r);
     return;

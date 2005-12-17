@@ -26,7 +26,7 @@ ulong  VMemState::lineMask=0;
 void VMemState::initialize()
 {
   if (lineMask == 0) {
-    lineMask = SescConf->getLong("TaskScalar", "bsize");
+    lineMask = SescConf->getInt("TaskScalar", "bsize");
     lineMask = lineMask-1;
   }
 }

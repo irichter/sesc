@@ -40,14 +40,14 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 GProcessor::GProcessor(GMemorySystem *gm, CPU_t i, size_t numFlows)
   :Id(i)
-  ,FetchWidth(SescConf->getLong("cpucore", "fetchWidth",i))
-  ,IssueWidth(SescConf->getLong("cpucore", "issueWidth",i))
-  ,RetireWidth(SescConf->getLong("cpucore", "retireWidth",i))
+  ,FetchWidth(SescConf->getInt("cpucore", "fetchWidth",i))
+  ,IssueWidth(SescConf->getInt("cpucore", "issueWidth",i))
+  ,RetireWidth(SescConf->getInt("cpucore", "retireWidth",i))
   ,RealisticWidth(RetireWidth < IssueWidth ? RetireWidth : IssueWidth)
-  ,InstQueueSize(SescConf->getLong("cpucore", "instQueueSize",i))
+  ,InstQueueSize(SescConf->getInt("cpucore", "instQueueSize",i))
   ,InOrderCore(SescConf->getBool("cpucore","inorder",i))
   ,MaxFlows(numFlows)
-  ,MaxROBSize(SescConf->getLong("cpucore", "robSize",i))
+  ,MaxROBSize(SescConf->getInt("cpucore", "robSize",i))
   ,memorySystem(gm)
   ,ROB(MaxROBSize)
   ,replayQ(2*MaxROBSize)
@@ -63,23 +63,23 @@ GProcessor::GProcessor(GMemorySystem *gm, CPU_t i, size_t numFlows)
   I(osSim);
   osSim->registerProc(this);
 
-  SescConf->isLong("cpucore", "issueWidth",i);
+  SescConf->isInt("cpucore", "issueWidth",i);
   SescConf->isLT("cpucore", "issueWidth", 1025,i); // no longer than unsigned short
 
-  SescConf->isLong("cpucore"    , "retireWidth",i);
+  SescConf->isInt("cpucore"    , "retireWidth",i);
   SescConf->isBetween("cpucore" , "retireWidth", 0, 32700,i);
 
-  SescConf->isLong("cpucore"    , "robSize",i);
+  SescConf->isInt("cpucore"    , "robSize",i);
   SescConf->isBetween("cpucore" , "robSize", 2, 262144,i);
 
-  SescConf->isLong("cpucore"    , "intRegs",i);
+  SescConf->isInt("cpucore"    , "intRegs",i);
   SescConf->isBetween("cpucore" , "intRegs", 16, 262144,i);
 
-  SescConf->isLong("cpucore"    , "fpRegs",i);
+  SescConf->isInt("cpucore"    , "fpRegs",i);
   SescConf->isBetween("cpucore" , "fpRegs", 16, 262144,i);
 
-  regPool[0] = SescConf->getLong("cpucore", "intRegs",i);
-  regPool[1] = SescConf->getLong("cpucore", "fpRegs",i);
+  regPool[0] = SescConf->getInt("cpucore", "intRegs",i);
+  regPool[1] = SescConf->getInt("cpucore", "fpRegs",i);
   regPool[2] = 262144; // Unlimited registers for invalid output
 
 #ifdef SESC_MISPATH
@@ -523,7 +523,7 @@ void GProcessor::report(const char *str)
   memorySystem->getMemoryOS()->report(str);
 }
 
-void GProcessor::addEvent(EventType ev, CallbackBase *cb, long vaddr)
+void GProcessor::addEvent(EventType ev, CallbackBase *cb, int vaddr)
 {
   currentFlow()->addEvent(ev,cb,vaddr);
 }
@@ -532,7 +532,7 @@ void GProcessor::retire()
 {
 #ifdef DEBUG
   // Check for progress. When a processor gets stuck, it sucks big time
-  if ((((long)globalClock) & 0x1FFFFFL) == 0) {
+  if ((((int)globalClock) & 0x1FFFFFL) == 0) {
     if (ROB.empty()) {
       // ROB should not be empty for lots of time
       if (prevDInstID == 1) {
@@ -544,7 +544,7 @@ void GProcessor::retire()
       if (prevDInstID == dinst->getID()) {
         I(0);
         MSG("ExeEngine::retire CPU[%d] no forward progress from pc=0x%x with %d @%lld"
-            ,(int)Id, (uint)dinst->getInst()->getAddr() 
+            ,Id, (uint)dinst->getInst()->getAddr() 
             ,(uint)dinst->getInst()->currentID(), globalClock );
         dinst->dump("HEAD");
         LDSTBuffer::dump("");

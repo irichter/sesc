@@ -28,7 +28,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "globals.h"
 
 // TODO: Make this a parameter in sesc.conf
-ulong MemoryOS::numPhysicalPages;
+uint MemoryOS::numPhysicalPages;
 PageTable *StdMemoryOS::PT=0;
 
 /** Note: bit field distribution according to PageSize:
@@ -53,17 +53,17 @@ MemoryOS::MemoryOS(GMemorySystem *ms, const char *section)
   numPhysicalPages = 65536;
 }
 
-long MemoryOS::TLBTranslate(unsigned long vAddr) 
+int MemoryOS::TLBTranslate(unsigned int vAddr)
 {
-  long phPage = DTLB.translate(vAddr);
+  int phPage = DTLB.translate(vAddr);
   if (phPage == -1)
     return -1;
   return GMemorySystem::calcPAddr(phPage, vAddr);
 }
 
-long MemoryOS::ITLBTranslate(VAddr vAddr)
+int MemoryOS::ITLBTranslate(VAddr vAddr)
 {
-  long phPage = ITLB.translate(vAddr);
+  int phPage = ITLB.translate(vAddr);
   if (phPage == -1)
     return -1;
   return GMemorySystem::calcPAddr(phPage, vAddr);
@@ -75,23 +75,23 @@ PageTable::PageTable()
 {
   invertedPT = new IntlPTEntry[MemoryOS::numPhysicalPages];
 
-  ulong tmp_numEntriesPage = GMemorySystem::getPageSize() / BytesPerEntry;
+  uint tmp_numEntriesPage = GMemorySystem::getPageSize() / BytesPerEntry;
 
   maskEntriesPage = tmp_numEntriesPage - 1;
   log2EntriesPage = log2i(tmp_numEntriesPage);
 
   /* We assume a 32 bit virtual address */
-  long numL1PTEntries = GMemorySystem::calcPage(0x80000000) >> (log2EntriesPage-1);
+  int numL1PTEntries = GMemorySystem::calcPage(0x80000000) >> (log2EntriesPage-1);
 
   L1PT = new L1IntlPTEntry[numL1PTEntries];
 
   // L1 Page Table
   invertedPT[0].status = SystemPageStatus | ValidPageStatus; 
 
-  for (ulong i = 1; i < MemoryOS::numPhysicalPages; i++)
+  for (uint i = 1; i < MemoryOS::numPhysicalPages; i++)
     invertedPT[i].status = 0;
 
-  for (long i = 0; i < numL1PTEntries; i++)
+  for (int i = 0; i < numL1PTEntries; i++)
     L1PT[i].status = 0;
 }
 
@@ -101,7 +101,7 @@ PageTable::~PageTable()
   delete L1PT;
 }
 
-void PageTable::assignL1Entry(unsigned long vPage, unsigned long pPage)
+void PageTable::assignL1Entry(unsigned int vPage, unsigned int pPage)
 {
   L1IntlPTEntry *pL1 = L1PT + getL1EntryNum(vPage);
 
@@ -113,7 +113,7 @@ void PageTable::assignL1Entry(unsigned long vPage, unsigned long pPage)
   numOSPages.inc();
 }
 
-void PageTable::assignL2Entry(unsigned long vPage, unsigned long pPage)
+void PageTable::assignL2Entry(unsigned int vPage, unsigned int pPage)
 {
   vToPMap[vPage] = pPage;
   invertedPT[pPage].virtualPage = vPage;
@@ -170,7 +170,7 @@ StdMemoryOS::StdMemoryOS(GMemorySystem *ms, const char *section)
   I(cacheObj);
 #endif
 
-  minTLBMissDelay = SescConf->getLong(section, "minTLBMissDelay");
+  minTLBMissDelay = SescConf->getInt(section, "minTLBMissDelay");
   SescConf->isBetween(section, "minTLBMissDelay", 0, 4096);
 }
 
@@ -189,7 +189,7 @@ void StdMemoryOS::boot()
 PageTable::IntlPTEntry *StdMemoryOS::getReplPTEntry()
 { 
   PageTable::IntlPTEntry *p;
-  long tmp;
+  int tmp;
 
   do {
     p = PT->getReplPhPageL2Entry();
@@ -206,7 +206,7 @@ PageTable::IntlPTEntry *StdMemoryOS::getReplPTEntry()
     return p;
   }
 
-unsigned long int StdMemoryOS::getFreePhysicalPage()
+unsigned int StdMemoryOS::getFreePhysicalPage()
 {
   if (nextPhysicalPage < MemoryOS::numPhysicalPages)
     return nextPhysicalPage++;
@@ -221,7 +221,7 @@ unsigned long int StdMemoryOS::getFreePhysicalPage()
 		       ,PT->getL2PTEntryPhysicalAddress(p->virtualPage)
 		       ,0);
 
-  ulong tmp = PT->L2PTEntryToPhPage(p);
+  uint tmp = PT->L2PTEntryToPhPage(p);
   
   PT->evictL2Entry(p);
   
@@ -240,7 +240,7 @@ void StdMemoryOS::serviceRequest(MemRequest *mreq)
     missesITLB.inc();
   }
 
-  long phAddrL1 = PT->getL1PTEntryPhysicalAddress(GMemorySystem::calcPage(mreq->getVaddr()));
+  int phAddrL1 = PT->getL1PTEntryPhysicalAddress(GMemorySystem::calcPage(mreq->getVaddr()));
 
   //  MSG("1.TLB Miss 0x%x page L1PT[0x%x] @%lld", mreq->getVaddr(), phAddrL1, globalClock);
 
@@ -252,9 +252,9 @@ void StdMemoryOS::serviceRequest(MemRequest *mreq)
 
  void StdMemoryOS::accessL1PT(MemRequest *origReq, PAddr paddr)
 {
-  ulong vPage = GMemorySystem::calcPage(origReq->getVaddr());
+  uint vPage = GMemorySystem::calcPage(origReq->getVaddr());
 
-  long l2addr = PT->getL2PTEntryPhysicalAddress(vPage);
+  int l2addr = PT->getL2PTEntryPhysicalAddress(vPage);
 
   if (l2addr == -1) {
     PT->assignL1Entry(vPage, getFreePhysicalPage());
@@ -273,8 +273,8 @@ void StdMemoryOS::accessL2PT(MemRequest *origReq, PAddr paddr)
 {
   VAddr vaddr = origReq->getVaddr();
   
-  ulong vPage = GMemorySystem::calcPage(vaddr);
-  long phPage = PT->translate(vPage);
+  uint vPage = GMemorySystem::calcPage(vaddr);
+  int phPage = PT->translate(vPage);
   
   if (phPage == -1) {
     PT->assignL2Entry(vPage, getFreePhysicalPage());
@@ -289,15 +289,15 @@ void StdMemoryOS::accessL2PT(MemRequest *origReq, PAddr paddr)
   attemptToEmptyQueue(vaddr, phPage);
 }
 
-void StdMemoryOS::attemptToEmptyQueue(ulong vaddr, ulong phPage)
+void StdMemoryOS::attemptToEmptyQueue(uint vaddr, uint phPage)
 {
   // attempt a bypass
-  long vPage = GMemorySystem::calcPage(vaddr);
+  int vPage = GMemorySystem::calcPage(vaddr);
 
   std::vector<MemRequest *>::iterator it = pendingReqs.begin();
   if(it != pendingReqs.end()) {
     MemRequest *mm  = *it;
-    long tmpPage  = GMemorySystem::calcPage(mm->getVaddr());
+	 int tmpPage  = GMemorySystem::calcPage(mm->getVaddr());
     if(vPage == tmpPage) {
       launchReq(mm, GMemorySystem::calcPAddr(GMemorySystem::calcFullPage(vPage), mm->getVaddr()));
       it = pendingReqs.erase(it);

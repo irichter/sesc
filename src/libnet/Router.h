@@ -51,7 +51,7 @@ private:
 
   RoutingTable *rTable;
 
-  typedef HASH_MAP<long,ProtocolCBBase*> ProtHandlersType;
+  typedef HASH_MAP<int,ProtocolCBBase*> ProtHandlersType;
 
   ProtHandlersType localPortProtocol;
 
@@ -73,7 +73,7 @@ public:
   void notifyMsg(Message *msg);  //!< Called when the notification flit arrives to the destination
 
   //!< Register a protocol callback with unique id in the portID
-  void registerProtocol(ProtocolCBBase *pcb, PortID_t pID, long id); 
+  void registerProtocol(ProtocolCBBase *pcb, PortID_t pID, int id);
   
   void dump();
 

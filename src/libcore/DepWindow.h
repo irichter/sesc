@@ -47,19 +47,19 @@ private:
   const TimeDelta_t RegFileDelay;
 
 #ifdef SESC_SEED
-  const long Banks;
-  const long DepTableEntries;
-  const long DepTableNumPorts;
+  const int Banks;
+  const int DepTableEntries;
+  const int DepTableNumPorts;
 
 
   const TimeDelta_t DepTableDelay;
 
 #ifdef SESC_SEED_OVERFLOW
-  const long MaxOverflowing;
-  const long MaxUnderflowing;
+  const int MaxOverflowing;
+  const int MaxUnderflowing;
 #endif
 
-  long nOverflowing;
+  int nOverflowing;
 
   SCTable  depPred;
 
@@ -70,7 +70,7 @@ private:
 
   GStatsCntr *nDepsCntr[3];
 
-  long addInstBank;
+  int addInstBank;
 
   Time_t lastWakeUpTime;
   
@@ -107,8 +107,8 @@ private:
   PortGeneric *schedPort;
 
 #ifdef SESC_SEED
-  long getBank() {
-    long tmp = addInstBank;
+  int getBank() {
+	 int tmp = addInstBank;
     addInstBank = (addInstBank+1) % Banks;
     return tmp;
   }

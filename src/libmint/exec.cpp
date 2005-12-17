@@ -139,8 +139,8 @@ OP(mint_sesc_preevent)
   // Set things up for the return to from this call
   pthread->setIP(addr2icode(pthread->getGPR(RetAddrGPR)));
   // Get arguments for this call (sptr is a real address)
-  long  vaddr=pthread->getGPR(Arg1stGPR);
-  long  type=pthread->getGPR(Arg2ndGPR);
+  int  vaddr=pthread->getGPR(Arg1stGPR);
+  int  type=pthread->getGPR(Arg2ndGPR);
   void *sptr=(void *)(pthread->virt2real(pthread->getGPR(Arg3rdGPR)));
   // Do the actual call 
   rsesc_preevent(pthread->getPid(),vaddr,type,sptr);
@@ -151,8 +151,8 @@ OP(mint_sesc_preevent)
 OP(mint_sesc_postevent)
 {
   // Get arguments for this call (sptr is a real address)
-  long  vaddr=pthread->getGPR(Arg1stGPR);
-  long  type=pthread->getGPR(Arg2ndGPR);
+  int  vaddr=pthread->getGPR(Arg1stGPR);
+  int  type=pthread->getGPR(Arg2ndGPR);
   void *sptr=(void *)(pthread->virt2real(pthread->getGPR(Arg3rdGPR)));
   // Do the actual call (should not context-switch)
   ID(Pid_t thePid=pthread->getPid());

@@ -126,7 +126,7 @@ protected:
   Time_t stallUntil; //stall the cpu until
 #endif
 
-  ID(long prevDInstID);
+  ID(int prevDInstID);
 
   GStatsCntr *nStall[MaxStall];
   GStatsCntr *nInst[MaxInstType];
@@ -201,7 +201,7 @@ public:
   // Returns the maximum number of flows this processor can support 
   size_t getMaxFlows(void) const { return MaxFlows; }
 
-  void addEvent(EventType ev, CallbackBase *cb, long vaddr);
+  void addEvent(EventType ev, CallbackBase *cb, int vaddr);
 
   void report(const char *str);
 

@@ -49,17 +49,17 @@ protected:
   // a = 2
   // c = 2
   // 
-  // Results for getLong:
-  // getLong("bpred","a") = 1 // main section overides private section
-  // getLong("bpred","b") = 1 // only defined in main
-  // getLong("bpred","c") = 2 // only defined in section
+  // Results for getInt:
+  // getInt("bpred","a") = 1 // main section overides private section
+  // getInt("bpred","b") = 1 // only defined in main
+  // getInt("bpred","c") = 2 // only defined in section
   // 
   // Remeber that the environment variable ALWAYS overides local variables:
   // SESC_a = 7 // highest priority overide (a=7)
   // SESC_bpred_a = 8 // whould use a = 7 instead. If SESC_a is not defined a = 8
   // SESC_bpred_c = 7 // highest
   // SESC_b = 7 
-  // SESC_bpred_b = 7 // unless getLong("bpred","b") it is ignored
+  // SESC_bpred_b = 7 // unless getInt("bpred","b") it is ignored
   // 
 
   virtual const char *getEnvVar(const char *block,
@@ -67,14 +67,14 @@ protected:
 
   virtual const Record *getRecord(const char *block,
 				  const char *name,
-				  long vectorPos);
+				  int vectorPos);
 
 public:
   SConfig(const char *name);
 
   std::vector<char *> getSplitCharPtr(const char *block,
 				      const char *name,
-				      long vectorPos=0);
+				      int vectorPos=0);
 };
 
 extern SConfig *SescConf;       // declared in SescConf.cpp

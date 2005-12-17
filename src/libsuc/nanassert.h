@@ -48,24 +48,24 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 /*
  * Example:
  *  int a[100];
- *	ID(int i;)  // See that the ; is inside. Required only in C, not C++ 
- *	ID(int j;)
- *	int k;
- *	
- *	for(k=0;k<100;k++)
- *		a[k]=k;
+ *      ID(int i;)  // See that the ; is inside. Required only in C, not C++ 
+ *      ID(int j;)
+ *      int k;
+ *      
+ *      for(k=0;k<100;k++)
+ *              a[k]=k;
  *
- *	I(k == 100 );
+ *      I(k == 100 );
  *
- *	MSG("Hello");
+ *      MSG("Hello");
  *
- *	IN(exists((j=0;j<100;j++),a[j]==10));
- *	
- *	IN(existsn((i=1;i<100;i++),
- *			  forall((j=0;j<i;j++),0)
- *			  ));
+ *      IN(exists((j=0;j<100;j++),a[j]==10));
+ *      
+ *      IN(existsn((i=1;i<100;i++),
+ *                        forall((j=0;j<i;j++),0)
+ *                        ));
  *
- *	TRACE("NABI","THis is one");
+ *      TRACE("NABI","THis is one");
  * */
 
 #ifndef _NANASSERT_H_
@@ -73,6 +73,9 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <stddef.h>
+#include <stdlib.h>
+#include <stdarg.h>
 
 /* By default cerr, but you can redefine it. */
 #ifndef ASSERTSTREAM
@@ -90,52 +93,52 @@ void nanassertexit();
 
 #define forall(asstFor,asstCond) \
     do {                         \
-	  aRes =1;                   \
-	  for asstFor {              \
-		  if( !(asstCond) ){     \
-			  aRes = 0;          \
-			  break;             \
-		  }                      \
-	  }                          \
-	}while(0)
+          aRes =1;                   \
+          for asstFor {              \
+                  if( !(asstCond) ){     \
+                          aRes = 0;          \
+                          break;             \
+                  }                      \
+          }                          \
+        }while(0)
 
 #define exists(asstFor,asstCond) \
     do {                         \
-	  for asstFor {              \
-		  if( (asstCond) ){      \
-			  aRes = 1;    \
-			  break;             \
-		  }                      \
-	  }                          \
-	}while(0)
+          for asstFor {              \
+                  if( (asstCond) ){      \
+                          aRes = 1;    \
+                          break;             \
+                  }                      \
+          }                          \
+        }while(0)
 
 /* Nested forall and exists */
 
 #define foralln(asstFor,asstCond)\
     do {                         \
       int result=1;              \
-	  for asstFor {              \
+          for asstFor {              \
           asstCond;              \
-		  if( !aRes ){     \
-        	  result = 0;        \
-			  break;             \
-		  }                      \
-	  }                          \
+                  if( !aRes ){     \
+                  result = 0;        \
+                          break;             \
+                  }                      \
+          }                          \
       aRes = result;       \
-	}while(0)
+        }while(0)
 
 #define existsn(asstFor,asstCond)\
     do {                         \
       int result=0;              \
-	  for asstFor {              \
+          for asstFor {              \
           asstCond;              \
-		  if( aRes ){      \
-        	  result = 1;        \
-			  break;             \
-		  }                      \
-	  }                          \
+                  if( aRes ){      \
+                  result = 1;        \
+                          break;             \
+                  }                      \
+          }                          \
       aRes = result;       \
-	}while(0)
+        }while(0)
 
 extern const char *NanassertID;
 
@@ -144,21 +147,21 @@ extern const char *NanassertID;
     do {                                   \
       fprintf(ASSERTSTREAM,"%s (%s),%s line %d failed for ",__FILE__,NANASSERTFILE,NanassertID,__LINE__); \
       fprintf(ASSERTSTREAM,asstOutput);    \
-	  fprintf(ASSERTSTREAM,"\n");          \
+          fprintf(ASSERTSTREAM,"\n");          \
       ASSERTACTION;                        \
-	}while(0)
+        }while(0)
 #else
 #define doassert(asstOutput)               \
     do {                                   \
       fprintf(ASSERTSTREAM,"%s,%s line %d failed for ",__FILE__,NanassertID,__LINE__);\
       fprintf(ASSERTSTREAM,asstOutput);    \
-	  fprintf(ASSERTSTREAM,"\n");          \
+          fprintf(ASSERTSTREAM,"\n");          \
       ASSERTACTION;                        \
-	}while(0)
+        }while(0)
 #endif
 
 
-#ifdef __GNUC__
+#if (defined __GNUC__)
 #define MSG(a...)   do{ fprintf(ASSERTSTREAM,##a); fprintf(ASSERTSTREAM,"\n"); }while(0)
 #define GMSG(g,a...) do{ if(g) do{ fprintf(ASSERTSTREAM,##a); fprintf(ASSERTSTREAM,"\n"); }while(0); }while(0)
 #else
@@ -166,11 +169,8 @@ extern const char *NanassertID;
 /* Without GGC is not so nice, but works */
 
 /* The following prototipes are defined in nanassert.c */
-void NoGCCMSG(const char *format,
-              ...);
-void NoGCCGMSG(int g,
-               const char *format,
-               ...);
+void NoGCCMSG(const char *format, ...);
+void NoGCCGMSG(int g, const char *format, ...);
 
 #define MSG   NoGCCMSG
 #define GMSG  NoGCCGMSG
@@ -208,14 +208,9 @@ void NoGCCGMSG(int g,
 #define LOG(a...)               /* nodebug */
 #define GLOG(g,a...)            /* nodebug */
 #else    /* !__GNUC__ */
-void NoGCCLOG(const char *format,
-              ...);
-void NoGCCGLOG(int g,
-               const char *format,
-               ...);
 
-#define LOG         NoGCCLOG
-#define GLOG        NoGCCGLOG
+#define LOG         NoGCCMSG
+#define GLOG        NoGCCGMSG
 #endif   /* __GNUC__ */
 #else
 #define LOG    MSG
@@ -232,8 +227,8 @@ void NoGCCGLOG(int g,
 #define ID(e)                   /* nodebug */
 #define ID2(e)                   /* nodebug */
 #else
-#define ID(e)	     e
-#define ID2(e)	   /*  e */
+#define ID(e)        e
+#define ID2(e)     /*  e */
 #endif
 #define IS(e)                   /* nodebug */
 

@@ -35,18 +35,18 @@ SMPSystemBus::SMPSystemBus(SMemorySystem *dms, const char *section, const char *
   if (lowerLevel != NULL)
     addLowerLevel(lowerLevel);
 
-  SescConf->isLong(section, "numPorts");
-  SescConf->isLong(section, "portOccp");
-  SescConf->isLong(section, "delay");
+  SescConf->isInt(section, "numPorts");
+  SescConf->isInt(section, "portOccp");
+  SescConf->isInt(section, "delay");
   
-  delay = SescConf->getLong(section, "delay");
+  delay = SescConf->getInt(section, "delay");
 
   char portName[100];
   sprintf(portName, "%s_bus", name);
 
   busPort = PortGeneric::create(portName, 
-				SescConf->getLong(section, "numPorts"), 
-				SescConf->getLong(section, "portOccp"));
+				SescConf->getInt(section, "numPorts"), 
+				SescConf->getInt(section, "portOccp"));
 }
 
 SMPSystemBus::~SMPSystemBus() 
@@ -151,7 +151,7 @@ void SMPSystemBus::doRead(MemRequest *mreq)
     }
 
     // distribute requests to other caches, wait for responses
-    for(ulong i = 0; i < upperLevel.size(); i++) {
+	 for(uint i = 0; i < upperLevel.size(); i++) {
       if(upperLevel[i] != static_cast<SMPMemRequest *>(mreq)->getRequestor()) {
 	upperLevel[i]->returnAccess(mreq);
       }
@@ -205,7 +205,7 @@ void SMPSystemBus::doWrite(MemRequest *mreq)
     }
 
     // distribute requests to other caches, wait for responses
-    for(ulong i = 0; i < upperLevel.size(); i++) {
+	 for(uint i = 0; i < upperLevel.size(); i++) {
       if(upperLevel[i] != static_cast<SMPMemRequest *>(mreq)->getRequestor()) {
 	upperLevel[i]->returnAccess(mreq);
       }

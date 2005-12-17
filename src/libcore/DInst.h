@@ -206,8 +206,8 @@ private:
 #ifdef SESC_SEED
   DInst *predParent;
   int    nDepTableEntries;
-  long   bank;
-  long   xtraBank;
+  int   bank;
+  int   xtraBank;
   bool   predParentSrc1;
   bool   overflowing;
   bool   stallOnLoad;
@@ -217,8 +217,8 @@ private:
 
 #ifdef DEBUG
  public:
-  static long currentID;
-  long ID; // static ID, increased every create (currentID). pointer to the
+  static int currentID;
+  int ID; // static ID, increased every create (currentID). pointer to the
   // DInst may not be a valid ID because the instruction gets recycled
 #endif
  protected:
@@ -412,12 +412,12 @@ private:
     nDepTableEntries++;
   }
   int getnDepTableEntries() const { return nDepTableEntries; }
-  long getXtraBank() const { return xtraBank; }
-  void setXtraBank(long i) {
+  int getXtraBank() const { return xtraBank; }
+  void setXtraBank(int i) {
     xtraBank = i;
   }
-  long getBank() const { return bank; }
-  void setBank(long i) {
+  int getBank() const { return bank; }
+  void setBank(int i) {
     bank = i;
   }
   // No getPredParent because predParent can be an stale pointer. Only parent
@@ -561,7 +561,7 @@ private:
 #endif
 
 #ifdef DEBUG
-  long getID() const { return ID; }
+  int getID() const { return ID; }
 #endif
 };
 

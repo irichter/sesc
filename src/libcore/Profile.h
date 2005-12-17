@@ -56,10 +56,10 @@ private:
   typedef CacheGeneric<PCState,PAddr> PCacheType;
   PCacheType *pcache;
 
-  long nRdHit;
-  long nRdMiss;
-  long nWrHit;
-  long nWrMiss;
+  int nRdHit;
+  int nRdMiss;
+  int nWrHit;
+  int nWrMiss;
   
 public:
   ProfCache();
@@ -68,10 +68,10 @@ public:
   bool read(PAddr addr);
   bool write(PAddr addr);
 
-  long getNRdHit()  const { return nRdHit; }
-  long getNRdMiss() const { return nRdMiss;}
-  long getNWrHit()  const { return nWrHit; }
-  long getNWrMiss() const { return nWrMiss;}
+  int getNRdHit()  const { return nRdHit; }
+  int getNRdMiss() const { return nRdMiss;}
+  int getNWrHit()  const { return nWrHit; }
+  int getNWrMiss() const { return nWrMiss;}
 };
 
 enum Note_t {
@@ -93,7 +93,7 @@ private:
     int  nViolations;           //number of violations happened
     long long currHoist;
 
-    long startAddr;
+	 int startAddr;
     int  nExec;                 //how many times it gets executed
     int  nSpawn;                //how many spawns inside it
     long long nInst;
@@ -107,12 +107,12 @@ private:
     Time_t beginTime;           //virtual start time
     Time_t seqBeginTime;        //virtual start time for sequential run
 
-    long nRdHit;
-    long nRdMiss;
-    long nWrHit;
-    long nWrMiss;
-    long nUncountRdMiss;        //Misses between two squashes
-    long nUncountWrMiss;
+	 int nRdHit;
+	 int nRdMiss;
+	 int nWrHit;
+	 int nWrMiss;
+	 int nUncountRdMiss;        //Misses between two squashes
+	 int nUncountWrMiss;
 
     Note_t note;                //Note for each task
 

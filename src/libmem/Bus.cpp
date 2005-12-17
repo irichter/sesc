@@ -29,16 +29,16 @@ Bus::Bus(MemorySystem* current
 	 ,const char *section
 	 ,const char *name)
   : MemObj(section, name)
-  ,delay(SescConf->getLong(section, "delay"))
+  ,delay(SescConf->getInt(section, "delay"))
 {
   MemObj *lower_level = NULL;
 
-  SescConf->isLong(section, "numPorts");
-  SescConf->isLong(section, "portOccp");
-  SescConf->isLong(section, "delay");
+  SescConf->isInt(section, "numPorts");
+  SescConf->isInt(section, "portOccp");
+  SescConf->isInt(section, "delay");
 
-  NumUnits_t  num = SescConf->getLong(section, "numPorts");
-  TimeDelta_t occ = SescConf->getLong(section, "portOccp");
+  NumUnits_t  num = SescConf->getInt(section, "numPorts");
+  TimeDelta_t occ = SescConf->getInt(section, "portOccp");
 
   char cadena[100];
   sprintf(cadena,"Data%s", name);

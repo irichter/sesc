@@ -43,7 +43,7 @@ VMemObj::VMemObj(MemorySystem *gms, const char *section, const char *name)
   if (lineShift==0) {
     SescConf->isPower2("TaskScalar", "bsize");
     SescConf->isGT("TaskScalar", "bsize", 1);
-    int lineSize = SescConf->getLong("TaskScalar", "bsize");
+    int lineSize = SescConf->getInt("TaskScalar", "bsize");
     lineShift = log2i(lineSize);
     I(lineShift < 8);
   }

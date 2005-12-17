@@ -60,7 +60,7 @@ private:
 
   EventType ev;
   CallbackBase *evCB;
-  long evAddr;
+  int evAddr;
 
   DInst *pendingDInst;
 
@@ -93,7 +93,7 @@ private:
   //   For executed load/store instructions, the returned (non-zero)
   //   value is the virtual address of the data accessed. Note that
   //   load/store accesses to a virtual address of zero are not allowed.
-  long exeInst();
+  int exeInst();
 
   // Returns the next dynamic instruction, 0 if none can be executed
   // Executes instruction(s) as needed to generate the return value
@@ -105,7 +105,7 @@ public:
     return picodePC->instID;
   }
 
-  void addEvent(EventType e, CallbackBase *cb, long addr) {
+  void addEvent(EventType e, CallbackBase *cb, int addr) {
     ev     = e;
     evCB   = cb;
     evAddr = addr;

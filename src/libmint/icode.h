@@ -37,7 +37,7 @@
 #include "mendian.h"
 
 #if defined(DARWIN) || (defined(sparc) && !defined(__svr4__))
-typedef unsigned long ulong;
+typedef unsigned int uint;
 #endif
 
 typedef struct icode *icode_ptr;
@@ -77,8 +77,8 @@ class icode {
 public:
   unsigned int instID;
   PFPI func;			/* function that simulates this instruction */
-  long addr;			/* text address of this instruction */
-  char args[4];		/* the pre-shifted register args */
+  int addr;			/* text address of this instruction */
+  short args[4];		/* the non-shifted register args */
   short immed;		/* bits 0 - 15 */
   icode_ptr next;		/* pointer to next icode to execute */
   icode_ptr target;		/* for branches and jumps */
@@ -86,20 +86,11 @@ public:
   unsigned int is_target : 1;	/* =1 if this instruction is a branch target */
   unsigned int opnum : 15;	/* arbitrary index for an instruction */
   unsigned int opflags : 16;	/* tells what kind of instruction */
-  long instr;			/* undecoded instruction */
+  int instr;			/* undecoded instruction */
 
-#if defined(LENDIAN)
-  int getFPN(int R) { return args[R] >> 2; }
-#else
-  int getFPN(int R) { return (args[R] >> 2) ^ 1; }
-#endif
-
-  int getRN(int R) {
-    return (R == SA ? (args[R]) : (args[R] >> 2));
-  }
-  int getDPN(int R) {
-    return args[R] >> 2;
-  }
+  int getFPN(int R) const { return args[R]; }
+  int getRN(int R)  const { return args[R]; }
+  int getDPN(int R) const { return args[R]; }
   const char *getFPFMT(int F) {
     return ((F) ==  16 ? "s" : (F) == 17 ? "d" : (F) == 20 ? "w" : "?");
   }
@@ -121,8 +112,8 @@ typedef struct icode  icode_t;
 extern icode_ptr icodeArray;
 extern size_t    icodeArraySize;
 
-extern signed long Text_start;
-extern signed long Text_end;
+//extern signed int Text_start;
+//extern signed int Text_end;
 extern struct icode **Itext;
 
 // Takes the logical address of an instruction, returns pointer to its icode

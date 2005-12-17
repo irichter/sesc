@@ -15,9 +15,9 @@ protected:
 
   static MapType type;
 
-  static ulong log2TileSize;
-  static ulong numNodes;
-  static ulong numNodesMask;
+  static uint log2TileSize;
+  static uint numNodes;
+  static uint numNodesMask;
 
 public:
   static void InitMap(char *descr_section) {
@@ -27,10 +27,10 @@ public:
     bool useNetwork = SescConf->getBool(descr_section,"useNetwork");
 
     if(useNetwork) {
-      numNodes = SescConf->getLong("gNetwork","width");
+      numNodes = SescConf->getInt("gNetwork","width");
       numNodes *= numNodes;
     } else {  
-      int nProcsPerNode = SescConf->getLong("","procsPerNode");
+      int nProcsPerNode = SescConf->getInt("","procsPerNode");
       LOG("NetAddrMap: nProcsPerNode = %d", nProcsPerNode);
       numNodes = SescConf->getRecordSize("","cpucore");
       LOG("NetAddrMap: numNodes = %ld", numNodes);
@@ -48,7 +48,7 @@ public:
     }
     numNodesMask = temp;
 
-    log2TileSize = SescConf->getLong(descr_section,"log2TileSize");
+    log2TileSize = SescConf->getInt(descr_section,"log2TileSize");
 
     if( strcmp( SescConf->getCharPtr(descr_section,"MapType"), 
 		"blocked" ) == 0) {
@@ -65,7 +65,7 @@ public:
 	"of nodes in the system. (%ld)", (uint) paddr, log2TileSize, numNodes);
       return paddr >> log2TileSize;
     } else {
-      ulong temp;
+		uint temp;
       temp = (paddr >> log2TileSize);
       temp = (numNodesMask & temp);
       if( temp >= numNodes ) {

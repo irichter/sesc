@@ -221,10 +221,6 @@ mysrand(unsigned int seed)	/* random number generator seed */
 int
 myrand(void)			/* returns random number */
 {
-#ifndef __alpha
-  extern long random(void);
-#endif
-
 #if defined(__CYGWIN32__) || defined(hpux) || defined(__hpux) || defined(__svr4__) || defined(_MSC_VER)
   return rand();
 #else
@@ -322,7 +318,7 @@ log_base2(int n)
 
 /* return string describing elapsed time, passed in SEC in seconds */
 char *
-elapsed_time(long sec)
+elapsed_time(int sec)
 {
   static char tstr[256];
   char temp[256];
@@ -851,8 +847,8 @@ myatosq(char *nptr, char **endp, int base)
   /* save the pointer so we can check later if anything happened */
   save = s;
 
-  cutoff = LL_MAX / (unsigned long int) base;
-  cutlim = LL_MAX % (unsigned long int) base;
+  cutoff = LL_MAX / (unsigned int) base;
+  cutlim = LL_MAX % (unsigned int) base;
 
   overflow = 0;
   i = 0;
@@ -872,7 +868,7 @@ myatosq(char *nptr, char **endp, int base)
         overflow = 1;
       else
         {
-          i *= (unsigned long int) base;
+			 i *= (unsigned int) base;
           i += c;
         }
     }
@@ -944,8 +940,8 @@ myatoq(char *nptr, char **endp, int base)
   /* save the pointer so we can check later if anything happened */
   save = s;
 
-  cutoff = ULL_MAX / (unsigned long int) base;
-  cutlim = ULL_MAX % (unsigned long int) base;
+  cutoff = ULL_MAX / (unsigned int) base;
+  cutlim = ULL_MAX % (unsigned int) base;
 
   overflow = 0;
   i = 0;
@@ -965,7 +961,7 @@ myatoq(char *nptr, char **endp, int base)
         overflow = 1;
       else
         {
-          i *= (unsigned long int) base;
+			 i *= (unsigned int) base;
           i += c;
         }
     }

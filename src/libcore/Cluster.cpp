@@ -34,8 +34,8 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 struct UnitEntry {
   PortGeneric *gen;
-  long num;
-  long occ;
+  int num;
+  int occ;
 };
 
 //Class for comparison to be used in hashes of char * where the content is to be compared
@@ -57,8 +57,8 @@ Cluster::~Cluster()
 
 Cluster::Cluster(const char *clusterName, GProcessor *gp)
   : window(gp,clusterName)
-  ,MaxWinSize(SescConf->getLong(clusterName,"winSize"))
-  ,windowSize(SescConf->getLong(clusterName,"winSize")) 
+  ,MaxWinSize(SescConf->getInt(clusterName,"winSize"))
+  ,windowSize(SescConf->getInt(clusterName,"winSize")) 
   ,gproc(gp)
 #ifdef WINDOW_USE_HIST
   ,winHist("Proc(%d)_%s_winHist", gp->getId(), clusterName)
@@ -88,7 +88,7 @@ void Cluster::buildUnit(const char *clusterName
 
   const char *unitName = SescConf->getCharPtr(clusterName,utUnit);
   
-  TimeDelta_t lat = SescConf->getLong(clusterName,utLat);
+  TimeDelta_t lat = SescConf->getInt(clusterName,utLat);
   PortGeneric *gen;
 
   SescConf->isBetween(clusterName,utLat,0,1024);
@@ -98,10 +98,10 @@ void Cluster::buildUnit(const char *clusterName
     gen = it->second.gen;
   }else{
     UnitEntry e;
-    e.num = SescConf->getLong(unitName,"Num");
+    e.num = SescConf->getInt(unitName,"Num");
     SescConf->isLT(unitName,"Num",1024);
       
-    e.occ = SescConf->getLong(unitName,"occ");
+    e.occ = SescConf->getInt(unitName,"occ");
     SescConf->isBetween(unitName,"occ",0,1024);
       
     char name[1024];
@@ -153,7 +153,7 @@ void Cluster::buildUnit(const char *clusterName
   break ;
   case iBJ:
     {
-      int MaxBranches = SescConf->getLong("cpucore", "maxBranches", gproc->getId());
+      int MaxBranches = SescConf->getInt("cpucore", "maxBranches", gproc->getId());
       if( MaxBranches == 0 )
 	MaxBranches = INT_MAX;
 	
@@ -162,10 +162,10 @@ void Cluster::buildUnit(const char *clusterName
     break;
   case iLoad:
     {
-      TimeDelta_t ldstdelay=SescConf->getLong("cpucore", "stForwardDelay",gproc->getId());
-      SescConf->isLong("cpucore", "maxLoads",gproc->getId());
+      TimeDelta_t ldstdelay=SescConf->getInt("cpucore", "stForwardDelay",gproc->getId());
+      SescConf->isInt("cpucore", "maxLoads",gproc->getId());
       SescConf->isBetween("cpucore", "maxLoads", 0, 256*1024, gproc->getId());
-      int maxLoads=SescConf->getLong("cpucore", "maxLoads",gproc->getId());
+      int maxLoads=SescConf->getInt("cpucore", "maxLoads",gproc->getId());
       if( maxLoads == 0 )
 	maxLoads = 256*1024;
 	
@@ -174,9 +174,9 @@ void Cluster::buildUnit(const char *clusterName
     break;
   case iStore:
     {
-      SescConf->isLong("cpucore", "maxStores",gproc->getId());
+      SescConf->isInt("cpucore", "maxStores",gproc->getId());
       SescConf->isBetween("cpucore", "maxStores", 0, 256*1024, gproc->getId());
-      int maxStores=SescConf->getLong("cpucore", "maxStores",gproc->getId());
+      int maxStores=SescConf->getInt("cpucore", "maxStores",gproc->getId());
       if( maxStores == 0 )
 	maxStores = 256*1024;
 	
@@ -215,7 +215,7 @@ Cluster *Cluster::create(const char *clusterName, GMemorySystem *ms, GProcessor 
   SescConf->isInList(clusterName,"recycleAt","Execute","Retire");
   const char *recycleAt = SescConf->getCharPtr(clusterName,"recycleAt");
   
-  SescConf->isLong(clusterName,"winSize");
+  SescConf->isInt(clusterName,"winSize");
   SescConf->isBetween(clusterName,"winSize",1,262144);
   
   Cluster *cluster;

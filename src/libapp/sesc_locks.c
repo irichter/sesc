@@ -52,7 +52,7 @@ void sesc_lock(slock_t * lock)
     }
   };
 
-  sesc_memfence((long)lock);
+  sesc_memfence((int)lock);
 #ifdef SESC_LOCKPROFILE
   sesc_endlock();
 #endif
@@ -63,7 +63,7 @@ void sesc_unlock(slock_t * lock)
 #ifdef SESC_LOCKPROFILE
   sesc_startlock();
 #endif
-  sesc_memfence((long)lock);
+  sesc_memfence((int)lock);
 
   lock->dummy = 5;
   sesc_unlock_op(&lock->spin, UNLOCKED);
@@ -118,7 +118,7 @@ void sesc_barrier_init(sbarrier_t * barr)
   barr->gsense = 0;
 }
 
-void sesc_barrier(sbarrier_t *barr, long num_proc)
+void sesc_barrier(sbarrier_t *barr, int num_proc)
 {
 #ifdef NOSPIN_DOSUSPEND
   int pos;
@@ -156,7 +156,7 @@ void sesc_barrier(sbarrier_t *barr, long num_proc)
     };
     
   }
-  sesc_memfence((long)barr);
+  sesc_memfence((int)barr);
 }
 
 /*
@@ -179,17 +179,17 @@ void sesc_psema(ssema_t *sema)
     }
   };
 
-  sesc_fetch_op(FetchDecOp, (long *)&(sema->count), 0);
+  sesc_fetch_op(FetchDecOp, (int *)&(sema->count), 0);
 
-  sesc_memfence((long)sema);
+  sesc_memfence((int)sema);
 }
 
 void sesc_vsema(ssema_t * sema)
 {
   /* UP, signal() */
-  sesc_fetch_op(FetchIncOp, (long *)&(sema->count), 0);
+  sesc_fetch_op(FetchIncOp, (int *)&(sema->count), 0);
 
-  sesc_memfence((long)sema);
+  sesc_memfence((int)sema);
 }
 
 void sesc_flag_init(sflag_t *flag){

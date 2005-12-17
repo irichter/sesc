@@ -30,7 +30,7 @@ namespace tls{
   typedef std::list<class Epoch *> EpochList;
 
   // Type for a scalar value of a clock
-  typedef long int ClockValue;
+  typedef int ClockValue;
   // Initial value for a clock field (all actual values are greater)
   const ClockValue initialClockValue =0x00000000l;
   // Infinite value for a clock field (all actual values are less)

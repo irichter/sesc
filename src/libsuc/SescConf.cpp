@@ -68,7 +68,7 @@ const char *SConfig::getEnvVar(const char *block,
 
 const SConfig::Record * SConfig::getRecord(const char *block,
                                            const char *name,
-					   long vectorPos)
+					   int vectorPos)
 {
   const Record *rec = Config::getRecord(block, name, vectorPos);
   if(rec)
@@ -93,7 +93,7 @@ const SConfig::Record * SConfig::getRecord(const char *block,
 
 std::vector<char *> SConfig::getSplitCharPtr(const char *block,
                                              const char *name,
-                                             long vectorPos)
+                                             int vectorPos)
 { 
   std::vector<char *> vRes;
   const char *q;

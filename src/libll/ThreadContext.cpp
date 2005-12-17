@@ -32,18 +32,18 @@ ThreadContext::ContextVector ThreadContext::pid2context;
 
 ThreadContext *ThreadContext::mainThreadContext;
 
-ulong ThreadContext::DataStart;
-ulong ThreadContext::DataEnd;
-signed long ThreadContext::DataMap;
+RAddr ThreadContext::DataStart;
+RAddr ThreadContext::DataEnd;
+MINTAddrType ThreadContext::DataMap;
 
-ulong ThreadContext::HeapStart;
-ulong ThreadContext::HeapEnd;
+RAddr ThreadContext::HeapStart;
+RAddr ThreadContext::HeapEnd;
 
-ulong ThreadContext::StackStart;
-ulong ThreadContext::StackEnd;
+RAddr ThreadContext::StackStart;
+RAddr ThreadContext::StackEnd;
 
-ulong ThreadContext::PrivateStart;
-ulong ThreadContext::PrivateEnd;
+RAddr ThreadContext::PrivateStart;
+RAddr ThreadContext::PrivateEnd;
 
 
 void ThreadContext::staticConstructor(void)
@@ -183,7 +183,7 @@ void ThreadContext::free(void)
   nThreads--;
 }
 
-void ThreadContext::initAddressing(signed long rMap, signed long mMap, signed long sTop) 
+void ThreadContext::initAddressing(MINTAddrType rMap, MINTAddrType mMap, MINTAddrType sTop)
 {
   stacktop   = sTop;
 
@@ -195,6 +195,9 @@ void ThreadContext::initAddressing(signed long rMap, signed long mMap, signed lo
     DataStart = Rdata_start;
     DataMap   = rMap;
   }
+#if defined (__x86_64__)
+  DataMap -= Data_start;
+#endif
     
   DataEnd   = Data_end;
   // Rdata should between
@@ -222,20 +225,17 @@ void ThreadContext::initAddressing(signed long rMap, signed long mMap, signed lo
   //
   // Opt2: PrivateStart-PrivateEnd ... DataStart-DataEnd
 
-  I(0x60000000 > DataEnd);
-  I(0x60000000 > PrivateEnd);
-
-  ulong privSize = PrivateEnd-PrivateStart;
+  RAddr privSize = PrivateEnd-PrivateStart;
   
-  MSG("Data[0x%x-0x%x]->[0x%x-...] Private[0x%x-0x%x] heap[0x%x-0x%x] stack[0x%x-0x%x]"
-      ,(unsigned)DataStart     ,(unsigned)DataEnd     ,(unsigned)DataStart
-      ,(unsigned)PrivateStart ,(unsigned)PrivateEnd
-      ,(unsigned)HeapStart     ,(unsigned)HeapEnd
-      ,(unsigned)StackStart    ,(unsigned)StackEnd
+  MSG("Data[0x%x-0x%x]->[0x%x-...] Private[%p-%p] heap[%p-%p] stack[%p-%p]"
+      ,(unsigned)DataStart     ,(unsigned)DataEnd     ,(unsigned)DataStart-DataMap
+      ,(void*)PrivateStart ,(void*)PrivateEnd
+      ,(void*)HeapStart     ,(void*)HeapEnd
+      ,(void*)StackStart    ,(void*)StackEnd
       );
 
-  if( ((ulong)PrivateEnd > DataStart  && (ulong)PrivateEnd < DataEnd)
-      || ((ulong)PrivateStart > DataStart  && (ulong)PrivateStart < DataEnd) ) {
+  if( (PrivateEnd > DataStart  && PrivateEnd < DataEnd)
+		|| (PrivateStart > DataStart  && PrivateStart < DataEnd) ) {
     MSG("There is an overlap between private and shared memory");
     MSG("This is not allowed, try increase/decrease -h parameter");
     MSG("or change mint memory allocation scheme");
@@ -247,13 +247,13 @@ void ThreadContext::dump()
 {
   int i, j;
 
-  printf("thread 0x%x:\n", (int)this);
+  printf("thread 0x%p:\n", this);
   for (i = 0; i < 32; ) {
     for (j = 0; j < 4; j++, i++)
-      printf("  r%d: %s 0x%08lx", i, i < 10 ? " " : "", reg[i]);
+      printf("  r%d: %s 0x%08x", i, i < 10 ? " " : "", reg[i]);
     printf("\n");
   }
-  printf("  lo:   0x%08lx  hi:   0x%08lx\n", lo, hi);
+  printf("  lo:   0x%08x  hi:   0x%08x\n", lo, hi);
 
   /* print out floats and doubles */
   for (i = 0; i < 32; ) {
@@ -270,33 +270,34 @@ void ThreadContext::dump()
 
   for (i = 0; i < 32; ) {
     for (j = 0; j < 4; j++, i++)
-      printf("  $w%d:%s 0x%08lx", i, i < 10 ? " " : "", getWFPNUM(i));
+      printf("  $w%d:%s 0x%08x", i, i < 10 ? " " : "", getWFPNUM(i));
     printf("\n");
   }
 
-  printf("  fcr0 = 0x%lx, fcr31 = 0x%lx\n", fcr0, fcr31);
+  printf("  fcr0 = 0x%x, fcr31 = 0x%x\n", fcr0, fcr31);
 
-  printf("  target = 0x%x, pid = %d\n", (int)(target), pid);
+  printf("  target = 0x%p, pid = %d\n", target, pid);
 
-  printf("  parent = 0x%x, youngest = 0x%x, sibling = 0x%x\n",
-	 (unsigned) parent, (unsigned) youngest, (unsigned) sibling);
+  printf("  parent = 0x%p, youngest = 0x%p, sibling = 0x%p\n",
+	 parent, youngest,  sibling);
 }
 
 /* dump the stack for stksize number of words */
 void ThreadContext::dumpStack()
 {
   int stksize = Stack_size;
-  long sp;
-  int i, j;
+  VAddr sp;
+  VAddr i;
+  int j;
   unsigned char c;
 
   sp = getREGNUM(29);
   printf("sp = 0x%08x\n", (unsigned) sp);
   for (i = sp + (stksize - 1) * 4; i >= sp; i -= 4) {
-    printf("0x%08x (+%ld): 0x%x (%f)  ",
-	   i,  (i - sp), *(int *) i, *(float *) i);
+    printf("0x%08x (+%d): 0x%x (%f)  ",
+	   i,  (i - sp), *(int *) this->virt2real(i), *(float *) this->virt2real(i));
     for (j = 0; j < 4; j++) {
-      c = *((char *) i + j);
+      c = *((char *) this->virt2real(i) + j);
       if (c < ' ')
 	c += 'A' - 1;
       else if (c >= 0x7f)
@@ -307,45 +308,45 @@ void ThreadContext::dumpStack()
   }
 }
 
-void ThreadContext::useSameAddrSpace(thread_ptr parent)
+void ThreadContext::useSameAddrSpace(thread_ptr pthread)
 {
-  setHeapManager(parent->getHeapManager());
+  setHeapManager(pthread->getHeapManager());
   
-  lo = parent->lo;
-  hi = parent->hi;
+  lo = pthread->lo;
+  hi = pthread->hi;
   for (int i = 0; i < 32; i++)
-    reg[i] = parent->reg[i];
+    reg[i] = pthread->reg[i];
 
 
-  fcr0 = parent->fcr0;
-  fcr31 = parent->fcr31;
+  fcr0 = pthread->fcr0;
+  fcr31 = pthread->fcr31;
   for (int i = 0; i < 32; i++)
-    fp[i] = parent->fp[i];
+    fp[i] = pthread->fp[i];
 
-  stacktop = parent->stacktop;
+  stacktop = pthread->stacktop;
 
 #if (defined TLS) || (defined TASKSCALAR)
-  fd = parent->fd;
+  fd = pthread->fd;
 #endif
 }
 
-void ThreadContext::shareAddrSpace(thread_ptr parent, int share_all, int copy_stack)
+void ThreadContext::shareAddrSpace(thread_ptr pthread, int share_all, int copy_stack)
 {
   // The address space has already been allocated
 
   I(share_all); // share_all is the only supported
 
-  setHeapManager(parent->getHeapManager());
+  setHeapManager(pthread->getHeapManager());
 
   /* copy all the registers */
   for (int i = 0; i < 32; i++)
-    reg[i] = parent->reg[i];
-  lo = parent->lo;
-  hi = parent->hi;
+    reg[i] = pthread->reg[i];
+  lo = pthread->lo;
+  hi = pthread->hi;
   for (int i = 0; i < 32; i++)
-    fp[i] = parent->fp[i];
-  fcr0 = parent->fcr0;
-  fcr31 = parent->fcr31;
+    fp[i] = pthread->fp[i];
+  fcr0 = pthread->fcr0;
+  fcr31 = pthread->fcr31;
 
   if (copy_stack) {
 #if (defined TLS)
@@ -353,18 +354,18 @@ void ThreadContext::shareAddrSpace(thread_ptr parent, int share_all, int copy_st
     I(!copy_stack);
 #endif
     /* copy the stack */
-    unsigned parent_sp = parent->reg[29];
+    unsigned pthread_sp = pthread->reg[29];
 
-    I(parent->reg[29] >= Stack_start && parent->reg[29] <= Stack_end);
+    I(pthread->reg[29] >= Stack_start && pthread->reg[29] <= Stack_end);
 
-    long *dest = (long *) (parent_sp + (pid - parent->pid) * Stack_size);
-    long *last = (long *) (Stack_start + (parent->pid + 1) * Stack_size);
-    long *src = (long *) parent_sp;
+    int *dest = (int *) (pthread_sp + (pid - pthread->pid) * Stack_size);
+    int *last = (int *) (Stack_start + (pthread->pid + 1) * Stack_size);
+    int *src = (int *) this->virt2real(pthread_sp);
     while (src < last)
       *dest++ = *src++;
 
     /* change the stack pointer to point into the child's stack copy */
-    reg[29] = parent->reg[29] + (pid - parent->pid) * Stack_size;
+    reg[29] = pthread->reg[29] + (pid - pthread->pid) * Stack_size;
 
     I(reg[29] >= Stack_start && reg[29] <= Stack_end);
 
@@ -387,7 +388,7 @@ void ThreadContext::badSpecThread(VAddr addr, short opflags) const
   GLOG(pid == -1, "failed Addressing Invalid thread");
 
   if(!rsesc_is_safe(pid) && rsesc_is_versioned(pid)) {
-    LOG("speculative thread using bad pointer. stopping thread. pid = %d. Iaddr=0x%08lx"
+    LOG("speculative thread using bad pointer. stopping thread. pid = %d. Iaddr=0x%08x"
 	, pid, osSim->eventGetInstructionPointer(pid)->addr);
     rsesc_exception(pid);
     return;
@@ -404,12 +405,12 @@ void ThreadContext::badSpecThread(VAddr addr, short opflags) const
 						  ,MemBufferEntry::calcChunkOffset(addr))
 		   ) == 0;
 
-  GMSG(badAlign,"(failed) bad aligment 0x%3x [flags=0x%x] in safe thread. pid=%d. pc=0x%08lx  (R31=0x%08lx) (SA=0x%08lx)"
+  GMSG(badAlign,"(failed) bad aligment 0x%3x [flags=0x%x] in safe thread. pid=%d. pc=0x%08x  (R31=0x%08x) (SA=0x%08x)"
        , (int)addr, (int)opflags, pid, osSim->eventGetInstructionPointer(pid)->addr, osSim->getContextRegister(pid, 31),
        spawnAddr);
 
 
-  GMSG(badAddr, "(failed) bad pointer 0x%3x [flags=0x%x] in safe thread. pid=%d. pc=0x%08lx  (R31=0x%08lx) (SA=0x%08lx)" 
+  GMSG(badAddr, "(failed) bad pointer 0x%3x [flags=0x%x] in safe thread. pid=%d. pc=0x%08x  (R31=0x%08x) (SA=0x%08x)" 
        , (int)addr, (int)opflags, pid, osSim->eventGetInstructionPointer(pid)->addr, osSim->getContextRegister(pid, 31),
        spawnAddr);
 
@@ -419,24 +420,6 @@ void ThreadContext::badSpecThread(VAddr addr, short opflags) const
   mint_termination(pid);
 }
 #endif
-
-// This assumes the address "addr" is known to be private.  Shared
-// addresses do not need to be translated since the virtual-to-
-// physical mapping is the identity function.
-VAddr ThreadContext::real2virt(RAddr uaddr)
-{
-  signed long addr = (signed long)uaddr;
-
-  // Direct mapping for heap and stack
-  if (addr >= Heap_start && addr <= Private_end)
-    return addr;
-
-  addr = addr - DataMap;
-
-  I(addr >= Data_start && addr < Data_end);
-
-  return addr;
-}
 
 void ThreadContext::init()
 {
@@ -477,7 +460,7 @@ void ThreadContext::initMainThread()
   /* Set the picode to the first executable instruction. */
   if (Text_entry == 0)
     Text_entry = Text_start;
-  entry_index = (Text_entry - Text_start) / sizeof(long);
+  entry_index = (Text_entry - Text_start) / sizeof(int);
   pthread->picode = Itext[entry_index];
 
   /* initialize the icodes for the terminator functions */
@@ -487,7 +470,7 @@ void ThreadContext::initMainThread()
 
   /* Set up the return address so that terminator1() gets called.
    * This probably isn't necessary since exit() gets called instead */
-  pthread->reg[31]=(long)icode2addr(Idone1);
+  pthread->reg[31]=(int)icode2addr(Idone1);
 }
 
 void ThreadContext::newChild(ThreadContext *child)
@@ -538,4 +521,62 @@ unsigned long long ThreadContext::getMemValue(RAddr p, unsigned dsize) {
   }
   
   return value;
+}
+
+RAddr ThreadContext::virt2real(VAddr vaddr, short opflags) const {
+#ifdef __LP64__
+    MINTAddrType m = (MINTAddrType)vaddr + DataMap;
+    RAddr r = static_cast<RAddr>(m);
+    MSG("SESC64: %p->virt2real(0x%x) = (0x%x + %p) = %p\n", (void*)this, vaddr, vaddr, (void*)DataMap, (void*)r);
+    fflush(stdout);
+    
+    if(!(m >= Data_start && m <= Private_end-Data_start)) {
+      MSG("SESC64: virtual address %p is out of bounds", (void*)m);
+      exit(1);
+    }
+    
+#ifdef TASKSCALAR
+#error "Can not compile TLS/TaskScalar with 64bit architectures. Still not working"
+#endif
+#else
+#ifdef TASKSCALAR
+    if(checkSpecThread(vaddr, opflags))
+      return 0;
+#endif
+    RAddr r = (vaddr >= DataStart && vaddr < DataEnd) ? 
+      static_cast<RAddr>(((signed)vaddr+ DataMap)) : vaddr;
+    
+    I(isPrivateRAddr(r)); // Once it is translated, it should map to
+			  // the beginning of the private map
+#endif
+
+#ifdef __LP64__
+      printf("\n%p->virt2real(0x%x) = %p", (void*)this, vaddr, (void*)r);
+      fflush(stdout);
+#endif
+    
+    return r;
+}
+  
+// This assumes the address "addr" is known to be private.  Shared
+// addresses do not need to be translated since the virtual-to-
+// physical mapping is the identity function.
+VAddr ThreadContext::real2virt(RAddr uaddr) const {
+#ifdef __x86_64__
+  uaddr = uaddr - DataMap;
+
+  return (VAddr)uaddr;
+#else
+  signed int addr = (signed int)uaddr;
+
+  // Direct mapping for heap and stack
+  if (addr >= Heap_start && addr <= Private_end)
+    return addr;
+
+  addr = addr - DataMap;
+
+  I(addr >= Data_start && addr < Data_end);
+
+  return addr;
+#endif
 }

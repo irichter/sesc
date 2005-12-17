@@ -25,7 +25,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 #include <typeinfo>
 
-ushort log2i(ulong n)
+short log2i(unsigned int n)
 {
   ulong m = 1;
   ulong i = 0;
@@ -39,16 +39,6 @@ ushort log2i(ulong n)
   }
 
   return i;
-}
-
-short log2i(long n)
-{
-  return (long)log2i((ulong)n);
-}
-
-short log2i(int n)
-{
-  return (int)log2i((ulong)n);
 }
 
 // this routine computes the smallest power of 2 greater than the

@@ -74,8 +74,8 @@ int getInstQueueSize(const char* proc)
   
   for(int i = min ; i <= max ; i++){
     const char* cc = SescConf->getCharPtr(proc,"cluster",i) ;
-    if(SescConf->checkLong(cc,"winSize")){
-      int sz = SescConf->getLong(cc,"winSize") ;
+    if(SescConf->checkInt(cc,"winSize")){
+      int sz = SescConf->getInt(cc,"winSize") ;
       total += sz;
       num++;
     }
@@ -382,20 +382,20 @@ double getEnergy(int size
 
 double getEnergy(const char *section, xcacti_flp *xflp) {
   // set the input
-  int cache_size = SescConf->getLong(section,"size") ;
-  int block_size = SescConf->getLong(section,"bsize") ;
-  int assoc = SescConf->getLong(section,"assoc") ;
+  int cache_size = SescConf->getInt(section,"size") ;
+  int block_size = SescConf->getInt(section,"bsize") ;
+  int assoc = SescConf->getInt(section,"assoc") ;
   int write_ports = 0 ;
-  int read_ports = SescConf->getLong(section,"numPorts");
+  int read_ports = SescConf->getInt(section,"numPorts");
   int readwrite_ports = 1;
   int subbanks = 1;
   int bits = 32;
 
-  if(SescConf->checkLong(section,"subBanks"))
-    subbanks = SescConf->getLong(section,"subBanks");
+  if(SescConf->checkInt(section,"subBanks"))
+    subbanks = SescConf->getInt(section,"subBanks");
 
-  if(SescConf->checkLong(section,"bits"))
-    bits = SescConf->getLong(section,"bits");
+  if(SescConf->checkInt(section,"bits"))
+    bits = SescConf->getInt(section,"bits");
 
   printf("Module [%s]...\n", section);
 
@@ -432,27 +432,27 @@ void processBranch(const char *proc)
     // No tables
     bpred_power= 0;
   }else if(!strcmp(type,"2bit")) {
-    long size = SescConf->getLong(bpred,"size") ;    
+	 int size = SescConf->getInt(bpred,"size") ;
 
     // 32 = 8bytes line * 4 predictions per byte (assume 2bit counter)
     bpred_power = getEnergy(size/32, 8, 1, 1, 1, 1, 0, 8, &xflp);
     bpred_power= 0;
 
   }else if(!strcmp(type,"2level")) {
-    long size = SescConf->getLong(bpred,"l2size") ;
+	 int size = SescConf->getInt(bpred,"l2size") ;
 
     // 32 = 8bytes line * 4 predictions per byte (assume 2bit counter)
     bpred_power = getEnergy(size/32, 8, 1, 1, 1, 1, 0, 8, &xflp);
 
   }else if(!strcmp(type,"hybrid")) {
-    long size = SescConf->getLong(bpred,"localSize") ;
+	 int size = SescConf->getInt(bpred,"localSize") ;
 
     // 32 = 8bytes line * 4 predictions per byte (assume 2bit counter)
     bpred_power = getEnergy(size/32, 8, 1, 1, 1, 1, 0, 8, &xflp);
 #ifdef SESC_THERM
     // FIXME: update layout
 #endif
-    size = SescConf->getLong(bpred,"metaSize");
+    size = SescConf->getInt(bpred,"metaSize");
 
     // 32 = 8bytes line * 4 predictions per byte (assume 2bit counter)
     bpred_power += getEnergy(size/32, 8, 1, 1, 1, 1, 0, 8, &xflp);
@@ -469,8 +469,8 @@ void processBranch(const char *proc)
   SescConf->updateRecord(proc,"bpredEnergy",bpred_power) ;
 #endif
 
-  long btbSize  = SescConf->getLong(bpred,"btbSize");
-  long btbAssoc = SescConf->getLong(bpred,"btbAssoc");
+  int btbSize  = SescConf->getInt(bpred,"btbSize");
+  int btbAssoc = SescConf->getInt(bpred,"btbAssoc");
   double btb_power = 0;
 
   if (btbSize) {
@@ -486,7 +486,7 @@ void processBranch(const char *proc)
   }
 
   double ras_power =0;
-  long ras_size = SescConf->getLong(bpred,"rasSize");
+  int ras_size = SescConf->getInt(bpred,"rasSize");
   if (ras_size) {
     ras_power = getEnergy(ras_size*8, 8, 1, 1, 0, 1, 0, 64, &xflp);
     update_layout("RAS", &xflp);
@@ -514,16 +514,16 @@ void processorCore()
   
   //----------------------------------------------
   // Register File
-  int issueWidth= SescConf->getLong(proc,"issueWidth");
-  int size    = SescConf->getLong(proc,"intRegs");
+  int issueWidth= SescConf->getInt(proc,"issueWidth");
+  int size    = SescConf->getInt(proc,"intRegs");
   int banks   = 1; 
   int rdPorts = 2*issueWidth;
   int wrPorts = issueWidth;
   int bits = 32;
   int bytes = 8;
 
-  if(SescConf->checkLong(proc,"bits")) {
-    bits = SescConf->getLong(proc,"bits");
+  if(SescConf->checkInt(proc,"bits")) {
+    bits = SescConf->getInt(proc,"bits");
     bytes = bits/8;
     if (bits*8 != bytes) {
       fprintf(stderr,"Not valid number of bits for the processor core [%d]\n",bits);
@@ -531,14 +531,14 @@ void processorCore()
     }
   }
 
-  if(SescConf->checkLong(proc,"intRegBanks"))
-    banks = SescConf->getLong(proc,"intRegBanks");
+  if(SescConf->checkInt(proc,"intRegBanks"))
+    banks = SescConf->getInt(proc,"intRegBanks");
 
-  if(SescConf->checkLong(proc,"intRegRdPorts"))
-    rdPorts = SescConf->getLong(proc,"intRegRdPorts");
+  if(SescConf->checkInt(proc,"intRegRdPorts"))
+    rdPorts = SescConf->getInt(proc,"intRegRdPorts");
 
-  if(SescConf->checkLong(proc,"intRegWrPorts"))
-    wrPorts = SescConf->getLong(proc,"intRegWrPorts");
+  if(SescConf->checkInt(proc,"intRegWrPorts"))
+    wrPorts = SescConf->getInt(proc,"intRegWrPorts");
 
   double regEnergy = getEnergy(size*bytes, bytes, 1, rdPorts, wrPorts, banks, 0, bits, &xflp);
 
@@ -557,13 +557,13 @@ void processorCore()
 
   //----------------------------------------------
   // Load/Store Queue
-  size      = SescConf->getLong(proc,"maxLoads");
+  size      = SescConf->getInt(proc,"maxLoads");
   banks     = 1; 
   rdPorts   = res_memport;
   wrPorts   = res_memport;
 
-  if(SescConf->checkLong(proc,"lsqBanks"))
-    banks = SescConf->getLong(proc,"lsqBanks");
+  if(SescConf->checkInt(proc,"lsqBanks"))
+    banks = SescConf->getInt(proc,"lsqBanks");
 
   regEnergy = getEnergy(size*2*bytes,2*bytes,size,rdPorts,wrPorts,banks,1, 2*bits, &xflp);
   update_layout("LDQ", &xflp);
@@ -575,7 +575,7 @@ void processorCore()
   printf("\nLoad Queue [%d bytes] banks[%d] ports[%d] Energy[%g]\n"
          ,size*2*bytes, banks, 2*res_memport, regEnergy);
 
-  size      =  SescConf->getLong(proc,"maxStores");
+  size      =  SescConf->getInt(proc,"maxStores");
  
   regEnergy = getEnergy(size*4*bytes,4*bytes,size,rdPorts,wrPorts,banks,1, 2*bits, &xflp);
   update_layout("STQ", &xflp);
@@ -607,7 +607,7 @@ void processorCore()
  
   //----------------------------------------------
   // Reorder Buffer
-  size      = SescConf->getLong(proc,"robSize");
+  size      = SescConf->getInt(proc,"robSize");
   banks     = size/64;
   if (banks == 0) {
     banks = 1;
@@ -632,7 +632,7 @@ void processorCore()
   //----------------------------------------------
   // Rename Table
   {
-    double bitsPerEntry = log(SescConf->getLong(proc,"intRegs"))/log(2);
+    double bitsPerEntry = log(SescConf->getInt(proc,"intRegs"))/log(2);
     
     size      = roundUpPower2(static_cast<unsigned int>(32*bitsPerEntry/8));
     banks     = 1;
@@ -670,8 +670,8 @@ void processorCore()
 
       
       bool useSEED = false; 
-      if(SescConf->checkLong(cluster,"depTableNumPorts"))
-        useSEED = SescConf->getLong(cluster,"depTableNumPorts") != 0;
+      if(SescConf->checkInt(cluster,"depTableNumPorts"))
+        useSEED = SescConf->getInt(cluster,"depTableNumPorts") != 0;
 
       if (!useSEED) {
         // TRADITIONAL COLLAPSING ISSUE LOGIC
@@ -681,11 +681,11 @@ void processorCore()
 
         // Recalculate windowRdWrEnergy
 
-        size      = SescConf->getLong(cluster,"winSize");
+        size      = SescConf->getInt(cluster,"winSize");
         banks     = 1;
-        rdPorts   = SescConf->getLong(cluster,"wakeUpNumPorts");
+        rdPorts   = SescConf->getInt(cluster,"wakeUpNumPorts");
         wrPorts   = issueWidth;
-        int robSize          = SescConf->getLong(proc,"robSize");
+        int robSize          = SescConf->getInt(proc,"robSize");
         float entryBits = 4*(log(robSize)/log(2)); // src1, src2, dest, instID
         entryBits += 7; // opcode
         entryBits += 1; // ready bit
@@ -726,7 +726,7 @@ void processorCore()
 #endif
         // RAT has register and token
         {
-          double bitsPerEntry = 2*log(SescConf->getLong(proc,"intRegs"))/log(2);
+          double bitsPerEntry = 2*log(SescConf->getInt(proc,"intRegs"))/log(2);
     
           size      = roundUpPower2(static_cast<unsigned int>(32*bitsPerEntry/8));
           banks     = 1; 
@@ -744,11 +744,11 @@ void processorCore()
 
         //----------------------------------------------
         // DepTable
-        int robSize          = SescConf->getLong(proc,"robSize");
-        size                 = SescConf->getLong(cluster,"winSize");
-        banks                = roundUpPower2(SescConf->getLong(cluster,"banks"));
-        int depTableEntries  = SescConf->getLong(cluster,"depTableEntries");
-        rdPorts   = SescConf->getLong(cluster,"depTableNumPorts");
+        int robSize          = SescConf->getInt(proc,"robSize");
+        size                 = SescConf->getInt(cluster,"winSize");
+        banks                = roundUpPower2(SescConf->getInt(cluster,"banks"));
+        int depTableEntries  = SescConf->getInt(cluster,"depTableEntries");
+        rdPorts   = SescConf->getInt(cluster,"depTableNumPorts");
         wrPorts   = 0;
         float entryBits = 4*(log(robSize)/log(2)); // src1, src2, dest, instID
         entryBits += 7 ; // opcode
@@ -779,7 +779,7 @@ void cacti_setup()
 {
   const char *technology = SescConf->getCharPtr("","technology");
   fprintf(stderr,"technology = [%s]\n",technology);
-  tech = SescConf->getLong(technology,"tech");
+  tech = SescConf->getInt(technology,"tech");
   fprintf(stderr, "tech : %9.0fnm\n" , tech);
   tech /= 1000;
 
@@ -795,7 +795,7 @@ void cacti_setup()
   if (l1CacheSpace)
     l1Section[l1CacheSpace - l1Cache] = 0;
 
-  res_memport = SescConf->getLong(l1Section,"numPorts");
+  res_memport = SescConf->getInt(l1Section,"numPorts");
 
   xcacti_flp xflp;
   double l1Energy = getEnergy(l1Section, &xflp);

@@ -73,7 +73,7 @@ MemBufferEntry::MemBufferEntry()
   data = 0;
 }
 
-MemBufferEntry *MemBufferEntry::create(const HVersion *v, ulong ci, RAddr addr, ulong iaddr)
+MemBufferEntry *MemBufferEntry::create(const HVersion *v, uint ci, RAddr addr, uint iaddr)
 {
   MemBufferEntry *e = mePool.out();
 
@@ -115,15 +115,15 @@ bool MemBufferEntry::chunkCopy(RAddr dstAddr, RAddr srcAddr, BitMaskType rbitmas
   I(calcChunkOffset(srcAddr) == 0); // addr Chunk aligned
   I(calcChunkOffset(dstAddr) == 0); // addr Chunk aligned
 
-  I(sizeof(unsigned long) > sizeof(BitMaskType));
+  I(sizeof(unsigned int) > sizeof(BitMaskType));
 
   const char *src = (const char *)srcAddr;
   char *dst = (char *)dstAddr;
     
   while(rbitmask) {
     if ((rbitmask & 0xF0) == 0xF0) {
-      const ulong *wsrc = (const ulong *)src;
-      ulong *wdst = (ulong *)dst;
+		const uint *wsrc = (const uint *)src;
+		uint *wdst = (uint *)dst;
       
       copied = copied || (*wdst != *wsrc);
       *wdst = *wsrc;
@@ -276,14 +276,14 @@ void MemBuffer::mergeOps()
 }
 
 
-RAddr MemBuffer::read(ulong iaddr, short opflags, RAddr addr)
+RAddr MemBuffer::read(uint iaddr, short opflags, RAddr addr)
 {
   I(addr); // load to address 0 not allowed
   I(addr!=0xFFFFFFFF); // load to address 0xFFFFFFFF not allowed
 
   MemBufferEntry *e;
   MemOpsType::iterator mit;
-  ulong cIndex  = MemBufferEntry::calcChunkIndex(addr);
+  uint cIndex  = MemBufferEntry::calcChunkIndex(addr);
   MapMemOpsType::iterator hit = mapMemOps.find(cIndex);
   if (hit == mapMemOps.end()) {
     e = MemBufferEntry::create(memVer, cIndex, addr, iaddr);
@@ -298,7 +298,7 @@ RAddr MemBuffer::read(ulong iaddr, short opflags, RAddr addr)
     I(e->getRealAddr() == MemBufferEntry::calcAlignChunk(addr));
   }
 
-  ulong cOffset = MemBufferEntry::calcChunkOffset(addr);
+  uint cOffset = MemBufferEntry::calcChunkOffset(addr);
   BitMaskType accMask=MemBufferEntry::calcAccessMask(opflags, cOffset);
 
 
@@ -307,13 +307,13 @@ RAddr MemBuffer::read(ulong iaddr, short opflags, RAddr addr)
 }
 
 const HVersion *MemBuffer::postWrite(const unsigned long long *writeData, 
-				     ulong iaddr, short opflags, RAddr addr)
+					  uint iaddr, short opflags, RAddr addr)
 {
   I(addr); // load to address 0 not allowed
 
   MemBufferEntry *e;
   MemOpsType::iterator mit;
-  ulong cIndex  = MemBufferEntry::calcChunkIndex(addr);
+  uint cIndex  = MemBufferEntry::calcChunkIndex(addr);
   MapMemOpsType::iterator hit = mapMemOps.find(cIndex);
   if (hit == mapMemOps.end()) {
     e = MemBufferEntry::create(memVer, cIndex, addr);
@@ -328,7 +328,7 @@ const HVersion *MemBuffer::postWrite(const unsigned long long *writeData,
     I(e->getRealAddr() == MemBufferEntry::calcAlignChunk(addr));
   }
 
-  ulong cOffset = MemBufferEntry::calcChunkOffset(addr);
+  uint cOffset = MemBufferEntry::calcChunkOffset(addr);
   BitMaskType accMask=MemBufferEntry::calcAccessMask(opflags, cOffset);
 
   e->addWRMask(accMask);

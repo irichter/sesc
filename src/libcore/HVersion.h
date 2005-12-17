@@ -98,7 +98,7 @@ class HVersion {
     static GStatsCntr **correct;
     static GStatsCntr **incorrect;
     
-    typedef unsigned long PredEntryTag;
+	 typedef unsigned int PredEntryTag;
     
     class PredEntry {
     private:
@@ -140,7 +140,7 @@ class HVersion {
   public:
     static void boot();
     static void executed(Pid_t pid, PAddr addr, size_t nChild);
-    static long predict(Pid_t pid, PAddr addr);
+	 static int predict(Pid_t pid, PAddr addr);
     static bool deactivated() { return nChildMax == 0; }
   };
 

@@ -27,13 +27,13 @@
 
 %union {
   bool Bool;
-  long Long;
+  int  Int;
   double Double;
   const char *CharPtr;
 }
 
 %type <Bool>    CFBOOL
-%type <Long>    CFLONG lexp
+%type <Int>     CFLONG lexp
 %type <Double>  CFDOUBLE dexp
 %type <CharPtr> CFQSTRING CFNAME CFNAMEREF CFSTRNAMEREF texp
 
@@ -93,18 +93,18 @@ texp:  CFSTRNAMEREF            { $$ = configptr->getCharPtr("",$1); configptr->i
 ;
 
 lexp:     CFLONG               { $$ = $1; }
-        | CFNAMEREF            { $$ = configptr->getLong("",$1); configptr->isLong("",$1); }
+        | CFNAMEREF            { $$ = configptr->getInt("",$1); configptr->isInt("",$1); }
         | lexp CFPLUS  lexp    { $$ = $1 + $3;    }
         | lexp CFMINUS lexp    { $$ = $1 - $3;    }
         | lexp CFMULT  lexp    { $$ = $1 * $3;    }
         | lexp CFDIV   lexp    { $$ = $1 / $3;    }
-        | lexp CFEXP   lexp    { $$ = static_cast<long>(pow((double)$1, (double)$3)); }
+        | lexp CFEXP   lexp    { $$ = static_cast<int>(pow((double)$1, (double)$3)); }
         | CFOP lexp CFCP       { $$ = $2; }
         | CFMINUS lexp  %prec CFMINUS { $$ = -$2; }
 ;
 
 dexp:      CFDOUBLE        { $$ = $1; }
-/*        | CFNAMEREF              { $$ = configptr->getLong("",$1); configptr->isLong("",$1); } */
+/*        | CFNAMEREF              { $$ = configptr->getInt("",$1); configptr->isInt("",$1); } */
         | dexp CFPLUS dexp       { $$ = $1 + $3; }
         | lexp CFPLUS dexp       { $$ = $1   + $3; }
         | dexp CFPLUS lexp       { $$ = $1 + $3;   }

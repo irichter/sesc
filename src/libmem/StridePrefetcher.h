@@ -40,7 +40,7 @@ class BState : public StateGeneric<> {
 
 class PfState : public StateGeneric<> {
  public:
-  ulong stride;
+  uint stride;
   bool goingUp;
   
   PAddr nextAddr(CacheGeneric<PfState,PAddr> *c) {
@@ -72,22 +72,22 @@ private:
   PortGeneric *buffPort;
   PortGeneric *tablePort;
 
-  long numStreams;
-  long streamAssoc;
-  long depth;
-  long numBuffPorts;
-  long buffPortOccp;
-  long numTablePorts;
-  long tablePortOccp;
-  long hitDelay;
-  long missDelay;
-  long learnHitDelay;
-  long learnMissDelay;
-  ulong missWindow;
-  ulong maxStride;
+  int numStreams;
+  int streamAssoc;
+  int depth;
+  int numBuffPorts;
+  int buffPortOccp;
+  int numTablePorts;
+  int tablePortOccp;
+  int hitDelay;
+  int missDelay;
+  int learnHitDelay;
+  int learnMissDelay;
+  uint missWindow;
+  uint maxStride;
   static const int pEntrySize = 8; // size of an entry in the prefetching table
   
-  long defaultMask;
+  int defaultMask;
 
   GStatsCntr halfMiss;
   GStatsCntr miss;

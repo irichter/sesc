@@ -61,7 +61,7 @@ void SysCallFree::undo(bool expectRedo){
 }
 void SysCallMmap::exec(ThreadContext *context, icode_ptr picode){
   // Prefered address for mmap. This is ignored in SESC.
-  long addr=context->getGPR(Arg1stGPR);
+  int addr=context->getGPR(Arg1stGPR);
   // Size of block to mmap
   size_t size=context->getGPR(Arg2ndGPR);
   // Protection flags for mmap
@@ -100,7 +100,7 @@ void SysCallMmap::undo(bool expectRedo){
 }
 void SysCallMunmap::exec(ThreadContext *context, icode_ptr picode){
   // Starting address of the block
-  long addr=context->getGPR(Arg1stGPR);
+  int addr=context->getGPR(Arg1stGPR);
   I(addr);
   I((!executed)||((Address)(context->virt2real(addr))==myAddr));
   myAddr=context->virt2real(addr);
@@ -406,7 +406,7 @@ void SysCallSescSpawn::exec(ThreadContext *context,icode_ptr picode){
   // Arguments of the sesc_spawn call
   RAddr entry = context->getGPR(Arg1stGPR);
   RAddr arg   = context->getGPR(Arg2ndGPR);
-  long  flags = context->getGPR(Arg3rdGPR);
+  int  flags = context->getGPR(Arg3rdGPR);
   I(entry);
   ThreadContext *childContext=0;
   tls::Thread   *childThread=0;

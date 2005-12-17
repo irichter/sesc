@@ -206,7 +206,7 @@ void *getcore(int nbytes);
 int log_base2(int n);
 
 /* return string describing elapsed time, passed in SEC in seconds */
-char *elapsed_time(long sec);
+char *elapsed_time(int sec);
 
 /* assume bit positions numbered 31 to 0 (31 high order bit), extract num bits
    from word starting at position pos (with pos as the high order bit of those

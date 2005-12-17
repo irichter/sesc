@@ -43,7 +43,11 @@
 #include <stdio.h>
 #include <math.h>
 #include <stdlib.h>
-#include <getopt.h>
+#if defined ( __APPLE__ ) || ( defined (__SVR4) && defined (__sun) )
+#include <unistd.h>
+#else
+#include "getopt.h"
+#endif
 #include <string.h>
 
 #include "xcacti_def.h"

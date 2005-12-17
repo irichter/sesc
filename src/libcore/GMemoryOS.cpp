@@ -35,12 +35,12 @@ DummyMemoryOS::~DummyMemoryOS()
 {
 }
 
-long DummyMemoryOS::ITLBTranslate(unsigned long iAddr)
+int DummyMemoryOS::ITLBTranslate(unsigned int iAddr)
 {
   return iAddr;
 }
 
-long DummyMemoryOS::TLBTranslate(unsigned long vAddr)
+int DummyMemoryOS::TLBTranslate(unsigned int vAddr)
 { 
   return vAddr;
 }

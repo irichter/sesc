@@ -107,7 +107,7 @@ void ReportTherm::openFile(char *name)
   rfd[tos++]=ffd1;
   reportCB.schedule(1);
 
-  cyclesPerSample=SescConf->getLong("thermal","cyclesPerSample");
+  cyclesPerSample=SescConf->getInt("thermal","cyclesPerSample");
   SescConf->isBetween("thermal","cyclesPerSample", 100, 1e6);
 }
 
