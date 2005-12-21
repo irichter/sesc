@@ -2286,41 +2286,20 @@ OP(mint_fchown)
 /* ARGSUSED */
 OP(mint_lseek64)
 {
-  // When writing these substitutions, please pay attention to the
-  // calling convention for passing 64-bit arguments, which is:
-  // ALL parameters are allocated on the stack, with proper alignment,
-  // then registers r4-r7 (IntArg1..IntArg4)are used to cache the first
-  // four 32-bit words of that. As a result, a 64-bit parameter uses two
-  // registers AND begins in the even-numbered register. For example,
-  // if the function takes a 32-bit integer parameter, followed by a
-  // 64-bit integer parameter, followed by a 32-bit integer parameter,
-  // the first parameter is in r4 (IntArg1), the second parameter is in 
-  // r6 and r7 (note that r5 is skipped for alignment), and the third
-  // parameter ends up on the stack.
-
-  // First parameter is a 32-bit int in r4
-  int   fildes = pthread->getIntArg1();
-  // Second parameter is a 64-bit int in r6 and r7
-  if( ((pthread->getIntArg4()>=0)&&(pthread->getIntArg3()!=0)) ||
-      ((pthread->getIntArg4()<0)&&(pthread->getIntArg3()!=-1)) ){
-    printf("Large seek offset in mint_lseek (0x%08x%08x)\n",
-	   pthread->getIntArg3(),pthread->getIntArg4());
-    I(0);
-  }
-  off_t offset = pthread->getIntArg4();
-  // The third parameter is on the stack!
-  RAddr whenceAddr=pthread->virt2real(pthread->getStkPtr())+16;
-#if (defined TASKSCALAR) || (defined TLS)
-  int *whencePtr =(int *)(rsesc_OS_read(pthread->getPid(),whenceAddr,picode->addr,E_WORD));
-#else
-  int *whencePtr=(int *)whenceAddr;
-#endif
-  int whence = SWAP_WORD(*whencePtr);
+  // Prepare for parameter extraction
+  MintFuncArgs funcArgs(pthread);
+  // First parameter is a 32-bit int
+  int fildes = funcArgs.getInt32();
+  // Second parameter is a 64-bit int
+  off_t offset = funcArgs.getInt64();
+  // Third parameter is a 32-bit int
+  int whence = funcArgs.getInt32();
   // Now do the actual call with these parameters
   off_t retVal = lseek(fildes,offset,whence);
 #ifdef DEBUG_VERBOSE
   printf("mint_lseek64(%d,%d,%d)=%d\n",fildes,offset,whence,retVal);
 #endif
+  // Return value is a 64-bit number
   pthread->setRetVal64(retVal);
   if(retVal == (off_t)-1)
     pthread->setperrno(errno);

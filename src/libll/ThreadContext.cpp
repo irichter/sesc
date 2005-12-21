@@ -580,3 +580,49 @@ VAddr ThreadContext::real2virt(RAddr uaddr) const {
   return addr;
 #endif
 }
+
+int MintFuncArgs::getInt32(void){        
+  int retVal; 
+  I(sizeof(retVal)==4);
+  I(curPos%4==0);
+  if(curPos<16){
+    I(curPos%4==0);
+    retVal=myContext->getIntReg((IntRegName)(4+curPos/4));
+  }else{
+    RAddr addr=myContext->virt2real(myContext->getStkPtr())+curPos;
+#if (defined TASKSCALAR) || (defined TLS)
+    int *ptr =(int *)(rsesc_OS_read(pthread->getPid(),addr,picode->addr,E_WORD));
+#else
+    int *ptr=(int *)addr;
+#endif
+    retVal=SWAP_WORD(*ptr);                 
+  }                                     
+  curPos+=4;               
+  return retVal;
+}           
+
+long long int MintFuncArgs::getInt64(void){
+  long long int retVal;
+  I(sizeof(retVal)==8);
+  I(curPos%4==0);
+  // Align current position                  
+  if(curPos%8!=0)
+    curPos+=4;               
+  I(curPos%8==0);
+  if(curPos<16){
+    retVal=myContext->getIntReg((IntRegName)(4+curPos/4));
+    retVal=(retVal<<32)&0xFFFFFFFF00000000llu;
+    retVal|=myContext->getIntReg((IntRegName)(4+curPos/4+1))&0xFFFFFFFFllu;
+  }else{
+    RAddr addr=myContext->virt2real(myContext->getStkPtr())+curPos;
+#if (defined TASKSCALAR) || (defined TLS)
+    long long int *ptr =
+      (long long int *)(rsesc_OS_read(pthread->getPid(),addr,picode->addr,E_DWORD));
+#else
+    long long int *ptr=(long long int*)addr;
+#endif
+    retVal=SWAP_LONG(*ptr);
+  }
+  curPos+=8;
+  return retVal;
+}

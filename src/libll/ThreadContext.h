@@ -420,60 +420,27 @@ public:
 
 typedef ThreadContext mint_thread_t;
 
-class SimArgs{
+// This class helps extract function parameters for substitutions (e.g. in subs.cpp)
+// First, prepare for parameter extraction by constructing an instance of MintFuncArgs.
+// The constructor takes as a parameter the ThreadContext in which a function has just
+// been called (i.e. right after the jal and the delay slot have been emulated
+// Then get the parameters in order from first to last, using getInt32 or getInt64
+// MintFuncArgs automatically takes care of getting the needed parameter from the register
+// or from the stack, according to the MIPS III caling convention. In particular, it correctly
+// implements extraction of 64-bit parameters, allowing lstat64 and similar functions to work
+// The entire process of parameter extraction does not change the thread context in any way
+class MintFuncArgs{
  private:
   const ThreadContext *myContext;
   int   curPos;
  public:
-  SimArgs(const ThreadContext *context)
+  MintFuncArgs(const ThreadContext *context)
     : myContext(context),
     curPos(0)
     {
     }
-  int getInt32(void){
-    int retVal;
-    I(sizeof(retVal)==4);
-    I(curPos%4==0);
-    if(curPos<16){
-      I(curPos%4==0);
-      retVal=myContext->getIntReg((IntRegName)(4+curPos/4));
-    }else{
-      RAddr addr=myContext->virt2real(myContext->getStkPtr())+curPos;
-#if (defined TASKSCALAR) || (defined TLS)
-      int *ptr =(int *)(rsesc_OS_read(pthread->getPid(),addr,picode->addr,E_WORD));
-#else
-      int *ptr=(int *)addr;
-#endif
-      retVal=SWAP_WORD(*ptr);
-    }
-    curPos+=4;
-    return retVal;
-  }
-  long long int getInt64(void){
-    long long int retVal;
-    I(sizeof(retVal)==8);
-    I(curPos%4==0);
-    // Align current position
-    if(curPos%8!=0)
-      curPos+=4;
-    I(curPos%8==0);
-    if(curPos<16){
-      retVal=myContext->getIntReg((IntRegName)(4+curPos/4+1));
-      retVal=(retVal<<32)&0xFFFFFFFF00000000llu;
-      retVal|=myContext->getIntReg((IntRegName)(4+curPos/4))&0xFFFFFFFFllu;
-    }else{
-      RAddr addr=myContext->virt2real(myContext->getStkPtr())+curPos;
-#if (defined TASKSCALAR) || (defined TLS)
-      long long int *ptr =
-	(long long int *)(rsesc_OS_read(pthread->getPid(),addr,picode->addr,E_DWORD));
-#else
-      long long int *ptr=(long long int*)addr;
-#endif
-      retVal=SWAP_LONG(*ptr);
-    }
-    curPos+=8;
-    return retVal;
-  }
+  int getInt32(void);
+  long long int getInt64(void);
 };
 
 #define REGNUM(R) (*((int *) &pthread->reg[R]))
