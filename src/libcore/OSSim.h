@@ -211,7 +211,11 @@ public:
   uint getSimulationMark() const { return simMarks.total; }
   uint getSimulationMark1() const { return simMarks.begin; }
   uint getSimulationMark2() const { return simMarks.end; }
-  bool enoughMarks1() const { return simMarks.total > simMarks.begin; }
+  // If marks are not used but -w option is, total and begin are both zero
+  // and there are never enough marks to exit simulation. I changed the comparison
+  // to >= from >. If this does not work, please fix it in a way that does not break
+  // goRabbitMode when marks are not used. Thanks, Milos. 
+  bool enoughMarks1() const { return simMarks.total >= simMarks.begin; }
   bool enoughMarks2() const { return simMarks.total > simMarks.end; }
 #endif
 

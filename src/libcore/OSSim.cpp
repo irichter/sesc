@@ -213,7 +213,7 @@ void OSSim::processParams(int argc, char **argv, char **envp)
     fprintf(stderr,"\t-dTEXT      ; Change the name of the report file\n");
     fprintf(stderr,"\t-fTEXT      ; Fix the extension of the report file\n");
     fprintf(stderr,"\t-t          ; Do not execute, just test the configuration file\n");
-    fprintf(stderr,"\t-yINT       ; Number of instructions to simulate in thousands\n");
+    fprintf(stderr,"\t-yINT       ; Number of instructions to simulate\n");
     fprintf(stderr,"\t-bTEXT      ; Benchmark specific configuration section\n");
 
 #ifdef TRACE_DRIVEN
@@ -242,19 +242,19 @@ void OSSim::processParams(int argc, char **argv, char **envp)
 
       if( argv[i][1] == 'w' ){
         if( isdigit(argv[i][2]) )
-          nInst2Skip = strtol(&argv[i][2], 0, 0 );
+          nInst2Skip = strtoll(&argv[i][2], 0, 0 );
         else {
           i++;
-          nInst2Skip = strtol(argv[i], 0, 0 );
+          nInst2Skip = strtoll(argv[i], 0, 0 );
         }
       }
 
       else if( argv[i][1] == 'y' ){
         if( isdigit(argv[i][2]) )
-          nInst2Sim = 1000*strtol(&argv[i][2], 0, 0 );
+          nInst2Sim = strtoll(&argv[i][2], 0, 0 );
         else {
           i++;
-          nInst2Sim = 1000*strtol(argv[i], 0, 0 );
+          nInst2Sim = strtoll(argv[i], 0, 0 );
         }
       }
 
