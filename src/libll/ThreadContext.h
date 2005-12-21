@@ -32,8 +32,8 @@ typedef struct objfile {
 typedef int IntRegValue;
 enum IntRegName{
   RetValReg   =  2,
-  RetValLoReg =  2,
-  RetValHiReg =  3,
+  RetValHiReg =  2,
+  RetValLoReg =  3,
   IntArg1Reg  =  4,
   IntArg2Reg  =  5,
   IntArg3Reg  =  6,

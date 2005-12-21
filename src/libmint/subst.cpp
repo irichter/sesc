@@ -2297,19 +2297,17 @@ OP(mint_lseek64)
   // the first parameter is in r4 (IntArg1), the second parameter is in 
   // r6 and r7 (note that r5 is skipped for alignment), and the third
   // parameter ends up on the stack.
-#ifdef DEBUG_VERBOSE
-  printf("mint_lseek64()\n");
-#endif
+
   // First parameter is a 32-bit int in r4
   int   fildes = pthread->getIntArg1();
   // Second parameter is a 64-bit int in r6 and r7
-  if( ((pthread->getIntArg3()>=0)&&(pthread->getIntArg4()!=0)) ||
-      ((pthread->getIntArg3()<0)&&(pthread->getIntArg4()!=-1)) ){
-    printf("Seek offset in mint_lseek is 0x%08lx%08lx\n",
-	   pthread->getIntArg4(),pthread->getIntArg3());
+  if( ((pthread->getIntArg4()>=0)&&(pthread->getIntArg3()!=0)) ||
+      ((pthread->getIntArg4()<0)&&(pthread->getIntArg3()!=-1)) ){
+    printf("Large seek offset in mint_lseek (0x%08x%08x)\n",
+	   pthread->getIntArg3(),pthread->getIntArg4());
     I(0);
   }
-  off_t offset = pthread->getIntArg3();
+  off_t offset = pthread->getIntArg4();
   // The third parameter is on the stack!
   RAddr whenceAddr=pthread->virt2real(pthread->getStkPtr())+16;
 #if (defined TASKSCALAR) || (defined TLS)
@@ -2320,6 +2318,9 @@ OP(mint_lseek64)
   int whence = SWAP_WORD(*whencePtr);
   // Now do the actual call with these parameters
   off_t retVal = lseek(fildes,offset,whence);
+#ifdef DEBUG_VERBOSE
+  printf("mint_lseek64(%d,%d,%d)=%d\n",fildes,offset,whence,retVal);
+#endif
   pthread->setRetVal64(retVal);
   if(retVal == (off_t)-1)
     pthread->setperrno(errno);
