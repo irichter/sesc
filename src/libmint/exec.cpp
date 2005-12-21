@@ -58,18 +58,18 @@ OP(mint_sesc_simulation_mark)
   rsesc_simulation_mark(pthread->getPid());
   I(pthread->getPid()==thePid);
   // Return from the call
-  return addr2icode(pthread->getGPR(RetAddrGPR));
+  return pthread->getRetIcode();
 }
 
 OP(mint_sesc_simulation_mark_id)
 {
-  int id = pthread->getGPR(Arg1stGPR);
+  int id = pthread->getIntReg(IntArg1Reg);
   // Do the actual call (should not context-switch)
   ID(Pid_t thePid=pthread->getPid());
   rsesc_simulation_mark_id(pthread->getPid(),id);
   I(pthread->getPid()==thePid);
   // Return from the call
-  return addr2icode(pthread->getGPR(RetAddrGPR));
+  return pthread->getRetIcode();
 }
 
 OP(mint_sesc_fast_sim_begin)
@@ -79,7 +79,7 @@ OP(mint_sesc_fast_sim_begin)
   rsesc_fast_sim_begin(pthread->getPid());
   I(pthread->getPid()==thePid);
   // Return from the call
-  return addr2icode(pthread->getGPR(RetAddrGPR));
+  return pthread->getRetIcode();
 }
 
 OP(mint_sesc_fast_sim_end)
@@ -89,106 +89,106 @@ OP(mint_sesc_fast_sim_end)
   rsesc_fast_sim_end(pthread->getPid());
   I(pthread->getPid()==thePid);
   // Return from the call
-  return addr2icode(pthread->getGPR(RetAddrGPR));
+  return pthread->getRetIcode();
 }
 
 OP(mint_sesc_suspend)
 {
   // Set things up for the return to from this call
-  pthread->setIP(addr2icode(pthread->getGPR(RetAddrGPR)));
+  pthread->setPCIcode(pthread->getRetIcode());
   // Remember pid of the current thread then do the call
   Pid_t pid=pthread->getPid();
-  ValueGPR retVal=rsesc_suspend(pid,pthread->getGPR(Arg1stGPR));
+  IntRegValue retVal=rsesc_suspend(pid,pthread->getIntReg(IntArg1Reg));
   // Context switch is likely, must look up thread context again
 
   ThreadContext *context=rsesc_get_thread_context(pid);
 
-  context->setGPR(RetValGPR,retVal);
+  context->setIntReg(RetValReg,retVal);
   // Note: not neccessarily running the same thread as before
-  return pthread->getIP();
+  return pthread->getPCIcode();
 }
 
 OP(mint_sesc_resume)
 {
   // Do the actual call (should not context-switch)
   ID(Pid_t thePid=pthread->getPid());
-  ValueGPR retVal=rsesc_resume(pthread->getPid(),pthread->getGPR(Arg1stGPR));
+  IntRegValue retVal=rsesc_resume(pthread->getPid(),pthread->getIntReg(IntArg1Reg));
   I(pthread->getPid()==thePid);
   // Set the return value
-  pthread->setGPR(RetValGPR,retVal);
+  pthread->setRetVal(retVal);
   // Return from the call
-  return addr2icode(pthread->getGPR(RetAddrGPR));
+  return pthread->getRetIcode();
 }
 
 OP(mint_sesc_yield)
 {
   // Set things up for the return to from this call
-  pthread->setIP(addr2icode(pthread->getGPR(RetAddrGPR)));
+  pthread->setPCIcode(pthread->getRetIcode());
   // Remember pid of the current thread then do the call
   Pid_t pid=pthread->getPid();
-  ValueGPR retVal=rsesc_yield(pthread->getPid(),pthread->getGPR(Arg1stGPR));
+  IntRegValue retVal=rsesc_yield(pthread->getPid(),pthread->getIntArg1());
   // Context switch is likely, must look up thread context again
   ThreadContext *context=rsesc_get_thread_context(pid);
-  context->setGPR(RetValGPR,retVal);
+  context->setRetVal(retVal);
   // Note: not neccessarily running the same thread as before
-  return pthread->getIP();
+  return pthread->getPCIcode();
 }
 
 OP(mint_sesc_preevent)
 {
   // Set things up for the return to from this call
-  pthread->setIP(addr2icode(pthread->getGPR(RetAddrGPR)));
+  pthread->setPCIcode(pthread->getRetIcode());
   // Get arguments for this call (sptr is a real address)
-  int  vaddr=pthread->getGPR(Arg1stGPR);
-  int  type=pthread->getGPR(Arg2ndGPR);
-  void *sptr=(void *)(pthread->virt2real(pthread->getGPR(Arg3rdGPR)));
+  int  vaddr=pthread->getIntReg(IntArg1Reg);
+  int  type=pthread->getIntReg(IntArg2Reg);
+  void *sptr=(void *)(pthread->virt2real(pthread->getIntReg(IntArg3Reg)));
   // Do the actual call 
   rsesc_preevent(pthread->getPid(),vaddr,type,sptr);
   // Note: not neccessarily running the same thread as before
-  return pthread->getIP();
+  return pthread->getPCIcode();
 }
 
 OP(mint_sesc_postevent)
 {
   // Get arguments for this call (sptr is a real address)
-  int  vaddr=pthread->getGPR(Arg1stGPR);
-  int  type=pthread->getGPR(Arg2ndGPR);
-  void *sptr=(void *)(pthread->virt2real(pthread->getGPR(Arg3rdGPR)));
+  int  vaddr=pthread->getIntReg(IntArg1Reg);
+  int  type=pthread->getIntReg(IntArg2Reg);
+  void *sptr=(void *)(pthread->virt2real(pthread->getIntReg(IntArg3Reg)));
   // Do the actual call (should not context-switch)
   ID(Pid_t thePid=pthread->getPid());
   rsesc_postevent(pthread->getPid(),vaddr,type,sptr);
   I(pthread->getPid()==thePid);
   // Return from the call
-  return addr2icode(pthread->getGPR(RetAddrGPR));
+  return pthread->getRetIcode();
 }
 
 OP(mint_sesc_memfence)
 {
   // Do the actual call (should not context-switch)
   ID(Pid_t thePid=pthread->getPid());
-  rsesc_memfence(pthread->getPid(),pthread->getGPR(Arg1stGPR));
+  rsesc_memfence(pthread->getPid(),pthread->getIntReg(IntArg1Reg));
   I(pthread->getPid()==thePid);
   // Return from the call
-  return addr2icode(pthread->getGPR(RetAddrGPR));
+  return pthread->getRetIcode();
 }
 
 OP(mint_sesc_acquire)
 {
   // Do the actual call (should not context-switch)
   ID(Pid_t thePid=pthread->getPid());
-  rsesc_acquire(pthread->getPid(),pthread->getGPR(Arg1stGPR));
+  rsesc_acquire(pthread->getPid(),pthread->getIntArg1());
   I(pthread->getPid()==thePid);
   // Return from the call
-  return addr2icode(pthread->getGPR(RetAddrGPR));
+  return pthread->getRetIcode();
 }
 
 OP(mint_sesc_release)
 {
   // Do the actual call (should not context-switch)
   ID(Pid_t thePid=pthread->getPid());
-  rsesc_release(pthread->getPid(),pthread->getGPR(Arg1stGPR));
+  rsesc_release(pthread->getPid(),pthread->getIntReg(IntArg1Reg));
   I(pthread->getPid()==thePid);
   // Return from the call
-  return addr2icode(pthread->getGPR(RetAddrGPR));
+  return pthread->getRetIcode();
 }
 

@@ -680,8 +680,11 @@ void subst_functions()
 OP(mint_assert_fail)
 {
   printf("assertion failed in simulated program: (%s) %s:%d\n",
-         (const char *)pthread->virt2real(REGNUM(4)), (const char *)pthread->virt2real(REGNUM(5)), REGNUM(6)); 
-
+         (const char *)pthread->virt2real(pthread->getIntReg(IntArg1Reg)),
+	 (const char *)pthread->virt2real(pthread->getIntReg(IntArg2Reg)),
+	 pthread->getIntReg(IntArg3Reg)
+	 ); 
+  
   mint_exit(0,pthread);
 
   return 0;
@@ -702,23 +705,24 @@ void rsesc_spawn_stopped(int pid, int id, int flags);
 
 OP(mint_sesc_sysconf)
 {
-  int flags;
-  int pid;
-  pid   = REGNUM(4);
-  flags = REGNUM(5);
+  int thePid = pthread->getPid();
+  int pid    = pthread->getIntArg1();
+  int flags  = pthread->getIntArg2();
 
-  rsesc_sysconf(pthread->getPid(),pid,flags);
-
-  return addr2icode(REGNUM(31));
+  rsesc_sysconf(thePid,pid,flags);
+  // There should be no context switch
+  I(pthread->getPid()==thePid);
+  // Return from the call
+  return pthread->getRetIcode();
 }
 
 OP(mint_sesc_spawn){
   // Arguments of the sesc_spawn call
-  RAddr entry = pthread->getGPR(Arg1stGPR);
-  RAddr arg   = pthread->getGPR(Arg2ndGPR);
-  int    flags = pthread->getGPR(Arg3rdGPR);
+  RAddr entry = pthread->getIntArg1();
+  RAddr arg   = pthread->getIntArg2();
+  int   flags = pthread->getIntArg3();
   // Set things up for the return from this call
-  osSim->eventSetInstructionPointer(pthread->getPid(),addr2icode(pthread->getGPR(RetAddrGPR)));
+  pthread->setPCIcode(pthread->getRetIcode());
   // Process ID of the parent thread
   Pid_t ppid=pthread->getPid();
   
@@ -749,24 +753,24 @@ OP(mint_sesc_spawn){
   
   if( entry ) {
     // The first instruction for the child is the entry point passed in
-    child->setIP(addr2icode(entry));
-    child->reg[4] = arg;
-    child->reg[5] = Stack_size;		/* for sprocsp() */
+    child->setPCIcode(addr2icode(entry));
+    child->setIntReg(IntArg1Reg,arg);
+    child->setIntReg(IntArg2Reg,Stack_size);		/* for sprocsp() */
     // In position-independent code every function expects to find
     // its own entry address in register jp (also known as t9 and R25)
-    child->reg[25]= entry;
+    child->setIntReg(JmpPtrReg,entry);
     // When the child returns from the 'entry' function,
     // it will go directly to the exit() function
-    child->setGPR(RetAddrGPR,Exit_addr);
+    child->setIntReg(RetAddrReg,Exit_addr);
   }else{
     // If no entry point is supplied, we have fork-like behavior
     // The child will just return from sesc_spawn the same as parent
-    child->setIP(pthread->getIP());
+    child->setPCIcode(pthread->getPCIcode());
   }
   // The return value for the parent is the child's pid
-  pthread->setGPR(RetValGPR,cpid);
+  pthread->setRetVal(cpid);
   // The return value for the child is 0
-  child->setGPR(RetValGPR,0);
+  child->setRetVal(0);
   // Inform SESC of what we have done here
   rsesc_spawn(pthread->getPid(),cpid,flags);
 #if (defined TLS)
@@ -775,7 +779,7 @@ OP(mint_sesc_spawn){
   iniEpoch->run();
 #endif
   // Note: not neccessarily running the same thread as before
-  return osSim->eventGetInstructionPointer(pthread->getPid());
+  return pthread->getPCIcode();
 }
 
 int mint_sesc_create_clone(ThreadContext *pthread){
@@ -819,7 +823,7 @@ int mint_sesc_create_clone(ThreadContext *pthread){
 
 void mint_sesc_die(thread_ptr pthread)
 {
-  REGNUM(4)=0;
+  pthread->setIntReg(IntArg1Reg,0);
   mint_exit(0,pthread);
 }
 
@@ -827,48 +831,45 @@ void mint_sesc_die(thread_ptr pthread)
 
 OP(mint_sesc_acquire_begin){
   // Set things up for the return from this call
-  pthread->setIP(addr2icode(pthread->getGPR(RetAddrGPR)));
+  pthread->setPCIcode(pthread->getRetIcode());
   // Do the actual call
   rsesc_acquire_begin(pthread->getPid());
   // Note: not neccessarily running the same thread as before
-  return pthread->getIP();
+  return pthread->getPCIcode();
 }
 
 OP(mint_sesc_acquire_retry){
   // This function never returns, so we don't care about the return address 
   rsesc_acquire_retry(pthread->getPid());
   // Note: not neccessarily running the same thread as before
-  return pthread->getIP();
+  return pthread->getPCIcode();
 }
 
 OP(mint_sesc_acquire_end){
   // Set things up for the return from this call
-  pthread->setIP(addr2icode(pthread->getGPR(RetAddrGPR)));
+  pthread->setPCIcode(pthread->getRetIcode());
   // Do the actual call
   rsesc_acquire_end(pthread->getPid());
   // Note: not neccessarily running the same thread as before
-  return pthread->getIP();
+  return pthread->getPCIcode();
 }
 
 OP(mint_sesc_release_begin){
   // Set things up for the return from this call
-  pthread->setIP(addr2icode(pthread->getGPR(RetAddrGPR)));
+  pthread->setPCIcode(pthread->getRetIcode());
   // Do the actual call
   rsesc_release_begin(pthread->getPid());
   // Note: not neccessarily running the same thread as before
-  return pthread->getIP();
+  return pthread->getPCIcode();
 }
 
 OP(mint_sesc_release_end){
-  int pid=pthread->getPid();
-  /* The address to return to from this call */
-  int returnAddr=REGNUM(31);
-  /* Next instruction is after this call */
-  rsesc_set_instruction_pointer(pid,addr2icode(returnAddr));
+  // Set things up for the return from this call
+  pthread->setPCIcode(pthread->getRetIcode());
   /* Do the actual call */
-  rsesc_release_end(pid);
-  /* Note that pthread->getPid() is not neccessarily the same as pid */
-  return rsesc_get_instruction_pointer(pthread->getPid());
+  rsesc_release_end(pthread->getPid());
+  // Note: not neccessarily running the same thread as before
+  return pthread->getPCIcode();
 }
 
 //OP(mint_sesc_begin_epochs){
@@ -884,66 +885,48 @@ OP(mint_sesc_release_end){
 //}
 
 OP(mint_sesc_future_epoch){
-  int pid=pthread->getPid();
-  /* The address to return to from this call */
-  int returnAddr=REGNUM(31);
-  /* Next instruction is after this call */
-  rsesc_set_instruction_pointer(pid,addr2icode(returnAddr));
+  // Set things up for the return from this call
+  pthread->setPCIcode(pthread->getRetIcode());
   /* Do the actual call to create the successor */
-  rsesc_future_epoch(pid);
-  /* Note that pthread->getPid() is not neccessarily the same as pid */
-  return rsesc_get_instruction_pointer(pthread->getPid()); 
+  rsesc_future_epoch(pthread->getPid());
+  // Note: not neccessarily running the same thread as before
+  return pthread->getPCIcode();
 }
 
 OP(mint_sesc_future_epoch_jump){
-  int pid=pthread->getPid();
-  /* The address to return to from this call */
-  int returnAddr=REGNUM(31);
+  // Set things up for the return from this call
+  pthread->setPCIcode(pthread->getRetIcode());
   /* The address where the successor is to start */
-  int successorAddr=REGNUM(4);
-  /* Next instruction is after this call */
-  rsesc_set_instruction_pointer(pid,addr2icode(returnAddr));
+  int successorAddr=pthread->getIntArg1();
   /* Do the actual call to create the successor */
   rsesc_future_epoch_jump(pid,addr2icode(successorAddr));
-  /* Note that pthread->getPid() is not neccessarily the same as pid */
-  return rsesc_get_instruction_pointer(pthread->getPid()); 
+  // Note: not neccessarily running the same thread as before
+  return pthread->getPCIcode();
 }
 
 OP(mint_sesc_commit_epoch){
   // Set things up for the return from this call
-  osSim->eventSetInstructionPointer(pthread->getPid(),addr2icode(pthread->getGPR(RetAddrGPR)));
+  pthread->setPCIcode(pthread->getRetIcode());
   /* Do the actual call to fork the successor */
   tls::Epoch *epoch=pthread->getEpoch();
   I(epoch==tls::Epoch::getEpoch(pthread->getPid()));
   if(epoch)
     epoch->complete();
   // Note: not neccessarily running the same thread as before
-  return osSim->eventGetInstructionPointer(pthread->getPid());
+  return pthread->getPCIcode();
 }
 
 OP(mint_sesc_change_epoch){
   // Set things up for the return from this call
-  osSim->eventSetInstructionPointer(pthread->getPid(),addr2icode(pthread->getGPR(RetAddrGPR)));
+  pthread->setPCIcode(pthread->getRetIcode());
   // Do the actual call
   tls::Epoch *oldEpoch=pthread->getEpoch();
   I(oldEpoch==tls::Epoch::getEpoch(pthread->getPid()));
   if(oldEpoch)
     oldEpoch->changeEpoch();
   // Note: not neccessarily running the same thread as before
-  return osSim->eventGetInstructionPointer(pthread->getPid());
+  return pthread->getPCIcode();
 }
-
-//OP(mint_sesc_end_epochs){
-  // Set things up for the return from this call
-//  osSim->eventSetInstructionPointer(pthread->getPid(),addr2icode(pthread->getGPR(RetAddrGPR)));
-//   // Do the actual call
-//   tls::Epoch *epoch=pthread->getEpoch();
-//   I(epoch==tls::Epoch::getEpoch(pthread->getPid()));
-//   if(epoch)
-//     epoch->complete();
-  // Note: not neccessarily running the same thread as before
-//  return osSim->eventGetInstructionPointer(pthread->getPid());
-//}
 
 #endif
 
@@ -951,51 +934,42 @@ OP(mint_sesc_change_epoch){
 void rsesc_fork_successor(int ppid, int where, int tid);
 OP(mint_sesc_fork_successor)
 {
-  int ppid=pthread->getPid();
-  int returnAddr=REGNUM(31);
-
-  /* Next instruction in the parent is after this call */
-  rsesc_set_instruction_pointer(ppid,addr2icode(returnAddr));
-
-  rsesc_fork_successor(ppid, returnAddr, 0);
-
-  /* Note that pthread->getPid() is not neccessarily the same as pid */
-  return rsesc_get_instruction_pointer(pthread->getPid());
+  // Set things up for the return from this call
+  pthread->setPCIcode(pthread->getRetIcode());
+  // Do the actual call
+  rsesc_fork_successor(pthread->getPid(),pthread->getIntReg(RetAddrReg),0);
+  // Note: not neccessarily running the same thread as before
+  return pthread->getPCIcode();
 }
 
 OP(mint_sesc_prof_fork_successor)
 {
-  int tid = REGNUM(4);
-  int ppid=pthread->getPid();
-  int returnAddr=REGNUM(31);
-
-  /* Next instruction in the parent is after this call */
-  rsesc_set_instruction_pointer(ppid,addr2icode(returnAddr));
-
-  rsesc_fork_successor(ppid, returnAddr, tid);
-
-  /* Note that pthread->getPid() is not neccessarily the same as pid */
-  return rsesc_get_instruction_pointer(pthread->getPid());
+  // Set things up for the return from this call
+  pthread->setPCIcode(pthread->getRetIcode());
+  // Do the actual call
+  rsesc_fork_successor(pthread->getPid(),pthread->getIntReg(RetAddrReg),pthread->getIntArg1());
+  // Note: not neccessarily running the same thread as before
+  return pthread->getPCIcode();
 }
 
 int rsesc_become_safe(int pid);
 OP(mint_sesc_become_safe)
 {
-  int pid=pthread->getPid();
-
-  rsesc_set_instruction_pointer(pid,addr2icode(REGNUM(31)));
-
-  rsesc_become_safe(pid);
-
-  return rsesc_get_instruction_pointer(pthread->getPid());
+  // Set things up for the return from this call
+  pthread->setPCIcode(pthread->getRetIcode());
+  // Do the actual call
+  rsesc_become_safe(pthread->getPid());
+  // Note: not neccessarily running the same thread as before
+  return pthread->getPCIcode();
 }
 
 int rsesc_is_safe(int pid);
 OP(mint_sesc_is_safe)
 {
-  int pid=REGNUM(4);
-  REGNUM(2)=(int)(rsesc_is_safe(pid));
-  return addr2icode(REGNUM(31));  
+  // Do the call and set the return value
+  pthread->setRetVal(rsesc_is_safe(pthread->getIntArg1()));
+  // Return from the call
+  return pthread->getRetIcode();
 }
 #endif
 
@@ -1005,101 +979,98 @@ OP(mint_sesc_is_safe)
 int rsesc_get_last_value(int pid, int index);
 OP(mint_sesc_get_last_value)
 {
-  int  index = REGNUM(4);
-  REGNUM(2)=rsesc_get_last_value(pthread->getPid(), index);
-  return addr2icode(REGNUM(31));  
+  int index = pthread->getIntArg1();
+  pthread->setRetVal(rsesc_get_last_value(pthread->getPid(),index));
+  // Return from the call
+  return pthread->getRetIcode();
 }
 
 void rsesc_put_last_value(int pid, int index, int val);
 OP(mint_sesc_put_last_value)
 {
-  int  index = REGNUM(4);
-  int  val   = REGNUM(5);
+  int index = pthread->getIntArg1();
+  int val   = pthread->getIntArg2();
   rsesc_put_last_value(pthread->getPid(), index, val);
-  return addr2icode(REGNUM(31));  
+  // Return from the call
+  return pthread->getRetIcode();
 }
 
 int rsesc_get_stride_value(int pid, int index);
 OP(mint_sesc_get_stride_value)
 {
-  int  index = REGNUM(4);
-  REGNUM(2)=rsesc_get_stride_value(pthread->getPid(), index);
-  return addr2icode(REGNUM(31));  
+  int index = pthread->getIntArg1();
+  pthread->setRetVal(rsesc_get_stride_value(pthread->getPid(), index));
+  // Return from the call
+  return pthread->getRetIcode();
 }
 
 void rsesc_put_stride_value(int pid, int index, int val);
 OP(mint_sesc_put_stride_value)
 {
-  int  index = REGNUM(4);
-  int  val   = REGNUM(5);
+  int index = pthread->getIntArg1();
+  int val   = pthread->getIntArg2();
   rsesc_put_stride_value(pthread->getPid(), index, val);
-  return addr2icode(REGNUM(31));  
+  // Return from the call
+  return pthread->getRetIcode();
 }
 
 int rsesc_get_incr_value(int pid, int index, int lval);
 OP(mint_sesc_get_incr_value)
 {
-  int  index = REGNUM(4);
-  int  lval  = REGNUM(5); 
-  REGNUM(2)=rsesc_get_incr_value(pthread->getPid(), index, lval);
-  return addr2icode(REGNUM(31));
+  int index = pthread->getIntArg1();
+  int lval  = pthread->getIntArg2();
+  pthread->setRetVal(rsesc_get_incr_value(pthread->getPid(), index, lval));
+  // Return from the call
+  return pthread->getRetIcode();
 }
 
 void rsesc_put_incr_value(int pid, int index, int incr);
 OP(mint_sesc_put_incr_value)
 {
-  int  index = REGNUM(4);
-  int  incr  = REGNUM(5);
+  int  index = pthread->getIntArg1();
+  int  incr  = pthread->getIntArg2();
   rsesc_put_incr_value(pthread->getPid(), index, incr);
-  return addr2icode(REGNUM(31));
+  // Return from the call
+  return pthread->getRetIcode();
 }
 
 void rsesc_verify_value(int pid, int rval, int pval);
 OP(mint_sesc_verify_value)
 {
-  int  rval = REGNUM(4);
-  int  pval = REGNUM(5);
+  int  rval = pthread->getIntArg1();
+  int  pval = pthread->getIntArg2();
   rsesc_verify_value(pthread->getPid(), rval, pval);
-  return addr2icode(REGNUM(31));  
+  // Return from the call
+  return pthread->getRetIcode();
 }
 #endif
 
 /* ARGSUSED */
 OP(mint_sysmp)
 {
-	 int command;
-#if 0
-	 int arg1, arg2, arg3, arg4;
-#endif
-
-    command = REGNUM(4);
-#if 0
-    arg1 = REGNUM(5);
-    arg2 = REGNUM(6);
-    arg3 = REGNUM(7);
-#endif
-    switch (command) {
-      case MP_MUSTRUN:
-      case MP_RUNANYWHERE:
-      case MP_CLOCK:
-      case MP_EMPOWER:
-      case MP_RESTRICT:
-      case MP_UNISOLATE:
-      case MP_SCHED:
-        REGNUM(2) = 0;
-        break;
-      case MP_NPROCS:
-      case MP_NAPROCS:
-        REGNUM(2) = Max_nprocs;
-        break;
-      case MP_PGSIZE:
-        REGNUM(2) = getpagesize();
-        break;
-      default:
-        fatal("mint_sysmp( 0x%x ) not supported yet.\n", command);
-        break;
-    }
-    return addr2icode(REGNUM(31));
+  int command = pthread->getIntArg1();
+  switch(command){
+  case MP_MUSTRUN:
+  case MP_RUNANYWHERE:
+  case MP_CLOCK:
+  case MP_EMPOWER:
+  case MP_RESTRICT:
+  case MP_UNISOLATE:
+  case MP_SCHED:
+    pthread->setRetVal(0);
+    break;
+  case MP_NPROCS:
+  case MP_NAPROCS:
+    pthread->setRetVal(Max_nprocs);
+    break;
+  case MP_PGSIZE:
+    pthread->setRetVal(getpagesize());
+    break;
+  default:
+    fatal("mint_sysmp( 0x%x ) not supported yet.\n", command);
+    break;
+  }
+  return pthread->getRetIcode();
 }
 
 #ifndef __x86_64__
@@ -1125,18 +1096,19 @@ OP(mint_printf)
 #endif
 
 #if (defined TASKSCALAR) || (defined TLS)
-	 sp = (int *) REGNUM(29);
-    rsesc_OS_read_string(pthread->getPid(), picode->addr, tempbuff2, (const void *)REGNUM(4) , 100);
-	 addr = (int)tempbuff2;
+    sp = (int *)pthread->getIntReg(StkPtrReg);
+    rsesc_OS_read_string(pthread->getPid(), picode->addr, tempbuff2,
+			 (const void *)pthread->getIntArg1(),100);
+    addr = (int)tempbuff2;
     tempbuff2 += 100;
 #else
-    addr = pthread->virt2real(REGNUM(4));
-    sp = (int *) pthread->virt2real(REGNUM(29));
+    addr = pthread->virt2real(pthread->getIntArg1());
+    sp = (int *)pthread->virt2real(pthread->getIntReg(StkPtrReg));
 #endif
     args[0] = addr;
-    args[1] = REGNUM(5);
-    args[2] = REGNUM(6);
-    args[3] = REGNUM(7);
+    args[1] = pthread->getIntArg2();
+    args[2] = pthread->getIntArg3();
+    args[3] = pthread->getIntArg4();
 
     index = 0;
     for(cp=(char *)addr;*cp;cp++){
@@ -1177,7 +1149,7 @@ OP(mint_printf)
 #ifdef TASKSCALAR
     if(index>10){
       printf("mint_printf: too many args\n");
-      return addr2icode(REGNUM(31));
+      return pthread->getRetIcode();
     }
     if (!rsesc_is_safe(pthread->getPid()))
       printf("SPEC[");
@@ -1199,7 +1171,7 @@ OP(mint_printf)
 
     fflush(stdout);
 
-    return addr2icode(REGNUM(31));
+    return  pthread->getRetIcode();
 }
 #endif
 
@@ -1214,25 +1186,24 @@ OP(mint_printf)
 int rsesc_fetch_op(int pid, enum FetchOpType op, int addr, int *data, int val);
 OP(mint_sesc_fetch_op)
 {
-  int  op   = REGNUM(4);
-  int addr = REGNUM(5);
-  int val  = REGNUM(6);
+  int  op   = pthread->getIntArg1();
+  int addr  = pthread->getIntArg2();
+  int val   = pthread->getIntArg3();
   int *data = (int *)pthread->virt2real(addr);
 
-  REGNUM(2) = rsesc_fetch_op(pthread->getPid(),(enum FetchOpType)op,addr,data,val);
+  pthread->setRetVal(rsesc_fetch_op(pthread->getPid(),(enum FetchOpType)op,addr,data,val));
   
-  return addr2icode(REGNUM(31));
+  return pthread->getRetIcode();
 }
 
 void rsesc_unlock_op(int pid, int addr, int *data, int val);
 OP(mint_sesc_unlock_op)
 {
-  int addr = REGNUM(4);
-  int val  = REGNUM(5);
+  int addr  = pthread->getIntArg1();
+  int val   = pthread->getIntArg2();
   int *data = (int *)pthread->virt2real(addr);
   rsesc_unlock_op(pthread->getPid(), addr, data, val);
-
-  return addr2icode(REGNUM(31));
+  return pthread->getRetIcode();
 }
 
 int rsesc_exit(int pid, int err);
@@ -1249,23 +1220,24 @@ OP(mint_finish)
 OP(mint_exit){
 #if (defined TASKSCALAR)
   if(rsesc_version_can_exit(pthread->getPid())==1)
-    return addr2icode(pthread->getGPR(RetAddrGPR));
+    return pthread->getRetIcode();
 #endif
 #if (defined TLS)
   tls::Epoch *epoch=pthread->getEpoch();
   I(epoch==tls::Epoch::getEpoch(pthread->getPid()));
   if(epoch){
     if(epoch->waitFullyMerged())
-      epoch->endThread(pthread->getGPR(Arg1stGPR));
+      epoch->endThread(pthread->getIntArg());
     else
       epoch->cancelInstr();
   }else{
-    rsesc_exit(pthread->getPid(),pthread->getGPR(Arg1stGPR));
+    rsesc_exit(pthread->getPid(),pthread->getIntArg1());
   }
 #else
-  rsesc_exit(pthread->getPid(),pthread->getGPR(Arg1stGPR));
+  rsesc_exit(pthread->getPid(),pthread->getIntArg1());
 #endif // (defined TLS)
-  return rsesc_get_instruction_pointer(pthread->getPid());
+  // Note: not running the same thread as before
+  return pthread->getPCIcode();
 }
 
 #ifdef TASKSCALAR
@@ -1274,14 +1246,14 @@ OP(mint_sesc_commit)
 #ifdef DEBUG_VERBOSE
   printf("mint_sesc_commit\n");
 #endif  
-  REGNUM(2) = 1;
+  pthread->setIntReg(RetValReg,1);
   return mint_exit(picode, pthread);
 }
 
 void rsesc_prof_commit(int pid, int tid);
 OP(mint_sesc_prof_commit)
 {
-  int tid = REGNUM(4);
+  int tid = pthread->getIntArg1();
   int pid = pthread->getPid();
 
 #ifdef DEBUG_VERBOSE
@@ -1289,7 +1261,7 @@ OP(mint_sesc_prof_commit)
 #endif  
   rsesc_prof_commit(pid, tid);
 
-  REGNUM(2) = 1;
+  pthread->setRetVal(1);
   return mint_exit(picode, pthread);
 }
 #endif
@@ -1299,10 +1271,11 @@ OP(mint_sesc_prof_commit)
 void mint_termination(int pid);
 OP(mint_rexit)
 {
-  fprintf(stderr,"mint_rexit called pid(%d) RA=0x%08x\n", pthread->getPid(), (unsigned int) REGNUM(31));
+  fprintf(stderr,"mint_rexit called pid(%d) RA=0x%08x\n",
+          pthread->getPid(), (unsigned int) pthread->getIntReg(RetAddrReg));
   mint_termination(pthread->getPid());
 
-  return rsesc_get_instruction_pointer(pthread->getPid());
+  return pthread->getPCIcode();
 }
 #endif
 
@@ -1313,8 +1286,10 @@ OP(mint_isatty)
     printf("mint_isatty()\n");
 #endif
 
-  if (REGNUM(4)==0) REGNUM(2) = isatty(REGNUM(4)); 
-  else REGNUM(2) = 1;
+  if(pthread->getIntArg1()==0)
+    pthread->setRetVal(pthread->getIntArg1());
+  else
+    pthread->setRetVal(1);
 /*  REGNUM(2) = isatty(REGNUM(4)); 
  *  REGNUM(2) = 1;
  *
@@ -1325,9 +1300,10 @@ OP(mint_isatty)
  */
 
 #ifdef DEBUG_VERBOSE
-  printf("isatty(%d) returned %d\n", (int) REGNUM(4), (int) REGNUM(2));
+  printf("isatty(%d) returned %d\n",
+	 (int)pthread->getIntArg1(),(int)pthread->getIntReg(RetValReg));
 #endif
-    return addr2icode(REGNUM(31));
+  return pthread->getRetIcode();
 }
 
 /* ARGSUSED */
@@ -1339,9 +1315,9 @@ OP(mint_ioctl)
 #ifdef DEBUG_VERBOSE
   printf("mint_ioctl()\n");
 #endif
-  fd = REGNUM(4);
-  cmd = REGNUM(5);
-  arg = REGNUM(6);
+  fd  = pthread->getIntArg1();
+  cmd = pthread->getIntArg2();
+  arg = pthread->getIntArg3();
   switch (cmd) {
 #if 0
   case FIOCLEX:
@@ -1383,43 +1359,42 @@ OP(mint_ioctl)
     fatal("ioctl command %d (0x%x) not supported.\n", cmd, cmd);
     break;
   }
-  err = ioctl(fd, cmd, (char *) pthread->virt2real(arg));
-  REGNUM(2) = err;
-  if (err == -1)
+  err = ioctl(fd, cmd, (char *) arg);
+  pthread->setRetVal(err);
+  if(err == -1)
     pthread->setperrno(errno);
-  return addr2icode(REGNUM(31));
+  return pthread->getRetIcode();
 }
 
 /* ARGSUSED */
 OP(mint_prctl)
 {
-	 int option;
-    int err = 0;
-
+  int option;
+  int err = 0;
 #ifdef DEBUG_VERBOSE
-    printf("mint_prctl()\n");
+  printf("mint_prctl()\n");
 #endif
-    option = REGNUM(4);
-    switch (option) {
-      case PR_MAXPROCS:
-      case PR_MAXPPROCS:
-        err = Max_nprocs;
-        break;
-      case PR_GETNSHARE:
-        err = 0;
-        break;
-      case PR_SETEXITSIG:
-	/* not really supported, but just fake it for now */
-        err = 0;
-        break;
-      default:
-        fatal("prctl option %d not supported yet.\n", option);
-        break;
-    }
-    REGNUM(2) = err;
-    if (err == -1)
-        pthread->setperrno(errno);
-    return addr2icode(REGNUM(31));
+  option = pthread->getIntArg1();
+  switch (option) {
+  case PR_MAXPROCS:
+  case PR_MAXPPROCS:
+    err = Max_nprocs;
+    break;
+  case PR_GETNSHARE:
+    err = 0;
+    break;
+  case PR_SETEXITSIG:
+    /* not really supported, but just fake it for now */
+    err = 0;
+    break;
+  default:
+    fatal("prctl option %d not supported yet.\n", option);
+    break;
+  }
+  pthread->setRetVal(err);
+  if(err == -1)
+    pthread->setperrno(errno);
+  return pthread->getRetIcode();
 }
 
 /* ARGSUSED */
@@ -1431,9 +1406,9 @@ OP(mint_fcntl)
 #ifdef DEBUG_VERBOSE
   printf("mint_fcntl()\n");
 #endif
-  fd = REGNUM(4);
-  cmd = REGNUM(5);
-  arg = REGNUM(6);
+  fd  = pthread->getIntArg1();
+  cmd = pthread->getIntArg2();
+  arg = pthread->getIntArg3();
   switch (cmd) {
   case F_DUPFD:
   case F_GETFD:
@@ -1458,14 +1433,14 @@ OP(mint_fcntl)
 	  cmd);
   }
   err = fcntl(fd, cmd, arg);
-  REGNUM(2) = err;
+  pthread->setRetVal(err);
   if (err == -1)
     pthread->setperrno(errno);
   else {
     if (cmd == F_DUPFD && err < MAX_FDNUM)
       pthread->setFD(err, 1);
   }
-  return addr2icode(REGNUM(31));
+  return pthread->getRetIcode();
 }
 
 struct  mint_utsname {
@@ -1479,7 +1454,7 @@ struct  mint_utsname {
 /* ARGSUSED */
 OP(mint_uname)
 {
-  int r4 = REGNUM(4);
+  int r4 = pthread->getIntArg1();
   struct mint_utsname *tp;
 
 #ifdef DEBUG_VERBOSE
@@ -1496,15 +1471,15 @@ OP(mint_uname)
   strcpy(tp->version, "#1 SMP Tue Jun 4 16:05:29 CDT 2002"); /* fake */
   strcpy(tp->machine, "mips");
 
-  REGNUM(2) = 0;
-  return addr2icode(REGNUM(31));
+  pthread->setRetVal(0);
+  return pthread->getRetIcode();
 }
 
 /* ARGSUSED */
 OP(mint_getrlimit)
 {
-  int r4 = REGNUM(4);
-  int r5 = REGNUM(5);
+  int r4 = pthread->getIntArg1();
+  int r5 = pthread->getIntArg2();
   int  ret;
   
 #ifdef DEBUG_VERBOSE
@@ -1519,15 +1494,15 @@ OP(mint_getrlimit)
   if(ret == -1)
     pthread->setperrno(errno);
     
-  REGNUM(2) = ret;
-  return addr2icode(REGNUM(31));
+  pthread->setRetVal(ret);
+  return pthread->getRetIcode();
 }
 
 /* ARGSUSED */
 OP(mint_getrusage)
 {
-  int r4 = REGNUM(4);
-  int r5 = REGNUM(5);
+  int r4 = pthread->getIntArg1();
+  int r5 = pthread->getIntArg2();
   int  ret;
   
 #ifdef DEBUG_VERBOSE
@@ -1542,8 +1517,8 @@ OP(mint_getrusage)
   if(ret == -1)
     pthread->setperrno(errno);
     
-  REGNUM(2) = ret;
-  return addr2icode(REGNUM(31));
+  pthread->setRetVal(ret);
+  return pthread->getRetIcode();
 }
 
 
@@ -1553,8 +1528,8 @@ OP(mint_getpid)
 #ifdef DEBUG_VERBOSE
   printf("mint_getpid()\n");
 #endif
-  REGNUM(2) = pthread->getPid();
-  return addr2icode(REGNUM(31));
+  pthread->setRetVal(pthread->getPid());
+  return pthread->getRetIcode();
 }
 
 /* ARGSUSED */
@@ -1565,11 +1540,11 @@ OP(mint_getppid)
 #endif
 
   if (pthread->getParent())
-    REGNUM(2) = pthread->getParent()->getPid();
+    pthread->setRetVal(pthread->getParent()->getPid());
   else
-    REGNUM(2) = 0;
+    pthread->setRetVal(0);
 
-  return addr2icode(REGNUM(31));
+  return pthread->getRetIcode();
 }
 
 int rsesc_usecs();
@@ -1584,13 +1559,13 @@ OP(mint_clock)
   }
   /* 100 ticks per second is the standard */
 
-  REGNUM(2) = t+rsesc_usecs()/10000;
+  pthread->setRetVal(t+rsesc_usecs()/10000);
 
 #ifdef DEBUG_VERBOSE
-  printf("mint_clock() %d\n", REGNUM(2));
+  printf("mint_clock() %d\n", pthread->getIntReg(RetValReg));
 #endif
 
-  return addr2icode(REGNUM(31));
+  return pthread->getRetIcode();
 }
 
 /* ARGSUSED */
@@ -1600,7 +1575,7 @@ OP(mint_null_func)
   printf("null func\n");
 #endif
 
-  return addr2icode(REGNUM(31));
+  return pthread->getRetIcode();
 }
 
 /* ARGSUSED */
@@ -1610,8 +1585,8 @@ OP(return1)
   printf("return 1\n");
 #endif
 
-  REGNUM(2) = 1;
-  return addr2icode(REGNUM(31));
+  pthread->setRetVal(1);
+  return pthread->getRetIcode();
 }
 
 OP(mint_cerror)
@@ -1622,8 +1597,8 @@ OP(mint_cerror)
 #endif
   pthread->dump();
   picode->dump();
-  REGNUM(2) = -1;
-  return addr2icode(REGNUM(31));
+  pthread->setRetVal(-1);
+  return pthread->getRetIcode();
 }
 
 /* ARGSUSED */
@@ -1632,12 +1607,12 @@ OP(mint_gettimeofday)
   int tp, tzp;
   int r4, r5;
 
-  r4 = REGNUM(4);
-  r5 = REGNUM(5);
+  r4 = pthread->getIntArg1();
+  r5 = pthread->getIntArg2();
 
   if (r4 == 0) {
-    REGNUM(2) = -1;
-    return addr2icode(REGNUM(31));
+    pthread->setRetVal(-1);
+    return pthread->getRetIcode();
   }
   tp = pthread->virt2real(r4);
 
@@ -1670,30 +1645,30 @@ OP(mint_gettimeofday)
   memcpy(r4map,&tv,sizeof(struct timeval));
 #endif
 
-  REGNUM(2) = 0;
-  return addr2icode(REGNUM(31));
+  pthread->setRetVal(0);
+  return pthread->getRetIcode();
 }
 
 void rsesc_wait(int pid);
 
 OP(mint_sesc_wait)
 {
-  int pid = pthread->getPid();
-
-  rsesc_set_instruction_pointer(pid,addr2icode(REGNUM(31)));
-  rsesc_wait(pid);
-  return rsesc_get_instruction_pointer(pthread->getPid());
+  // Set things up for the return to from this call
+  pthread->setPCIcode(pthread->getRetIcode());
+  rsesc_wait(pthread->getPid());
+  // Note: not neccessarily running the same thread as before
+  return pthread->getPCIcode();
 }
 
 void rsesc_pseudoreset(int pid);
 
 OP(mint_sesc_pseudoreset)
 {
-  int pid = pthread->getPid();
-
-  rsesc_set_instruction_pointer(pid,addr2icode(REGNUM(31)));
-  rsesc_pseudoreset(pid);
-  return rsesc_get_instruction_pointer(pthread->getPid());
+  // Set things up for the return to from this call
+  pthread->setPCIcode(pthread->getRetIcode());
+  rsesc_pseudoreset(pthread->getPid());
+  // Note: not neccessarily running the same thread as before
+  return pthread->getPCIcode();
 }
 
 /* It's "system calls" all the way down. */
@@ -1701,24 +1676,21 @@ OP(mint_sesc_pseudoreset)
 /* ARGSUSED */
 OP(mint_ulimit)
 {
-	 int cmd, newlimit;
-    int err;
-
 #ifdef DEBUG_VERBOSE
-    printf("mint_ulimit()\n");
+  printf("mint_ulimit()\n");
 #endif
-    cmd = REGNUM(4);
-    newlimit = REGNUM(5);
-
+  int cmd      = pthread->getIntArg1();
+  int newlimit = pthread->getIntArg2();
+  
 #ifndef CYGWIN
-    err = ulimit(cmd, newlimit);
+  int err = ulimit(cmd, newlimit);
 #else
-    fatal("ulimit not supported in cygwin") ;
+  fatal("ulimit not supported in cygwin") ;
 #endif
-    REGNUM(2) = err;
-    if (err == -1)
-        pthread->setperrno(errno);
-    return addr2icode(REGNUM(31));
+  pthread->setRetVal(err);
+  if (err == -1)
+    pthread->setperrno(errno);
+  return pthread->getRetIcode();
 }
 
 /* ARGSUSED */
@@ -1783,7 +1755,7 @@ OP(mint_execvp)
 
 OP(mint_munmap)
 {
-  int r4   = REGNUM(4);
+  int r4 = pthread->getIntArg1();
 
 #ifdef DEBUG_VERBOSE
   printf("mint_unmmap(%d)\n", (int) r4);
@@ -1792,17 +1764,17 @@ OP(mint_munmap)
   if (r4)
     mint_free(picode,pthread);
 
-  return addr2icode(REGNUM(31));
+  return pthread->getRetIcode();
 }
 
 
 /* ARGSUSED */
 OP(mint_mmap)
 {
-  int r4   = REGNUM(4);
+  int r4   = pthread->getIntArg1();
 
 #ifdef DEBUG_VERBOSE
-  printf("mint_mmap(%d)\n", (int) REGNUM(5));
+  printf("mint_mmap(%d)\n", (int) pthread->getIntArg2());
 #endif
   
   if( r4 ) {
@@ -1810,16 +1782,16 @@ OP(mint_mmap)
     fatal("mmap called with start different than zero\n");
   }
 
-  REGNUM(4) = 1;
+  pthread->setIntReg(IntArg1Reg,1);
   mint_calloc(picode,pthread);
-  REGNUM(4) = r4;
+  pthread->setIntReg(IntArg1Reg,r4);
   
-  if(REGNUM(2)==0) {
-    REGNUM(2)=-1;
+  if(pthread->getIntReg(RetValReg)==0){
+    pthread->setRetVal(-1);
     pthread->setperrno(errno);
   }
   
-  return addr2icode(REGNUM(31));
+  return pthread->getRetIcode();
 }
 
 int conv_flags_to_native(int flags)
@@ -1854,9 +1826,9 @@ OP(mint_open)
   int r4, r5, r6;
   int err;
 
-  r4 = REGNUM(4);
-  r5 = REGNUM(5);
-  r6 = REGNUM(6);
+  r4 = pthread->getIntArg1();
+  r5 = pthread->getIntArg2();
+  r6 = pthread->getIntArg3();
     
   r5 = conv_flags_to_native(r5);
 
@@ -1864,11 +1836,11 @@ OP(mint_open)
   {
     char cadena[100];
 
-    rsesc_OS_read_string(pthread->getPid(), picode->addr, cadena, (const void *) REGNUM(4), 100);
-      
+    rsesc_OS_read_string(pthread->getPid(),picode->addr,cadena,
+			 (const void *)r4,100);
     err = open((const char *) cadena, r5, r6);
     if( err == -1 ) {
-      fprintf(stderr,"original flag = %ld, and conv_flag = %ld\n", REGNUM(5), r5);
+      fprintf(stderr,"original flag = %ld, and conv_flag = %ld\n", pthread->getIntArg2(), r5);
       fprintf(stderr,"mint_open(%s,%ld,%ld) (failed) ret=%d\n",(const char *) cadena, r5, r6, err);
     }  
 
@@ -1885,36 +1857,34 @@ OP(mint_open)
 #endif
 #endif
 
-  REGNUM(2) = err;
+  pthread->setRetVal(err);
   if (err == -1)
     pthread->setperrno(errno);
   else {
     if (err < MAX_FDNUM)
       pthread->setFD(err, 1);
   }
-  return addr2icode(REGNUM(31));
+  return pthread->getRetIcode();
 }
 
 /* ARGSUSED */
 OP(mint_close)
 {
-	 int r4;
-    int err;
-
 #ifdef DEBUG_VERBOSE
-    printf("mint_close()\n");
+  printf("mint_close()\n");
 #endif
-    r4 = REGNUM(4);
-    REGNUM(2) = 0;
-    /* don't close our file descriptors */
-    if (r4 < MAX_FDNUM && pthread->getFD(r4)) {
-      pthread->setFD(r4, 0);
-      err = close(r4);
-      REGNUM(2) = err;
-      if (err == -1)
-	pthread->setperrno(errno);
-    }
-    return addr2icode(REGNUM(31));
+  int fd = pthread->getIntArg1();
+  /* don't close our file descriptors */
+  if (fd < MAX_FDNUM && pthread->getFD(fd)) {
+    pthread->setFD(fd,0);
+    int err=close(fd);
+    pthread->setRetVal(err);
+    if (err == -1)
+      pthread->setperrno(errno);
+  }else{
+    pthread->setRetVal(0);
+  }
+  return pthread->getRetIcode();
 }
 
 /* ARGSUSED */
@@ -1923,13 +1893,13 @@ OP(mint_read)
 	 int r4, r5, r6;
     int err;
 
-    r4 = REGNUM(4);
-    r5 = REGNUM(5);
-    r6 = REGNUM(6);
+    r4 = pthread->getIntArg1();
+    r5 = pthread->getIntArg2();
+    r6 = pthread->getIntArg3();
 
 #ifdef DEBUG_VERBOSE
     printf("mint_read(%d, 0x%08x, %d), RA=0x%08x\n", (int) r4, (unsigned) r5, 
-	   (int) r6, (unsigned) REGNUM(31));
+	   (int) r6, (unsigned) pthread->getIntReg(RetAddrReg));
 #endif
 
 #ifdef TASKSCALAR
@@ -1946,20 +1916,20 @@ OP(mint_read)
     err = read(r4, (void *) pthread->virt2real(r5), r6);
 #endif
 
-    REGNUM(2) = err;
+    pthread->setRetVal(err);
     if (err == -1)
         pthread->setperrno(errno);
-    return addr2icode(REGNUM(31));
+    return pthread->getRetIcode();
 }
 
 /* ARGSUSED */
 OP(mint_write){
   // Set things up for the return from this call
-  pthread->setIP(addr2icode(pthread->getGPR(RetAddrGPR)));
+  pthread->setPCIcode(pthread->getRetIcode());
   // Arguments of the write call
-  int        fd=pthread->getGPR(Arg1stGPR);
-  RAddr   buf=pthread->getGPR(Arg2ndGPR);
-  size_t  count=pthread->getGPR(Arg3rdGPR);
+  int    fd   =pthread->getIntReg(IntArg1Reg);
+  RAddr  buf  =pthread->getIntReg(IntArg2Reg);
+  size_t count=pthread->getIntReg(IntArg3Reg);
 
   int err;
   int pid=pthread->getPid();
@@ -1979,10 +1949,10 @@ OP(mint_write){
 #else
   err=write(fd,(const void *)buf,count);
 #endif
-  pthread->setGPR(RetValGPR,err);
+  pthread->setIntReg(RetValReg,err);
   if(err==-1)
     pthread->setErrno(errno);
-  return pthread->getIP();
+  return pthread->getPCIcode();
 }
 
 /* ARGSUSED */
@@ -1994,9 +1964,9 @@ OP(mint_readv)
 #ifdef DEBUG_VERBOSE
     printf("mint_readv()\n");
 #endif
-    r4 = REGNUM(4);
-    r5 = REGNUM(5);
-    r6 = REGNUM(6);
+    r4 = pthread->getIntArg1();
+    r5 = pthread->getIntArg2();
+    r6 = pthread->getIntArg3();
 
     // r5 = pthread->virt2real(r5);
 
@@ -2006,16 +1976,16 @@ OP(mint_readv)
       
       err = readv(r4, (const iovec *)tempbuff, r6);
       if (err > 0)
-	rsesc_OS_write_block(pthread->getPid(), picode->addr, (void *) pthread->virt2real(REGNUM(5)), tempbuff, err);
+	rsesc_OS_write_block(pthread->getPid(), picode->addr, (void *)pthread->getIntArg2(), tempbuff, err);
     }
 #else
     err = readv(r4, (const iovec *) pthread->virt2real(r5), r6);
 #endif
 
-    REGNUM(2) = err;
+    pthread->setRetVal(err);
     if (err == -1)
         pthread->setperrno(errno);
-    return addr2icode(REGNUM(31));
+    return pthread->getRetIcode();
 }
 
 /* ARGSUSED */
@@ -2027,16 +1997,16 @@ OP(mint_writev)
 #ifdef DEBUG_VERBOSE
     printf("mint_writev()\n");
 #endif
-    r4 = REGNUM(4);
-    r5 = REGNUM(5);
-    r6 = REGNUM(6);
+    r4 = pthread->getIntArg1();
+    r5 = pthread->getIntArg2();
+    r6 = pthread->getIntArg3();
 
     // r5 = pthread->virt2real(r5);
 
 #ifdef TASKSCALAR
     {
       void *tempbuff =  alloca (r6);
-      rsesc_OS_read_block(pthread->getPid(), picode->addr, tempbuff, (const void *)pthread->virt2real(REGNUM(5)), r6);
+      rsesc_OS_read_block(pthread->getPid(), picode->addr, tempbuff, (const void *)pthread->getIntArg2(), r6);
 
       err = writev(r4, (const iovec *)tempbuff, r6);
     }
@@ -2044,10 +2014,10 @@ OP(mint_writev)
     err = writev(r4, (const iovec *) pthread->virt2real(r5), r6);
 #endif
 
-    REGNUM(2) = err;
+    pthread->setRetVal(err);
     if (err == -1)
         pthread->setperrno(errno);
-    return addr2icode(REGNUM(31));
+    return pthread->getRetIcode();
 }
 
 /* ARGSUSED */
@@ -2059,8 +2029,8 @@ OP(mint_creat)
 #ifdef DEBUG_VERBOSE
     printf("mint_creat()\n");
 #endif
-    r4 = REGNUM(4);
-    r5 = REGNUM(5);
+    r4 = pthread->getIntArg1();
+    r5 = pthread->getIntArg2();
 
     // r4 = pthread->virt2real(r4);
 
@@ -2068,7 +2038,7 @@ OP(mint_creat)
     {
       char cadena[100];
 
-      rsesc_OS_read_string(pthread->getPid(), picode->addr, cadena, (const void *) pthread->virt2real(REGNUM(4)), 100);
+      rsesc_OS_read_string(pthread->getPid(), picode->addr, cadena, (const void *)pthread->getIntArg1(), 100);
       
       err = open((const char *) cadena, r5);
     }
@@ -2076,10 +2046,10 @@ OP(mint_creat)
     err = creat((const char *) pthread->virt2real(r4), r5);
 #endif
 
-    REGNUM(2) = err;
+    pthread->setRetVal(err);
     if (err == -1)
         pthread->setperrno(errno);
-    return addr2icode(REGNUM(31));
+    return pthread->getRetIcode();
 }
 
 /* ARGSUSED */
@@ -2091,8 +2061,8 @@ OP(mint_link)
 #ifdef DEBUG_VERBOSE
     printf("mint_link()\n");
 #endif
-    r4 = REGNUM(4);
-    r5 = REGNUM(5);
+    r4 = pthread->getIntArg1();
+    r5 = pthread->getIntArg2();
 
 #ifdef TASKSCALAR
     {
@@ -2111,10 +2081,10 @@ OP(mint_link)
     err = link((const char *) pthread->virt2real(r4), (const char *) pthread->virt2real(r5));
 #endif
 
-    REGNUM(2) = err;
+    pthread->setRetVal(err);
     if (err == -1)
         pthread->setperrno(errno);
-    return addr2icode(REGNUM(31));
+    return pthread->getRetIcode();
 }
 
 /* ARGSUSED */
@@ -2126,7 +2096,7 @@ OP(mint_unlink)
 #ifdef DEBUG_VERBOSE
     printf("mint_unlink()\n");
 #endif
-    r4 = REGNUM(4);
+    r4 = pthread->getIntArg1();
 
     // r4 = pthread->virt2real(r4);
 
@@ -2141,10 +2111,10 @@ OP(mint_unlink)
 #else
     err = unlink((const char *) pthread->virt2real(r4));
 #endif
-    REGNUM(2) = err;
+    pthread->setRetVal(err);
     if (err == -1)
         pthread->setperrno(errno);
-    return addr2icode(REGNUM(31));
+    return pthread->getRetIcode();
 }
 
 /* ARGSUSED */
@@ -2156,8 +2126,8 @@ OP(mint_rename)
 #ifdef DEBUG_VERBOSE
     printf("mint_rename()\n");
 #endif
-    r4 = REGNUM(4);
-    r5 = REGNUM(5);
+    r4 = pthread->getIntArg1();
+    r5 = pthread->getIntArg2();
 
 #ifdef TASKSCALAR
     {
@@ -2176,10 +2146,10 @@ OP(mint_rename)
     err = rename((const char *) pthread->virt2real(r4), (const char *) pthread->virt2real(r5));
 #endif
 
-    REGNUM(2) = err;
+    pthread->setRetVal(err);
     if (err == -1)
         pthread->setperrno(errno);
-    return addr2icode(REGNUM(31));
+    return pthread->getRetIcode();
 }
 
 /* ARGSUSED */
@@ -2191,7 +2161,7 @@ OP(mint_chdir)
 #ifdef DEBUG_VERBOSE
     printf("mint_chdir()\n");
 #endif
-    r4 = REGNUM(4);
+    r4 = pthread->getIntArg1();
 
     // r4 = pthread->virt2real(r4);
 
@@ -2206,10 +2176,10 @@ OP(mint_chdir)
 #else
     err = chdir((const char *) pthread->virt2real(r4));
 #endif
-    REGNUM(2) = err;
+    pthread->setRetVal(err);
     if (err == -1)
         pthread->setperrno(errno);
-    return addr2icode(REGNUM(31));
+    return pthread->getRetIcode();
 }
 
 /* ARGSUSED */
@@ -2221,8 +2191,8 @@ OP(mint_chmod)
 #ifdef DEBUG_VERBOSE
     printf("mint_chmod()\n");
 #endif
-    r4 = REGNUM(4);
-    r5 = REGNUM(5);
+    r4 = pthread->getIntArg1();
+    r5 = pthread->getIntArg2();
 
     // r4 = pthread->virt2real(r4);
 
@@ -2237,10 +2207,10 @@ OP(mint_chmod)
 #else
     err = chmod((char *) pthread->virt2real(r4), r5);
 #endif
-    REGNUM(2) = err;
+    pthread->setRetVal(err);
     if (err == -1)
         pthread->setperrno(errno);
-    return addr2icode(REGNUM(31));
+    return pthread->getRetIcode();
 }
 
 /* ARGSUSED */
@@ -2252,91 +2222,108 @@ OP(mint_fchmod)
 #ifdef DEBUG_VERBOSE
     printf("mint_fchmod()\n");
 #endif
-    r4 = REGNUM(4);
-    r5 = REGNUM(5);
+    r4 = pthread->getIntArg1();
+    r5 = pthread->getIntArg2();
 
     err = fchmod(r4, r5);
-    REGNUM(2) = err;
+    pthread->setRetVal(err);
     if (err == -1)
         pthread->setperrno(errno);
-    return addr2icode(REGNUM(31));
+    return pthread->getRetIcode();
 }
 
 /* ARGSUSED */
 OP(mint_chown)
 {
-	 int r4, r5, r6;
     int err;
 
 #ifdef DEBUG_VERBOSE
     printf("mint_chown()\n");
 #endif
-    r4 = REGNUM(4);
-    r5 = REGNUM(5);
-    r6 = REGNUM(6);
+    int pathVAddr = pthread->getIntArg1();
+    int ownerUID  = pthread->getIntArg2();
+    int groupGID  = pthread->getIntArg3();
 
-    // r4 = pthread->virt2real(r4);
+    int pathRAddr = pthread->virt2real(pathVAddr);
 
 #ifdef TASKSCALAR
     {
       char cad1[100];
 
-      rsesc_OS_read_string(pthread->getPid(), picode->addr, cad1, (const void *) pthread->virt2real(REGNUM(4)), 100);
+      rsesc_OS_read_string(pthread->getPid(), picode->addr, cad1, (const void *) pthread->virt2real(pathRAddr), 100);
       
-      err = chown((const char *) cad1, r5, r6);
+      err = chown((const char *) cad1, ownerUID, groupGID);
     }
 #else
-    err = chown((const char *) pthread->virt2real(r4), r5, r6);
+    err = chown((const char *) pthread->virt2real(pathRAddr), ownerUID, groupGID);
 #endif
 
-    REGNUM(2) = err;
+    pthread->setRetVal(err);
     if (err == -1)
         pthread->setperrno(errno);
-    return addr2icode(REGNUM(31));
+    return pthread->getRetIcode();
 }
 
 /* ARGSUSED */
 OP(mint_fchown)
 {
-	 int r4, r5, r6;
     int err;
 
 #ifdef DEBUG_VERBOSE
     printf("mint_chown()\n");
 #endif
-    r4 = REGNUM(4);
-    r5 = REGNUM(5);
-    r6 = REGNUM(6);
+    int fd       = pthread->getIntArg1();
+    int ownerUID = pthread->getIntArg2();
+    int groupGID = pthread->getIntArg3();
 
-    err = fchown(r4, r5, r6);
-    REGNUM(2) = err;
+    err = fchown(fd, ownerUID, groupGID);
+    pthread->setRetVal(err);
     if (err == -1)
         pthread->setperrno(errno);
-    return addr2icode(REGNUM(31));
+    return pthread->getRetIcode();
 }
 
 /* ARGSUSED */
 OP(mint_lseek64)
 {
-    int r4, r6;
-    off64_t r5;
-    off64_t err;
-
+  // When writing these substitutions, please pay attention to the
+  // calling convention for passing 64-bit arguments, which is:
+  // ALL parameters are allocated on the stack, with proper alignment,
+  // then registers r4-r7 (IntArg1..IntArg4)are used to cache the first
+  // four 32-bit words of that. As a result, a 64-bit parameter uses two
+  // registers AND begins in the even-numbered register. For example,
+  // if the function takes a 32-bit integer parameter, followed by a
+  // 64-bit integer parameter, followed by a 32-bit integer parameter,
+  // the first parameter is in r4 (IntArg1), the second parameter is in 
+  // r6 and r7 (note that r5 is skipped for alignment), and the third
+  // parameter ends up on the stack.
 #ifdef DEBUG_VERBOSE
-    printf("mint_lseek64()\n");
+  printf("mint_lseek64()\n");
 #endif
-    r4 = (int)(REGNUM(4));
-    r5 = (off64_t)(REGNUM(5));
-    r6 = (int)(REGNUM(6));
-
-    /* r6 value is changed to -1 by the instruction after jal */
-    if( r6 < 0 ) r6 = 0;
-    
-    err = (int) lseek(r4,r5,r6);
-    REGNUM(2) = err;
-    if (err == -1)
-        pthread->setperrno(errno);
-    return addr2icode(REGNUM(31));
+  // First parameter is a 32-bit int in r4
+  int   fildes = pthread->getIntArg1();
+  // Second parameter is a 64-bit int in r6 and r7
+  if( ((pthread->getIntArg3()>=0)&&(pthread->getIntArg4()!=0)) ||
+      ((pthread->getIntArg3()<0)&&(pthread->getIntArg4()!=-1)) ){
+    printf("Seek offset in mint_lseek is 0x%08lx%08lx\n",
+	   pthread->getIntArg4(),pthread->getIntArg3());
+    I(0);
+  }
+  off_t offset = pthread->getIntArg3();
+  // The third parameter is on the stack!
+  RAddr whenceAddr=pthread->virt2real(pthread->getStkPtr())+16;
+#if (defined TASKSCALAR) || (defined TLS)
+  int *whencePtr =(int *)(rsesc_OS_read(pthread->getPid(),whenceAddr,picode->addr,E_WORD));
+#else
+  int *whencePtr=(int *)whenceAddr;
+#endif
+  int whence = SWAP_WORD(*whencePtr);
+  // Now do the actual call with these parameters
+  off_t retVal = lseek(fildes,offset,whence);
+  pthread->setRetVal64(retVal);
+  if(retVal == (off_t)-1)
+    pthread->setperrno(errno);
+  return pthread->getRetIcode();
 }
 
 /* ARGSUSED */
@@ -2352,10 +2339,10 @@ OP(mint_lseek)
 #endif
 
     err = (int) lseek((int) r4, (off64_t) r5, (int) r6);
-    REGNUM(2) = err;
+    pthread->setRetVal(err);
     if (err == -1)
         pthread->setperrno(errno);
-    return addr2icode(REGNUM(31));
+    return pthread->getRetIcode();
 }
 
 
@@ -2385,10 +2372,10 @@ OP(mint_access)
     err = access((const char *) pthread->virt2real(r4), r5);
 #endif
 
-    REGNUM(2) = err;
+    pthread->setRetVal(err);
     if (err == -1)
         pthread->setperrno(errno);
-    return addr2icode(REGNUM(31));
+    return pthread->getRetIcode();
 }
 
 /* ARGSUSED */
@@ -2429,11 +2416,10 @@ OP(mint_stat)
   }
 #endif
 
-  REGNUM(2) = err;
+  pthread->setRetVal(err);
   if (err == -1)
-    pthread->setperrno(errno);
-
-  return addr2icode(REGNUM(31));
+      pthread->setperrno(errno);
+  return pthread->getRetIcode();
 }
 
 /* ARGSUSED */
@@ -2474,11 +2460,10 @@ OP(mint_lstat)
   }
 #endif
 
-  REGNUM(2) = err;
-  if (err == -1)
-    pthread->setperrno(errno);
-
-  return addr2icode(REGNUM(31));
+    pthread->setRetVal(err);
+    if (err == -1)
+        pthread->setperrno(errno);
+    return pthread->getRetIcode();
 }
 
 /* ARGSUSED */
@@ -2517,11 +2502,10 @@ OP(mint_fstat)
   }
 #endif
 
-  REGNUM(2) = err;
+  pthread->setRetVal(err);
   if (err == -1)
     pthread->setperrno(errno);
-
-  return addr2icode(REGNUM(31));
+  return pthread->getRetIcode();
 }
 
 /* ARGSUSED */
@@ -2623,11 +2607,10 @@ OP(mint_lstat64)
   }
 #endif
 
-  REGNUM(2) = err;
+  pthread->setRetVal(err);
   if (err == -1)
     pthread->setperrno(errno);
-
-  return addr2icode(REGNUM(31));
+  return pthread->getRetIcode();
 }
 
 /* ARGSUSED */
@@ -2668,12 +2651,10 @@ OP(mint_stat64)
   }
 #endif
 
-  if(err == -1)
+  pthread->setRetVal(err);
+  if (err == -1)
     pthread->setperrno(errno);
-    
-  REGNUM(2) = err;
-
-  return addr2icode(REGNUM(31));
+  return pthread->getRetIcode();
 }
 
 /* ARGSUSED */
@@ -2767,10 +2748,10 @@ OP(mint_pipe)
 #else
     err = pipe((int *) pthread->virt2real(r4));
 #endif
-    REGNUM(2) = err;
-    if (err == -1)
-        pthread->setperrno(errno);
-    return addr2icode(REGNUM(31));
+  pthread->setRetVal(err);
+  if (err == -1)
+    pthread->setperrno(errno);
+  return pthread->getRetIcode();
 }
 
 /* ARGSUSED */
@@ -2800,10 +2781,10 @@ OP(mint_symlink)
 #else
     err = symlink((const char *) pthread->virt2real(r4), (const char *) pthread->virt2real(r5));
 #endif
-    REGNUM(2) = err;
-    if (err == -1)
-        pthread->setperrno(errno);
-    return addr2icode(REGNUM(31));
+  pthread->setRetVal(err);
+  if (err == -1)
+    pthread->setperrno(errno);
+  return pthread->getRetIcode();
 }
 
 /* ARGSUSED */
@@ -2838,10 +2819,10 @@ OP(mint_readlink)
 
     err = readlink((const char *) pthread->virt2real(r4), (char *)pthread->virt2real(r5), r6);
 #endif
-    REGNUM(2) = err;
-    if (err == -1)
-        pthread->setperrno(errno);
-    return addr2icode(REGNUM(31));
+  pthread->setRetVal(err);
+  if (err == -1)
+    pthread->setperrno(errno);
+  return pthread->getRetIcode();
 }
 
 /* ARGSUSED */
@@ -2935,11 +2916,10 @@ OP(mint_getdomainname)
 #endif
 #endif
 
-    REGNUM(2) = err;
-    if (err == -1)
-        pthread->setperrno(errno);
-
-    return addr2icode(REGNUM(31));
+  pthread->setRetVal(err);
+  if (err == -1)
+    pthread->setperrno(errno);
+  return pthread->getRetIcode();
 }
 
 /* ARGSUSED */
@@ -2984,11 +2964,10 @@ OP(mint_setdomainname)
 #endif
 #endif
 
-    REGNUM(2) = err;
-    if (err == -1)
-        pthread->setperrno(errno);
-
-    return addr2icode(REGNUM(31));
+  pthread->setRetVal(err);
+  if (err == -1)
+    pthread->setperrno(errno);
+  return pthread->getRetIcode();
 }
 
 /* ARGSUSED */
@@ -3020,11 +2999,10 @@ OP(mint_gethostname)
     err = gethostname((char *) pthread->virt2real(r4), r5);
 #endif
 
-    REGNUM(2) = err;
-    if (err == -1)
-        pthread->setperrno(errno);
-
-    return addr2icode(REGNUM(31));
+  pthread->setRetVal(err);
+  if (err == -1)
+    pthread->setperrno(errno);
+  return pthread->getRetIcode();
 }
 
 /* ARGSUSED */
@@ -3118,11 +3096,10 @@ OP(mint_send)
     err = send(r4, (const void *) pthread->virt2real(r5), r6, r7);
 #endif
 
-    REGNUM(2) = err;
-    if (err == -1)
-        pthread->setperrno(errno);
-
-    return addr2icode(REGNUM(31));
+  pthread->setRetVal(err);
+  if (err == -1)
+    pthread->setperrno(errno);
+  return pthread->getRetIcode();
 }
 
 /* ARGSUSED */
@@ -3153,12 +3130,11 @@ OP(mint_sendto)
     // if (arg5)
     //     arg5 = pthread->virt2real(arg5);
 
-    err = sendto(r4, (const void *) pthread->virt2real(r5), r6, r7, (struct sockaddr *) pthread->virt2real(arg5), arg6);
-    REGNUM(2) = err;
-    if (err == -1)
-        pthread->setperrno(errno);
-
-    return addr2icode(REGNUM(31));
+  err = sendto(r4, (const void *) pthread->virt2real(r5), r6, r7, (struct sockaddr *) pthread->virt2real(arg5), arg6);
+  pthread->setRetVal(err);
+  if (err == -1)
+    pthread->setperrno(errno);
+  return pthread->getRetIcode();
 }
 
 /* ARGSUSED */
@@ -3226,11 +3202,10 @@ OP(mint_sendmsg)
 // #endif
     // }
 
-    REGNUM(2) = err;
-    if (err == -1)
-        pthread->setperrno(errno);
-
-    return addr2icode(REGNUM(31));
+  pthread->setRetVal(err);
+  if (err == -1)
+    pthread->setperrno(errno);
+  return pthread->getRetIcode();
 }
 
 /* ARGSUSED */
@@ -3255,12 +3230,11 @@ OP(mint_recv)
     // if (r5)
     //     r5 = pthread->virt2real(r5);
 
-    err = recv(r4, (void *) pthread->virt2real(r5), r6, r7);
-    REGNUM(2) = err;
-    if (err == -1)
-        pthread->setperrno(errno);
-
-    return addr2icode(REGNUM(31));
+  err = recv(r4, (void *) pthread->virt2real(r5), r6, r7);
+  pthread->setRetVal(err);
+  if (err == -1)
+    pthread->setperrno(errno);
+  return pthread->getRetIcode();
 }
 
 /* ARGSUSED */
@@ -3293,12 +3267,11 @@ OP(mint_recvfrom)
     // if (arg6)
     //     arg6 = pthread->virt2real(arg6);
 
-    err = recvfrom(r4, (void *) pthread->virt2real(r5), r6, r7, (struct sockaddr *) pthread->virt2real(arg5), (socklen_t *) pthread->virt2real(arg6));
-    REGNUM(2) = err;
-    if (err == -1)
-        pthread->setperrno(errno);
-
-    return addr2icode(REGNUM(31));
+  err = recvfrom(r4, (void *) pthread->virt2real(r5), r6, r7, (struct sockaddr *) pthread->virt2real(arg5), (socklen_t *) pthread->virt2real(arg6));
+  pthread->setRetVal(err);
+  if (err == -1)
+    pthread->setperrno(errno);
+  return pthread->getRetIcode();
 }
 
 /* ARGSUSED */
@@ -3362,11 +3335,10 @@ OP(mint_recvmsg)
 // #endif
     // }
 
-    REGNUM(2) = err;
-    if (err == -1)
-        pthread->setperrno(errno);
-
-    return addr2icode(REGNUM(31));
+  pthread->setRetVal(err);
+  if (err == -1)
+    pthread->setperrno(errno);
+  return pthread->getRetIcode();
 }
 
 /* ARGSUSED */
@@ -3400,12 +3372,12 @@ OP(mint_select)
     // if (arg5)
     //     arg5 = pthread->virt2real(arg5);
 
-    err = select(r4, (fd_set *) pthread->virt2real(r5), (fd_set *) pthread->virt2real(r6), (fd_set *) pthread->virt2real(r7), (struct timeval *) pthread->virt2real(arg5));
-    REGNUM(2) = err;
-    if (err == -1)
-        pthread->setperrno(errno);
+  err = select(r4, (fd_set *) pthread->virt2real(r5), (fd_set *) pthread->virt2real(r6), (fd_set *) pthread->virt2real(r7), (struct timeval *) pthread->virt2real(arg5));
 
-    return addr2icode(REGNUM(31));
+  pthread->setRetVal(err);
+  if (err == -1)
+    pthread->setperrno(errno);
+  return pthread->getRetIcode();
 }
 
 /* ARGSUSED */
@@ -3435,12 +3407,11 @@ OP(mint_getsockopt)
     // if (arg5)
     //     arg5 = pthread->virt2real(arg5);
 
-    err = getsockopt(r4, r5, r6, (void *) pthread->virt2real(r7), (socklen_t *) pthread->virt2real(arg5));
-    REGNUM(2) = err;
-    if (err == -1)
-        pthread->setperrno(errno);
-
-    return addr2icode(REGNUM(31));
+  err = getsockopt(r4, r5, r6, (void *) pthread->virt2real(r7), (socklen_t *) pthread->virt2real(arg5));
+  pthread->setRetVal(err);
+  if (err == -1)
+    pthread->setperrno(errno);
+  return pthread->getRetIcode();
 }
 
 /* ARGSUSED */
@@ -3472,8 +3443,7 @@ OP(mint_setsockopt)
     REGNUM(2) = err;
     if (err == -1)
         pthread->setperrno(errno);
-
-    return addr2icode(REGNUM(31));
+  return pthread->getRetIcode();
 }
 
 /* ARGSUSED */
@@ -3554,10 +3524,10 @@ OP(mint_times)
     printf("mint_times()\n");
 #endif
 
-    REGNUM(2) = err;
-    if (err == -1)
-        pthread->setperrno(errno);
-    return addr2icode(REGNUM(31));
+  pthread->setRetVal(err);
+  if (err == -1)
+    pthread->setperrno(errno);
+  return pthread->getRetIcode();
 }
 
 /* ARGSUSED */
@@ -3586,10 +3556,10 @@ OP(mint_time)
 
 	 err = (int) time((time_t *) pthread->virt2real(r4));
 #endif
-    REGNUM(2) = err;
-    if (err == -1)
-        pthread->setperrno(errno);
-    return addr2icode(REGNUM(31));
+  pthread->setRetVal(err);
+  if (err == -1)
+    pthread->setperrno(errno);
+  return pthread->getRetIcode();
 }
 
 /* ARGSUSED */
@@ -3624,10 +3594,10 @@ OP(mint_getdents)
     fatal("getdents is only implemented in Linux i386.");
 #endif
 
-    REGNUM(2) = err;
-    if (err == -1)
-        pthread->setperrno(errno);
-    return addr2icode(REGNUM(31));
+  pthread->setRetVal(err);
+  if (err == -1)
+    pthread->setperrno(errno);
+  return pthread->getRetIcode();
 }
 
 /* ARGSUSED */
@@ -3702,18 +3672,18 @@ OP(mint_sesc_get_num_cpus)
 {
   // Do the actual call (should not context-switch)
   ID(Pid_t thePid=pthread->getPid());
-  ValueGPR retVal=rsesc_get_num_cpus();
+  IntRegValue retVal=rsesc_get_num_cpus();
   I(pthread->getPid()==thePid);
   // Set the return value
-  pthread->setGPR(RetValGPR,retVal);
+  pthread->setIntReg(RetValReg,retVal);
   // Return from the call
-  return addr2icode(pthread->getGPR(RetAddrGPR));
+  return pthread->getRetIcode();
 }
 
 OP(mint_do_nothing)
 {
-  /* Next instruction is after this call */
-  return addr2icode(REGNUM(31));
+  // Just return from the call
+  return pthread->getRetIcode();
 }
 
 // Heap related functions
@@ -3723,7 +3693,7 @@ OP(mint_malloc)
   // This call should not context-switch
   ID(Pid_t thePid=pthread->getPid());
   // Get size parameter
-  size_t size=pthread->getGPR(Arg1stGPR);
+  size_t size=pthread->getIntReg(IntArg1Reg);
   if(!size) size++;
 #if (defined TLS)
   tls::Epoch *epoch=pthread->getEpoch();
@@ -3746,13 +3716,14 @@ OP(mint_malloc)
       // Set errno to be POSIX compliant
       pthread->setErrno(ENOMEM);
     }
-    pthread->setGPR(RetValGPR,addr);
+    pthread->setIntReg(RetValReg,addr);
 #if (defined TLS)
   }
 #endif
-  // Return from the call (and check for context switch)
+  // There should be no context switch
   I(pthread->getPid()==thePid);
-  return addr2icode(pthread->getGPR(RetAddrGPR));
+  // Return from the call
+  return pthread->getRetIcode();
 }
 
 OP(mint_calloc)
@@ -3760,12 +3731,13 @@ OP(mint_calloc)
   // This call should not context-switch
   ID(Pid_t thePid=pthread->getPid());
   // Get parameters
-  size_t nmemb=pthread->getGPR(Arg1stGPR);
-  size_t size =pthread->getGPR(Arg2ndGPR);
+  size_t nmemb=pthread->getIntReg(IntArg1Reg);
+  size_t size =pthread->getIntReg(IntArg2Reg);
   // The total size of the allocation
   size_t totalSize=nmemb*size;
-  if(!totalSize) totalSize++;
-  pthread->setGPR(Arg1stGPR,totalSize);
+  if(!totalSize)
+    totalSize++;
+  pthread->setIntReg(IntArg1Reg,totalSize);
 #if (defined TLS)
   tls::Epoch *epoch=tls::Epoch::getEpoch(pthread->getPid());
   if(epoch){
@@ -3786,12 +3758,12 @@ OP(mint_calloc)
       // Set errno to be POSIX compliant
       pthread->setErrno(ENOMEM);
     }
-    pthread->setGPR(RetValGPR,addr);
+    pthread->setIntReg(RetValReg,addr);
 #if (defined TLS)
   }
 #endif
   // Clear the allocated region
-  Address blockPtr=pthread->getGPR(RetValGPR);
+  Address blockPtr=pthread->getIntReg(RetValReg);
   if(blockPtr){
     size_t blockSize=nmemb*size;
 #if (defined TLS)
@@ -3809,9 +3781,10 @@ OP(mint_calloc)
     memset((void *)pthread->virt2real(blockPtr),0,blockSize);
 #endif
   }
-  // Return from the call (and check for context switch)
+  // There should be no context switch
   I(pthread->getPid()==thePid);
-  return addr2icode(pthread->getGPR(RetAddrGPR));
+  // Return from the call
+  return pthread->getRetIcode();
 }
 
 OP(mint_free)
@@ -3819,7 +3792,7 @@ OP(mint_free)
   // This call should not context-switch
   ID(Pid_t thePid=pthread->getPid());
   // Get address parameter
-  RAddr addr=pthread->getGPR(Arg1stGPR);
+  RAddr addr=pthread->getIntReg(IntArg1Reg);
   if(addr){
 #if (defined TLS)
     tls::Epoch *epoch=tls::Epoch::getEpoch(pthread->getPid());
@@ -3840,9 +3813,10 @@ OP(mint_free)
     }
 #endif
   }
-  // Return from the call (and check for context switch)
+  // There should be no context switch
   I(pthread->getPid()==thePid);
-  return addr2icode(pthread->getGPR(RetAddrGPR));
+  // Return from the call
+  return pthread->getRetIcode();
 }
 
 OP(mint_realloc)
@@ -3850,18 +3824,17 @@ OP(mint_realloc)
   // This call should not context-switch
   ID(Pid_t thePid=pthread->getPid());
   // Get parameters
-  RAddr oldAddr=pthread->getGPR(Arg1stGPR);
-  size_t  newSize=pthread->getGPR(Arg2ndGPR);
+  RAddr  oldAddr=pthread->getIntReg(IntArg1Reg);
+  size_t newSize=pthread->getIntReg(IntArg2Reg);
   I(oldAddr||newSize);
   if(oldAddr==0){
     // Equivalent to malloc
-    pthread->setGPR(Arg1stGPR,newSize);
-    mint_malloc(picode,pthread);
-    pthread->setGPR(Arg1stGPR,0);
+    pthread->setIntReg(IntArg1Reg,newSize);
+    return mint_malloc(picode,pthread);
   }else if(newSize==0){
     // Equivalent to free, but returns NULL
     mint_free(picode,pthread);
-    pthread->setGPR(RetValGPR,0);
+    pthread->setIntReg(RetValReg,0);
   }else{
     RAddr  oldAddrR=pthread->virt2real(oldAddr);
     size_t oldSize =pthread->getHeapManager()->deallocate(oldAddrR);
@@ -3872,11 +3845,12 @@ OP(mint_realloc)
       I(newSize>oldSize);
       memmove((void *)newAddrR,(void *)oldAddrR,oldSize);
     }
-    pthread->setGPR(RetValGPR,newAddr);    
+    pthread->setIntReg(RetValReg,newAddr);    
   }
-  // Return from the call (and check for context switch)
+  // There should be no context switch
   I(pthread->getPid()==thePid);
-  return addr2icode(pthread->getGPR(RetAddrGPR));
+  // Return from the call
+  return pthread->getRetIcode();
 }
 
 

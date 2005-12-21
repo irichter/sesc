@@ -29,16 +29,19 @@ typedef struct objfile {
 /* The maximum number of file descriptors per thread. */
 #define MAX_FDNUM 20
 
-typedef int ValueGPR;
-enum NameGPR {
-  RetValGPR  = 2,
-  Arg1stGPR  = 4,
-  Arg2ndGPR  = 5,
-  Arg3rdGPR  = 6,
-  Arg4thGPR  = 7,
-  RetAddrGPR = 31
+typedef int IntRegValue;
+enum IntRegName{
+  RetValReg   =  2,
+  RetValLoReg =  2,
+  RetValHiReg =  3,
+  IntArg1Reg  =  4,
+  IntArg2Reg  =  5,
+  IntArg3Reg  =  6,
+  IntArg4Reg  =  7,
+  JmpPtrReg   = 25,
+  StkPtrReg   = 29,
+  RetAddrReg  = 31
 };
-
 
 class ThreadContext {
   // Static variables
@@ -72,7 +75,7 @@ class ThreadContext {
 
   // Local Variables
  public:
-  ValueGPR reg[33];	// The extra register is for writes to r0
+  IntRegValue reg[33];	// The extra register is for writes to r0
   int lo;
   int hi;
  private:
@@ -124,21 +127,56 @@ private:
 #endif
 
 public:
-  ValueGPR getGPR(NameGPR name) const {
+  inline IntRegValue getIntReg(IntRegName name) const {
     return reg[name];
   }
-
-  void setGPR(NameGPR name, ValueGPR value) {
+  
+  inline void setIntReg(IntRegName name, IntRegValue value) {
     reg[name]=value;
   }
+  
+  inline IntRegValue getIntArg1(void) const{
+    return getIntReg(IntArg1Reg);
+  }
+  inline IntRegValue getIntArg2(void) const{
+    return getIntReg(IntArg2Reg);
+  }
+  inline IntRegValue getIntArg3(void) const{
+    return getIntReg(IntArg3Reg);
+  }
+  inline IntRegValue getIntArg4(void) const{
+    return getIntReg(IntArg4Reg);
+  }
+  inline IntRegValue getStkPtr(void) const{
+    return getIntReg(StkPtrReg);
+  }
+  inline void setRetVal(int val){
+    I(sizeof(val)==4);
+    setIntReg(RetValReg,val);
+  }
+  inline void setRetVal64(long long int val){
+    I(sizeof(val)==8);
+    unsigned long long valLo=val;
+    valLo&=0xFFFFFFFFllu;
+    unsigned long long valHi=val;
+    valHi>>=32;
+    valHi&=0xFFFFFFFFllu;
+    setIntReg(RetValLoReg,(IntRegValue)valLo);
+    setIntReg(RetValHiReg,(IntRegValue)valHi);
+  }
+  
 
-  icode_ptr getIP(void) const {
+  inline icode_ptr getPCIcode(void) const{
     I(pid!=-1);
     return picode;
   }
-  void setIP(icode_ptr newIP) {
+  inline void setPCIcode(icode_ptr nextIcode){
     I(pid!=-1);
-    picode=newIP;
+    picode=nextIcode;
+  }
+  
+  inline icode_ptr getRetIcode(void) const{
+    return addr2icode(getIntReg(RetAddrReg));
   }
   
   // Returns the pid of the thread (what would be returned by a getpid call)
@@ -381,6 +419,62 @@ public:
 };
 
 typedef ThreadContext mint_thread_t;
+
+class SimArgs{
+ private:
+  const ThreadContext *myContext;
+  int   curPos;
+ public:
+  SimArgs(const ThreadContext *context)
+    : myContext(context),
+    curPos(0)
+    {
+    }
+  int getInt32(void){
+    int retVal;
+    I(sizeof(retVal)==4);
+    I(curPos%4==0);
+    if(curPos<16){
+      I(curPos%4==0);
+      retVal=myContext->getIntReg((IntRegName)(4+curPos/4));
+    }else{
+      RAddr addr=myContext->virt2real(myContext->getStkPtr())+curPos;
+#if (defined TASKSCALAR) || (defined TLS)
+      int *ptr =(int *)(rsesc_OS_read(pthread->getPid(),addr,picode->addr,E_WORD));
+#else
+      int *ptr=(int *)addr;
+#endif
+      retVal=SWAP_WORD(*ptr);
+    }
+    curPos+=4;
+    return retVal;
+  }
+  long long int getInt64(void){
+    long long int retVal;
+    I(sizeof(retVal)==8);
+    I(curPos%4==0);
+    // Align current position
+    if(curPos%8!=0)
+      curPos+=4;
+    I(curPos%8==0);
+    if(curPos<16){
+      retVal=myContext->getIntReg((IntRegName)(4+curPos/4+1));
+      retVal=(retVal<<32)&0xFFFFFFFF00000000llu;
+      retVal|=myContext->getIntReg((IntRegName)(4+curPos/4))&0xFFFFFFFFllu;
+    }else{
+      RAddr addr=myContext->virt2real(myContext->getStkPtr())+curPos;
+#if (defined TASKSCALAR) || (defined TLS)
+      long long int *ptr =
+	(long long int *)(rsesc_OS_read(pthread->getPid(),addr,picode->addr,E_DWORD));
+#else
+      long long int *ptr=(long long int*)addr;
+#endif
+      retVal=SWAP_LONG(*ptr);
+    }
+    curPos+=8;
+    return retVal;
+  }
+};
 
 #define REGNUM(R) (*((int *) &pthread->reg[R]))
 
