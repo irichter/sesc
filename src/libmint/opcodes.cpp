@@ -176,6 +176,29 @@ opnum_t user_opnums[] = {
   reserved_opn, reserved_opn, reserved_opn, reserved_opn
 };
 
+#if (defined TLS)
+opnum_t tls_opnums[] = {
+  aspectReductionBegin_opn, // 0x70000000
+  aspectReductionEnd_opn,   // 0x70000001
+  aspectAtomicBegin_opn,    // 0x70000002
+  aspectAcquireBegin_opn,   // 0x70000003
+  aspectAcquireRetry_opn,   // 0x70000004
+  aspectAcquireExit_opn,    // 0x70000005
+  aspectAcquire2Release_opn,// 0x70000006
+  aspectReleaseBegin_opn,   // 0x70000007
+  aspectReleaseEnter_opn,   // 0x70000008
+  aspectAtomicEnd_opn,      // 0x70000009
+  reserved_opn,
+  reserved_opn,
+  reserved_opn,
+  reserved_opn,       reserved_opn,       reserved_opn,       reserved_opn,
+  reserved_opn,       reserved_opn,       reserved_opn,       reserved_opn,
+  reserved_opn,       reserved_opn,       reserved_opn,       reserved_opn,
+  reserved_opn,       reserved_opn,       reserved_opn,       reserved_opn,
+  reserved_opn,       reserved_opn,       reserved_opn,       reserved_opn
+};
+#endif
+
 /* The order of the entries in this table is important. The opnums
  * defined in opcodes.h are used to index this table. New entries
  * should be added at the end.
@@ -390,4 +413,17 @@ struct op_desc desc_table[] = {
     { "swallow_op", swallow_op, { 0, 0, 0, 0}, 0, 0, 1 },
     { "call_op", call_op, {0, 0, 0, 0}, IS_JUMP, 0, 1 },
     { "spawn_op", spawn_op, { 0, 0, 0, 0}, IS_JUMP, 0, 1 }
+#if (defined TLS)
+    ,
+    { "aspectReductionBegin",  aspectReductionBegin_op,  { 0, 0, 0, 0}, 0, 0, 1},
+    { "aspectReductionEnd",    aspectReductionEnd_op,    { 0, 0, 0, 0}, 0, 0, 1},
+    { "aspectAtomicBegin",     aspectAtomicBegin_op,     { 0, 0, 0, 0}, 0, 0, 1},
+    { "aspectAcquireBegin",    aspectAcquireBegin_op,    { 0, 0, 0, 0}, 0, 0, 1},
+    { "aspectAcquireRetry",    aspectAcquireRetry_op,    { 0, 0, 0, 0}, 0, 0, 1},
+    { "aspectAcquireExit",     aspectAcquireExit_op,     { 0, 0, 0, 0}, 0, 0, 1},
+    { "aspectAcquire2Release", aspectAcquire2Release_op, { 0, 0, 0, 0}, 0, 0, 1},
+    { "aspectReleaseBegin",    aspectReleaseBegin_op,    { 0, 0, 0, 0}, 0, 0, 1},
+    { "aspectReleaseEnter",    aspectReleaseEnter_op,    { 0, 0, 0, 0}, 0, 0, 1},
+    { "aspectAtomicEnd",       aspectAtomicEnd_op,       { 0, 0, 0, 0}, 0, 0, 1}
+#endif
 };

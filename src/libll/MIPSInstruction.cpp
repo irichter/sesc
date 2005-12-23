@@ -812,7 +812,21 @@ void Instruction::MIPSDecodeInstruction(size_t        index
     opcode = iALU;
     subCode = iNop;
     break;
-  //End User Defined Instructions in MINT
+#if (defined TLS)
+  case aspectReductionBegin_opn:
+  case aspectReductionEnd_opn:
+  case aspectAtomicBegin_opn:
+  case aspectAcquireBegin_opn:
+  case aspectAcquireRetry_opn:
+  case aspectAcquireExit_opn:
+  case aspectAcquire2Release_opn:
+  case aspectReleaseBegin_opn:
+  case aspectReleaseEnter_opn:
+  case aspectAtomicEnd_opn:
+    opcode  = iALU;
+    subCode = iNop;
+    break;
+#endif  //End User Defined Instructions in MINT
 
   default:
     I(0);

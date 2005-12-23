@@ -72,7 +72,7 @@ typedef icode_ptr (*PPFPI12[12])(icode_ptr, thread_ptr);
 class icode {
  private:
 #if (defined TLS)
-  OpReplayClass myReplayClass;
+  OpClass opClass;
 #endif
 public:
   unsigned int instID;
@@ -98,11 +98,11 @@ public:
   void dump();
   const char *dis_instr();
 #if (defined TLS)
-  void setReplayClass(OpReplayClass replayClass){
-    myReplayClass=replayClass;
+  void setClass(OpClass newClass){
+    opClass=newClass;
   }
-  OpReplayClass getReplayClass(void) const{
-    return myReplayClass;
+  OpClass getClass(void) const{
+    return opClass;
   }
 #endif
 };

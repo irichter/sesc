@@ -243,11 +243,6 @@ OP(mint_sesc_get_num_cpus);
 //OP(mint_sesc_begin_epochs);
 OP(mint_sesc_future_epoch);
 OP(mint_sesc_future_epoch_jump);
-OP(mint_sesc_acquire_begin);
-OP(mint_sesc_acquire_retry);
-OP(mint_sesc_acquire_end);
-OP(mint_sesc_release_begin);
-OP(mint_sesc_release_end);
 OP(mint_sesc_commit_epoch);
 OP(mint_sesc_change_epoch);
 //OP(mint_sesc_end_epochs);
@@ -318,12 +313,12 @@ func_desc_t Func_subst[] = {
   {"execv",		      mint_execv,	               1, OpExposed},
   {"execve",		      mint_execve,	               1, OpExposed},
   {"execvp",		      mint_execvp,	               1, OpExposed},
-  {"mmap",		      mint_mmap,	               1, OpExposed},
-  {"open64",                  mint_open,                       1, OpExposed}, 
-  {"open",                    mint_open,                       1, OpExposed},
-  {"close",                   mint_close,                      1, OpExposed},
-  {"read",                    mint_read,                       1, OpExposed},
-  {"write",                   mint_write,                      1, OpExposed},
+  {"mmap",		      mint_mmap,	               1, OpUndoable},
+  {"open64",                  mint_open,                       1, OpUndoable}, 
+  {"open",                    mint_open,                       1, OpUndoable},
+  {"close",                   mint_close,                      1, OpUndoable},
+  {"read",                    mint_read,                       1, OpUndoable},
+  {"write",                   mint_write,                      1, OpUndoable},
   {"readv",                   mint_readv,                      1, OpExposed},
   {"writev",                  mint_writev,                     1, OpExposed},
   {"creat",                   mint_creat,                      1, OpExposed},
@@ -342,7 +337,7 @@ func_desc_t Func_subst[] = {
   {"lstat64",                 mint_lstat64,                    1, OpExposed},
   {"fstat64",                 mint_fstat64,                    1, OpExposed},
   {"xstat64",                 mint_xstat64,                    1, OpExposed},
-  {"fxstat64",                mint_fxstat64,                   1, OpExposed},
+  {"fxstat64",                mint_fxstat64,                   1, OpInternal},
   {"stat",                    mint_stat,                       1, OpExposed},
   {"lstat",                   mint_lstat,                      1, OpExposed},
   {"fstat",                   mint_fstat,                      1, OpExposed},
@@ -352,10 +347,10 @@ func_desc_t Func_subst[] = {
   {"symlink",                 mint_symlink,                    1, OpExposed},
   {"readlink",                mint_readlink,                   1, OpExposed},
   {"umask",                   mint_umask,                      1, OpExposed},
-  {"getuid",                  mint_getuid,                     0, OpExposed},
-  {"geteuid",                 mint_geteuid,                    0, OpExposed},
-  {"getgid",                  mint_getgid,                     0, OpExposed},
-  {"getegid",                 mint_getegid,                    0, OpExposed},
+  {"getuid",                  mint_getuid,                     0, OpInternal},
+  {"geteuid",                 mint_geteuid,                    0, OpInternal},
+  {"getgid",                  mint_getgid,                     0, OpInternal},
+  {"getegid",                 mint_getegid,                    0, OpInternal},
   {"gethostname",             mint_gethostname,                1, OpExposed},
   {"getdomainname",	      mint_getdomainname,	       1, OpExposed},
   {"setdomainname",	      mint_setdomainname,	       1, OpExposed},
@@ -374,17 +369,17 @@ func_desc_t Func_subst[] = {
   {"oserror",                 mint_oserror,                    0, OpExposed},
   {"setoserror",              mint_setoserror,                 0, OpExposed},
   {"perror",                  mint_perror,                     1, OpExposed},
-  {"times",                   mint_times,                      1, OpExposed},
+  {"times",                   mint_times,                      1, OpUndoable},
   {"getdtablesize",	      mint_getdtablesize,	       1, OpExposed},
   {"syssgi",		      mint_syssgi,	               1, OpExposed},
   {"time",		      mint_time,		       1, OpExposed},
-  {"munmap",                  mint_munmap,                     1, OpExposed},
+  {"munmap",                  mint_munmap,                     1, OpUndoable},
   {"malloc",                  mint_malloc,                     1, OpUndoable},
   {"calloc",                  mint_calloc,                     1, OpUndoable},
   {"free",                    mint_free,                       1, OpUndoable},
-  {"cfree",                   mint_free,                       1, OpExposed},
+  {"cfree",                   mint_free,                       1, OpUndoable},
   {"realloc",                 mint_realloc,                    1, OpExposed},
-  {"getpid",                  mint_getpid,                     1, OpExposed},
+  {"getpid",                  mint_getpid,                     1, OpInternal},
   {"getppid",                 mint_getppid,                    1, OpExposed},
   {"clock",                   mint_clock,                      1, OpExposed},
   {"gettimeofday",            mint_gettimeofday,               1, OpExposed},
@@ -414,8 +409,8 @@ func_desc_t Func_subst[] = {
   {"isatty",		      mint_isatty,                     1, OpExposed},
   {"ioctl",                   mint_ioctl,                      1, OpExposed},
   {"prctl",                   mint_prctl,                      1, OpExposed},
-  {"fcntl64",                 mint_fcntl,                      1, OpExposed},
-  {"fcntl",                   mint_fcntl,                      1, OpExposed},
+  {"fcntl64",                 mint_fcntl,                      1, OpInternal},
+  {"fcntl",                   mint_fcntl,                      1, OpInternal},
   {"cerror64",                mint_cerror,                     1, OpExposed},
   {"cerror",                  mint_cerror,                     1, OpExposed},
 #if (defined TASKSCALAR) & (! defined ATOMIC)
@@ -423,16 +418,16 @@ func_desc_t Func_subst[] = {
   {"exit",                    mint_rexit,                      1, OpExposed},
 #else
   {"abort",                   mint_exit,                       1, OpExposed},
-  {"exit",                    mint_exit,                       1, OpNoReplay},
+  {"exit",                    mint_exit,                       1, OpClass(OpUndoable,OpAtStart)},
 #endif
   {"sesc_fetch_op",           mint_sesc_fetch_op,              1, OpExposed},
   {"sesc_unlock_op",          mint_sesc_unlock_op,             1, OpExposed},
-  {"sesc_spawn",              mint_sesc_spawn,                 1, OpExposed},
-  {"sesc_spawn_",             mint_sesc_spawn,                 1, OpExposed},
+  {"sesc_spawn",              mint_sesc_spawn,                 1, OpNoReplay},
+  {"sesc_spawn_",             mint_sesc_spawn,                 1, OpNoReplay},
   {"sesc_sysconf",            mint_sesc_sysconf,               1, OpExposed},
   {"sesc_sysconf_",           mint_sesc_sysconf,               1, OpExposed},
-  {"sesc_self",               mint_getpid,                     1, OpExposed},
-  {"sesc_self_",              mint_getpid,                     1, OpExposed},
+  {"sesc_self",               mint_getpid,                     1, OpInternal},
+  {"sesc_self_",              mint_getpid,                     1, OpInternal},
   {"sesc_exit",               mint_exit,                       1, OpExposed},
   {"sesc_exit_",              mint_exit,                       1, OpExposed},
   {"sesc_finish",             mint_finish,                     1, OpExposed},
@@ -458,20 +453,15 @@ func_desc_t Func_subst[] = {
   {"sesc_acquire_",           mint_sesc_acquire,               1, OpExposed},
   {"sesc_release",            mint_sesc_release,               1, OpExposed},
   {"sesc_release_",           mint_sesc_release,               1, OpExposed},
-  {"sesc_wait",               mint_sesc_wait,                  1, OpExposed},
+  {"sesc_wait",               mint_sesc_wait,                  1, OpClass(OpUndoable,OpAtStart)},
   {"sesc_pseudoreset",        mint_sesc_pseudoreset,           1, OpExposed},
   //  {"printf",		      mint_printf,	               1, OpExposed},
   //  {"IO_printf",	              mint_printf,	               1, OpExposed},
-  {"sesc_get_num_cpus",       mint_sesc_get_num_cpus,          0, OpExposed},
+  {"sesc_get_num_cpus",       mint_sesc_get_num_cpus,          0, OpInternal},
 #if (defined TLS)
   //  {"sesc_begin_epochs",       mint_sesc_begin_epochs,          0, OpExposed},
   {"sesc_future_epoch",       mint_sesc_future_epoch,          0, OpExposed},
   {"sesc_future_epoch_jump",  mint_sesc_future_epoch_jump,     0, OpExposed},
-  {"sesc_acquire_begin",      mint_sesc_acquire_begin,         0, OpInternal},
-  {"sesc_acquire_retry",      mint_sesc_acquire_retry,         0, OpInternal},
-  {"sesc_acquire_end",        mint_sesc_acquire_end,           0, OpInternal},
-  {"sesc_release_begin",      mint_sesc_release_begin,         0, OpInternal},
-  {"sesc_release_end",        mint_sesc_release_end,           0, OpInternal},
   {"sesc_commit_epoch",       mint_sesc_commit_epoch,          0, OpExposed},
   {"sesc_change_epoch",       mint_sesc_change_epoch,          0, OpInternal},
   //  {"sesc_end_epochs",         mint_sesc_end_epochs,            0, OpExposed},
@@ -501,7 +491,7 @@ func_desc_t Func_subst[] = {
   {"sesc_put_incr_value",     mint_sesc_put_incr_value,        0, OpExposed}, 
   {"sesc_verify_value",       mint_sesc_verify_value,          0, OpExposed}, 
 #endif
-  {"uname",                   mint_uname,                      1, OpExposed},
+  {"uname",                   mint_uname,                      1, OpInternal},
   {"getrlimit",               mint_getrlimit,                  1, OpExposed},
   {"setrlimit",               mint_do_nothing,                 1, OpExposed},
   {"getrusage",               mint_getrusage,                  1, OpExposed},
@@ -661,7 +651,7 @@ void subst_functions()
       picode->opflags = E_LIMIT_SPEC;
 #endif
 #if (defined TLS)
-    picode->setReplayClass(pfname->replayClass);
+    picode->setClass(pfname->opClass);
 #endif
     picode->opnum = 0;
     
@@ -717,18 +707,25 @@ OP(mint_sesc_sysconf)
 }
 
 OP(mint_sesc_spawn){
+  // Set things up for the return from this call
+  pthread->setPCIcode(pthread->getRetIcode());
+#if (defined TLS)
+  tls::Epoch *epoch=tls::Epoch::getEpoch(pthread->getPid());
+  I(epoch);
+  SysCallSescSpawn *sysCall=epoch->newSysCall<SysCallSescSpawn>();
+  I(sysCall);
+  sysCall->exec(pthread,picode);
+#else
+  // Process ID of the parent thread
+  Pid_t ppid=pthread->getPid();
   // Arguments of the sesc_spawn call
   RAddr entry = pthread->getIntArg1();
   RAddr arg   = pthread->getIntArg2();
   int   flags = pthread->getIntArg3();
-  // Set things up for the return from this call
-  pthread->setPCIcode(pthread->getRetIcode());
-  // Process ID of the parent thread
-  Pid_t ppid=pthread->getPid();
   
 #ifdef DEBUG_VERBOSE
   printf("sesc_spawn( 0x%lx, 0x%lx, 0x%lx ) pid = %d\n",
-         entry,arg,flags,pthread->getPid());
+         entry,arg,flags,ppid);
 #endif
   
   // Allocate a new thread for the child
@@ -772,12 +769,8 @@ OP(mint_sesc_spawn){
   // The return value for the child is 0
   child->setRetVal(0);
   // Inform SESC of what we have done here
-  rsesc_spawn(pthread->getPid(),cpid,flags);
-#if (defined TLS)
-  I(!pthread->getEpoch());
-  tls::Epoch *iniEpoch=tls::Epoch::initialEpoch(static_cast<tls::ThreadID>(cpid));
-  iniEpoch->run();
-#endif
+  osSim->eventSpawn(ppid,cpid,flags);
+#endif // End (defined TLS) else block
   // Note: not neccessarily running the same thread as before
   return pthread->getPCIcode();
 }
@@ -829,48 +822,90 @@ void mint_sesc_die(thread_ptr pthread)
 
 #if (defined TLS)
 
-OP(mint_sesc_acquire_begin){
-  // Set things up for the return from this call
-  pthread->setPCIcode(pthread->getRetIcode());
-  // Do the actual call
-  rsesc_acquire_begin(pthread->getPid());
+OP(aspectReductionBegin_op_0){
+  osSim->eventSetInstructionPointer(pthread->getPid(),picode->next);
+  pthread->getEpoch()->beginReduction(picode->addr);
   // Note: not neccessarily running the same thread as before
   return pthread->getPCIcode();
 }
+PFPI aspectReductionBegin_op[] = { aspectReductionBegin_op_0, 0 };
 
-OP(mint_sesc_acquire_retry){
-  // This function never returns, so we don't care about the return address 
-  rsesc_acquire_retry(pthread->getPid());
+OP(aspectReductionEnd_op_0){
+  osSim->eventSetInstructionPointer(pthread->getPid(),picode->next);
+  pthread->getEpoch()->endReduction();
   // Note: not neccessarily running the same thread as before
   return pthread->getPCIcode();
 }
+PFPI aspectReductionEnd_op[]   = { aspectReductionEnd_op_0,   0 };
 
-OP(mint_sesc_acquire_end){
-  // Set things up for the return from this call
-  pthread->setPCIcode(pthread->getRetIcode());
-  // Do the actual call
-  rsesc_acquire_end(pthread->getPid());
+OP(aspectAtomicBegin_op_0){
+  osSim->eventSetInstructionPointer(pthread->getPid(),picode->next);
+  pthread->getEpoch()->beginAtomic(picode->addr,false,false);
   // Note: not neccessarily running the same thread as before
   return pthread->getPCIcode();
 }
+PFPI aspectAtomicBegin_op[]   = { aspectAtomicBegin_op_0,   0 };
 
-OP(mint_sesc_release_begin){
-  // Set things up for the return from this call
-  pthread->setPCIcode(pthread->getRetIcode());
-  // Do the actual call
-  rsesc_release_begin(pthread->getPid());
+OP(aspectAcquireBegin_op_0){
+  osSim->eventSetInstructionPointer(pthread->getPid(),picode->next);
+  pthread->getEpoch()->beginAtomic(picode->addr,true,false);
   // Note: not neccessarily running the same thread as before
   return pthread->getPCIcode();
 }
+PFPI aspectAcquireBegin_op[]   = { aspectAcquireBegin_op_0,   0 };
 
-OP(mint_sesc_release_end){
-  // Set things up for the return from this call
-  pthread->setPCIcode(pthread->getRetIcode());
-  /* Do the actual call */
-  rsesc_release_end(pthread->getPid());
+OP(aspectAcquireRetry_op_0){
+  // No need to set up next instruction, because it never gets executed
+  pthread->getEpoch()->retryAtomic();
   // Note: not neccessarily running the same thread as before
   return pthread->getPCIcode();
 }
+PFPI aspectAcquireRetry_op[]   = { aspectAcquireRetry_op_0,   0 };
+
+OP(aspectAcquireExit_op_0){
+  osSim->eventSetInstructionPointer(pthread->getPid(),picode->next);
+  pthread->getEpoch()->changeAtomic(true,false);
+  // Note: not neccessarily running the same thread as before
+  return pthread->getPCIcode();
+}
+PFPI aspectAcquireExit_op[]   = { aspectAcquireExit_op_0,   0 };
+OP(aspectAcquire2Release_op_0){
+  osSim->eventSetInstructionPointer(pthread->getPid(),picode->next);
+  pthread->getEpoch()->changeAtomic(true,true);
+  // Note: not neccessarily running the same thread as before
+  return pthread->getPCIcode();
+}
+PFPI aspectAcquire2Release_op[]   = { aspectAcquire2Release_op_0,   0 };
+
+OP(aspectReleaseBegin_op_0){
+  // Move instruction pointer to next instruction
+  pthread->setPCIcode(picode->next);
+  // Emulate the actual instruction
+  pthread->getEpoch()->beginAtomic(picode->addr,false,true);
+  // Note: not neccessarily running the same thread as before
+  return pthread->getPCIcode();
+}
+PFPI aspectReleaseBegin_op[]   = { aspectReleaseBegin_op_0,   0 };
+
+OP(aspectReleaseEnter_op_0){
+  // Move instruction pointer to next instruction
+  pthread->setPCIcode(picode->next);
+  // Emulate the actual instruction
+  pthread->getEpoch()->changeAtomic(false,true);
+  // Note: not neccessarily running the same thread as before
+  return pthread->getPCIcode();
+}
+PFPI aspectReleaseEnter_op[]   = { aspectReleaseEnter_op_0,   0 };
+
+OP(aspectAtomicEnd_op_0){
+  // Move instruction pointer to next instruction
+  pthread->setPCIcode(picode->next);
+  // Emulate the actual instruction
+  pthread->getEpoch()->endAtomic();
+  // Note: not neccessarily running the same thread as before
+  return pthread->getPCIcode();
+}
+PFPI aspectAtomicEnd_op[]   = { aspectAtomicEnd_op_0,   0 };
 
 //OP(mint_sesc_begin_epochs){
   // Set things up for the return from this call
@@ -1223,16 +1258,7 @@ OP(mint_exit){
     return pthread->getRetIcode();
 #endif
 #if (defined TLS)
-  tls::Epoch *epoch=pthread->getEpoch();
-  I(epoch==tls::Epoch::getEpoch(pthread->getPid()));
-  if(epoch){
-    if(epoch->waitFullyMerged())
-      epoch->endThread(pthread->getIntArg());
-    else
-      epoch->cancelInstr();
-  }else{
-    rsesc_exit(pthread->getPid(),pthread->getIntArg1());
-  }
+  callSysCallExit(pthread,picode);
 #else
   rsesc_exit(pthread->getPid(),pthread->getIntArg1());
 #endif // (defined TLS)
@@ -1400,24 +1426,41 @@ OP(mint_prctl)
 /* ARGSUSED */
 OP(mint_fcntl)
 {
-  int fd, cmd, arg;
   int err;
 
 #ifdef DEBUG_VERBOSE
   printf("mint_fcntl()\n");
 #endif
-  fd  = pthread->getIntArg1();
-  cmd = pthread->getIntArg2();
-  arg = pthread->getIntArg3();
+  int fd  = pthread->getIntArg1();
+  int cmd = pthread->getIntArg2();
+  int arg = pthread->getIntArg3();
   switch (cmd) {
   case F_DUPFD:
+#if (defined TLS)
+    fatal("mint_fcntl: F_DUPFD not supported.\n");
+    break;
+#endif
   case F_GETFD:
+#if (defined TLS)
+    pthread->setGPR(RetValGPR,0);
+    return addr2icode(pthread->getGPR(RetAddrGPR));
+#endif
   case F_SETFD:
+#if (defined TLS)
+    fatal("mint_fcntl: F_SETFD not supported.\n");
+    break;
+#endif
   case F_GETFL:
   case F_SETFL:
+#if (defined TLS)
+    fatal("mint_fcntl: F_GETFL and F_SETFL not supported.\n");
+#endif
     break;
   case F_GETLK:
   case F_SETLK:
+#if (defined TLS)
+    fatal("mint_fcntl: F_GETLK and F_SETLK not supported.\n");
+#endif
     if (arg)
       arg = pthread->virt2real(arg);
     break;
@@ -1425,8 +1468,14 @@ OP(mint_fcntl)
     fatal("mint_fcntl: system call fcntl cmd `F_SETLKW' not supported.\n");
     break;
   case F_GETOWN:
+#if (defined TLS)
+    fatal("mint_fcntl: F_GETOWN not supported.\n");
+#endif
     break;
   case F_SETOWN:
+#if (defined TLS)
+    fatal("mint_fcntl: F_SETOWN not supported.\n");
+#endif
     break;
   default:
     fatal("mint_fcntl: system call fcntl cmd (%d) not expected.\n",
@@ -1451,26 +1500,41 @@ struct  mint_utsname {
   char    machine[65];  /* Hardware type */
 };
 
+const char *sysnamestr="SescLinux";
+const char *nodenamestr="sesc";
+const char *releasestr="2.4.18";
+const char *versionstr="#1 SMP Tue Jun 4 16:05:29 CDT 2002"; /* fake */
+const char *machinestr="mips";
+
 /* ARGSUSED */
 OP(mint_uname)
 {
-  int r4 = pthread->getIntArg1();
-  struct mint_utsname *tp;
-
 #ifdef DEBUG_VERBOSE
   printf("mint_uname()\n");
 #endif
-  if(r4 == 0) {
+  VAddr bufVAddr = pthread->getIntArg1();
+  if(bufVAddr == 0) {
     fatal("uname called with a null pointer\n");
   }
-  tp = (struct mint_utsname *)pthread->virt2real(r4);
-
-  strcpy(tp->sysname, "SescLinux");
-  strcpy(tp->nodename, "sesc");
-  strcpy(tp->release, "2.4.18");
-  strcpy(tp->version, "#1 SMP Tue Jun 4 16:05:29 CDT 2002"); /* fake */
-  strcpy(tp->machine, "mips");
-
+#if (defined TLS)
+  {
+    struct mint_utsname *tp = (struct mint_utsname *)bufVAddr;
+    rsesc_OS_write_block(pthread->getPid(),picode->addr,tp->sysname,sysnamestr,strlen(sysnamestr)+1);
+    rsesc_OS_write_block(pthread->getPid(),picode->addr,tp->nodename,nodenamestr,strlen(nodenamestr)+1);
+    rsesc_OS_write_block(pthread->getPid(),picode->addr,tp->release,releasestr,strlen(releasestr)+1);
+    rsesc_OS_write_block(pthread->getPid(),picode->addr,tp->version,versionstr,strlen(versionstr)+1);
+    rsesc_OS_write_block(pthread->getPid(),picode->addr,tp->machine,machinestr,strlen(machinestr)+1);
+  }
+#else
+  {
+    struct mint_utsname *tp = (struct mint_utsname *)pthread->virt2real(bufVAddr);
+    strcpy(tp->sysname,sysnamestr);
+    strcpy(tp->nodename,nodenamestr);
+    strcpy(tp->release,releasestr);
+    strcpy(tp->version,versionstr);
+    strcpy(tp->machine,machinestr);
+  }
+#endif
   pthread->setRetVal(0);
   return pthread->getRetIcode();
 }
@@ -1655,7 +1719,15 @@ OP(mint_sesc_wait)
 {
   // Set things up for the return to from this call
   pthread->setPCIcode(pthread->getRetIcode());
+  // Set things up for the return from this call
+  osSim->eventSetInstructionPointer(pthread->getPid(),addr2icode(pthread->getGPR(RetAddrGPR)));
+#if !(defined TLS)
   rsesc_wait(pthread->getPid());
+#else
+  SysCallWait *sysCall=pthread->getEpoch()->newSysCall<SysCallWait>();
+  I(sysCall);
+  sysCall->exec(pthread,picode);
+#endif
   // Note: not neccessarily running the same thread as before
   return pthread->getPCIcode();
 }
@@ -1755,15 +1827,32 @@ OP(mint_execvp)
 
 OP(mint_munmap)
 {
-  int r4 = pthread->getIntArg1();
-
+  ID(Pid_t thePid=pthread->getPid());
+  // Get size parameter
+  int size=pthread->getIntArg2();
+  if(size){
+#if (defined TLS)
+    tls::Epoch *epoch=tls::Epoch::getEpoch(pthread->getPid());
+    I(epoch);
+    SysCallMunmap *sysCall=epoch->newSysCall<SysCallMunmap>();
+    I(sysCall);
+    sysCall->exec(pthread,picode);
+#else
+    int startVAddr=pthread->getIntArg1();
 #ifdef DEBUG_VERBOSE
-  printf("mint_unmmap(%d)\n", (int) r4);
+    printf("mint_unmmap(%d)\n", (int) r4);
 #endif
-
-  if (r4)
-    mint_free(picode,pthread);
-
+    if(startVAddr)
+      mint_free(picode,pthread);
+    // Munmap fails only due to page-alignment problems, which we don't have
+    pthread->setRetVal(0);
+#endif
+  }else{
+    // Zero-size munmap is not an error
+    pthread->setRetVal(0);
+  }
+  // Return from the call (and check for context switch)
+  I(pthread->getPid()==thePid);
   return pthread->getRetIcode();
 }
 
@@ -1771,26 +1860,38 @@ OP(mint_munmap)
 /* ARGSUSED */
 OP(mint_mmap)
 {
-  int r4   = pthread->getIntArg1();
-
+  ID(Pid_t thePid=pthread->getPid());
+#if (defined TLS)
+  tls::Epoch *epoch=tls::Epoch::getEpoch(pthread->getPid());
+  I(epoch);
+  SysCallMmap *sysCall=epoch->newSysCall<SysCallMmap>();
+  I(sysCall);
+  sysCall->exec(pthread,picode);
+#else
+  // Prefered address for mmap
+  long addr=pthread->getIntArg1();
+  // Size of block to mmap
+  size_t size=pthread->getIntArg2();
 #ifdef DEBUG_VERBOSE
-  printf("mint_mmap(%d)\n", (int) pthread->getIntArg2());
+  printf("mint_mmap(%d)\n", size);
 #endif
   
-  if( r4 ) {
+  // Milos: Note that the address given to mmap is only a preference,
+  // so mmap can ignore it and does not need to fail when addr!=0
+  
+  if(addr) {
     /* We can not force to map a specific address */
     fatal("mmap called with start different than zero\n");
   }
-
   pthread->setIntReg(IntArg1Reg,1);
   mint_calloc(picode,pthread);
   pthread->setIntReg(IntArg1Reg,r4);
-  
   if(pthread->getIntReg(RetValReg)==0){
     pthread->setRetVal(-1);
     pthread->setperrno(errno);
   }
-  
+#endif
+  I(pthread->getPid()==thePid);
   return pthread->getRetIcode();
 }
 
@@ -1815,7 +1916,11 @@ int conv_flags_to_native(int flags)
   if (flags & 0x10000) ret |= 0200000;
   if (flags & 0x20000) ret |= 0400000;
 
+#if 0
+  // Milos: it is perfectly OK for the flag to be zero
+  // That means that an existing file is opened for read-only!
   if (flags == 0) ret |= O_CREAT;  /* for some reason, sometimes the flag is zero */
+#endif
   
   return ret;
 }
@@ -1823,6 +1928,13 @@ int conv_flags_to_native(int flags)
 /* ARGSUSED */
 OP(mint_open)
 {
+  ID(Pid_t thePid=pthread->getPid());
+#if (defined TLS)
+  I(pthread->getEpoch()&&(pthread->getEpoch()==tls::Epoch::getEpoch(pthread->getPid())));
+  SysCallOpen *sysCall=pthread->getEpoch()->newSysCall<SysCallOpen>();
+  I(sysCall);
+  sysCall->exec(pthread,picode);
+#else // (defined TLS) not true
   int r4, r5, r6;
   int err;
 
@@ -1864,12 +1976,22 @@ OP(mint_open)
     if (err < MAX_FDNUM)
       pthread->setFD(err, 1);
   }
+#endif // End (defined TLS) else block
+  // Return from the call (and check for context switch)
+  I(pthread->getPid()==thePid);
   return pthread->getRetIcode();
 }
 
 /* ARGSUSED */
 OP(mint_close)
 {
+  ID(Pid_t thePid=pthread->getPid());
+#if (defined TLS)
+  I(pthread->getEpoch()&&(pthread->getEpoch()==tls::Epoch::getEpoch(pthread->getPid())));
+  SysCallClose *sysCall=pthread->getEpoch()->newSysCall<SysCallClose>();
+  I(sysCall);
+  sysCall->exec(pthread,picode);
+#else // Begin (defined TLS) else block
 #ifdef DEBUG_VERBOSE
   printf("mint_close()\n");
 #endif
@@ -1884,13 +2006,23 @@ OP(mint_close)
   }else{
     pthread->setRetVal(0);
   }
+#endif // End (defined TLS) else block
+  // Return from the call (and check for context switch)
+  I(pthread->getPid()==thePid);
   return pthread->getRetIcode();
 }
 
 /* ARGSUSED */
 OP(mint_read)
 {
-	 int r4, r5, r6;
+  ID(Pid_t thePid=pthread->getPid());
+#if (defined TLS)
+  I(pthread->getEpoch()&&(pthread->getEpoch()==tls::Epoch::getEpoch(pthread->getPid())));
+  SysCallRead *sysCall=pthread->getEpoch()->newSysCall<SysCallRead>();
+  I(sysCall);
+  sysCall->exec(pthread,picode);
+#else // Begin (defined TLS) else block
+    int r4, r5, r6;
     int err;
 
     r4 = pthread->getIntArg1();
@@ -1919,13 +2051,23 @@ OP(mint_read)
     pthread->setRetVal(err);
     if (err == -1)
         pthread->setperrno(errno);
-    return pthread->getRetIcode();
+#endif // End (defined TLS) else block
+  // Return from the call (and check for context switch)
+  I(pthread->getPid()==thePid);
+  return pthread->getRetIcode();
 }
 
 /* ARGSUSED */
 OP(mint_write){
+  ID(Pid_t thePid=pthread->getPid());
   // Set things up for the return from this call
   pthread->setPCIcode(pthread->getRetIcode());
+#if (defined TLS)
+  I(pthread->getEpoch()&&(pthread->getEpoch()==tls::Epoch::getEpoch(pthread->getPid())));
+  SysCallWrite *sysCall=pthread->getEpoch()->newSysCall<SysCallWrite>();
+  I(sysCall);
+  sysCall->exec(pthread,picode);
+#else // Begin (defined TLS) else block
   // Arguments of the write call
   int    fd   =pthread->getIntReg(IntArg1Reg);
   RAddr  buf  =pthread->getIntReg(IntArg2Reg);
@@ -1952,6 +2094,8 @@ OP(mint_write){
   pthread->setIntReg(RetValReg,err);
   if(err==-1)
     pthread->setErrno(errno);
+#endif // End (defined TLS) else block
+  // Note: not neccessarily running the same thread as before
   return pthread->getPCIcode();
 }
 
@@ -2533,20 +2677,34 @@ OP(mint_xstat64)
 
 OP(mint_fxstat64)
 {
-  int r4, r5, r6;
-
-  r4 = REGNUM(4);
-  r5 = REGNUM(5);
-  r6 = REGNUM(6);
-
+#if (defined TLS)
+  I(pthread->getEpoch()&&(pthread->getEpoch()==tls::Epoch::getEpoch(pthread->getPid())));
+  SysCallFileIO::execFXStat64(pthread,picode);
+#else // Begin (defined TLS) else block
+  /* We will completely ignore the glibc stat_ver */
+  long    statVer=pthread->getIntArg1();
+  int     fd=pthread->getIntArg2();
+  Address addr=pthread->getIntArg3();
+  int     retVal;
 #ifdef DEBUG_VERBOSE
-  printf("mint_fxstat64(0x%08lx,0x%08lx,0x%08lx)\n", r4, r5, r6);
+  printf("mint_fxstat64(0x%08lx,0x%08lx,0x%08lx)\n", statVer, fd, addr);
 #endif
-
-  /* calling fstat ignoring the _stat_ver in glibc */
-  REGNUM(4) = REGNUM(5);
-  REGNUM(5) = REGNUM(6);
-  return mint_fstat(picode,pthread);
+  if(addr==0)
+    fatal("fstat called with a null pointer\n");
+  struct stat stat_native;
+  retVal=fstat(fd,&stat_native);
+  pthread->setRetVal(retVal);
+  if(retVal==-1)
+    pthread->setErrno(errno);
+  struct glibc_stat64 stat64p;     
+  conv_stat64_native2glibc(&stat_native, &stat64p);
+#if (defined TLS) || (defined TASKSCALAR)
+  rsesc_OS_write_block(pthread->getPid(),picode->addr,(void *)addr,&stat64p,sizeof(struct glibc_stat64));
+#else
+  memcpy((struct glibc_stat64 *)pthread->virt2real(addr),&stat64p,sizeof(struct glibc_stat64));
+#endif
+#endif // End (defined TLS) else block
+  return pthread->getRetIcode();
 }
 
 /* ARGSUSED */
@@ -3483,6 +3641,13 @@ OP(mint_perror)
 /* ARGSUSED */
 OP(mint_times)
 {
+  ID(Pid_t thePid=pthread->getPid());
+#if (defined TLS)
+  I(pthread->getEpoch()&&(pthread->getEpoch()==tls::Epoch::getEpoch(pthread->getPid())));
+  SysCallTimes *sysCall=pthread->getEpoch()->newSysCall<SysCallTimes>();
+  I(sysCall);
+  sysCall->exec(pthread,picode);
+#else // Begin (defined TLS) else block
     int err;
 
 #ifdef TASKSCALAR
@@ -3507,6 +3672,9 @@ OP(mint_times)
   pthread->setRetVal(err);
   if (err == -1)
     pthread->setperrno(errno);
+#endif // End (defined TLS) else block
+  // Return from the call (and check for context switch)
+  I(pthread->getPid()==thePid);
   return pthread->getRetIcode();
 }
 
@@ -3673,21 +3841,19 @@ OP(mint_malloc)
   // This call should not context-switch
   ID(Pid_t thePid=pthread->getPid());
   // Get size parameter
-  size_t size=pthread->getIntReg(IntArg1Reg);
+  size_t size=pthread->getIntArg1();
   if(!size) size++;
 #if (defined TLS)
-  tls::Epoch *epoch=pthread->getEpoch();
-  I(epoch==tls::Epoch::getEpoch(pthread->getPid()));
-  if(epoch){
-    SysCall *sysCall=epoch->nextSysCall();
-    if(sysCall){
-      I(dynamic_cast<SysCallMalloc *>(sysCall)!=0);
-      sysCall->redo(pthread);
-    }else{
-      epoch->makeSysCall(new SysCallMalloc(pthread));
-    }
+  I(pthread->getEpoch()&&(pthread->getEpoch()==tls::Epoch::getEpoch(pthread->getPid())));
+  SysCallMalloc *sysCall=pthread->getEpoch()->newSysCall<SysCallMalloc>();
+  I(sysCall);
+  sysCall->exec(pthread,picode);
+#else // Begin (defined TLS) else block
+  RAddr addr=pthread->getHeapManager()->allocate(size);
+  if(addr){
+    // Map to logical address space
+    addr=pthread->real2virt(addr);
   }else{
-#endif
     RAddr addr=pthread->getHeapManager()->allocate(size);
     if(addr){
       // Map to logical address space
@@ -3697,12 +3863,10 @@ OP(mint_malloc)
       pthread->setErrno(ENOMEM);
     }
     pthread->setIntReg(RetValReg,addr);
-#if (defined TLS)
   }
 #endif
-  // There should be no context switch
+  // Return from the call (and check for context switch)
   I(pthread->getPid()==thePid);
-  // Return from the call
   return pthread->getRetIcode();
 }
 
@@ -3719,31 +3883,23 @@ OP(mint_calloc)
     totalSize++;
   pthread->setIntReg(IntArg1Reg,totalSize);
 #if (defined TLS)
-  tls::Epoch *epoch=tls::Epoch::getEpoch(pthread->getPid());
-  if(epoch){
-    SysCall *sysCall=epoch->nextSysCall();
-    if(sysCall){
-      I(dynamic_cast<SysCallMalloc *>(sysCall)!=0);
-      sysCall->redo(pthread);
-    }else{
-      epoch->makeSysCall(new SysCallMalloc(pthread));
-    }
+  I(pthread->getEpoch()&&(pthread->getEpoch()==tls::Epoch::getEpoch(pthread->getPid())));
+  SysCallMalloc *sysCall=pthread->getEpoch()->newSysCall<SysCallMalloc>();
+  I(sysCall);
+  sysCall->exec(pthread,picode);
+#else // Begin (defined TLS) else block
+  RAddr addr=pthread->getHeapManager()->allocate(totalSize);
+  if(addr){
+    // Map to logical address space
+    addr=pthread->real2virt(addr);
   }else{
-#endif          
-    RAddr addr=pthread->getHeapManager()->allocate(totalSize);
-    if(addr){
-      // Map to logical address space
-      addr=pthread->real2virt(addr);
-    }else{
-      // Set errno to be POSIX compliant
-      pthread->setErrno(ENOMEM);
-    }
-    pthread->setIntReg(RetValReg,addr);
-#if (defined TLS)
+    // Set errno to be POSIX compliant
+    pthread->setErrno(ENOMEM);
   }
-#endif
+  pthread->setRetVal(addr);
+#endif // End (defined TLS) else block
   // Clear the allocated region
-  Address blockPtr=pthread->getIntReg(RetValReg);
+  VAddr blockPtr=pthread->getIntReg(RetValReg);
   if(blockPtr){
     size_t blockSize=nmemb*size;
 #if (defined TLS)
@@ -3775,22 +3931,14 @@ OP(mint_free)
   RAddr addr=pthread->getIntReg(IntArg1Reg);
   if(addr){
 #if (defined TLS)
-    tls::Epoch *epoch=tls::Epoch::getEpoch(pthread->getPid());
-    if(epoch){
-      SysCall *sysCall=epoch->nextSysCall();
-      if(sysCall){
-	I(dynamic_cast<SysCallFree *>(sysCall)!=0);
-        sysCall->redo(pthread);
-      }else{
-        epoch->makeSysCall(new SysCallFree(pthread));
-      }
-    }else{
-#endif
-      // Map to real address space and deallocate
-      addr=pthread->virt2real(addr);
-      pthread->getHeapManager()->deallocate(addr);
-#if (defined TLS)
-    }
+    I(pthread->getEpoch()&&(pthread->getEpoch()==tls::Epoch::getEpoch(pthread->getPid())));
+    SysCallFree *sysCall=pthread->getEpoch()->newSysCall<SysCallFree>();
+    I(sysCall);
+    sysCall->exec(pthread,picode);
+#else
+    // Map to real address space and deallocate
+    addr=pthread->virt2real(addr);
+    pthread->getHeapManager()->deallocate(addr);
 #endif
   }
   // There should be no context switch

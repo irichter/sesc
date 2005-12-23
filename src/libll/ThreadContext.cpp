@@ -543,6 +543,10 @@ RAddr ThreadContext::virt2real(VAddr vaddr, short opflags) const {
     if(checkSpecThread(vaddr, opflags))
       return 0;
 #endif
+#if (defined TLS)
+    if(!isValidVAddr(vaddr))
+      return 0;    
+#endif             
     RAddr r = (vaddr >= DataStart && vaddr < DataEnd) ? 
       static_cast<RAddr>(((signed)vaddr+ DataMap)) : vaddr;
     

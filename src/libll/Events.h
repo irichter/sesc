@@ -75,4 +75,15 @@ void rsesc_exception(int pid);
 void mint_termination(int pid);
 #endif
 
+#if (defined TLS) || (defined TASKSCALAR)
+// Reads a string from simulated virtual address srcStart into simulator's address dstStart,
+// copying at most maxSize-1 characters bytes in the process and null-terminating the string.
+// Returns true if the entire string fits in dstStart, false if string was truncated to fit
+bool rsesc_OS_read_string(int pid, int iAddr, void *dstStart, const void *srcStart, size_t maxSize);
+// Writes a block to the simulated virtual address dstStart from simulator's address srcStart
+void rsesc_OS_write_block(int pid, int iAddr, void *dstStart, const void *srcStart, size_t size);
+// Reads a block from simulated virtual address srcStart into simulator's address dstStart
+void rsesc_OS_read_block(int pid, int iAddr, void *dstStart, const void *srcStart, size_t size);
+#endif
+
 #endif   // EVENTS_H

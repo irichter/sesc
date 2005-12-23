@@ -164,12 +164,48 @@ enum {
 /* globals set by command line options */
 EXTERN int Every_write_ll;	/* every write checks for a load-linked */
 
+// OpClass, OpReplayClass, and OpRestrictClass are only used in TLS,
+// but need to be defined always, to avoid using separate function
+// substitution tables in TLS and in "normal" builds of SESC
+
 typedef enum OpReplayClassEnum{
+  OpInvalidReplayClass, // No op has this class, it is used to detect uninitialized ops
+  OpInternal, // Op can be fully rolled back and replayed without any special action
   OpExposed,  // Op can not be rolled back nor replayed and is not prepared for TLS execution
   OpNoReplay, // Op can not be rolled back nor replayed, but is prepared for TLS execution
-  OpUndoable, // Op can be fully rolled back and replayed with SysCall recording
-  OpInternal  // Op can be fully rolled back and replayed without any special action
+  OpUndoable  // Op can be fully rolled back and replayed with SysCall recording
 } OpReplayClass;
+
+typedef enum OpRestrictClassEnum{
+  OpInvalidRestrictClass, // No op has this class, it is used to detect uninitialized ops
+  OpAnywhere,  // Op can be anywhere in an epoch
+  OpAtStart,   // Op must be at start of an epoch
+  OpCanEnd     // Op can end the current epoch
+} OpRestrictClass;
+
+class OpClass{
+  OpReplayClass   replayClass;
+  OpRestrictClass restrictClass;
+ public:
+  OpClass(const OpClass &other)
+    : replayClass(other.replayClass), restrictClass(other.restrictClass){
+  }
+  OpClass(OpReplayClass replayClass=OpInternal, OpRestrictClass restrictClass=OpAnywhere)
+    : replayClass(replayClass), restrictClass(restrictClass){
+  }
+  bool operator==(OpReplayClass other) const{
+    return replayClass==other;
+  }
+  bool operator!=(OpReplayClass other) const{
+    return replayClass!=other;
+  }
+  bool operator==(OpRestrictClass other) const{
+    return restrictClass==other;
+  }
+  bool operator!=(OpRestrictClass other) const{
+    return restrictClass!=other;
+  }
+};
 
 /* This structure is used to store info needed at fork time to relocate
  * pointers to functions that are used in the sgi library for calling
@@ -179,7 +215,9 @@ typedef struct func_desc_t{
   const char *name;	      // Name of function pointer to replace
   PFPI func;	      // Substitute function that acts as a replacement
   int no_spec;        // The func calls can not be executed speculatively, sync to non-spec
-  OpReplayClass replayClass; // Replay classification of this function for TLS
+  OpClass opClass;    // Classification of this function for TLS
+  // Note: opClass is used only in TLS, but it is defined always, to avoid
+  // having separate function substitution tables for TLS and "normal" builds
 } func_desc_t, *func_desc_ptr;
 
 extern func_desc_t Func_subst[];

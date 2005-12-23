@@ -509,7 +509,7 @@ icode_ptr newcopy_icode(icode_ptr picode){
   
   inew->instID = picode->instID;
 #if (defined TLS)
-  inew->setReplayClass(picode->getReplayClass());
+  inew->setClass(picode->getClass());
 #endif
   return inew;
 }
@@ -572,9 +572,6 @@ read_text()
   for (i = 0; i < num_pointers; i++) {
     *pitext++ = picode;
     picode->instID = i;
-#if (defined TLS)
-    picode->setReplayClass(OpInternal);
-#endif
     picode->next = picode + 1;
     picode++;
   }
@@ -611,7 +608,10 @@ read_text()
     pdesc = &desc_table[opnum];
     opflags = pdesc->opflags;
     iflags = pdesc->iflags;
-
+#if (defined TLS)
+    // All instructions get the "normal" OpClass by default 
+    picode->setClass(OpClass(OpInternal,OpAnywhere));
+#endif
     picode->opflags = opflags;
     pfunc = pdesc->func;
 
@@ -649,6 +649,18 @@ read_text()
 	}
       }
       break;
+#if (defined TLS)
+    case aspectReductionBegin_opn:
+    case aspectAtomicBegin_opn:
+    case aspectAcquireBegin_opn:
+    case aspectReleaseBegin_opn:
+      picode->setClass(OpClass(OpInternal,OpAtStart));
+      break;
+    case aspectReductionEnd_opn:
+    case aspectAtomicEnd_opn:
+      picode->setClass(OpClass(OpInternal,OpCanEnd));
+      break;
+#endif // (defined TLS)
     }
     picode->opnum = opnum;
 
@@ -830,6 +842,11 @@ decode_instr(icode_ptr picode, int instr)
     } else if (opcode == 60) {
         /* user defined instructions */
         opnum = user_opnums[bits5_0];
+#if (defined TLS)
+    } else if (bits31_28 == 0x7){
+      /* TLS user-defined instructions */
+      opnum = tls_opnums[bits5_0];
+#endif
     } else if (bits31_28 != 4) {
         /* normal operation */
         opnum = normal_opnums[opcode];

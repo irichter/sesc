@@ -416,36 +416,6 @@ void rsesc_fatal(void)
     newEpoch->run();
   }
   
-  void rsesc_acquire_begin(Pid_t pid){
-    tls::Epoch *epoch=tls::Epoch::getEpoch(pid);
-    if(epoch)
-      epoch->beginAcquire();
-  }
-  
-  void rsesc_acquire_retry(Pid_t pid){
-    tls::Epoch *epoch=tls::Epoch::getEpoch(pid);
-    if(epoch)
-      epoch->retryAcquire();
-  }
-  
-  void rsesc_acquire_end(Pid_t pid){
-    tls::Epoch *epoch=tls::Epoch::getEpoch(pid);
-    if(epoch)
-      epoch->endAcquire();
-  }
-  
-  void rsesc_release_begin(Pid_t pid){
-    tls::Epoch *epoch=tls::Epoch::getEpoch(pid);
-    if(epoch)
-      epoch->beginRelease();
-  }
-  
-  void rsesc_release_end(Pid_t pid){
-    tls::Epoch *epoch=tls::Epoch::getEpoch(pid);
-    if(epoch)
-      epoch->endRelease();
-  }
-  
   void rsesc_nonspec_epoch(Pid_t pid){
     tls::Epoch *epoch=tls::Epoch::getEpoch(pid);
     if(epoch){
@@ -617,25 +587,24 @@ void rsesc_OS_write_block(int pid, int iAddr, void *dstStart, const void *srcSta
   }
 }
 
-void rsesc_OS_read_string(int pid, int iAddr, void *dstStart, const void *srcStart, size_t size){
+bool rsesc_OS_read_string(int pid, int iAddr, void *dstStart, const void *srcStart, size_t maxSize){
   int addr;
   const unsigned char *src = (const unsigned char *)srcStart;
   const unsigned char *end;
   unsigned char *dst = (unsigned char *)dstStart;
-  
-  end = &dst[size-1];
-  
+  end = dst+maxSize;
   // BYTE copy (8 bits)
-  while(dst < end) {
-    addr = rsesc_OS_read(pid, (int)src, iAddr, E_BYTE);
-    memcpy(dst, (void *) addr, 1);
-    if (*dst == 0)
-      break;
-    size--;
+  while(dst<end){
+    addr=rsesc_OS_read(pid,(int)src,iAddr,E_BYTE);
+    memcpy(dst,(void *)addr,1);
+    if(*dst==0)
+      return true;
     src++;
     dst++;
   }
-  *dst=0;
+  // String does not fit in dst buffer, so null-terminate it and return
+  dst[maxSize-1]=0;
+  return false;
 }
 
 // Copy from srcStart (Logical) to dstStart (Real). dstStart should be some

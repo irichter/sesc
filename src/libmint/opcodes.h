@@ -140,6 +140,20 @@ typedef enum opnum_e {
     /* user defined ops */
     swallow_opn, call_opn, spawn_opn, 
 
+#if (defined TLS)
+    // TLS user-defined opcodes
+    aspectReductionBegin_opn,
+    aspectReductionEnd_opn,
+    aspectAtomicBegin_opn,
+    aspectAcquireBegin_opn,
+    aspectAcquireRetry_opn,
+    aspectAcquireExit_opn,
+    aspectAcquire2Release_opn,
+    aspectReleaseBegin_opn,
+    aspectReleaseEnter_opn,
+    aspectAtomicEnd_opn,
+#endif
+
     /* this one must be last */
     max_opnum
 } opnum_t;
@@ -193,68 +207,86 @@ extern PPFPI12
     sdc1_op, sdc2_op, sdc3_op;
 
 extern PPFPI
-/* normal opcodes */
-    reserved_op,
-    nop_op, b_op, beq0_op, bne0_op, li_op, move_op, move0_op, addiu_xx_op,
-    sp_over_op,
-    j_op, jal_op,
-    beq_op, bne_op, blez_op, bgtz_op,
-    addi_op, addiu_op, slti_op, sltiu_op,
-    andi_op, ori_op, xori_op, lui_op,
-    cop0_op, cop1_op, cop2_op, cop3_op,
-    beql_op, bnel_op, blezl_op, bgtzl_op,
-/* special opcodes */
-    sll_op, srl_op, sra_op,
-    sllv_op, srlv_op, srav_op, jr_op,
-    jalr_op, syscall_op, break_op, sync_op,
-    mfhi_op, mthi_op, mflo_op, mtlo_op,
-    mult_op, multu_op, div_op, divu_op,
-    add_op, addu_op, sub_op, subu_op,
-    and_op, or_op, xor_op, nor_op,
-    slt_op, sltu_op, tge_op, tgeu_op,
-    tlt_op, tltu_op, teq_op, tne_op,
-/* regimm opcodes */
-    bltz_op, bgez_op,
-    bltzl_op, bgezl_op, tgei_op, tgeiu_op,
-    tlti_op, tltiu_op, teqi_op, tnei_op,
-    bltzal_op, bgezal_op, bltzall_op, bgezall_op,
-/* coprocessor1 functions */
-/* single precision */
-    c1_add_s, c1_sub_s, c1_mul_s, c1_div_s,
-    c1_sqrt_s, c1_abs_s, c1_mov_s, c1_neg_s,
-    c1_round_w_s, c1_trunc_w_s, c1_ceil_w_s, c1_floor_w_s,
-    c1_cvt_d_s, c1_cvt_w_s,
-    c1_c_f_s, c1_c_un_s, c1_c_eq_s, c1_c_ueq_s,
-    c1_c_olt_s, c1_c_ult_s, c1_c_ole_s, c1_c_ule_s,
-    c1_c_sf_s, c1_c_ngle_s, c1_c_seq_s, c1_c_ngl_s,
-    c1_c_lt_s, c1_c_nge_s, c1_c_le_s, c1_c_ngt_s,
-/* double precision */
-    c1_add_d, c1_sub_d, c1_mul_d, c1_div_d,
-    c1_sqrt_d, c1_abs_d, c1_mov_d, c1_neg_d,
-    c1_round_w_d, c1_trunc_w_d, c1_ceil_w_d, c1_floor_w_d,
-    c1_cvt_s_d, c1_cvt_w_d,
-    c1_c_f_d, c1_c_un_d, c1_c_eq_d, c1_c_ueq_d,
-    c1_c_olt_d, c1_c_ult_d, c1_c_ole_d, c1_c_ule_d,
-    c1_c_sf_d, c1_c_ngle_d, c1_c_seq_d, c1_c_ngl_d,
-    c1_c_lt_d, c1_c_nge_d, c1_c_le_d, c1_c_ngt_d,
-/* fixed-point precision */
-    c1_cvt_s_w, c1_cvt_d_w,
-/* coprocessor opcodes */
-    mfc0_op, mfc1_op, mfc2_op, mfc3_op,
-    mtc0_op, mtc1_op, mtc2_op, mtc3_op,
-    cfc0_op, cfc1_op, cfc2_op, cfc3_op,
-    ctc0_op, ctc1_op, ctc2_op, ctc3_op,
-    bc0f_op, bc0t_op, bc0fl_op, bc0tl_op,
-    bc1f_op, bc1t_op, bc1fl_op, bc1tl_op,
-    bc2f_op, bc2t_op, bc2fl_op, bc2tl_op,
-    bc3f_op, bc3t_op, bc3fl_op, bc3tl_op,
-/* user defined */
-    swallow_op, spawn_op, call_op;
+  /* normal opcodes */
+  reserved_op,
+  nop_op, b_op, beq0_op, bne0_op, li_op, move_op, move0_op, addiu_xx_op,
+  sp_over_op,
+  j_op, jal_op,
+  beq_op, bne_op, blez_op, bgtz_op,
+  addi_op, addiu_op, slti_op, sltiu_op,
+  andi_op, ori_op, xori_op, lui_op,
+  cop0_op, cop1_op, cop2_op, cop3_op,
+  beql_op, bnel_op, blezl_op, bgtzl_op,
+  /* special opcodes */
+  sll_op, srl_op, sra_op,
+  sllv_op, srlv_op, srav_op, jr_op,
+  jalr_op, syscall_op, break_op, sync_op,
+  mfhi_op, mthi_op, mflo_op, mtlo_op,
+  mult_op, multu_op, div_op, divu_op,
+  add_op, addu_op, sub_op, subu_op,
+  and_op, or_op, xor_op, nor_op,
+  slt_op, sltu_op, tge_op, tgeu_op,
+  tlt_op, tltu_op, teq_op, tne_op,
+  /* regimm opcodes */
+  bltz_op, bgez_op,
+  bltzl_op, bgezl_op, tgei_op, tgeiu_op,
+  tlti_op, tltiu_op, teqi_op, tnei_op,
+  bltzal_op, bgezal_op, bltzall_op, bgezall_op,
+  /* coprocessor1 functions */
+  /* single precision */
+  c1_add_s, c1_sub_s, c1_mul_s, c1_div_s,
+  c1_sqrt_s, c1_abs_s, c1_mov_s, c1_neg_s,
+  c1_round_w_s, c1_trunc_w_s, c1_ceil_w_s, c1_floor_w_s,
+  c1_cvt_d_s, c1_cvt_w_s,
+  c1_c_f_s, c1_c_un_s, c1_c_eq_s, c1_c_ueq_s,
+  c1_c_olt_s, c1_c_ult_s, c1_c_ole_s, c1_c_ule_s,
+  c1_c_sf_s, c1_c_ngle_s, c1_c_seq_s, c1_c_ngl_s,
+  c1_c_lt_s, c1_c_nge_s, c1_c_le_s, c1_c_ngt_s,
+  /* double precision */
+  c1_add_d, c1_sub_d, c1_mul_d, c1_div_d,
+  c1_sqrt_d, c1_abs_d, c1_mov_d, c1_neg_d,
+  c1_round_w_d, c1_trunc_w_d, c1_ceil_w_d, c1_floor_w_d,
+  c1_cvt_s_d, c1_cvt_w_d,
+  c1_c_f_d, c1_c_un_d, c1_c_eq_d, c1_c_ueq_d,
+  c1_c_olt_d, c1_c_ult_d, c1_c_ole_d, c1_c_ule_d,
+  c1_c_sf_d, c1_c_ngle_d, c1_c_seq_d, c1_c_ngl_d,
+  c1_c_lt_d, c1_c_nge_d, c1_c_le_d, c1_c_ngt_d,
+  /* fixed-point precision */
+  c1_cvt_s_w, c1_cvt_d_w,
+  /* coprocessor opcodes */
+  mfc0_op, mfc1_op, mfc2_op, mfc3_op,
+  mtc0_op, mtc1_op, mtc2_op, mtc3_op,
+  cfc0_op, cfc1_op, cfc2_op, cfc3_op,
+  ctc0_op, ctc1_op, ctc2_op, ctc3_op,
+  bc0f_op, bc0t_op, bc0fl_op, bc0tl_op,
+  bc1f_op, bc1t_op, bc1fl_op, bc1tl_op,
+  bc2f_op, bc2t_op, bc2fl_op, bc2tl_op,
+  bc3f_op, bc3t_op, bc3fl_op, bc3tl_op,
+  /* user defined */
+  swallow_op, spawn_op, call_op
+#if (defined TLS)
+  ,
+  // TLS user-defined opcodes
+  aspectReductionBegin_op,
+  aspectReductionEnd_op,
+  aspectAtomicBegin_op,
+  aspectAcquireBegin_op,
+  aspectAcquireRetry_op,
+  aspectAcquireExit_op,
+    aspectAcquire2Release_op,
+  aspectReleaseBegin_op,
+  aspectReleaseEnter_op,
+  aspectAtomicEnd_op
+#endif
+  ;
 
 extern opnum_t normal_opnums[];
 extern opnum_t special_opnums[];
 extern opnum_t regimm_opnums[];
 extern opnum_t user_opnums[];
+#if (defined TLS)
+extern opnum_t tls_opnums[];
+#endif
 extern opnum_t cop1func_opnums[][64];
 extern opnum_t mfc_opnums[];
 extern opnum_t mtc_opnums[];

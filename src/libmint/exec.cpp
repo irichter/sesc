@@ -92,17 +92,17 @@ OP(mint_sesc_fast_sim_end)
   return pthread->getRetIcode();
 }
 
+#include "OSSim.h"
+
 OP(mint_sesc_suspend)
 {
   // Set things up for the return to from this call
   pthread->setPCIcode(pthread->getRetIcode());
   // Remember pid of the current thread then do the call
   Pid_t pid=pthread->getPid();
-  IntRegValue retVal=rsesc_suspend(pid,pthread->getIntReg(IntArg1Reg));
+  IntRegValue retVal=osSim->eventSuspend(pid,pthread->getIntReg(IntArg1Reg));
   // Context switch is likely, must look up thread context again
-
-  ThreadContext *context=rsesc_get_thread_context(pid);
-
+  ThreadContext *context=osSim->getContext(pid);
   context->setIntReg(RetValReg,retVal);
   // Note: not neccessarily running the same thread as before
   return pthread->getPCIcode();

@@ -71,6 +71,11 @@ int ExecutionFlow::exeInst(void)
   //   actually points to the correct version of the data item
   RAddr dAddrR=0;
 
+#if (defined TLS)
+  Pid_t currPid=thread.getPid();
+  tls::Epoch::disableBlockRemoval();
+#endif
+
 #ifdef TASKSCALAR
   // is a context switch it should look for a new TaskContext
   TaskContext *tc = TaskContext::getTaskContext(thread.getPid());
@@ -108,14 +113,14 @@ int ExecutionFlow::exeInst(void)
 #endif
     
 #if (defined TLS)
-    tls::Epoch *epoch=tls::Epoch::getEpoch(thread.getPid());
-    if(epoch) {
-      if(opflags&E_READ)
-        dAddrR=epoch->read(iAddr, opflags, dAddrV, dAddrR);
-      if(opflags&E_WRITE)
-        dAddrR=epoch->write(iAddr, opflags, dAddrV, dAddrR);
-      if(!dAddrR)
-        return 0;
+    I(thread.getEpoch());
+    if(opflags&E_READ)
+      dAddrR=thread.getEpoch()->read(iAddr, opflags, dAddrV, dAddrR);
+    if(opflags&E_WRITE)
+      dAddrR=thread.getEpoch()->write(iAddr, opflags, dAddrV, dAddrR);
+    if(!dAddrR){
+      tls::Epoch::enableBlockRemoval();
+      return 0;
     }
 #endif
     
@@ -138,13 +143,13 @@ int ExecutionFlow::exeInst(void)
   
   do{
 #if (defined TLS)
-    tls::Epoch *epoch=thread.getEpoch();
-    I(epoch==tls::Epoch::getEpoch(thread.getPid()));
-    if(epoch){
-      I(picodePC->getReplayClass()!=OpExposed);
-    }
+    if(thread.getPid()!=currPid)
+      break;
+    I(thread.getEpoch());
+    I(picodePC->getClass()!=OpExposed);
 #endif
     picodePC=(picodePC->func)(picodePC, &thread);
+    I(picodePC);
   }while(picodePC->addr==iAddr);
 
   //  MSG("0x%x",iAddr);
@@ -156,6 +161,12 @@ int ExecutionFlow::exeInst(void)
     restartVer = tc->postWrite(iAddr, opflags, origdAddrR);
   }
 #endif
+
+#if (defined TLS)
+  I(!tls::Epoch::isBlockRemovalEnabled());
+  tls::Epoch::enableBlockRemoval();
+#endif
+
   return dAddrV;
 }
 
@@ -235,8 +246,9 @@ void ExecutionFlow::switchIn(int i)
   //I(!pendingDInst);
   if( pendingDInst ) {
 #if (defined TLS)
-    tls::Epoch *epoch=tls::Epoch::getEpoch(i);
-    if(epoch) epoch->execInstr();
+    I(thread.getEpoch());
+    I(thread.getEpoch()==tls::Epoch::getEpoch(i));
+    thread.getEpoch()->execInstr();
 #endif
     pendingDInst->scrap();
     pendingDInst = 0;
@@ -264,8 +276,9 @@ void ExecutionFlow::switchOut(int i)
   //  I(!pendingDInst);
   if( pendingDInst ) {
 #if (defined TLS)
-    tls::Epoch *epoch=tls::Epoch::getEpoch(i);
-    if(epoch) epoch->execInstr();
+    I(thread.getEpoch());
+    I(thread.getEpoch()==tls::Epoch::getEpoch(i));
+    thread.getEpoch()->execInstr();
 #endif
     pendingDInst->scrap();
     pendingDInst = 0;
@@ -288,18 +301,24 @@ void ExecutionFlow::dump(const char *str) const
 
 DInst *ExecutionFlow::executePC()
 {
-#if (defined TLS)
-  tls::Epoch *epoch=tls::Epoch::getEpoch(thread.getPid());
-#endif
   // If there is an already executed instruction, just return it
   if(pendingDInst) {
     DInst *dinst = pendingDInst;
     pendingDInst = 0;
 #if (defined TLS)
-    if(epoch) epoch->execInstr();
+    I(dinst->getEpoch());
+    dinst->getEpoch()->execInstr();
 #endif
     return dinst;
   }
+
+#if (defined TLS)
+  tls::Epoch *epoch=thread.getEpoch();
+  I(epoch);
+  if(picodePC->getClass()==OpAtStart)
+    if(epoch->forceEpochBeginning())
+      return 0;
+#endif
 
 #ifdef TASKSCALAR
   restartVer = 0;
@@ -351,7 +370,7 @@ DInst *ExecutionFlow::executePC()
   InstID cPC = getPCInst();
 
 #if (defined TLS)
-  if(epoch) epoch->pendInstr();
+  epoch->pendInstr();
 #endif // (defined TLS)
 
   int vaddr = exeInst();
@@ -360,7 +379,7 @@ DInst *ExecutionFlow::executePC()
   // No instruction executed?
   if(vaddr==0 || cPC==0) {
 #if (defined TLS)
-    if(epoch) epoch->unPendInstr();
+    epoch->unPendInstr();
 #endif // (defined TLS)
 #if (defined TASKSCALAR)
     // restartVer only can be set by executed stores (always return != 0)
@@ -387,7 +406,7 @@ DInst *ExecutionFlow::executePC()
   // If no delay slot, just return the instruction
   if(!hasDelay) {
 #if (defined TLS)
-    if(epoch) epoch->execInstr();
+    epoch->execInstr();
 #endif
     return dinst;
   }
@@ -398,12 +417,15 @@ DInst *ExecutionFlow::executePC()
   I(getPCInst()==cPC+1);
   cPC = getPCInst();
 #if (defined TLS)
-  if(epoch) epoch->pendInstr();
+  // Delay slot should not have epoch-ending restrictions
+  I(picodePC->getClass()==OpAnywhere);
+  epoch->pendInstr();
 #endif // (defined TLS)
   vaddr = exeInst();
   if(vaddr==0) {
 #if (defined TLS)
-    if(epoch) epoch->unPendInstr();
+    I(0);
+    epoch->unPendInstr();
 #endif // (defined TLS)
 
     dinst->scrap();
@@ -433,14 +455,19 @@ DInst *ExecutionFlow::executePC()
   }
 #endif
 
-
-  if(!isEvent) {
-    // Reverse the order between the delay slot and the iBJ
 #if (defined TLS)
-    if(epoch) epoch->execInstr();
-#endif
+  if((!isEvent)||(picodePC->getClass()!=OpAnywhere)){
+    I(ev == NoEvent);
+    // Reverse the order between the delay slot and the iBJ
+    epoch->execInstr();
     return dinst;
   }
+#else
+  if(!isEvent) {
+    // Reverse the order between the delay slot and the iBJ
+    return dinst;
+  }
+#endif
 
   // Execute the actual event (but do not time it)
   I(thread.getPid()==origPid);
@@ -464,7 +491,7 @@ DInst *ExecutionFlow::executePC()
     // This was a PreEvent (not notified see Event.cpp)
     // Only the delay slot instruction is "visible"
 #if (defined TLS)
-    if(epoch) epoch->execInstr();
+    epoch->execInstr();
 #endif
     return dinst;
   }
@@ -482,10 +509,8 @@ DInst *ExecutionFlow::executePC()
   I(ev != FastSimEndEvent);
   I(pendingDInst);
 #if (defined TLS)  
-  if(epoch){
-    epoch->execInstr(); // For the scrapped pendingDInst
-    epoch->pendInstr(); // For the fake event instruction
-  }
+  epoch->execInstr(); // For the scrapped pendingDInst
+  epoch->pendInstr(); // For the fake event instruction
 #endif  
   // In the case of the event, the original iBJ dissapears
   pendingDInst->scrap();
@@ -502,7 +527,7 @@ DInst *ExecutionFlow::executePC()
   ev=NoEvent;
   // Return the delay slot instruction. The fake event instruction will come next.
 #if (defined TLS)
-  if(epoch) epoch->execInstr();
+  epoch->execInstr();
 #endif
   return dinst;
 }
