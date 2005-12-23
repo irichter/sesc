@@ -239,17 +239,14 @@ void OSSim::processParams(int argc, char **argv, char **envp)
   
   for(; i < argc; i++) {
     if(argv[i][0] == '-') {
-
       if( argv[i][1] == 'w' ){
-        if( isdigit(argv[i][2]) )
-          nInst2Skip = strtoll(&argv[i][2], 0, 0 );
-        else {
-          i++;
-          nInst2Skip = strtoll(argv[i], 0, 0 );
-        }
-      }
-
-      else if( argv[i][1] == 'y' ){
+	if( isdigit(argv[i][2]) )
+	  nInst2Skip = strtoll(&argv[i][2], 0, 0 );
+	else {
+	  i++;
+	  nInst2Skip = strtoll(argv[i], 0, 0 );
+	}
+      }else if( argv[i][1] == 'y' ){
         if( isdigit(argv[i][2]) )
           nInst2Sim = strtoll(&argv[i][2], 0, 0 );
         else {
@@ -913,6 +910,12 @@ void OSSim::initBoot()
   eventSpawn(-1,0,0);
 #endif
 
+#if (defined TLS)
+  // If in TLS, start the initial epoch for the main thread
+  tls::Epoch *iniEpoch=
+    tls::Epoch::initialEpoch(static_cast<tls::ThreadID>(0),0);
+#endif
+
 #ifdef TASKSCALAR
   TaskContext::postBoot();
 #endif
@@ -1127,6 +1130,10 @@ void OSSim::report(const char *str)
   // GStats must be the last to be called because previous ::report
   // can update statistics
   GStats::report(str);
+
+#if (defined TLS)
+  tls::Epoch::report();
+#endif
 }
 
 GProcessor *OSSim::pid2GProcessor(Pid_t pid)
