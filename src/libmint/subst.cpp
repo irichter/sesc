@@ -1719,8 +1719,6 @@ OP(mint_sesc_wait)
 {
   // Set things up for the return to from this call
   pthread->setPCIcode(pthread->getRetIcode());
-  // Set things up for the return from this call
-  osSim->eventSetInstructionPointer(pthread->getPid(),addr2icode(pthread->getGPR(RetAddrGPR)));
 #if !(defined TLS)
   rsesc_wait(pthread->getPid());
 #else
@@ -1869,7 +1867,7 @@ OP(mint_mmap)
   sysCall->exec(pthread,picode);
 #else
   // Prefered address for mmap
-  long addr=pthread->getIntArg1();
+  VAddr addr=pthread->getIntArg1();
   // Size of block to mmap
   size_t size=pthread->getIntArg2();
 #ifdef DEBUG_VERBOSE
@@ -1885,7 +1883,7 @@ OP(mint_mmap)
   }
   pthread->setIntReg(IntArg1Reg,1);
   mint_calloc(picode,pthread);
-  pthread->setIntReg(IntArg1Reg,r4);
+  pthread->setIntReg(IntArg1Reg,addr);
   if(pthread->getIntReg(RetValReg)==0){
     pthread->setRetVal(-1);
     pthread->setperrno(errno);
@@ -3854,16 +3852,10 @@ OP(mint_malloc)
     // Map to logical address space
     addr=pthread->real2virt(addr);
   }else{
-    RAddr addr=pthread->getHeapManager()->allocate(size);
-    if(addr){
-      // Map to logical address space
-      addr=pthread->real2virt(addr);
-    }else{
-      // Set errno to be POSIX compliant
-      pthread->setErrno(ENOMEM);
-    }
-    pthread->setIntReg(RetValReg,addr);
+    // Set errno to be POSIX compliant
+    pthread->setErrno(ENOMEM);
   }
+  pthread->setIntReg(RetValReg,addr);
 #endif
   // Return from the call (and check for context switch)
   I(pthread->getPid()==thePid);
