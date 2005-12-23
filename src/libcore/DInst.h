@@ -39,7 +39,9 @@ enum DataDepViolationAt { DataDepViolationAtExe=0, DataDepViolationAtFetch,
 #endif
 
 #if (defined TLS)
-#include "Epoch.h"
+namespace tls{
+  class Epoch;
+}
 #endif
 
 
@@ -292,6 +294,9 @@ private:
 #if (defined TLS)
   void setEpoch(tls::Epoch *epoch){
     myEpoch=epoch;
+  }
+  tls::Epoch *getEpoch(void) const{
+    return myEpoch;
   }
 #endif
 

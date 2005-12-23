@@ -5,6 +5,11 @@
 // For definition of ENOMEM
 #include <errno.h>
 
+SysCallMalloc::SysCallMalloc(void)
+  : SysCall(){
+  ID(type="SysCallMalloc");
+}
+
 void SysCallMalloc::exec(ThreadContext *context, icode_ptr picode){
   size_t size=context->getGPR(Arg1stGPR);
   I((!executed)||(mySize==size));
@@ -35,6 +40,12 @@ void SysCallMalloc::undo(bool expectRedo){
 /*  printf("%1d: undo(%d) SysCallMalloc %8x at
  *  %8x\n",myPid,executed?1:0,mySize,myAddr);*/
 }
+
+SysCallFree::SysCallFree(void)
+  : SysCall(){
+   ID(type="SysCallFree");
+}
+ 
 
 void SysCallFree::exec(ThreadContext *context, icode_ptr picode){
   Address addr=context->getGPR(Arg1stGPR);
@@ -125,7 +136,102 @@ void SysCallMunmap::undo(bool expectRedo){
 
 // File I/O system calls
 
+// For open, close 
+#include <fcntl.h>
+// For read, write, stat
+#include <unistd.h>
+
+struct GlibcStat64{
+  unsigned long st_dev;
+  unsigned long st_pad0[3];     /* Reserved for st_dev expansion  */
+  unsigned long long    st_ino;
+  unsigned int  st_mode;
+  int           st_nlink;
+  int           st_uid;
+  int           st_gid;
+  unsigned long st_rdev;
+  unsigned long st_pad1[3];     /* Reserved for st_rdev expansion  */
+  long long     st_size;
+  /*
+   * Actually this should be timestruc_t st_atime, st_mtime and st_ctime
+   * but we don't have it under Linux.
+   */
+  long          st_atim;
+  unsigned long reserved0;      /* Reserved for st_atime expansion  */
+  long          st_mtim;
+  unsigned long reserved1;      /* Reserved for st_mtime expansion  */
+  long          st_ctim;
+  unsigned long reserved2;      /* Reserved for st_ctime expansion  */
+  unsigned long st_blksize;
+  unsigned long st_pad2;
+  long long     st_blocks;
+};
+  
+void statToGlibcStat64(const struct stat *statptr, GlibcStat64 *glibcStat64ptr){
+  glibcStat64ptr->st_dev     = SWAP_WORD(statptr->st_dev);
+  glibcStat64ptr->st_ino     = SWAP_LONG((unsigned long long)statptr->st_ino);
+  glibcStat64ptr->st_mode    = SWAP_WORD(statptr->st_mode);
+  glibcStat64ptr->st_nlink   = SWAP_WORD(statptr->st_nlink);
+  glibcStat64ptr->st_uid     = SWAP_WORD(statptr->st_uid);
+  glibcStat64ptr->st_gid     = SWAP_WORD(statptr->st_gid);
+  glibcStat64ptr->st_rdev    = SWAP_WORD(statptr->st_rdev);
+  glibcStat64ptr->st_size    = SWAP_LONG((unsigned long long)statptr->st_size);
+  glibcStat64ptr->st_atim    = SWAP_WORD(statptr->st_atime);
+  glibcStat64ptr->st_mtim    = SWAP_WORD(statptr->st_mtime);
+  glibcStat64ptr->st_ctim    = SWAP_WORD(statptr->st_ctime);
+  glibcStat64ptr->st_blksize = SWAP_WORD(statptr->st_blksize);
+  glibcStat64ptr->st_blocks  = SWAP_LONG((unsigned long long)statptr->st_blocks);
+}
+
 SysCallFileIO::OpenFileVector SysCallFileIO::openFiles;
+
+#include "ReportGen.h"
+
+void SysCallFileIO::staticConstructor(void){
+  I(openFiles.empty());
+  openFiles.resize(3,0);
+  openFiles[0]=new OpenFileInfo("",0,O_RDONLY,0,0);
+  char outName[]="stdout.XXXXXX";
+  int outFile=mkstemp(outName);
+  I(outFile!=-1);
+  Report::field("SysCall::stdout=%s",outName);
+  I(!lseek(outFile,0,SEEK_END));
+  openFiles[1]=new OpenFileInfo(outName,outFile,O_WRONLY,0,0);
+  char errName[]="stderr.XXXXXX";
+  int errFile=mkstemp(errName);
+  I(errFile!=-1);
+  Report::field("SysCall::stderr=%s",errName);
+  I(!lseek(errFile,0,SEEK_END));
+  openFiles[2]=new OpenFileInfo(errName,errFile,O_WRONLY,0,0);
+}
+
+void SysCallFileIO::execFXStat64(ThreadContext *context,icode_ptr picode){
+  // We will completely ignore the glibc stat_ver parameter
+  long statVer=context->getGPR(Arg1stGPR);
+  int myFd=context->getGPR(Arg2ndGPR);
+  Address addr=context->getGPR(Arg3rdGPR);
+  I(addr);
+  struct stat statNative;
+  fstat(myFd,&statNative);
+  int retVal=fstat(openFiles[myFd]->fdesc,&statNative);
+  context->setGPR(RetValGPR,retVal);
+  if(retVal==-1){   
+    context->setErrno(errno);
+  }else{
+    if((myFd>0)&&(myFd<=2)){
+      I(statNative.st_mode&S_IFREG);
+      I(!(statNative.st_mode&S_IFCHR));
+      statNative.st_mode&=~S_IFREG;
+      statNative.st_mode|=S_IFCHR;
+      I(statNative.st_rdev==0);
+      statNative.st_rdev=0x8800;
+    }
+    GlibcStat64 statSimulated;
+    statToGlibcStat64(&statNative, &statSimulated);
+    rsesc_OS_write_block(context->getPid(),picode->addr,(void *)addr,
+                         &statSimulated,sizeof(GlibcStat64));
+  }
+}
 
 void SysCallOpen::exec(ThreadContext *context,icode_ptr picode){
   // Get the file name from versioned memory
@@ -135,21 +241,21 @@ void SysCallOpen::exec(ThreadContext *context,icode_ptr picode){
 		       MAX_FILENAME_LENGTH);
   int flags=conv_flags_to_native((int)context->getGPR(Arg2ndGPR));
   mode_t mode=(mode_t)context->getGPR(Arg3rdGPR);
-  int newFd=open(pathname,flags,mode);
-  if(executed){
-    I(newFd==myFd);
-  }else{
-    myFd=newFd;
-  }
-  if(myFd==-1){
-    // Open failed, set errno in simulated thread
+  int realFd=open(pathname,flags,mode);
+  if(realFd==-1){
+    // Open failed, simulated fd is 0 and errno is set
+    myFd=-1;
     context->setErrno(errno);
   }else{
-    // Add file's info to vector of currently open files
-    if(openFiles.size()<=(size_t)myFd)
-      openFiles.resize(myFd+1,0);
-    I(openFiles[myFd]==0);
-    openFiles[myFd]=new OpenFileInfo(pathname,flags,mode,0);
+    if(!executed){
+      // Find first available simulated file descriptor
+      for(myFd=0;((size_t)myFd<openFiles.size())&&(openFiles[myFd]);myFd++);
+      if((size_t)myFd==openFiles.size())
+        openFiles.resize(myFd+1,0);
+    }
+    I(!openFiles[myFd]);
+    I(lseek(realFd,0,SEEK_CUR)==0);
+    openFiles[myFd]=new OpenFileInfo(pathname,realFd,flags,mode,0);
   }
   context->setGPR(RetValGPR,myFd);
   executed=true;
@@ -159,7 +265,7 @@ void SysCallOpen::undo(bool expectRedo){
   I(executed);
   if(myFd!=-1){
     // Close file and remove from vector of open files
-    int err=close(myFd);
+    int err=close(openFiles[myFd]->fdesc);
     I(!err);
     delete openFiles[myFd];
     openFiles[myFd]=0;
@@ -168,39 +274,30 @@ void SysCallOpen::undo(bool expectRedo){
 
 void SysCallClose::exec(ThreadContext *context, icode_ptr picode){
   int fd=context->getGPR(Arg1stGPR);
-  if(executed){
-    I(fd==myFd);
-  }else{
-    myFd=fd;
-  }
-  if((openFiles.size()<=(size_t)fd)||!openFiles[fd]){
+  I((!executed)||(fd==myFd));
+  myFd=fd;
+  if((myFd<=2)||(openFiles.size()<=(size_t)myFd)||!openFiles[myFd]){
     // Descriptor is not that of an open file
-    if(executed){
-      I(myInfo==0);
-    }else{
-      myInfo=0;
-    }
+    I((!executed)||(myInfo==0));
+    myInfo=0;
     context->setErrno(EBADF);
   }else{  
-    int err=close(fd);
+    int err=close(openFiles[myFd]->fdesc);
     if(err==0){
       if(executed){
-	I(strcmp(myInfo->pathname,openFiles[fd]->pathname)==0);
-	I(myInfo->flags==openFiles[fd]->flags);
-	I(myInfo->mode==openFiles[fd]->mode);
-	delete myInfo;
+	I(strcmp(myInfo->pathname,openFiles[myFd]->pathname)==0);
+	I(myInfo->flags==openFiles[myFd]->flags);
+	I(myInfo->mode==openFiles[myFd]->mode);
+	ID(delete myInfo);
       }
       // Store info needed to reopen file in undo
-      myInfo=openFiles[fd];
+      myInfo=openFiles[myFd];
       // Remove from vector of open files
-      openFiles[fd]=0;
+      openFiles[myFd]=0;
     }else{
       I(err==-1);
-      if(executed){
-	I(myInfo==0);
-      }else{
-	myInfo=0;
-      }
+      I((!executed)||(myInfo==0));
+      myInfo=0;
       context->setErrno(errno);
     }
   }
@@ -211,48 +308,15 @@ void SysCallClose::exec(ThreadContext *context, icode_ptr picode){
 void SysCallClose::undo(bool expectRedo){
   I(executed);
   if(myInfo){
-    int currFD=-1; /* because desired FD could be 0 */ 
-    int fd; 
-    std::stack<int> dummyFDs;     
-    
-    // Ensure the re-opened file has the same file descriptor as before it 
-    // was closed. POSIX open() will always return the lowest available.  So, 
-    // open dummy files until open() returns the desired fd. 
-    int dummyNum;
-    for(dummyNum=0; currFD!=myFd; dummyNum++){ 
-      char *dummyName=(char *)malloc(9*sizeof(char)); 
-      snprintf(dummyName,9,"dummy%d",dummyNum);  
-      currFD=open(dummyName,O_RDONLY|O_CREAT|O_EXCL,0600);  
-      dummyFDs.push(currFD); 
-      free(dummyName); 
-      I(dummyNum<1000); /* probably shouldn't open more than 1000 files.. */ 
-    } 
-    // Close the dummy file that received the fd needed 
-    close(dummyFDs.top());  
-    dummyFDs.pop();  
     // Reopen the file and update things accordingly 
-    fd=open(myInfo->pathname,myInfo->flags&~O_TRUNC,myInfo->mode);
-    I(fd==myFd);
-    I((openFiles.size()>(size_t)fd)&&!openFiles[fd]);
-    openFiles[fd]=myInfo;
-    if(expectRedo)
-      myInfo=new OpenFileInfo(*(openFiles[fd]));
-    if(openFiles[fd]->offset>0){
-      off_t undoOffs=lseek(fd,openFiles[fd]->offset,SEEK_SET);
-      I(undoOffs==openFiles[fd]->offset);
-    }
-    // Close remaining dummies
-    while(!dummyFDs.empty()){ 
-      close(dummyFDs.top()); 
-      dummyFDs.pop(); 
-    }
-    // Delete dummy files
-    while(dummyNum>=0){
-      char *dummyName=(char *)malloc(9);
-      snprintf(dummyName,9,"dummy%d",dummyNum);
-      remove(dummyName);
-      free(dummyName);
-      dummyNum--;
+    int realFd=open(myInfo->pathname,myInfo->flags&~(O_TRUNC|O_APPEND),myInfo->mode);
+    myInfo->fdesc=realFd;
+    I((openFiles.size()>(size_t)myFd)&&(!openFiles[myFd]));
+    openFiles[myFd]=myInfo;
+    ID(if(expectRedo) myInfo=new OpenFileInfo(*(openFiles[myFd])));
+    if(openFiles[myFd]->offset>0){
+      off_t undoOffs=lseek(openFiles[myFd]->fdesc,openFiles[myFd]->offset,SEEK_SET);
+      I(undoOffs==openFiles[myFd]->offset);
     }
   }
 }
@@ -275,17 +339,17 @@ void SysCallRead::exec(ThreadContext *context,icode_ptr picode){
   ID(myCount=count);
   void *tempbuff=alloca(count);
   I(tempbuff);
-  I((!executed)||(oldOffs==lseek(myFd,0,SEEK_CUR)));
-  ID(oldOffs=lseek(myFd,0,SEEK_CUR));
-  ssize_t nowBytesRead=read(myFd,tempbuff,executed?bytesRead:count);
+  I((!executed)||(oldOffs==lseek(openFiles[myFd]->fdesc,0,SEEK_CUR)));
+  ID(oldOffs=lseek(openFiles[myFd]->fdesc,0,SEEK_CUR));
+  ssize_t nowBytesRead=read(openFiles[myFd]->fdesc,tempbuff,executed?bytesRead:count);
   I((!executed)||(nowBytesRead==bytesRead));
   bytesRead=nowBytesRead;
   context->setGPR(RetValGPR,bytesRead);
   if(bytesRead==-1){
     context->setErrno(errno);
-    I(lseek(myFd,0,SEEK_CUR)==oldOffs);
+    I(lseek(openFiles[myFd]->fdesc,0,SEEK_CUR)==oldOffs);
   }else{
-    I(lseek(myFd,0,SEEK_CUR)==oldOffs+bytesRead);
+    I(lseek(openFiles[myFd]->fdesc,0,SEEK_CUR)==oldOffs+bytesRead);
     openFiles[myFd]->offset+=bytesRead;
     rsesc_OS_write_block(context->getPid(),picode->addr,
 			 buf,tempbuff,(size_t)bytesRead);
@@ -296,9 +360,9 @@ void SysCallRead::undo(bool expectRedo){
   I(executed);
   if(bytesRead!=-1){
     I((openFiles.size()>(size_t)myFd)&&openFiles[myFd]);
-    off_t undoOffs=lseek(myFd,-bytesRead,SEEK_CUR);
+    off_t undoOffs=lseek(openFiles[myFd]->fdesc,-bytesRead,SEEK_CUR);
     I(undoOffs==oldOffs);
-    I(lseek(myFd,0,SEEK_CUR)==oldOffs);
+    I(lseek(openFiles[myFd]->fdesc,0,SEEK_CUR)==oldOffs);
   }
 }
 
@@ -312,14 +376,10 @@ void SysCallWrite::exec(ThreadContext *context,icode_ptr picode){
   size_t count=context->getGPR(Arg3rdGPR);
   I((!executed)||(myCount==count));
   ID(myCount=count);
-  off_t currentOffset=lseek(myFd,0,SEEK_CUR);
+  off_t currentOffset=lseek(openFiles[myFd]->fdesc,0,SEEK_CUR);
   if(currentOffset==-1){
-    if(errno==EBADF){
-      // Invalid file handle, fail with errno of EBADF
-      context->setErrno(EBADF);
-      bytesWritten=-1;
-      context->setGPR(RetValGPR,-1);
-    }else if(errno==ESPIPE){
+    I(errno!=ESPIPE);
+    if(errno==ESPIPE){
       // Non-seekable file, must buffer writes instead of undoing them
       // We can't yet handle open-ed files that are non-seekable
       I((openFiles.size()<=(size_t)myFd)||!openFiles[myFd]);
@@ -337,6 +397,12 @@ void SysCallWrite::exec(ThreadContext *context,icode_ptr picode){
 	rsesc_OS_read_block(context->getPid(),picode->addr,bufData,buf,count);
 	bytesWritten=count;
       }
+      context->setGPR(RetValGPR,bytesWritten);
+    }else if(errno==EBADF){
+      // Invalid file handle, fail with errno of EBADF
+      context->setErrno(EBADF);
+      bytesWritten=-1;
+      context->setGPR(RetValGPR,-1);
     }else{
       I(0);
     }
@@ -351,18 +417,18 @@ void SysCallWrite::exec(ThreadContext *context,icode_ptr picode){
     rsesc_OS_read_block(context->getPid(),picode->addr,tempbuff,buf,count);
     // Get current position and verify that we are in append mode
     ID(oldOffs=currentOffset);
-    I(oldOffs==lseek(myFd,0,SEEK_END));
-    I(oldOffs==lseek(myFd,0,SEEK_CUR));
+    I(oldOffs==lseek(openFiles[myFd]->fdesc,0,SEEK_END));
+    I(oldOffs==lseek(openFiles[myFd]->fdesc,0,SEEK_CUR));
     // Write to file and free the temporary buffer
-    ssize_t nowBytesWritten=write(myFd,tempbuff,executed?bytesWritten:count);
+    ssize_t nowBytesWritten=write(openFiles[myFd]->fdesc,tempbuff,executed?bytesWritten:count);
     I((!executed)||(nowBytesWritten==bytesWritten));
     bytesWritten=nowBytesWritten;
     context->setGPR(RetValGPR,bytesWritten);
     if(bytesWritten==-1){
       context->setErrno(errno);
-      I(lseek(myFd,0,SEEK_CUR)==oldOffs);
+      I(lseek(openFiles[myFd]->fdesc,0,SEEK_CUR)==oldOffs);
     }else{
-      I(lseek(myFd,0,SEEK_CUR)==oldOffs+bytesWritten);
+      I(lseek(openFiles[myFd]->fdesc,0,SEEK_CUR)==oldOffs+bytesWritten);
       openFiles[myFd]->offset+=bytesWritten;
     }
   }
@@ -370,24 +436,27 @@ void SysCallWrite::exec(ThreadContext *context,icode_ptr picode){
 }
 void SysCallWrite::undo(bool expectRedo){
   I(executed);
-  if(bufData){
+  if(!bytesWritten){
+    // Do nothing
+  }else if(bufData){
     I(bytesWritten!=-1);
     if(!expectRedo)
       free(bufData);
   }else if(bytesWritten!=-1){
     I((openFiles.size()>(size_t)myFd)&&openFiles[myFd]);
-    off_t currOffs=lseek(myFd,-bytesWritten,SEEK_END);
+    off_t currOffs=lseek(openFiles[myFd]->fdesc,-bytesWritten,SEEK_END);
     I(currOffs==oldOffs);
-    int err=ftruncate(myFd,currOffs);
+    int err=ftruncate(openFiles[myFd]->fdesc,currOffs);
     I(!err);
-    I(oldOffs==lseek(myFd,0,SEEK_END));
-    I(oldOffs==lseek(myFd,0,SEEK_CUR));
+    I(oldOffs==lseek(openFiles[myFd]->fdesc,0,SEEK_END));
+    I(oldOffs==lseek(openFiles[myFd]->fdesc,0,SEEK_CUR));
   }
 }
 void SysCallWrite::done(void){
+  I(!bufData);
   if(bufData){
     I(bytesWritten!=-1);    
-    ssize_t nowBytesWritten=write(myFd,bufData,bytesWritten);
+    ssize_t nowBytesWritten=write(openFiles[myFd]->fdesc,bufData,bytesWritten);
     I(nowBytesWritten==bytesWritten);
     free(bufData);
   }
@@ -466,6 +535,7 @@ void SysCallSescSpawn::done(void){
 }
 
 void SysCallExit::exec(ThreadContext *context,icode_ptr picode){
+  I(this);
   I((!executed)||(myThread==context->getEpoch()->getTid()));
   myThread=context->getEpoch()->getTid();
   context->getEpoch()->exitCalled();

@@ -12,7 +12,6 @@ class SysCall{
     ID(type="SysCall");
   }
  public:
-  virtual void exec(ThreadContext *context, icode_ptr picode) = 0;
   virtual void undo(bool expectRedo){};
   virtual void done(void){};
 };
@@ -33,8 +32,8 @@ class SysCallMalloc : public SysCall{
   // We need it to get the correct manager in undo
   Pid_t myPid;
  public:
-  ID(SysCallMalloc(void){type="SysCallMalloc";});
-  virtual void exec(ThreadContext *context, icode_ptr picode);
+  SysCallMalloc(void);
+  void exec(ThreadContext *context, icode_ptr picode);
   virtual void undo(bool expectRedo);
 };
 class SysCallFree : public SysCall{
@@ -47,8 +46,8 @@ class SysCallFree : public SysCall{
   // We need it to get the correct manager in undo
   Pid_t myPid;
  public:
-  ID(SysCallFree(void){type="SysCallFree";});
-  virtual void exec(ThreadContext *context, icode_ptr picode);
+  SysCallFree(void);
+  void exec(ThreadContext *context, icode_ptr picode);
   virtual void undo(bool expectRedo);
 };
 class SysCallMmap : public SysCall{
@@ -63,7 +62,7 @@ class SysCallMmap : public SysCall{
   Pid_t myPid;
  public:
   ID(SysCallMmap(void){type="SysCallMmap";});
-  virtual void exec(ThreadContext *context, icode_ptr picode);
+  void exec(ThreadContext *context, icode_ptr picode);
   virtual void undo(bool expectRedo);  
 };
 class SysCallMunmap : public SysCall{
@@ -77,7 +76,7 @@ class SysCallMunmap : public SysCall{
   Pid_t myPid;
  public:
   ID(SysCallMunmap(void){type="SysCallMunmap";});
-  virtual void exec(ThreadContext *context, icode_ptr picode);
+  void exec(ThreadContext *context, icode_ptr picode);
   virtual void undo(bool expectRedo);  
 };
 
@@ -85,12 +84,7 @@ class SysCallMunmap : public SysCall{
 
 // For the definition of rsesc_OS_read_string
 #include "Events.h"
-// For open, close
-#include <fcntl.h>
-// For read, write
-#include <unistd.h>
-// For dummy files when re-getting original fd
-#include <stack>
+
 #define MAX_FILENAME_LENGTH 64
 
 int conv_flags_to_native(int flags);
@@ -98,17 +92,23 @@ int conv_flags_to_native(int flags);
 class SysCallFileIO : public SysCall{
  protected:
   struct OpenFileInfo{
+    // Real file descriptor that corresponds to this file
+    int fdesc;
+    // Flags with which it was open
     int flags;
+    // Mode (if any) with which it was open
     mode_t mode;
+    // Actual name of the file
     char pathname[MAX_FILENAME_LENGTH];
+    // Current offset in this file
     off_t offset;
-    OpenFileInfo(char *name, int flags, mode_t mode, off_t offset)
-      : flags(flags), mode(mode), offset(offset){
+    OpenFileInfo(char *name, int fdesc, int flags, mode_t mode, off_t offset)
+      : fdesc(fdesc), flags(flags), mode(mode), offset(offset){
       I(strlen(name)<MAX_FILENAME_LENGTH);
       strcpy(pathname,name);
     }
     OpenFileInfo(const OpenFileInfo &other)
-      : flags(other.flags), mode(other.mode), offset(other.offset){
+      : fdesc(other.fdesc), flags(other.flags), mode(other.mode), offset(other.offset){
       I(strlen(other.pathname)<MAX_FILENAME_LENGTH);
       strcpy(pathname,other.pathname);
     }
@@ -117,11 +117,12 @@ class SysCallFileIO : public SysCall{
   typedef std::vector<OpenFileInfo *> OpenFileVector;
   static OpenFileVector openFiles;
  public:
-  virtual void exec(ThreadContext *context, icode_ptr picode) = 0;
+  static void staticConstructor(void);
+  static void execFXStat64(ThreadContext *context,icode_ptr picode);
 };
 class SysCallOpen : public SysCallFileIO{
  private:
-  // File descriptor for the opened file, -1 if open failed
+  // Simulated file descriptor for the opened file, -1 if open failed
   int myFd;
  public: 
   ID(SysCallOpen(void){type="SysCallOpen";});
@@ -130,12 +131,13 @@ class SysCallOpen : public SysCallFileIO{
 };
 class SysCallClose : public SysCallFileIO{
  private:
+  // Simulated file descriptor for the closed file, -1 if open failed
   int myFd;
   // Null if close fails, otherwise points to info needed to reopen the file
   OpenFileInfo *myInfo;
  public:
   ID(SysCallClose(void){type="SysCallClose";});
-  virtual void exec(ThreadContext *context, icode_ptr picode);
+  void exec(ThreadContext *context, icode_ptr picode);
   virtual void undo(bool expectRedo);
   virtual void done(void);
 };
@@ -151,7 +153,7 @@ class SysCallRead : public SysCallFileIO {
   ID(off_t oldOffs);
  public:
   ID(SysCallRead(void){type="SysCallRead";});
-  virtual void exec(ThreadContext *context,icode_ptr picode);
+  void exec(ThreadContext *context,icode_ptr picode);
   virtual void undo(bool expectRedo);
 };
 class SysCallWrite : public SysCallFileIO {
@@ -168,7 +170,7 @@ class SysCallWrite : public SysCallFileIO {
   ID(off_t oldOffs);
  public:
   ID(SysCallWrite(void){type="SysCallWrite";});
-  virtual void exec(ThreadContext *context,icode_ptr picode);
+  void exec(ThreadContext *context,icode_ptr picode);
   virtual void undo(bool expectRedo);
   virtual void done(void);
 };
@@ -180,7 +182,7 @@ class SysCallSescSpawn : public SysCall{
   Pid_t childPid;
  public:
   ID(SysCallSescSpawn(void){type="SysCallSescSpawn";});
-  virtual void exec(ThreadContext *context,icode_ptr picode);
+  void exec(ThreadContext *context,icode_ptr picode);
   virtual void undo(bool expectRedo);
   virtual void done(void);
 };
@@ -190,7 +192,7 @@ class SysCallExit : public SysCall{
   Pid_t myThread;
  public:
   ID(SysCallExit(void){type="SysCallExit";});
-  virtual void exec(ThreadContext *context,icode_ptr picode);
+  void exec(ThreadContext *context,icode_ptr picode);
   virtual void undo(bool expectRedo);
 };
 
@@ -199,7 +201,7 @@ class SysCallWait : public SysCall{
   Pid_t childThread;
  public:
   ID(SysCallWait(void){type="SysCallWait";});
-  virtual void exec(ThreadContext *context,icode_ptr picode);
+  void exec(ThreadContext *context,icode_ptr picode);
   virtual void undo(bool expectRedo);
   void setChild(Pid_t child){
     I((childThread==-1)||(child==childThread));
@@ -220,7 +222,7 @@ class SysCallTimes : public SysCall{
   struct tms tmsStruct;
  public:
   ID(SysCallTimes(void){type="SysCallTimes";});
-  virtual void exec(ThreadContext *context,icode_ptr picode){
+  void exec(ThreadContext *context,icode_ptr picode){
     if(!executed){
       retVal=globalClock/1024;
       tmsStruct.tms_utime=globalClock/1024;
