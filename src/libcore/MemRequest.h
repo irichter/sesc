@@ -337,6 +337,11 @@ public:
   }
 
   virtual VAddr getVaddr() const=0;
+#if (defined TLS)
+  tls::Epoch *getEpoch(void) const{
+    return dinst?dinst->getEpoch():0;
+  }
+#endif
   virtual void ack(TimeDelta_t lat) =0;
 
 #ifdef SESC_SMP_DEBUG
