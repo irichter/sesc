@@ -538,29 +538,33 @@ extern char **environ;
 const char *Config::getEnvVar(const char *block,
                               const char *name)
 {
-  char *envvar = (char *)malloc(strlen(block) + strlen(name) + strlen(envstart) + 4);
-
-  if(block[0] == 0)           // Empty string
-    sprintf(envvar, "%s_%s", envstart, name);
+  size_t envLen = 0;
+  char  *envVar = 0;
+  // Determine the variable name prefix (incl. the '=' char)
+  // Note: the variable name prefix MUST include the '=' character,
+  // otherwise the match can be wrong, e.g. when looking for
+  // "SESC_issue=3" we may find "SESC_issueX_inorder=false" and use
+  // "_inorder=false" as the value of "SESC_issue".
+  if(block[0] == 0) // Empty string
+    envLen = snprintf(envVar,0,"%s_%s=",envstart,name);
   else
-    sprintf(envvar, "%s_%s_%s", envstart, block, name);
-
-  const char *val = 0;
-  int envlen = strlen(envvar);
-  int i = 0;
-
-  while (environ[i]) {
-    if(strncasecmp(envvar, environ[i], envlen) == 0) {
-      val = &environ[i][envlen + 1];
+    envLen = snprintf(envVar,0,"%s_%s_%s=", envstart, block, name);
+  // Allocate envVar (on the stack)
+  envVar = static_cast < char *>(alloca(envLen+1));
+  // Now put the variable name prefix in envVar
+  if(block[0] == 0) // Empty string
+    snprintf(envVar,envLen+1,"%s_%s=",envstart,name);
+  else
+    snprintf(envVar,envLen+1,"%s_%s_%s=", envstart, block, name);
+  // Look for envVar in environ
+  const char *envVal = 0;
+  for(int i=0;environ[i]!=0;i++){
+    if(strncasecmp(envVar,environ[i],envLen)==0){
+      envVal = &environ[i][envLen];
       break;
     }
-
-    i++;
   }
-
-  free(envvar);
-
-  return val;
+  return envVal;
 }
 
 void Config::dump(bool showAll)
