@@ -30,24 +30,3 @@ void sesc_change_epoch(void){
 /*   fprintf(stderr,"TLS simulator needed for sesc_end_epochs\n"); */
 /*   exit(-1); */
 /* } */
-
-void sesc_acquire_begin(void){
-  fprintf(stderr,"TLS simulator needed for sesc_begin_epochs\n");
-  exit(-1);
-}
-void sesc_acquire_retry(void){
-  fprintf(stderr,"TLS simulator needed for sesc_begin_epochs\n");
-  exit(-1);
-}
-void sesc_acquire_end(void){
-  fprintf(stderr,"TLS simulator needed for sesc_begin_epochs\n");
-  exit(-1);
-}
-void sesc_release_begin(void){
-  fprintf(stderr,"TLS simulator needed for sesc_begin_epochs\n");
-  exit(-1);
-}
-void sesc_release_end(void){
-  fprintf(stderr,"TLS simulator needed for sesc_begin_epochs\n");
-  exit(-1);
-}

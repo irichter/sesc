@@ -255,25 +255,54 @@ extern "C" {
   /* The thread ends the last epoch in its sequence */
   void sesc_end_epochs(void);
   
-  void sesc_acquire_begin(void);
-  void sesc_acquire_retry(void);
-  void sesc_acquire_end(void);
-
-  void sesc_release_begin(void);
-  void sesc_release_end(void);
-
-
 #if ( (defined mips) && (__GNUC__ >= 3) )
+
+  static inline void aspectReductionBegin(void) __attribute__ ((always_inline));
+  static inline void aspectReductionEnd(void) __attribute__ ((always_inline));
+
+  static inline void aspectReductionBegin(void){
+    asm volatile (".word 0x70000000":::"memory");
+  }
+  static inline void aspectReductionEnd(void){
+    asm volatile (".word 0x70000001":::"memory");
+  }
+  static inline void aspectAtomicBegin(void) __attribute__ ((always_inline));
+  static inline void aspectAcquireBegin(void) __attribute__ ((always_inline));
+  static inline void aspectAcquireRetry(void) __attribute__ ((always_inline, noreturn));
+  static inline void aspectAcquireExit(void) __attribute__ ((always_inline));
+  static inline void aspectAcquire2Release(void) __attribute__ ((always_inline));
+  static inline void aspectReleaseBegin(void) __attribute__ ((always_inline));
+  static inline void aspectReleaseEnter(void) __attribute__ ((always_inline));
+  static inline void aspectAtomicEnd(void) __attribute__ ((always_inline));
+
+  static inline void aspectAtomicBegin(void){
+    asm volatile (".word 0x70000002":::"memory");
+  }
+  static inline void aspectAcquireBegin(void){
+    asm volatile (".word 0x70000003":::"memory");
+  }
+  static inline void aspectAcquireRetry(void){
+    asm volatile (".word 0x70000004":::"memory");
+  }
+  static inline void aspectAcquireExit(void){
+    asm volatile (".word 0x70000005":::"memory");
+  }
+  static inline void aspectAcquire2Release(void){
+    asm volatile (".word 0x70000006":::"memory");
+  }
+  static inline void aspectReleaseBegin(void){
+    asm volatile (".word 0x70000007":::"memory");
+  }
+  static inline void aspectReleaseEnter(void){
+    asm volatile (".word 0x70000008":::"memory");
+  }
+  static inline void aspectAtomicEnd(void){
+    asm volatile (".word 0x70000009":::"memory");
+  }
+
   static inline void tls_begin_epochs(void) __attribute__ ((always_inline));
   static inline void tls_change_epoch(void) __attribute__ ((always_inline));
   static inline void tls_end_epochs(void) __attribute__ ((always_inline));
-
-  static inline void tls_acquire_begin(void) __attribute__ ((always_inline));
-  static inline void tls_acquire_retry(void) __attribute__ ((noreturn));
-  static inline void tls_acquire_end(void) __attribute__ ((always_inline));
-
-  static inline void tls_release_begin(void) __attribute__ ((always_inline));
-  static inline void tls_release_end(void) __attribute__ ((always_inline));
 
   static inline void tls_lock_init(slock_t *lock_ptr) __attribute__ ((always_inline));
   static inline void tls_lock(slock_t *lock_ptr) __attribute__ ((always_inline));
@@ -321,96 +350,61 @@ extern "C" {
                   "$f24", "$f25", "$f26", "$f27", "$f28", "$f29", "$f30", "$f31",
                   "$fcc0", "$fcc1", "$fcc2", "$fcc3", "$fcc4", "$fcc5", "$fcc6", "$fcc7");
   }
-  static inline void tls_acquire_begin(void){
-    asm volatile ("jal sesc_change_epoch\njal sesc_acquire_begin"
-                  :
-                  : 
-                  : "cc", "memory", "a0", "a1", "a2", "a3", "v0", "v1",
-                  "t0", "t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9",
-                  "s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7", "ra",
-                  "$f0",  "$f1",  "$f2",  "$f3",  "$f4",  "$f5",  "$f6",  "$f7",
-                  "$f8",  "$f9",  "$f10", "$f11", "$f12", "$f13", "$f14", "$f15",
-                  "$f16", "$f17", "$f18", "$f19", "$f20", "$f21", "$f22", "$f23",
-                  "$f24", "$f25", "$f26", "$f27", "$f28", "$f29", "$f30", "$f31",
-                  "$fcc0", "$fcc1", "$fcc2", "$fcc3", "$fcc4", "$fcc5", "$fcc6", "$fcc7");
-  }
-  static inline void tls_acquire_retry(void){
-    sesc_acquire_retry();
-  }
-  static inline void tls_acquire_end(void){
-    asm volatile ("jal sesc_acquire_end"
-                  :
-                  : 
-                  : "cc", "memory", "a0", "a1", "a2", "a3", "v0", "v1",
-                  "t0", "t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9",
-                  "s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7", "ra",
-                  "$f0",  "$f1",  "$f2",  "$f3",  "$f4",  "$f5",  "$f6",  "$f7",
-                  "$f8",  "$f9",  "$f10", "$f11", "$f12", "$f13", "$f14", "$f15",
-                  "$f16", "$f17", "$f18", "$f19", "$f20", "$f21", "$f22", "$f23",
-                  "$f24", "$f25", "$f26", "$f27", "$f28", "$f29", "$f30", "$f31",
-                  "$fcc0", "$fcc1", "$fcc2", "$fcc3", "$fcc4", "$fcc5", "$fcc6", "$fcc7");
-  }
-  static inline void tls_release_begin(void){
-    asm volatile ("jal sesc_release_begin"
-                  :
-                  : 
-                  : "cc", "memory", "a0", "a1", "a2", "a3", "v0", "v1",
-                  "t0", "t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9",
-                  "s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7", "ra",
-                  "$f0",  "$f1",  "$f2",  "$f3",  "$f4",  "$f5",  "$f6",  "$f7",
-                  "$f8",  "$f9",  "$f10", "$f11", "$f12", "$f13", "$f14", "$f15",
-                  "$f16", "$f17", "$f18", "$f19", "$f20", "$f21", "$f22", "$f23",
-                  "$f24", "$f25", "$f26", "$f27", "$f28", "$f29", "$f30", "$f31",
-                  "$fcc0", "$fcc1", "$fcc2", "$fcc3", "$fcc4", "$fcc5", "$fcc6", "$fcc7");
-  }
-  static inline void tls_release_end(void){
-    asm volatile ("jal sesc_release_end\njal sesc_change_epoch"
-                  :
-                  : 
-                  : "cc", "memory", "a0", "a1", "a2", "a3", "v0", "v1",
-                  "t0", "t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9",
-                  "s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7", "ra",
-                  "$f0",  "$f1",  "$f2",  "$f3",  "$f4",  "$f5",  "$f6",  "$f7",
-                  "$f8",  "$f9",  "$f10", "$f11", "$f12", "$f13", "$f14", "$f15",
-                  "$f16", "$f17", "$f18", "$f19", "$f20", "$f21", "$f22", "$f23",
-                  "$f24", "$f25", "$f26", "$f27", "$f28", "$f29", "$f30", "$f31",
-                  "$fcc0", "$fcc1", "$fcc2", "$fcc3", "$fcc4", "$fcc5", "$fcc6", "$fcc7");
-  }
+
   static inline void tls_lock_init(slock_t *lock_ptr){
+#if !(defined ASPECT)
     lock_ptr->spin=UNLOCKED;
+#endif
   }
   static inline void tls_lock(slock_t *lock_ptr){
-    tls_acquire_begin();
-    if(lock_ptr->spin!=UNLOCKED)
-      tls_acquire_retry();
-    lock_ptr->spin=LOCKED;
-    tls_acquire_end();
+#if (defined ASPECT)
+    aspectAtomicBegin();
+#else
+    typedef volatile long vollong;
+    register vollong *spinptr=&(lock_ptr->spin);
+    aspectAcquireBegin();
+    if(*spinptr!=UNLOCKED)
+      aspectAcquireRetry();
+    aspectAcquireExit();
+    *spinptr=LOCKED;
+    aspectAtomicEnd();
+#endif
   }
   static inline void tls_unlock(slock_t *lock_ptr){
-    tls_release_begin();
-    lock_ptr->spin=UNLOCKED;
-    tls_release_end();
+#if (defined ASPECT)
+    aspectAtomicEnd();
+#else
+    typedef volatile long vollong;
+    register vollong *spinptr=&(lock_ptr->spin);
+    aspectReleaseBegin();
+    *spinptr=UNLOCKED;
+    aspectAtomicEnd();
+#endif
   }
   static inline void tls_barrier_init(sbarrier_t *barr_ptr){
     barr_ptr->count=0;
     barr_ptr->gsense=0;
   }
-  static inline void tls_barrier(sbarrier_t *barr_ptr, int num_proc){
-    register int  lsense=!barr_ptr->gsense;
-	 register int lcount;
-    tls_acquire_begin();
-    lcount=barr_ptr->count++;
-    tls_acquire_end();
+  static inline void tls_barrier(sbarrier_t *barr_ptr, long num_proc){
+    typedef volatile int volint;
+    register volint *gsenseptr=&(barr_ptr->gsense);
+    register int  lsense=!(*gsenseptr);
+    typedef volatile long vollong;
+    register vollong *countptr=&(barr_ptr->count);
+    register long lcount;
+    aspectAtomicBegin();
+    lcount=(*countptr)++;
     if(lcount==num_proc-1){
       barr_ptr->count=0;
-      tls_release_begin();
-      barr_ptr->gsense=lsense;
-      tls_release_end();
+      aspectReleaseEnter();
+      (*gsenseptr)=lsense;
+      aspectAtomicEnd();
     }else{
-      tls_acquire_begin();
-      if(barr_ptr->gsense!=lsense)
-        tls_acquire_retry();
-      tls_acquire_end();
+      aspectAtomicEnd();
+      aspectAcquireBegin();
+      if((*gsenseptr)!=lsense)
+        aspectAcquireRetry();
+      aspectAtomicEnd();
     }
   }
   static inline void tls_flag_init(sflag_t *flag_ptr){
@@ -420,15 +414,19 @@ extern "C" {
     flag_ptr->flag=LOCKED;
   }
   static inline void tls_flag_set(sflag_t *flag_ptr){
-    tls_release_begin();
-    flag_ptr->flag=UNLOCKED;
-    tls_release_end();
+    typedef volatile int volint;
+    register volint *flagptr=&(flag_ptr->flag);
+    aspectReleaseBegin();
+    *(flagptr)=UNLOCKED;
+    aspectAtomicEnd();
   }
   static inline void tls_flag_wait(sflag_t *flag_ptr){
-    tls_acquire_begin();
-    if(flag_ptr->flag!=UNLOCKED)
-      tls_acquire_retry();
-    tls_acquire_end();
+    typedef volatile int volint;
+    register volint *flagptr=&(flag_ptr->flag);
+    aspectAcquireBegin();
+    if((*flagptr)!=UNLOCKED)
+      aspectAcquireRetry();
+    aspectAtomicEnd();
   }
 
 #endif
