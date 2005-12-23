@@ -3,206 +3,498 @@
 #include "SescConf.h"
 #include "AdvancedStats.h"
 
+void callSysCallExit(ThreadContext *context,icode_ptr picode){
+  tls::Epoch *epoch=context->getEpoch();
+  I(epoch);
+  epoch->newSysCall<SysCallExit>()->exec(context,picode);
+}
+  
 namespace tls{
 
   Stats::Group AllStats;
 
   // Statistics for all epochs
-  Stats::Distribution NumRunSClockAdj(&AllStats,"number of run-time SClock adjustments");
-  Stats::Distribution BufBlocksAdjusted(&AllStats,"number of buffer blocks per SClock adjustment");
-  Stats::Distribution EpochInstObserver(&AllStats,"number of instructions per epoch");
-  Stats::Distribution EpochBuffObserver(&AllStats,"bytes of buffer space per epoch");
-
-  // Statistics for re-enacted epochs
-  Stats::Distribution ReplayRelSpeed(&AllStats,"relative speed of reenactement execution");
-
-  // Statistics for data race detection
-  Stats::Distribution SrcAnomaliesPerEpoch(&AllStats,"source anomalies detected per epoch"),
-    DstAnomaliesPerEpoch(&AllStats,"destination anomalies detected per epoch"),
-    SrcRacesPerEpoch(&AllStats,"source races detected per epoch"),
-    DstRacesPerEpoch(&AllStats,"destination races detected per epoch"),
-    SrcRacesPerSrcRaceEpoch(&AllStats,"source races detected per source-race epoch"),
-    SrcAnomaliesPerSrcRaceEpoch(&AllStats,"source anomalies detected per source-race epoch"),
-    AnomaliesPerSrcRaceEpoch(&AllStats,"total anomalies detected per source-race epoch"),
-    RacesPerRaceEpoch(&AllStats,"total races detected per race epoch"),
-    AnomaliesPerRaceEpoch(&AllStats,"total anomalies detected per race epoch");
+  Stats::Distribution NumRunClockAdj(&AllStats,"number of run-time clock adjustments");
+  Stats::Distribution BufBlocksAdjusted(&AllStats,"number of buffer blocks per clock adjustment");
+  Stats::Distribution EpochInstructions(&AllStats,"number of instructions per epoch");
+  Stats::Distribution EpochBuffSpace(&AllStats,"bytes of buffer space per epoch");
 
   // Statistics for acquire/release
-  Stats::Distribution AcquireBlocksNeeded(&AllStats,"number of buffer blocks needed to perform acquire");
+  Stats::Distribution AtomicCommitInstrs(&AllStats,"number of instructions committed in atomic");
+  Stats::Distribution AtomicSquashInstrs(&AllStats,"number of instructions squashed in atomic");
+  Stats::Distribution AtomicTotalBlocks(&AllStats,"number of blocks accessed in atomic");
+  Stats::Distribution AtomicConsumedBlocks(&AllStats,"number of blocks consumed in atomic");
+  Stats::Distribution AtomicProducedBlocks(&AllStats,"number of blocks produced in atomic");
   
-  // Per-epoch statistics for the detection window  
-  Stats::Distribution DetWinEpochObserver(&AllStats,"number of epochs in epoch's detection window");
-  Stats::Distribution DetWinInstObserver(&AllStats,"number of instructions in epoch's detection window");
-  Stats::Distribution DetWinBuffObserver(&AllStats,"bytes of buffer space in epoch's detection window");
-#if (defined CollectVersionCountStats)
-  Stats::Distribution DetWinVersObserver(&AllStats,"number of same-block versions in epoch's detection window");
-#endif // CollectVersionCountStats
+  // Statistics for squashes
+  Stats::Distribution SquashInstructions(&AllStats,"number of instructions squashed");
 
-  // Per-instruction statistics for the detection window
-  Stats::Distribution InsDetWinEpochObserver(&AllStats,"number of epochs in instruction's detection window");
-  Stats::Distribution InsDetWinInstObserver(&AllStats,"number of instructions in instruction's detection window");
-  Stats::Distribution InsDetWinBuffObserver(&AllStats,"bytes of buffer space in instruction's detection window");
-#if (defined CollectVersionCountStats)
-  Stats::Distribution InsDetWinVersObserver(&AllStats,"number of same-block versions in instruction's detection window");
-#endif // CollectVersionCountStats
-
-  // Statistics for the race groups
+  // Statistics for system calls
   
-  // Window of the race group
-  Stats::Distribution RaceGrpWinEpochObserver(&AllStats,"number of epochs in the window of the race group");
-  Stats::Distribution RaceGrpWinInstObserver(&AllStats,"number of instructions in the window of the race group");
-  Stats::Distribution RaceGrpWinBuffObserver(&AllStats,"bytes of buffer space in the window of the race group");
-  Stats::Distribution RaceGrpWinVersObserver(&AllStats,"number of same-block versions in the window of the race group");
-  // Initial race in the race group
-  Stats::Distribution RaceGrpIniEpochObserver(&AllStats,"number of epochs for the initial race of the group");
-  Stats::Distribution RaceGrpIniInstObserver(&AllStats,"number of instructions for the initial race of the group");
-  Stats::Distribution RaceGrpIniBuffObserver(&AllStats,"bytes of buffer space for the initial race of the group");
-  Stats::Distribution RaceGrpIniVersObserver(&AllStats,"number of same-block versions for the initial race of the group");
-  // Shortest race in the race group
-  Stats::Distribution RaceGrpShortEpochObserver(&AllStats,"number of epochs for the shortest race of the group");
-  Stats::Distribution RaceGrpShortInstObserver(&AllStats,"number of instructions for the shortest race of the group");
-  Stats::Distribution RaceGrpShortBuffObserver(&AllStats,"bytes of buffer space for the shortest race of the group");
-  Stats::Distribution RaceGrpShortVersObserver(&AllStats,"number of same-block versions for the shortest race of the group");
-
-  Stats::Distribution AccuNumIndepEpochs(&AllStats,"accurate number of independent epochs");
-  Stats::Distribution AccuFarIndepEpoch(&AllStats,"distance to farthest independent epoch");
-  Stats::Distribution TwoLimNumIndepEpochs(&AllStats,"two-limit number of independet epochs");
-  Stats::Distribution TwoLimFarIndepEpoch(&AllStats,"two-limit distance to latest independent epoch");
-  Stats::Distribution OneLimNumIndepEpochs(&AllStats,"one-limit number of independent epochs");
-  Stats::Distribution OneLimFarIndepEpoch(&AllStats,"one-limit distance to latest independent epoch");
-
   Stats::Distribution SysCallCount(&AllStats,"recorded system calls per epoch");
 
-  typedef std::set<Address> AddressSet;
-  AddressSet raceInstAddr, anomalyInstAddr;
+  ClockValue LClock::syncDelta;
+
+  void LClock::staticConstructor(void){
+    SescConf->isLong("TLS","LClockSyncDelta");
+    SescConf->isGT("TLS","LClockSyncDelta",-1);
+    syncDelta=SescConf->getLong("TLS","LClockSyncDelta");
+  }
 
   unsigned int numBegThread=0;
   unsigned int numEndThread=0;
 
-  ClockValue syncClockDelta;
+  InstrCount Epoch::limitEpochInstrCount;
+  InstrCount Epoch::maxEpochInstrCount=0;
 
   void Epoch::staticConstructor(void){
-    syncClockDelta=SescConf->getInt("TLS","syncClockDelta");
+    SysCallFileIO::staticConstructor();
+    LClock::staticConstructor();
+    Thread::staticConstructor();
+    SescConf->isLong("TLS","limitEpochInstrCount");
+    SescConf->isGT("TLS","limitEpochInstrCount",-1);
+    limitEpochInstrCount=(InstrCount)(SescConf->getLong("TLS","limitEpochInstrCount"));
+    SescConf->isBool("TLS","threadsSequential");
+    threadsSequential=SescConf->getBool("TLS","threadsSequential");
+    SescConf->isLong("TLS","limitThreadBlockVersions");
+    SescConf->isGT("TLS","limitThreadBlockVersions",-1);
+    limitThreadBlockVersions=(size_t)(SescConf->getLong("TLS","limitThreadBlockVersions"));
+    SescConf->isBool("TLS","mustFindAllRaces");
+    mustFindAllRaces=SescConf->getBool("TLS","mustFindAllRaces");
     //    SescConf->isBool("TLS","ignoreRaces");
     //    dataRacesIgnored=SescConf->getBool("TLS","ignoreRaces");
     dataRacesIgnored=false;
-    //    SescConf->isInt("TLS","epochBufferSizeLimit");
-    //    SescConf->isGT("TLS","epochBufferSizeLimit",-1);
-    //    long epochBufferSizeLimit=SescConf->getInt("TLS","epochBufferSizeLimit");
-	 int epochBufferSizeLimit=0;
+    numEpochs=0;
+    numRaceMissEpochs=0;
+    SescConf->isLong("TLS","epochBufferSizeLimit");
+    SescConf->isGT("TLS","epochBufferSizeLimit",-1);
+    long epochBufferSizeLimit=SescConf->getLong("TLS","epochBufferSizeLimit");
     I(epochBufferSizeLimit>=0);
     maxBlocksPerEpoch=(size_t)(epochBufferSizeLimit/blockSize);
     I(maxBlocksPerEpoch*blockSize==(size_t)epochBufferSizeLimit);
+    SescConf->isBool("TLS","testRollback");
+    testRollback=SescConf->getBool("TLS","testRollback");
+    clockAtLastRollback=smallClockValue;
+    squashToTestRollback=0;
+    dynamicAtmOmmitCount=0;
+    staticAtmOmmitCount=0;
+    if(SescConf->getLong("TLS","atmOmmit")>0){
+      dynamicAtmOmmitCount=SescConf->getLong("TLS","atmOmmit");
+    }else{
+      staticAtmOmmitCount=-SescConf->getLong("TLS","atmOmmit");
+    }
+    atmOmmitInstr=0;
+    atmOmmitCount=0;
     Checkpoint::staticConstructor();
   }
 
-  // Statistics for synchronization
+  bool Epoch::threadsSequential;
+  size_t Epoch::maxAllBlockVersions=0;
+  size_t Epoch::limitThreadBlockVersions;
+  size_t Epoch::maxThreadBlockVersions=0;
 
-  // Number of waiting acquirers an action has
-  Stats::Distribution WaitingAcquirers(&AllStats,"number of waiting acquirers for a sync action");
-
+  bool Epoch::mustFindAllRaces;
   bool Epoch::dataRacesIgnored;
+  size_t Epoch::numEpochs;
+  size_t Epoch::numRaceMissEpochs;
   size_t Epoch::maxBlocksPerEpoch;
+  bool Epoch::testRollback;
+  ClockValue Epoch::clockAtLastRollback;
+  Epoch *Epoch::squashToTestRollback;
 
-  void Epoch::staticDestructor(void){
+  void Epoch::report(void){
+    allInstRaces.report();
+    Report::field("TLS:numEpochs=%d",numEpochs);
+    Report::field("TLS:maxEpochInstrCount=%lld",maxEpochInstrCount);
+    Report::field("TLS:numRaceMissEpochs=%d",numRaceMissEpochs);
+    Thread::report();
+    Report::field("TLS:threadsBegun=%d",numBegThread);
+    Report::field("TLS:threadsEnded=%d",numEndThread);
+    size_t staticAtmSections=0;
+    size_t dynamicAtmSections=0;
+    for(AddrToCount::iterator atmIt=atomicEntryCount.begin();
+	atmIt!=atomicEntryCount.end();atmIt++){
+      I(atmIt->second>0);
+      staticAtmSections++;
+      dynamicAtmSections+=atmIt->second;
+    }
+    Report::field("TLS:staticAtmSections=%d",staticAtmSections);
+    Report::field("TLS:dynamicAtmSections=%d",dynamicAtmSections);
+    Report::field("TLS:atmOmmitInstr=%08x",atmOmmitInstr);
+    Report::field("TLS:atmOmmitCount=%d",atmOmmitCount);
+    Report::field("TLS::maxAllBlockVersions=%d",maxAllBlockVersions);
+    Report::field("TLS::maxThreadBlockVersions=%d",maxThreadBlockVersions);
     AllStats.report();
-    if(raceInstAddr.empty()){
-      printf("No races found\n");
-    }else{
-      printf("Races in %u, anomalies in %u (%5.3f) instructions\n",
-	     raceInstAddr.size(),anomalyInstAddr.size(),
-	     (float)(anomalyInstAddr.size())/((float)raceInstAddr.size()));
-      AddressSet::iterator raceAddrIt=raceInstAddr.begin();
-      AddressSet::iterator anomalyAddrIt=anomalyInstAddr.begin();
-      while((raceAddrIt!=raceInstAddr.end())||(anomalyAddrIt!=anomalyInstAddr.end())){
-	Address addr=0;
-	char *type="";
-	if((raceAddrIt==raceInstAddr.end())||
-	   ((anomalyAddrIt!=anomalyInstAddr.end())&&(*raceAddrIt>*anomalyAddrIt))){
-	  addr=*anomalyAddrIt;
-	  type=" A";
-	  anomalyAddrIt++;
-	}else if((anomalyAddrIt==anomalyInstAddr.end())||
-		 ((raceAddrIt!=raceInstAddr.end())&&(*anomalyAddrIt>*raceAddrIt))){
-	  addr=*raceAddrIt;
-	  type="R ";
-	  raceAddrIt++;	  
-	}else{
-	  I(anomalyAddrIt!=anomalyInstAddr.end());
-	  I(raceAddrIt!=raceInstAddr.end());
-	  I(*anomalyAddrIt==*raceAddrIt);
-	  addr=*raceAddrIt;
-	  type="RA";
-	  raceAddrIt++; anomalyAddrIt++;
-	}
-	printf("Instr %08lx %2s\n",addr,type);
-      }
-    }
-    BlockVersions::staticDestructor();
-    printf("Begun %lu, ended %lu threads\n",numBegThread,numEndThread);
-    for(EpochList::iterator epochIt=allEpochs.begin();epochIt!=allEpochs.end();epochIt++){
-      I(0);
-      printf("Epoch %ld:%d still remains\n",(*epochIt)->mySClock,(*epochIt)->getTid());
-    }
-    Checkpoint::staticDestructor();
   }
 
-  VClock::IndexCounts VClock::indexCounts(0);
-  VClock::VClockList VClock::allVClocks;
-  VClock VClock::initial;
-  VClock VClock::infinite;
+  void Epoch::staticDestructor(void){
+    BlockVersions::staticDestructor();
+    I(numBegThread==numEndThread);
+    for(EpochList::iterator epochIt=allEpochs.begin();epochIt!=allEpochs.end();epochIt++){
+      I(0);
+      printf("Epoch %ld:%d still remains\n",(*epochIt)->myClock,(*epochIt)->getTid());
+    }
+    Checkpoint::staticDestructor();
+    VClock::staticDestructor();
+  }
+
+  // VClock stuff begins here
+
+  size_t VClock::vectorSize=0;
+  VClock::VClockList VClock::statVClocks;
+  VClock::VClockList VClock::usedVClocks;
+  VClock::VClockList VClock::freeVClocks;
+  VClock VClock::smallVClockValue;
+  VClock VClock::largeVClockValue;
+  VClock VClock::freeStart;
+
+  VClock::VClock(void)
+    : myThreadID(invalidThreadID), myVector(),
+      myListPos(statVClocks.size()){
+    I(vectorSize==0);
+    I(usedVClocks.empty());
+    I(freeVClocks.empty());
+    statVClocks.push_back(this);
+    I(statVClocks[myListPos]==this);
+  }
+  VClock::VClock(const VClock *srcClock)
+    : myThreadID(srcClock->myThreadID),
+      myVector(srcClock->myVector),
+      myListPos(usedVClocks.size()){
+    I(myVector.size()==vectorSize);
+    I(freeVClocks.empty());
+    usedVClocks.push_back(this);
+    I(usedVClocks[myListPos]==this);
+  }
+  VClock::~VClock(void){
+    I(myVector.size()==vectorSize);
+    if((myListPos<statVClocks.size())&&(statVClocks[myListPos]==this)){
+      VClock *last=statVClocks.back();
+      if(last!=this){
+	last->myListPos=myListPos;
+	statVClocks[myListPos]=last;
+      }
+      statVClocks.pop_back();
+    }else{
+      I((myListPos<freeVClocks.size())&&(freeVClocks[myListPos]==this));
+      VClock *last=freeVClocks.back();
+      if(last!=this){
+	last->myListPos=myListPos;
+	freeVClocks[myListPos]=last;
+      }
+      freeVClocks.pop_back();
+    }
+  }
+  void VClock::staticDestructor(void){
+    I(usedVClocks.empty());
+    while(freeVClocks.size()){
+      delete freeVClocks.back();
+      freeVClocks.pop_back();
+    }
+  }
+  VClock *VClock::newVClock(const VClock *srcClock, bool incOwnValue){
+    I((srcClock->myListPos>=freeVClocks.size())||(freeVClocks[srcClock->myListPos]!=srcClock));
+    VClock *newClock;
+    // Get a VClock from free list or allocate a new one
+    if(freeVClocks.empty()){
+      newClock=new VClock(srcClock);
+    }else{
+      newClock=freeVClocks.back();
+      newClock->myVector=srcClock->myVector;
+      newClock->myThreadID=srcClock->myThreadID;
+      freeVClocks.pop_back();
+      newClock->myListPos=usedVClocks.size();
+      usedVClocks.push_back(newClock);
+    }
+    if(incOwnValue){
+      I(srcClock->myThreadID!=invalidThreadID);
+      I((size_t)(srcClock->myThreadID)<vectorSize);
+      if(newClock->myVector[srcClock->myThreadID]==smallClockValue)
+        newClock->myVector[srcClock->myThreadID]=startClockValue;
+      else
+        newClock->myVector[srcClock->myThreadID]++;
+    }
+    return newClock;
+  }
+  VClock *VClock::newVClock(const VClock *srcClock, ThreadID tid, bool incOwnValue){
+    I(tid!=invalidThreadID);
+    VClock *newClock=newVClock(srcClock,false);
+    // Increase size of all vectors if new index too large
+    if((size_t)tid>=vectorSize){
+      vectorSize=(size_t)tid+1;
+      // This VClock is extended with the large clock value,
+      largeVClockValue.myVector.resize(vectorSize,largeClockValue);
+      // Everything else is extended with the small clock value
+      for(VClockList::const_iterator statIt=statVClocks.begin();
+	  statIt!=statVClocks.end();statIt++)
+	(*statIt)->myVector.resize(vectorSize,smallClockValue);
+      for(VClockList::iterator usedIt=usedVClocks.begin();
+	  usedIt!=usedVClocks.end();usedIt++)
+	(*usedIt)->myVector.resize(vectorSize,smallClockValue);
+    }
+    newClock->myThreadID=tid;
+    newClock->myVector[tid]=freeStart[tid];
+    if(incOwnValue){
+      I((size_t)tid<vectorSize);
+      if(newClock->myVector[tid]==smallClockValue)
+        newClock->myVector[tid]=startClockValue;
+      else
+        newClock->myVector[tid]++;
+    }
+    return newClock;
+  }
+  void VClock::freeVClock(VClock *oldClock){
+    I((oldClock->myListPos<usedVClocks.size())&&(usedVClocks[oldClock->myListPos]==oldClock));
+    ID(oldClock->myThreadID=invalidThreadID);
+    VClock *lastClock=usedVClocks.back();
+    lastClock->myListPos=oldClock->myListPos;
+    usedVClocks[oldClock->myListPos]=lastClock;
+    usedVClocks.pop_back();
+    oldClock->myListPos=freeVClocks.size();
+    freeVClocks.push_back(oldClock);
+  }
 
   Thread::ThreadVector Thread::threadVector(0);
-  Thread::IndexSet  Thread::freeIndices;
+  ClockValue Thread::syncClockDelta;
+  Thread *Thread::checkClockOwner=0;
 
-  Thread::Thread(ThreadID tid)
-    : myID(tid),
-      threadEpochs(),
-      threadSafe(threadEpochs.end()),
-      threadSafeClk(),
+  size_t Thread::totalThreads=0;
+  size_t Thread::waitingThreads=0;
+
+  InstrCount Thread::limitThreadInstrCount;
+  InstrCount Thread::maxThreadInstrCount=0;
+  size_t Thread::limitThreadOldVersions;
+  size_t Thread::maxThreadOldVersions=0;
+  size_t Thread::limitThreadAllVersions;
+  size_t Thread::maxThreadAllVersions=0;
+
+  void simExpired(int sig){
+    raise(SIGUSR1);
+    raise(SIGKILL);
+  }
+
+  void Thread::staticConstructor(void){
+    SescConf->isLong("TLS","limitSimulationMinutes");
+    SescConf->isGT("TLS","limitSimulationMinutes",-1);
+    long runMins=SescConf->getLong("TLS","limitSimulationMinutes");
+    if(runMins){
+      long runSecs=runMins*60;
+      struct itimerval itv;
+      itv.it_value.tv_sec=runSecs;
+      itv.it_value.tv_usec=0;
+      itv.it_interval.tv_sec=0;
+      itv.it_interval.tv_usec=0;    
+      int timerRes=setitimer(ITIMER_VIRTUAL,&itv,0);
+      I(timerRes==0);
+      struct sigaction sac;
+      sac.sa_handler=simExpired;
+      int setRes=sigemptyset(&(sac.sa_mask));
+      I(setRes==0);
+      sac.sa_flags=SA_ONESHOT|SA_NOMASK;
+      int actionRes=sigaction(SIGVTALRM,&sac,0);
+      I(actionRes==0);
+    }
+    SescConf->isLong("TLS","limitThreadInstrCount");
+    SescConf->isGT("TLS","limitThreadInstrCount",-1);
+    limitThreadInstrCount=(InstrCount)(SescConf->getLong("TLS","limitThreadInstrCount"));
+    SescConf->isLong("TLS","limitThreadOldVersions");
+    SescConf->isGT("TLS","limitThreadOldVersions",-1);
+    limitThreadOldVersions=(size_t)(SescConf->getLong("TLS","limitThreadOldVersions"));
+    SescConf->isLong("TLS","limitThreadAllVersions");
+    SescConf->isGT("TLS","limitThreadAllVersions",-1);
+    limitThreadAllVersions=(size_t)(SescConf->getLong("TLS","limitThreadAllVersions"));
+    I(limitThreadOldVersions<=limitThreadAllVersions);
+    syncClockDelta=SescConf->getLong("TLS","syncClockDelta");
+  }
+  
+  void Thread::report(void){
+    Report::field("TLS:maxThreadInstrCount=%lld",maxThreadInstrCount);
+    Report::field("TLS:maxThreadAllVersions=%d",maxThreadAllVersions);
+    Report::field("TLS:maxThreadOldVersions=%d",maxThreadOldVersions);
+  }
+
+  Thread::Thread(ThreadID myID, ThreadID parentID, ClockValue spawnClock)
+    : myID(myID), parentID(parentID), spawnClock(spawnClock),
+      threadEpochs(), threadSafe(threadEpochs.end()),
+      threadSafeClk(VClock::newVClock(VClock::getSmallValue(),myID,false)),
+      noRacesMissed(VClock::newVClock(VClock::getSmallValue(),false)),
       raceFrontier(threadEpochs.end()),
-      nextFrontierClk(initialClockValue),
+      nextFrontierClk(smallClockValue),
       raceFrontierHolders(0),
-      exitAtEnd(false), myExitCode(0),
-      threadSafeAvailable(true){
+      exitAtEnd(false), myExitCode(0), isWaiting(false),
+      threadSafeAvailable(true),
+      myAllVersionsCount(0), myOldVersionsCount(0), currentInstrCount(0)
+  {
     ID(lastCommitEpoch=0);
     ID(lastFrontierCandidate=0);
-    if(freeIndices.empty()){
-      myIndex=threadVector.size();
-      threadVector.push_back(this);
-    }else{
-      IndexSet::iterator minIndexIt=freeIndices.begin();
-      I(minIndexIt!=freeIndices.end());
-      myIndex=*minIndexIt;
-      freeIndices.erase(minIndexIt);
-      I(myIndex<threadVector.size());
-      I(threadVector[myIndex]==0);
-      threadVector[myIndex]=this;
+    I(myID!=invalidThreadID);
+    if(threadVector.size()<=(size_t)myID)
+      threadVector.resize(myID+1,0);
+    I(threadVector[myID]==0);
+    threadVector[myID]=this;
+    totalThreads++;
+    // Add a child to parent thread
+    if(parentID!=invalidThreadID){
+      I(threadVector[parentID]);
+      threadVector[parentID]->newChild(this);
     }
+    // If possible, become owner of CheckClock
+    if(!checkClockOwner)
+      checkClockOwner=this;
+  }
+  
+  Epoch *Thread::getSpawnEpoch(void){
+    if(parentID==invalidThreadID)
+      return 0;
+    I(spawnClock!=smallClockValue);
+    I(threadVector.size()>(size_t)parentID);
+    Thread *parentThread=threadVector[parentID];
+    if(!parentThread)
+      return 0;
+    EpochList::reverse_iterator threadRIt=parentThread->threadEpochs.rbegin();
+    while((*threadRIt)->myClock<spawnClock)
+      threadRIt++;
+    I(threadRIt!=parentThread->threadEpochs.rend());
+    if((*threadRIt)->myClock==spawnClock)
+      return *threadRIt;
+    I((*threadRIt)->myClock>spawnClock);
+    return 0;
   }
 
   Thread::~Thread(void){
-    I(threadVector[myIndex]==this);
-    I(!freeIndices.count(myIndex));
-    if(myIndex+1==threadVector.size()){
-      while(freeIndices.count(myIndex-1))
-	myIndex--;
-      threadVector.resize(myIndex);
-    }else{
-      threadVector[myIndex]=0;
-      freeIndices.insert(myIndex);
-    }
-    // If thread has not exited already, resume its execution
-    if(!exitAtEnd)
-      osSim->unstop(myID);
+    I(!isWaiting);
+    I(activeChildren.empty());
+    I(zombieChildren.empty());
+    I(!myAllVersionsCount);
+    I(!myOldVersionsCount);
+    totalThreads--;
+    I((!waitingThreads)||(waitingThreads<totalThreads));
+    I(threadVector[myID]==this);
+    threadVector[myID]=0;
+    // If we own the CheckClock, now it is free
+    if(checkClockOwner==this)
+      checkClockOwner=0;
+    osSim->eventExit(myID,ThreadContext::getContext(myID)->getGPR(Arg1stGPR));
+    VClock::freeVClock(threadSafeClk);
+    VClock::freeVClock(noRacesMissed);
   }
-
+  
+  void Thread::newChild(Thread *child){
+    activeChildren.push_back(child);
+  }
+  void Thread::delChild(Thread *child){
+    I(!isWaiting);
+    ThreadList::iterator actIt;
+    for(actIt=activeChildren.begin();*actIt!=child;actIt++)
+      I(actIt!=activeChildren.end());
+    activeChildren.erase(actIt);
+  }
+  bool Thread::endChild(Thread *child, Epoch *exitEpoch){
+    ThreadList::iterator actIt;
+    for(actIt=activeChildren.begin();*actIt!=child;actIt++)
+      I(actIt!=activeChildren.end());
+    activeChildren.erase(actIt);
+    if(isWaiting&&((*threadSafe)->myState==Epoch::State::WaitChild)){
+      I(dynamic_cast<SysCallWait *>(*(SysCallLog::reverse_iterator((*threadSafe)->sysCallLogPos))));
+      SysCallWait *sysCallWait=static_cast<SysCallWait *>(*(SysCallLog::reverse_iterator((*threadSafe)->sysCallLogPos)));
+      ThreadID zombieTid=sysCallWait->getChild();
+      if((zombieTid==-1)||(zombieTid==child->myID)){
+	(*threadSafe)->endWaitChild();
+	sysCallWait->setChild(child->myID);
+	(*threadSafe)->advanceClock(exitEpoch,true);
+	if((*threadSafe)->myState==Epoch::State::Initial){
+	  (*threadSafe)->myVClock->succeed(exitEpoch->myVClock);
+	}else{
+	  I(VClock::isOrder(exitEpoch->myVClock,(*threadSafe)->myVClock));
+	}
+	return true;
+      }
+    }
+    zombieChildren.push_back(child);
+    return false;
+  }
+  bool Thread::exitCalled(Epoch *exitEpoch){
+    I(exitEpoch==threadEpochs.front());
+    I(parentID!=invalidThreadID);
+    I(threadVector[parentID]);
+    Thread *parentThread=threadVector[parentID];
+    if(parentThread->endChild(this,exitEpoch))
+      return true;
+    wait();
+    return false;
+  }
+  Thread *Thread::harvestZombieThread(ThreadID tid){
+    for(ThreadList::iterator zombieIt=zombieChildren.begin();
+	zombieIt!=zombieChildren.end();zombieIt++){
+      Thread *zombie=(*zombieIt);
+      if((tid==invalidThreadID)||(zombie->myID==tid)){
+	zombieChildren.erase(zombieIt);
+	return zombie;
+      }
+    }
+    return 0;
+  }
+  bool Thread::waitCalled(Epoch *waitEpoch){
+    if(activeChildren.empty()&&zombieChildren.empty())
+      return true;
+    I(dynamic_cast<SysCallWait *>(*(SysCallLog::reverse_iterator(waitEpoch->sysCallLogPos))));
+    SysCallWait *sysCallWait=static_cast<SysCallWait *>(*(SysCallLog::reverse_iterator(waitEpoch->sysCallLogPos)));
+    ThreadID zombieTid=sysCallWait->getChild();
+    Thread *zombieThread=harvestZombieThread(zombieTid);
+    if(!zombieThread){
+      wait();
+      return false;
+    }
+    zombieTid=zombieThread->myID;
+    I(zombieThread->isWaiting);
+    I((zombieThread->isWaiting)||(waitEpoch->myState!=Epoch::State::Initial));
+    if(zombieThread->isWaiting){
+      Epoch *zombieEpoch=*(zombieThread->threadSafe);
+      I(zombieEpoch->myState==Epoch::State::Waiting);
+      I(zombieEpoch->myState==Epoch::State::WaitZombie);
+      zombieEpoch->endWaitZombie();
+      sysCallWait->setChild(zombieTid);
+      waitEpoch->advanceClock(zombieEpoch,true);
+      if(waitEpoch->myState==Epoch::State::Initial){
+	waitEpoch->myVClock->succeed(zombieEpoch->myVClock);
+      }else{
+	I(VClock::isOrder(zombieEpoch->myVClock,waitEpoch->myVClock));
+      }
+    }
+    return true;
+  }
+  void Thread::undoWaitCall(Thread *child){
+    for(ThreadList::iterator actIt=activeChildren.begin();
+	actIt!=activeChildren.end();actIt++){
+      if(child==*actIt)
+	return;
+    }
+    zombieChildren.push_front(child);
+  }
+  void Thread::undoExitCall(void){
+    if(parentID==invalidThreadID)
+      return;
+    Thread *parent=threadVector[parentID];
+    I(parent);
+    I(parent->zombieChildren.back()==this);
+    parent->zombieChildren.pop_back();
+    parent->activeChildren.push_front(this);
+  }
+  Thread *Thread::getThreadForNewEpoch(ThreadID tid, Epoch *parentEpoch){
+    if(!parentEpoch){
+      return new Thread(tid,invalidThreadID,smallClockValue);
+    }else if(tid!=parentEpoch->getTid()){
+      return new Thread(tid,parentEpoch->getTid(),parentEpoch->myClock);
+    }else{
+      return parentEpoch->myThread;
+    }
+  }
   EpochList::iterator Thread::addEpoch(Epoch *epoch){
     // If this is the very first epoch in this thread,
     // it can have races with any epoch in each of the
     // other threads.
     if(threadEpochs.empty()){
-      I(nextFrontierClk==initialClockValue);
+      I(nextFrontierClk==smallClockValue);
       for(ThreadVector::iterator it=threadVector.begin();
 	  it!=threadVector.end();it++){
 	Thread *thread=*it;
@@ -211,30 +503,32 @@ namespace tls{
 	// more holder (this thread)
 	if(thread){
 	  if(thread->raceFrontierHolders){
-	    I(thread->noRacesMissed[myIndex]==initialClockValue);
+	    I(thread->noRacesMissed->getComponent(myID)==smallClockValue);
 	    thread->raceFrontierHolders++;
 	  }else{
-	    threadSafeClk[thread->myIndex]=thread->nextFrontierClk;
-	    thread->noRacesMissed[myIndex]=thread->nextFrontierClk;
+	    threadSafeClk->setComponent(thread->myID,thread->nextFrontierClk);
+	    thread->noRacesMissed->setComponent(myID,thread->nextFrontierClk);
 	  }
 	}
       }
     }
     // Find the position of the new epoch in threadEpochs
     EpochList::iterator listPos=threadEpochs.begin();
-    while((listPos!=threadEpochs.end())&&(epoch->mySClock<(*listPos)->mySClock))
+    while((listPos!=threadEpochs.end())&&(epoch->myClock<(*listPos)->myClock))
       listPos++;
     // Except for the very first epoch, there should be older epochs
     // in this thread already (the partent of the new epoch is one such epoch)
     I(threadEpochs.empty()||(listPos!=threadEpochs.end()));
     // We are either at the end, or in front of an older epoch
-    I((listPos==threadEpochs.end())||(epoch->mySClock>(*listPos)->mySClock));
+    I((listPos==threadEpochs.end())||(epoch->myClock>(*listPos)->myClock));
     // Insert and return the iterator to the inserted position
     return threadEpochs.insert(listPos,epoch);
   }
 
   bool Thread::removeEpoch(Epoch *epoch){
     EpochList::iterator listPos=epoch->myThreadEpochsPos;
+    if(listPos==threadEpochs.end())
+      return false;
     I(epoch->myState!=Epoch::State::ThreadSafe);
     if(listPos==threadSafe){
       // A ThreadSafe epoch can not be removed until it also commits
@@ -242,16 +536,23 @@ namespace tls{
       I(epoch->myState>=Epoch::State::Committed);
       threadSafe++;
     }
+    EpochList::reverse_iterator nextFrontier(raceFrontier);
+    bool wasNextFrontier=false;
+    if(raceFrontier!=threadEpochs.begin()){
+      if((epoch==*nextFrontier)&&(epoch->myState>=Epoch::State::Committed))
+        wasNextFrontier=true;
+    }
     if(listPos==raceFrontier)
       raceFrontier++;
     threadEpochs.erase(listPos);
+    epoch->myThreadEpochsPos=threadEpochs.end();
     ID(if(epoch==lastFrontierCandidate) lastFrontierCandidate=0);
     ID(if(epoch==lastCommitEpoch) lastCommitEpoch=0);
     // Is this the last epoch in this thread?
     if(threadEpochs.empty()){
       I(epoch->myState==Epoch::State::Committed);
       I(epoch->myState==Epoch::State::Completed);
-      I(epoch->myState==Epoch::State::Merging);
+      I(epoch->myState>=Epoch::State::LazyMerge);
       // If thread not exited already, update its context so it can proceed
       if(!exitAtEnd){
 	// Transfer context of the epoch to the thread
@@ -264,8 +565,13 @@ namespace tls{
       }
       return true;
     }
+    if(wasNextFrontier){
+      raceFrontierHolders=0;
+      if((*nextFrontier)->myState>=Epoch::State::Committed)
+        newFrontierCandidate();
+    }
     return false;
-  }  
+  }
   
   void Thread::moveThreadSafe(void){
     I(threadSafe!=threadEpochs.begin());
@@ -274,22 +580,26 @@ namespace tls{
     changeThreadSafeVClock((*threadSafe)->myVClock);
   }
 
-  void Thread::changeThreadSafeVClock(const VClock &newVClock){
+  void Thread::changeThreadSafeVClock(const VClock *newVClock){
     // Update the no-races-missed vector of each thread
-    for(VClock::size_type i=0;i<VClock::size();i++){
-      ClockValue newValue=newVClock[i];
-      ClockValue oldValue=threadSafeClk[i];
+    for(size_t i=0;i<VClock::size();i++){
+      ClockValue newValue=newVClock->getComponent(i);
+      ClockValue oldValue=threadSafeClk->getComponent(i);
       // Only update forward
       if(newValue<=oldValue)
 	continue;
-      threadSafeClk[i]=newValue;
+      threadSafeClk->setComponent(i,newValue);
       Thread *otherThread=threadVector[i];
       if(!otherThread)
         continue;
       // In the other thread, the epoch with a VClock value
       // of newValue has not missed any races with this thread
-      I(otherThread->noRacesMissed[myIndex]==oldValue);
-      otherThread->noRacesMissed[myIndex]=newValue;
+      I(otherThread->noRacesMissed->getComponent(myID)==oldValue);
+      otherThread->noRacesMissed->setComponent(myID,newValue);
+      // If the other thread has no waiting frontier candidate,
+      // it's next-frontier is still not committed, so do nothing
+      if(!otherThread->raceFrontierHolders)
+        continue;
       // If the frontier candidate already could miss no
       // races with this thread, it is still a candidate for
       // some other reason, so we do nothing else now
@@ -301,7 +611,6 @@ namespace tls{
 	continue;
       // This thread is no longer holding the race frontier in
       // the other thread. If nothing else holds it, move it.
-      I(otherThread->raceFrontierHolders>0);
       otherThread->raceFrontierHolders--;
       if(!otherThread->raceFrontierHolders)
 	otherThread->moveRaceFrontier();
@@ -309,21 +618,39 @@ namespace tls{
   }
 
   void Thread::commitEpoch(Epoch *epoch){
+    I(epoch->myState>=Epoch::State::Committed);
     I(epoch!=lastCommitEpoch);
+    currentInstrCount+=epoch->pendInstrCount;
+    if(currentInstrCount>maxThreadInstrCount)
+      maxThreadInstrCount=currentInstrCount;
+    if(limitThreadInstrCount&&(maxThreadInstrCount>limitThreadInstrCount)){
+      EpochList::iterator delEpochIt=Epoch::allEpochs.begin();
+      I(delEpochIt!=Epoch::allEpochs.end());
+      while(*delEpochIt!=epoch){
+	Epoch *delEpoch=*delEpochIt;
+	delEpochIt++;
+	I(delEpochIt!=Epoch::allEpochs.end());
+	if(delEpoch->myState<Epoch::State::ThreadSafe){
+	  delEpoch->unspawn();
+	}else if(delEpoch->canBeTruncated()){
+	  delEpoch->complete();
+	}
+      }
+    }
     if(epoch->myThreadEpochsPos==threadSafe){
-      // When last thread commits, thread safe clock become infinite
+      // When last thread commits, thread safe clock becomes too-large
       // because no running epoch in this thread can participate in a race
       I(epoch->myThreadEpochsPos==threadEpochs.begin());
-      changeThreadSafeVClock(VClock::getInfinite());
+      changeThreadSafeVClock(VClock::getLargeValue());
     }
-    if(nextFrontierClk>=epoch->myVClock.value())
-      return;
-    I(epoch!=lastFrontierCandidate);
-    ID(lastCommitEpoch=epoch);
-    EpochList::reverse_iterator nextFrontier(raceFrontier);
-    if(epoch==*nextFrontier){
-      I(!raceFrontierHolders);
-      newFrontierCandidate();
+    if(nextFrontierClk<epoch->myVClock->ownValue()){
+      I(epoch!=lastFrontierCandidate);
+      ID(lastCommitEpoch=epoch);
+      EpochList::reverse_iterator nextFrontier(raceFrontier);
+      if(epoch==*nextFrontier){
+	I((epoch->myState>=Epoch::State::LazyMerge)||(!raceFrontierHolders));
+	newFrontierCandidate();
+      }
     }
   }
 
@@ -332,50 +659,60 @@ namespace tls{
     I(raceFrontier!=threadEpochs.begin());
     raceFrontier--;
 #if (defined DEBUG)
-    I(nextFrontierClk==(*raceFrontier)->myVClock.value());
-    for(VClock::size_type i=0;i<VClock::size();i++){
+    I(nextFrontierClk==(*raceFrontier)->myVClock->ownValue());
+    for(size_t i=0;i<VClock::size();i++){
       // If no thread with this index, do not count it
       if(!threadVector[i])
 	continue;
-      I(nextFrontierClk<=noRacesMissed[i]);
+      I(nextFrontierClk<=noRacesMissed->getComponent(i));
     }    
 #endif
-    raceFrontierHolders=0;
     EpochList::reverse_iterator nextFrontier(raceFrontier);
     if((nextFrontier!=threadEpochs.rend())&&((*nextFrontier)->myState>=Epoch::State::Committed))
       newFrontierCandidate();
-    // Try to merge epochs that are past the race frontier
-    EpochList::reverse_iterator mergeItR;
-    for(mergeItR=Epoch::allEpochs.rbegin();
-	mergeItR!=Epoch::allEpochs.rend();mergeItR++){
-      Epoch *mergeEpoch=(*mergeItR);
-      Thread *mergeThread=mergeEpoch->myThread;
-      EpochList::reverse_iterator nextFrontier(mergeThread->raceFrontier);
-      if((nextFrontier!=mergeThread->threadEpochs.rend())&&
-	 ((*nextFrontier)==mergeEpoch))
-	break;
-    }
-    if(mergeItR.base()!=Epoch::allEpochs.end()){
-      I((*(mergeItR.base()))->myState==Epoch::State::Committed);
-      (*(mergeItR.base()))->requestActiveMerge();
+    // If there are past-frontier epochs with RaceHold set, remove their hold
+    if((raceFrontier!=threadEpochs.end())&&((*raceFrontier)->myState==Epoch::State::RaceHold)){
+      // Find youngest epoch past race frontier without RaceHold
+      EpochList::iterator holdIt=raceFrontier;
+      while((holdIt!=threadEpochs.end())&&((*holdIt)->myState==Epoch::State::RaceHold))
+	holdIt++;
+      I(holdIt!=raceFrontier);
+      // Removing merge holds may end up destroying the thread,
+      // so we remember the thread ID to check its existence
+      ThreadID threadID=myID;
+      EpochList::reverse_iterator holdItR(holdIt);
+      while(holdItR.base()!=raceFrontier){
+	Epoch *holdEpoch=*holdItR;
+	holdEpoch->removeMergeHold(Epoch::State::RaceHold);
+	// If the thread is gone, we are done
+	if(!threadVector[threadID])
+	  break;
+	// If no more epochs left in thread, we are done
+	if(holdItR==threadEpochs.rend())
+	  break;
+	// If epoch still there after hold removal, skip it
+	if(holdEpoch==(*holdItR))
+	  holdItR++;
+      }
     }
   }
-  
+
   void Thread::newFrontierCandidate(void){
-    I(!raceFrontierHolders);
     EpochList::reverse_iterator nextFrontier(raceFrontier);
+    I(((*nextFrontier)->myState>=Epoch::State::LazyMerge)||(!raceFrontierHolders));
+    raceFrontierHolders=0;
     I(nextFrontier!=threadEpochs.rend());
     I((*nextFrontier)->myState>=Epoch::State::Committed);
-    I(nextFrontierClk<(*nextFrontier)->myVClock.value());
-    nextFrontierClk=(*nextFrontier)->myVClock.value();
+    I(nextFrontierClk<(*nextFrontier)->myVClock->ownValue());
+    nextFrontierClk=(*nextFrontier)->myVClock->ownValue();
     ID(lastFrontierCandidate=(*nextFrontier));
-    for(VClock::size_type i=0;i<VClock::size();i++){
+    for(size_t i=0;i<VClock::size();i++){
       // If no thread with this index, do not count it
       if(!threadVector[i])
 	continue;
       // If next-frontier has no races missed with indexed thread,
       // the indexed thread is not a frontier holder
-      if(nextFrontierClk<=noRacesMissed[i])
+      if(nextFrontierClk<=noRacesMissed->getComponent(i))
 	continue;
       raceFrontierHolders++;
     }
@@ -383,222 +720,456 @@ namespace tls{
       moveRaceFrontier();
   }
 
-  size_t Epoch::createdNotSafeCount=0;
-  size_t Epoch::safeNotAnalyzingCount=0;
-  InstrCount Epoch::safeNotAnalyzingInstr=(InstrCount)0;
-  size_t Epoch::safeNotAnalyzingBufferBlocks=0;
-  size_t Epoch::analyzingNotMergingCount=0;
-  InstrCount Epoch::analyzingNotMergingInstr=(InstrCount)0;
-  size_t Epoch::analyzingNotMergingBufferBlocks=0;
-  size_t Epoch::mergingNotDestroyedCount=0;
-
-  EpochList Epoch::stoppedForAnalysis;
-
-  EpochSet Epoch::analysisNeeded;
-  EpochSet Epoch::analysisReady;
-  EpochSet Epoch::analysisDone;
-
-
-#if (defined CollectVersionCountStats)
-  Epoch::VersionCounts Epoch::detWinVersCounts;
-#endif // CollectVersionCountStats
-
-  bool Epoch::doingAnalysis=false;
+  bool Thread::canMissRaces(const Epoch *epoch) const{
+    I(epoch&&(epoch->myThread==this));
+    if(raceFrontier==threadEpochs.end())
+      return true;
+    return epoch->myClock>(*raceFrontier)->myClock;
+  }
   
-  Epoch *Epoch::activeMerging=0;
-  EpochSet Epoch::activeWaitMerge;
-  EpochSet Epoch::endedWaitSafe;
-  EpochSet Epoch::endedWaitMerge;
-  
-  Epoch::CmpResult Epoch::compareSClock(const Epoch *otherEpoch) const{
-    if(myThread==otherEpoch->myThread){
-      if(mySClock<otherEpoch->mySClock)
-	return StrongAfter;
-      if(mySClock>otherEpoch->mySClock)
-	return StrongBefore;
-      I(mySClock!=otherEpoch->mySClock);
+  void Thread::incAllVersionsCount(void){
+    myAllVersionsCount++;
+    if(limitThreadAllVersions&&(myAllVersionsCount>limitThreadAllVersions)){
+      size_t removalCount=myAllVersionsCount-limitThreadAllVersions;
+      EpochList::reverse_iterator epochIt=threadEpochs.rbegin();
+      while(removalCount&&(epochIt!=threadEpochs.rend())){
+	removalCount=(*epochIt)->requestAnyBlockRemoval(removalCount);
+	epochIt++;
+      }
     }
-    if(mySClock+syncClockDelta<otherEpoch->mySClock)
+    if(myAllVersionsCount>maxThreadAllVersions)
+      maxThreadAllVersions=myAllVersionsCount;
+  }
+  void Thread::incOldVersionsCount(void){
+    myOldVersionsCount++;
+    if(limitThreadOldVersions&&(myOldVersionsCount>limitThreadOldVersions)){
+      size_t removalCount=myOldVersionsCount-limitThreadOldVersions;
+      EpochList::reverse_iterator epochIt=threadEpochs.rbegin();
+      while(removalCount&&(epochIt!=threadEpochs.rend())){
+	removalCount=(*epochIt)->requestOldBlockRemoval(removalCount);
+	epochIt++;
+      }
+    }
+    if(myOldVersionsCount>maxThreadOldVersions)
+      maxThreadOldVersions=myOldVersionsCount;
+  }
+
+  VClock Epoch::memVClock;
+  LClock Epoch::memLClock;
+
+  Epoch::CmpResult Epoch::compareClock(const Epoch *otherEpoch) const{
+    if(myThread==otherEpoch->myThread){
+      if(myClock<otherEpoch->myClock)
+	return StrongAfter;
+      if(myClock>otherEpoch->myClock)
+	return StrongBefore;
+      I(myClock!=otherEpoch->myClock);
+    }
+    if(myClock<otherEpoch->myClock-otherEpoch->getSyncClockDelta())
       return StrongAfter;
-    if(mySClock-syncClockDelta>otherEpoch->mySClock)
+    if(myClock-getSyncClockDelta()>otherEpoch->myClock)
       return StrongBefore;
-    if(mySClock<otherEpoch->mySClock)
+    if(myClock<otherEpoch->myClock)
       return WeakAfter;
-    if(mySClock>otherEpoch->mySClock)
+    if(myClock>otherEpoch->myClock)
       return WeakBefore;
     return Unordered;
   }
-  void Epoch::advanceSClock(const Epoch *predEpoch,bool sync){
-    // cout << "beg advanceSClock " << mySClock << ":" << getTid() << " ";
+  Epoch::CmpResult Epoch::compareCheckClock(const Epoch *otherEpoch) const{
+    if(myThread==otherEpoch->myThread){
+      if(myClock<otherEpoch->myClock){
+	I(myCheckClock<=otherEpoch->myCheckClock);
+	return StrongAfter;
+      }
+      if(myClock>otherEpoch->myClock){
+	I(myCheckClock>=otherEpoch->myCheckClock);
+	return StrongBefore;
+      }
+      I(myClock!=otherEpoch->myClock);
+    }
+    if(myClock<otherEpoch->myClock){
+      if((myCheckClock<otherEpoch->myCheckClock)||
+	 ((!myThread->isCheckClockOwner())&&(myCheckClock==otherEpoch->myCheckClock)))
+	return StrongAfter;
+      return WeakAfter;
+    }
+    if(myClock>otherEpoch->myClock){
+      if((myCheckClock>otherEpoch->myCheckClock)||
+	 ((!otherEpoch->myThread->isCheckClockOwner())&&(myCheckClock==otherEpoch->myCheckClock)))
+	return StrongBefore;
+      return WeakBefore;
+    }
+    return Unordered;
+  }
+  void Epoch::advanceClock(const Epoch *predEpoch,bool sync){
+    // cout << "beg advanceClock " << myClock << ":" << getTid() << " ";
     //    printEpochs();
-    I(myState==State::NotSucceeded);
-    I(myState!=State::GlobalSafe);
-    if(pendInstrCount){
-      runtimeSClockAdjustments++;
-      BufBlocksAdjusted.addSample(bufferBlocks.size());
-    }
-    I(predEpoch!=this);
-    ClockValue clkInc=1;
-    if(sync&&(myThread!=predEpoch->myThread))
-      clkInc+=syncClockDelta;
-    mySClock=predEpoch->mySClock+clkInc;
-    I(clkInc>0);
-    I(mySClock>predEpoch->mySClock);
-    // Advance all buffered blocks
-    for(BufferBlocks::const_iterator blockIt=bufferBlocks.begin();
-	blockIt!=bufferBlocks.end();blockIt++){
-      BufferBlock *block=blockIt->second;
-      block->getVersions()->advance(block);
-    }
-    // Find new place in my thread's threadEpochs list
-    if(myThreadEpochsPos!=myThread->threadEpochs.begin()){
-      ID(EpochList::reverse_iterator newPosRIt(myThreadEpochsPos));
-      I((*newPosRIt)->mySClock>mySClock);
-    }
-    // Find new place in the allEpochs list
-    if(myAllEpochsPos!=allEpochs.begin()){
-      EpochList::reverse_iterator newPosRIt(myAllEpochsPos);
-      while((newPosRIt!=allEpochs.rend())&&(mySClock>(*newPosRIt)->mySClock)){
-	// Should not advance past any epochs in the same thread
-	I(myThread!=(*newPosRIt)->myThread);
-	newPosRIt++;
+    I(myThread!=predEpoch->myThread);
+    // Find the new clock value
+    ClockValue newClock=predEpoch->myClock+(sync?(getSyncClockDelta()+1):1);
+    // Advance the clock only if new value larger than old
+    if(newClock>myClock){
+      I(myState==State::Initial);
+      I(myState<State::LazyMerge);
+      if(myState!=State::NoSuccessors){
+	I(myState==State::Atm);
+	I(myClock>=predEpoch->myClock);
+	unSucceed();
       }
-      // If new place not the same as old, splice into new place
-      if(myAllEpochsPos!=newPosRIt.base()){
-	EpochList::iterator oldNextPos=myAllEpochsPos;
-	oldNextPos--;
-	I(myState!=State::GlobalSafe);
-	allEpochs.splice(newPosRIt.base(),allEpochs,myAllEpochsPos);
-	ID(EpochList::iterator newPos=newPosRIt.base());
-	ID(newPos--);
-	I(myAllEpochsPos==newPos);
-	(*oldNextPos)->tryGlobalSave();
+      I(myState==State::NoSuccessors);
+      I(myState!=State::GlobalSafe);
+      if(pendInstrCount){
+	runtimeClockAdjustments++;
+	BufBlocksAdjusted.addSample(bufferBlockMap.size());
+      }
+      I(predEpoch!=this);
+      myClock=newClock;
+      I(myClock>predEpoch->myClock);
+      // Advance all buffered blocks
+      for(BufferBlockList::const_iterator blockIt=bufferBlockList.begin();
+	  blockIt!=bufferBlockList.end();blockIt++)
+	(*blockIt)->getVersions()->advance(*blockIt);
+      // Find new place in my thread's threadEpochs list
+      if(myThreadEpochsPos!=myThread->threadEpochs.begin()){
+	ID(EpochList::reverse_iterator newPosRIt(myThreadEpochsPos));
+	I((*newPosRIt)->myClock>myClock);
+      }
+      // Find new place in the allEpochs list
+      if(myAllEpochsPos!=allEpochs.begin()){
+	EpochList::reverse_iterator newPosRIt(myAllEpochsPos);
+	while((newPosRIt!=allEpochs.rend())&&(myClock>(*newPosRIt)->myClock)){
+	  // Should not advance past any epochs in the same thread
+	  I(myThread!=(*newPosRIt)->myThread);
+	  newPosRIt++;
+	}
+	// If new place not the same as old, splice into new place
+	if(myAllEpochsPos!=newPosRIt.base()){
+	  EpochList::iterator oldNextPos=myAllEpochsPos;
+	  oldNextPos--;
+	  I(myState!=State::GlobalSafe);
+	  allEpochs.splice(newPosRIt.base(),allEpochs,myAllEpochsPos);
+	  ID(EpochList::iterator newPos=newPosRIt.base());
+	  ID(newPos--);
+	  I(myAllEpochsPos==newPos);
+	  (*oldNextPos)->tryGlobalSave();
+	}
       }
     }
-    // cout << "end advanceSClock " << mySClock << ":" << getTid() << " ";
+    // If sync, we also advance the check clock and the lamport clock
+    if(sync){
+      ClockValue newCheckClock=predEpoch->myCheckClock;
+      if(predEpoch->myThread->isCheckClockOwner())
+	newCheckClock++;
+      if(newCheckClock>myCheckClock){
+	I(myState==State::Initial);
+	myCheckClock=newCheckClock;
+      }
+      I((myState==State::Initial)||(LClock::isOrder(predEpoch->myLClock,myLClock)));
+      myLClock.succeed(predEpoch->myLClock);
+    }
+    // cout << "end advanceClock " << myClock << ":" << getTid() << " ";
     // printEpochs();
   }
 
-  Epoch::Epoch(ThreadID tid)
+  void Epoch::initMergeHold(void){
+    // Epoch has a PredHold until it is GlobalSafe
+    I(myState<State::GlobalSafe);
+    myState+=State::PredHold;
+    if(mustFindAllRaces)
+      myState+=State::RaceHold;
+  }
+
+  void Epoch::removeMergeHold(State::HoldEnum hold){
+    myState-=hold;
+    // If a hold is still left, we are done
+    if(myState!=State::NoHold)
+      return;
+    EpochList::iterator currIt=myAllEpochsPos;
+    while(currIt!=allEpochs.begin()){
+      EpochList::iterator nextIt=currIt; nextIt--;
+      // Can not remove PredHold until GlobalSafe
+      if((*nextIt)->myState<State::GlobalSafe)
+	break;
+      (*nextIt)->myState-=State::PredHold;
+      // Can not go further if successor still has a hold
+      if((*nextIt)->myState!=State::NoHold)
+	break;
+      // OK, successor has no holds left, allow merge
+      // of current epoch and move on to successor 
+      if((*currIt)->myState==State::ReqLazyMerge){
+	(*currIt)->requestLazyMerge();
+      }else if((*currIt)->myState==State::ReqEagerMerge){
+	(*currIt)->requestEagerMerge();
+      }
+      currIt=nextIt;
+    }
+    // Last epoch without holds can merge now
+    if((*currIt)->myState==State::ReqLazyMerge){
+      (*currIt)->requestLazyMerge();
+    }else if((*currIt)->myState==State::ReqEagerMerge){
+      (*currIt)->requestEagerMerge();
+    }
+    // If no epochs are left, there is nothing else to do
+    if(allEpochs.empty())
+      return;
+    // If the last epoch is committed and without holds, we must
+    // initiate the final EagerMerge to cleanly end execution
+    Epoch *lastEpoch=allEpochs.front();
+    // If still not committed, it is not time yet
+    if(lastEpoch->myState<State::GlobalSafe)
+      return;
+    // If still has a hold, it is not time yet
+    if(lastEpoch->myState!=State::NoHold)
+      return;
+    lastEpoch->requestEagerMerge();
+  }
+
+  Epoch::Epoch(ThreadID tid, Epoch *parentEpoch)
     : myPid(-1),
       beginDecisionExe(0), endDecisionExe(0),
       beginCurrentExe(0), endCurrentExe(0),
-      pendInstrCount(0), execInstrCount(0), doneInstrCount(0), maxInstrCount(0),
-      myThread(new Thread(tid)),
-      myVClock(myThread->getIndex()),
-      parentSClock(0), mySClock(syncClockDelta),
-      runtimeSClockAdjustments(0), myCheckpoint(0),
-      myAllEpochsPos(allEpochs.insert(findPos(mySClock),this)),
+      pendInstrCount(0), execInstrCount(0), doneInstrCount(0),
+      maxInstrCount(limitEpochInstrCount),
+      myThread(parentEpoch?
+	       new Thread(tid,parentEpoch->getTid(),parentEpoch->myClock):
+	       new Thread(tid,invalidThreadID,smallClockValue)),
+      myVClock(VClock::newVClock(parentEpoch?parentEpoch->myVClock:VClock::getSmallValue(),tid,true)),
+      originalVClock(VClock::newVClock(myVClock,false)),
+      parentClock(parentEpoch?parentEpoch->myClock:smallClockValue), 
+      myClock(parentEpoch?(parentEpoch->myClock+getSyncClockDelta()+1):getGlobalSafeClock()),
+      runtimeClockAdjustments(0), myCheckClock(0),
+      myCheckpoint(0),
+      myAllEpochsPos(allEpochs.insert(findPos(myClock),this)),
       myThreadEpochsPos(myThread->addEpoch(this)),
-      numSrcAnomalies(0), numDstAnomalies(0),
-      numSrcRaces(0), numDstRaces(0),
-     myState(), sysCallLog(), sysCallLogPos(sysCallLog.begin()){
+      myState(), spawnSuccessorsCnt(0), atmNestLevel(0),
+      sysCallLog(), sysCallLogPos(sysCallLog.begin()),
+      consumedBufferBlocks(0), producedBufferBlocks(0){
+    initMergeHold();
+    myAtomicSection=0;
+    skipAtm=false;
+    if(parentEpoch){
+      I(parentEpoch->getTid()!=getTid());
+      myCheckClock=parentEpoch->myCheckClock;
+      if(parentEpoch->myThread->isCheckClockOwner())
+	myCheckClock++;
+      myLClock.succeed(parentEpoch->myLClock);
+    }
     numBegThread++;
     // The original context of the thread is frozen while its epochs execute
     osSim->stop(static_cast<Pid_t>(tid));
-    // Initial epoch is always ThreadSafe
-    threadSave();
     // Create my SESC context
     createContext(osSim->getContext(tid));
+    // Initial epoch is always ThreadSafe
+    threadSave();
   }
   
   Epoch::Epoch(Epoch *parentEpoch)
     : myPid(-1),
       beginDecisionExe(0), endDecisionExe(0),
       beginCurrentExe(0), endCurrentExe(0),
-      pendInstrCount(0), execInstrCount(0), doneInstrCount(0), maxInstrCount(0),
+      pendInstrCount(0), execInstrCount(0), doneInstrCount(0),
+      maxInstrCount(limitEpochInstrCount),
       myThread(parentEpoch->myThread),
-      myVClock(parentEpoch->myVClock),
-      parentSClock(parentEpoch->mySClock), mySClock(parentSClock+1),
-      runtimeSClockAdjustments(0),
-      myAllEpochsPos(allEpochs.insert(findPos(mySClock),this)),
+      myVClock(VClock::newVClock(parentEpoch->myVClock,true)),
+      originalVClock(VClock::newVClock(myVClock,false)),
+      parentClock(parentEpoch->myClock), myClock(parentClock+1),
+      runtimeClockAdjustments(0), myCheckClock(parentEpoch->myCheckClock), myLClock(parentEpoch->myLClock),
+      myCheckpoint(0),
+      myAllEpochsPos(allEpochs.insert(findPos(myClock),this)),
       myThreadEpochsPos(myThread->addEpoch(this)),
-      numSrcAnomalies(0), numDstAnomalies(0),
-      numSrcRaces(0), numDstRaces(0),
-      myState(), sysCallLog(), sysCallLogPos(sysCallLog.begin()){
+      myState(), spawnSuccessorsCnt(0), atmNestLevel(0),
+      sysCallLog(), sysCallLogPos(sysCallLog.begin()),
+      consumedBufferBlocks(0), producedBufferBlocks(0){
+    initMergeHold();
+    myAtomicSection=0;
+    skipAtm=false;
+    parentEpoch->myState+=State::SpawnSuccessors;
+    parentEpoch->spawnSuccessorsCnt++;
     // Create my SESC context
     createContext(osSim->getContext(parentEpoch->myPid));
   }
   
-  Epoch *Epoch::initialEpoch(ThreadID tid){
-    return new Epoch(tid);
+  Epoch *Epoch::initialEpoch(ThreadID tid, Epoch *parentEpoch){
+    if(parentEpoch){
+      if(!parentEpoch->changeEpoch())
+	return 0;
+    }
+    Epoch *newEpoch=new Epoch(tid,parentEpoch);
+    I((!parentEpoch)||(parentEpoch->myState==State::Completed));
+    newEpoch->run();
+    return newEpoch;
+  }
+
+  void Epoch::run(void){
+    I(myState==State::Spawning);
+    // Current execution begins now
+    beginCurrentExe=globalClock+1;
+    I(sysCallLogPos==sysCallLog.begin());
+    // ID(printf("Executing %ld:%d",myClock,getTid()));
+    // ID(printf((myState==State::FullReplay)?" in replay\n":"\n"));
+    if(myState==State::NoWait){
+      // Epoch can begin to actually execute now
+      myState=State::Running;
+      osSim->unstop(myPid);
+    }else{
+      I(0);
+      // Epoch needs to wait for another event before it actually runs
+      myState=State::Waiting;
+    }
   }
 
   Epoch *Epoch::spawnEpoch(void){
     I(myState==State::Running);
-    I(myState!=State::Atomic);
-    Epoch *newEpoch=0;
+    I(myState!=State::Atm);
     // Try to find a matching epoch already spawned in a previous execution
-    if(myState==State::WasSucceeded){
+    if(myState==State::SpawnSuccessors){
       EpochList::reverse_iterator searchIt(myThreadEpochsPos);
-      while(searchIt!=myThread->threadEpochs.rend()){
+      for(EpochList::reverse_iterator searchIt(myThreadEpochsPos);
+	  searchIt!=myThread->threadEpochs.rend();searchIt++){
 	I((*searchIt)->myThread==myThread);
-	if((*searchIt)->parentSClock!=mySClock)
+	if((*searchIt)->parentClock!=myClock)
 	  continue;
 	if((*searchIt)->myState!=State::Spawning)
 	  continue;
-	newEpoch=*searchIt;
+	Epoch *newEpoch=(*searchIt);
+	if(newEpoch->myContext.getIP()!=
+	   osSim->eventGetInstructionPointer(myPid))
+	  return 0;
+	return newEpoch;
       }
     }
-    // If not found, create the new epoch
-    if(!newEpoch)
-      newEpoch=new Epoch(this);
-    // Parent epoch is succeeded by the child and child preceeded by parent
-    succeeded(newEpoch);
-    return newEpoch;
+    // If no new epoch found, create it now
+    return new Epoch(this);
   }
   
-  void Epoch::beginAcquire(void){
-    I(myState==State::PreAccess);
-    myState=State::Acquire;
-    I(bufferBlocks.empty());
+  Epoch::AddrToCount Epoch::atomicEntryCount;
+  size_t  Epoch::staticAtmOmmitCount;
+  size_t  Epoch::dynamicAtmOmmitCount;
+  Address Epoch::atmOmmitInstr;
+  size_t  Epoch::atmOmmitCount;
+  
+  void Epoch::beginReduction(Address addr){
+    beginAtomic(addr,false,false);
   }
 
-  void Epoch::retryAcquire(void){
-    I(myState==State::Acquire);
-    I(!(myState>=State::GlobalSafe));
-    I(myState==State::Initial);
-    I(myState==State::NotSucceeded);
-    squash();
+  void Epoch::endReduction(void){
+    endAtomic();
   }
 
-  void Epoch::endAcquire(void){
-    I(myState==State::Acquire);
-    myState=State::Access;
-    AcquireBlocksNeeded.addSample(bufferBlocks.size());
-    // Being in Acquire precludes being GlobalSafe
-    tryGlobalSave();
-  }
-  void Epoch::skipAcquire(void){
-    I(myState==State::PreAccess);
-    myState=State::Access;
-    // Being in Acquire precludes being GlobalSafe
-    tryGlobalSave();
-  }
-  void Epoch::beginRelease(void){
-    I(myState==State::Access);
-    myState=State::Release;
-  }
-  void Epoch::endRelease(void){
-    I(myState==State::Release);
-    myState=State::PostAccess;
-  }
-  void Epoch::skipRelease(void){
-    I(myState==State::Access);
-    myState=State::PostAccess;
-  }
-
-  void Epoch::succeeded(Epoch *succEpoch){
-    if(myState==State::NotSucceeded){
-      myState=State::WasSucceeded;
-      // Being NotSucceeded could disqualify us for GlobalSafe status
-      // Now we are Ordered, so see if we qualify now
-      tryGlobalSave();
+  void Epoch::beginAtomic(Address addr, bool isAcq, bool isRel){
+    I(myState==State::NoAcq);
+    I(myState==State::NoRel);
+    I(atmNestLevel||(pendInstrCount==1));
+    atmNestLevel++;
+    if(myState==State::NoAtm){
+      if(skipAtm)
+	return;
+      myAtomicSection=addr;
+      if(!(--dynamicAtmOmmitCount)){
+	skipAtm=true;
+	atmOmmitInstr=addr;
+	I(!atmOmmitCount);
+	atmOmmitCount++;
+	return;
+      }
     }
+    myState=State::Atm;
+    if(isAcq){
+      I(atmNestLevel==1);
+      I(myState<State::GlobalSafe);
+      myState=State::Acq;
+    }
+    if(isRel){
+      I(atmNestLevel==1);
+      myState=State::Rel;
+    }
+  }
+
+  void Epoch::retryAtomic(void){
+    I(atmNestLevel==1);
+    if(myState!=State::Atm){
+      I(myAtomicSection==atmOmmitInstr);
+      squash(false);
+      return;
+    }
+    I(myState==State::Atm);
+    I(myState==State::Acq);
+    I(myState<State::GlobalSafe);
+    I((myState!=State::Initial)||(myState!=State::SpawnSuccessors));
+    I(myState!=State::FlowSuccessors);
+    waitAcqRetry();
+  }
+
+  void Epoch::changeAtomic(bool endAcq, bool begRel){
+    if(myState!=State::Atm){
+      I(myAtomicSection==atmOmmitInstr);
+      return;
+    }
+    I(myState==State::Atm);
+    I(endAcq||begRel);
+    if(endAcq){
+      I(myState==State::Acq);
+      myState=State::NoAcq;
+      tryGlobalSave();      
+    }
+    if(begRel){
+      I(myState==State::NoRel);
+      myState=State::Rel;
+    }
+  }
+  
+  void Epoch::endAtomic(void){
+    atmNestLevel--;
+    if(myState!=State::Atm){
+      I(myAtomicSection==atmOmmitInstr);
+      return;
+    }
+    if(!atmNestLevel){
+      myState=State::NoAtm;
+      // Update statistics for atomic sections
+      AtomicCommitInstrs.addSample(pendInstrCount);
+      AtomicTotalBlocks.addSample(bufferBlockMap.size());
+      AtomicConsumedBlocks.addSample(consumedBufferBlocks);
+      AtomicProducedBlocks.addSample(producedBufferBlocks);
+    }
+    // Handle acquire/release specifics
+    if(myState==State::Acq){
+      I(!atmNestLevel);
+      myState=State::NoAcq;
+    }
+    if(myState==State::Rel){
+      I(!atmNestLevel);
+      myState=State::NoRel;
+    }
+    if(!atmNestLevel){
+      Epoch *newEpoch=changeEpoch();
+      if(!newEpoch)
+	return;
+      I(newEpoch->myCheckClock>=myCheckClock);
+      if(myThread->isCheckClockOwner()){
+	if(newEpoch->myCheckClock==myCheckClock)
+	  newEpoch->myCheckClock++;
+	I(newEpoch->myCheckClock==myCheckClock+1);
+      }
+      newEpoch->myLClock.advance();
+    }
+    // Being Atm prevents an epoch from becoming GlobalSafe,
+    // so now we need to retry to become GlobalSafe
+    tryGlobalSave();
+  }
+
+  void Epoch::unSucceed(void){
+    I(myState!=State::NoSuccessors);
+    // Squash, but skip self
+    squash(true);
+    // No longer succeeded
+    I(!spawnSuccessorsCnt);
+    myState=State::NoSuccessors;
   }
 
   void Epoch::threadSave(void){
     I(myState==State::Spec);
+    I(myState!=State::WaitUnspawn);
     I(myThread->threadSafeAvailable==true);
     myState=State::ThreadSafe;
     myThread->threadSafeAvailable=false;
@@ -607,6 +1178,18 @@ namespace tls{
       myState=State::Running;
       myState=State::NoWait;
       osSim->unstop(myPid);
+    }else if(myState==State::WaitAcqRetry){
+      myThread->wait();
+    }else if(myState==State::WaitChild){
+      if(myThread->waitCalled(this)){
+	I(!myThread->isWaiting);
+	endWaitChild();
+      }
+    }else if(myState==State::WaitZombie){
+      if(myThread->exitCalled(this)){
+	I(!myThread->isWaiting);
+	endWaitZombie();
+      }
     }
     // Now try to become GlobalSafe
     if(globalSafeAvailable)
@@ -614,20 +1197,23 @@ namespace tls{
   }
   
   void Epoch::complete(void){
+    I(pendInstrCount);
+    I(!atmNestLevel);
     I(myState==State::Running);
-    ID(printf("Ending %ld:%d numInstr %lld\n",mySClock,getTid(),pendInstrCount));
+    ID(printf("Ending %ld:%d numInstr %lld\n",
+	      myClock,getTid(),pendInstrCount));
     // Remember the end time
-    endCurrentExe=globalClock;
+    endCurrentExe=globalClock+1;
     // Disable SESC execution of this epoch
     osSim->stop(myPid);
     I(sysCallLogPos==sysCallLog.end());
     // Change the epoch's execution state to completed
     myState=State::Completed;
-    // Completion ends ordering, if it is not already ended
-    if(myState==State::Access)
-      skipRelease();
+    // Must not be in an atomic section when it ends
+    I(myState==State::NoAtm);
     // If FullReplay, adjust event times in the trace
     if(myState==State::FullReplay){
+      I(pendInstrCount==maxInstrCount);
       // Adjust the event times in the trace
       for(TraceList::iterator traceIt=myTrace.begin();
 	  traceIt!=myTrace.end();traceIt++){
@@ -639,6 +1225,11 @@ namespace tls{
 	TraceAccessEvent *accessEvent=*eventIt;
 	accessEvent->adjustTime(this);
       }
+    }
+    if(threadsSequential){
+      EpochList::reverse_iterator threadItR(myThreadEpochsPos);
+      if(threadItR!=myThread->threadEpochs.rend())
+	(*threadItR)->run();
     }
     if(myState==State::GlobalSafe){
       tryCommit();
@@ -657,40 +1248,78 @@ namespace tls{
   }
 
   void Epoch::tryGlobalSave(void){
+    I(myState!=State::WaitUnspawn);
     if(!globalSafeAvailable)
       return;
     if(myState!=State::ThreadSafe)
       return;
-    // Acquire can increment the clok, and a GlobalSafe epoch must not do that
-    if(myState<=State::Acquire)
+    if(!pendInstrCount)
       return;
-    EpochList::iterator globalSaveIt=myAllEpochsPos;
-    globalSaveIt++;
-    if((globalSaveIt==allEpochs.end())||
-       ((*globalSaveIt)->myState>=State::Committed))
-      globalSave();
+    EpochList::iterator saveCheckIt=myAllEpochsPos;
+    saveCheckIt++;
+    I((saveCheckIt==globalSafe)==((saveCheckIt==allEpochs.end())||
+       ((*saveCheckIt)->myState>=State::Committed)));
+    if(saveCheckIt!=globalSafe)
+      return;
+    // If our thread is waiting, we can not proceed until some
+    // event outside of this thread advances our clock
+    // However, that event may require GlobalSafe status, and
+    // if we stay here we are blocking GlobalSafe's advance.
+    // To prevent deadlocks, we move the waiting epoch to come
+    // after the oldest still-active epoch in allEpochs 
+    if((myThread->isWaiting)&&(myState==State::Initial)){
+      I((myState==State::WaitChild)||
+	(myState==State::WaitZombie)||
+	(myState==State::WaitAcqRetry));
+      EpochList::iterator nextActiveIt=myAllEpochsPos;
+      while(((*nextActiveIt)->myThread->isWaiting)||
+            ((*nextActiveIt)->myState==State::Completed)){
+        I(nextActiveIt!=allEpochs.begin());
+        nextActiveIt--;
+      }
+      advanceClock(*nextActiveIt,false);
+      // The advanceClock method advances the GlobalSafe status
+      // so we need not advance it further... but we check that
+      ID(EpochList::reverse_iterator globalSafeRIt(globalSafe));
+      ID(if(globalSafeRIt!=allEpochs.rend()) (*globalSafeRIt)->tryGlobalSave());
+      I((globalSafeRIt==allEpochs.rend())||((*globalSafeRIt)->myState<State::GlobalSafe));
+      return;
+    }
+    // Atm can increment the clock, and a GlobalSafe epoch must not do that
+    // Also, we must execute the first instruction to see if the epoch will enter Atm
+    if((myState==State::Atm)||(!execInstrCount))
+      return;
+    globalSave();
   }
 
   void Epoch::globalSave(void){
+    I(pendInstrCount);
     I(globalSafeAvailable);
     I(myState==State::ThreadSafe);
-    I(myState>State::Acquire);
+    I(myState==State::NoAcq);
+    I(myState!=State::WaitChild);
     myState=State::GlobalSafe;
-    I(myState!=State::Merging);
+    globalSafeAvailable=false;
+    // The globalSafe iterator is still pointing at the
+    // immediate predecessor, which should be committed
+    I((globalSafe==allEpochs.end())||((*globalSafe)->myState>=State::Committed));
+    // If the predecessor can merge, we can remove our own PredHold 
+    bool noPredHold=(globalSafe==allEpochs.end())||
+                    ((*globalSafe)->myState==State::NoHold);
+    globalSafe--;
+    I((*globalSafe)==this);
+    I(myState<State::LazyMerge);
     if(myState==State::WaitGlobalSafe){
       myState=State::Running;
       myState=State::NoWait;
       osSim->unstop(myPid);
-    }else if(myState>=State::WaitFullyMerged){
-      myState=State::ActiveMerge;
     }
-    if(myState==State::ActiveMerge){
-      beginMerge();
-    }
-    globalSafeAvailable=false;
-    globalSafe--;
-    I((*globalSafe)==this);
-    // Try to also commit
+    // Remove our PredHold if possible
+    if(noPredHold)
+      removeMergeHold(State::PredHold);
+    // Now try to also commit this epoch
+    // Note: commit can destroy the epoch, so it must
+    // be done as the last thing in this method
     tryCommit();
   }
 
@@ -709,39 +1338,27 @@ namespace tls{
   }
 
   void Epoch::commit(void){
-    ID(printf("Committing %ld:%d numInstr %lld\n",mySClock,getTid(),pendInstrCount));
+    ID(printf("Committing %ld:%d numInstr %lld\n",myClock,getTid(),pendInstrCount));
     ID(Pid_t myPidTmp=myPid);
     I(myState==State::GlobalSafe);
     //If the epoch is already fully merged, it will be destroyed when commit is done
-    bool destroyNow=((myState==State::Merging)&&bufferBlocks.empty());
+    bool destroyNow=((myState>=State::LazyMerge)&&bufferBlockList.empty());
     if(myState==State::FullReplay){
       I(pendInstrCount==maxInstrCount);
       I(beginDecisionExe);
       I(endDecisionExe);
     }else{
-      I((!maxInstrCount)||(pendInstrCount<=maxInstrCount));
       I(!beginDecisionExe);
       I(!endDecisionExe);
       // Update Statistics
-      NumRunSClockAdj.addSample(runtimeSClockAdjustments);
-      I(numSrcRaces+numDstRaces||!(numSrcAnomalies+numDstAnomalies));
-      SrcAnomaliesPerEpoch.addSample(numSrcAnomalies);
-      DstAnomaliesPerEpoch.addSample(numDstAnomalies);
-      SrcRacesPerEpoch.addSample(numSrcRaces);
-      DstRacesPerEpoch.addSample(numDstRaces);
-      if(numSrcRaces){
-	SrcRacesPerSrcRaceEpoch.addSample(numSrcRaces);
-        SrcAnomaliesPerSrcRaceEpoch.addSample(numSrcAnomalies);
-	AnomaliesPerSrcRaceEpoch.addSample(numSrcAnomalies+numDstAnomalies);
-      }
-      if(numSrcRaces+numDstRaces){
-	RacesPerRaceEpoch.addSample(numSrcRaces+numDstRaces);
-	AnomaliesPerRaceEpoch.addSample(numSrcAnomalies+numDstAnomalies);
-      }
+      NumRunClockAdj.addSample(runtimeClockAdjustments);
+      // Update race detection info
+      allInstRaces.add(myInstRaces);
       // Remember the start and end time
       beginDecisionExe=beginCurrentExe;
       endDecisionExe=endCurrentExe;
     }
+    myInstRaces.clear();
     I(beginCurrentExe);
     I(beginCurrentExe<=endCurrentExe);
     // Remeber the instruction count
@@ -752,1212 +1369,669 @@ namespace tls{
     myThread->threadSafeAvailable=true;
     // Pass on the ThreadSafe status
     EpochList::reverse_iterator threadSaveRIt(myThreadEpochsPos);
-    if(threadSaveRIt!=myThread->threadEpochs.rend()){
+    if(threadSaveRIt!=myThread->threadEpochs.rend())
       (*threadSaveRIt)->threadSave();
-    }
+    // A threadSave() can squash the epoch for replay,
+    // in which case nothing else should be done in commit()
+    if(myState<State::Committed)
+      return;
     myThread->commitEpoch(this);
     I((destroyNow&&(pidToEpoch[myPidTmp]==this))||
-      ((!destroyNow)&&((pidToEpoch[myPidTmp]==0)||(myState!=State::Merging)||(!bufferBlocks.empty()))));
+      ((!destroyNow)&&((pidToEpoch[myPidTmp]==0)||(myState<State::LazyMerge)||(!bufferBlockList.empty()))));
     if(destroyNow)
       delete this;
     advanceGlobalSafe();
   }
 
-  void Epoch::squash(void){
-    I(myState!=State::Merging);
-    // Roll back the Spec state if needed
-    if(myState==State::Committed){
-      bool moveGlobalSafe=false;
-      EpochList::reverse_iterator currRIt(myAllEpochsPos);
-      for(currRIt--;currRIt!=allEpochs.rend();currRIt++){
-	Epoch *currEpoch=(*currRIt);
-	if(currEpoch->myState!=State::Spec){
-          if(currEpoch->myState==State::Committed){
-            moveGlobalSafe=true;
-            currEpoch->myState=State::FullReplay;
-	  }else if(currEpoch->myState==State::GlobalSafe){
-            moveGlobalSafe=true;
-	    currEpoch->myThread->threadSafeAvailable=true;
-            currEpoch->myState=State::PartReplay;
-	  }else if(currEpoch->myState==State::ThreadSafe){
-	    currEpoch->myThread->threadSafeAvailable=true;
-	  }
-	  currEpoch->myState=State::Spec;
-	}
-      }
-      if(moveGlobalSafe){
-        globalSafeAvailable=true;
-        globalSafe=myAllEpochsPos;
-        I(!((*globalSafe)->myState>=State::GlobalSafe));
-        globalSafe++;
-        I((globalSafe==allEpochs.end())||((*globalSafe)->myState==State::Committed));
+  bool Epoch::forceEpochBeginning(void){
+    I(myState==State::Running);
+    if(myState==State::Atm)
+      return false;
+    if(!pendInstrCount)
+      return false;
+    changeEpoch();
+    return true;
+  }
+
+  void Epoch::waitAcqRetry(void){
+    I(myState<State::GlobalSafe);
+    I(myState==State::Running);
+    I(myState==State::Acq);
+    for(BufferBlockList::iterator blockIt=bufferBlockList.begin();
+        blockIt!=bufferBlockList.end();blockIt++){
+      if((*blockIt)->isStale()){
+	squash(false);
+	return;
       }
     }
-    if(myState==State::NotSucceeded){
-      squashLocal<false>();
+    myState=State::Waiting;
+    myState=State::WaitAcqRetry;
+    if(myState==State::ThreadSafe)
+      myThread->wait();
+    osSim->stop(myPid);
+  }
+  
+  void Epoch::waitChild(void){
+    I(myState<State::GlobalSafe);
+    I(myState!=State::Acq);
+    if(myState==State::Running){
+      myState=State::Waiting;
+      osSim->stop(myPid);
     }else{
-      // Determine which epochs are unspawned and which are restarted
-      typedef std::pair<Thread *,ClockValue> EpochDescriptor;
-      typedef std::multiset<EpochDescriptor> EpochDescriptors;
-      EpochList specSpawns;
-      EpochList prevSpawns;
-      EpochDescriptors specSpawners;
-      EpochDescriptors safeSpawners;
-      EpochList::reverse_iterator currRIt(myAllEpochsPos);
-      for(currRIt--;currRIt!=allEpochs.rend();currRIt++){
-	Epoch *currEpoch=(*currRIt);
-	EpochDescriptor currDesc(currEpoch->myThread,currEpoch->mySClock);
-	EpochDescriptor prevDesc(currEpoch->myThread,currEpoch->parentSClock);
-	if(currEpoch->myState==State::Initial){
-	  specSpawners.insert(currDesc);
-	}else{
-	  safeSpawners.insert(currDesc);
-	}
-	if(specSpawners.count(prevDesc)){
-	  I(currEpoch->myState==State::Spec);
-	  specSpawns.push_front(currEpoch);
-	}else{
-	  if(!safeSpawners.count(prevDesc))
-	    prevSpawns.push_back(currEpoch);
-	}
-      }
-      for(EpochList::iterator specSpawnIt=specSpawns.begin();
-	  specSpawnIt!=specSpawns.end();specSpawnIt++)
-	(*specSpawnIt)->unspawn();
-      EpochList::reverse_iterator squashRIt(myAllEpochsPos);
-      for(squashRIt--;squashRIt!=allEpochs.rend();squashRIt++){
-	Epoch *squashEpoch=*squashRIt;
-	if(squashEpoch==prevSpawns.front()){
-	  squashEpoch->squashLocal<false>();
-	  prevSpawns.pop_front();
-	}else{
-	  squashEpoch->squashLocal<false>();
-	}
-      }
-      I(prevSpawns.empty());
+      I(threadsSequential&&(myState==State::Spawning));
+    }
+    myState=State::WaitChild;
+    I((myState!=State::ThreadSafe)||myThread->isWaiting);
+  }
+
+  void Epoch::endWaitChild(void){
+    I(myState==State::Waiting);
+    I(myState==State::WaitChild);
+    myState=State::NoWait;
+    myState=State::Running;
+    I(myState==State::ThreadSafe);
+    if(myThread->isWaiting)
+      myThread->proceed();
+    osSim->unstop(myPid);
+  }
+  void Epoch::waitZombie(void){
+    I(myState<State::GlobalSafe);
+    I(myState!=State::Acq);
+    if(myState==State::Running){
+      myState=State::Waiting;
+      osSim->stop(myPid);
+    }else{
+      I(threadsSequential&&(myState==State::Spawning));
+    }
+    myState=State::WaitZombie;
+    I((myState!=State::ThreadSafe)||myThread->isWaiting);
+  }
+  void Epoch::endWaitZombie(void){
+    I(myState==State::Waiting);
+    I(myState==State::WaitZombie);
+    myState=State::NoWait;
+    myState=State::Running;
+    I((myState==State::ThreadSafe)||(myState==State::GlobalSafe));
+    if(myThread->isWaiting)
+      myThread->proceed();
+    osSim->unstop(myPid);
+    complete();
+  }
+  
+  void Epoch::waitCalled(void){
+    I(pendInstrCount==1);
+    I(myState<State::GlobalSafe);
+    I(myState==State::Running);
+    I(myState!=State::Acq);
+    if((myState!=State::ThreadSafe)||!myThread->waitCalled(this))
+      waitChild();
+  }
+
+  void Epoch::exitCalled(void){
+    I(pendInstrCount==1);
+    I(myState<State::GlobalSafe);
+    I(myState==State::Running);
+    I(myState!=State::Acq);
+    if(myThread->parentID==invalidThreadID){
+      complete();
+      return;
+    }
+    if((myState!=State::ThreadSafe)||!myThread->exitCalled(this)){
+      waitZombie();
+    }else{
+      complete();
     }
   }
 
-  template<bool parentSquashed>
+  struct PredDescriptor{
+    Thread *thread;
+    ClockValue clock;
+    Epoch *epoch;
+    PredDescriptor(Thread *thread, ClockValue clock, Epoch *epoch)
+      : thread(thread), clock(clock), epoch(epoch){
+    }
+    bool operator<(const PredDescriptor &other) const{
+      if(thread<other.thread)
+	return true;
+      if(thread>other.thread)
+	return false;
+      return clock<other.clock;
+    }
+  };
+
+  struct EpochDescriptor{
+    Epoch *currentEpoch;
+    Epoch *parentEpoch;
+    EpochDescriptor(Epoch *currentEpoch, Epoch *parentEpoch)
+      : currentEpoch(currentEpoch), parentEpoch(parentEpoch){
+    }
+    bool operator==(const Epoch &other) const{
+      return currentEpoch==&other;
+    }
+  };
+
+  void Epoch::squash(bool skipSelf){
+    I(myState<State::LazyMerge);
+    I(!myCheckpoint);
+    // Roll back the Spec state if needed
+    if(myState>=State::GlobalSafe){
+      EpochList::reverse_iterator currRIt(myAllEpochsPos);
+      for(currRIt--;currRIt!=allEpochs.rend();currRIt++){
+	Epoch *currEpoch=(*currRIt);
+        bool moveGlobalSafe=false;
+        bool moveThreadSafe=false;
+	if(currEpoch->myState!=State::Spec){
+          if(currEpoch->myState==State::Committed){
+            currEpoch->myState=State::FullReplay;
+            moveGlobalSafe=true;
+            moveThreadSafe=true;
+	  }else if(currEpoch->myState==State::GlobalSafe){
+            currEpoch->myState=State::PartReplay;
+            moveGlobalSafe=true;
+            moveThreadSafe=true;
+	  }else if(currEpoch->myState==State::ThreadSafe){
+            moveThreadSafe=true;
+	  }
+	  currEpoch->myState=State::Spec;
+          if(moveGlobalSafe){
+            I(globalSafeAvailable||(globalSafe!=allEpochs.end()));
+            if((globalSafe!=allEpochs.end())&&((*globalSafe)->myClock>=currEpoch->myClock)){
+              globalSafeAvailable=true;
+              globalSafe=currEpoch->myAllEpochsPos;
+              globalSafe++;
+              I((globalSafe==allEpochs.end())||((*globalSafe)->myState==State::Committed));
+            }else{
+              I(globalSafeAvailable);
+              I((globalSafe==allEpochs.end())||((*globalSafe)->myState==State::Committed));
+            }
+          }
+          if(moveThreadSafe){
+            Thread *currThread=currEpoch->myThread;
+            I(currThread->threadSafeAvailable||(currThread->threadSafe!=currThread->threadEpochs.end()));
+            if((currThread->threadSafe!=currThread->threadEpochs.end())&&
+               ((*(currThread->threadSafe))->myClock>=currEpoch->myClock)){
+              currThread->threadSafeAvailable=true;
+              currThread->threadSafe=currEpoch->myThreadEpochsPos;
+              currThread->threadSafe++;
+#if (defined DEBUG)
+              if(currThread->threadSafe==currThread->threadEpochs.end()){
+		ID(currThread->lastCommitEpoch=0);
+	      }else{
+		ID(currThread->lastCommitEpoch=*(currThread->threadSafe));
+                I(currThread->lastCommitEpoch->myState==State::Committed);
+	      }
+#endif
+	      if(currThread->isWaiting)
+		currThread->proceed();
+	    }
+	    I(currThread->threadSafeAvailable);
+	    I((currThread->threadSafe==currThread->threadEpochs.end())||
+	      ((*(currThread->threadSafe))->myState==State::Committed));
+	    I(!currThread->isWaiting);
+          }
+	}
+      }
+    }
+    // If we have a SysCall, find if there are any system calls in succesor epochs
+    bool hasSuccSysCalls=false;
+    if(!sysCallLog.empty()){
+      for(EpochList::iterator listIt=allEpochs.begin();
+  	  listIt!=myAllEpochsPos;listIt++){
+        if(!(*listIt)->sysCallLog.empty()){
+	  hasSuccSysCalls=true;
+	  break;
+        }
+      }
+    }
+    // Try to squash this epoch alone and avoid squashing successors
+    while(true){
+      if(skipSelf)
+	break;
+      if(myState==State::FlowSuccessors)
+	break;
+      if(myState==State::NoHold)
+        break;
+      if(hasSuccSysCalls)
+	break;
+      if((threadsSequential||(myState==State::Initial))&&(myState==State::SpawnSuccessors))
+	break;
+      undoSysCalls();
+      squashLocal();
+      return;
+    }
+    // Determine which epochs are unspawned and which are restarted
+    typedef std::set<PredDescriptor> PredDescriptors;
+    typedef list<EpochDescriptor> EpochDescriptors;
+    PredDescriptors specSpawners;
+    EpochDescriptors specSpawns;
+    if(myState==State::Initial)
+      specSpawners.insert(PredDescriptor(myThread,myClock,this));
+    for(EpochList::reverse_iterator currRIt(myAllEpochsPos);
+	currRIt!=allEpochs.rend();currRIt++){
+      Epoch *currEpoch=(*currRIt);
+      if(currEpoch->myClock==myClock)
+	continue;
+      PredDescriptor currDesc(currEpoch->myThread,currEpoch->myClock,currEpoch);
+      PredDescriptor prevDesc(currEpoch->myThread,currEpoch->parentClock,currEpoch);
+      if(currEpoch->myState==State::Initial){
+	I(specSpawners.find(currDesc)==specSpawners.end());
+	specSpawners.insert(currDesc);
+      }
+      PredDescriptors::iterator prevIt=specSpawners.find(prevDesc);
+      if(prevIt!=specSpawners.end())
+	specSpawns.push_front(EpochDescriptor(currEpoch,prevIt->epoch));
+    }
+    // Now we will undo SysCall entries for epochs with clocks
+    // higher than "this" epoch, staring from most recent epoch
+    for(EpochList::iterator squashIt=allEpochs.begin();
+	(*squashIt)->myClock>myClock;squashIt++)
+      (*squashIt)->undoSysCalls();
+    if(!skipSelf)
+      undoSysCalls();
+    // Unspawn speculatively created epochs
+    for(EpochDescriptors::iterator specSpawnIt=specSpawns.begin();
+	specSpawnIt!=specSpawns.end();specSpawnIt++){
+      Epoch *currentEpoch=specSpawnIt->currentEpoch;
+      Epoch *parentEpoch=specSpawnIt->parentEpoch;
+      I(currentEpoch->myState!=State::SpawnSuccessors);
+      I(!currentEpoch->spawnSuccessorsCnt);
+      I(currentEpoch->myState==State::Spec);
+      I(parentEpoch->myState==State::SpawnSuccessors);
+      I(parentEpoch->spawnSuccessorsCnt>0);
+      I(parentEpoch->myState==State::Initial);
+      currentEpoch->unspawn();
+      parentEpoch->spawnSuccessorsCnt--;
+      if(!parentEpoch->spawnSuccessorsCnt)
+	parentEpoch->myState-=State::SpawnSuccessors;
+    }
+    if(!skipSelf)
+      squashLocal();
+    // Squash non-speculatively created epochs with
+    // clocks greater than "this" epoch
+    for(EpochList::reverse_iterator squashRIt(myAllEpochsPos);
+	squashRIt!=allEpochs.rend();squashRIt++){
+      Epoch *squashEpoch=*squashRIt;
+      if(squashEpoch->myClock==myClock)
+	continue;
+      squashEpoch->squashLocal();
+      I((squashEpoch->myState!=State::Initial)||
+	(squashEpoch->myState==State::NoSuccessors));
+    }
+  }
+
+  void Epoch::undoSysCalls(void){
+    if(myState==State::Initial){
+      I(sysCallLogPos==sysCallLog.end());
+      // Undo system calls and destroy the log
+      while(!sysCallLog.empty()){
+	SysCall *sysCall=sysCallLog.back();
+	sysCallLog.pop_back();
+	sysCall->undo(false);
+	delete sysCall;
+      }
+    }else{
+      // Undo starting from the last entry that was exec-ed
+      for(SysCallLog::reverse_iterator logRIt(sysCallLogPos);
+	  logRIt!=sysCallLog.rend();logRIt++)
+	(*logRIt)->undo(true);
+      sysCallLogPos=sysCallLog.begin();
+    }
+  }
+
   void Epoch::squashLocal(void){
+    // If this epoch did nothing, no need to squash it
+    if(myState==State::Spawning)
+      return;
+    ID(printf("Squashing %ld:%d numInstr %lld\n",myClock,getTid(),pendInstrCount));
+    I(myState<State::LazyMerge);
+    initMergeHold();
+    I(!myCheckpoint);
+    I(!(myState==State::Committed));
     // Roll back the Exec state
+    if((myState==State::ThreadSafe)&&myThread->isWaiting)
+      myThread->proceed();
     if(myState==State::Running)
       osSim->stop(myPid);
     myState=State::Spawning;
     myState=State::NoWait;
-    // Roll back the predecessor-ordering state
-    myState=State::PreAccess;
+    // Roll back the sync state
+    if(myState==State::Atm){
+      atmNestLevel=0;
+      AtomicSquashInstrs.addSample(pendInstrCount);
+    }
+    myState=State::NoAtm;
+    myState=State::NoAcq;
+    myState=State::NoRel;
     // Spec state already rolled back in the global squash method
     I(myState!=State::Committed);
-    // Erase buffered blocks
+    // Erase buffered blocks and clear block removal requests
     eraseBuffer();
+    pendingBlockRemovals.erase(this);
+    // No buffered blocks -> no flow and name successors
+    myState-=State::DataSuccessors;
+    I((!spawnSuccessorsCnt)==(myState==State::NoSuccessors));
     // Restore initial SESC execution context
     ThreadContext *context=osSim->getContext(myPid);
     *context=myContext;
 
+    SquashInstructions.addSample(pendInstrCount);
     doneInstrCount-=pendInstrCount;
     execInstrCount-=pendInstrCount;
     pendInstrCount=0;
+    // Clear out epoch's race detection info
+    myInstRaces.clear();
 
     beginCurrentExe=0;
     endCurrentExe=0;
-    if(myState==State::Initial){
-      sysCallLog.clear();
-    }
-    sysCallLogPos=sysCallLog.begin();
+    if(myState==State::Initial)
+      myVClock->restore(originalVClock);
     // Try to restart execution and transition into less speculative states
-    if(!parentSquashed){
-      if(myThread->threadSafeAvailable){
-	EpochList::iterator checkIt=myThreadEpochsPos;
-	checkIt++;
-	if((checkIt==myThread->threadEpochs.end())||((*checkIt)->myState==State::Committed))
-	  threadSave();
-      }
-      run();
-    }else{
-      I(myState==State::Spec);
+    if(myThread->threadSafeAvailable){
+      EpochList::iterator checkIt=myThreadEpochsPos;
+      checkIt++;
+      if((checkIt==myThread->threadEpochs.end())||((*checkIt)->myState==State::Committed))
+	threadSave();
     }
+    if(!threadsSequential){
+      run();
+    }else if(parentClock>myThread->spawnClock){
+      EpochList::iterator threadIt=myThreadEpochsPos;
+      threadIt++;
+      if((threadIt==myThread->threadEpochs.end())||((*threadIt)->myState==State::Completed))
+	run();
+    }else{
+      I(parentClock==myThread->spawnClock);
+      Epoch *spawnEpoch=myThread->getSpawnEpoch();
+      if((!spawnEpoch)||spawnEpoch->myState==State::Completed)
+	run();
+    }
+#if (defined DEBUG)
+    for(EpochList::iterator allChkIt=allEpochs.begin();allChkIt!=allEpochs.end();allChkIt++)
+      I((*allChkIt)->myState!=State::WaitUnspawn);
+    for(size_t i=0;i<Thread::threadVector.size();i++){
+      if(!Thread::threadVector[i])
+	continue;
+      for(EpochList::iterator thrChkIt=Thread::threadVector[i]->threadEpochs.begin();
+	  thrChkIt!=Thread::threadVector[i]->threadEpochs.end();thrChkIt++)
+	I((*thrChkIt)->myState!=State::WaitUnspawn);
+    }
+#endif
   }
 
   void Epoch::unspawn(void){
+    ID(printf("Unspawning %ld:%d numInstr %lld\n",myClock,getTid(),pendInstrCount));
     I(myState==State::Spec);
     I(myState==State::Initial);
-    if(myState==State::Running){
-      myState=State::Spawning;
+    // Roll back the Exec state
+    if(myState==State::Running)
       osSim->stop(myPid);
-    }
-    delete this;
+    // This epoch is waiting to be unspawned
+    myState=State::Waiting;
+    myState=State::WaitUnspawn;
+    // Erase buffered blocks
+    eraseBuffer();
+    // Remove from pending-block-removal list
+    pendingBlockRemovals.erase(this);
+    // Undo system calls and destroy the log
+    I(sysCallLog.empty());
+    // Remove from list of all epochs
+    I(myAllEpochsPos!=globalSafe);
+    allEpochs.erase(myAllEpochsPos);
+    myAllEpochsPos=allEpochs.end();
+    // Remove from thread's list of epochs
+    bool lastInThread=myThread->removeEpoch(this);
+    I(!lastInThread);
+    // Destroy the epoch if all instructions have gone through
+    if(doneInstrCount==pendInstrCount)
+      delete this;
   }
 
-  void Epoch::requestActiveMerge(void){
-    if(myState==State::Merging){
-      beginActiveMerge();
-    }else{
-      myState=State::ActiveMerge;
-      if(myState>=State::GlobalSafe)
-	beginMerge();
+  void Epoch::requestEagerMerge(void){
+    I(this);
+    // If already EagerMerge, do nothing
+    if(myState==State::EagerMerge)
+      return;
+    // If the epoch is not GlobalSafe, its ordering may change and
+    // it is still not safe to request eager merge from predecesors
+    if(myState<State::GlobalSafe){
+      // Remember the request to repeat it when we are GlobalSafe
+      if(myState<State::ReqEagerMerge)
+	myState=State::ReqEagerMerge;
+      return;
+    }
+    // We can request eager merge from this epoch and its predecesors
+    // First, we find the predecssors that need an eager merge request
+    EpochList::iterator mergIt=myAllEpochsPos;
+    for(mergIt++;mergIt!=allEpochs.end();mergIt++){
+      // Need no request if already have one
+      if((*mergIt)->myState==State::ReqEagerMerge)
+	break;
+      // Need n orequest if already in EagerMerge
+      if((*mergIt)->myState==State::EagerMerge)
+	break;
+    }
+    // Merging may actually delete "this", so we remember it now
+    // and do not refer to "this" in the rest of this method
+    Epoch *thisEpoch=this;
+    EpochList::reverse_iterator mergItR(mergIt);
+    while(true){
+      Epoch *mergEpoch=*mergItR;
+      if(mergEpoch->myState!=State::NoHold){
+	I(mergEpoch->myState<State::LazyMerge);
+	mergEpoch->myState=State::ReqEagerMerge;
+      }else{
+	if(mergEpoch->myState!=State::LazyMerge)
+	  mergEpoch->beginLazyMerge();
+	if(mergEpoch==*mergItR)
+	  mergEpoch->beginEagerMerge();
+      }
+      if(mergEpoch==thisEpoch)
+	break;
+      I(mergItR!=allEpochs.rend());
+      if(mergEpoch==(*mergItR))
+	mergItR++;
     }
   }
-  
-  void Epoch::beginMerge(void){
+
+  void Epoch::requestLazyMerge(void){
+    I(this);
+    // If already LazyMerge, do nothing
+    if(myState>=State::LazyMerge)
+      return;
+    // To start merging this epoch, we must start merging
+    // all its predecessors and get the GlobalSafe status
+    // First, we seek to the youngest merging epoch
+    EpochList::iterator mergIt=myAllEpochsPos;
+    while((mergIt!=allEpochs.end())&&((*mergIt)->myState<State::LazyMerge))
+      mergIt++;
+    // If that epoch is not completed yet, it must also be dealt with
+    if((mergIt!=allEpochs.end())&&((*mergIt)->myState!=State::Completed))
+      mergIt++;
+    // This points to the oldest epoch that is posing a problem
+    EpochList::reverse_iterator mergItR(mergIt);
+    // Deal with the predecessors
+    while((*mergItR)!=this){
+      Epoch *mergEpoch=*mergItR;
+      // A non-committed predecessor stops advance of GlobalSafe
+      if(mergEpoch->myState<State::Committed){
+	// First see if we can move it out of the way
+	if(((mergEpoch->myState<State::ReqLazyMerge)||(mergEpoch->myState>=State::WaitUnspawn))&&
+	   mergEpoch->canEasilyAdvance()){
+          Pid_t thePid=myPid;
+	  mergEpoch->advanceClock(this,false);
+          // Advancing a predecessor may commit and destroy "this" epoch,
+          // in which case this method's function is done and we must return
+          if(!pidToEpoch[thePid])
+            return;
+	  // The epoch should be moved from where it was
+	  I((*mergItR)!=mergEpoch);
+	  // No need to increment mergItR (already points to next epoch)
+	  continue;
+	}
+	// We can't advance it, can we truncate it?
+	if(mergEpoch->canBeTruncated()){
+	  Epoch *newEpoch=mergEpoch->changeEpoch();
+	  // Move the new epoch out of the way
+	  newEpoch->advanceClock(this,false);
+	  // The old epoch should still be there and be Completed now
+	  I((*mergItR)==mergEpoch);
+	  I(mergEpoch->myState==State::Completed);
+	  // Epoch can be committed and deleted when it completes,
+	  // in which case mergItR already points to the next epoch
+	  if((*mergItR)!=mergEpoch)
+	    continue;
+	}
+	// Note: mergEpoch can still be uncommitted at this time because
+	// 1) if it is GlobalSafe and Completed, it still can't commit
+	//    until all of its pending and executed instructions are done
+	// 2) some epochs can not be moved or truncated (e.g. during replay)
+      }
+      I(mergEpoch->myState!=State::Waiting);
+      if(mergEpoch->myState==State::NoHold){
+	// If there is no hold left, epoch can merge (if not merging already)
+	if(mergEpoch->myState<State::LazyMerge)
+	  mergEpoch->beginLazyMerge();
+      }else{
+	// There is a hold, remember the request to retry it later
+	if(mergEpoch->myState<State::ReqLazyMerge)
+	  mergEpoch->myState=State::ReqLazyMerge;
+      }
+      if((*mergItR)==mergEpoch)
+	mergItR++;
+    }
+    I((*mergItR)==this);
+    if(myState==State::NoHold){
+      // If there is no hold left, epoch can merge (if not merging already)
+      if(myState<State::LazyMerge)
+	beginLazyMerge();
+    }else{
+      // Can't merge now, but remember the request
+      if(myState<State::ReqLazyMerge)
+	myState=State::ReqLazyMerge;
+    }
+  }
+//    // If we get here we are not yet Merging, but we can become
+//    // In a "normal" situation, we just need to call beginMerge
+//    if(!testRollback){
+//      beginMerge(true);
+//      return;
+//    }
+//    // However, if testing rollbacks, we need to do weird, weird things
+//    if((myClock<=clockAtLastRollback)&&
+//       ((!squashToTestRollback)||(myClock<squashToTestRollback->myClock))){
+//      beginMerge(true);
+//      return;
+//    }
+//    EpochList::reverse_iterator epochRIt=allEpochs.rbegin();
+//    I(epochRIt!=allEpochs.rend());
+//    while((*epochRIt)->myClock<=clockAtLastRollback){
+//      epochRIt++;
+//      I(epochRIt!=allEpochs.rend());
+//    }
+//    I((*epochRIt)->myState!=State::Merging);
+//    clockAtLastRollback=myClock;
+//    myState=State::PassiveMerge;
+//    if((!squashToTestRollback)||(squashToTestRollback->myClock>(*epochRIt)->myClock))
+//      squashToTestRollback=(*epochRIt);
+//  }
+
+  void Epoch::beginLazyMerge(void){
     ID(Pid_t myPidTmp=myPid);
-    I(myState!=State::Merging);
+    I(myState<State::LazyMerge);
     I(myState>=State::GlobalSafe);
-    // Predecessors also become merging
-    EpochList::iterator prevIt=myAllEpochsPos;
-    prevIt++;
-    if((prevIt!=allEpochs.end())&&((*prevIt)->myState!=State::Merging))
-      (*prevIt)->beginMerge();
+    numEpochs++;
+    if(myThread->canMissRaces(this)){
+      I(!mustFindAllRaces);
+      numRaceMissEpochs++;
+    }
+    // Predecessor should already be in a merge state
+    ID(EpochList::iterator nextPosIt=myAllEpochsPos);
+    ID(nextPosIt++);
+    I((nextPosIt==allEpochs.end())||((*nextPosIt)->myState>=State::LazyMerge));
     // Update per-epoch statistics
     SysCallCount.addSample(sysCallLog.size());
-    EpochInstObserver.addSample(pendInstrCount);
-    EpochBuffObserver.addSample(bufferBlocks.size()*blockSize);
-    // Now my state is Merging
-    myState=State::Merging;
+    EpochInstructions.addSample(pendInstrCount);
+    EpochBuffSpace.addSample(bufferBlockMap.size()*blockSize);
+    // Update atomic section entry counts
+    if(myAtomicSection){
+      if(atomicEntryCount.find(myAtomicSection)==atomicEntryCount.end())
+	atomicEntryCount[myAtomicSection]=0;
+      atomicEntryCount[myAtomicSection]++;
+    }
+    // Now my state is LazyMerge
+    myState=State::LazyMerge;
     // Find the checkpoint to merge into and start the merging process
     myCheckpoint=Checkpoint::mergeInit(this);
     I(pidToEpoch[myPidTmp]==this);
-    if(bufferBlocks.empty()){
-      if(myState==State::Committed){
-	I(myState==State::NoWait);
-	delete this;
-	return;
-      }
-      if(myState==State::WaitFullyMerged)
-	becomeFullyMerged();
-    }
-    if(myState==State::ActiveMerge)
-      beginActiveMerge();
+    if(blockRemovalEnabled)
+      doBlockRemovals();
   }
   
-  void Epoch::beginActiveMerge(void){
+  void Epoch::beginEagerMerge(void){
     I(myState>=State::GlobalSafe);
-    I(myState==State::Merging);
-    // Predecessors also enter ActiveMerge
-    EpochList::iterator prevIt=myAllEpochsPos;
-    prevIt++;
-    if((prevIt!=allEpochs.end())&&((*prevIt)->myState!=State::ActiveMerge))
-      (*prevIt)->beginActiveMerge();
-    myState=State::ActiveMerge;
-    // For now we immediatelly merge the entire buffer on ActiveMerge
-    mergeBuffer();
+    I(myState==State::LazyMerge);
+    // Next epoch should already be EagerMerging
+    ID(EpochList::iterator nextPosIt=myAllEpochsPos);
+    ID(nextPosIt++);
+    I((nextPosIt==allEpochs.end())||((*nextPosIt)->myState==State::EagerMerge));
+    myState=State::EagerMerge;
+    if(blockRemovalEnabled){
+      // For now we immediatelly merge and erase the entire buffer on EagerMerge
+      mergeBuffer();
+      eraseBuffer();
+    }else{
+      pendingBlockRemovals.insert(this);
+    }
   }
 
   Epoch::~Epoch(void){
-    ID(printf("Deleting %ld:%d numInstr %lld\n",mySClock,getTid(),pendInstrCount));
-    I(pendInstrCount);
+#if (defined DEBUG)
+    if(myState!=State::WaitUnspawn)
+      printf("Deleting %ld:%d numInstr %lld\n",myClock,getTid(),pendInstrCount);
+#endif
+    I((myState==State::WaitUnspawn)||blockRemovalEnabled);
+    I(pendInstrCount||(myState==State::WaitUnspawn));
     I(execInstrCount==pendInstrCount);
     I(doneInstrCount==pendInstrCount);
     I(myState!=State::Running);
-    I((myState==State::Merging)||(!myCheckpoint));
-    if(myState==State::Merging){
+    I((myState>=State::LazyMerge)||(!myCheckpoint));
+    if(myState>=State::LazyMerge){
       I(myCheckpoint);
       myCheckpoint->mergeDone(this);
     }
-    // Remove epoch from the allEpochs list
+    // Remove epoch from the allEpochs list, if it's still there
     I(myState!=State::GlobalSafe);
-    if(myAllEpochsPos==globalSafe)
-      globalSafe++;
-    allEpochs.erase(myAllEpochsPos);
-    // Remove epoch from its thread, delete the thread
-    // if this was the last epoch
-    if(myThread->removeEpoch(this)){
-      delete myThread;
-      numEndThread++;
+    if(myAllEpochsPos!=allEpochs.end()){
+      if(myAllEpochsPos==globalSafe)
+	globalSafe++;
+      allEpochs.erase(myAllEpochsPos);
+    }else{
+      // If already removed, should be Unspawn
+      I(myState==State::WaitUnspawn);
     }
+    // Remove epoch from its thread
+    //, delete the thread
+    // if this was the last epoch
+    bool lastInThread=myThread->removeEpoch(this);
     // Remove pid-to-epoch mapping
     I(pidToEpoch[myPid]==this);
     pidToEpoch[myPid]=0;
     // The SESC thread for this epoch ends now
     osSim->eventExit(myPid,0);
+    // Delete the entire thread if this was the last epoch
+    if(lastInThread){
+      delete myThread;
+      numEndThread++;
+    }
+    VClock::freeVClock(myVClock);
+    VClock::freeVClock(originalVClock);
     ID(myPid=-1);
   }
-  
-//     ID(lastSafe--);
-//     I(lastSafe==myAllEpochsPos);
-//     lastSafe=myAllEpochsPos;
-//     createdNotSafeCount--;
-//     // Become the last safe epoch
-//     safeNotAnalyzingCount++;
-//     safeNotAnalyzingInstr+=(InstrCount)pendInstrCount;
-//     safeNotAnalyzingBufferBlocks+=bufferBlocks.size();
-//     // See if now also Decided
-//     if(myState>=Decidable){
-//       becomeDecided();
-//       // If the first safe epoch in its thread,
-//       // this epoch is also the analyzedUb
-//       if(!myThread->hasAnalyzedUb())
-// 	myThread->updateAnalyzedUb(this);
-//       // Try to propagate the safe status
-//       if(lastSafe!=allEpochs.begin()){
-// 	EpochList::reverse_iterator nextIt(lastSafe);
-// 	(*nextIt)->tryToBecomeSafe();
-//       }
-//     }else{
-//       // If the first safe epoch in its thread,
-//       // this epoch is also the analyzedUb
-//       if(!myThread->hasAnalyzedUb())
-// 	myThread->updateAnalyzedUb(this);
-//     }
-//   }
-//   void Epoch::becomeDecided(){
-//     if(myState>=Decided){
-//       // Verify the instruction count
-//       I(maxInstrCount==pendInstrCount);
-//       I(beginDecisionExe);
-//       I(beginDecisionExe<endDecisionExe);
-//       I(endDecisionExe<=beginCurrentExe);
-//       I(beginCurrentExe<endCurrentExe);
-//       // Update statistics
-//       double originalTime=endDecisionExe-beginDecisionExe;
-//       double replayTime=endCurrentExe-beginCurrentExe;
-//       ReplayRelSpeed.addSample(replayTime/originalTime);
-//       RaceEpochAnomalies.addSample(numAnomalies);
-//       // Done analyzing this epoch
-//       I(!analysisDone.count(this));
-//       analysisDone.insert(this);
-//       // Is this the last epoch to analyze?
-//       if(analysisDone.size()==analysisNeeded.size()){
-// 	completeAnalysis();
-//       }else{
-// 	EpochList::reverse_iterator analyzeRIt(myAllEpochsPos);
-// 	while(!analysisNeeded.count(*analyzeRIt)){
-// 	  I(analyzeRIt!=allEpochs.rend());
-// 	  analyzeRIt++;
-// 	}
-// 	I(analyzeRIt!=allEpochs.rend());
-// 	I((*analyzeRIt)->myState<Merging);
-// 	I((*analyzeRIt)->myState>=Decided);
-// 	I((*analyzeRIt)->myState*Execution==Complete);
-// 	I((*analyzeRIt)->myState>=Safe);
-// 	(*analyzeRIt)->doSquash();
-// 	I((*analyzeRIt)->isExecutable());
-// 	(*analyzeRIt)->becomeExecuting();
-// 	I((*analyzeRIt)->myState*Execution!=None);
-//       }
-//     }else{
-//       I((!maxInstrCount)||(pendInstrCount<=maxInstrCount));
-//       I(!beginDecisionExe);
-//       I(!endDecisionExe);
-//       I(beginCurrentExe);
-//       I(beginCurrentExe<=endCurrentExe);
-//       // Update Statistics
-//       NumRunSClockAdj.addSample(runtimeSClockAdjustments);
-//       // Remeber the instruction count
-//       maxInstrCount=currInstrCount;
-//       // Change the upper bound for decided epochs in this thread
-//       myState-=DecidedUb;
-//       if(immedSeqSucc){
-// 	immedSeqSucc->myState+=DecidedUb;
-// 	myThread->updateSpawnSafe(immedSeqSucc->myVClock);
-//       }else{
-// 	myThread->updateSpawnSafe(VClock::getInfiniteVClock());
-//       }
-//       // Try to transition to the Analyzing state
-//       I(lastSafe!=lastAnalyzing);
-//       EpochList::reverse_iterator nextIt(lastAnalyzing);
-//       if(*nextIt==this)
-// 	tryToAnalyze(false);
-//     }
-//   }
-
-//   bool Epoch::isAnalyzable(bool missRaces) const{
-//     I(!missRaces);
-//     if(lastAnalyzing==lastSafe)
-//       return false;
-//     EpochList::reverse_iterator nextIt(lastAnalyzing);
-//     if(*nextIt!=this)
-//       return false;
-//     if((!missRaces)&&(!myThread->canAnalyze(this)))
-//       //    if((!missRaces)&&(!preventingAnalysis.empty()))
-//       return false;
-//     if(doingAnalysis)
-//       return false;
-//     return true;
-//   }
-
-//   void Epoch::tryToAnalyze(bool missRaces){
-//     if(!isAnalyzable(missRaces))
-//       return;
-//     // Schedule the analysis
-//     analyzeEpochs.insert(this);
-//     hasPostExecActions=true;
-//   }
-
-//   void Epoch::becomeAnalyzing(void){
-//     I(myState>=Decidable);
-//     I(myState>=Decided);
-//     I(myState<Merging);
-//     //    ID(printf("Analyzing %d(%d)\n",getCid(),myEid));
-//     // Update statistics variables
-//     safeNotAnalyzingCount--;
-//     safeNotAnalyzingInstr-=(InstrCount)currInstrCount;
-//     safeNotAnalyzingBufferBlocks-=bufferBlocks.size();
-//     analyzingNotMergingCount++;
-//     analyzingNotMergingInstr+=(InstrCount)currInstrCount;
-//     analyzingNotMergingBufferBlocks+=bufferBlocks.size();
-//     // This epoch is the last to become Analyzing
-//     ID(EpochList::iterator checkIt=lastAnalyzing);
-//     I(checkIt!=allEpochs.begin());
-//     ID(checkIt--);
-//     I(checkIt==myAllEpochsPos);
-//     lastAnalyzing=myAllEpochsPos;
-//     // Remove this epoch from the analyze set
-//     I(analyzeEpochs.count(this));
-//     analyzeEpochs.erase(this);
-//     //    // Races missed if preventingMerge not empty
-//     //    I(preventingAnalysis.empty());
-//     // Races missed if thread thinks epoch can not be analyzed
-//     I(myThread->canAnalyze(this));
-//     //    // No longer prevented from merging
-//     //    preventingAnalysis.clear();
-//     // Normally, an epoch needs no analysis
-//     bool needAnalysis=false;
-//     // Does it have backward races?
-//     if(!myBackRacesByAddrEp.empty()){
-//       // Need to trace all race addresses
-//       for(RaceByAddrEp::iterator backAddrIt=myBackRacesByAddrEp.begin();
-// 	  backAddrIt!=myBackRacesByAddrEp.end();backAddrIt++){
-// 	Address dAddrV=backAddrIt->first;
-// 	traceDataAddresses.insert(dAddrV);
-// #if (defined DEBUG)
-// 	const RaceByEp &backRacesByEp=backAddrIt->second->raceByEp;
-// 	for(RaceByEp::const_iterator backEpIt=backRacesByEp.begin();
-// 	    backEpIt!=backRacesByEp.end();backEpIt++){
-// 	  I(analysisNeeded.count(backEpIt->first));
-// 	}
-// #endif // (defined DEBUG)
-//       }
-//       // Analysis is needed
-//       needAnalysis=true;
-// #if (defined DEBUG)
-//       for(RaceByEpAddr::iterator backEpochIt=myBackRacesByEpAddr.begin();
-// 	  backEpochIt!=myBackRacesByEpAddr.end();backEpochIt++){
-// 	Epoch *epoch=backEpochIt->first;
-// 	I(analysisNeeded.count(epoch));
-// 	const RaceByAddr &backRacesByAddr=backEpochIt->second;
-// 	for(RaceByAddr::const_iterator backAddrIt=backRacesByAddr.begin();
-// 	    backAddrIt!=backRacesByAddr.end();backAddrIt++){
-// 	  I(traceDataAddresses.count(backAddrIt->first));
-// 	}
-//       }
-// #endif // (defined DEBUG)
-//     }
-//     // Does the epoch have forward races?
-//     if(!myForwRacesByAddrEp.empty()){
-//       // Need tot trace all race addresses
-//       for(RaceByAddrEp::iterator forwIt=myForwRacesByAddrEp.begin();
-// 	  forwIt!=myForwRacesByAddrEp.end();forwIt++){
-// 	Address dAddrV=forwIt->first;
-// 	traceDataAddresses.insert(dAddrV);
-//       }
-//       // Analysis is needed
-//       needAnalysis=true;
-//       // We also need to analyze all successor epochs
-//       // that have races with this one  
-//       for(RaceByEpAddr::iterator epochIt=myForwRacesByEpAddr.begin();
-// 	  epochIt!=myForwRacesByEpAddr.end();epochIt++){
-// 	Epoch *epoch=epochIt->first;
-// 	analysisNeeded.insert(epoch);
-//       }
-//     }
-//     // Position in the analyzingToMerge list where this sepoch goes
-//     //    EpochList::iterator insBefore;
-//     if(needAnalysis){
-//       // Analysis is needed
-//       analysisNeeded.insert(this);
-//       // And the epoch is ready to be analyzed
-//       analysisReady.insert(this);
-//       // The epoch goes to the end of the list
-//       //      insBefore=analyzingToMerge.end();
-//     }else{
-// #if !(defined SHORTEN_ANALYSIS_WINDOW)
-//       // The epoch goes to the end of the list
-//       //      insBefore=analyzingToMerge.end();
-// #else // SHORTEN_ANALYSIS_WINDOW
-//       I(0);
-//       // Try to go ahead of all analysisReady epochs, if any
-//       size_t passNeeded=analysisReady.size();
-//       if(passNeeded){
-// 	//	insBefore=analyzingToMerge.end();
-// 	while(true){
-// 	  EpochList::iterator tmpIt=insBefore;
-// 	  tmpIt--;
-// 	  Epoch *tmpEpoch=*tmpIt;
-// 	  VClokc::CmpResult cmpRes=compareVClock(tmpEpoch);
-// 	  // Safe before this => can not come after this
-// 	  I(cmpRes<WeakAfter);
-// 	  if(cmpRes<=WeakBefore)
-// 	    break;
-// 	  insBefore=tmpIt;
-// 	  if(analysisReady.count(tmpEpoch)){
-// 	    passNeeded--;
-// 	    if(!passNeeded)
-// 	      break;
-// 	  }
-// 	  //	  I(insBefore!=analyzingToMerge.begin());
-// 	}
-// 	if(passNeeded){
-// 	  //	  insBefore=analyzingToMerge.end();
-// #if (defined DEBUG)
-// 	  bool foundOne=false;
-// 	  for(EpochSet::const_iterator checkIt=analysisReady.begin();
-// 	      checkIt!=analysisReady.end();checkIt++){
-// 	    I(compareVClock(*checkIt)<WeakAfter);
-// 	    if(compareVClock(*checkIt)<=WeakBefore)
-// 	      foundOne=true;
-// 	  }
-// 	  I(foundOne);
-// #endif
-// 	}else{
-// 	  printf("Fast-analyzing epoch %d(%d)\n",getCid(),myEid);
-// 	}
-//       }
-// #endif // SHORTEN_ANALYSIS_WINDOW
-//     }
-//     if(needAnalysis){
-//       // If all needed epochs are ready, do the analysis
-//       if(analysisNeeded.size()==analysisReady.size())
-// 	beginAnalysis();
-//     }else{
-//       // No analysis needed, try to merge
-//       I(lastMerging!=lastAnalyzing);
-//       EpochList::reverse_iterator nextIt(lastMerging);
-//       I(nextIt!=allEpochs.rend());
-//       if(*nextIt==this)
-// 	tryToMerge();
-//     }
-//     // Update the upper bound for analyzed epochs in this thread
-//     myThread->updateAnalyzedUb(immedSeqSucc);
-//     // Try to propagate the Analyzing status
-//     if(lastAnalyzing!=lastSafe){
-//       EpochList::reverse_iterator nextIt(lastAnalyzing);
-//       I(nextIt!=allEpochs.rend());
-//       (*nextIt)->tryToAnalyze(false);
-//     }
-//   }
-
-//   void Epoch::beginAnalysis(void){
-//     printf("Analysis begins\n");
-//     I(analysisReady.size()>1);
-//     // Clear the ready set
-//     analysisReady.clear();
-//     // No non-Safe epoch should be Executing during analysis
-//     for(EpochList::reverse_iterator epochRIt(lastSafe);
-// 	epochRIt!=allEpochs.rend();epochRIt++){
-//       Epoch *epoch=*epochRIt;
-//       I(epoch->myState<Safe);
-//       if(epoch->myState*Execution==Complete)
-// 	continue;
-//       if(epoch->myState*Execution==None)
-// 	continue;
-//       if(epoch->currInstrCount){
-// 	epoch->truncateEpoch(true);
-//       }else{
-// 	epoch->myState-=Execution;
-// 	Pid_t pid=static_cast<Pid_t>(epoch->myEid);
-// 	osSim->stop(pid);
-// 	stoppedForAnalysis.push_back(epoch);
-//       }
-//     }
-// #if (defined DEBUG)
-//     for(EpochList::iterator stopIt=stoppedForAnalysis.begin();
-// 	stopIt!=stoppedForAnalysis.end();stopIt++){
-//       printf("Stopped %d(%d) for analysis\n",(*stopIt)->getTid(),(*stopIt)->myEid);
-//     }
-//     for(EpochList::iterator epochIt=allEpochs.begin();
-// 	epochIt!=lastSafe;epochIt++){
-//       Epoch *epoch=*epochIt;
-//       I((epoch->myState*Execution==Complete)||(epoch->myState*Execution==None));
-//     }
-// #endif // (defined DEBUG)
-//     // Now switch to analysis mode
-//     doingAnalysis=true;
-//     if(dataRacesIgnored){
-//       completeAnalysis();
-//       return;
-//     }
-//     EpochList::reverse_iterator analyzeRIt(lastMerging);
-//     while(!analysisNeeded.count(*analyzeRIt)){
-//       I(analyzeRIt!=allEpochs.rend());
-//       analyzeRIt++;
-//     }
-//     I(analyzeRIt!=allEpochs.rend());
-//     I((*analyzeRIt)->myState<Merging);
-//     I((*analyzeRIt)->myState>=Decidable);    
-//     I((*analyzeRIt)->myState>=Decided);
-//     (*analyzeRIt)->doSquash();
-//     I((*analyzeRIt)->isExecutable());
-//     (*analyzeRIt)->becomeExecuting();
-//     I((*analyzeRIt)->myState*Execution==Ordered);
-//   }
-  
-//   void Epoch::completeAnalysis(void){
-//     I(analysisReady.empty());
-//     EpochList::reverse_iterator analyzingBeginRIt(lastMerging);
-//     EpochList::reverse_iterator analyzingEndRIt(lastAnalyzing);
-//     printf("Analysis trace begins\n");
-//     // The last Analyzing epochs should be one of the analyzed epochs
-//     // The first Analyzing epochs should be one of the analyzed epochs
-//     I(analysisDone.count(*lastAnalyzing));
-//     I(analysisDone.count(*analyzingBeginRIt));
-//     for(EpochList::reverse_iterator epochRIt=analyzingBeginRIt;
-// 	epochRIt!=analyzingEndRIt;epochRIt++){
-//       Epoch *epochTraceEpoch=*epochRIt;
-//       if(!analysisDone.count(epochTraceEpoch))
-// 	continue;
-//       I(!epochTraceEpoch->traceDataAddresses.empty());
-//       I(!epochTraceEpoch->traceCodeAddresses.empty());
-//       printf("Thread %d (SClock %d) has races at code addresses",
-// 	     epochTraceEpoch->getTid(),epochTraceEpoch->mySClock);
-//       for(AddressSet::iterator codeAddrIt=epochTraceEpoch->traceCodeAddresses.begin();
-// 	  codeAddrIt!=epochTraceEpoch->traceCodeAddresses.end();codeAddrIt++){
-// 	printf(" %08lx",*codeAddrIt);
-//       }
-//       printf("\n");
-//       if(epochTraceEpoch->numAnomalies)
-// 	printf("(Anomalies were also found)\n");
-//       epochTraceEpoch->traceCodeAddresses.clear();
-//       TraceList &epochTrace=epochTraceEpoch->myTrace;
-//       if(epochTrace.size()<30){
-// 	for(TraceList::iterator traceIt=epochTrace.begin();
-// 	    traceIt!=epochTrace.end();traceIt++){
-// 	  TraceEvent *traceEvent=*traceIt;
-// 	  traceEvent->print();
-// 	  printf("\n");
-// 	}
-//       }
-//     }
-//     printf("Analysis trace ends\n");
-//     {
-//       size_t foundAnomalies=0;
-//       for(EpochSet::iterator epochIt=analysisDone.begin();
-// 	  epochIt!=analysisDone.end();epochIt++){
-// 	Epoch *epoch=*epochIt;
-// 	if(epoch->numAnomalies){
-// 	  foundAnomalies+=epoch->numAnomalies;
-// 	  epoch->numAnomalies=0;
-// 	}
-//       }
-//       RaceGroupAnomalies.addSample(foundAnomalies);
-//     }      
-//     // Compute and update race group window statistics
-//     {
-//       // Start with all the epochs in the analysis window
-//       size_t raceGrpWinEpochs=analyzingNotMergingCount;
-//       InstrCount raceGrpWinInstr=analyzingNotMergingInstr;
-//       size_t raceGrpWinBlocks=analyzingNotMergingBufferBlocks;
-// #if (defined CollectVersionCountStats)
-//       VersionCounts versionCounts;
-// #endif // CollectVersionCountStats
-//       // Now remove any epochs we can
-//       for(EpochList::reverse_iterator epochRIt=analyzingBeginRIt;
-// 	  epochRIt!=analyzingEndRIt;epochRIt++){
-// 	Epoch *epoch=*epochRIt;
-// 	// Can not remove epochs that require analysis
-// 	if(analysisDone.count(epoch)){
-// #if (defined CollectVersionCountStats)
-// 	  versionCounts.add(epoch);
-// #endif // CollectVersionCountStats
-// 	  continue;
-// 	}
-// 	// Of the remaining epochs, can remove only those that are
-// 	// 1) before all the require-analysis epochs, or
-// 	// 2) after all the reqire-analysis epochs
-// 	bool beforeAll=true;
-// 	bool afterAll=true;
-// 	for(EpochSet::iterator raceIt=analysisDone.begin();
-// 	    (raceIt!=analysisDone.end())&&(beforeAll||afterAll);raceIt++){
-// 	  Epoch *raceEpoch=*raceIt;
-// 	  CmpResult cmpRes=epoch->compareSClock(raceEpoch);
-// 	  // If race epoch is before epoch, epoch can not be before all race epochs
-// 	  if(cmpRes<=WeakBefore)
-// 	    beforeAll=false;
-// 	  // If race epoch is after epoch, epoch can not be after all race epochs
-// 	  if(cmpRes>=WeakAfter)
-// 	    afterAll=false;
-// 	}
-// 	beforeAll=afterAll=false;
-// 	if((!beforeAll)&&(!afterAll)){
-// #if (defined CollectVersionCountStats)
-// 	  versionCounts.add(epoch);
-// #endif // CollectVersionCountStats
-// 	  continue;
-// 	}
-// 	// Epoch can be removed from the window, update stats
-// 	raceGrpWinEpochs--;
-// 	raceGrpWinInstr-=(InstrCount)epoch->currInstrCount;
-// 	raceGrpWinBlocks-=epoch->bufferBlocks.size();
-//       }
-//       RaceGrpWinEpochObserver.addSample(raceGrpWinEpochs);
-//       RaceGrpWinInstObserver.addSample(raceGrpWinInstr);
-//       RaceGrpWinBuffObserver.addSample(raceGrpWinBlocks*blockSize);
-// #if (defined CollectVersionCountStats)
-//       RaceGrpWinVersObserver.addSample(versionCounts.getMaxNotRdOnly());
-// #endif // CollectVersionCountStats
-//     }
-//     // Compute and update race group initial race statistics
-//     {
-//       // Find the earliest access that is the second access in a race
-//       Time_t firstBackRaceTime=globalClock;
-//       Epoch *firstBackRaceEpoch=0;
-//       for(EpochSet::iterator raceIt=analysisDone.begin();
-// 	  raceIt!=analysisDone.end();raceIt++){
-// 	Epoch *epoch=*raceIt;
-// 	for(RaceByAddrEp::iterator backRaceAddrIt=epoch->myBackRacesByAddrEp.begin();
-// 	    backRaceAddrIt!=epoch->myBackRacesByAddrEp.end();backRaceAddrIt++){
-// 	  RaceAddrInfo *raceAddrInfo=backRaceAddrIt->second;
-// 	  if(raceAddrInfo->readAccess){
-// 	    Time_t readTime=raceAddrInfo->readAccess->getTime();
-// 	    if(firstBackRaceTime>readTime){
-// 	      firstBackRaceTime=readTime;
-// 	      firstBackRaceEpoch=epoch;
-// 	    }
-// 	  }
-// 	  if(raceAddrInfo->writeAccess){
-// 	    Time_t writeTime=raceAddrInfo->writeAccess->getTime();
-// 	    if(firstBackRaceTime>writeTime){
-// 	      firstBackRaceTime=writeTime;
-// 	      firstBackRaceEpoch=epoch;
-// 	    }
-// 	  }
-// 	}
-//       }
-//       // Initially include only the firstBackRaceEpoch in the stats
-//       size_t iniRaceWinEpochs=1;
-//       InstrCount iniRaceWinInstr=(InstrCount)(firstBackRaceEpoch->currInstrCount);
-//       size_t iniRaceWinBlocks=firstBackRaceEpoch->bufferBlocks.size();
-// #if (defined CollectVersionCountStats)
-//       VersionCounts versionCounts;
-//       versionCounts.add(firstBackRaceEpoch);
-// #endif // CollectVersionCountStats
-//       // Now get stats for the range from start of window to the first-race epoch
-//       for(EpochList::reverse_iterator epochRIt=analyzingBeginRIt;
-// 	  (*epochRIt)!=firstBackRaceEpoch;epochRIt++){
-// 	Epoch *epoch=*epochRIt;
-// 	if(epoch->endDecisionExe>firstBackRaceTime)
-// 	  continue;
-// 	iniRaceWinEpochs++;
-// 	iniRaceWinInstr+=(InstrCount)(epoch->currInstrCount);
-// 	iniRaceWinBlocks+=epoch->bufferBlocks.size();
-// #if (defined CollectVersionCountStats)
-// 	versionCounts.add(epoch);
-// #endif // CollectVersionCountStats
-//       }
-//       RaceGrpIniEpochObserver.addSample(iniRaceWinEpochs);
-//       RaceGrpIniInstObserver.addSample(iniRaceWinInstr);
-//       RaceGrpIniBuffObserver.addSample(iniRaceWinBlocks*blockSize);
-// #if (defined CollectVersionCountStats)
-//       RaceGrpIniVersObserver.addSample(versionCounts.getMaxNotRdOnly());
-// #endif // CollectVersionCountStats
-//     }
-//     // Compute and update race group shortest race statistics
-//     {
-//       Time_t shortRaceDist=globalClock;
-//       Time_t shortRaceFirstTime=0;
-//       Time_t shortRaceSecondTime=0;
-//       Epoch *shortRaceFirstEpoch=0;
-//       Epoch *shortRaceSecondEpoch=0;
-//       for(EpochSet::iterator firstEpochIt=analysisDone.begin();
-// 	  firstEpochIt!=analysisDone.end();firstEpochIt++){
-// 	Epoch *firstEpoch=*firstEpochIt;
-// 	for(RaceByAddrEp::iterator forwRaceAddrIt=firstEpoch->myForwRacesByAddrEp.begin();
-// 	    forwRaceAddrIt!=firstEpoch->myForwRacesByAddrEp.end();forwRaceAddrIt++){
-// 	  Address dataAddress=forwRaceAddrIt->first;
-// 	  RaceAddrInfo *forwRaceAddrInfo=forwRaceAddrIt->second;
-// 	  if(forwRaceAddrInfo->readAccess){
-// 	    Time_t firstTime=forwRaceAddrInfo->readAccess->getTime();
-// 	    for(RaceByEp::iterator secondEpochIt=forwRaceAddrInfo->raceByEp.begin();
-// 		secondEpochIt!=forwRaceAddrInfo->raceByEp.end();secondEpochIt++){
-// 	      RaceInfo *raceInfo=secondEpochIt->second;
-// 	      // First access is a read, must be anti-type race
-// 	      if(!(raceInfo->raceType&RaceInfo::Anti))
-// 		continue;
-// 	      Epoch *secondEpoch=secondEpochIt->first;
-// 	      RaceByAddrEp::iterator
-// 		backRaceAddrIt=secondEpoch->myBackRacesByAddrEp.find(dataAddress);
-// 	      I(backRaceAddrIt!=secondEpoch->myBackRacesByAddrEp.end());
-// 	      RaceAddrInfo *backRaceAddrInfo=backRaceAddrIt->second;
-// 	      I(backRaceAddrInfo->writeAccess);
-// 	      Time_t secondTime=backRaceAddrInfo->writeAccess->getTime();
-// 	      Time_t diffTime=(secondTime>firstTime)?(secondTime-firstTime):0;
-// 	      if(diffTime<shortRaceDist){
-// 		shortRaceDist=diffTime;
-// 		shortRaceFirstTime=firstTime;
-// 		shortRaceSecondTime=secondTime;
-// 		shortRaceFirstEpoch=firstEpoch;
-// 		shortRaceSecondEpoch=secondEpoch;
-// 	      }
-// 	    }
-// 	  }
-// 	  if(forwRaceAddrInfo->writeAccess){
-// 	    Time_t firstTime=forwRaceAddrInfo->writeAccess->getTime();
-// 	    for(RaceByEp::iterator secondEpochIt=forwRaceAddrInfo->raceByEp.begin();
-// 		secondEpochIt!=forwRaceAddrInfo->raceByEp.end();secondEpochIt++){
-// 	      RaceInfo *raceInfo=secondEpochIt->second;
-// 	      // First access is a write, must be flow- or output-type race
-// 	      if(!(raceInfo->raceType&(RaceInfo::Flow|RaceInfo::Output)))
-// 		continue;
-// 	      Epoch *secondEpoch=secondEpochIt->first;
-// 	      RaceByAddrEp::iterator
-// 		backRaceAddrIt=secondEpoch->myBackRacesByAddrEp.find(dataAddress);
-// 	      I(backRaceAddrIt!=secondEpoch->myBackRacesByAddrEp.end());
-// 	      RaceAddrInfo *backRaceAddrInfo=backRaceAddrIt->second;
-// 	      I(backRaceAddrInfo);
-// 	      Time_t secondTime=globalClock;
-// 	      Time_t diffTime=globalClock;
-// 	      if(raceInfo->raceType&RaceInfo::Flow){
-// 		I(backRaceAddrInfo->readAccess);
-// 		secondTime=backRaceAddrInfo->readAccess->getTime();
-// 	      }
-// 	      if(raceInfo->raceType&RaceInfo::Output){
-// 		I(backRaceAddrInfo->writeAccess);
-// 		Time_t secondTimeTmp=backRaceAddrInfo->writeAccess->getTime();
-// 		if(secondTimeTmp<secondTime)
-// 		  secondTime=secondTimeTmp;
-// 	      }
-// 	      diffTime=(secondTime>firstTime)?(secondTime-firstTime):0;
-// 	      if(diffTime<shortRaceDist){
-// 		shortRaceDist=diffTime;
-// 		shortRaceFirstTime=firstTime;
-// 		shortRaceSecondTime=secondTime;
-// 		shortRaceFirstEpoch=firstEpoch;
-// 		shortRaceSecondEpoch=secondEpoch;
-// 	      }
-// 	    }
-// 	  }
-// 	}
-//       }
-//       I(shortRaceFirstEpoch);
-//       I(shortRaceSecondEpoch);
-//       // Get to the first epoch in the analyzingToMerge list
-//       EpochList::reverse_iterator epochRIt=analyzingBeginRIt;
-//       while(*epochRIt!=shortRaceFirstEpoch){
-// 	epochRIt++;
-// 	I(epochRIt!=analyzingEndRIt);
-//       }
-//       I(*epochRIt==shortRaceFirstEpoch);
-//       // Stats initially have only the second epoch
-//       size_t epochCount=1;
-//       InstrCount instrCount=(InstrCount)(shortRaceSecondEpoch->currInstrCount);
-//       size_t blockCount=shortRaceSecondEpoch->bufferBlocks.size();
-// #if (defined CollectVersionCountStats)
-//       VersionCounts versionCounts;
-//       versionCounts.add(shortRaceSecondEpoch);
-// #endif // CollectVersionCountStats
-//       // Traverse from first to second epoch and accumulate stats
-//       while(*epochRIt!=shortRaceSecondEpoch){
-// 	Epoch *epoch=*epochRIt;
-// 	if(epoch->endDecisionExe<shortRaceSecondTime){
-// 	  epochCount++;
-// 	  instrCount+=(InstrCount)(epoch->currInstrCount);
-// 	  blockCount+=epoch->bufferBlocks.size();
-// #if (defined CollectVersionCountStats)
-// 	  versionCounts.add(epoch);
-// #endif // CollectVersionCountStats
-// 	}
-// 	epochRIt++;
-// 	I(epochRIt!=analyzingEndRIt);
-//       }
-//       I(*epochRIt==shortRaceSecondEpoch);
-//       // Update the stat observers
-//       RaceGrpShortEpochObserver.addSample(epochCount);
-//       RaceGrpShortInstObserver.addSample(instrCount);
-//       RaceGrpShortBuffObserver.addSample(blockCount*blockSize);
-// #if (defined CollectVersionCountStats)
-//       RaceGrpShortVersObserver.addSample(versionCounts.getMaxNotRdOnly());
-// #endif // CollectVersionCountStats
-//     }
-//     // Clear the traces of all analyzed epochs
-//     for(EpochSet::iterator clearIt=analysisDone.begin();
-// 	clearIt!=analysisDone.end();clearIt++){
-//       Epoch *clearEpoch=*clearIt;
-//       clearEpoch->clearTrace();
-//     }
-//     // Clear the analysis done set to prepare for the next analysis
-//     analysisDone.clear();
-//     // Clear the analysis needed set to end the current analysis
-//     analysisNeeded.clear();
-//     // End the analysis phase
-//     doingAnalysis=false;
-//     // Restart epochs we have stopped for analysis
-//     while(!stoppedForAnalysis.empty()){
-//       Epoch *epoch=stoppedForAnalysis.back();
-//       stoppedForAnalysis.pop_back();
-//       I(!epoch->currInstrCount);
-//       I(epoch->myState*Execution==None);
-//       I(epoch->isExecutable());
-//       epoch->becomeExecuting();
-//     }
-//     // Analysis is over, try merging
-//     I(lastAnalyzing!=lastMerging);
-//     EpochList::reverse_iterator nextMergeIt(lastMerging);
-//     I(nextMergeIt!=allEpochs.rend());
-//     (*nextMergeIt)->tryToMerge();
-//     // Continue to propagate the Analyzing status
-//     // (the propagation was stopped for analysis)
-//     if(lastAnalyzing!=lastSafe){
-//       EpochList::iterator nextIt=lastAnalyzing;
-//       I(nextIt!=allEpochs.begin());
-//       nextIt--;
-//       (*nextIt)->tryToAnalyze(false);
-//     }
-//   }
-
-//   bool Epoch::isMergeable(void) const{
-//     if(lastMerging==lastAnalyzing)
-//       return false;
-//     EpochList::reverse_iterator nextIt(lastMerging);
-//     I(nextIt!=allEpochs.rend());
-//     if(*nextIt!=this)
-//       return false;
-//     // If analysis still needed, can not merge
-//     if(analysisNeeded.count(const_cast<Epoch *>(this)))
-//       return false;
-//     return true;
-//   }
-
-//   void Epoch::tryToMerge(){
-//     I(myState<Merging);
-//     if(!isMergeable())
-//       return;
-//     // Schedule the merging
-//     mergeEpochs.insert(this);
-//     hasPostExecActions=true;
-//   }
-
-//   void Epoch::becomeMerging(void){
-//     I(!numAnomalies);
-//     I(myState>=Decidable);
-//     I(myState>=Decided);
-//     I(myState<Merging);
-//     // Update per-epoch statistics
-//     SysCallCount.addSample(sysCallLog.size());
-//     // Analyzing epochs that are dependent on the last-merging epoch
-//     EpochSet dependEpochs;
-//     {
-//       EpochSet dependEpochs;
-//       size_t numIndepSuccs=0;
-//       ClockValue distIndepSucc=0;
-//       for(EpochList::reverse_iterator epochRIt=EpochList::reverse_iterator(lastMerging);
-// 	  epochRIt!=EpochList::reverse_iterator(lastAnalyzing);epochRIt++){
-// 	Epoch *epoch=*epochRIt;
-// 	if(!dependEpochs.count(epoch)){
-// 	  numIndepSuccs++;
-// 	  distIndepSucc=epoch->mySClock-mySClock+1;
-// 	}
-// 	for(EpochOrder::const_iterator succIt=epoch->succEpochs.begin();
-// 	  succIt!=epoch->succEpochs.end();succIt++){
-// 	  if(succIt->second.hasAnyOf(OrderEntry::InduceSq))
-// 	    dependEpochs.insert(succIt->first);
-// 	}
-//       }
-//       AccuNumIndepEpochs.addSample(numIndepSuccs);
-//       AccuFarIndepEpoch.addSample(distIndepSucc);
-//     }
-//     {
-//       Thread::ThreadIndex numIndices=Thread::getIndexUb();
-//       ClockValue threadLimits[numIndices];
-//       bool limitReached[numIndices];
-//       size_t numIndepSuccs=0;
-//       ClockValue distIndepSucc=0;
-//       for(Thread::ThreadIndex ti=0;ti<numIndices;ti++){
-// 	threadLimits[ti]=0;
-// 	limitReached[ti]=false;
-//       }
-//       for(EpochList::reverse_iterator epochRIt=EpochList::reverse_iterator(lastMerging);
-// 	  epochRIt!=EpochList::reverse_iterator(lastAnalyzing);epochRIt++){
-// 	Epoch *epoch=*epochRIt;
-// 	Thread::ThreadIndex epochIndex=epoch->myThread->getIndex();
-// 	for(Thread::ThreadIndex ti=0;ti<numIndices;ti++){
-// 	  if(epochIndex==ti){
-// 	    if(epoch->sameThreadFlowSucc){
-// 	      if(threadLimits[ti]){
-// 		threadLimits[ti]=min(threadLimits[ti],epoch->sameThreadFlowSucc);
-// 	      }else{
-// 		threadLimits[ti]=epoch->sameThreadFlowSucc;
-// 	      }
-// 	    }
-// 	  }else{
-// 	    if(epoch->diffThreadFlowSucc){
-// 	      if(threadLimits[ti]){
-// 		threadLimits[ti]=min(threadLimits[ti],epoch->diffThreadFlowSucc);
-// 	      }else{
-// 		threadLimits[ti]=epoch->diffThreadFlowSucc;
-// 	      }
-// 	    }
-// 	  }
-// 	  limitReached[ti]=threadLimits[ti]&&(threadLimits[ti]<=epoch->mySClock);
-// 	}
-// 	if(!limitReached[epochIndex]){
-// 	  I(!dependEpochs.count(epoch));
-// 	  numIndepSuccs++;
-// 	  distIndepSucc=epoch->mySClock-mySClock+1;
-// 	}
-//       }
-//       TwoLimNumIndepEpochs.addSample(numIndepSuccs);
-//       TwoLimFarIndepEpoch.addSample(distIndepSucc);      
-//     }
-//     {
-//       Thread::ThreadIndex numIndices=Thread::getIndexUb();
-//       ClockValue threadLimits[numIndices];
-//       size_t numIndepSuccs=0;
-//       ClockValue distIndepSucc=0;
-//       for(Thread::ThreadIndex ti=0;ti<numIndices;ti++)
-// 	threadLimits[ti]=0;
-//       for(EpochList::reverse_iterator epochRIt=EpochList::reverse_iterator(lastMerging);
-// 	  epochRIt!=EpochList::reverse_iterator(lastAnalyzing);epochRIt++){
-// 	Epoch *epoch=*epochRIt;
-// 	Thread::ThreadIndex epochIndex=epoch->myThread->getIndex();
-// 	if((!threadLimits[epochIndex])||(threadLimits[epochIndex]>epoch->mySClock)){
-// 	  I(!dependEpochs.count(epoch));
-// 	  numIndepSuccs++;
-// 	  distIndepSucc=epoch->mySClock-mySClock+1;
-// 	}
-// 	for(Thread::ThreadIndex ti=0;ti<numIndices;ti++){
-// 	  if(epochIndex==ti){
-// 	    if(epoch->sameThreadFlowSucc){
-// 	      if(threadLimits[ti]){
-// 		threadLimits[ti]=min(threadLimits[ti],epoch->sameThreadFlowSucc);
-// 	      }else{
-// 		threadLimits[ti]=epoch->sameThreadFlowSucc;
-// 	      }
-// 	    }
-// 	  }else{
-// 	    if(epoch->diffThreadFlowSucc){
-// 	      if(threadLimits[ti]){
-// 		threadLimits[ti]=min(threadLimits[ti],epoch->diffThreadFlowSucc);
-// 	      }else{
-// 		threadLimits[ti]=epoch->diffThreadFlowSucc;
-// 	      }
-// 	    }
-// 	  }
-// 	}
-//       }
-//       OneLimNumIndepEpochs.addSample(numIndepSuccs);
-//       OneLimFarIndepEpoch.addSample(distIndepSucc);      
-//     }
-//     EpochInstObserver.addSample(currInstrCount);
-//     EpochBuffObserver.addSample(bufferBlocks.size()*blockSize);
-//     I(createdNotSafeCount+safeNotAnalyzingCount+
-//       analyzingNotMergingCount+mergingNotDestroyedCount==
-//       allEpochs.size());
-//     size_t detWinEpochNum=
-//       createdNotSafeCount+safeNotAnalyzingCount+analyzingNotMergingCount;
-//     DetWinEpochObserver.addSample(detWinEpochNum);
-//     InsDetWinEpochObserver.addSamples(detWinEpochNum,currInstrCount);
-//     InstrCount detWinInstNum=safeNotAnalyzingInstr+analyzingNotMergingInstr;
-//     for(EpochList::iterator epochIt=allEpochs.begin();
-// 	epochIt!=lastSafe;epochIt++){
-//       Epoch *epoch=*epochIt;
-//       I(epoch->myState<Merging);
-//       I(epoch->myState<Safe);
-//       I(epoch->myState<Analyzing);
-//       detWinInstNum+=epoch->currInstrCount;
-//     }
-//     DetWinInstObserver.addSample(detWinInstNum);
-//     InsDetWinInstObserver.addSamples(detWinInstNum,currInstrCount);
-//     DetWinBuffObserver.addSample(BufferBlock::getBlockCount()*blockSize);
-//     InsDetWinBuffObserver.addSamples(BufferBlock::getBlockCount()*blockSize,currInstrCount);
-// #if (defined CollectVersionCountStats)
-//     DetWinVersObserver.addSample(detWinVersCounts.getMaxNotRdOnly());
-//     InsDetWinVersObserver.addSamples(detWinVersCounts.getMaxNotRdOnly(),currInstrCount);
-// #endif // CollectVersionCountStats
-//     // Now this epoch is Merging
-//     myState+=Merging;
-//     ID(EpochList::reverse_iterator nextIt(lastMerging));
-//     I(nextIt!=allEpochs.rend());
-//     I(*nextIt==this);
-//     lastMerging=myAllEpochsPos;
-//     // Remove this epoch from the merge set
-//     I(mergeEpochs.count(this));
-//     mergeEpochs.erase(this);
-//     // Remove the race info about this epoch
-//     {
-//       // Back races should have been cleaned when
-//       // the forward races of the first epoch in each race were cleaned
-//       I(myBackRacesByEpAddr.empty());
-//       I(myBackRacesByAddrEp.empty());
-//       // Now remove info about my forward races
-//       // Iterate through all epochs we had forward races with
-//       for(RaceByEpAddr::iterator epochIt=myForwRacesByEpAddr.begin();
-// 	  epochIt!=myForwRacesByEpAddr.end();epochIt++){
-// 	Epoch *epoch=epochIt->first;
-// 	RaceByAddr &raceByAddr=epochIt->second;
-// 	// Iterate through all addresses on which we had data races with that epoch
-// 	for(RaceByAddr::iterator addrIt=raceByAddr.begin();
-// 	    addrIt!=raceByAddr.end();addrIt++){
-// 	  Address addr=addrIt->first;
-// 	  RaceInfo *raceInfo=addrIt->second;
-// 	  // Erase raceInfo from other epoch's myBackRacesByAddrEp map
-// 	  RaceByAddrEp::iterator backAddrEpIt=epoch->myBackRacesByAddrEp.find(addr);
-// 	  I(backAddrEpIt->second->raceByEp.count(this));
-// 	  I(backAddrEpIt->second->raceByEp[this]==raceInfo);
-// 	  backAddrEpIt->second->raceByEp.erase(this);
-// 	  if(backAddrEpIt->second->raceByEp.empty()){
-// 	    delete backAddrEpIt->second;
-// 	    epoch->myBackRacesByAddrEp.erase(backAddrEpIt);
-// 	  }
-// 	  // Entries should also exist in these two maps (cleared soon afterwards)
-// 	  I(epoch->myBackRacesByEpAddr[this][addr]==raceInfo);
-// 	  I(myForwRacesByAddrEp[addr]->raceByEp[epoch]==raceInfo);
-// 	  // Get rid of raceInfo
-// 	  delete raceInfo;
-// 	}
-// 	// Erase all entries for this epoch in the other's myBackRacesByEpAddr map
-// 	epoch->myBackRacesByEpAddr.erase(this);
-//       }
-//       // Delete all forward RaceAddrInfo entries
-//       for(RaceByAddrEp::iterator forwAddrEpIt=myForwRacesByAddrEp.begin();
-// 	  forwAddrEpIt!=myForwRacesByAddrEp.end();forwAddrEpIt++){
-// 	delete forwAddrEpIt->second;
-//       }
-//       // Clear the forward race maps
-//       myForwRacesByAddrEp.clear();
-//       myForwRacesByEpAddr.clear();
-//     }
-//     I(myTrace.empty());
-//     //    clearTrace();
-//     if(myState>=Committable){
-//       becomeCommitted();
-//     }
-//     I(analyzingNotMergingCount);
-//     I((lastMerging!=allEpochs.end())&&(*lastMerging==this));
-//     analyzingNotMergingCount--;
-//     analyzingNotMergingInstr-=(InstrCount)currInstrCount;
-//     analyzingNotMergingBufferBlocks-=bufferBlocks.size();
-//     detWinVersCounts.remove(this);
-//     // But waiting to be destroyed
-//     mergingNotDestroyedCount++;
-
-//     // ToDo: let the backend know it can now merge the state of this epoch
-//     // For now, we just do the merge here and then try to destroy the epoch
-//     mergeBuffer();
-//     eraseBuffer();
-//     tryToDestroy();
-
-//     if(lastAnalyzing!=lastMerging){
-//       EpochList::reverse_iterator nextMergeIt(lastMerging);
-//       (*nextMergeIt)->tryToMerge();
-//     }
-//   }
-  
-//   void Epoch::becomeCommitted(void){
-//     I(myState>=Committable);
-//     if(activeMerging==this){
-//       activeMerging=0;
-//       // ToDo: Allow others to become Safe and/or Merging
-//       // For now, just assume this is not needed
-//       I(activeWaitMerge.empty());
-//       I(endedWaitMerge.empty());
-//       I(endedWaitSafe.empty());
-//     }
-//     // If all the buffer blocks already merged, try to destroy this epoch
-//     if(!bufferBlocks.empty())
-//       tryToDestroy();
-//   }  
-
-//   void Epoch::mergeActively(void){
-//     // ToDo: Start actively merging this epoch with architectural state
-//   }
-  
-//   void Epoch::tryToDestroy(void){
-//     // Must be committed
-//     if(myState>=Committable)
-//       return;
-//     // Must have no more buffer blocks unmerged
-//     if(!bufferBlocks.empty())
-//       return;
-//     // Can not destroy an epoch that still has non-destroyed predecessors
-//     if(!predEpochs.empty())
-//       return;
-//     EpochList::iterator nextPos=myAllEpochsPos;
-//     nextPos++;
-//     if(nextPos!=allEpochs.end())
-//       return;
-//     destroyEpochs.insert(this);
-//     hasPostExecActions=true;
-//   }
-  
-//   void Epoch::becomeDestroyed(Epoch *destroyEpoch){
-//     // Remove this epoch from destroyEpochs
-//     I(destroyEpochs.count(destroyEpoch));
-//     destroyEpochs.erase(destroyEpoch);
-//     EpochID destroyEid=destroyEpoch->myEid;
-//     // Get the SESC context for this epoch
-//     ThreadContext *epochContext=
-//       osSim->getContext(static_cast<Pid_t>(destroyEid));
-//     // Let the synchronization know that the epoch is gone 
-//     if(destroyEpoch->releasedSync)
-//       destroyEpoch->releasedSync->relEpochDestroyed(destroyEpoch);
-//     // Remove this epoch from all ordering
-//     I(destroyEpoch->predEpochs.empty());
-//     for(EpochOrder::iterator succIt=destroyEpoch->succEpochs.begin();
-// 	succIt!=destroyEpoch->succEpochs.end();succIt++){
-//       Epoch *succEpoch=succIt->first;
-//       succEpoch->predEpochs.erase(destroyEpoch);
-//     }
-//     // Is this the last epoch in its thread
-//     if(!destroyEpoch->immedSeqSucc){
-//       Thread *destroyThread=destroyEpoch->myThread;
-//       ThreadID destroyTID=destroyThread->getID();
-//       ThreadContext *originalContext=
-// 	osSim->getContext(static_cast<Pid_t>(destroyTID));
-//       // Update thread context with stuff from the last epoch's context
-//       mint_sesc_update_original(epochContext,originalContext);
-//       // Resume the thread context
-//       osSim->unstop(static_cast<Pid_t>(destroyTID));
-//       delete destroyThread;
-//     }
-//     // Remove the epoch from the map of valid epochs
-//     I(destroyEpoch->myState>=Committable);
-//     I(eidToEpoch[destroyEid]==destroyEpoch);
-//     eidToEpoch[destroyEid]=0;
-//     mergingNotDestroyedCount--;
-//     I(*(destroyEpoch->myAllEpochsPos)==destroyEpoch);
-//     ID(EpochList::iterator testPos=destroyEpoch->myAllEpochsPos);
-//     ID(testPos++);
-// #if (defined DEBUG)
-//     if(testPos!=allEpochs.end()){
-//       for(EpochList::iterator testIt=allEpochs.begin();
-// 	  testIt!=allEpochs.end();testIt++){
-// 	if(testIt==lastSafe)
-// 	  printf("Safe: ");
-// 	printf("%d(%d)(%d) ",(*testIt)->getTid(),(*testIt)->myEid,(*testIt)->mySClock);
-//       }
-//       printf("End\n");
-//     }
-//     I(testPos==allEpochs.end());
-// #endif
-//     if(lastMerging==destroyEpoch->myAllEpochsPos){
-//       lastMerging=allEpochs.end();
-//       if(lastAnalyzing==destroyEpoch->myAllEpochsPos){
-// 	lastAnalyzing=allEpochs.end();
-// 	if(lastSafe==destroyEpoch->myAllEpochsPos)
-// 	  lastSafe=allEpochs.end();
-//       }else{
-// 	I(lastSafe!=destroyEpoch->myAllEpochsPos);
-//       }
-//     }else{
-//       I(lastAnalyzing!=destroyEpoch->myAllEpochsPos);
-//       I(lastSafe!=destroyEpoch->myAllEpochsPos);
-//     }
-//     allEpochs.erase(destroyEpoch->myAllEpochsPos);
-//     // Destroy the SESC context and delete TLS info for this epoch
-//     mint_sesc_die(epochContext);
-//     delete destroyEpoch;
-//     // Try to destroy the next epoch
-//     if(lastAnalyzing!=allEpochs.end()){
-//       EpochList::reverse_iterator nextIt(allEpochs.end());
-//       (*nextIt)->tryToDestroy();
-//     }
-//   }
   
   Epoch::PidToEpoch Epoch::pidToEpoch;
   EpochList Epoch::allEpochs;
 
-//   EpochList::iterator Epoch::lastAnalyzing(allEpochs.end());
-//   EpochList::iterator Epoch::lastMerging(allEpochs.end());
+  Epoch::InstRaces Epoch::allInstRaces;
 
   bool Epoch::globalSafeAvailable=true;
   EpochList::iterator Epoch::globalSafe(allEpochs.end());
@@ -1971,7 +2045,7 @@ namespace tls{
     I(addrIt->second==this);
     BufferBlockList::iterator acIt=accessors.begin();
     BufferBlockList::iterator wrIt=writers.begin();
-    ClockValue lastClock=infiniteClockValue;
+    ClockValue lastClock=largeClockValue;
     while(acIt!=accessors.end()){
       I((*acIt)->isAccessed());
       I((*acIt)->epoch->getClock()<=lastClock);
@@ -1979,8 +2053,8 @@ namespace tls{
       I((*acIt)->accessorsPos==acIt);
       I((*acIt)->writersPos==wrIt);
       I((*acIt)->baseAddr==baseAddr);
-      I((*acIt)->epoch->bufferBlocks.find(baseAddr)!=(*acIt)->epoch->bufferBlocks.end());
-      I((*acIt)->epoch->bufferBlocks.find(baseAddr)->second==(*acIt));
+      I((*acIt)->epoch->bufferBlockMap.find(baseAddr)!=(*acIt)->epoch->bufferBlockMap.end());
+      I((*acIt)->epoch->bufferBlockMap.find(baseAddr)->second==(*acIt));
       lastClock=(*acIt)->epoch->getClock();
       I((*acIt)->isWritten()==((wrIt!=writers.end())&&(*wrIt==*acIt)));
       if((*acIt)->isWritten())
@@ -2003,7 +2077,7 @@ namespace tls{
   Epoch::BlockVersions::BlockPosition
   Epoch::BlockVersions::findBlockPosition(const BufferBlock *block){
     I(block->myVersions==this);
-    ID(check(block->baseAddr));
+    //    ID(check(block->baseAddr));
     BlockPosition retVal=block->accessorsPos;
     // No need to search if block already correctly positioned
     if(retVal==accessors.end()){
@@ -2012,70 +2086,20 @@ namespace tls{
       // Use writer positions to jump forward while we can
       for(BufferBlockList::iterator wrPos=writers.begin();
 	  wrPos!=writers.end();wrPos++){
-	if((*wrPos)->epoch->mySClock<=block->epoch->mySClock)
+	if((*wrPos)->epoch->myClock<=block->epoch->myClock)
 	  break;
 	retVal=(*wrPos)->accessorsPos;
       }
       // No more writer positions can be used, continue
       // search using accessors list only
       while(retVal!=accessors.end()){
-	if((*retVal)->epoch->mySClock<=block->epoch->mySClock)
+	if((*retVal)->epoch->myClock<=block->epoch->myClock)
 	  break;
 	retVal++;
       }
     }
     return retVal;
   }
-//   Epoch::BlockVersions::BlockPositionInfo Epoch::BlockVersions::findBlockPosition(const BufferBlock *block){
-//     I(block->myVersions==this);
-//     BufferBlockList::iterator wrPos=block->writersPos;
-//     BufferBlockList::iterator acPos=block->accessorsPos;
-//     if(wrPos==writers.end()){
-//       // Find the first writer whose clock is is not strictly after ours
-//       for(wrPos=writers.begin();wrPos!=writers.end();wrPos++){
-//         I((*wrPos)->myVersions==this);
-// 	if((*wrPos)->epoch->mySClock<=block->epoch->mySClock){
-// 	  // We found it
-// 	  if(((*wrPos)->epoch->mySClock==block->epoch->mySClock)&&
-// 	     (acPos!=accessors.end())){
-// 	    // The writer we found has SClock equal to ours and we are already in the accessors list
-// 	    // Our position in writer's list is before the first writer that is after us in the accessors list
-// 	    for(BufferBlockList::iterator wrAcPos=acPos;wrAcPos!=accessors.end();wrAcPos++){
-// 	      // Our writers position is before this accessor's accessors position
-// 	      wrPos=(*wrAcPos)->writersPos;
-// 	      // If this accessor is also a writer, we are done
-// 	      if(wrPos!=writers.end())
-// 		break;
-// 	    }
-// 	    // If no writer was found until the end of the list, wrPos is writers.end(), which is good
-// 	  }
-// 	  break;
-// 	}
-//       }
-//     }
-//     I((wrPos==writers.end())||((*wrPos)->myVersions==this));
-//     if(acPos==accessors.end()){
-//       // Now try to use position in writers list as a hint for the accessors list
-//       if(wrPos!=writers.end()){
-// 	BufferBlockList::reverse_iterator acPosR((*wrPos)->accessorsPos);
-// 	for(;acPosR!=accessors.rend();acPosR++){
-// 	  I((*acPosR)->myVersions==this);
-// 	  I((*acPosR)->baseAddr==block->baseAddr);
-// 	  if((*acPosR)->epoch->mySClock>block->epoch->mySClock)
-// 	    break;
-// 	}
-// 	acPos=acPosR.base();
-//       }else{
-// 	// Can not use writers position as a hint, must search
-// 	// We start the search from most recent accessors
-// 	for(acPos=accessors.begin();acPos!=accessors.end();acPos++){
-// 	  if((*acPos)->epoch->mySClock<=block->epoch->mySClock)
-// 	    break;
-// 	}
-//       }
-//     }
-//     return BlockPositionInfo(acPos,wrPos);
-//   }
   
   Epoch::ChunkBitMask
   Epoch::BlockVersions::findReadConflicts(const BufferBlock *currBlock, size_t chunkIndx,
@@ -2098,6 +2122,7 @@ namespace tls{
 	}
       }
     }
+    ChunkBitMask memReadMask=beforeMask;
     if(beforeMask){
       BufferBlockList::iterator beforeIt=wrPos;
       if((beforeIt!=writers.end())&&(*beforeIt==currBlock))
@@ -2108,52 +2133,18 @@ namespace tls{
 	if(confMask){
 	  writesBefore.push_front(ConflictInfo(confBlock,confMask));
 	  beforeMask^=confMask;
+          // Merged blocks must be read from memory, not the block
+          // because in-between blocks could be missing
+          if(!confBlock->isMerged())
+            memReadMask^=confMask;
 	  if(!beforeMask)
 	    break;
 	}
 	beforeIt++;
       }
     }
-    return beforeMask;
+    return memReadMask;
   }
-
-//   Epoch::ChunkBitMask
-//   Epoch::BlockVersions::findReadConflicts(const BufferBlock *currBlock, size_t chunkIndx,
-// 					  BlockPositionInfo &posInfo,
-// 					  ChunkBitMask beforeMask, ChunkBitMask afterMask,
-// 					  ConflictList &writesBefore, ConflictList &writesAfter){
-//     if(afterMask){
-//       BufferBlockList::iterator afterIt=posInfo.writersPos;
-//       while(afterIt!=writers.begin()){
-// 	afterIt--;
-// 	BufferBlock *confBlock=*afterIt;
-// 	ChunkBitMask confMask=confBlock->wrMask[chunkIndx]&afterMask;
-// 	if(confMask){
-// 	  writesAfter.push_front(ConflictInfo(confBlock,confMask));
-// 	  afterMask^=confMask;
-// 	  if(!afterMask)
-// 	    break;
-// 	}
-//       }
-//     }
-//     if(beforeMask){
-//       BufferBlockList::iterator beforeIt=posInfo.writersPos;
-//       if(currBlock->isProducer&&beforeIt==currBlock->writersPos)
-// 	beforeIt++;
-//       while(beforeIt!=writers.end()){
-// 	BufferBlock *confBlock=*beforeIt;
-// 	ChunkBitMask confMask=confBlock->wrMask[chunkIndx]&beforeMask;
-// 	if(confMask){
-// 	  writesBefore.push_front(ConflictInfo(confBlock,confMask));
-// 	  beforeMask^=confMask;
-// 	  if(!beforeMask)
-// 	    break;
-// 	}
-// 	beforeIt++;
-//       }
-//     }
-//     return beforeMask;
-//   }
 
   void Epoch::BlockVersions::findWriteConflicts(const BufferBlock *currBlock, size_t chunkIndx,
 						BlockPosition blockPos,
@@ -2200,49 +2191,6 @@ namespace tls{
       }
     }
   }
-//   void Epoch::BlockVersions::findWriteConflicts(const BufferBlock *currBlock, size_t chunkIndx,
-// 						BlockPositionInfo &posInfo,
-// 						ChunkBitMask beforeMask, ChunkBitMask afterMask,
-// 						ConflictList &readsBefore, ConflictList &writesBefore,
-// 						ConflictList &writesAfter, ConflictList &readsAfter){
-//     if(afterMask){
-//       BufferBlockList::iterator afterIt=posInfo.accessorsPos;
-//       while(afterIt!=accessors.begin()){
-// 	afterIt--;
-// 	BufferBlock *confBlock=*afterIt;
-// 	ChunkBitMask rdConfMask=confBlock->xpMask[chunkIndx]&afterMask;
-// 	if(rdConfMask){
-// 	  readsAfter.push_front(ConflictInfo(confBlock,rdConfMask));
-// 	}
-// 	ChunkBitMask wrConfMask=confBlock->wrMask[chunkIndx]&afterMask;
-// 	if(wrConfMask){
-// 	  writesAfter.push_front(ConflictInfo(confBlock,wrConfMask));
-// 	  afterMask^=wrConfMask;
-// 	  if(!afterMask)
-// 	    break;
-// 	}
-//       }
-//     }
-//     if(beforeMask){
-//       BufferBlockList::iterator beforeIt=posInfo.accessorsPos;
-//       beforeIt++;
-//       while(beforeIt!=accessors.end()){
-// 	BufferBlock *confBlock=*beforeIt;
-// 	ChunkBitMask wrConfMask=confBlock->wrMask[chunkIndx]&beforeMask;
-// 	if(wrConfMask){
-// 	  writesBefore.push_front(ConflictInfo(confBlock,wrConfMask));
-// 	  beforeMask^=wrConfMask;
-// 	  if(!beforeMask)
-// 	    break;
-// 	}
-// 	ChunkBitMask rdConfMask=confBlock->xpMask[chunkIndx]&beforeMask;
-// 	if(rdConfMask){
-// 	  readsBefore.push_front(ConflictInfo(confBlock,rdConfMask));
-// 	}
-// 	beforeIt++;
-//       }
-//     }
-//   }
   
   void Epoch::BlockVersions::advance(BufferBlock *block){
     I(block->isAccessed()==(block->accessorsPos!=accessors.end()));
@@ -2261,7 +2209,7 @@ namespace tls{
 	BufferBlockList::iterator predWrPos=currWrPos; predWrPos++;
 	while(newAcPos!=accessors.begin()){
 	  newAcPos--;
-	  if(((*newAcPos)->epoch->mySClock>=block->epoch->mySClock)||
+	  if(((*newAcPos)->epoch->myClock>block->epoch->myClock)||
 	     ((*newAcPos)->writersPos!=currWrPos)){
 	    newAcPos++;
 	    break;
@@ -2273,7 +2221,7 @@ namespace tls{
       // write that will become our new immediate successor
       while(newWrPos!=writers.begin()){
 	newWrPos--;
-	if((*newWrPos)->epoch->mySClock>=block->epoch->mySClock){
+	if((*newWrPos)->epoch->myClock>block->epoch->myClock){
 	  newWrPos++;
 	  break;
 	}
@@ -2282,7 +2230,7 @@ namespace tls{
       // Now advance the rest of the way using the accessors list
       while(newAcPos!=accessors.begin()){
 	newAcPos--;
-	if((*newAcPos)->epoch->mySClock>=block->epoch->mySClock){
+	if((*newAcPos)->epoch->myClock>block->epoch->myClock){
 	  newAcPos++;
 	  break;
 	}
@@ -2307,16 +2255,47 @@ namespace tls{
 	block->writersPos=newWrPos;
       }
     }
-    ID(check(block->baseAddr));
+    //    ID(check(block->baseAddr));
   }
 
   void Epoch::BlockVersions::access(bool isWrite, BufferBlock *currBlock, BlockPosition &blockPos){
     I(currBlock->myVersions==this);
-    ID(check(currBlock->baseAddr));
+    //    ID(check(currBlock->baseAddr));
     if(!currBlock->isAccessed()){
       I(currBlock->accessorsPos==accessors.end());
       I(currBlock->writersPos==writers.end());
       accessorsCount++;
+      ThreadID currTid=currBlock->epoch->getTid();
+      I(currTid>=0);
+      if(threadAccessorsCount.size()<=(size_t)currTid)
+        threadAccessorsCount.resize(currTid+1,0);
+      bool hasOldVersion=(threadAccessorsCount[currTid]!=0);
+      threadAccessorsCount[currTid]++;
+      // If too many versions of this block in our thread, try to merge some
+      if(Epoch::limitThreadBlockVersions&&
+         (threadAccessorsCount[currTid]>Epoch::limitThreadBlockVersions)){
+	I(!blockRemovalEnabled);
+	size_t requestCount=threadAccessorsCount[currTid]-Epoch::limitThreadBlockVersions;
+	// Request removal of enough versions to bring the count down
+	for(BufferBlockList::reverse_iterator reqItR=accessors.rbegin();requestCount;reqItR++){
+	  I(reqItR!=accessors.rend());
+	  if((*reqItR)->epoch->getTid()==currTid){
+	    I((*reqItR)!=currBlock);
+	    (*reqItR)->epoch->requestBlockRemoval(currBlock->baseAddr);
+	    requestCount--;
+	  }
+	}
+      }
+      // If not the first version in this thread, increment old version count
+      // That call will try to merge old versions if there are too many
+      if(hasOldVersion)
+	currBlock->epoch->getThread()->incOldVersionsCount();
+      // Increment the all-version count, and merge them if there are too many
+      currBlock->epoch->getThread()->incAllVersionsCount();
+      if(accessorsCount>maxAllBlockVersions)
+	maxAllBlockVersions=accessorsCount;
+      if(threadAccessorsCount[currTid]>maxThreadBlockVersions)
+	maxThreadBlockVersions=threadAccessorsCount[currTid];
       if(blockPos==accessors.end()){
 	currBlock->writersPos=writers.end();
       }else{
@@ -2324,10 +2303,13 @@ namespace tls{
       }
       blockPos=currBlock->accessorsPos=accessors.insert(blockPos,currBlock);
     }else{
+      I(*(currBlock->accessorsPos)==currBlock);
       I(blockPos==currBlock->accessorsPos);
+      I(!currBlock->isWritten()||(*(currBlock->writersPos)==currBlock));
     }
     if(isWrite){
       if(!currBlock->isWritten()){
+	I((currBlock->writersPos==writers.end())||(*(currBlock->writersPos)!=currBlock));
 	// Mark the block as written
 	currBlock->becomeProducer();
 	currBlock->writersPos=writers.insert(currBlock->writersPos,currBlock);
@@ -2346,12 +2328,12 @@ namespace tls{
       // Mark the block as exposed-read
       currBlock->becomeConsumer();
     }
-    ID(check(currBlock->baseAddr));
+    //    ID(check(currBlock->baseAddr));
   }
   
   void Epoch::BlockVersions::remove(BufferBlock *block){
     I(block->myVersions==this);
-    ID(check(block->baseAddr));
+//    ID(check(block->baseAddr));
     if(block->isWritten()){
       I(*(block->writersPos)==block);
       if(block->accessorsPos!=accessors.begin()){
@@ -2369,15 +2351,39 @@ namespace tls{
       }
       writers.erase(block->writersPos);
       ID(block->writersPos=writers.end());
+    }else{
+      I((block->writersPos==writers.end())||(*(block->writersPos)!=block));
     }
     if(block->isAccessed()){
       I(block->accessorsPos!=accessors.end());
       I(*(block->accessorsPos)==block);
       accessors.erase(block->accessorsPos);
       accessorsCount--;
+      threadAccessorsCount[block->epoch->getTid()]--;
+      if(threadAccessorsCount[block->epoch->getTid()]!=0)
+	block->epoch->getThread()->decOldVersionsCount();
+      block->epoch->getThread()->decAllVersionsCount();
       ID(block->accessorsPos=accessors.end());
+    }else{
+      I(block->accessorsPos==accessors.end());
+      I(block->writersPos==writers.end());
     }
-    ID(check(block->baseAddr));
+    //    ID(check(block->baseAddr));
+  }
+
+  std::pair<size_t,size_t> Epoch::BlockVersions::getAgeInThread(BufferBlock *block){
+    size_t vers=0;
+    size_t blks=0;
+    BufferBlockList::iterator myIt=block->accessorsPos;
+    Thread *myThread=block->epoch->getThread();
+    for(BufferBlockList::iterator it=accessors.begin();it!=myIt;it++){
+      I(it!=accessors.end());
+      if((*it)->epoch->getThread()==myThread){
+	vers++;
+	blks+=(*it)->epoch->bufferBlockMap.size();
+      }
+    }
+    return std::pair<size_t,size_t>(vers,blks);
   }
   
   size_t Epoch::BufferBlock::blockCount=0;
@@ -2419,19 +2425,20 @@ namespace tls{
   void Epoch::appendBuffer(const Epoch *succEpoch){
     I(myState>=State::GlobalSafe);
     I(myState==State::Committed);
-    for(BufferBlocks::const_iterator succBlockIt=succEpoch->bufferBlocks.begin();
-	succBlockIt!=succEpoch->bufferBlocks.end();succBlockIt++){
-      Address blockBase=succBlockIt->first;
-      const BufferBlock *succBlock=succBlockIt->second;
+    for(BufferBlockList::const_iterator succBlockIt=succEpoch->bufferBlockList.begin();
+	succBlockIt!=succEpoch->bufferBlockList.end();succBlockIt++){
+      const BufferBlock *succBlock=*succBlockIt;
+      Address blockBase=succBlock->getBaseAddr();
       // Find my corresponding block, create anew one if needed
-      BufferBlocks::iterator myBlockIt=bufferBlocks.find(blockBase);
-      if(myBlockIt==bufferBlocks.end()){
-	std::pair<BufferBlocks::iterator,bool> insertResult=
-	  bufferBlocks.insert(BufferBlocks::value_type(blockBase,new BufferBlock(this,blockBase)));
-	I(insertResult.second==true);
-	myBlockIt=insertResult.first;
+      BufferBlockMap::iterator myBlockIt=bufferBlockMap.find(blockBase);
+      BufferBlock *myBlock;
+      if(myBlockIt==bufferBlockMap.end()){
+	myBlock=new BufferBlock(this,blockBase);
+	bufferBlockMap.insert(BufferBlockMap::value_type(blockBase,myBlock));
+	myBlock->bufferPos=bufferBlockList.insert(bufferBlockList.end(),myBlock);
+      }else{
+	myBlock=myBlockIt->second;
       }
-      BufferBlock *myBlock=myBlockIt->second;
       // Append successor block to my block
       myBlock->append(succBlock);
     }
@@ -2439,237 +2446,202 @@ namespace tls{
 
   void Epoch::cleanBuffer(void){
     I(myState==State::FullReplay);
-    for(BufferBlocks::iterator blockIt=bufferBlocks.begin();
-	blockIt!=bufferBlocks.end();blockIt++){
-      blockIt->second->clean();
-    }
+    for(BufferBlockList::iterator blockIt=bufferBlockList.begin();
+	blockIt!=bufferBlockList.end();blockIt++)
+      (*blockIt)->clean();
   }
 
   void Epoch::eraseBlock(Address baseAddr){
-    I(bufferBlocks.find(baseAddr)!=bufferBlocks.end());
-    I(bufferBlocks[baseAddr]);
-    I(bufferBlocks[baseAddr]->epoch==this);
-    delete bufferBlocks[baseAddr];
-    bufferBlocks.erase(baseAddr);
-  }
-
-  bool Epoch::mergeBlock(Address baseAddr, bool initialMerge){
-    I(myState==State::Merging);
-    BufferBlocks::iterator blockIt=bufferBlocks.find(baseAddr);
-    I(blockIt!=bufferBlocks.end());
-    I(blockIt->first==baseAddr);
-    BufferBlock *block=blockIt->second;
-    I(block&&(block->epoch==this));
-    // Merge previous versions of the block, if there are any
-    BufferBlock *prevVersion=block->getPrevVersion(!initialMerge);
-    I((prevVersion!=block)&&((!prevVersion)||(prevVersion->epoch!=this)));
-    if(prevVersion)
-      prevVersion->epoch->mergeBlock(baseAddr,false);
-    I(!block->getPrevVersion(!initialMerge));
-    // Prepare the checkpoint for a write to this block
-    I(myCheckpoint==Checkpoint::getCheckpoint(mySClock));
-    myCheckpoint->write(baseAddr);
-    // Merge and destroy this block
-    block->merge();
-    eraseBlock(baseAddr);
+    BufferBlock *block=bufferBlockMap[baseAddr];
+    I(block);
+    I(block->epoch==this);
+    myBlockRemovalRequests.erase(baseAddr);
+    bufferBlockList.erase(block->bufferPos);
+    bufferBlockMap.erase(baseAddr);
+    delete block;
     // If this was the last block in a committed epoch,
     // the epoch itself should also be destroyed
-    if(bufferBlocks.empty()){
+    if(bufferBlockList.empty()){
       if(myState==State::Committed){
 	I(myState==State::NoWait);
 	delete this;
-	return true;
-      }
-      if(myState>=State::WaitFullyMerged)
+      }else if(myState==State::WaitFullyMerged){
 	becomeFullyMerged();
+      }
     }
-    return false;
+  }
+
+  void Epoch::mergeBlock(Address baseAddr){
+    I(myState>=State::LazyMerge);
+    BufferBlockMap::iterator blockIt=bufferBlockMap.find(baseAddr);
+    I(blockIt!=bufferBlockMap.end());
+    I(blockIt->first==baseAddr);
+    BufferBlock *block=blockIt->second;
+    // If block already merged, do nothing
+    if(block->isMerged())
+      return;
+    I(block&&(block->epoch==this));
+    // If predecessor blocks exist, they must merge as well
+    BlockVersions *versions=block->getVersions();
+    BufferBlockList::iterator mergIt=block->accessorsPos;
+    while((mergIt!=versions->accessors.end())&&(!(*mergIt)->isMerged()))
+      mergIt++;
+    while(mergIt!=block->accessorsPos){
+      mergIt--;
+      BufferBlock *mergBlock=*mergIt;
+      Epoch *mergEpoch=mergBlock->epoch;
+      if(mergEpoch->myState<State::LazyMerge){
+        I((mergEpoch!=this)&&(mergEpoch->myClock==myClock));
+        mergIt++;
+        versions->advance(mergBlock);
+        ID(mergIt--);
+        I(mergBlock!=*mergIt);
+        ID(mergIt++);         
+        continue;
+      }
+      I(mergEpoch->myCheckpoint==Checkpoint::getCheckpoint(mergEpoch->myClock));
+      if(mergBlock->isProducer){
+        mergEpoch->myCheckpoint->write(baseAddr);
+        memVClock.succeed(mergEpoch->myVClock);
+        memLClock.advance(mergEpoch->myLClock);
+      }
+      mergBlock->merge();
+    }
+    I(block->isMerged());
+  }
+
+  Epoch::EpochSet Epoch::pendingBlockRemovals;
+  bool Epoch::blockRemovalEnabled=true;
+
+  void Epoch::requestBlockRemoval(Address blockAddr){
+    I(bufferBlockMap.find(blockAddr)!=bufferBlockMap.end());
+    I(myState!=State::ReqEagerMerge);
+    if(blockRemovalEnabled){
+      requestLazyMerge();
+      if(myState>=State::LazyMerge){
+        mergeBlock(blockAddr);
+        eraseBlock(blockAddr);
+        return;
+      }
+    }
+    myBlockRemovalRequests.insert(blockAddr);
+    pendingBlockRemovals.insert(this);
+  }
+  size_t Epoch::requestAnyBlockRemoval(size_t count){
+    if(bufferBlockList.empty())
+      return count;
+    BufferBlockList::iterator blockIt=bufferBlockList.begin();
+    BufferBlockList::iterator blockItNext=blockIt;
+    blockItNext++;
+    while(count&&(blockItNext!=bufferBlockList.end())){
+      requestBlockRemoval((*blockIt)->getBaseAddr());
+      count--;
+      blockIt=blockItNext;
+      blockItNext++;
+    }
+    if(count){
+      requestBlockRemoval((*blockIt)->getBaseAddr());
+      count--;      
+    }
+    return count;
+  }
+  size_t Epoch::requestOldBlockRemoval(size_t count){
+    return 0;
+  }
+  void Epoch::enableBlockRemoval(void){
+    I(!blockRemovalEnabled);
+    blockRemovalEnabled=true;
+    // If no epochs with pending removals, we're done
+    if(pendingBlockRemovals.empty())
+      return;
+    // Copy the elements of the set into a list because the epoch is removed
+    // from the set on doBlockremovals and that invalidates set iterators
+    EpochList pendList(pendingBlockRemovals.begin(),
+		       pendingBlockRemovals.end());
+    for(EpochList::iterator epochIt=pendList.begin();
+	epochIt!=pendList.end();epochIt++){
+      Epoch *epoch=*epochIt;
+      // Ignore epochs that are already removed from the set
+      if(pendingBlockRemovals.find(epoch)==pendingBlockRemovals.end())
+        continue;
+      if(epoch->myState>=State::LazyMerge){
+	epoch->doBlockRemovals();
+      }else{
+	epoch->requestLazyMerge();
+      }
+    }
+  }
+  void Epoch::doBlockRemovals(void){
+    I(blockRemovalEnabled);
+    I(myState>=State::LazyMerge);
+    ID(Pid_t thePid=myPid);
+    pendingBlockRemovals.erase(this);
+    if(bufferBlockList.empty()){
+      if(myState==State::Committed)
+	delete this;
+      else if(myState==State::WaitFullyMerged)
+	becomeFullyMerged();
+    }else if(myState>=State::EagerMerge){
+      mergeBuffer();
+      eraseBuffer();
+    }else{
+      while(!myBlockRemovalRequests.empty()){
+	Address blockAddr=*myBlockRemovalRequests.begin();
+	mergeBlock(blockAddr);
+	eraseBlock(blockAddr);
+      }
+    }
+    I((!pidToEpoch[thePid])||(myBlockRemovalRequests.empty()&&(myState>=State::LazyMerge)));
   }
 
   void Epoch::eraseBuffer(void){
-    // Erasing a block invalidates the iterators in
-    // bufferBlocks. Thus, we first find the addresses
-    // of all the blocks, then erase them by address
-    typedef std::vector<Address> AddressVector;
-    AddressVector addrVect;
-    for(BufferBlocks::iterator blockIt=bufferBlocks.begin();
-	blockIt!=bufferBlocks.end();blockIt++){
-      addrVect.push_back(blockIt->first);
-      I(blockIt->second->isAccessed());
+    if(bufferBlockList.empty()){
+      I(myState<State::Committed);
+      return;
     }
-    for(AddressVector::iterator addrIt=addrVect.begin();
-	addrIt!=addrVect.end();addrIt++)
-      eraseBlock(*addrIt);
+    // Deletion of the last block can delete the epoch,
+    // so we peel that last deletion off the loop
+    BufferBlockList::iterator blockIt=bufferBlockList.begin();
+    BufferBlockList::iterator blockItNext=blockIt;
+    blockItNext++;
+    while(blockItNext!=bufferBlockList.end()){
+      I((*blockIt)->isAccessed());
+      eraseBlock((*blockIt)->getBaseAddr());
+      blockIt=blockItNext;
+      blockItNext++;
+    }
+    I((*blockIt)->isAccessed());
+    eraseBlock((*blockIt)->getBaseAddr());
   }
 
   void Epoch::mergeBuffer(void){
-    // Merging a block will also erase it, and erasing
-    // a block invalidates the iterators in bufferBlocks.
-    // Thus, we first find the addresses of all the blocks,
-    // then merge them by address
-    I(myState==State::Merging);
-    I(myState==State::ActiveMerge);
-    typedef std::list<Address> AddressList;
-    AddressList addrList;
-    for(BufferBlocks::iterator blockIt=bufferBlocks.begin();
-	blockIt!=bufferBlocks.end();blockIt++){
-      addrList.push_back(blockIt->first);
-      I(blockIt->second->isAccessed());
+    I(myState==State::EagerMerge);
+    for(BufferBlockList::iterator blockIt=bufferBlockList.begin();
+	blockIt!=bufferBlockList.end();blockIt++){
+      I((*blockIt)->isAccessed());
+      mergeBlock((*blockIt)->getBaseAddr());
     }
-    // The epoch may be destroyed when its last block is
-    // merged. Thus, after this loop we can not use "this"
-    // pointer or the epoch's instance members any more
-    for(AddressList::iterator addrIt=addrList.begin();
-	addrIt!=addrList.end();addrIt++)
-      mergeBlock(*addrIt,true);
   }
 
-//   EpochSet  Epoch::squashEpochSet;
-//   EpochList Epoch::squashEpochList;
-//   bool Epoch::doingSquashes=false;
-  
-//   void Epoch::queueSquash(void){
-//     if(!squashEpochSet.count(this)){
-//       ID(printf("Squashing %d(%d)\n",getTid(),myEid));
-//       squashEpochSet.insert(this);
-//       squashEpochList.push_back(this);
-//     }
-//   }
-//   void Epoch::squashQueued(void){
-//     if(!doingSquashes){
-//       if(!squashEpochSet.empty())
-// 	doSquashes();
-//     }
-//   }
-//   // Internal function.
-//   // Initiates a squash of all the epochs in the squashEpochList 
-//   void Epoch::doSquashes(void){
-//     I(!doingSquashes);
-//     doingSquashes=true;
-//     // Squash all the epochs in the set
-//     for(EpochList::iterator squashIt=squashEpochList.begin();
-// 	squashIt!=squashEpochList.end();squashIt++){
-//       Epoch *squashEpoch=*squashIt;
-//       squashEpoch->doSquash();
-//     }
-//     // Now try to re-activate them
-//     for(EpochList::iterator exeIt=squashEpochList.begin();
-// 	exeIt!=squashEpochList.end();exeIt++){
-//       Epoch *exeEpoch=*exeIt;
-//       exeEpoch->tryToExecute();
-//     }
-//     squashEpochSet.clear();
-//     squashEpochList.clear();
-//     doingSquashes=false;
-//   }
-  
-//   void Epoch::doSquash(void){
-//     I(myState*Executing!=None);
-//     // Remove the epoch from the truncate set if it is there
-//     truncateEpochs.erase(this);
-//     // Epoch can not be in the merge set
-//     I(!mergeEpochs.count(this));
-//     // Erase buffered blocks and update block number stats
-//     detWinVersCounts.remove(this);
-//     eraseBuffer();
-//     // Stop execution if still running
-//     Pid_t myPid=static_cast<Pid_t>(myEid);
-//     if(myState*Execution!=Complete)
-//       osSim->stop(myPid);
-//     // Restore the SESC execution context
-//     ThreadContext *context=osSim->getContext(myPid);
-//     *context=myContext;
-//     if(myState<Decided){
-//       I(myState<Safe);
-//       // Eliminate runtime order between this epoch and its successors
-//       EpochSet succGone;
-//       for(EpochOrder::iterator succIt=succEpochs.begin();
-// 	  succIt!=succEpochs.end();succIt++){
-// 	Epoch *succEpoch=succIt->first;
-// 	OrderEntry &succOrder=succIt->second;
-// 	// If squash-inducing order, add successor to squash queue
-// 	if(succOrder.hasAnyOf(OrderEntry::InduceSq)){
-// 	  if(succEpoch->currInstrCount){
-// 	    succEpoch->queueSquash();
-// 	    I(doingSquashes);
-// 	  }
-// 	}
-// 	// Eliminate runtime order from succOrder
-// 	succOrder.remove(OrderEntry::Runtime);
-// 	// Is there any ordering left?
-// 	if(succOrder.hasAnyOf(OrderEntry::Any)){
-// 	  // Yes, remove runtime ordering from successor's predOrder
-// 	  succEpoch->predEpochs[this].remove(OrderEntry::Runtime);
-// 	}else{
-// 	  // No, remove succOrder entry and successor's predOrder entry
-// 	  I(myState<Decided);
-// 	  succGone.insert(succEpoch);
-// 	  succEpoch->predEpochs.erase(this);
-// 	}
-//       }
-//       I((myState<Safe)||succGone.empty());
-//       for(EpochSet::iterator succGoneIt=succGone.begin();
-// 	  succGoneIt!=succGone.end();succGoneIt++){
-// 	I((*succGoneIt)->myState<Safe);
-// 	succEpochs.erase(*succGoneIt);
-//       }
-//       // Eliminate runtime order between this epoch and its predecessors
-//       EpochSet predGone;
-//       for(EpochOrder::iterator predIt=predEpochs.begin();
-// 	  predIt!=predEpochs.end();predIt++){
-// 	Epoch *predEpoch=predIt->first;
-// 	OrderEntry &predOrder=predIt->second;
-// 	// Eliminate runtime order from predOrder
-// 	predOrder.remove(OrderEntry::Runtime);
-// 	// Is there any ordering left?
-// 	if(predOrder.hasAnyOf(OrderEntry::Any)){
-// 	  // Yes, remove runtime ordering from predecessor's succOrder
-// 	  predEpoch->succEpochs[this].remove(OrderEntry::Runtime);
-// 	}else{
-// 	  // No, remove predOrder entry and predecessor's succOrder entry
-// 	  I(myState<Analyzing);
-// 	  predGone.insert(predEpoch);
-// 	  predEpoch->succEpochs.erase(this);
-// 	}
-//       }
-//       I((myState<Safe)||succGone.empty());
-//       for(EpochSet::iterator predGoneIt=predGone.begin();
-// 	  predGoneIt!=predGone.end();predGoneIt++){
-// 	I((*predGoneIt)->myState<Safe);
-// 	predEpochs.erase(*predGoneIt);
-//       }
-//     }
-//     I(myState<Merging);
-//     bool wasEnded=(myState*Execution==Complete);
-//     myState-=SquashKills;
-//     // If epoch was Ended, we just undid that
-//     if(wasEnded){
-//       unBecomeEnded();
-//     }
-//     conditionMode=false;
-//     noRaceMode=false;
-//     currInstrCount=0;
-//     beginCurrentExe=0;
-//     endCurrentExe=0;
-//     rewindSpawnedEpochs();
-//     if(myState>=Decided){
-//       I(sysCallLogPos==sysCallLog.end());
-//       sysCallLogPos=sysCallLog.begin();
-//     }else{
-//       assert(0);
-//     }
-//     I(myTrace.empty());
-//     //clearTrace();
-//   }
-  
   Address Epoch::read(Address iAddrV, short iFlags,
 		      Address dAddrV, Address dAddrR){
+//#if (defined DEBUG)
+//    {
+//      EpochList::iterator listIt=allEpochs.begin();
+//      EpochList::iterator nextListIt=listIt;
+//      nextListIt++;
+//      while(nextListIt!=allEpochs.end()){
+//        I((*listIt)->myClock>=(*nextListIt)->myClock);
+//        I(!VClock::isOrder((*listIt)->myVClock,(*nextListIt)->myVClock));
+//        listIt=nextListIt;
+//        nextListIt++;
+//      }
+//    }
+//#endif
     I(iFlags&E_READ);
-    I(myState!=State::Merging);
     I(myState!=State::Completed);
-    I(myState!=State::PostAccess);
-    if(myState==State::PreAccess)
-      skipAcquire();
+    if(!dAddrR)
+      return 0;
     if((myState==State::FullReplay)&&traceDataAddresses.count(dAddrV)){
       traceCodeAddresses.insert(iAddrV);
       // Add access to the trace
@@ -2706,11 +2678,8 @@ namespace tls{
     // Find the buffer block to access
     BufferBlock *bufferBlock=getBufferBlock(blockBase);
     // No block => no access
-    if(!bufferBlock){
-      I(myState!=State::Atomic);
-      I(myState==State::Access);
+    if(!bufferBlock)
       return 0;
-    }
     I(bufferBlock->baseAddr==blockBase);
     // Index of the chunk within the block and the offset within the chunk
     size_t chunkIndx=blockOffs>>logChunkSize;
@@ -2726,90 +2695,170 @@ namespace tls{
     // If back or forward mask is nonempty, other versions must be looked at
     if(backMask||forwMask){
       BlockVersions *versions=bufferBlock->getVersions();
-      bool isAcquire=(myState==State::Acquire);
-      // Can not advance if (same conditions as for a write)
-      // 1) In full replay, or
-      // 2) If already dependence-succeeded by another epoch, or
-      // 3) If globally safe
-      bool canAdvance=
-	(myState!=State::FullReplay)&&
-	(myState==State::NotSucceeded)&&
-	(myState!=State::GlobalSafe);
-      // Can not truncate if full replay or if there are same-thread successors
-      bool canTruncate=(!canAdvance)&&
-	(myState!=State::FullReplay)&&(myState==State::Access)&&
-	(EpochList::reverse_iterator(myThreadEpochsPos)==myThread->threadEpochs.rend());
-      if(canAdvance||canTruncate){
-	// Find the new SClock value
-	ClockValue newClock=mySClock;
-	BlockVersions::BufferBlockList::iterator wrPos=versions->writers.begin();
-	ClockValue clkDiff=isAcquire?syncClockDelta:0;
-	for(;(wrPos!=versions->writers.end())&&((*wrPos)->epoch->mySClock>=mySClock-clkDiff);wrPos++){
-	  // Skip self
-	  if(wrPos==bufferBlock->writersPos)
+      // We'll attempt to advance past all successor writers
+      // However, we can't always do that
+      bool noSuccessorsLeft=false;
+      // Must sync advance if in a sync operation
+      bool syncAdvance=(myState==State::Atm);
+      bool easyAdvance=canEasilyAdvance();
+      // We don't truncate if we can easily advance
+      bool canTruncate=(!easyAdvance)&&canBeTruncated();
+      // True iff clock adjustment of the reader can be done without squashes
+      bool simpleAdjust=easyAdvance||canTruncate;
+      // It is only possible to adjust the logical clock if this not a full replay
+      if(myState<State::FullReplay){
+        // We'll try to advance past all successors, but we won't
+        // do it if squashes are needed to advance this epoch
+        noSuccessorsLeft=true;
+	// Go through all written versions, starting with the most recent one
+	for(BufferBlockList::iterator wrPos=versions->writers.begin();
+	    wrPos!=versions->writers.end();wrPos++){
+	  // Skip versions with non-overlapping accesses
+	  if(!((*wrPos)->wrMask[chunkIndx]&forwMask))
 	    continue;
-	  // First conflict determines the new clock
-	  if((*wrPos)->wrMask[chunkIndx]&forwMask){
-	    // Conflicts only result from dependences between different threads
-	    if(myThread!=(*wrPos)->epoch->myThread){
-	      newClock=(*wrPos)->epoch->mySClock+1+clkDiff;
-	    }else{
-	      // Same-thread dependences should already be properly ordered
-	      I(mySClock>(*wrPos)->epoch->mySClock);
-	    }
+	  // Skip versions from the same thread
+	  if(myThread==(*wrPos)->epoch->myThread){
+	    // Same-thread dependences should already be properly ordered
+	    I(((*wrPos)->epoch==this)||(myClock>(*wrPos)->epoch->myClock));
+	    continue;
+	  }
+	  // Current clocks of conflicting read and write can be:
+	  // 1) Equal, in which case we must advance one of them, so we
+	  //    advance the read because that avoids weird livelock problems
+	  // 2) The read's clock is lower than the write's, in which case we advance
+	  //    the read's clock if possible without squashes. If squashes are needed
+	  //    to advance the read, we enforce the clocks to avoid livelock problems
+	  // 3) The read's clock is greater than the write's, in which case
+	  //    there is no need to do anything, except when the read is an acquire
+	  //    and the clock difference is too small. In that case, we advance the
+	  //    read to have the proper difference
+	  // We check whether we have case 2) and what to do about it
+	  if((!simpleAdjust)&&((*wrPos)->epoch->myClock>myClock)){
+	    // We didn't advance past this successor, so we'll have to handle this later
+	    noSuccessorsLeft=false;
+	    continue;
+	  }
+	  // We check whether we have case 3) and what to do about it
+	  // Note: with syncAdvance, we must look at all predecessors because
+	  // (1) we must advance myClock to synchronize with preceding, but not
+	  // yet synchronizaed successors. If this was the only condition, lowClock
+	  // would be myClock-getSyncDelta(), but we must also ensure that
+	  // (2) we must advance myCheckClock beyond any myClock predecessor not yet
+	  // check-synchronized with myCheckClock, so we search through ALL predecessors
+	  // Not that this second requirement is only there becasue adjustClock is
+	  // also adjusting the checkClock... instead, checkClock can be handled later
+	  if((!syncAdvance)&&((*wrPos)->epoch->myClock<myClock))
 	    break;
-	  }
-	}
-	I(newClock>=mySClock);
-	if(newClock>mySClock){
-	  // Non-acquire read operation conflicting with a non-synchronized write is an anomaly
-	  if(!isAcquire){
-	    // Go thorough all conflicting writes not synchronizaed with this read, mark them as anomalies
-	    BlockVersions::BufferBlockList::iterator wrPosRace=wrPos;
-	    for(;(wrPosRace!=versions->writers.end())&&((*wrPosRace)->epoch->mySClock>=mySClock-clkDiff);wrPosRace++){
-	      // Skip self
-	      if(wrPosRace==bufferBlock->writersPos)
+
+	  // If we got here we have an actual read-write conflict between accesses
+          // from different threads. We will adjust the clocks by advancing or truncating
+	  ClockValue newClock=(*wrPos)->epoch->myClock+(syncAdvance?(getSyncClockDelta()+1):1);
+          // If anomalies are found, they are between writers and this epoch, unless
+          // we are about to truncate it, in which case the read is in the new epoch
+	  Epoch *currEpoch=canTruncate?changeEpoch():this;
+	  I(currEpoch);
+	  if(!syncAdvance){
+	    I(newClock>=myClock);
+	    // Go thorough all conflicting writes not synchronized with this read, mark them as anomalies
+	    for(BufferBlockList::iterator wrPosRace=wrPos;
+		wrPosRace!=versions->writers.end();wrPosRace++){
+	      // Only look through writers that are known to be not synchronized
+	      if((*wrPosRace)->epoch->myClock<myClock-getSyncClockDelta())
+		break;
+	      // Skip blocks with non-overlapping accesses
+	      if(!((*wrPosRace)->wrMask[chunkIndx]&forwMask))
 		continue;
-	      // Skip non-conflicting blocks
-	      if(((*wrPosRace)->wrMask[chunkIndx]&forwMask)==0)
+	      // Skip blocks from the same thread
+	      if(myThread==(*wrPosRace)->epoch->myThread)
 		continue;
-	      (*wrPosRace)->epoch->dstAnomalyFound();
+	      I(newClock>(*wrPosRace)->epoch->myClock);
+	      currEpoch->myInstRaces.addAnom(iAddrV,versions->getAgeInThread(*wrPosRace));
 	    }
 	  }
-	  if(!canAdvance){
+	  // If truncated, remove the allocated buffer block and advance the new epoch
+	  if(currEpoch!=this){
 	    I(canTruncate);
-	    I(!isAcquire);
-	    // Eliminate the buffer block if it was not accessed
 	    if(!bufferBlock->isAccessed())
 	      eraseBlock(blockBase);
-	    Epoch *nextEpoch=changeEpoch();
-// 	    anomalyInstAddr.insert(iAddrV);
-// 	    nextEpoch->srcAnomalyFound();
-	    nextEpoch->advanceSClock((*wrPos)->epoch,false);
+	    I((myState!=State::EagerMerge)||(bufferBlockList.empty()));
+	    currEpoch->advanceClock((*wrPos)->epoch,syncAdvance);
 	    return 0;
 	  }
+          // We will advance the clock of the current epoch
 	  I(!canTruncate);
-	  advanceSClock((*wrPos)->epoch,isAcquire);
+#if (defined DEBUG)
+	  {
+	    EpochList::iterator listIt=allEpochs.begin();
+	    EpochList::iterator nextListIt=listIt;
+	    nextListIt++;
+	    while(nextListIt!=allEpochs.end()){
+	      I((*listIt)->myClock>=(*nextListIt)->myClock);
+	      I(!VClock::isOrder((*listIt)->myVClock,(*nextListIt)->myVClock));
+	      listIt=nextListIt;
+	      nextListIt++;
+	    }
+	  }
+#endif
+	  I(!VClock::isOrder(myVClock,(*wrPos)->epoch->myVClock));
+	  advanceClock((*wrPos)->epoch,syncAdvance);
+	  // The writer will have a flow successor now, and we must change
+	  // the status now because the versions->access() call later may
+	  // otherwise advance the writer in order to merge a buffer block
+	  (*wrPos)->epoch->myState+=State::FlowSuccessors;
+#if (defined DEBUG)
+	  {
+	    EpochList::iterator listIt=allEpochs.begin();
+	    EpochList::iterator nextListIt=listIt;
+	    nextListIt++;
+	    while(nextListIt!=allEpochs.end()){
+	      I((*listIt)->myClock>=(*nextListIt)->myClock);
+	      I(!VClock::isOrder((*listIt)->myVClock,(*nextListIt)->myVClock));
+	      listIt=nextListIt;
+	      nextListIt++;
+	    }
+	  }
+#endif
+	  // First conflict determines the new clock, no need to look for more
+	  break;
 	}
-	// Now there are no remaining forward conflicts
-	// But for debugging we leave the old mask to check
-	ID(ChunkBitMask oldForwMask=forwMask);
-	forwMask=0;
-	ID(forwMask=oldForwMask);
+	// If no successor writers are left, there are no forward conflicts remaining
+	if(noSuccessorsLeft){
+	  // But for debugging we leave the old mask to check
+	  ID(ChunkBitMask oldForwMask=forwMask);
+	  forwMask=0;
+	  ID(forwMask=oldForwMask);
+	}
+//#if (defined DEBUG)
+// 	if(isSync){
+// 	  printf("Epochs in writers list for %ld:%d (%x):",myClock,getTid(),accMask);
+// 	  BlockVersions::BufferBlockList::iterator wrPos;
+// 	  for(wrPos=versions->writers.begin();wrPos!=versions->writers.end();wrPos++){
+// 	    printf(" %ld:%d(%x)",
+// 		   (*wrPos)->epoch->myClock,
+// 		   (*wrPos)->epoch->getTid(),
+// 		   ((*wrPos)->wrMask[chunkIndx])&accMask);
+// 	  }
+// 	  printf("\n");
+// 	}
+//#endif
       }
       // Now find the position of the block
-      //      BlockVersions::BlockPositionInfo blockPos=versions->findBlockPosition(bufferBlock);
       BlockVersions::BlockPosition blockPos=versions->findBlockPosition(bufferBlock);
+      if(backMask){
+	// Perform the read access to the block
+	versions->access(false,bufferBlock,blockPos);
+      }
       // Now find conflicting accesses for this read
       BlockVersions::ConflictList writesBefore,writesAfter;
       ChunkBitMask memMask=versions->findReadConflicts(bufferBlock,chunkIndx,blockPos,
 						       backMask,forwMask,writesBefore,writesAfter);
+      I((!noSuccessorsLeft)||writesAfter.empty());
       // If we could have advanced or truncated, we should have avoided forward conflicts
-      I((!canAdvance&&!canTruncate)||writesAfter.empty());
+      I(!simpleAdjust||writesAfter.empty());
+      // If we need to copy-in, we have to do it from somewhere
+      I((!backMask)==((!memMask)&&writesBefore.empty()));
       // Process the writes that precede this read and do the copy-in
-      if(memMask||(!writesBefore.empty())){
-	// Perform the read access to the block
-	versions->access(false,bufferBlock,blockPos);
+      if(backMask){
 	// Destination address for data copy-in
 	unsigned char *dstDataPtr=
 	  (unsigned char *)(bufferBlock->wkData)+blockOffs-chunkOffs;	
@@ -2819,39 +2868,64 @@ namespace tls{
 	  ChunkBitMask wrBeforeMask=wrBeforeIt->mask;
 	  // The predecesor block has sourced data for this flow dependence
 	  wrBeforeBlock->becomeFlowSource();
-	  // Source data for copy-in is in the predecessor's buffer
-	  unsigned char *srcDataPtr=
-	    (unsigned char *)(wrBeforeBlock->wkData)+blockOffs-chunkOffs;
-	  BufferBlock::maskedChunkCopy(srcDataPtr,dstDataPtr,wrBeforeMask);
-	  // Add the bytes to exposed read mask, unless we are in condition mode
-	  bufferBlock->xpMask[chunkIndx]|=wrBeforeMask;
+          // If block is not merged, copy-in the bytes we need
+          if(!wrBeforeBlock->isMerged()){
+	    // Source data for copy-in is in the predecessor's buffer
+	    unsigned char *srcDataPtr=
+	      (unsigned char *)(wrBeforeBlock->wkData)+blockOffs-chunkOffs;
+	    BufferBlock::maskedChunkCopy(srcDataPtr,dstDataPtr,wrBeforeMask);
+	    // Add the bytes to exposed read mask
+	    bufferBlock->xpMask[chunkIndx]|=wrBeforeMask;
+          }
 	  Epoch *wrBeforeEpoch=wrBeforeBlock->epoch;
-	  // Data race on in-order raw?
-	  if(compareSClock(wrBeforeEpoch)!=StrongBefore){
-	    I(!isAcquire);
-	    I(myVClock.compare(wrBeforeEpoch->myVClock)==VClock::Unordered);
-	    anomalyInstAddr.insert(iAddrV);
-	    srcAnomalyFound();
-	    wrBeforeEpoch->dstAnomalyFound();
-	  }
-	  if(myVClock.compare(wrBeforeEpoch->myVClock)!=VClock::Before){
-	    I(myVClock.compare(wrBeforeEpoch->myVClock)==VClock::Unordered);
-	    if(isAcquire){
-	      myVClock.succeed(wrBeforeEpoch->myVClock);
+	  // This epoch succeeds the predecessor write in a flow dependence
+	  wrBeforeEpoch->myState+=State::FlowSuccessors;
+	  // No check for races if writer epoch in the same thread
+	  if(myThread==wrBeforeEpoch->myThread)
+	    continue;
+	  // In any clock scheme, wrBeforeEpoch should not be after "this" epoch
+	  I(!VClock::isOrder(myVClock,wrBeforeEpoch->myVClock));
+	  if(syncAdvance){
+	    if(!VClock::isOrder(wrBeforeEpoch->myVClock,myVClock)){
+	      myVClock->succeed(wrBeforeEpoch->myVClock);
 	      if(myState>=State::ThreadSafe){
 		I(myState!=State::Committed);
 		I(!myThread->threadSafeAvailable);
 		myThread->changeThreadSafeVClock(myVClock);
 	      }
-	    }else{
-	      raceInstAddr.insert(iAddrV);
-	      srcRaceFound();
-	      wrBeforeEpoch->dstRaceFound();
-	      addRace(wrBeforeEpoch,this,dAddrV,RaceInfo::Flow);
 	    }
+	    if(!LClock::isOrder((wrBeforeEpoch)->myLClock,myLClock))
+	      myLClock.succeed(wrBeforeEpoch->myLClock);
+	    continue;
 	  }
-	  // This epoch succeeds the predecessor write in a flow dependence
-	  wrBeforeEpoch->succeeded(this);
+	  // Data race on in-order raw?
+	  if(compareClock(wrBeforeEpoch)!=StrongBefore){
+	    // An anomaly should also be a data race (no VClock ordering)
+	    I(!VClock::isOrder(wrBeforeEpoch->myVClock,myVClock));
+	    myInstRaces.addAnom(iAddrV,versions->getAgeInThread(wrBeforeBlock));
+	  }
+	  if(compareCheckClock(wrBeforeEpoch)!=StrongBefore){
+	    // A check-clock anomaly should also be a data race (no VClock ordering)
+	    I(!VClock::isOrder(wrBeforeEpoch->myVClock,myVClock));
+	    myInstRaces.addChka(iAddrV,versions->getAgeInThread(wrBeforeBlock));
+	  }
+	  // We have a running anomaly only if the predecessor writer is not Atm
+	  // Note: We can't also report an anomaly if "this" in not Atm because
+	  // our thread could have just synced after the predecessor, which still
+	  // hasn't left the Atm section. In that case we are not Atm and both us
+	  // and the predecessor are not Completed, but there is no anomaly
+	  if((wrBeforeEpoch->myState!=State::Atm)&&
+	     (wrBeforeEpoch->myState!=State::Completed)){
+	    // A running anomaly should also be a data race (no VClock ordering)
+	    // unless this is a case of an injected lacking-synchronization error
+	    I((!VClock::isOrder(wrBeforeEpoch->myVClock,myVClock))||
+	      wrBeforeEpoch->atmNestLevel);
+	    myInstRaces.addRuna(iAddrV,versions->getAgeInThread(wrBeforeBlock));
+	  }
+	  if(!VClock::isOrder(wrBeforeEpoch->myVClock,myVClock))
+	    myInstRaces.addRace(iAddrV,versions->getAgeInThread(wrBeforeBlock));
+	  if(!LClock::isOrder((wrBeforeEpoch)->myLClock,myLClock))
+	    myInstRaces.addLama(iAddrV,versions->getAgeInThread(wrBeforeBlock));
 	}
 	if(memMask){
 	  // Source data for copy-in is in main memory
@@ -2859,43 +2933,90 @@ namespace tls{
 	  BufferBlock::maskedChunkCopy(srcDataPtr,dstDataPtr,memMask);
 	  // Add the bytes to exposed read mask, unless we are in condition mode
 	  bufferBlock->xpMask[chunkIndx]|=memMask;
+          if(syncAdvance){
+            if(!VClock::isOrder(&memVClock,myVClock)){
+              myVClock->succeed(&memVClock);
+              if(myState>=State::ThreadSafe){
+                I(myState!=State::Committed);
+                I(!myThread->threadSafeAvailable);
+                myThread->changeThreadSafeVClock(myVClock);
+              }
+            }
+            if(!LClock::isOrder(memLClock,myLClock))
+              myLClock.succeed(memLClock);
+          }
 	}
       }
       // Process the writes that logically succeed this read
       if(!writesAfter.empty()){
 	// Data block is stale because overwriters already exist
 	bufferBlock->becomeStale();
-	// Should not be reading stale data when doing Acquire
-	I(myState!=State::Acquire);
+	// Should not be reading stale data in sync
+        I(myState==State::NoAcq);
 	// Create ordering and detect races, if needed
 	for(BlockVersions::ConflictList::const_iterator wrAfterIt=writesAfter.begin();
 	    wrAfterIt!=writesAfter.end();wrAfterIt++){
 	  Epoch *wrAfterEpoch=wrAfterIt->block->epoch;
-	  if(compareSClock(wrAfterEpoch)!=StrongAfter){
-	    I(myVClock.compare(wrAfterEpoch->myVClock)==VClock::Unordered);
-	    anomalyInstAddr.insert(iAddrV);
-	    srcAnomalyFound();
-	    wrAfterEpoch->dstAnomalyFound();
+	  myState+=State::NameSuccessors;
+	  // No check for races if writer epoch in the same thread
+	  if(myThread==wrAfterEpoch->myThread)
+	    continue;
+	  // In any clock scheme, wrAfterEpoch should not be before "this" epoch
+	  I(!VClock::isOrder(wrAfterEpoch->myVClock,myVClock));
+	  if(compareClock(wrAfterEpoch)!=StrongAfter){
+	    // An anomaly should also be a data race (no VClock ordering)
+	    I(!VClock::isOrder(myVClock,wrAfterEpoch->myVClock));
+ 	    wrAfterEpoch->myInstRaces.addAnom(iAddrV,versions->getAgeInThread(wrAfterIt->block));
 	  }
-	  if(myVClock.compare(wrAfterEpoch->myVClock)!=VClock::After){
-	    I(0); // Should never happen due to epoch truncations
-	    addRace(this,wrAfterEpoch,dAddrV,RaceInfo::Anti);
+	  if(compareCheckClock(wrAfterEpoch)!=StrongAfter){
+	    // A check-clock anomaly should also be a data race (no VClock ordering)
+	    I(!VClock::isOrder(myVClock,wrAfterEpoch->myVClock));
+ 	    wrAfterEpoch->myInstRaces.addChka(iAddrV,versions->getAgeInThread(wrAfterIt->block));
 	  }
-	  succeeded(wrAfterEpoch);
+	  if(((myState!=State::Atm)||(wrAfterEpoch->myState!=State::Atm))
+	     &&(wrAfterEpoch->myState!=State::Completed)){
+	    // A running anomaly should also be a data race (no VClock ordering)
+	    I(!VClock::isOrder(myVClock,wrAfterEpoch->myVClock));
+ 	    wrAfterEpoch->myInstRaces.addRuna(iAddrV,versions->getAgeInThread(wrAfterIt->block));
+	  }
+	  if(!VClock::isOrder(myVClock,wrAfterEpoch->myVClock)){
+	    // Clock adjustment prevents this from happening,
+	    // except for atomic sections and replay executions
+	    I((myState!=State::Initial)||
+	      ((myState==State::Atm)&&(myState!=State::Acq)&&(myState!=State::Rel)));
+ 	    wrAfterEpoch->myInstRaces.addRace(iAddrV,versions->getAgeInThread(wrAfterIt->block));
+	  }
+	  if(!LClock::isOrder(myLClock,wrAfterEpoch->myLClock))
+ 	    wrAfterEpoch->myInstRaces.addLama(iAddrV,versions->getAgeInThread(wrAfterIt->block));
 	}
       }
     }
-    // Read will access the buffered block
+//#if (defined DEBUG)
+//    {
+//      EpochList::iterator listIt=allEpochs.begin();
+//      EpochList::iterator nextListIt=listIt;
+//      nextListIt++;
+//      while(nextListIt!=allEpochs.end()){
+//        I((*listIt)->myClock>=(*nextListIt)->myClock);
+//        I(!VClock::isOrder((*listIt)->myVClock,(*nextListIt)->myVClock));
+//        listIt=nextListIt;
+//        nextListIt++;
+//      }
+//    }
+//#endif
+    // If EagerMerge, we want this block to be removed later
+    I(!blockRemovalEnabled);
+    if(myState==State::EagerMerge)
+      requestBlockRemoval(blockBase);
     return ((Address)(bufferBlock->wkData))+blockOffs;
   }
   
   Address Epoch::write(Address iAddrV, short iFlags,
 		       Address dAddrV, Address dAddrR){
     I(iFlags&E_WRITE);
-    I(myState!=State::Merging);
     I(myState!=State::Completed);
-    if(myState==State::PreAccess)
-      skipAcquire();
+    if(!dAddrR)
+      return 0;
     if((myState==State::FullReplay)&&traceDataAddresses.count(dAddrV)){
       traceCodeAddresses.insert(iAddrV);
       if(myTrace.size()>16){
@@ -2923,11 +3044,8 @@ namespace tls{
     // Find the buffer block to access
     BufferBlock *bufferBlock=getBufferBlock(blockBase);
     // No block => no access
-    if(!bufferBlock){
-      I(myState!=State::Atomic);
-      I(myState==State::Access);
+    if(!bufferBlock)
       return 0;
-    }
     I(bufferBlock->baseAddr==blockBase);
     // Index of the chunk within the block and the offset within the chunk
     size_t chunkIndx=blockOffs>>logChunkSize;
@@ -2945,120 +3063,209 @@ namespace tls{
     // If back or forward mask is nonempty, other versions must be looked at
     if(backMask||forwMask){
       BlockVersions *versions=bufferBlock->getVersions();
-      // Can not advance if (same conditions as for a read)
-      // 1) In full replay, or
-      // 2) if already dependence-succeeded by another epoch, or
-      // 3) If globally safe
-      bool canAdvance=
-	(myState!=State::FullReplay)&&
-	(myState==State::NotSucceeded)&&
-	(myState!=State::GlobalSafe);
-      // Can not truncate if full replay or if there are same-thread successors
-      bool canTruncate=(!canAdvance)&&
-	(myState!=State::FullReplay)&&(myState==State::Access)&&
-	(EpochList::reverse_iterator(myThreadEpochsPos)==myThread->threadEpochs.rend());
-      if(canAdvance||canTruncate){
-	// Find the new SClock value
-	ClockValue newClock=mySClock;
-	BlockVersions::BufferBlockList::iterator acPos=versions->accessors.begin();
-	while((acPos!=versions->accessors.end())&&((*acPos)->epoch->mySClock>=mySClock)){
-	  // Skip self
-	  if(acPos!=bufferBlock->accessorsPos){
-	    // First conflict determines the new clock
-	    if(((*acPos)->wrMask[chunkIndx]|(*acPos)->xpMask[chunkIndx])&forwMask){
-	      if((*acPos)->epoch->myState==State::Acquire){
-		BlockVersions::BufferBlockList::iterator oldAcPos=acPos;
-		acPos++;
-		I((*oldAcPos)->epoch->myState==State::NotSucceeded);
-		(*oldAcPos)->epoch->squash();
-		continue;
-	      }else{
-		newClock=(*acPos)->epoch->mySClock+1;
-		break;
-	      }
+      // We'll attempt to advance past all successors
+      // However, we can't always do that
+      bool noSuccessorsLeft=false;
+      bool easyAdvance=canEasilyAdvance();
+      // We don't truncate if we can easily advance
+      bool canTruncate=(!easyAdvance)&&canBeTruncated();
+      // True iff clock adjustment of the reader can be done without squashes
+      bool simpleAdjust=easyAdvance||canTruncate;
+      // It is only possible to adjust the logical clock if this is the initial run
+      // of this epoch, and not a replay (in which case we must enforce ordering)
+      if(myState<State::FullReplay){
+        // We'll try to advance past all successors, but we won't
+        // do it if squashes are needed to advance this epoch
+        noSuccessorsLeft=true;
+	// Go through all versions, starting with the most recent one
+	for(BufferBlockList::iterator acPos=versions->accessors.begin();
+	    acPos!=versions->accessors.end();acPos++){
+	  // Is this going to avoid a squash (successor's read and this write overlap)?
+	  bool isFlow=((*acPos)->xpMask[chunkIndx])&forwMask;
+	  // Skip versions with non-overlapping accesses
+	  if(!(((*acPos)->wrMask[chunkIndx]|(*acPos)->xpMask[chunkIndx])&forwMask))
+	    continue;
+	  // Skip versions from the same thread
+	  if(myThread==(*acPos)->epoch->myThread){
+	    // Same-thread dependences should already be properly ordered
+	    I(((*acPos)->epoch==this)||(myClock>(*acPos)->epoch->myClock));
+	    continue;
+	  }
+	  // No need to look at accesses with clocks lower than ours
+	  if((*acPos)->epoch->myClock<myClock)
+	    break;
+	  // If this is a successor, decide whether to advance ahead of it
+	  if((*acPos)->epoch->myClock>myClock){
+	    // No advance if we can't simply adjust our clock
+	    // (This is done to avoid deadlocks)
+	    if(!simpleAdjust){
+              // We didn't advance past this successor, so we'll have to handle this later
+ 	      noSuccessorsLeft=false;
+	      continue;
 	    }
+// For some reason this is creating a problem in FFT (and possibly others)
+// 	    // No advance if the successor will be squashed by this write
+// 	    // because it is waiting to retry a synchronization acquire
+// 	    if((((*acPos)->xpMask[chunkIndx])&forwMask)&&
+// 	       ((*acPos)->epoch->myState==State::WaitAcqRetry)){
+// 	      noSuccessorsLeft=false;
+// 	      continue;
+// 	    }
 	  }
-	  acPos++;
-	}
-	I(newClock>=mySClock);
-	if(newClock>mySClock){
+	  // If we got here we have an actual conflict between this write and an access
+          // from another thread. We will adjust the write's clock by advancing or truncating
+	  ClockValue newClock=(*acPos)->epoch->myClock+1;
+	  I(newClock>myClock);
+          // If anomalies are found, they are between writers and this epoch, unless
+          // we are about to truncate it, in which case the read is in the new epoch
+	  Epoch *currEpoch=canTruncate?changeEpoch():this;
+	  I(currEpoch);
 	  // Go thorough all conflicting accesses not synchronized with this write, mark them as anomalies
-	  BlockVersions::BufferBlockList::iterator acPosRace=acPos;
-	  for(;(acPosRace!=versions->accessors.end())&&((*acPosRace)->epoch->mySClock>=mySClock);acPosRace++){
-	    // Skip self
-	    if(acPosRace==bufferBlock->accessorsPos)
+	  for(BufferBlockList::iterator acPosRace=acPos;
+	      acPosRace!=versions->accessors.end();acPosRace++){
+	    // Only look through accesses that are known to be not synchronized
+	    if((*acPosRace)->epoch->myClock<myClock-getSyncClockDelta())
+	      break;
+	    // Skip blocks with non-overlapping accesses
+	    if(!(((*acPosRace)->wrMask[chunkIndx]|(*acPosRace)->xpMask[chunkIndx])&forwMask))
 	      continue;
-	    // Skip non-conflicting blocks
-	    if((((*acPosRace)->wrMask[chunkIndx]|(*acPosRace)->xpMask[chunkIndx])&forwMask)==0)
+	    // Skip blocks from the same thread
+	    if(myThread==(*acPosRace)->epoch->myThread)
 	      continue;
-	    (*acPosRace)->epoch->dstAnomalyFound();
+            // Ignore conflicts between two atomic sections
+	    if((myState==State::Atm)&&((*acPosRace)->epoch->myState==State::Atm))
+	      continue;
+	    I(newClock>(*acPosRace)->epoch->myClock);
+	    currEpoch->myInstRaces.addAnom(iAddrV,versions->getAgeInThread(*acPosRace));
 	  }
-	  if(!canAdvance){
+	  // If truncated, remove the allocated buffer block and advance the new epoch
+	  if(currEpoch!=this){
 	    I(canTruncate);
-	    // Eliminate the buffer block if it was not accessed
 	    if(!bufferBlock->isAccessed())
 	      eraseBlock(blockBase);
-	    Epoch *nextEpoch=changeEpoch();
-// 	    anomalyInstAddr.insert(iAddrV);
-// 	    nextEpoch->srcAnomalyFound();
-	    nextEpoch->advanceSClock((*acPos)->epoch,false);
+	    I((myState!=State::EagerMerge)||(bufferBlockList.empty()));	    
+	    currEpoch->advanceClock((*acPos)->epoch,false);
 	    return 0;
 	  }
+	  // We will advance the clock of the current epoch
 	  I(!canTruncate);
-	  advanceSClock((*acPos)->epoch,false);
+	  I(!VClock::isOrder(myVClock,(*acPos)->epoch->myVClock));
+	  advanceClock((*acPos)->epoch,false);
+	  // First conflict determines the new clock, no need to look for more
+	  break;
 	}
-	// Now there are no remaining forward conflicts
-	// But for debugging we leave the old mask to check
-	ID(ChunkBitMask oldForwMask=forwMask);
-	forwMask=0;
-	ID(forwMask=oldForwMask);
+	// If we skipped no successors, there are no forward conflicts left now
+	if(noSuccessorsLeft){
+	  // But for debugging we leave the old mask to check
+	  ID(ChunkBitMask oldForwMask=forwMask);
+// When we advance past a waitig successor, advanceClock tries to make it GlobalSafe
+// which in turn advance the successor and it may advance past us again... so we still
+// need to look for successors even if we think we skipped none when trying to advance
+//	  forwMask=0;
+          noSuccessorsLeft=false;
+	  ID(forwMask=oldForwMask);
+	}
       }
       I(bufferBlock->baseAddr==blockBase);
       I(bufferBlock->myVersions==versions);
       // Now find the position of the block
       BlockVersions::BlockPosition blockPos=versions->findBlockPosition(bufferBlock);
       // Perform the write access to the block
-      versions->access(true,bufferBlock,blockPos);
+      if(backMask)
+	versions->access(true,bufferBlock,blockPos);
+      I(*(bufferBlock->accessorsPos)==bufferBlock);
+      I(*(bufferBlock->writersPos)==bufferBlock);
+      I(bufferBlock->isProducer);
+      I(!versions->accessors.empty());
+      I(!versions->writers.empty());
+      I(pendInstrCount);
       // Check for squashes and successor writes
       if(forwMask){
 	// Go thorugh the successor versions in the accessors list
-	BlockVersions::BufferBlockList::reverse_iterator forwItR(blockPos);
-	while(forwItR!=versions->accessors.rend()){
-	  BufferBlock *otherBlock=*forwItR;
-	  if(otherBlock->xpMask[chunkIndx]&forwMask){
+	BufferBlockList::iterator baseIt=blockPos;
+	while(baseIt!=versions->accessors.begin()){
+	  // Move one block forward in the list (toward newer blocks)
+	  BufferBlockList::iterator forwIt=baseIt;
+	  forwIt--;
+          I(pendInstrCount);
+	  BufferBlock *forwBlock=*forwIt;
+	  Epoch *forwEpoch=forwBlock->epoch;
+	  I(forwEpoch->myClock>=myClock);
+	  if(forwBlock->xpMask[chunkIndx]&forwMask){
+            I(!noSuccessorsLeft);
+#if (defined DEBUG)
+	    {
+	      BufferBlockList::const_iterator
+		searchIt=versions->accessors.begin();
+	      while(searchIt!=versions->accessors.end()){
+		if(searchIt==bufferBlock->accessorsPos)
+		  break;
+		searchIt++;
+	      }
+	      I(searchIt!=versions->accessors.end());
+	    }
+#endif
 	    // A conflicting successor reader is squashed
-	    otherBlock->epoch->squash();
-	    // Repeat with the same reverse iterator
-	    // Its base iterator is the predecessor of
-	    // the block we just removed, so the reverse
-	    // iterator again points to the next block
+	    I(pendInstrCount);
+	    forwEpoch->squash(false);
+	    I(pendInstrCount);
+#if (defined DEBUG)
+	    {
+	      BufferBlockList::const_iterator
+		searchIt=versions->accessors.begin();
+	      while(searchIt!=versions->accessors.end()){
+		if(searchIt==bufferBlock->accessorsPos)
+		  break;
+		searchIt++;
+	      }
+	      I(searchIt!=versions->accessors.end());
+	    }
+#endif
+	    // Repeat with the same base iterator because
+	    // we just removed the block ahead of it,
+	    // and now we want to see the "new" block ahead
 	    continue;
-	  }else if(otherBlock->wrMask[chunkIndx]&forwMask){
+	  }else if(forwBlock->wrMask[chunkIndx]&forwMask){
+            I(!noSuccessorsLeft);
 	    // This block is stale because there is a successor overwriter
 	    bufferBlock->becomeStale();
 	    // This epoch is already succeeded
-	    I(myState!=State::Acquire);
-	    succeeded(otherBlock->epoch);
-	    if(compareSClock(otherBlock->epoch)!=StrongAfter){
-	      I(myVClock.compare(otherBlock->epoch->myVClock)==VClock::Unordered);
-	      anomalyInstAddr.insert(iAddrV);
-	      srcAnomalyFound();
-	      otherBlock->epoch->dstAnomalyFound();
-	    }
-	    I(myVClock.compare(otherBlock->epoch->myVClock)!=VClock::Before);
-	    if(myVClock.compare(otherBlock->epoch->myVClock)!=VClock::After){
-	      raceInstAddr.insert(iAddrV);
-	      srcRaceFound();
-	      otherBlock->epoch->dstRaceFound();
-	      addRace(this,otherBlock->epoch,dAddrV,RaceInfo::Output);
+	    I(myState!=State::Acq);
+	    myState+=State::NameSuccessors;
+	    // No check for races if other epoch in the same thread
+	    if(myThread!=forwEpoch->myThread){
+	      // In any clock scheme, forwEpoch should not be before "this" epoch
+	      I(!VClock::isOrder(forwEpoch->myVClock,myVClock));
+	      if(compareClock(forwEpoch)!=StrongAfter){
+		// An anomaly should also be a data race (no VClock ordering)
+		I(!VClock::isOrder(myVClock,forwEpoch->myVClock));
+		forwEpoch->myInstRaces.addAnom(iAddrV,versions->getAgeInThread(forwBlock));
+	      }
+	      if(compareCheckClock(forwEpoch)!=StrongAfter){
+		// A check-clock anomaly should also be a data race (no VClock ordering)
+		I(!VClock::isOrder(myVClock,forwEpoch->myVClock));
+		forwEpoch->myInstRaces.addChka(iAddrV,versions->getAgeInThread(forwBlock));
+	      }
+	      if(((myState!=State::Atm)||(forwEpoch->myState!=State::Atm))
+		 &&(forwEpoch->myState!=State::Completed)){
+		// A running anomaly should also be a data race (no VClock ordering
+                I(!VClock::isOrder(myVClock,forwEpoch->myVClock));
+		forwEpoch->myInstRaces.addRuna(iAddrV,versions->getAgeInThread(forwBlock));
+	      }
+	      if(!VClock::isOrder(myVClock,forwEpoch->myVClock))
+		forwEpoch->myInstRaces.addRace(iAddrV,versions->getAgeInThread(forwBlock));
+	      if(!LClock::isOrder(myLClock,forwEpoch->myLClock))
+		forwEpoch->myInstRaces.addLama(iAddrV,versions->getAgeInThread(forwBlock));
 	    }
 	  }
-	  forwItR++;
+	  // Move toward the beginning of the list
+	  // (from older to newer blocks)
+	  baseIt--;
 	}
       }
       // Check for obsolete versions
       if(backMask){
-	BlockVersions::BufferBlockList::iterator backIt=blockPos;
+	BufferBlockList::iterator backIt=blockPos;
 	I(backIt==bufferBlock->accessorsPos);
 	backIt++;
 	while(backMask&&(backIt!=versions->accessors.end())){
@@ -3067,105 +3274,68 @@ namespace tls{
 	  ChunkBitMask wrConf=otherBlock->wrMask[chunkIndx]&backMask;
 	  backMask^=wrConf;
 	  ChunkBitMask rdConf=otherBlock->xpMask[chunkIndx]&backMask;
-	  if(wrConf|rdConf){
-	    if(otherBlock->epoch->myState==State::Acquire){
-	      if((myState==State::Release)||((myState==State::Acquire)&&!wrConf)){
-		I(otherBlock->epoch->myState==State::NotSucceeded);
-		otherBlock->epoch->squash();
-		continue;
-	      }else{
-		I(myState==State::Acquire);
-		I(wrConf);
-                I(myState==State::NotSucceeded);
-		return 0;
-	      }
-	    }
-	    otherBlock->becomeStale();
-	    otherBlock->epoch->succeeded(this);
-	    if(compareSClock(otherBlock->epoch)!=StrongBefore){
-	      I(myVClock.compare(otherBlock->epoch->myVClock)==VClock::Unordered);
-	      anomalyInstAddr.insert(iAddrV);
-	      srcAnomalyFound();
-	      otherBlock->epoch->dstAnomalyFound();
-	    }
-	    I(myVClock.compare(otherBlock->epoch->myVClock)!=VClock::After);
-	    if(myVClock.compare(otherBlock->epoch->myVClock)!=VClock::Before){
-	      raceInstAddr.insert(iAddrV);
-	      srcRaceFound();
-	      otherBlock->epoch->dstRaceFound();
-	      if(wrConf)
-		addRace(otherBlock->epoch,this,dAddrV,RaceInfo::Output);
-	      if(rdConf)
-		addRace(otherBlock->epoch,this,dAddrV,RaceInfo::Anti);
-	    }
+	  if(!(wrConf|rdConf))
+	    continue;
+	  if(otherBlock->epoch->myState==State::WaitAcqRetry){
+	    I(rdConf);
+	    I((myState==State::Rel)||
+	      (myAtomicSection==atmOmmitInstr));
+	    I(otherBlock->epoch->myState==State::NoSuccessors);
+	    otherBlock->epoch->squash(false);
+	    continue;
 	  }
+	  Epoch *prevEpoch=otherBlock->epoch;
+	  otherBlock->becomeStale();
+	  prevEpoch->myState+=State::NameSuccessors;
+	  // No check for races if other epoch in the same thread
+	  if(myThread==prevEpoch->myThread)
+	    continue;
+	  // Not a race when a releasor section overwriting a value read by acquirer
+	  if((myState==State::Rel)&&(prevEpoch->myState==State::Acq))
+	    continue;
+	  // In any clock scheme, prevEpoch should not be after "this" epoch
+	  I(!VClock::isOrder(myVClock,prevEpoch->myVClock));	  
+	  // Check for anomalies using different clocks
+	  if(compareClock(otherBlock->epoch)!=StrongBefore){
+	    // An anomaly should also be a data race (no VClock ordering)
+	    I(!VClock::isOrder(prevEpoch->myVClock,myVClock));
+	    myInstRaces.addAnom(iAddrV,versions->getAgeInThread(otherBlock));
+	  }
+	  if(compareCheckClock(otherBlock->epoch)!=StrongBefore){
+	    // A check-clock anomaly should also be a data race (no VClock ordering)
+	    I(!VClock::isOrder(prevEpoch->myVClock,myVClock));
+	    myInstRaces.addChka(iAddrV,versions->getAgeInThread(otherBlock));
+	  }
+	  if((prevEpoch->myState!=State::Atm)&&(myState!=State::Atm)&&
+	     (prevEpoch->myState!=State::Completed)){
+	    // A running anomaly should also be a data race (no VClock ordering)
+	    I(!VClock::isOrder(prevEpoch->myVClock,myVClock));
+	    myInstRaces.addRuna(iAddrV,versions->getAgeInThread(otherBlock));
+	  }
+	  if(!VClock::isOrder(prevEpoch->myVClock,myVClock))
+	    myInstRaces.addRace(iAddrV,versions->getAgeInThread(otherBlock));
+	  if(!LClock::isOrder(prevEpoch->myLClock,myLClock))
+	    myInstRaces.addLama(iAddrV,versions->getAgeInThread(otherBlock));
 	}
       }
     }
     // Add bytes to write mask, unless we are in condition mode
     bufferBlock->wrMask[chunkIndx]|=accMask;
-    // Write will access the buffered block
+//#if (defined DEBUG)
+//    EpochList::iterator listIt=allEpochs.begin();
+//    EpochList::iterator nextListIt=listIt;
+//    nextListIt++;
+//    while(nextListIt!=allEpochs.end()){
+//      I((*listIt)->myClock>=(*nextListIt)->myClock);
+//      I(!VClock::isOrder((*listIt)->myVClock,(*nextListIt)->myVClock));
+//      listIt=nextListIt;
+//      nextListIt++;
+//    }
+//#endif
+    // If EagerMerge, we want this block to be removed later
+    I(!blockRemovalEnabled);
+    if(myState==State::EagerMerge)
+      requestBlockRemoval(blockBase);
     return ((Address)(bufferBlock->wkData))+blockOffs;
   }
-
-//   Epoch *Epoch::truncateEpoch(bool regDep){
-//     // Do all kinds of checks
-//     I(myState*Execution==Ordered);
-//     I(currInstrCount);
-//     I((myState>=Decided)||spawnedEpochs.empty());
-//     I((myState>=Decided)||!releasedSync);
-//     I((myState>=Decided)||(!maxInstrCount)||(currInstrCount<=maxInstrCount));
-//     I((myState<Decided)||(currInstrCount==maxInstrCount));
-//     // Create a continuation of the epoch
-//     Epoch *newEpoch=createNextEpoch(mySeqSpec,mySyncSpec,0);
-//     ID(printf("Truncating epoch %d(%d->%d)\n",
-// 	      getTid(),myEid,newEpoch->myEid));
-//     if(regDep){
-//       // Epoch created in the middle of the dynamic instruction stream.
-//       // Register dependences are possible, but we do not detect them
-//       // Thus, conservatively assume there is a register dependence
-//       newEpoch->succeed(this,OrderEntry::RegDep);
-//     }
-//     completeEpoch();
-//     return newEpoch;
-//   }
-  
-//   void Epoch::postExecActions(void){
-//     while(!truncateEpochs.empty()){
-//       // Get the first epoch in the truncate set
-//       EpochSet::iterator truncIt=truncateEpochs.begin();
-//       Epoch *oldEpoch=*truncIt;
-//       oldEpoch->truncateEpoch(oldEpoch->myState<Decided);
-//       // Should no longer be in the truncate set
-//       I(!truncateEpochs.count(oldEpoch));
-//     }
-//     while(!analyzeEpochs.empty()){
-//       // Get the first epoch in the analyze set
-//       EpochSet::iterator analyzeIt=analyzeEpochs.begin();
-//       Epoch *analyzeEpoch=*analyzeIt;
-//      // Make the epoch analyzable
-//       analyzeEpoch->becomeAnalyzing();
-//       // Should no longer be in the analyze set
-//       I(!analyzeEpochs.count(analyzeEpoch));
-//     } 
-//     while(!mergeEpochs.empty()){
-//       // Get the first epoch in the merge set
-//       EpochSet::iterator mergeIt=mergeEpochs.begin();
-//       Epoch *mergeEpoch=*mergeIt;
-//      // Make the epoch mergeable
-//       mergeEpoch->becomeMerging();
-//       // Should no longer be in the merge set
-//       I(!mergeEpochs.count(mergeEpoch));
-//     }
-//     while(!destroyEpochs.empty()){
-//       // Get the first epoch in the destroy set
-//       EpochSet::iterator destroyIt=destroyEpochs.begin();
-//       Epoch *destroyEpoch=*destroyIt;
-//       // Make the epoch destroyed
-//       becomeDestroyed(destroyEpoch);
-//       // Should no longer be in the destroy set
-//       I(!destroyEpochs.count(destroyEpoch));
-//     }
-//   }
-
 }
