@@ -42,11 +42,20 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "VMemReq.h"
 #endif
 
+#if (defined TLS)
+namespace tls{
+  class Epoch;
+}
+#endif
+
 class CState : public StateGeneric<> {
 private:
   bool valid;
   bool dirty;
   bool locked;
+#if (defined TLS)
+  tls::Epoch *epoch;
+#endif
   bool spec;
   unsigned int ckpId;
   int nReadMisses; // number of pending read ops when the line was brought to the cache
@@ -56,6 +65,9 @@ public:
     valid = false;
     dirty = false;
     locked = false;
+#if (defined TLS)
+    epoch=0;
+#endif
     spec = false;
     ckpId = 0;
     nReadMisses = 0;
