@@ -432,15 +432,16 @@ typedef ThreadContext mint_thread_t;
 class MintFuncArgs{
  private:
   const ThreadContext *myContext;
+  const icode_t *myIcode;
   int   curPos;
  public:
-  MintFuncArgs(const ThreadContext *context)
-    : myContext(context),
-    curPos(0)
+  MintFuncArgs(const ThreadContext *context, const icode_t *picode)
+    : myContext(context), myIcode(picode), curPos(0)
     {
     }
   int getInt32(void);
   long long int getInt64(void);
+  VAddr getVAddr(void){ return (VAddr)getInt32(); }
 };
 
 #define REGNUM(R) (*((int *) &pthread->reg[R]))

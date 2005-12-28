@@ -587,23 +587,19 @@ void rsesc_OS_write_block(int pid, int iAddr, void *dstStart, const void *srcSta
   }
 }
 
-bool rsesc_OS_read_string(int pid, int iAddr, void *dstStart, const void *srcStart, size_t maxSize){
-  int addr;
-  const unsigned char *src = (const unsigned char *)srcStart;
-  const unsigned char *end;
-  unsigned char *dst = (unsigned char *)dstStart;
-  end = dst+maxSize;
+bool rsesc_OS_read_string(int pid, VAddr iAddr, void *dst, VAddr src, size_t size){
+  unsigned char *dstPtr = (unsigned char *)dst;
+  const unsigned char *dstEnd=dstPtr+size;
   // BYTE copy (8 bits)
-  while(dst<end){
-    addr=rsesc_OS_read(pid,(int)src,iAddr,E_BYTE);
-    memcpy(dst,(void *)addr,1);
-    if(*dst==0)
+  while(dstPtr<dstEnd){
+    RAddr addr=rsesc_OS_read(pid,src,iAddr,E_BYTE);
+    *dstPtr=*((unsigned char *)addr);
+    if(*dstPtr==0)
       return true;
     src++;
-    dst++;
+    dstPtr++;
   }
-  // String does not fit in dst buffer, so null-terminate it and return
-  dst[maxSize-1]=0;
+  // String does not fit in dst buffer
   return false;
 }
 

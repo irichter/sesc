@@ -510,13 +510,6 @@ namespace tls{
     // became decided
     InstrCount maxInstrCount;
     
-    // True iff epoch can execute
-    // before sequential predecessors have completed
-    const bool mySeqSpec;
-    // True iff epoch can execute
-    // before synchronization predecessors are known and have completed
-    const bool mySyncSpec;
-
     friend class Thread;
     friend class Checkpoint;
 

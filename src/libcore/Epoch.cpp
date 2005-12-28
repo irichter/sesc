@@ -36,9 +36,9 @@ namespace tls{
   ClockValue LClock::syncDelta;
 
   void LClock::staticConstructor(void){
-    SescConf->isLong("TLS","LClockSyncDelta");
+    SescConf->isInt("TLS","LClockSyncDelta");
     SescConf->isGT("TLS","LClockSyncDelta",-1);
-    syncDelta=SescConf->getLong("TLS","LClockSyncDelta");
+    syncDelta=SescConf->getInt("TLS","LClockSyncDelta");
   }
 
   unsigned int numBegThread=0;
@@ -51,14 +51,14 @@ namespace tls{
     SysCallFileIO::staticConstructor();
     LClock::staticConstructor();
     Thread::staticConstructor();
-    SescConf->isLong("TLS","limitEpochInstrCount");
+    SescConf->isInt("TLS","limitEpochInstrCount");
     SescConf->isGT("TLS","limitEpochInstrCount",-1);
-    limitEpochInstrCount=(InstrCount)(SescConf->getLong("TLS","limitEpochInstrCount"));
+    limitEpochInstrCount=(InstrCount)(SescConf->getInt("TLS","limitEpochInstrCount"));
     SescConf->isBool("TLS","threadsSequential");
     threadsSequential=SescConf->getBool("TLS","threadsSequential");
-    SescConf->isLong("TLS","limitThreadBlockVersions");
+    SescConf->isInt("TLS","limitThreadBlockVersions");
     SescConf->isGT("TLS","limitThreadBlockVersions",-1);
-    limitThreadBlockVersions=(size_t)(SescConf->getLong("TLS","limitThreadBlockVersions"));
+    limitThreadBlockVersions=(size_t)(SescConf->getInt("TLS","limitThreadBlockVersions"));
     SescConf->isBool("TLS","mustFindAllRaces");
     mustFindAllRaces=SescConf->getBool("TLS","mustFindAllRaces");
     //    SescConf->isBool("TLS","ignoreRaces");
@@ -66,9 +66,9 @@ namespace tls{
     dataRacesIgnored=false;
     numEpochs=0;
     numRaceMissEpochs=0;
-    SescConf->isLong("TLS","epochBufferSizeLimit");
+    SescConf->isInt("TLS","epochBufferSizeLimit");
     SescConf->isGT("TLS","epochBufferSizeLimit",-1);
-    long epochBufferSizeLimit=SescConf->getLong("TLS","epochBufferSizeLimit");
+    long epochBufferSizeLimit=SescConf->getInt("TLS","epochBufferSizeLimit");
     I(epochBufferSizeLimit>=0);
     maxBlocksPerEpoch=(size_t)(epochBufferSizeLimit/blockSize);
     I(maxBlocksPerEpoch*blockSize==(size_t)epochBufferSizeLimit);
@@ -78,10 +78,10 @@ namespace tls{
     squashToTestRollback=0;
     dynamicAtmOmmitCount=0;
     staticAtmOmmitCount=0;
-    if(SescConf->getLong("TLS","atmOmmit")>0){
-      dynamicAtmOmmitCount=SescConf->getLong("TLS","atmOmmit");
+    if(SescConf->getInt("TLS","atmOmmit")>0){
+      dynamicAtmOmmitCount=SescConf->getInt("TLS","atmOmmit");
     }else{
-      staticAtmOmmitCount=-SescConf->getLong("TLS","atmOmmit");
+      staticAtmOmmitCount=-SescConf->getInt("TLS","atmOmmit");
     }
     atmOmmitInstr=0;
     atmOmmitCount=0;
@@ -274,9 +274,9 @@ namespace tls{
   }
 
   void Thread::staticConstructor(void){
-    SescConf->isLong("TLS","limitSimulationMinutes");
+    SescConf->isInt("TLS","limitSimulationMinutes");
     SescConf->isGT("TLS","limitSimulationMinutes",-1);
-    long runMins=SescConf->getLong("TLS","limitSimulationMinutes");
+    long runMins=SescConf->getInt("TLS","limitSimulationMinutes");
     if(runMins){
       long runSecs=runMins*60;
       struct itimerval itv;
@@ -294,17 +294,17 @@ namespace tls{
       int actionRes=sigaction(SIGVTALRM,&sac,0);
       I(actionRes==0);
     }
-    SescConf->isLong("TLS","limitThreadInstrCount");
+    SescConf->isInt("TLS","limitThreadInstrCount");
     SescConf->isGT("TLS","limitThreadInstrCount",-1);
-    limitThreadInstrCount=(InstrCount)(SescConf->getLong("TLS","limitThreadInstrCount"));
-    SescConf->isLong("TLS","limitThreadOldVersions");
+    limitThreadInstrCount=(InstrCount)(SescConf->getInt("TLS","limitThreadInstrCount"));
+    SescConf->isInt("TLS","limitThreadOldVersions");
     SescConf->isGT("TLS","limitThreadOldVersions",-1);
-    limitThreadOldVersions=(size_t)(SescConf->getLong("TLS","limitThreadOldVersions"));
-    SescConf->isLong("TLS","limitThreadAllVersions");
+    limitThreadOldVersions=(size_t)(SescConf->getInt("TLS","limitThreadOldVersions"));
+    SescConf->isInt("TLS","limitThreadAllVersions");
     SescConf->isGT("TLS","limitThreadAllVersions",-1);
-    limitThreadAllVersions=(size_t)(SescConf->getLong("TLS","limitThreadAllVersions"));
+    limitThreadAllVersions=(size_t)(SescConf->getInt("TLS","limitThreadAllVersions"));
     I(limitThreadOldVersions<=limitThreadAllVersions);
-    syncClockDelta=SescConf->getLong("TLS","syncClockDelta");
+    syncClockDelta=SescConf->getInt("TLS","syncClockDelta");
   }
   
   void Thread::report(void){
@@ -374,7 +374,7 @@ namespace tls{
     // If we own the CheckClock, now it is free
     if(checkClockOwner==this)
       checkClockOwner=0;
-    osSim->eventExit(myID,ThreadContext::getContext(myID)->getGPR(Arg1stGPR));
+    osSim->eventExit(myID,ThreadContext::getContext(myID)->getIntArg1());
     VClock::freeVClock(threadSafeClk);
     VClock::freeVClock(noRacesMissed);
   }
@@ -1032,7 +1032,7 @@ namespace tls{
 	if((*searchIt)->myState!=State::Spawning)
 	  continue;
 	Epoch *newEpoch=(*searchIt);
-	if(newEpoch->myContext.getIP()!=
+	if(newEpoch->myContext.getPCIcode()!=
 	   osSim->eventGetInstructionPointer(myPid))
 	  return 0;
 	return newEpoch;

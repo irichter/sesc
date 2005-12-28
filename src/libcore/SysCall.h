@@ -148,7 +148,7 @@ class SysCallRead : public SysCallFileIO {
   // Return value of call to read (no of bytes actualy read, -1 if error)
   ssize_t bytesRead;
   // Remember other params for debugging
-  ID(void *myBuf);
+  ID(VAddr myBuf);
   ID(size_t myCount);
   ID(off_t oldOffs);
  public:
@@ -165,7 +165,7 @@ class SysCallWrite : public SysCallFileIO {
   // Buffered data for non-seekable devices
   void *bufData;
   // Remember other params for debugging
-  ID(void *myBuf);
+  ID(VAddr myBuf);
   ID(size_t myCount);
   ID(off_t oldOffs);
  public:
@@ -230,10 +230,10 @@ class SysCallTimes : public SysCall{
       tmsStruct.tms_cutime=0;
       tmsStruct.tms_cstime=0;
     }
-    Address buf=static_cast<Address>(context->getGPR(Arg1stGPR));
+    Address buf=static_cast<Address>(context->getIntArg1());
     if(buf)
       rsesc_OS_write_block(context->getPid(),picode->addr,(void *)buf,&tmsStruct,sizeof(tmsStruct));
-    context->setGPR(RetValGPR,retVal);
+    context->setRetVal(retVal);
     executed=true;
   }
 };

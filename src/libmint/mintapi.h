@@ -66,7 +66,7 @@ int  rsesc_is_versioned(int pid);
 
 #if (defined TASKSCALAR) || (defined TLS)
 int rsesc_OS_read(int pid, int addr, int iAddr, int flags);
-void rsesc_OS_read_string(int pid, int iAddr, void *dstStart, const void *srcStart, size_t size);
+//bool rsesc_OS_read_string(int pid, VAddr iAddr, void *dst, VAddr src, size_t size);   
 void rsesc_OS_read_block (int pid, int iAddr, void *dstStart, const void *srcStart, size_t size);
 void rsesc_OS_write_block(int pid, int iAddr, void *dstStart, const void *srcStart, size_t size);
 #endif

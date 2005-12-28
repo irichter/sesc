@@ -11,7 +11,8 @@ SysCallMalloc::SysCallMalloc(void)
 }
 
 void SysCallMalloc::exec(ThreadContext *context, icode_ptr picode){
-  size_t size=context->getGPR(Arg1stGPR);
+  MintFuncArgs args(context, picode);
+  size_t size=args.getInt32();
   I((!executed)||(mySize==size));
   ID(mySize=size);
   I((!executed)||(myPid==context->getThreadPid()));
@@ -20,11 +21,11 @@ void SysCallMalloc::exec(ThreadContext *context, icode_ptr picode){
     myAddr=context->getHeapManager()->allocate(size);
   if(myAddr){
     // Map real address to logical address space
-    context->setGPR(RetValGPR,context->real2virt(myAddr));
+    context->setRetVal(context->real2virt(myAddr));
   }else{
     // Return 0 and set errno to be POSIX compliant
     context->setErrno(ENOMEM);
-    context->setGPR(RetValGPR,0);
+    context->setRetVal(0);
   }
   /*printf("%1d: exec(%d) SysCallMalloc %8x at
    * %8x\n",myPid,executed?1:0,mySize,myAddr);*/
@@ -48,7 +49,8 @@ SysCallFree::SysCallFree(void)
  
 
 void SysCallFree::exec(ThreadContext *context, icode_ptr picode){
-  Address addr=context->getGPR(Arg1stGPR);
+  MintFuncArgs args(context, picode);
+  VAddr addr=args.getVAddr();
   I(addr);
   I((!executed)||((Address)(context->virt2real(addr))==myAddr));
   myAddr=context->virt2real(addr);
@@ -71,16 +73,17 @@ void SysCallFree::undo(bool expectRedo){
   }
 }
 void SysCallMmap::exec(ThreadContext *context, icode_ptr picode){
+  MintFuncArgs args(context, picode);
   // Prefered address for mmap. This is ignored in SESC.
-  int addr=context->getGPR(Arg1stGPR);
+  VAddr addr=args.getVAddr();
   // Size of block to mmap
-  size_t size=context->getGPR(Arg2ndGPR);
+  size_t size=args.getInt32();
   // Protection flags for mmap
-  int prot=context->getGPR(Arg3rdGPR);
-  // PROT_READ and PROT_WRITE should be set, and nothing lese
+  int prot=args.getInt32();
+  // PROT_READ and PROT_WRITE should be set, and nothing else
   I(prot==0x3);
   // Flags for mmap
-  int flag=context->getGPR(Arg4thGPR);
+  int flag=args.getInt32();
   // MAP_ANONYMOUS and MAP_PRIVATE should be set, and nothing else
   I(flag==0x802);
   I((!executed)||(mySize==size));
@@ -93,11 +96,11 @@ void SysCallMmap::exec(ThreadContext *context, icode_ptr picode){
   }
   if(myAddr!=-1){
     // Map real address to logical address space
-    context->setGPR(RetValGPR,context->real2virt(myAddr));
+    context->setRetVal(context->real2virt(myAddr));
   }else{
     // Set errno to be POSIX compliant
     context->setErrno(ENOMEM);
-    context->setGPR(RetValGPR,myAddr);
+    context->setRetVal(myAddr);
   }
   executed=true;
 }
@@ -110,13 +113,14 @@ void SysCallMmap::undo(bool expectRedo){
   }
 }
 void SysCallMunmap::exec(ThreadContext *context, icode_ptr picode){
+  MintFuncArgs args(context, picode);
   // Starting address of the block
-  int addr=context->getGPR(Arg1stGPR);
+  VAddr addr=args.getInt32();
+  // Size of block to munmap
+  size_t wantSize=args.getInt32();
   I(addr);
   I((!executed)||((Address)(context->virt2real(addr))==myAddr));
   myAddr=context->virt2real(addr);
-  // Size of block to munmap
-  size_t wantSize=context->getGPR(Arg2ndGPR);
   I(wantSize);
   I((!executed)||(myPid==context->getThreadPid()));
   myPid=context->getThreadPid();
@@ -206,15 +210,16 @@ void SysCallFileIO::staticConstructor(void){
 }
 
 void SysCallFileIO::execFXStat64(ThreadContext *context,icode_ptr picode){
+  MintFuncArgs args(context, picode);
   // We will completely ignore the glibc stat_ver parameter
-  long statVer=context->getGPR(Arg1stGPR);
-  int myFd=context->getGPR(Arg2ndGPR);
-  Address addr=context->getGPR(Arg3rdGPR);
+  long statVer=args.getInt32();
+  int myFd=args.getInt32();
+  VAddr addr=args.getVAddr();
   I(addr);
   struct stat statNative;
   fstat(myFd,&statNative);
   int retVal=fstat(openFiles[myFd]->fdesc,&statNative);
-  context->setGPR(RetValGPR,retVal);
+  context->setRetVal(retVal);
   if(retVal==-1){   
     context->setErrno(errno);
   }else{
@@ -234,13 +239,14 @@ void SysCallFileIO::execFXStat64(ThreadContext *context,icode_ptr picode){
 }
 
 void SysCallOpen::exec(ThreadContext *context,icode_ptr picode){
+  MintFuncArgs args(context, picode);
+  VAddr pathnameAddr=args.getVAddr();
+  int flags=conv_flags_to_native(args.getInt32());
+  mode_t mode=(mode_t)args.getInt32();
   // Get the file name from versioned memory
   char pathname[MAX_FILENAME_LENGTH];
-  rsesc_OS_read_string(context->getPid(),picode->addr,pathname, 
-		       (const void *)context->getGPR(Arg1stGPR),
-		       MAX_FILENAME_LENGTH);
-  int flags=conv_flags_to_native((int)context->getGPR(Arg2ndGPR));
-  mode_t mode=(mode_t)context->getGPR(Arg3rdGPR);
+  rsesc_OS_read_string(context->getPid(), picode->addr, pathname, 
+		       pathnameAddr, MAX_FILENAME_LENGTH);
   int realFd=open(pathname,flags,mode);
   if(realFd==-1){
     // Open failed, simulated fd is 0 and errno is set
@@ -257,7 +263,7 @@ void SysCallOpen::exec(ThreadContext *context,icode_ptr picode){
     I(lseek(realFd,0,SEEK_CUR)==0);
     openFiles[myFd]=new OpenFileInfo(pathname,realFd,flags,mode,0);
   }
-  context->setGPR(RetValGPR,myFd);
+  context->setRetVal(myFd);
   executed=true;
 }
 
@@ -273,7 +279,8 @@ void SysCallOpen::undo(bool expectRedo){
 }
 
 void SysCallClose::exec(ThreadContext *context, icode_ptr picode){
-  int fd=context->getGPR(Arg1stGPR);
+  MintFuncArgs args(context, picode);
+  int fd=args.getInt32();
   I((!executed)||(fd==myFd));
   myFd=fd;
   if((myFd<=2)||(openFiles.size()<=(size_t)myFd)||!openFiles[myFd]){
@@ -301,7 +308,7 @@ void SysCallClose::exec(ThreadContext *context, icode_ptr picode){
       context->setErrno(errno);
     }
   }
-  context->setGPR(RetValGPR,myInfo?0:-1);
+  context->setRetVal(myInfo?0:-1);
   executed=true;
 }
 
@@ -327,14 +334,15 @@ void SysCallClose::done(){
 }
 
 void SysCallRead::exec(ThreadContext *context,icode_ptr picode){
-  int fd=context->getGPR(Arg1stGPR);
+  MintFuncArgs args(context, picode);
+  int fd=args.getInt32();
+  VAddr buf=args.getVAddr();
+  size_t count=args.getInt32();
   I((!executed)||(fd==myFd));
   myFd=fd;
   I((openFiles.size()>(size_t)myFd)&&openFiles[myFd]);
-  void *buf=(void *)(context->getGPR(Arg2ndGPR));
   I((!executed)||(myBuf==buf));
   ID(myBuf=buf);
-  size_t count=context->getGPR(Arg3rdGPR);
   I((!executed)||(myCount==count));
   ID(myCount=count);
   void *tempbuff=alloca(count);
@@ -344,7 +352,7 @@ void SysCallRead::exec(ThreadContext *context,icode_ptr picode){
   ssize_t nowBytesRead=read(openFiles[myFd]->fdesc,tempbuff,executed?bytesRead:count);
   I((!executed)||(nowBytesRead==bytesRead));
   bytesRead=nowBytesRead;
-  context->setGPR(RetValGPR,bytesRead);
+  context->setRetVal(bytesRead);
   if(bytesRead==-1){
     context->setErrno(errno);
     I(lseek(openFiles[myFd]->fdesc,0,SEEK_CUR)==oldOffs);
@@ -352,7 +360,7 @@ void SysCallRead::exec(ThreadContext *context,icode_ptr picode){
     I(lseek(openFiles[myFd]->fdesc,0,SEEK_CUR)==oldOffs+bytesRead);
     openFiles[myFd]->offset+=bytesRead;
     rsesc_OS_write_block(context->getPid(),picode->addr,
-			 buf,tempbuff,(size_t)bytesRead);
+			 (void *)buf,tempbuff,(size_t)bytesRead);
   }
   executed=true;
 }
@@ -367,13 +375,14 @@ void SysCallRead::undo(bool expectRedo){
 }
 
 void SysCallWrite::exec(ThreadContext *context,icode_ptr picode){
-  int fd=context->getGPR(Arg1stGPR);
+  MintFuncArgs args(context, picode);
+  int fd=args.getInt32();
+  VAddr buf=args.getVAddr();
+  size_t count=args.getInt32();
   I((!executed)||(fd==myFd));
   myFd=fd;
-  void *buf=(void *)context->getGPR(Arg2ndGPR);
   I((!executed)||(myBuf==buf));
   ID(myBuf=buf);
-  size_t count=context->getGPR(Arg3rdGPR);
   I((!executed)||(myCount==count));
   ID(myCount=count);
   off_t currentOffset=lseek(openFiles[myFd]->fdesc,0,SEEK_CUR);
@@ -388,21 +397,21 @@ void SysCallWrite::exec(ThreadContext *context,icode_ptr picode){
 	void *tempbuff=alloca(count);
 	I(tempbuff);
 	// Read data from versioned memory into a temporary buffer
-	rsesc_OS_read_block(context->getPid(),picode->addr,tempbuff,buf,count);
+	rsesc_OS_read_block(context->getPid(),picode->addr,tempbuff,(void *)buf,count);
 	I(bufData&&(memcmp(bufData,tempbuff,count)==0));
       }else{
 	bufData=malloc(count);
 	I(bufData);
 	// Read data from versioned memory into a temporary buffer
-	rsesc_OS_read_block(context->getPid(),picode->addr,bufData,buf,count);
+	rsesc_OS_read_block(context->getPid(),picode->addr,bufData,(void *)buf,count);
 	bytesWritten=count;
       }
-      context->setGPR(RetValGPR,bytesWritten);
+      context->setRetVal(bytesWritten);
     }else if(errno==EBADF){
       // Invalid file handle, fail with errno of EBADF
       context->setErrno(EBADF);
       bytesWritten=-1;
-      context->setGPR(RetValGPR,-1);
+      context->setRetVal(-1);
     }else{
       I(0);
     }
@@ -414,7 +423,7 @@ void SysCallWrite::exec(ThreadContext *context,icode_ptr picode){
     void *tempbuff=alloca(count);
     I(tempbuff);
     // Read data from versioned memory into a temporary buffer
-    rsesc_OS_read_block(context->getPid(),picode->addr,tempbuff,buf,count);
+    rsesc_OS_read_block(context->getPid(),picode->addr,tempbuff,(void *)buf,count);
     // Get current position and verify that we are in append mode
     ID(oldOffs=currentOffset);
     I(oldOffs==lseek(openFiles[myFd]->fdesc,0,SEEK_END));
@@ -423,7 +432,7 @@ void SysCallWrite::exec(ThreadContext *context,icode_ptr picode){
     ssize_t nowBytesWritten=write(openFiles[myFd]->fdesc,tempbuff,executed?bytesWritten:count);
     I((!executed)||(nowBytesWritten==bytesWritten));
     bytesWritten=nowBytesWritten;
-    context->setGPR(RetValGPR,bytesWritten);
+    context->setRetVal(bytesWritten);
     if(bytesWritten==-1){
       context->setErrno(errno);
       I(lseek(openFiles[myFd]->fdesc,0,SEEK_CUR)==oldOffs);
@@ -467,15 +476,16 @@ void SysCallWrite::done(void){
 #include "Epoch.h"
 
 void SysCallSescSpawn::exec(ThreadContext *context,icode_ptr picode){
+  // Arguments of the sesc_spawn call
+  MintFuncArgs args(context, picode);
+  VAddr entry = args.getVAddr();
+  VAddr arg   = args.getVAddr();
+  int   flags = args.getInt32();
   // Get parent thread and spawning epoch
   tls::Epoch *oldEpoch=context->getEpoch();
   I(oldEpoch==tls::Epoch::getEpoch(context->getPid()));
   I(oldEpoch);
   Pid_t ppid=oldEpoch->getTid();
-  // Arguments of the sesc_spawn call
-  RAddr entry = context->getGPR(Arg1stGPR);
-  RAddr arg   = context->getGPR(Arg2ndGPR);
-  int  flags = context->getGPR(Arg3rdGPR);
   I(entry);
   ThreadContext *childContext=0;
   tls::Thread   *childThread=0;
@@ -494,23 +504,23 @@ void SysCallSescSpawn::exec(ThreadContext *context,icode_ptr picode){
     }
   }
   // The return value for the parent is the child's pid
-  context->setGPR(RetValGPR,childPid);
+  context->setRetVal(childPid);
   if(childContext){
     // Eerything is shared, stack is not copied
     childContext->shareAddrSpace(context,PR_SADDR,false);
     childContext->init();
     // The first instruction for the child is the entry point passed in
-    childContext->setIP(addr2icode(entry));
-    childContext->setGPR(Arg1stGPR,arg);
-    childContext->setGPR(Arg2ndGPR,Stack_size); /* for sprocsp() */
+    childContext->setPCIcode(addr2icode(entry));
+    childContext->setIntReg(IntArg1Reg,arg);
+    childContext->setIntReg(IntArg2Reg,Stack_size); /* for sprocsp() */
     // In position-independent code every function expects to find
     // its own entry address in register jp (also known as t9 and R25)
-    childContext->reg[25]= entry;
+    childContext->setIntReg(JmpPtrReg,entry);
     // When the child returns from the 'entry' function,
     // it will go directly to the exit() function
-    childContext->setGPR(RetAddrGPR,Exit_addr);
+    childContext->setIntReg(RetAddrReg,Exit_addr);
     // The return value for the child is 0
-    childContext->setGPR(RetValGPR,0);
+    childContext->setRetVal(0);
     // Inform SESC of what we have done here
     osSim->eventSpawn(ppid,childPid,flags);
   }

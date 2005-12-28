@@ -595,7 +595,7 @@ int MintFuncArgs::getInt32(void){
   }else{
     RAddr addr=myContext->virt2real(myContext->getStkPtr())+curPos;
 #if (defined TASKSCALAR) || (defined TLS)
-    int *ptr =(int *)(rsesc_OS_read(pthread->getPid(),addr,picode->addr,E_WORD));
+    int *ptr =(int *)(rsesc_OS_read(myContext->getPid(),addr,myIcode->addr,E_WORD));
 #else
     int *ptr=(int *)addr;
 #endif
@@ -621,7 +621,7 @@ long long int MintFuncArgs::getInt64(void){
     RAddr addr=myContext->virt2real(myContext->getStkPtr())+curPos;
 #if (defined TASKSCALAR) || (defined TLS)
     long long int *ptr =
-      (long long int *)(rsesc_OS_read(pthread->getPid(),addr,picode->addr,E_DWORD));
+      (long long int *)(rsesc_OS_read(myContext->getPid(),addr,myIcode->addr,E_DWORD));
 #else
     long long int *ptr=(long long int*)addr;
 #endif

@@ -934,7 +934,7 @@ OP(mint_sesc_future_epoch_jump){
   /* The address where the successor is to start */
   int successorAddr=pthread->getIntArg1();
   /* Do the actual call to create the successor */
-  rsesc_future_epoch_jump(pid,addr2icode(successorAddr));
+  rsesc_future_epoch_jump(pthread->getPid(),addr2icode(successorAddr));
   // Note: not neccessarily running the same thread as before
   return pthread->getPCIcode();
 }
@@ -1133,7 +1133,7 @@ OP(mint_printf)
 #if (defined TASKSCALAR) || (defined TLS)
     sp = (int *)pthread->getIntReg(StkPtrReg);
     rsesc_OS_read_string(pthread->getPid(), picode->addr, tempbuff2,
-			 (const void *)pthread->getIntArg1(),100);
+			 pthread->getIntArg1(),100);
     addr = (int)tempbuff2;
     tempbuff2 += 100;
 #else
@@ -1167,7 +1167,7 @@ OP(mint_printf)
       if(*cp=='s'){
 	if(args[index]) {
 #if (defined TASKSCALAR) || (defined TLS)
-	  rsesc_OS_read_string(pthread->getPid(), picode->addr, tempbuff2, (const void *) args[index], 100);
+	  rsesc_OS_read_string(pthread->getPid(), picode->addr, tempbuff2, args[index], 100);
 	  args[index]=(int)tempbuff2;
 	  tempbuff2 += 100;
 #else
@@ -1442,8 +1442,8 @@ OP(mint_fcntl)
 #endif
   case F_GETFD:
 #if (defined TLS)
-    pthread->setGPR(RetValGPR,0);
-    return addr2icode(pthread->getGPR(RetAddrGPR));
+    pthread->setRetVal(0);
+    return pthread->getRetIcode();
 #endif
   case F_SETFD:
 #if (defined TLS)
@@ -2429,7 +2429,7 @@ OP(mint_fchown)
 OP(mint_lseek64)
 {
   // Prepare for parameter extraction
-  MintFuncArgs funcArgs(pthread);
+  MintFuncArgs funcArgs(pthread, picode);
   // First parameter is a 32-bit int
   int fildes = funcArgs.getInt32();
   // Second parameter is a 64-bit int
@@ -2503,14 +2503,15 @@ OP(mint_access)
 /* ARGSUSED */
 OP(mint_stat)
 {
-  int r4 = REGNUM(4);
-  int r5 = REGNUM(5);
+  MintFuncArgs args(pthread, picode);
+  VAddr namePtr = args.getVAddr();
+  VAddr statPtr = args.getVAddr();
   int  err;
 
 #ifdef DEBUG_VERBOSE
   printf("mint_stat()\n");
 #endif
-  if(r4 == 0 || r5 == 0) {
+  if(namePtr == 0 || statPtr == 0) {
     fatal("stat called with a null pointer\n");
   }
 
@@ -2520,19 +2521,20 @@ OP(mint_stat)
     struct stat stat_native;
     char tmpbuff[2048];
       
-    rsesc_OS_read_string(pthread->getPid(), picode->addr, tmpbuff, (const void *)r4, 2048);
+    rsesc_OS_read_string(pthread->getPid(), picode->addr, tmpbuff, namePtr, 2048);
 
     err = stat(tmpbuff, &stat_native);
     conv_stat32_native2glibc(&stat_native, &stat32p);
 
-    rsesc_OS_write_block(pthread->getPid(), picode->addr, (void *) REGNUM(5), &stat32p, sizeof(struct glibc_stat32));
+    rsesc_OS_write_block(pthread->getPid(), picode->addr, (void *)statPtr,
+                         &stat32p, sizeof(struct glibc_stat32));
   }
 #else
   {
-    struct glibc_stat32 *stat32p = (struct glibc_stat32 *)pthread->virt2real(r5);
+    struct glibc_stat32 *stat32p = (struct glibc_stat32 *)pthread->virt2real(statPtr);
     struct stat stat_native;
       
-    err = stat((const char *)pthread->virt2real(r4), &stat_native);
+    err = stat((const char *)pthread->virt2real(namePtr), &stat_native);
       
     conv_stat32_native2glibc(&stat_native, stat32p);
   }
@@ -2547,14 +2549,15 @@ OP(mint_stat)
 /* ARGSUSED */
 OP(mint_lstat)
 {
-  int r4 = REGNUM(4);
-  int r5 = REGNUM(5);
+  MintFuncArgs args(pthread, picode);
+  VAddr namePtr = args.getVAddr();
+  VAddr statPtr = args.getVAddr();
   int  err;
 
 #ifdef DEBUG_VERBOSE
   printf("mint_stat()\n");
 #endif
-  if(r4 == 0 || r5 == 0) {
+  if(namePtr == 0 || statPtr == 0) {
     fatal("stat called with a null pointer\n");
   }
 
@@ -2564,19 +2567,20 @@ OP(mint_lstat)
     struct stat stat_native;
     char tmpbuff[2048];
       
-    rsesc_OS_read_string(pthread->getPid(), picode->addr, tmpbuff, (const void *)r4, 2048);
+    rsesc_OS_read_string(pthread->getPid(), picode->addr, tmpbuff, namePtr, 2048);
 
     err = lstat(tmpbuff, &stat_native);
     conv_stat32_native2glibc(&stat_native, &stat32p);
 
-    rsesc_OS_write_block(pthread->getPid(), picode->addr, (void *) REGNUM(5), &stat32p, sizeof(struct glibc_stat32));
+    rsesc_OS_write_block(pthread->getPid(), picode->addr, (void *)statPtr,
+                         &stat32p, sizeof(struct glibc_stat32));
   }
 #else
   {
-    struct glibc_stat32 *stat32p = (struct glibc_stat32 *)pthread->virt2real(r5);
+    struct glibc_stat32 *stat32p = (struct glibc_stat32 *)pthread->virt2real(statPtr);
     struct stat stat_native;
       
-    err = lstat((const char *)pthread->virt2real(r4), &stat_native);
+    err = lstat((const char *)pthread->virt2real(namePtr), &stat_native);
       
     conv_stat32_native2glibc(&stat_native, stat32p);
   }
@@ -2725,7 +2729,7 @@ OP(mint_lstat64)
     struct stat stat_native;
     char tmpbuff[2048];
       
-    rsesc_OS_read_string(pthread->getPid(), picode->addr, tmpbuff, (const void *)r4, 2048);
+    rsesc_OS_read_string(pthread->getPid(), picode->addr, tmpbuff, r4, 2048);
 
     err = lstat(tmpbuff, &stat_native);
     conv_stat64_native2glibc(&stat_native, &stat64p);
@@ -2769,7 +2773,7 @@ OP(mint_stat64)
     struct stat stat_native;
     char tmpbuff[2048];
       
-    rsesc_OS_read_string(pthread->getPid(), picode->addr, tmpbuff, (const void *)r4, 2048);
+    rsesc_OS_read_string(pthread->getPid(), picode->addr, tmpbuff, r4, 2048);
 
     err = stat(tmpbuff, &stat_native);
     conv_stat64_native2glibc(&stat_native, &stat64p);
