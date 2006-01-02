@@ -83,10 +83,10 @@ int getdents(unsigned int fd, struct dirent *dirp, unsigned int count);
 #endif
 
 struct glibc_stat64 {
-  unsigned int	st_dev;
-  unsigned int	st_pad0[3];	/* Reserved for st_dev expansion  */
+  unsigned int  st_dev;
+  unsigned int  st_pad0[3];     /* Reserved for st_dev expansion  */
 
-  unsigned long long	st_ino;
+  unsigned long long    st_ino;
 
   unsigned int  st_mode;
   int           st_nlink;
@@ -94,56 +94,56 @@ struct glibc_stat64 {
   int           st_uid;
   int           st_gid;
 
-  unsigned int	st_rdev;
-  unsigned int	st_pad1[3];	/* Reserved for st_rdev expansion  */
+  unsigned int  st_rdev;
+  unsigned int  st_pad1[3];     /* Reserved for st_rdev expansion  */
 
-  long long	st_size;
+  long long     st_size;
 
   /*
    * Actually this should be timestruc_t st_atime, st_mtime and st_ctime
    * but we don't have it under Linux.
    */
   int          st_atim;
-  unsigned int	reserved0;	/* Reserved for st_atime expansion  */
+  unsigned int  reserved0;      /* Reserved for st_atime expansion  */
 
   int          st_mtim;
-  unsigned int	reserved1;	/* Reserved for st_mtime expansion  */
+  unsigned int  reserved1;      /* Reserved for st_mtime expansion  */
 
   int          st_ctim;
-  unsigned int	reserved2;	/* Reserved for st_ctime expansion  */
+  unsigned int  reserved2;      /* Reserved for st_ctime expansion  */
 
-  unsigned int	st_blksize;
-  unsigned int	st_pad2;
+  unsigned int  st_blksize;
+  unsigned int  st_pad2;
 
-  long long	st_blocks;
+  long long     st_blocks;
 };
 
 /* defines to survive the 64 bits mix */
 struct glibc_stat32 {
   unsigned int    st_dev;
-  int		st_pad1[3];		/* Reserved for network id */
+  int           st_pad1[3];             /* Reserved for network id */
   unsigned int   st_ino;
   unsigned int    st_mode;
   int             st_nlink;
   int             st_uid;
   int             st_gid;
   unsigned int    st_rdev;
-  int		st_pad2[2];
+  int           st_pad2[2];
   int            st_size;
-  int		st_pad3;
+  int           st_pad3;
   /*
    * Actually this should be timestruc_t st_atime, st_mtime and st_ctime
    * but we don't have it under Linux.
    */
   int            st_atim;
-  int		reserved0;
+  int           reserved0;
   int            st_mtim;
-  int		reserved1;
+  int           reserved1;
   int            st_ctim;
-  int		reserved2;
-  int		st_blksize;
-  int		st_blocks;
-  int		st_pad4[14];
+  int           reserved2;
+  int           st_blksize;
+  int           st_blocks;
+  int           st_pad4[14];
 };
 
 void conv_stat32_native2glibc(const struct stat *statp, struct glibc_stat32 *stat32p)
@@ -190,7 +190,7 @@ icode_t TerminatePicode;
 #endif
 /* Invalid icode, used as the "next icode" for contexts without any thread to execute */ 
 icode_t invalidIcode;
-icode_ptr Idone1;		/* calls terminator1() */
+icode_ptr Idone1;               /* calls terminator1() */
 static icode_t Iterminator1;
 
 extern int errno;
@@ -237,7 +237,7 @@ OP(mint_cerror); OP(mint_null_func);
 OP(return1); OP(mint_exit); 
 
 OP(mint_finish); 
-OP(mint_printf);	/* not used */
+OP(mint_printf);        /* not used */
 OP(mint_sesc_get_num_cpus);
 #ifdef TLS
 //OP(mint_sesc_begin_epochs);
@@ -306,14 +306,14 @@ OP(mint_assert_fail);
 
 func_desc_t Func_subst[] = {
   // char *name               PFPI func;
-  {"ulimit",		      mint_ulimit,	               1, OpExposed},
-  {"execl",		      mint_execl,	               1, OpExposed},
-  {"execle",		      mint_execle,	               1, OpExposed},
-  {"execlp",		      mint_execlp,	               1, OpExposed},
-  {"execv",		      mint_execv,	               1, OpExposed},
-  {"execve",		      mint_execve,	               1, OpExposed},
-  {"execvp",		      mint_execvp,	               1, OpExposed},
-  {"mmap",		      mint_mmap,	               1, OpUndoable},
+  {"ulimit",                  mint_ulimit,                     1, OpExposed},
+  {"execl",                   mint_execl,                      1, OpExposed},
+  {"execle",                  mint_execle,                     1, OpExposed},
+  {"execlp",                  mint_execlp,                     1, OpExposed},
+  {"execv",                   mint_execv,                      1, OpExposed},
+  {"execve",                  mint_execve,                     1, OpExposed},
+  {"execvp",                  mint_execvp,                     1, OpExposed},
+  {"mmap",                    mint_mmap,                       1, OpUndoable},
   {"open64",                  mint_open,                       1, OpUndoable}, 
   {"open",                    mint_open,                       1, OpUndoable},
   {"close",                   mint_close,                      1, OpUndoable},
@@ -352,27 +352,27 @@ func_desc_t Func_subst[] = {
   {"getgid",                  mint_getgid,                     0, OpInternal},
   {"getegid",                 mint_getegid,                    0, OpInternal},
   {"gethostname",             mint_gethostname,                1, OpExposed},
-  {"getdomainname",	      mint_getdomainname,	       1, OpExposed},
-  {"setdomainname",	      mint_setdomainname,	       1, OpExposed},
-  {"socket",		      mint_socket,	               1, OpExposed},
-  {"connect",		      mint_connect,	               1, OpExposed},
-  {"send",		      mint_send,		       1, OpExposed},
-  {"sendto",		      mint_sendto,	               1, OpExposed},
-  {"sendmsg",		      mint_sendmsg,	               1, OpExposed},
-  {"recv",		      mint_recv,		       1, OpExposed},
-  {"recvfrom",		      mint_recvfrom,	               1, OpExposed},
-  {"recvmsg",		      mint_recvmsg,	               1, OpExposed},
-  {"getsockopt",	      mint_getsockopt,	               1, OpExposed},
-  {"setsockopt",	      mint_setsockopt,	               1, OpExposed},
-  {"select",		      mint_select,	               1, OpExposed},
+  {"getdomainname",           mint_getdomainname,              1, OpExposed},
+  {"setdomainname",           mint_setdomainname,              1, OpExposed},
+  {"socket",                  mint_socket,                     1, OpExposed},
+  {"connect",                 mint_connect,                    1, OpExposed},
+  {"send",                    mint_send,                       1, OpExposed},
+  {"sendto",                  mint_sendto,                     1, OpExposed},
+  {"sendmsg",                 mint_sendmsg,                    1, OpExposed},
+  {"recv",                    mint_recv,                       1, OpExposed},
+  {"recvfrom",                mint_recvfrom,                   1, OpExposed},
+  {"recvmsg",                 mint_recvmsg,                    1, OpExposed},
+  {"getsockopt",              mint_getsockopt,                 1, OpExposed},
+  {"setsockopt",              mint_setsockopt,                 1, OpExposed},
+  {"select",                  mint_select,                     1, OpExposed},
   {"cachectl",                mint_null_func,                  1, OpExposed},
   {"oserror",                 mint_oserror,                    0, OpExposed},
   {"setoserror",              mint_setoserror,                 0, OpExposed},
   {"perror",                  mint_perror,                     1, OpExposed},
   {"times",                   mint_times,                      1, OpUndoable},
-  {"getdtablesize",	      mint_getdtablesize,	       1, OpExposed},
-  {"syssgi",		      mint_syssgi,	               1, OpExposed},
-  {"time",		      mint_time,		       1, OpExposed},
+  {"getdtablesize",           mint_getdtablesize,              1, OpExposed},
+  {"syssgi",                  mint_syssgi,                     1, OpExposed},
+  {"time",                    mint_time,                       1, OpExposed},
   {"munmap",                  mint_munmap,                     1, OpUndoable},
   {"malloc",                  mint_malloc,                     1, OpUndoable},
   {"calloc",                  mint_calloc,                     1, OpUndoable},
@@ -384,29 +384,29 @@ func_desc_t Func_subst[] = {
   {"clock",                   mint_clock,                      1, OpExposed},
   {"gettimeofday",            mint_gettimeofday,               1, OpExposed},
   {"sysmp",                   mint_sysmp,                      1, OpExposed},
-  {"getdents",		      mint_getdents,	               1, OpExposed},
-  {"_getdents",	              mint_getdents,	               1, OpExposed},
+  {"getdents",                mint_getdents,                   1, OpExposed},
+  {"_getdents",               mint_getdents,                   1, OpExposed},
   {"sproc",                   mint_notimplemented,             1, OpExposed},
-  {"sprocsp",		      mint_notimplemented,             1, OpExposed},
+  {"sprocsp",                 mint_notimplemented,             1, OpExposed},
   {"m_fork",                  mint_notimplemented,             1, OpExposed},
-  {"m_next",		      mint_notimplemented,             1, OpExposed},
+  {"m_next",                  mint_notimplemented,             1, OpExposed},
   {"m_set_procs",             mint_notimplemented,             1, OpExposed},
   {"m_get_numprocs",          mint_notimplemented,             1, OpExposed},
   {"m_get_myid",              mint_notimplemented,             1, OpExposed},
-  {"m_kill_procs",	      mint_notimplemented,	       1, OpExposed},
-  {"m_parc_procs",	      mint_notimplemented,	       1, OpExposed},
-  {"m_rele_procs",	      mint_notimplemented,	       1, OpExposed},
-  {"m_sync",		      mint_notimplemented,	       1, OpExposed},
-  {"m_lock",		      mint_notimplemented,	       1, OpExposed},
-  {"m_unlock",		      mint_notimplemented,	       1, OpExposed},
+  {"m_kill_procs",            mint_notimplemented,             1, OpExposed},
+  {"m_parc_procs",            mint_notimplemented,             1, OpExposed},
+  {"m_rele_procs",            mint_notimplemented,             1, OpExposed},
+  {"m_sync",                  mint_notimplemented,             1, OpExposed},
+  {"m_lock",                  mint_notimplemented,             1, OpExposed},
+  {"m_unlock",                mint_notimplemented,             1, OpExposed},
   {"fork",                    mint_notimplemented,             1, OpExposed},
   {"wait",                    mint_notimplemented,             1, OpExposed},
   {"wait3",                   mint_notimplemented,             1, OpExposed},
-  {"waitpid",		      mint_notimplemented,             1, OpExposed},
+  {"waitpid",                 mint_notimplemented,             1, OpExposed},
   {"pthread_create",          mint_notimplemented,             1, OpExposed},
   {"pthread_lock",            mint_notimplemented,             1, OpExposed},
   /* wait must generate a yield because it might block */
-  {"isatty",		      mint_isatty,                     1, OpExposed},
+  {"isatty",                  mint_isatty,                     1, OpExposed},
   {"ioctl",                   mint_ioctl,                      1, OpExposed},
   {"prctl",                   mint_prctl,                      1, OpExposed},
   {"fcntl64",                 mint_fcntl,                      1, OpInternal},
@@ -455,8 +455,8 @@ func_desc_t Func_subst[] = {
   {"sesc_release_",           mint_sesc_release,               1, OpExposed},
   {"sesc_wait",               mint_sesc_wait,                  1, OpClass(OpUndoable,OpAtStart)},
   {"sesc_pseudoreset",        mint_sesc_pseudoreset,           1, OpExposed},
-  //  {"printf",		      mint_printf,	               1, OpExposed},
-  //  {"IO_printf",	              mint_printf,	               1, OpExposed},
+  //  {"printf",                      mint_printf,                     1, OpExposed},
+  //  {"IO_printf",                   mint_printf,                     1, OpExposed},
   {"sesc_get_num_cpus",       mint_sesc_get_num_cpus,          0, OpInternal},
 #if (defined TLS)
   //  {"sesc_begin_epochs",       mint_sesc_begin_epochs,          0, OpExposed},
@@ -576,7 +576,7 @@ void subst_init()
   pnlist = (struct namelist *) malloc(sizeof(struct namelist) * Nfuncs);
   if (pnlist == NULL)
     fatal("subst_init: cannot allocate 0x%x bytes for function nlist.\n",
-	  sizeof(struct namelist) * Nfuncs);
+          sizeof(struct namelist) * Nfuncs);
   for (i = 0; i < Nfuncs; i++)
     pnlist[i].n_name = Func_subst[i].name;
 
@@ -606,7 +606,7 @@ void subst_init()
       continue;
     if (strcmp(psym->n_name, "sesc_memfence_") == 0)
       continue;
-		
+                
     if (strcmp(psym->n_name, "sesc_acquire") == 0)
       continue;
     if (strcmp(psym->n_name, "sesc_acquire_") == 0)
@@ -671,9 +671,9 @@ OP(mint_assert_fail)
 {
   printf("assertion failed in simulated program: (%s) %s:%d\n",
          (const char *)pthread->virt2real(pthread->getIntReg(IntArg1Reg)),
-	 (const char *)pthread->virt2real(pthread->getIntReg(IntArg2Reg)),
-	 pthread->getIntReg(IntArg3Reg)
-	 ); 
+         (const char *)pthread->virt2real(pthread->getIntReg(IntArg2Reg)),
+         pthread->getIntReg(IntArg3Reg)
+         ); 
   
   mint_exit(0,pthread);
 
@@ -752,7 +752,7 @@ OP(mint_sesc_spawn){
     // The first instruction for the child is the entry point passed in
     child->setPCIcode(addr2icode(entry));
     child->setIntReg(IntArg1Reg,arg);
-    child->setIntReg(IntArg2Reg,Stack_size);		/* for sprocsp() */
+    child->setIntReg(IntArg2Reg,Stack_size);            /* for sprocsp() */
     // In position-independent code every function expects to find
     // its own entry address in register jp (also known as t9 and R25)
     child->setIntReg(JmpPtrReg,entry);
@@ -786,7 +786,7 @@ int mint_sesc_create_clone(ThreadContext *pthread){
 #else
 #ifdef DEBUG_VERBOSE
   printf("mint_sesc_create_clone: pid=%d at iAddr %08x\n",
-	 ppid,icode2addr(rsesc_get_instruction_pointer(ppid)));
+         ppid,icode2addr(rsesc_get_instruction_pointer(ppid)));
 #endif
   cthread=ThreadContext::newActual();
 #endif /* (defined TLS) */
@@ -987,7 +987,6 @@ OP(mint_sesc_prof_fork_successor)
   return pthread->getPCIcode();
 }
 
-int rsesc_become_safe(int pid);
 OP(mint_sesc_become_safe)
 {
   // Set things up for the return from this call
@@ -998,11 +997,11 @@ OP(mint_sesc_become_safe)
   return pthread->getPCIcode();
 }
 
-int rsesc_is_safe(int pid);
+bool rsesc_is_safe(int pid);
 OP(mint_sesc_is_safe)
 {
   // Do the call and set the return value
-  pthread->setRetVal(rsesc_is_safe(pthread->getIntArg1()));
+  pthread->setRetVal(rsesc_is_safe(pthread->getIntArg1())?1:0);
   // Return from the call
   return pthread->getRetIcode();
 }
@@ -1116,97 +1115,96 @@ OP(mint_sysmp)
  */
 OP(mint_printf)
 {
-	 int addr;
-	 int *sp;
-    int index;
-    char *cp;
-	 int args[100];
+  int addr;
+  int *sp;
+  int index;
+  char *cp;
+  int args[100];
 #if (defined TASKSCALAR) || (defined TLS)
-	 int *wdata;
-    unsigned char *tempbuff2 = (unsigned char *) alloca (8000);
+  int *wdata;
+  unsigned char *tempbuff2 = (unsigned char *) alloca (8000);
 #endif
  
 #ifdef DEBUG_VERBOSE
-    printf("mint_printf()\n");
+  printf("mint_printf()\n");
 #endif
 
 #if (defined TASKSCALAR) || (defined TLS)
-    sp = (int *)pthread->getIntReg(StkPtrReg);
-    rsesc_OS_read_string(pthread->getPid(), picode->addr, tempbuff2,
-			 pthread->getIntArg1(),100);
-    addr = (int)tempbuff2;
-    tempbuff2 += 100;
+  sp = (int *)pthread->getIntReg(StkPtrReg);
+  rsesc_OS_read_string(pthread->getPid(), picode->addr, tempbuff2, pthread->getIntArg1() ,100);
+  addr = (int)tempbuff2;
+  tempbuff2 += 100;
 #else
-    addr = pthread->virt2real(pthread->getIntArg1());
-    sp = (int *)pthread->virt2real(pthread->getIntReg(StkPtrReg));
+  addr = pthread->virt2real(pthread->getIntArg1());
+  sp = (int *)pthread->virt2real(pthread->getIntReg(StkPtrReg));
 #endif
-    args[0] = addr;
-    args[1] = pthread->getIntArg2();
-    args[2] = pthread->getIntArg3();
-    args[3] = pthread->getIntArg4();
+  args[0] = addr;
+  args[1] = pthread->getIntArg2();
+  args[2] = pthread->getIntArg3();
+  args[3] = pthread->getIntArg4();
 
-    index = 0;
-    for(cp=(char *)addr;*cp;cp++){
-      if(*cp!='%')
-	continue;
-      if(*++cp=='%')
-	continue;
-      index++;
+  index = 0;
+  for(cp=(char *)addr;*cp;cp++){
+    if(*cp!='%')
+      continue;
+    if(*++cp=='%')
+      continue;
+    index++;
 
-      if(index>3){
+    if(index>3){
 #if (defined TASKSCALAR) || (defined TLS)
-	wdata = (int *)rsesc_OS_read(pthread->getPid(), (int)(sp + index), picode->addr, E_WORD);
-	args[index]=SWAP_WORD(*wdata);
+      wdata = (int *)rsesc_OS_read(pthread->getPid(), picode->addr, ((RAddr)sp) + index, E_BYTE);
+      args[index]=SWAP_WORD(*wdata);
 #else
-	args[index]=SWAP_WORD(*(sp+index));
+      args[index]=SWAP_WORD(*(sp+index));
 #endif
-      }
-      while((*cp>='0')&&(*cp<='9')) {
-	cp++;
-      }
-      if(*cp=='s'){
-	if(args[index]) {
-#if (defined TASKSCALAR) || (defined TLS)
-	  rsesc_OS_read_string(pthread->getPid(), picode->addr, tempbuff2, args[index], 100);
-	  args[index]=(int)tempbuff2;
-	  tempbuff2 += 100;
-#else
-	  args[index]=pthread->virt2real(args[index]);
-#endif
-	}else
-	  args[index]=(int)"(nil)";
-      }else if(*cp=='f'||*cp=='g') {
-	/* found a double */
-	/* need to fix this sometime; for now don't use both %f and %s */
-      }
     }
+    while((*cp>='0')&&(*cp<='9')) {
+      cp++;
+    }
+    if(*cp=='s'){
+      if(args[index]) {
+#if (defined TASKSCALAR) || (defined TLS)
+        rsesc_OS_read_string(pthread->getPid(), picode->addr, tempbuff2, args[index], 100);
+        args[index]=(int)tempbuff2;
+        tempbuff2 += 100;
+#else
+        args[index]=pthread->virt2real(args[index]);
+#endif
+      }else
+        args[index]=(int)"(nil)";
+    }else if(*cp=='f'||*cp=='g') {
+      /* found a double */
+      /* need to fix this sometime; for now don't use both %f and %s */
+    }
+  }
 
 #ifdef TASKSCALAR
-    if(index>10){
-      printf("mint_printf: too many args\n");
-      return pthread->getRetIcode();
-    }
-    if (!rsesc_is_safe(pthread->getPid()))
-      printf("SPEC[");
+  if(index>10){
+    printf("mint_printf: too many args\n");
+    return pthread->getRetIcode();
+  }
+  if (!rsesc_is_safe(pthread->getPid()))
+    printf("SPEC[");
 #else
-    if(index>10)
-      fatal("mint_printf: too many args\n");
+  if(index>10)
+    fatal("mint_printf: too many args\n");
 #endif
 
-    printf((char *)addr, args[1], args[2], args[3], args[4], args[5], args[6],
-           args[7], args[8], args[9], args[10]);
+  printf((char *)addr, args[1], args[2], args[3], args[4], args[5], args[6],
+         args[7], args[8], args[9], args[10]);
 
 #ifdef TASKSCALAR
-    if (!rsesc_is_safe(pthread->getPid())) {
-      printf("]");
-      fflush(stdout);
-    }
+  if (!rsesc_is_safe(pthread->getPid())) {
+    printf("]");
+    fflush(stdout);
+  }
     
 #endif
 
-    fflush(stdout);
+  fflush(stdout);
 
-    return  pthread->getRetIcode();
+  return  pthread->getRetIcode();
 }
 #endif
 
@@ -1327,7 +1325,7 @@ OP(mint_isatty)
 
 #ifdef DEBUG_VERBOSE
   printf("isatty(%d) returned %d\n",
-	 (int)pthread->getIntArg1(),(int)pthread->getIntReg(RetValReg));
+         (int)pthread->getIntArg1(),(int)pthread->getIntReg(RetValReg));
 #endif
   return pthread->getRetIcode();
 }
@@ -1479,7 +1477,7 @@ OP(mint_fcntl)
     break;
   default:
     fatal("mint_fcntl: system call fcntl cmd (%d) not expected.\n",
-	  cmd);
+          cmd);
   }
   err = fcntl(fd, cmd, arg);
   pthread->setRetVal(err);
@@ -1519,11 +1517,11 @@ OP(mint_uname)
 #if (defined TLS)
   {
     struct mint_utsname *tp = (struct mint_utsname *)bufVAddr;
-    rsesc_OS_write_block(pthread->getPid(),picode->addr,tp->sysname,sysnamestr,strlen(sysnamestr)+1);
-    rsesc_OS_write_block(pthread->getPid(),picode->addr,tp->nodename,nodenamestr,strlen(nodenamestr)+1);
-    rsesc_OS_write_block(pthread->getPid(),picode->addr,tp->release,releasestr,strlen(releasestr)+1);
-    rsesc_OS_write_block(pthread->getPid(),picode->addr,tp->version,versionstr,strlen(versionstr)+1);
-    rsesc_OS_write_block(pthread->getPid(),picode->addr,tp->machine,machinestr,strlen(machinestr)+1);
+    rsesc_OS_write_block(pthread->getPid(),picode->addr,tp->sysname ,sysnamestr  ,strlen(sysnamestr)+1);
+    rsesc_OS_write_block(pthread->getPid(),picode->addr,tp->nodename,nodenamestr ,strlen(nodenamestr)+1);
+    rsesc_OS_write_block(pthread->getPid(),picode->addr,tp->release ,releasestr  ,strlen(releasestr)+1);
+    rsesc_OS_write_block(pthread->getPid(),picode->addr,tp->version ,versionstr  ,strlen(versionstr)+1);
+    rsesc_OS_write_block(pthread->getPid(),picode->addr,tp->machine ,machinestr  ,strlen(machinestr)+1);
   }
 #else
   {
@@ -1703,7 +1701,7 @@ OP(mint_gettimeofday)
 #endif
 
 #ifdef TASKSCALAR
-  rsesc_OS_write_block(pthread->getPid(), picode->addr, (void *) r4, &tv, sizeof(struct timeval));
+  rsesc_OS_write_block(pthread->getPid(), picode->addr, r4, &tv, sizeof(struct timeval));
 #else
   struct timeval *r4map = (struct timeval *) pthread->virt2real(r4);
   memcpy(r4map,&tv,sizeof(struct timeval));
@@ -1946,8 +1944,7 @@ OP(mint_open)
   {
     char cadena[100];
 
-    rsesc_OS_read_string(pthread->getPid(),picode->addr,cadena,
-			 (const void *)r4,100);
+    rsesc_OS_read_string(pthread->getPid(), picode->addr, cadena, r4, 100);
     err = open((const char *) cadena, r5, r6);
     if( err == -1 ) {
       fprintf(stderr,"original flag = %ld, and conv_flag = %ld\n", pthread->getIntArg2(), r5);
@@ -2029,18 +2026,16 @@ OP(mint_read)
 
 #ifdef DEBUG_VERBOSE
     printf("mint_read(%d, 0x%08x, %d), RA=0x%08x\n", (int) r4, (unsigned) r5, 
-	   (int) r6, (unsigned) pthread->getIntReg(RetAddrReg));
+           (int) r6, (unsigned) pthread->getIntReg(RetAddrReg));
 #endif
 
 #ifdef TASKSCALAR
     {
-      void *tempbuff;
-      tempbuff = (void *)malloc (r6);
+      void *tempbuff = alloca(r6);
 
       err = read(r4, tempbuff, r6);
       if (err > 0)
-	rsesc_OS_write_block(pthread->getPid(), picode->addr, (void *) r5, (const void *)tempbuff, err);
-      free(tempbuff);
+        rsesc_OS_write_block(pthread->getPid(), picode->addr, r5, tempbuff, err);
     }
 #else
     err = read(r4, (void *) pthread->virt2real(r5), r6);
@@ -2077,17 +2072,15 @@ OP(mint_write){
 #ifdef DEBUG_VERBOSE
   printf("mint_write(%d, 0x%08x, %d)\n",(int)fd,(unsigned)buf ,(int)count);
 #endif
-  // Map buffer pointer to real address space
-  buf=pthread->virt2real(buf);
 
 #if (defined TASKSCALAR) || (defined TLS)
   {
     void *tempbuff=alloca(count);
-    rsesc_OS_read_block(pthread->getPid(),picode->addr,tempbuff,(const void *)buf,count);
+    rsesc_OS_read_block(pthread->getPid(),picode->addr, tempbuff, buf, count);
     err=write(fd,tempbuff,count);
   }
 #else
-  err=write(fd,(const void *)buf,count);
+  err=write(fd,(const void *)pthread->virt2real(buf),count);
 #endif
   pthread->setIntReg(RetValReg,err);
   if(err==-1)
@@ -2100,7 +2093,7 @@ OP(mint_write){
 /* ARGSUSED */
 OP(mint_readv)
 {
-	 int r4, r5, r6;
+         int r4, r5, r6;
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -2114,11 +2107,11 @@ OP(mint_readv)
 
 #ifdef TASKSCALAR
     {
-      void *tempbuff = alloca (r6);
+      void *tempbuff = alloca(r6);
       
       err = readv(r4, (const iovec *)tempbuff, r6);
       if (err > 0)
-	rsesc_OS_write_block(pthread->getPid(), picode->addr, (void *)pthread->getIntArg2(), tempbuff, err);
+        rsesc_OS_write_block(pthread->getPid(), picode->addr, pthread->getIntArg2(), tempbuff, err);
     }
 #else
     err = readv(r4, (const iovec *) pthread->virt2real(r5), r6);
@@ -2133,7 +2126,7 @@ OP(mint_readv)
 /* ARGSUSED */
 OP(mint_writev)
 {
-	 int r4, r5, r6;
+         int r4, r5, r6;
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -2148,7 +2141,7 @@ OP(mint_writev)
 #ifdef TASKSCALAR
     {
       void *tempbuff =  alloca (r6);
-      rsesc_OS_read_block(pthread->getPid(), picode->addr, tempbuff, (const void *)pthread->getIntArg2(), r6);
+      rsesc_OS_read_block(pthread->getPid(), picode->addr, tempbuff, pthread->getIntArg2(), r6);
 
       err = writev(r4, (const iovec *)tempbuff, r6);
     }
@@ -2165,7 +2158,7 @@ OP(mint_writev)
 /* ARGSUSED */
 OP(mint_creat)
 {
-	 int r4, r5;
+         int r4, r5;
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -2180,7 +2173,7 @@ OP(mint_creat)
     {
       char cadena[100];
 
-      rsesc_OS_read_string(pthread->getPid(), picode->addr, cadena, (const void *)pthread->getIntArg1(), 100);
+      rsesc_OS_read_string(pthread->getPid(), picode->addr, cadena, pthread->getIntArg1(), 100);
       
       err = open((const char *) cadena, r5);
     }
@@ -2197,7 +2190,7 @@ OP(mint_creat)
 /* ARGSUSED */
 OP(mint_link)
 {
-	 int r4, r5;
+         int r4, r5;
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -2211,8 +2204,8 @@ OP(mint_link)
       char cad1[100];
       char cad2[100];
 
-      rsesc_OS_read_string(pthread->getPid(), picode->addr, cad1, (const void *) pthread->virt2real(REGNUM(4)), 100);
-      rsesc_OS_read_string(pthread->getPid(), picode->addr, cad2, (const void *) pthread->virt2real(REGNUM(5)), 100);
+      rsesc_OS_read_string(pthread->getPid(), picode->addr, cad1, REGNUM(4), 100);
+      rsesc_OS_read_string(pthread->getPid(), picode->addr, cad2, REGNUM(5), 100);
       
       err = link((const char *) cad1, cad2);
     }
@@ -2232,7 +2225,7 @@ OP(mint_link)
 /* ARGSUSED */
 OP(mint_unlink)
 {
-	 int r4;
+         int r4;
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -2246,7 +2239,7 @@ OP(mint_unlink)
     {
       char cad1[100];
 
-      rsesc_OS_read_string(pthread->getPid(), picode->addr, cad1, (const void *) pthread->virt2real(REGNUM(4)), 100);
+      rsesc_OS_read_string(pthread->getPid(), picode->addr, cad1, REGNUM(4), 100);
       
       err = unlink((const char *) cad1);
     }
@@ -2262,7 +2255,7 @@ OP(mint_unlink)
 /* ARGSUSED */
 OP(mint_rename)
 {
-	 int r4, r5;
+         int r4, r5;
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -2276,8 +2269,8 @@ OP(mint_rename)
       char cad1[100];
       char cad2[100];
 
-      rsesc_OS_read_string(pthread->getPid(), picode->addr, cad1, (const void *) pthread->virt2real(REGNUM(4)), 100);
-      rsesc_OS_read_string(pthread->getPid(), picode->addr, cad2, (const void *) pthread->virt2real(REGNUM(5)), 100);
+      rsesc_OS_read_string(pthread->getPid(), picode->addr, cad1, REGNUM(4), 100);
+      rsesc_OS_read_string(pthread->getPid(), picode->addr, cad2, REGNUM(5), 100);
       
       err = rename((const char *) cad1, (const char *)cad2);
     }
@@ -2297,7 +2290,7 @@ OP(mint_rename)
 /* ARGSUSED */
 OP(mint_chdir)
 {
-	 int r4;
+         int r4;
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -2311,7 +2304,7 @@ OP(mint_chdir)
     {
       char cad1[100];
 
-      rsesc_OS_read_string(pthread->getPid(), picode->addr, cad1, (const void *) pthread->virt2real(REGNUM(4)), 100);
+      rsesc_OS_read_string(pthread->getPid(), picode->addr, cad1, REGNUM(4), 100);
       
       err = chdir((const char *) cad1);
     }
@@ -2327,7 +2320,7 @@ OP(mint_chdir)
 /* ARGSUSED */
 OP(mint_chmod)
 {
-	 int r4, r5;
+         int r4, r5;
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -2342,7 +2335,7 @@ OP(mint_chmod)
     {
       char cad1[100];
 
-      rsesc_OS_read_string(pthread->getPid(), picode->addr, cad1, (const void *) pthread->virt2real(REGNUM(4)), 100);
+      rsesc_OS_read_string(pthread->getPid(), picode->addr, cad1, REGNUM(4), 100);
       
       err = chmod(cad1, r5);
     }
@@ -2358,7 +2351,7 @@ OP(mint_chmod)
 /* ARGSUSED */
 OP(mint_fchmod)
 {
-	 int r4, r5;
+         int r4, r5;
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -2386,18 +2379,16 @@ OP(mint_chown)
     int ownerUID  = pthread->getIntArg2();
     int groupGID  = pthread->getIntArg3();
 
-    int pathRAddr = pthread->virt2real(pathVAddr);
-
 #ifdef TASKSCALAR
     {
       char cad1[100];
 
-      rsesc_OS_read_string(pthread->getPid(), picode->addr, cad1, (const void *) pthread->virt2real(pathRAddr), 100);
+      rsesc_OS_read_string(pthread->getPid(), picode->addr, cad1, pathVAddr, 100);
       
       err = chown((const char *) cad1, ownerUID, groupGID);
     }
 #else
-    err = chown((const char *) pthread->virt2real(pathRAddr), ownerUID, groupGID);
+    err = chown((const char *) pthread->virt2real(pathVAddr), ownerUID, groupGID);
 #endif
 
     pthread->setRetVal(err);
@@ -2451,9 +2442,9 @@ OP(mint_lseek64)
 /* ARGSUSED */
 OP(mint_lseek)
 {
-	 int r4 = REGNUM(4);
-	 int r5 = REGNUM(5);
-	 int r6 = REGNUM(6);
+         int r4 = REGNUM(4);
+         int r5 = REGNUM(5);
+         int r6 = REGNUM(6);
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -2471,7 +2462,7 @@ OP(mint_lseek)
 /* ARGSUSED */
 OP(mint_access)
 {
-	 int r4, r5;
+         int r4, r5;
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -2486,7 +2477,7 @@ OP(mint_access)
     {
       char cad1[100];
 
-      rsesc_OS_read_string(pthread->getPid(), picode->addr, cad1, (const void *) pthread->virt2real(REGNUM(4)), 100);
+      rsesc_OS_read_string(pthread->getPid(), picode->addr, cad1, REGNUM(4), 100);
       
       err = access((const char *) cad1, r5);
     }
@@ -2526,7 +2517,7 @@ OP(mint_stat)
     err = stat(tmpbuff, &stat_native);
     conv_stat32_native2glibc(&stat_native, &stat32p);
 
-    rsesc_OS_write_block(pthread->getPid(), picode->addr, (void *)statPtr,
+    rsesc_OS_write_block(pthread->getPid(), picode->addr, statPtr,
                          &stat32p, sizeof(struct glibc_stat32));
   }
 #else
@@ -2572,7 +2563,8 @@ OP(mint_lstat)
     err = lstat(tmpbuff, &stat_native);
     conv_stat32_native2glibc(&stat_native, &stat32p);
 
-    rsesc_OS_write_block(pthread->getPid(), picode->addr, (void *)statPtr,
+    rsesc_OS_write_block(pthread->getPid(), picode->addr, 
+                         statPtr,
                          &stat32p, sizeof(struct glibc_stat32));
   }
 #else
@@ -2615,7 +2607,7 @@ OP(mint_fstat)
     err = fstat(r4, &stat_native);
     conv_stat64_native2glibc(&stat_native, &stat64p);
 
-    rsesc_OS_write_block(pthread->getPid(), picode->addr, (void *) r5, &stat64p, sizeof(struct glibc_stat64));
+    rsesc_OS_write_block(pthread->getPid(), picode->addr, r5, &stat64p, sizeof(struct glibc_stat64));
   }
 #else
   {
@@ -2701,7 +2693,7 @@ OP(mint_fxstat64)
   struct glibc_stat64 stat64p;     
   conv_stat64_native2glibc(&stat_native, &stat64p);
 #if (defined TLS) || (defined TASKSCALAR)
-  rsesc_OS_write_block(pthread->getPid(),picode->addr,(void *)addr,&stat64p,sizeof(struct glibc_stat64));
+  rsesc_OS_write_block(pthread->getPid(),picode->addr, addr, &stat64p,sizeof(struct glibc_stat64));
 #else
   memcpy((struct glibc_stat64 *)pthread->virt2real(addr),&stat64p,sizeof(struct glibc_stat64));
 #endif
@@ -2734,7 +2726,7 @@ OP(mint_lstat64)
     err = lstat(tmpbuff, &stat_native);
     conv_stat64_native2glibc(&stat_native, &stat64p);
 
-    rsesc_OS_write_block(pthread->getPid(), picode->addr, (void *) r5, &stat64p, sizeof(struct glibc_stat64));
+    rsesc_OS_write_block(pthread->getPid(), picode->addr, r5, &stat64p, sizeof(struct glibc_stat64));
   }
 #else
   {
@@ -2778,7 +2770,7 @@ OP(mint_stat64)
     err = stat(tmpbuff, &stat_native);
     conv_stat64_native2glibc(&stat_native, &stat64p);
 
-    rsesc_OS_write_block(pthread->getPid(), picode->addr, (void *) r5, &stat64p, sizeof(struct glibc_stat64));
+    rsesc_OS_write_block(pthread->getPid(), picode->addr, r5, &stat64p, sizeof(struct glibc_stat64));
   }
 #else
   {
@@ -2800,7 +2792,7 @@ OP(mint_stat64)
 /* ARGSUSED */
 OP(mint_dup)
 {
-	 int r4;
+         int r4;
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -2814,7 +2806,7 @@ OP(mint_dup)
         pthread->setperrno(errno);
     else {
         if (err < MAX_FDNUM)
-	  pthread->setFD(err, 1);
+          pthread->setFD(err, 1);
     }
     return addr2icode(REGNUM(31));
 }
@@ -2840,7 +2832,7 @@ OP(mint_getcwd)
     if (r5 >= 4096)
       fatal("getcwd(): please increase tmpbuf to %ld\n", r5);
     err = (RAddr)getcwd(tmpbuf, (size_t)r5);
-    rsesc_OS_write_block(pthread->getPid(), picode->addr, (void *)REGNUM(4), (const void *)tmpbuf, r5);
+    rsesc_OS_write_block(pthread->getPid(), picode->addr, REGNUM(4), (const void *)tmpbuf, r5);
   }
 #else
   {
@@ -2867,7 +2859,7 @@ OP(mint_getcwd)
 /* ARGSUSED */
 OP(mint_pipe)
 {
-	 int r4;
+         int r4;
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -2881,7 +2873,7 @@ OP(mint_pipe)
     {
       char cad1[100];
 
-      rsesc_OS_read_block(pthread->getPid(), picode->addr, cad1, (const void *) pthread->virt2real(REGNUM(4)), 2*4);
+      rsesc_OS_read_block(pthread->getPid(), picode->addr, cad1, REGNUM(4), 2*4);
 
       err = pipe((int *) cad1);
     }
@@ -2897,7 +2889,7 @@ OP(mint_pipe)
 /* ARGSUSED */
 OP(mint_symlink)
 {
-	 int r4, r5;
+         int r4, r5;
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -2913,8 +2905,8 @@ OP(mint_symlink)
       char cad1[1024];
       char cad2[1024];
 
-      rsesc_OS_read_string(pthread->getPid(), picode->addr, cad1, (const void *) pthread->virt2real(REGNUM(4)), 1024);
-      rsesc_OS_read_string(pthread->getPid(), picode->addr, cad2, (const void *) pthread->virt2real(REGNUM(5)), 1024);
+      rsesc_OS_read_string(pthread->getPid(), picode->addr, cad1, REGNUM(4), 1024);
+      rsesc_OS_read_string(pthread->getPid(), picode->addr, cad2, REGNUM(5), 1024);
 
       err = symlink((const char *) cad1, (const char *) cad2);
     }
@@ -2930,7 +2922,7 @@ OP(mint_symlink)
 /* ARGSUSED */
 OP(mint_readlink)
 {
-	 int r4, r5, r6;
+         int r4, r5, r6;
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -2946,12 +2938,12 @@ OP(mint_readlink)
       char cad1[1024];
       char *cad2 = (char *)alloca(r6);
       
-      rsesc_OS_read_string(pthread->getPid(), picode->addr, cad1, (const void *) pthread->virt2real(REGNUM(4)), 1024);
+      rsesc_OS_read_string(pthread->getPid(), picode->addr, cad1, REGNUM(4), 1024);
 
       err = readlink(cad1, cad2, r6);
 
       if (r5)
-	rsesc_OS_write_block(pthread->getPid(), picode->addr, (void *) pthread->virt2real(REGNUM(5)), cad2, r6);
+        rsesc_OS_write_block(pthread->getPid(), picode->addr, REGNUM(5), cad2, r6);
     }
 #else
     if (r5)
@@ -2968,14 +2960,14 @@ OP(mint_readlink)
 /* ARGSUSED */
 OP(mint_umask)
 {
-	 int r4;
+         int r4;
 
 #ifdef DEBUG_VERBOSE
     printf("mint_umask()\n");
 #endif
     r4 = REGNUM(4);
 
-	 REGNUM(2) = (int) umask((mode_t)r4);
+         REGNUM(2) = (int) umask((mode_t)r4);
     return addr2icode(REGNUM(31));
 }
 
@@ -2986,7 +2978,7 @@ OP(mint_getuid)
     printf("mint_getuid()\n");
 #endif
 
-	 REGNUM(2) = (int) getuid();
+         REGNUM(2) = (int) getuid();
     return addr2icode(REGNUM(31));
 }
 
@@ -2997,7 +2989,7 @@ OP(mint_geteuid)
     printf("mint_geteuid()\n");
 #endif
 
-	 REGNUM(2) = (int) geteuid();
+         REGNUM(2) = (int) geteuid();
     return addr2icode(REGNUM(31));
 }
 
@@ -3008,7 +3000,7 @@ OP(mint_getgid)
     printf("mint_getgid()\n");
 #endif
 
-	 REGNUM(2) = (int) getgid();
+         REGNUM(2) = (int) getgid();
     return addr2icode(REGNUM(31));
 }
 
@@ -3019,14 +3011,14 @@ OP(mint_getegid)
     printf("mint_getegid()\n");
 #endif
 
-	 REGNUM(2) = (int) getegid();
+         REGNUM(2) = (int) getegid();
     return addr2icode(REGNUM(31));
 }
 
 /* ARGSUSED */
 OP(mint_getdomainname)
 {
-	 int r4, r5;
+         int r4, r5;
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -3046,7 +3038,7 @@ OP(mint_getdomainname)
       err = getdomainname(cad1, r5);
 
       if (r4)
-	rsesc_OS_write_block(pthread->getPid(), picode->addr, (void *) pthread->virt2real(REGNUM(4)), cad1, r5);
+        rsesc_OS_write_block(pthread->getPid(), picode->addr, REGNUM(4), cad1, r5);
     }
 #else
     // if (r4)
@@ -3065,7 +3057,7 @@ OP(mint_getdomainname)
 /* ARGSUSED */
 OP(mint_setdomainname)
 {
-	 int r4, r5;
+         int r4, r5;
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -3083,9 +3075,9 @@ OP(mint_setdomainname)
       char *cad1 = (char *)alloca(r5);
       
       if (r4)
-	rsesc_OS_read_block(pthread->getPid(), picode->addr, cad1, (const void *) pthread->virt2real(REGNUM(4)), r5);
+        rsesc_OS_read_block(pthread->getPid(), picode->addr, cad1, REGNUM(4), r5);
       else
-	cad1 = 0;
+        cad1 = 0;
 #ifndef CYGWIN
       err = setdomainname(cad1, r5);
 #else
@@ -3113,7 +3105,7 @@ OP(mint_setdomainname)
 /* ARGSUSED */
 OP(mint_gethostname)
 {
-	 int r4, r5;
+         int r4, r5;
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -3130,7 +3122,7 @@ OP(mint_gethostname)
       err = gethostname(cad1, r5);
 
       if (r4)
-	rsesc_OS_write_block(pthread->getPid(), picode->addr, (void *) pthread->virt2real(REGNUM(4)), cad1, r5);
+        rsesc_OS_write_block(pthread->getPid(), picode->addr, REGNUM(4), cad1, r5);
     }
 #else
     // if (r4)
@@ -3148,7 +3140,7 @@ OP(mint_gethostname)
 /* ARGSUSED */
 OP(mint_socket)
 {
-	 int r4, r5, r6;
+         int r4, r5, r6;
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -3164,7 +3156,7 @@ OP(mint_socket)
         pthread->setperrno(errno);
     else {
         if (err < MAX_FDNUM)
-	  pthread->setFD(err, 1);
+          pthread->setFD(err, 1);
     }
     return addr2icode(REGNUM(31));
 }
@@ -3206,7 +3198,7 @@ OP(mint_connect)
 /* ARGSUSED */
 OP(mint_send)
 {
-	 int r4, r5, r6, r7;
+         int r4, r5, r6, r7;
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -3223,9 +3215,9 @@ OP(mint_send)
       char *cad1 = (char *)alloca(r6);
       
       if (r5)
-	rsesc_OS_read_block(pthread->getPid(), picode->addr, cad1, (const void *) pthread->virt2real(REGNUM(5)), r6);
+        rsesc_OS_read_block(pthread->getPid(), picode->addr, cad1, REGNUM(5), r6);
       else
-	cad1 = 0;
+        cad1 = 0;
 
       err = send(r4, (const void *) cad1, r6, r7);
     }
@@ -3245,8 +3237,8 @@ OP(mint_send)
 /* ARGSUSED */
 OP(mint_sendto)
 {
-	 int r4, r5, r6, r7;
-	 int *sp, arg5, arg6;
+         int r4, r5, r6, r7;
+         int *sp, arg5, arg6;
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -3261,7 +3253,7 @@ OP(mint_sendto)
     r5 = REGNUM(5);
     r6 = REGNUM(6);
     r7 = REGNUM(7);
-	 sp = (int *) pthread->virt2real(REGNUM(29));
+         sp = (int *) pthread->virt2real(REGNUM(29));
     arg5=SWAP_WORD(sp[4]);
     arg6=SWAP_WORD(sp[5]);
 
@@ -3280,7 +3272,7 @@ OP(mint_sendto)
 /* ARGSUSED */
 OP(mint_sendmsg)
 {
-	 int r4, r5, r6;
+         int r4, r5, r6;
     int err;
     uint i;
     struct msghdr *msg;
@@ -3302,17 +3294,17 @@ OP(mint_sendmsg)
         // r5 = pthread->virt2real(r5);
         // msg = (struct msghdr *) pthread->virt2real(r5);
     //     if (msg->msg_name)
-	  // msg->msg_name = (char *) pthread->real2virt((VAddr) msg->msg_name);
+          // msg->msg_name = (char *) pthread->real2virt((VAddr) msg->msg_name);
         // iovp = msg->msg_iov;
         // if (iovp) {
-				// iovp = (struct iovec *) pthread->virt2real(iovp);
+                                // iovp = (struct iovec *) pthread->virt2real(iovp);
         //     msg->msg_iov = iovp;
         //     for (i = 0; i < msg->msg_iovlen; i++, iovp++)
         //         if (iovp->iov_base)
-				// 		  iovp->iov_base = (char *) pthread->virt2real((VAddr) iovp->iov_base);
+                                //                iovp->iov_base = (char *) pthread->virt2real((VAddr) iovp->iov_base);
         // }
 // #ifdef IRIX64
-// 	/* This is BSB4.3 neither implemented in Linux nor AIX */
+//      /* This is BSB4.3 neither implemented in Linux nor AIX */
 //         if (msg->msg_accrights)
 //             msg->msg_accrights = (char *) pthread->virt2real(msg->msg_accrights);
 // #endif
@@ -3327,16 +3319,16 @@ OP(mint_sendmsg)
     // if (r5) {
     //     msg = (struct msghdr *) pthread->virt2real(r5);
     //     if (msg->msg_name)
-	  // msg->msg_name = (char *) pthread->real2virt((VAddr) msg->msg_name);
+          // msg->msg_name = (char *) pthread->real2virt((VAddr) msg->msg_name);
         // iovp = msg->msg_iov;
 //         if (iovp) {
 //             for (i = 0; i < msg->msg_iovlen; i++, iovp++)
 //                 if (iovp->iov_base)
-// 		  iovp->iov_base = (char *) pthread->real2virt((VAddr) iovp->iov_base);
-// 				msg->msg_iov = (struct iovec *) pthread->real2virt((VAddr) msg->msg_iov);
+//                iovp->iov_base = (char *) pthread->real2virt((VAddr) iovp->iov_base);
+//                              msg->msg_iov = (struct iovec *) pthread->real2virt((VAddr) msg->msg_iov);
 //         }
 // #ifdef IRIX64
-// 	/* This is BSB4.3 neither implemented in Linux nor AIX */
+//      /* This is BSB4.3 neither implemented in Linux nor AIX */
 //         if (msg->msg_accrights)
 //             msg->msg_accrights = (char *) pthread->real2virt(msg->msg_accrights);
 // #endif
@@ -3351,7 +3343,7 @@ OP(mint_sendmsg)
 /* ARGSUSED */
 OP(mint_recv)
 {
-	 int r4, r5, r6, r7;
+         int r4, r5, r6, r7;
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -3380,8 +3372,8 @@ OP(mint_recv)
 /* ARGSUSED */
 OP(mint_recvfrom)
 {
-	 int r4, r5, r6, r7;
-	 int *sp, arg5, arg6;
+         int r4, r5, r6, r7;
+         int *sp, arg5, arg6;
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -3396,7 +3388,7 @@ OP(mint_recvfrom)
     r5 = REGNUM(5);
     r6 = REGNUM(6);
     r7 = REGNUM(7);
-	 sp = (int *) pthread->virt2real(REGNUM(29));
+         sp = (int *) pthread->virt2real(REGNUM(29));
     arg5 = SWAP_WORD(sp[4]);
     arg6 = SWAP_WORD(sp[5]);
 
@@ -3417,7 +3409,7 @@ OP(mint_recvfrom)
 /* ARGSUSED */
 OP(mint_recvmsg)
 {
-	 int r4, r5, r6;
+         int r4, r5, r6;
     int err;
     uint i;
     struct msghdr *msg;
@@ -3439,17 +3431,17 @@ OP(mint_recvmsg)
         // r5 = pthread->virt2real(r5);
         // msg = (struct msghdr *) pthread->virt2real(r5);
         // if (msg->msg_name)
-				// msg->msg_name = (char *) pthread->virt2real((VAddr) msg->msg_name);
+                                // msg->msg_name = (char *) pthread->virt2real((VAddr) msg->msg_name);
         // iovp = msg->msg_iov;
         // if (iovp) {
-				// iovp = (struct iovec *) pthread->virt2real((VAddr) iovp);
+                                // iovp = (struct iovec *) pthread->virt2real((VAddr) iovp);
         //     msg->msg_iov = iovp;
         //     for (i = 0; i < msg->msg_iovlen; i++, iovp++)
         //         if (iovp->iov_base)
-				// 		  iovp->iov_base = (char *) pthread->virt2real((VAddr) iovp->iov_base);
+                                //                iovp->iov_base = (char *) pthread->virt2real((VAddr) iovp->iov_base);
         // }
 // #ifdef IRIX64
-// 	/* This is BSB4.3 neither implemented in Linux nor AIX */
+//      /* This is BSB4.3 neither implemented in Linux nor AIX */
 //         if (msg->msg_accrights)
 //             msg->msg_accrights = (char *) pthread->virt2real(msg->msg_accrights);
 // #endif
@@ -3460,16 +3452,16 @@ OP(mint_recvmsg)
     // if (r5) {
         // msg = (struct msghdr *) pthread->virt2real(r5);
         // if (msg->msg_name)
-				// msg->msg_name = (char *) pthread->real2virt((VAddr) msg->msg_name);
+                                // msg->msg_name = (char *) pthread->real2virt((VAddr) msg->msg_name);
         // iovp = msg->msg_iov;
         // if (iovp) {
         //     for (i = 0; i < msg->msg_iovlen; i++, iovp++)
         //         if (iovp->iov_base)
-				// 		  iovp->iov_base = (char *) pthread->real2virt((VAddr) iovp->iov_base);
-				// msg->msg_iov = (struct iovec *) pthread->real2virt((VAddr) msg->msg_iov);
+                                //                iovp->iov_base = (char *) pthread->real2virt((VAddr) iovp->iov_base);
+                                // msg->msg_iov = (struct iovec *) pthread->real2virt((VAddr) msg->msg_iov);
         // }
 // #ifdef IRIX64
-// 	/* This is BSB4.3 neither implemented in Linux nor AIX */
+//      /* This is BSB4.3 neither implemented in Linux nor AIX */
 //         if (msg->msg_accrights)
 //             msg->msg_accrights = (char *) pthread->real2virt(msg->msg_accrights);
 // #endif
@@ -3484,8 +3476,8 @@ OP(mint_recvmsg)
 /* ARGSUSED */
 OP(mint_select)
 {
-	 int r4, r5, r6, r7;
-	 int *sp, arg5;
+         int r4, r5, r6, r7;
+         int *sp, arg5;
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -3500,7 +3492,7 @@ OP(mint_select)
     r5 = REGNUM(5);
     r6 = REGNUM(6);
     r7 = REGNUM(7);
-	 sp = (int *) pthread->virt2real(REGNUM(29));
+         sp = (int *) pthread->virt2real(REGNUM(29));
     arg5 = SWAP_WORD(sp[4]);
 
     // if (r5)
@@ -3523,8 +3515,8 @@ OP(mint_select)
 /* ARGSUSED */
 OP(mint_getsockopt)
 {
-	 int r4, r5, r6, r7;
-	 int *sp, arg5;
+         int r4, r5, r6, r7;
+         int *sp, arg5;
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -3539,7 +3531,7 @@ OP(mint_getsockopt)
     r5 = REGNUM(5);
     r6 = REGNUM(6);
     r7 = REGNUM(7);
-	 sp = (int *) pthread->virt2real(REGNUM(29));
+         sp = (int *) pthread->virt2real(REGNUM(29));
     arg5 = SWAP_WORD(sp[4]);
 
     // if (r7)
@@ -3557,8 +3549,8 @@ OP(mint_getsockopt)
 /* ARGSUSED */
 OP(mint_setsockopt)
 {
-	 int r4, r5, r6, r7;
-	 int *sp, arg5;
+         int r4, r5, r6, r7;
+         int *sp, arg5;
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -3573,7 +3565,7 @@ OP(mint_setsockopt)
     r5 = REGNUM(5);
     r6 = REGNUM(6);
     r7 = REGNUM(7);
-	 sp = (int *) pthread->virt2real(REGNUM(29));
+         sp = (int *) pthread->virt2real(REGNUM(29));
     arg5 = SWAP_WORD(sp[4]);
 
     // if (r7)
@@ -3600,7 +3592,7 @@ OP(mint_oserror)
 /* ARGSUSED */
 OP(mint_setoserror)
 {
-	 int r4;
+         int r4;
 
 #ifdef DEBUG_VERBOSE
     printf("mint_oserror()\n");
@@ -3615,7 +3607,7 @@ OP(mint_setoserror)
 /* ARGSUSED */
 OP(mint_perror)
 {
-	 int r4;
+         int r4;
 
 #ifdef DEBUG_VERBOSE
     printf("mint_oserror()\n");
@@ -3629,7 +3621,7 @@ OP(mint_perror)
     {
       char cad1[100];
       
-      rsesc_OS_read_string(pthread->getPid(), picode->addr, cad1, (const void *) pthread->virt2real(REGNUM(4)), 100);
+      rsesc_OS_read_string(pthread->getPid(), picode->addr, cad1, REGNUM(4), 100);
 
       perror((char *) cad1);
     }
@@ -3656,15 +3648,15 @@ OP(mint_times)
     {
       char *cad1 = (char *)alloca(sizeof(struct tms));
       
-		err = (int) times((struct tms *)cad1);
+                err = (int) times((struct tms *)cad1);
 
-      rsesc_OS_write_block(pthread->getPid(), picode->addr, (void *) pthread->virt2real(REGNUM(4)), cad1 , sizeof(struct tms));
+      rsesc_OS_write_block(pthread->getPid(), picode->addr, REGNUM(4), cad1 , sizeof(struct tms));
     }
 #else
-	 int r4 = REGNUM(4);
+         int r4 = REGNUM(4);
 
     // r4 = pthread->virt2real(r4);
-	 err = (int) times((struct tms *)pthread->virt2real(r4));
+         err = (int) times((struct tms *)pthread->virt2real(r4));
 #endif
 
 #ifdef DEBUG_VERBOSE
@@ -3683,7 +3675,7 @@ OP(mint_times)
 /* ARGSUSED */
 OP(mint_time)
 {
-	 int r4;
+         int r4;
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -3695,16 +3687,16 @@ OP(mint_time)
     {
       char *cad1 = (char *)alloca(sizeof(time_t));
       
-		err = (int) time((time_t *)cad1);
+                err = (int) time((time_t *)cad1);
 
       if (r4)
-	rsesc_OS_write_block(pthread->getPid(), picode->addr, (void *) pthread->virt2real(REGNUM(4)), cad1, sizeof(time_t));
+        rsesc_OS_write_block(pthread->getPid(), picode->addr, REGNUM(4), cad1, sizeof(time_t));
     }
 #else
     // if (r4)
     //     r4 = pthread->virt2real(r4);
 
-	 err = (int) time((time_t *) pthread->virt2real(r4));
+         err = (int) time((time_t *) pthread->virt2real(r4));
 #endif
   pthread->setRetVal(err);
   if (err == -1)
@@ -3715,7 +3707,7 @@ OP(mint_time)
 /* ARGSUSED */
 OP(mint_getdents)
 {
-	 int r4, r5, r6;
+         int r4, r5, r6;
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -3730,14 +3722,14 @@ OP(mint_getdents)
     {
       char *cad1 = (char *)alloca(r6);
       
-		err = (int) getdents(r4, (struct dirent *)cad1, r6);
+                err = (int) getdents(r4, (struct dirent *)cad1, r6);
 
-      rsesc_OS_write_block(pthread->getPid(), picode->addr, (void *) REGNUM(5), cad1, r6);
+      rsesc_OS_write_block(pthread->getPid(), picode->addr, REGNUM(5), cad1, r6);
     }
 #else
     r5 = pthread->virt2real(r5);
 
-	 err = (int) getdents(r4, (struct dirent *)r5, r6);
+         err = (int) getdents(r4, (struct dirent *)r5, r6);
 #endif
 #else
     err = -1;
@@ -3803,7 +3795,7 @@ OP(mint_syssgi)
       /* for now, just do nothing */
       r6 = REGNUM(6);
       if (r6)
-	r6 = pthread->virt2real(r6);
+        r6 = pthread->virt2real(r6);
       REGNUM(2) = 0;
     } else
       fatal("mint_syssgi: SGI_INVENT: arg 0x%x not expected.\n", r5);
@@ -3902,12 +3894,12 @@ OP(mint_calloc)
     unsigned long long zero=0ull;
     I((blockPtr&(sizeof(zero)-1))==0);
     while(blockSize>=sizeof(zero)){
-      rsesc_OS_write_block(pthread->getPid(),picode->addr,(void *)blockPtr,&zero,sizeof(zero));
+      rsesc_OS_write_block(pthread->getPid(),picode->addr, blockPtr, &zero,sizeof(zero));
       blockPtr+=sizeof(zero);
       blockSize-=sizeof(zero);
     }
     if(blockSize){
-      rsesc_OS_write_block(pthread->getPid(),picode->addr,(void *)blockPtr,&zero,blockSize);
+      rsesc_OS_write_block(pthread->getPid(),picode->addr, blockPtr, &zero,blockSize);
     }
 #else
     memset((void *)pthread->virt2real(blockPtr),0,blockSize);

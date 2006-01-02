@@ -64,27 +64,8 @@ static const int EvMinType  = 10;
 
 extern icode_t invalidIcode;
 
-#if defined(TASKSCALAR)
-/* Event.cpp defined functions */
-int  rsesc_become_safe(int pid);
-int  rsesc_is_safe(int pid);
-int  rsesc_is_versioned(int pid);
-int rsesc_OS_prewrite(int pid, int addr, int iAddr, int flags);
-void rsesc_OS_postwrite(int pid, int addr, int iAddr, int flags);
-int rsesc_OS_read(int pid, int addr, int iAddr, int flags);
-void rsesc_exception(int pid);
 void mint_termination(int pid);
-#endif
 
-#if (defined TLS) || (defined TASKSCALAR)
-// Reads a string from simulated virtual address srcStart into simulator's address dstStart,
-// copying at most maxSize bytes in the process. Returns true if the entire string fits in dstStart, 
-// false if destination buffer is full and the terminating null character has not been copied yet
-bool rsesc_OS_read_string(int pid, VAddr iAddr, void *dst, VAddr src, size_t size);
-// Writes a block to the simulated virtual address dstStart from simulator's address srcStart
-void rsesc_OS_write_block(int pid, int iAddr, void *dstStart, const void *srcStart, size_t size);
-// Reads a block from simulated virtual address srcStart into simulator's address dstStart
-void rsesc_OS_read_block(int pid, int iAddr, void *dstStart, const void *srcStart, size_t size);
-#endif
+#include "mintapi.h"
 
 #endif   // EVENTS_H

@@ -235,7 +235,7 @@ void ThreadContext::initAddressing(MINTAddrType rMap, MINTAddrType mMap, MINTAdd
       );
 
   if( (PrivateEnd > DataStart  && PrivateEnd < DataEnd)
-		|| (PrivateStart > DataStart  && PrivateStart < DataEnd) ) {
+                || (PrivateStart > DataStart  && PrivateStart < DataEnd) ) {
     MSG("There is an overlap between private and shared memory");
     MSG("This is not allowed, try increase/decrease -h parameter");
     MSG("or change mint memory allocation scheme");
@@ -279,7 +279,7 @@ void ThreadContext::dump()
   printf("  target = 0x%p, pid = %d\n", target, pid);
 
   printf("  parent = 0x%p, youngest = 0x%p, sibling = 0x%p\n",
-	 parent, youngest,  sibling);
+         parent, youngest,  sibling);
 }
 
 /* dump the stack for stksize number of words */
@@ -295,13 +295,13 @@ void ThreadContext::dumpStack()
   printf("sp = 0x%08x\n", (unsigned) sp);
   for (i = sp + (stksize - 1) * 4; i >= sp; i -= 4) {
     printf("0x%08x (+%d): 0x%x (%f)  ",
-	   i,  (i - sp), *(int *) this->virt2real(i), *(float *) this->virt2real(i));
+           i,  (i - sp), *(int *) this->virt2real(i), *(float *) this->virt2real(i));
     for (j = 0; j < 4; j++) {
       c = *((char *) this->virt2real(i) + j);
       if (c < ' ')
-	c += 'A' - 1;
+        c += 'A' - 1;
       else if (c >= 0x7f)
-	c = '?';
+        c = '?';
       printf("^%c", c);
     }
     printf("\n");
@@ -389,7 +389,7 @@ void ThreadContext::badSpecThread(VAddr addr, short opflags) const
 
   if(!rsesc_is_safe(pid) && rsesc_is_versioned(pid)) {
     LOG("speculative thread using bad pointer. stopping thread. pid = %d. Iaddr=0x%08x"
-	, pid, osSim->eventGetInstructionPointer(pid)->addr);
+        , pid, osSim->eventGetInstructionPointer(pid)->addr);
     rsesc_exception(pid);
     return;
   }
@@ -401,9 +401,9 @@ void ThreadContext::badSpecThread(VAddr addr, short opflags) const
 
   bool badAddr  = !isValidVAddr(addr);
   bool badAlign = (
-		   MemBufferEntry::calcAccessMask(opflags
-						  ,MemBufferEntry::calcChunkOffset(addr))
-		   ) == 0;
+                   MemBufferEntry::calcAccessMask(opflags
+                                                  ,MemBufferEntry::calcChunkOffset(addr))
+                   ) == 0;
 
   GMSG(badAlign,"(failed) bad aligment 0x%3x [flags=0x%x] in safe thread. pid=%d. pc=0x%08x  (R31=0x%08x) (SA=0x%08x)"
        , (int)addr, (int)opflags, pid, osSim->eventGetInstructionPointer(pid)->addr, osSim->getContextRegister(pid, 31),
@@ -551,7 +551,7 @@ RAddr ThreadContext::virt2real(VAddr vaddr, short opflags) const {
       static_cast<RAddr>(((signed)vaddr+ DataMap)) : vaddr;
     
     I(isPrivateRAddr(r)); // Once it is translated, it should map to
-			  // the beginning of the private map
+                          // the beginning of the private map
 #endif
 
 #ifdef __LP64__
@@ -585,7 +585,7 @@ VAddr ThreadContext::real2virt(RAddr uaddr) const {
 #endif
 }
 
-int MintFuncArgs::getInt32(void){        
+int MintFuncArgs::getInt32(void) {
   int retVal; 
   I(sizeof(retVal)==4);
   I(curPos%4==0);
@@ -599,9 +599,9 @@ int MintFuncArgs::getInt32(void){
 #else
     int *ptr=(int *)addr;
 #endif
-    retVal=SWAP_WORD(*ptr);                 
+    retVal=SWAP_WORD(*ptr);
   }                                     
-  curPos+=4;               
+  curPos+=4;
   return retVal;
 }           
 

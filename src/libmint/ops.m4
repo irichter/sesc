@@ -348,13 +348,13 @@ M4_IN(div_op,
 M4_IN(divu_op,
 {
 #ifdef TASKSCALAR
-	if(((unsigned int) pthread->getREG(picode, RT)) == 0) {
+        if(((unsigned int) pthread->getREG(picode, RT)) == 0) {
       rsesc_exception(pthread->getPid());
       pthread->setREG(picode, RT, 0);
    } else 
 #endif
-	 mips_divu((unsigned int) pthread->getREG(picode, RS),
-		(unsigned int) pthread->getREG(picode, RT),
+         mips_divu((unsigned int) pthread->getREG(picode, RS),
+                (unsigned int) pthread->getREG(picode, RT),
       &(pthread->lo), &(pthread->hi));
 })
 
@@ -366,7 +366,7 @@ M4_IN(j_op,
 M4_IN(jal_op,
 {
   pthread->setREGNUM(31, picode->addr + 8);
-	  
+          
   pthread->setTarget(picode->target);
 })
 
@@ -398,7 +398,7 @@ M4_IN(jalr_op,
         address_exception_op(picode, pthread);
 #endif
 #ifdef DEBUG
-	 if ((signed int) pthread->getREG(picode, RS) >= (Text_end + 4 * EXTRA_ICODES)) {
+         if ((signed int) pthread->getREG(picode, RS) >= (Text_end + 4 * EXTRA_ICODES)) {
         fatal("target address (0x%x) of jalr instruction at addr 0x%x is past end of text.\n",
               pthread->getREG(picode, RS), picode->addr);
     }
@@ -437,7 +437,7 @@ M4_IN(jr_op,
         address_exception_op(picode, pthread);
 #endif
 #ifdef DEBUG
-	 if ((signed int) pthread->getREG(picode, RS) >= (Text_end + 4 * EXTRA_ICODES)) {
+         if ((signed int) pthread->getREG(picode, RS) >= (Text_end + 4 * EXTRA_ICODES)) {
         fatal("target address (0x%x) of jr instruction at addr 0x%x is past end of text.\n",
               pthread->getREG(picode, RS), picode->addr);
     }
@@ -451,24 +451,24 @@ M4_IN(jr_op,
 M4_BREAD(lb_op, pthread->getREG(picode, RT),
 {
     /* read value from memory */
-  pthread->setREG(picode, RT, (int) *(signed char *) pthread->virt2real(addr));
+  pthread->setREG(picode, RT, (int) *(signed char *) raddr);
 })
 
 M4_BREAD(lbu_op, pthread->getREG(picode, RT),
 {
     /* read value from memory */
-  pthread->setREG(picode, RT, (int) *(unsigned char *) pthread->virt2real(addr));
+  pthread->setREG(picode, RT, (int) *(unsigned char *) raddr);
 })
 
 M4_DREAD(ldc1_op, pthread->getDP(picode, ICODEFT),
 {
 #ifdef ADDRESS_CHK
-    if (addr & 7)
+    if (raddr & 7)
         address_exception_op(picode, pthread);
 #endif
 
     /* read value from memory */
-    pthread->setDPFromMem(picode, ICODEFT, (double *) pthread->virt2real(addr));
+    pthread->setDPFromMem(picode, ICODEFT, (double *) raddr);
 })
 
 M4_READ(ldc2_op, pthread->getREG(picode, RT),
@@ -484,27 +484,27 @@ M4_READ(ldc3_op, pthread->getREG(picode, RT),
 M4_SREAD(lh_op, pthread->getREG(picode, RT),
 {
 #ifdef ADDRESS_CHK
-  if (addr & 1)
+  if (raddr & 1)
     address_exception_op(picode, pthread);
 #endif
 #ifdef LENDIAN
 {
-  unsigned short val = *(unsigned short *) pthread->virt2real(addr);
+  unsigned short val = *(unsigned short *) raddr;
   val = SWAP_SHORT(val);
   pthread->setREG(picode, RT, *(signed short *)&val);
 }
 #else
- pthread->setREG(picode, RT, (int ) *(signed short *) pthread->virt2real(addr));
+ pthread->setREG(picode, RT, (int ) *(signed short *) raddr);
 #endif
 })
 
 M4_SREAD(lhu_op, pthread->getREG(picode, RT),
 {
 #ifdef ADDRESS_CHK
-  if (addr & 1)
+  if (raddr & 1)
     address_exception_op(picode, pthread);
 #endif
-  pthread->setREG(picode, RT, (int ) *(unsigned short *) pthread->virt2real(addr));
+  pthread->setREG(picode, RT, (int ) *(unsigned short *) raddr);
 #ifdef LENDIAN
   pthread->setREG(picode, RT, SWAP_SHORT(pthread->getREG(picode, RT)));
 #endif
@@ -513,11 +513,11 @@ M4_SREAD(lhu_op, pthread->getREG(picode, RT),
 M4_READ(ll_op, pthread->getREG(picode, RT),
 {
 #ifdef ADDRESS_CHK
-  if (addr & 3)
+  if (raddr & 3)
     address_exception_op(picode, pthread);
 #endif
   /* read value from memory */
-  pthread->setREGFromMem(picode, RT, (int *) pthread->virt2real(addr));
+  pthread->setREGFromMem(picode, RT, (int *) raddr);
 })
 
 M4_IN(lui_op,
@@ -528,21 +528,21 @@ M4_IN(lui_op,
 M4_READ(lw_op, pthread->getREG(picode, RT),
 {
 #ifdef ADDRESS_CHK
-  if (addr & 3)
+  if (raddr & 3)
     address_exception_op(picode, pthread);
 #endif
   /* read value from memory */
-  pthread->setREGFromMem(picode, RT, (int *) pthread->virt2real(addr));
+  pthread->setREGFromMem(picode, RT, (int *) raddr);
 })
 
 M4_FREAD(lwc1_op, pthread->getFP(picode, ICODEFT),
 {
 #ifdef ADDRESS_CHK
-  if (addr & 3)
+  if (raddr & 3)
     address_exception_op(picode, pthread);
 #endif
   /* read value from memory */
-  pthread->setFPFromMem(picode, ICODEFT, (float *) pthread->virt2real(addr));
+  pthread->setFPFromMem(picode, ICODEFT, (float *) raddr);
 })
 
 M4_READ(lwc2_op, pthread->getWFP(picode, ICODEFT),
@@ -559,9 +559,9 @@ M4_BREAD(lwl_op, pthread->getREG(picode, RT),
 {
   /* read value from memory */
 #ifdef LENDIAN
-  pthread->setREG(picode, RT, mips_lwlLE(pthread->getREG(picode, RT), (char *)pthread->virt2real(addr)));
+  pthread->setREG(picode, RT, mips_lwlLE(pthread->getREG(picode, RT), (char *)raddr));
 #else
-  pthread->setREG(picode, RT, mips_lwlBE(pthread->getREG(picode, RT), (char *)pthread->virt2real(addr)));
+  pthread->setREG(picode, RT, mips_lwlBE(pthread->getREG(picode, RT), (char *)raddr));
 #endif
 })
 
@@ -569,9 +569,9 @@ M4_BREAD(lwr_op, pthread->getREG(picode, RT),
 {
   /* read value from memory */
 #ifdef LENDIAN
-  pthread->setREG(picode, RT, mips_lwrLE(pthread->getREG(picode, RT), (char *)pthread->virt2real(addr)));
+  pthread->setREG(picode, RT, mips_lwrLE(pthread->getREG(picode, RT), (char *)raddr));
 #else
-  pthread->setREG(picode, RT, mips_lwrBE(pthread->getREG(picode, RT), (char *)pthread->virt2real(addr)));
+  pthread->setREG(picode, RT, mips_lwrBE(pthread->getREG(picode, RT), (char *)raddr));
 #endif
 })
 
@@ -602,7 +602,7 @@ M4_IN(mult_op,
 
 M4_IN(multu_op,
 {
-	 mips_multu((unsigned int) pthread->getREG(picode, RS), (unsigned int) pthread->getREG(picode, RT),
+         mips_multu((unsigned int) pthread->getREG(picode, RS), (unsigned int) pthread->getREG(picode, RT),
                 &(pthread->lo), &(pthread->hi));
 })
 
@@ -627,28 +627,28 @@ M4_IN(ori_op,
 
 M4_WRITE(sb_op,
 {
-  *(char *) pthread->virt2real(addr) = pthread->getREG(picode, RT);
+  *(char *) raddr = pthread->getREG(picode, RT);
 })
 
 /* this needs to check if any other processor has written this address */
 M4_WRITE(sc_op,
 {
 #ifdef ADDRESS_CHK
-    if (addr & 3)
+    if (raddr & 3)
         address_exception_op(picode, pthread);
 #endif
     /* write value to memory */
 #ifdef LENDIAN
-	 *(unsigned int *) pthread->virt2real(addr) = SWAP_WORD(pthread->getREG(picode, RT));
+         *(unsigned int *) raddr = SWAP_WORD(pthread->getREG(picode, RT));
 #else
-	 *(int *) pthread->virt2real(addr) = pthread->getREG(picode, RT);
+         *(int *) raddr = pthread->getREG(picode, RT);
 #endif
 })
 
 M4_WRITE(sdc1_op,
 {
 #ifdef ADDRESS_CHK
-    if (addr & 7)
+    if (raddr & 7)
         address_exception_op(picode, pthread);
 #endif
     /* write value to memory */
@@ -658,10 +658,10 @@ M4_WRITE(sdc1_op,
   unsigned long long v1;
   *((double *)&v1)=pthread->getDP(picode,ICODEFT);
   v1 = SWAP_LONG(v1);
-  *((double *)pthread->virt2real(addr))=*((double *)&v1);
+  *((double *)raddr)=*((double *)&v1);
 } 
 #else
- *((double *)pthread->virt2real(addr))=pthread->getDP(picode, ICODEFT);
+ *((double *)raddr)=pthread->getDP(picode, ICODEFT);
 #endif
 })
 
@@ -678,14 +678,14 @@ M4_WRITE(sdc3_op,
 M4_WRITE(sh_op,
 {
 #ifdef ADDRESS_CHK
-    if (addr & 1)
+    if (raddr & 1)
         address_exception_op(picode, pthread);
 #endif
     /* write value to memory */
 #ifdef LENDIAN
-    *(unsigned short *) pthread->virt2real(addr) = SWAP_SHORT(pthread->getREG(picode, RT));
+    *(unsigned short *) raddr = SWAP_SHORT(pthread->getREG(picode, RT));
 #else
-    *(short *) pthread->virt2real(addr) = pthread->getREG(picode, RT);
+    *(short *) raddr = pthread->getREG(picode, RT);
 #endif
 })
 
@@ -756,21 +756,21 @@ M4_IN(subu_op,
 M4_WRITE(sw_op,
 {
 #ifdef ADDRESS_CHK
-  if (addr & 3)
+  if (raddr & 3)
     address_exception_op(picode, pthread);
 #endif
     /* write value to memory */
 #ifdef LENDIAN
-  *(unsigned int *) pthread->virt2real(addr) = SWAP_WORD(pthread->getREG(picode, RT));
+  *(unsigned int *) raddr = SWAP_WORD(pthread->getREG(picode, RT));
 #else
-  *(int *) pthread->virt2real(addr) = pthread->getREG(picode, RT);
+  *(int *) raddr = pthread->getREG(picode, RT);
 #endif
 })
 
 M4_WRITE(swc1_op,
 {
 #ifdef ADDRESS_CHK
-  if (addr & 3)
+  if (raddr & 3)
     address_exception_op(picode, pthread);
 #endif
     /* write value to memory */
@@ -780,10 +780,10 @@ M4_WRITE(swc1_op,
   unsigned int v1;
   *((float *)&v1)=pthread->getFP(picode,ICODEFT);
   v1 = SWAP_WORD(v1);
-  *((float *)pthread->virt2real(addr))=*((float *)&v1);
+  *((float *)raddr)=*((float *)&v1);
  } 
 #else
- *(float *) pthread->virt2real(addr) = pthread->getFP(picode, ICODEFT);
+ *(float *) raddr = pthread->getFP(picode, ICODEFT);
 #endif
 })
 
@@ -800,28 +800,28 @@ M4_WRITE(swc3_op,
 M4_WRITE(swl_op,
 {
 #ifdef ADDRESS_CHK
-  if (addr & 3)
+  if (raddr & 3)
     address_exception_op(picode, pthread);
 #endif
   /* write value to memory */
 #ifdef LENDIAN
-  mips_swlLE(pthread->getREG(picode, RT), (char *)pthread->virt2real(addr));
+  mips_swlLE(pthread->getREG(picode, RT), (char *)raddr);
 #else
-  mips_swlBE(pthread->getREG(picode, RT), (char *)pthread->virt2real(addr));
+  mips_swlBE(pthread->getREG(picode, RT), (char *)raddr);
 #endif
 })
 
 M4_WRITE(swr_op,
 {
 #ifdef ADDRESS_CHK
-  if (addr & 3)
+  if (raddr & 3)
     address_exception_op(picode, pthread);
 #endif
     /* write value to memory */
 #ifdef LENDIAN
-  mips_swrLE(pthread->getREG(picode, RT), (char *)pthread->virt2real(addr));
+  mips_swrLE(pthread->getREG(picode, RT), (char *)raddr);
 #else
-  mips_swrBE(pthread->getREG(picode, RT), (char *)pthread->virt2real(addr));
+  mips_swrBE(pthread->getREG(picode, RT), (char *)raddr);
 #endif
 })
 
@@ -842,7 +842,7 @@ M4_IN1(syscall_op,
   rsesc_exception(pthread->getPid());
 #else    
   fatal("syscall %d at 0x%x, called from 0x%x, not supported yet.\n",
-	sysnum, picode->addr, addr);
+        sysnum, picode->addr, addr);
 #endif
 })
 

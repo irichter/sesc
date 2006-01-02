@@ -303,11 +303,11 @@ void rsesc_fast_sim_end(int pid)
   LOG("End Rabbit mode (embeded)");
 }
 
-int rsesc_fetch_op(int pid, enum FetchOpType op, int addr, int *data, int val)
+int rsesc_fetch_op(int pid, enum FetchOpType op, int vaddr, int *data, int val)
 {
-  I(addr);
+  I(vaddr);
 
-  osSim->pid2GProcessor(pid)->addEvent(FetchOpEvent, 0, addr);
+  osSim->pid2GProcessor(pid)->addEvent(FetchOpEvent, 0, vaddr);
   int odata = SWAP_WORD(*data);
 
   if (odata)
@@ -341,11 +341,11 @@ void rsesc_do_unlock(int* data, int val)
 
 typedef CallbackFunction2<int*, int, &rsesc_do_unlock> do_unlockCB;
 
-void rsesc_unlock_op(int pid, int addr, int *data, int val)
+void rsesc_unlock_op(int pid, int vaddr, int *data, int val)
 {
-  I(addr);
+  I(vaddr);
   osSim->pid2GProcessor(pid)->addEvent(UnlockEvent, 
-				       do_unlockCB::create(data, val), addr);
+                                       do_unlockCB::create(data, val), vaddr);
   osSim->pid2GProcessor(pid)->nLocks.inc();
 }
 
@@ -444,29 +444,32 @@ void rsesc_fatal(void)
 //       epoch->complete();
 //   }
   
-  int rsesc_OS_read(int pid, int addr, int iAddr, int flags) {
-    ThreadContext *pthread = ThreadContext::getContext(pid);
-    I((flags & E_WRITE) == 0);
-    flags = (E_READ | flags); 
-    tls::Epoch *epoch=tls::Epoch::getEpoch(pid);
-    if(epoch)
-      return epoch->read(iAddr, flags, addr, pthread->virt2real(addr, flags));
-    return pthread->virt2real(addr, flags);
-  }
-  
-  int rsesc_OS_prewrite(int pid, int addr, int iAddr, int flags){
-    ThreadContext *pthread = ThreadContext::getContext(pid);
-    I((flags & E_READ) == 0);
-    flags = (E_WRITE | flags); 
-    tls::Epoch *epoch=tls::Epoch::getEpoch(pid);
-    if(epoch)
-      return epoch->write(iAddr, flags, addr, pthread->virt2real(addr, flags));
-    return pthread->virt2real(addr, flags);
-  }
-  
-  void rsesc_OS_postwrite(int pid, int addr, int iAddr, int flags){
-    // Do nothing
-  }
+void *rsesc_OS_read(int pid, int iAddr, VAddr vaddr, int flags) {
+
+  ThreadContext *pthread = ThreadContext::getContext(pid);
+  I((flags & E_WRITE) == 0);
+  flags = (E_READ | flags); 
+  tls::Epoch *epoch=tls::Epoch::getEpoch(pid);
+  if(epoch)
+    return epoch->read(iAddr, flags, vaddr, pthread->virt2real(vaddr, flags));
+
+  return pthread->virt2real(vaddr, flags);
+}
+
+void *rsesc_OS_prewrite(int pid, int iAddr, VAddr vaddr, int flags) {
+  ThreadContext *pthread = ThreadContext::getContext(pid);
+  I((flags & E_READ) == 0);
+  flags = (E_WRITE | flags); 
+  tls::Epoch *epoch=tls::Epoch::getEpoch(pid);
+  if(epoch)
+    return epoch->write(iAddr, flags, vaddr, pthread->virt2real(vaddr, flags));
+
+  return pthread->virt2real(vaddr, flags);
+}
+
+void rsesc_OS_postwrite(int pid, int iAddr, VAddr vaddr, int flags) {
+  // Do nothing
+}
   
 #endif
   
@@ -532,75 +535,54 @@ void  rsesc_verify_value(int pid, int rval, int pval)
 // Memory protection subroutines. Those are invoqued by mint (mainly subst.c) to
 // access/update data that has been versioned
 
-// Copy data from srcStart (logical) to version memory (can generate squash/restart)
-void rsesc_OS_write_block(int pid, int iAddr, void *dstStart, const void *srcStart, size_t size){
-  int addr;
-  const unsigned char *src = (const unsigned char *)srcStart;
-  const unsigned char *end;
-  unsigned char *dst = (unsigned char *)dstStart;
-  
-  addr = (int)dst;
-  
-  addr = addr & (~0UL ^ 0x7); // 3 bits 2^3 = 8 bytes align (DWORD)
-  addr = addr + 0x08;
-  end  = (unsigned char *)addr;
-  if ( end > &dst[size])
-    end = &dst[size];
+// Copy data from srcStart (real) to version memory (logical can generate squash/restart)
+void rsesc_OS_write_block(int pid, int iAddr, VAddr dstStart, RAddr rsrcStart, size_t size) {
+
+  RAddr rsrc = rsrcStart;
+  VAddr dst  = dstStart;
+  VAddr end  = dstStart + size;
   
   // BYTE copy (8 bits)
   while(dst < end) {
-    addr = rsesc_OS_prewrite(pid, (int)dst, iAddr,  E_BYTE);
-    memcpy((void *) addr,  src, 1);
-    rsesc_OS_postwrite(pid, (int)dst, iAddr, E_BYTE);
-    size--;
-    src++;
+    unsigned char *rsrc_addr = (unsigned char*)rsrc;
+    unsigned char *dst_addr  = static_cast<unsigned char*>(rsesc_OS_prewrite(pid, iAddr, dst, E_BYTE));
+
+    *dst_addr = *rsrc_addr;
+    rsesc_OS_postwrite(pid, iAddr, dst, E_BYTE);
+
+    rsrc++;
     dst++;
   }
-  
-  GI(size, ((int)dst & 0x7) == 0); // DWORD align
-  // DWORD copy (64 bits)
-  while(size) {
-	 int flags;
-	 int bsize;
-    
-    if (size >= 8) {
-      flags = E_DWORD;
-      bsize = 8;
-    }else if (size >= 4) {
-      flags = E_WORD;
-      bsize = 4;
-    } else if (size >= 2) {
-      flags = E_HALF;
-      bsize = 2;
-    }else{
-      bsize = 1;
-      flags = E_BYTE;
-    }
-    
-    addr = rsesc_OS_prewrite(pid, (int)dst, iAddr, flags);
-    memcpy((void *) addr,  src, bsize);
-    rsesc_OS_postwrite(pid, (int)dst, iAddr, flags);
-
-    size-= bsize;
-    src += bsize;
-    dst += bsize;
-  }
+}
+void rsesc_OS_write_block(int pid, int iAddr, VAddr dstStart, const void *srcStart, size_t size) {
+  return rsesc_OS_write_block(pid, iAddr, dstStart, (RAddr)srcStart, size);
 }
 
-bool rsesc_OS_read_string(int pid, VAddr iAddr, void *dst, VAddr src, size_t size){
-  unsigned char *dstPtr = (unsigned char *)dst;
-  const unsigned char *dstEnd=dstPtr+size;
-  // BYTE copy (8 bits)
-  while(dstPtr<dstEnd){
-    RAddr addr=rsesc_OS_read(pid,src,iAddr,E_BYTE);
-    *dstPtr=*((unsigned char *)addr);
-    if(*dstPtr==0)
+// Copy data from srcStart (logical can generate squash/restart) to rdstStart (real)
+bool rsesc_OS_read_string(int pid, VAddr iAddr, RAddr rdstStart, VAddr srcStart, size_t size) {
+
+  VAddr src  = srcStart;
+  RAddr rdst = rdstStart;
+  RAddr rend = rdstStart + size;
+
+  while(rdst < rend) {
+    unsigned char *src_addr  = static_cast<unsigned char*>(rsesc_OS_read(pid, iAddr, src, E_BYTE));
+    unsigned char *rdst_addr = (unsigned char*)rdst;
+
+    *rdst_addr = *src_addr;
+
+    if(*src_addr==0)
       return true;
+
     src++;
-    dstPtr++;
+    rdst++;
   }
+
   // String does not fit in dst buffer
   return false;
+}
+bool rsesc_OS_read_string(int pid, VAddr iAddr, void *dstStart, VAddr srcStart, size_t size) {
+  return rsesc_OS_read_string(pid, iAddr, (RAddr)dstStart, srcStart, size);
 }
 
 // Copy from srcStart (Logical) to dstStart (Real). dstStart should be some
@@ -608,58 +590,25 @@ bool rsesc_OS_read_string(int pid, VAddr iAddr, void *dst, VAddr src, size_t siz
 // a restart is generated, it can not recopy the data.
 //
 // TODO: Maybe it should not track the read (screw the restart!)
-void rsesc_OS_read_block(int pid, int iAddr, void *dstStart, const void *srcStart, size_t size){
-  int addr;
-  const unsigned char *src = (unsigned char *)srcStart;
-  const unsigned char *end;
-  unsigned char *dst = (unsigned char *)dstStart;
-  
-  addr = (int)src;
-  
-  addr = addr & (~0UL ^ 0x7); // 3 bits 2^3 = 8 bytes align (DWORD)
-  addr = addr + 0x08;
-  end  = (unsigned char *)addr;
-  if ( end > &src[size])
-    end = &src[size];
-  
-  // BYTE copy (8 bits)
-  while(src < end) {
-    addr = rsesc_OS_read(pid, (int)src, iAddr, E_BYTE);
-    memcpy(dst, (void *) addr, 1);
-    size--;
-    src++;
-    dst++;
-  }
-  
-  GI(size, ((int)src & 0x7) == 0); // DWORD align
-  // DWORD copy (64 bits)
-  while(size) {
-	 int flags;
-	 int bsize;
-    
-    if (size >= 8) {
-      flags = E_DWORD;
-      bsize = 8;
-    }else if (size >= 4) {
-      flags = E_WORD;
-      bsize = 4;
-    } else if (size >= 2) {
-      flags = E_HALF;
-      bsize = 2;
-    }else{
-      bsize = 1;
-      flags = E_BYTE;
-    }
-    
-    addr = rsesc_OS_read(pid, (int)src, iAddr, flags);
-    memcpy(dst, (void *) addr, bsize);
+void rsesc_OS_read_block(int pid, int iAddr, RAddr rdstStart, VAddr srcStart, size_t size) {
 
-    size-= bsize;
-    src += bsize;
-    dst += bsize;
+  VAddr src  = srcStart;
+  RAddr rdst = rdstStart;
+  RAddr rend = rdstStart + size;
+
+  while(rdst < rend) {
+    unsigned char *src_addr  = static_cast<unsigned char*>(rsesc_OS_read(pid, iAddr, src, E_BYTE));
+    unsigned char *rdst_addr = (unsigned char*)rdst;
+
+    *rdst_addr = *src_addr;
+
+    src++;
+    rdst++;
   }
 }
-
+void rsesc_OS_read_block(int pid, int iAddr, void *dstStart, VAddr srcStart, size_t size) {
+  return rsesc_OS_read_block(pid, iAddr, (RAddr)dstStart, srcStart, size);
+}
 #endif // END of either TaskScalar or VersionMem or TLS
 
 /****************** TaskScalar *******************/
@@ -675,7 +624,7 @@ void rsesc_exception(int pid)
 {
   if (ExecutionFlow::isGoingRabbit()) {
     MSG("exception in rabbit mode pc=0x%x r31=0x%x"
-	,(int)osSim->eventGetInstructionPointer(pid)->addr, (int)osSim->getContextRegister(pid,31));
+        ,(int)osSim->eventGetInstructionPointer(pid)->addr, (int)osSim->getContextRegister(pid,31));
     exit(0);
   }
 
@@ -826,10 +775,10 @@ void rsesc_fork_successor(int ppid, int where, int tid)
 #endif
 }
 
-int rsesc_become_safe(int pid)
+void rsesc_become_safe(int pid)
 {
   if (ExecutionFlow::isGoingRabbit())
-    return 1;
+    return;
 
   LOG("@%lld become_safe for thread %d",globalClock, pid);
 
@@ -838,21 +787,19 @@ int rsesc_become_safe(int pid)
   I(tc);
   
   tc->syncBecomeSafe();
-  
-  return 1;
 }
 
-int rsesc_is_safe(int pid)
+bool rsesc_is_safe(int pid)
 {
   if (ExecutionFlow::isGoingRabbit())
-    return 1;
+    return true;
 
-  return TaskContext::getTaskContext(pid)->getVersionRef()->isSafe() ? 1 : 0;
+  return TaskContext::getTaskContext(pid)->getVersionRef()->isSafe();
 }
 
 ID(static bool preWriteCalled=false);
 
-int rsesc_OS_prewrite(int pid, int addr, int iAddr, int flags)
+void *rsesc_OS_prewrite(int pid, int iAddr, VAddr vaddr, int flags)
 {
   ThreadContext *pthread = ThreadContext::getContext(pid);
 
@@ -862,12 +809,12 @@ int rsesc_OS_prewrite(int pid, int addr, int iAddr, int flags)
   flags = (E_WRITE | flags); 
 
   if (ExecutionFlow::isGoingRabbit())
-    return pthread->virt2real(addr, flags);
+    return (void *)pthread->virt2real(vaddr, flags);
 
-  return (int)TaskContext::getTaskContext(pid)->preWrite(pthread->virt2real(addr, flags));
+  return (void *)TaskContext::getTaskContext(pid)->preWrite(pthread->virt2real(vaddr, flags));
 }
 
-void rsesc_OS_postwrite(int pid, int addr, int iAddr, int flags)
+void rsesc_OS_postwrite(int pid, int iAddr, VAddr vaddr, int flags)
 {
   I(preWriteCalled);
   IS(preWriteCalled=false);
@@ -880,10 +827,10 @@ void rsesc_OS_postwrite(int pid, int addr, int iAddr, int flags)
 
   ThreadContext *pthread = ThreadContext::getContext(pid);
 
-  TaskContext::getTaskContext(pid)->postWrite(iAddr, flags, pthread->virt2real(addr, flags));
+  TaskContext::getTaskContext(pid)->postWrite(iAddr, flags, pthread->virt2real(vaddr, flags));
 }
 
-int rsesc_OS_read(int pid, int addr, int iAddr, int flags)
+void *rsesc_OS_read(int pid, int iAddr, VAddr vaddr, int flags)
 {
   I((flags & E_WRITE) == 0);
   flags = (E_READ | flags); 
@@ -891,9 +838,9 @@ int rsesc_OS_read(int pid, int addr, int iAddr, int flags)
   ThreadContext *pthread = ThreadContext::getContext(pid);
 
   if (ExecutionFlow::isGoingRabbit())
-    return pthread->virt2real(addr, flags);
+    return (void *)pthread->virt2real(vaddr, flags);
 
-  return TaskContext::getTaskContext(pid)->read(iAddr, flags, pthread->virt2real(addr, flags));
+  return (void *)TaskContext::getTaskContext(pid)->read(iAddr, flags, pthread->virt2real(vaddr, flags));
 }
 
 int rsesc_is_versioned(int pid)

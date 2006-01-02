@@ -71,7 +71,7 @@ define(M4_BREAD,
 /* Pre-computed address */
 M4_BDELAY_RD($1, 2,
 {
-  RAddr addr = pthread->getRAddr();
+  RAddr raddr = pthread->getRAddr();
 $3
 })
 
@@ -86,7 +86,7 @@ define(M4_READ,
 /* Pre-computed address */
 M4_BDELAY_RD($1, 2,
 {
-  RAddr addr = pthread->getRAddr();
+  RAddr raddr = pthread->getRAddr();
 $3
 })
 
@@ -100,7 +100,7 @@ define(M4_SREAD,
 /* Pre-computed address */
 M4_BDELAY_RD($1, 2,
 {
-  RAddr addr = pthread->getRAddr();
+  RAddr raddr = pthread->getRAddr();
 $3
 })
 
@@ -115,7 +115,7 @@ define(M4_FREAD,
 /* Pre-computed address */
 M4_BDELAY_RD($1, 2,
 {
-  RAddr addr = pthread->getRAddr();
+  RAddr raddr = pthread->getRAddr();
 $3
 })
 
@@ -130,7 +130,7 @@ define(M4_DREAD,
 /* Pre-computed address */
 M4_BDELAY_RD($1, 2,
 {
-  RAddr addr = pthread->getRAddr();
+  RAddr raddr = pthread->getRAddr();
 $3
 })
 
@@ -149,7 +149,7 @@ define(M4_BDELAY_WR,
 OP($1_$2)
 {{ifelse(index(sc_op,$1), 0,
 {{{
-	 unsigned int addr;
+         unsigned int raddr;
 $3
 $4
   pthread->setREG(picode, RT, $5);
@@ -157,7 +157,7 @@ $4
 }}},
 {{{
     /* this is not an sc instruction */
-	 unsigned int addr;
+         unsigned int raddr;
 $3
 $4
     return picode->next;
@@ -168,7 +168,7 @@ $4
 OP($1_{{}}{incr}($2))
 {{ifelse(index(sc_op,$1), 0,
 {{{
-	 unsigned int addr;
+         unsigned int raddr;
 $3
 $4
   pthread->setREG(picode, RT, $5);
@@ -179,7 +179,7 @@ $4
     return picode->next;
 }}},
 {{{
-	 unsigned int addr;
+         unsigned int raddr;
     /* this is not an sc instruction */
 $3
 $4
@@ -196,7 +196,7 @@ define(M4_BDELAY_WR_NO_SYNC,
 OP($1_$2)
 {{ifelse(index(sc_op,$1), 0,
 {{{
-	 unsigned int addr;
+         unsigned int raddr;
 $3
 $4
   pthread->setREG(picode, RT, $5);
@@ -204,7 +204,7 @@ $4
 }}},
 {{{
     /* this is not an sc instruction */
-	 unsigned int addr;
+         unsigned int raddr;
 $3
 $4
     return picode->next;
@@ -215,7 +215,7 @@ $4
 OP($1_{{}}{incr}($2))
 {{ifelse(index(sc_op,$1), 0,
 {{{
-	 unsigned int addr;
+         unsigned int raddr;
 $3
 $4
   pthread->setREG(picode, RT, $5);
@@ -227,7 +227,7 @@ $4
 }}},
 {{{
     /* this is not an sc instruction */
-	 unsigned int addr;
+         unsigned int raddr;
 $3
 $4
     return pthread->getTarget();
@@ -240,7 +240,7 @@ $4
  */
 define(M4_WRITE,
 /* Pre-computed address; no verification; test for ll on sc only */
-M4_BDELAY_WR_NO_SYNC($1, 2, addr = pthread->getRAddr();,
+M4_BDELAY_WR_NO_SYNC($1, 2, raddr = pthread->getRAddr();,
 {
 $2
 }, 1, 0)

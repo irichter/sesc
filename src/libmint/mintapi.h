@@ -50,25 +50,33 @@ void rsesc_syscall_perform(int pid);
 #endif
 
 #ifdef TASKSCALAR
-void rsesc_exception(int pid);
-void rsesc_spawn(int ppid, int pid, int flags);
-int  rsesc_exit(int cpid, int err);
-int  rsesc_version_can_exit(int pid);
-void rsesc_prof_commit(int pid, int tid);
-void rsesc_fork_successor(int ppid, int where, int tid);
-int  rsesc_become_safe(int pid);
-int  rsesc_is_safe(int pid);
-int rsesc_OS_prewrite(int pid, int addr, int iAddr, int flags);
-void rsesc_OS_postwrite(int pid, int addr, int iAddr, int flags);
-int rsesc_OS_read(int pid, int addr, int iAddr, int flags);
-int  rsesc_is_versioned(int pid);
+void  rsesc_exception(int pid);
+void  rsesc_spawn(int ppid, int pid, int flags);
+int   rsesc_exit(int cpid, int err);
+int   rsesc_version_can_exit(int pid);
+void  rsesc_prof_commit(int pid, int tid);
+void  rsesc_fork_successor(int ppid, int where, int tid);
+void  rsesc_become_safe(int pid);
+bool  rsesc_is_safe(int pid);
+void *rsesc_OS_prewrite(int pid , int iAddr, VAddr vaddr, int flags);
+void  rsesc_OS_postwrite(int pid, int iAddr, VAddr vaddr, int flags);
+int   rsesc_is_versioned(int pid);
 #endif
 
-#if (defined TASKSCALAR) || (defined TLS)
-int rsesc_OS_read(int pid, int addr, int iAddr, int flags);
-//bool rsesc_OS_read_string(int pid, VAddr iAddr, void *dst, VAddr src, size_t size);   
-void rsesc_OS_read_block (int pid, int iAddr, void *dstStart, const void *srcStart, size_t size);
-void rsesc_OS_write_block(int pid, int iAddr, void *dstStart, const void *srcStart, size_t size);
+#if (defined TLS) || (defined TASKSCALAR)
+void *rsesc_OS_read(int pid, int iAddr, VAddr vaddr, int flags);
+// Reads a string from simulated virtual address srcStart into simulator's address dstStart,
+// copying at most maxSize-1 characters bytes in the process and null-terminating the string.
+// Returns true if the entire string fits in dstStart, false if string was truncated to fit
+bool rsesc_OS_read_string(int pid, int iAddr  , RAddr rdstStart, VAddr srcStart, size_t maxSize);
+bool rsesc_OS_read_string(int pid, VAddr iAddr, void  *dstStart, VAddr srcStart, size_t size);
+// Reads a block from simulated virtual address srcStart into simulator's address dstStart
+void rsesc_OS_read_block(int pid, int iAddr, RAddr rdstStart, VAddr srcStart, size_t size);
+void rsesc_OS_read_block(int pid, int iAddr, void  *dstStart, VAddr srcStart, size_t size);
+
+// Writes a block to the simulated virtual address dstStart from simulator's address srcStart
+void rsesc_OS_write_block(int pid, int iAddr, VAddr dstStart, RAddr rsrcStart     , size_t size);
+void rsesc_OS_write_block(int pid, int iAddr, VAddr dstStart, const void *srcStart, size_t size);
 #endif
 
 icode_ptr mint_exit(icode_ptr picode, thread_ptr pthread);
