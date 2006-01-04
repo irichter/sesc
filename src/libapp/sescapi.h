@@ -360,8 +360,8 @@ extern "C" {
 #if (defined ASPECT)
     aspectAtomicBegin();
 #else
-    typedef volatile long vollong;
-    register vollong *spinptr=&(lock_ptr->spin);
+    typedef volatile int volint;
+    register volint *spinptr=&(lock_ptr->spin);
     aspectAcquireBegin();
     if(*spinptr!=UNLOCKED)
       aspectAcquireRetry();
@@ -374,8 +374,8 @@ extern "C" {
 #if (defined ASPECT)
     aspectAtomicEnd();
 #else
-    typedef volatile long vollong;
-    register vollong *spinptr=&(lock_ptr->spin);
+    typedef volatile int volint;
+    register volint *spinptr=&(lock_ptr->spin);
     aspectReleaseBegin();
     *spinptr=UNLOCKED;
     aspectAtomicEnd();
@@ -385,13 +385,12 @@ extern "C" {
     barr_ptr->count=0;
     barr_ptr->gsense=0;
   }
-  static inline void tls_barrier(sbarrier_t *barr_ptr, long num_proc){
+  static inline void tls_barrier(sbarrier_t *barr_ptr, int num_proc){
     typedef volatile int volint;
     register volint *gsenseptr=&(barr_ptr->gsense);
     register int  lsense=!(*gsenseptr);
-    typedef volatile long vollong;
-    register vollong *countptr=&(barr_ptr->count);
-    register long lcount;
+    register volint *countptr=&(barr_ptr->count);
+    register int lcount;
     aspectAtomicBegin();
     lcount=(*countptr)++;
     if(lcount==num_proc-1){

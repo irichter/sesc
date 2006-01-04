@@ -222,20 +222,7 @@ class SysCallTimes : public SysCall{
   struct tms tmsStruct;
  public:
   ID(SysCallTimes(void){type="SysCallTimes";});
-  void exec(ThreadContext *context,icode_ptr picode){
-    if(!executed){
-      retVal=globalClock/1024;
-      tmsStruct.tms_utime=globalClock/1024;
-      tmsStruct.tms_stime=0;
-      tmsStruct.tms_cutime=0;
-      tmsStruct.tms_cstime=0;
-    }
-    Address buf=static_cast<Address>(context->getIntArg1());
-    if(buf)
-      rsesc_OS_write_block(context->getPid(),picode->addr,(void *)buf,&tmsStruct,sizeof(tmsStruct));
-    context->setRetVal(retVal);
-    executed=true;
-  }
+  void exec(ThreadContext *context,icode_ptr picode);
 };
 
 #endif // !(defined _SysCall_h_)

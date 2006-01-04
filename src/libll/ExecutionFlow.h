@@ -119,7 +119,9 @@ public:
 
   void saveThreadContext(int pid) {
     I(thread.getPid()==pid);
-    thread.setPicode(picodePC);
+#if !(defined TLS)
+    thread.setPCIcode(picodePC);
+#endif
     ThreadContext::getContext(thread.getPid())->copy(&thread);
 #if (defined TLS)
     I(thread.getEpoch()==ThreadContext::getContext(pid)->getEpoch());
@@ -130,7 +132,7 @@ public:
     I((thread.getPid()==-1)||(thread.getPid()==pid));
     thread.copy(ThreadContext::getContext(pid));
     thread.setPid(pid); // Not in copyContext
-    picodePC=thread.getPicode();
+    picodePC=thread.getPCIcode();
 #if (defined TLS)
     thread.setEpoch(ThreadContext::getContext(pid)->getEpoch());
 #endif

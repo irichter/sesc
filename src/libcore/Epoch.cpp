@@ -1021,6 +1021,7 @@ namespace tls{
   Epoch *Epoch::spawnEpoch(void){
     I(myState==State::Running);
     I(myState!=State::Atm);
+    I(!atmNestLevel);
     // Try to find a matching epoch already spawned in a previous execution
     if(myState==State::SpawnSuccessors){
       EpochList::reverse_iterator searchIt(myThreadEpochsPos);
@@ -1101,7 +1102,8 @@ namespace tls{
   }
 
   void Epoch::changeAtomic(bool endAcq, bool begRel){
-    if(myState!=State::Atm){
+    I(atmNestLevel); 
+   if(myState!=State::Atm){
       I(myAtomicSection==atmOmmitInstr);
       return;
     }
@@ -1119,6 +1121,7 @@ namespace tls{
   }
   
   void Epoch::endAtomic(void){
+    I(atmNestLevel>0);
     atmNestLevel--;
     if(myState!=State::Atm){
       I(myAtomicSection==atmOmmitInstr);

@@ -167,11 +167,11 @@ public:
   
 
   inline icode_ptr getPCIcode(void) const{
-    I(pid!=-1);
+    I((pid!=-1)||(picode==&invalidIcode));
     return picode;
   }
   inline void setPCIcode(icode_ptr nextIcode){
-    I(pid!=-1);
+    I((pid!=-1)||(nextIcode==&invalidIcode));
     picode=nextIcode;
   }
   

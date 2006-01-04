@@ -1474,7 +1474,7 @@ namespace tls{
       }
       virtual ~TraceEvent(void){}
       virtual void print(void){
-	printf("%12lld %3d %8lx",myTime,tid,iAddrV);
+	printf("%12lld %3d %8x",myTime,tid,iAddrV);
       }
       Time_t getTime(void) const{
 	return myTime;
@@ -1500,7 +1500,7 @@ namespace tls{
       }
       virtual void print(void){
 	TraceEvent::print();
-	printf(": %8lx ",dAddrV);
+	printf(": %8x ",dAddrV);
 	switch(accessType){
 	case Read: printf("Rd"); break;
 	case Write: printf("Wr"); break;

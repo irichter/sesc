@@ -406,7 +406,7 @@ func_desc_t Func_subst[] = {
   {"pthread_create",          mint_notimplemented,             1, OpExposed},
   {"pthread_lock",            mint_notimplemented,             1, OpExposed},
   /* wait must generate a yield because it might block */
-  {"isatty",                  mint_isatty,                     1, OpExposed},
+  {"isatty",                  mint_isatty,                     1, OpInternal},
   {"ioctl",                   mint_ioctl,                      1, OpExposed},
   {"prctl",                   mint_prctl,                      1, OpExposed},
   {"fcntl64",                 mint_fcntl,                      1, OpInternal},
@@ -503,7 +503,7 @@ func_desc_t Func_subst[] = {
   {"syscall_lstat",           mint_lstat,                      1, OpExposed},
   {"syscall_getcwd",          mint_getcwd,                     1, OpExposed},
   {"assert_fail",             mint_assert_fail,                1, OpExposed},
-  {"sigaction",               mint_do_nothing,                 1, OpExposed},
+  {"sigaction",               mint_do_nothing,                 1, OpInternal},
   {"ftruncate64",             mint_do_nothing,                 1, OpExposed},
   { NULL,                     NULL,                            1, OpExposed}
 };
@@ -786,7 +786,7 @@ int mint_sesc_create_clone(ThreadContext *pthread){
 #else
 #ifdef DEBUG_VERBOSE
   printf("mint_sesc_create_clone: pid=%d at iAddr %08x\n",
-         ppid,icode2addr(rsesc_get_instruction_pointer(ppid)));
+         ppid,icode2addr(pthread->getPCIcode()));
 #endif
   cthread=ThreadContext::newActual();
 #endif /* (defined TLS) */
@@ -807,7 +807,7 @@ int mint_sesc_create_clone(ThreadContext *pthread){
   pthread->newChild(cthread);
 
   // The first instruction for the child is to return
-  cthread->setPicode(rsesc_get_instruction_pointer(ppid));
+  cthread->setPicode(pthread->getPCIcode());
   cthread->setTarget(pthread->getTarget());
 
   rsesc_spawn_stopped(ppid,cpid,0);
@@ -823,7 +823,9 @@ void mint_sesc_die(thread_ptr pthread)
 #if (defined TLS)
 
 OP(aspectReductionBegin_op_0){
-  osSim->eventSetInstructionPointer(pthread->getPid(),picode->next);
+  // Move instruction pointer to next instruction
+  pthread->setPCIcode(picode->next);
+  // Emulate the actual instruction
   pthread->getEpoch()->beginReduction(picode->addr);
   // Note: not neccessarily running the same thread as before
   return pthread->getPCIcode();
@@ -831,7 +833,9 @@ OP(aspectReductionBegin_op_0){
 PFPI aspectReductionBegin_op[] = { aspectReductionBegin_op_0, 0 };
 
 OP(aspectReductionEnd_op_0){
-  osSim->eventSetInstructionPointer(pthread->getPid(),picode->next);
+  // Move instruction pointer to next instruction
+  pthread->setPCIcode(picode->next);
+  // Emulate the actual instruction
   pthread->getEpoch()->endReduction();
   // Note: not neccessarily running the same thread as before
   return pthread->getPCIcode();
@@ -839,7 +843,9 @@ OP(aspectReductionEnd_op_0){
 PFPI aspectReductionEnd_op[]   = { aspectReductionEnd_op_0,   0 };
 
 OP(aspectAtomicBegin_op_0){
-  osSim->eventSetInstructionPointer(pthread->getPid(),picode->next);
+  // Move instruction pointer to next instruction
+  pthread->setPCIcode(picode->next);
+  // Emulate the actual instruction
   pthread->getEpoch()->beginAtomic(picode->addr,false,false);
   // Note: not neccessarily running the same thread as before
   return pthread->getPCIcode();
@@ -847,7 +853,9 @@ OP(aspectAtomicBegin_op_0){
 PFPI aspectAtomicBegin_op[]   = { aspectAtomicBegin_op_0,   0 };
 
 OP(aspectAcquireBegin_op_0){
-  osSim->eventSetInstructionPointer(pthread->getPid(),picode->next);
+  // Move instruction pointer to next instruction
+  pthread->setPCIcode(picode->next);
+  // Emulate the actual instruction
   pthread->getEpoch()->beginAtomic(picode->addr,true,false);
   // Note: not neccessarily running the same thread as before
   return pthread->getPCIcode();
@@ -863,14 +871,18 @@ OP(aspectAcquireRetry_op_0){
 PFPI aspectAcquireRetry_op[]   = { aspectAcquireRetry_op_0,   0 };
 
 OP(aspectAcquireExit_op_0){
-  osSim->eventSetInstructionPointer(pthread->getPid(),picode->next);
+  // Move instruction pointer to next instruction
+  pthread->setPCIcode(picode->next);
+  // Emulate the actual instruction
   pthread->getEpoch()->changeAtomic(true,false);
   // Note: not neccessarily running the same thread as before
   return pthread->getPCIcode();
 }
 PFPI aspectAcquireExit_op[]   = { aspectAcquireExit_op_0,   0 };
 OP(aspectAcquire2Release_op_0){
-  osSim->eventSetInstructionPointer(pthread->getPid(),picode->next);
+  // Move instruction pointer to next instruction
+  pthread->setPCIcode(picode->next);
+  // Emulate the actual instruction
   pthread->getEpoch()->changeAtomic(true,true);
   // Note: not neccessarily running the same thread as before
   return pthread->getPCIcode();
@@ -1517,11 +1529,16 @@ OP(mint_uname)
 #if (defined TLS)
   {
     struct mint_utsname *tp = (struct mint_utsname *)bufVAddr;
-    rsesc_OS_write_block(pthread->getPid(),picode->addr,tp->sysname ,sysnamestr  ,strlen(sysnamestr)+1);
-    rsesc_OS_write_block(pthread->getPid(),picode->addr,tp->nodename,nodenamestr ,strlen(nodenamestr)+1);
-    rsesc_OS_write_block(pthread->getPid(),picode->addr,tp->release ,releasestr  ,strlen(releasestr)+1);
-    rsesc_OS_write_block(pthread->getPid(),picode->addr,tp->version ,versionstr  ,strlen(versionstr)+1);
-    rsesc_OS_write_block(pthread->getPid(),picode->addr,tp->machine ,machinestr  ,strlen(machinestr)+1);
+    rsesc_OS_write_block(pthread->getPid(),picode->addr,
+			 (VAddr)(tp->sysname),  sysnamestr,  strlen(sysnamestr)+1);
+    rsesc_OS_write_block(pthread->getPid(),picode->addr,
+			 (VAddr)(tp->nodename), nodenamestr, strlen(nodenamestr)+1);
+    rsesc_OS_write_block(pthread->getPid(),picode->addr,
+			 (VAddr)(tp->release),  releasestr,  strlen(releasestr)+1);
+    rsesc_OS_write_block(pthread->getPid(),picode->addr,
+			 (VAddr)(tp->version),  versionstr,  strlen(versionstr)+1);
+    rsesc_OS_write_block(pthread->getPid(),picode->addr,
+			 (VAddr)(tp->machine),  machinestr,  strlen(machinestr)+1);
   }
 #else
   {

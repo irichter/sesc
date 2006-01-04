@@ -233,7 +233,7 @@ void SysCallFileIO::execFXStat64(ThreadContext *context,icode_ptr picode){
     }
     GlibcStat64 statSimulated;
     statToGlibcStat64(&statNative, &statSimulated);
-    rsesc_OS_write_block(context->getPid(),picode->addr,(void *)addr,
+    rsesc_OS_write_block(context->getPid(),picode->addr,addr,
                          &statSimulated,sizeof(GlibcStat64));
   }
 }
@@ -360,7 +360,7 @@ void SysCallRead::exec(ThreadContext *context,icode_ptr picode){
     I(lseek(openFiles[myFd]->fdesc,0,SEEK_CUR)==oldOffs+bytesRead);
     openFiles[myFd]->offset+=bytesRead;
     rsesc_OS_write_block(context->getPid(),picode->addr,
-			 (void *)buf,tempbuff,(size_t)bytesRead);
+			 buf,tempbuff,(size_t)bytesRead);
   }
   executed=true;
 }
@@ -397,13 +397,15 @@ void SysCallWrite::exec(ThreadContext *context,icode_ptr picode){
 	void *tempbuff=alloca(count);
 	I(tempbuff);
 	// Read data from versioned memory into a temporary buffer
-	rsesc_OS_read_block(context->getPid(),picode->addr,tempbuff,(void *)buf,count);
+	rsesc_OS_read_block(context->getPid(),picode->addr,
+			    tempbuff,buf,count);
 	I(bufData&&(memcmp(bufData,tempbuff,count)==0));
       }else{
 	bufData=malloc(count);
 	I(bufData);
 	// Read data from versioned memory into a temporary buffer
-	rsesc_OS_read_block(context->getPid(),picode->addr,bufData,(void *)buf,count);
+	rsesc_OS_read_block(context->getPid(),picode->addr,
+			    bufData,buf,count);
 	bytesWritten=count;
       }
       context->setRetVal(bytesWritten);
@@ -423,7 +425,8 @@ void SysCallWrite::exec(ThreadContext *context,icode_ptr picode){
     void *tempbuff=alloca(count);
     I(tempbuff);
     // Read data from versioned memory into a temporary buffer
-    rsesc_OS_read_block(context->getPid(),picode->addr,tempbuff,(void *)buf,count);
+    rsesc_OS_read_block(context->getPid(),picode->addr,
+			tempbuff,buf,count);
     // Get current position and verify that we are in append mode
     ID(oldOffs=currentOffset);
     I(oldOffs==lseek(openFiles[myFd]->fdesc,0,SEEK_END));
@@ -583,4 +586,24 @@ void SysCallWait::undo(bool expectRedo){
   tls::Thread *parent=tls::Thread::getByID(parentThread);
   I(parent);
   parent->undoWaitCall(child);
+}
+
+// Time-related system calls
+
+void SysCallTimes::exec(ThreadContext *context,icode_ptr picode){
+  if(!executed){
+    retVal=globalClock/1024;
+    tmsStruct.tms_utime=globalClock/1024;
+    tmsStruct.tms_stime=0;
+    tmsStruct.tms_cutime=0;
+    tmsStruct.tms_cstime=0;
+  }
+  MintFuncArgs args(context,picode);
+  VAddr buf=args.getVAddr();
+  if(buf){
+    rsesc_OS_write_block(context->getPid(),picode->addr,
+			 buf,&tmsStruct,sizeof(tmsStruct));
+  }
+  context->setRetVal(retVal);
+  executed=true;
 }

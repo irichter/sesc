@@ -451,9 +451,9 @@ void *rsesc_OS_read(int pid, int iAddr, VAddr vaddr, int flags) {
   flags = (E_READ | flags); 
   tls::Epoch *epoch=tls::Epoch::getEpoch(pid);
   if(epoch)
-    return epoch->read(iAddr, flags, vaddr, pthread->virt2real(vaddr, flags));
+    return (void *)(epoch->read(iAddr, flags, vaddr, pthread->virt2real(vaddr, flags)));
 
-  return pthread->virt2real(vaddr, flags);
+  return (void *)(pthread->virt2real(vaddr, flags));
 }
 
 void *rsesc_OS_prewrite(int pid, int iAddr, VAddr vaddr, int flags) {
@@ -462,9 +462,9 @@ void *rsesc_OS_prewrite(int pid, int iAddr, VAddr vaddr, int flags) {
   flags = (E_WRITE | flags); 
   tls::Epoch *epoch=tls::Epoch::getEpoch(pid);
   if(epoch)
-    return epoch->write(iAddr, flags, vaddr, pthread->virt2real(vaddr, flags));
+    return (void *)(epoch->write(iAddr, flags, vaddr, pthread->virt2real(vaddr, flags)));
 
-  return pthread->virt2real(vaddr, flags);
+  return (void *)(pthread->virt2real(vaddr, flags));
 }
 
 void rsesc_OS_postwrite(int pid, int iAddr, VAddr vaddr, int flags) {

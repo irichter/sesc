@@ -62,8 +62,6 @@ static const int EvSimStart = 2;
  */
 static const int EvMinType  = 10;
 
-extern icode_t invalidIcode;
-
 void mint_termination(int pid);
 
 #include "mintapi.h"

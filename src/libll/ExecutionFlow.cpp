@@ -149,6 +149,9 @@ int ExecutionFlow::exeInst(void)
     I(picodePC->getClass()!=OpExposed);
 #endif
     picodePC=(picodePC->func)(picodePC, &thread);
+#if (defined TLS)
+    thread.setPCIcode(picodePC);
+#endif
     I(picodePC);
   }while(picodePC->addr==iAddr);
 
@@ -315,9 +318,11 @@ DInst *ExecutionFlow::executePC()
 #if (defined TLS)
   tls::Epoch *epoch=thread.getEpoch();
   I(epoch);
-  if(picodePC->getClass()==OpAtStart)
+  if(picodePC->getClass()==OpAtStart){
+    thread.setPCIcode(picodePC);
     if(epoch->forceEpochBeginning())
       return 0;
+  }
 #endif
 
 #ifdef TASKSCALAR
@@ -621,11 +626,19 @@ void ExecutionFlow::goRabbitMode(long long n2skip)
 
 icode_ptr ExecutionFlow::getInstructionPointer(void)
 {
+#if (defined TLS)
+  I(0);
+  return thread.getPCIcode();
+#else
   return picodePC; 
+#endif
 }
 
 void ExecutionFlow::setInstructionPointer(icode_ptr picode) 
 { 
+#if (defined TLS)
+  I(0);
+#endif
   thread.setPicode(picode);
   picodePC=picode;
 }
