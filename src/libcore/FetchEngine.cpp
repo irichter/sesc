@@ -411,10 +411,18 @@ void FetchEngine::realFetch(IBucket *bucket, int fetchMax)
     const Instruction *inst = dinst->getInst();
 
     if (inst->isStore()) {
+#if (defined TLS)
+      dinst->getEpoch()->pendInstr();
+      dinst->getEpoch()->execInstr();
+#endif // (defined TLS)
       // Break in two instructions. Address calculation, and store
       DInst *fakeALU = DInst::createInst(Instruction::getEventID(static_cast<EventType>(FakeInst + inst->getSrc1()))
                                          ,0
-                                         ,dinst->getContextId());
+                                         ,dinst->getContextId()
+#if (defined TLS)
+                                         ,dinst->getEpoch()
+#endif
+                                        );
 
       I(fakeALU->getInst()->isStoreAddr());
       instFetched(fakeALU);
@@ -490,8 +498,19 @@ void FetchEngine::fakeFetch(IBucket *bucket, int fetchMax)
   ushort n2Fetched = FetchWidth;
 
   do {
+#if (defined TLS)
+    Epoch *epoch=Epoch::getEpoch(flow.currentPid());
+    epoch->pendInstr();
+    epoch->execInstr();
+#endif // (defined TLS)
     // Ugly note: 4 as parameter? Anything different than 0 works
-    DInst *dinst = DInst::createInst(missInstID, 4, cpuId);
+    DInst *dinst = DInst::createInst(missInstID
+                                     ,4
+                                     ,cpuId
+#if (defined TLS)
+                                     ,epoch
+#endif
+                                    );
     I(dinst);
 
 #ifdef SESC_BAAD

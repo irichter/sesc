@@ -617,7 +617,7 @@ namespace tls{
       void addAnom(const std::pair<size_t,size_t> &ageInfo){
 	anom.add(ageInfo);
       }
-      void report(Address addr) const{
+      void report(VAddr addr) const{
 	I(!empty());
         char allbuf[256];
         char onebuf[32];
@@ -656,7 +656,7 @@ namespace tls{
       }
     };
     class InstRaces{
-      typedef std::map<Address,RaceEntry> InstToRaceEntry;
+      typedef std::map<VAddr,RaceEntry> InstToRaceEntry;
       InstToRaceEntry instToRaceEntry;
     public:
       bool empty(void) const{
@@ -670,19 +670,19 @@ namespace tls{
 	    it!=other.instToRaceEntry.end();it++)
 	  instToRaceEntry[it->first].add(it->second);
       }
-      void addRace(Address iAddr, const std::pair<size_t,size_t> &ageInfo){
+      void addRace(VAddr iAddr, const std::pair<size_t,size_t> &ageInfo){
 	instToRaceEntry[iAddr].addRace(ageInfo);
       }
-      void addChka(Address iAddr, const std::pair<size_t,size_t> &ageInfo){
+      void addChka(VAddr iAddr, const std::pair<size_t,size_t> &ageInfo){
 	instToRaceEntry[iAddr].addChka(ageInfo);
       }
-      void addLama(Address iAddr, const std::pair<size_t,size_t> &ageInfo){
+      void addLama(VAddr iAddr, const std::pair<size_t,size_t> &ageInfo){
 	instToRaceEntry[iAddr].addLama(ageInfo);
       }
-      void addRuna(Address iAddr, const std::pair<size_t,size_t> &ageInfo){
+      void addRuna(VAddr iAddr, const std::pair<size_t,size_t> &ageInfo){
 	instToRaceEntry[iAddr].addRuna(ageInfo);
       }
-      void addAnom(Address iAddr, const std::pair<size_t,size_t> &ageInfo){
+      void addAnom(VAddr iAddr, const std::pair<size_t,size_t> &ageInfo){
 	instToRaceEntry[iAddr].addAnom(ageInfo);
       }
       void report(void) const{
@@ -842,15 +842,15 @@ namespace tls{
     // The current level of nesting in an atomic section
     size_t atmNestLevel;
     // Which atomic section (if any) did this epoch enter
-    Address myAtomicSection;
+    VAddr myAtomicSection;
     // Counts the number of times each atomic section has been entered
-    typedef std::map<Address,size_t> AddrToCount;
+    typedef std::map<VAddr,size_t> AddrToCount;
     static AddrToCount atomicEntryCount;
 
-    static size_t  staticAtmOmmitCount;
-    static size_t  dynamicAtmOmmitCount;
-    static Address atmOmmitInstr;
-    static size_t  atmOmmitCount;
+    static size_t staticAtmOmmitCount;
+    static size_t dynamicAtmOmmitCount;
+    static VAddr  atmOmmitInstr;
+    static size_t atmOmmitCount;
     bool skipAtm;
 
     void initMergeHold(void);
@@ -943,9 +943,9 @@ namespace tls{
     // to begin executing after a spawn or a squash
     void run(void);
 
-    void beginReduction(Address addr);
+    void beginReduction(VAddr iVAddr);
     void endReduction(void);
-    void beginAtomic(Address addr, bool isAcq, bool isRel);
+    void beginAtomic(VAddr iVAddr, bool isAcq, bool isRel);
     void retryAtomic(void);
     void changeAtomic(bool endAcq, bool begRel);
     void endAtomic(void);
@@ -1445,7 +1445,7 @@ namespace tls{
       // ID of the thread performing the event
       ThreadID tid;
       // Address of the instruction performing the event
-      Address  iAddrV;
+      VAddr  iAddrV;
       // Number of instructions since the beginning of this epoch
       size_t   instrOffset;
       // Time of the occurence of the event
@@ -1488,19 +1488,19 @@ namespace tls{
     public:
       typedef enum AccessTypeEnum {Read, Write} AccessType;
     protected:
-      Address dAddrV;
+      VAddr dVAddr;
       AccessType accessType;
       size_t accessCount;
       size_t lastInstrOffset;
     public:
-      TraceAccessEvent(Epoch *epoch, Address dAddrV, AccessType accessType)
-	: TraceEvent(epoch), dAddrV(dAddrV), accessType(accessType){
+      TraceAccessEvent(Epoch *epoch, VAddr dVAddr, AccessType accessType)
+	: TraceEvent(epoch), dVAddr(dVAddr), accessType(accessType){
 	accessCount=1;
 	lastInstrOffset=instrOffset;
       }
       virtual void print(void){
 	TraceEvent::print();
-	printf(": %8x ",dAddrV);
+	printf(": %8x ",dVAddr);
 	switch(accessType){
 	case Read: printf("Rd"); break;
 	case Write: printf("Wr"); break;
@@ -1510,7 +1510,7 @@ namespace tls{
 		 accessCount,lastInstrOffset-instrOffset);
 	}
       }
-      TraceAccessEvent *newAccess(Epoch *epoch, Address dAddrV,
+      TraceAccessEvent *newAccess(Epoch *epoch, VAddr dVAddr,
 				  AccessType accessType){
 // 	if((iAddrV==(Address)(osSim->eventGetInstructionPointer(epoch->myEid)->addr))&&
 // 	   (TraceAccessEvent::dAddrV==dAddrV)&&
@@ -1519,11 +1519,11 @@ namespace tls{
 // 	  lastInstrOffset=epoch->pendInstrCount;
 // 	  return 0;
 // 	}else{
-	  return new TraceAccessEvent(epoch,dAddrV,accessType);
+	  return new TraceAccessEvent(epoch,dVAddr,accessType);
 // 	}
       }
-      Address getDataAddr(void) const{
-	return dAddrV;
+      VAddr getDataAddr(void) const{
+	return dVAddr;
       }
       AccessType getAccessType(void) const{
 	return accessType;
@@ -1540,29 +1540,29 @@ namespace tls{
 	Flow=4,
 	All=Anti|Output|Flow
       } raceType;
-      Address   dAddrV;
-      Epoch     *epoch1;      
-      Epoch     *epoch2;
-      RaceInfo(Address  addr, Epoch *ep1, Epoch *ep2, RaceType raceType)
-	: raceType(raceType), dAddrV(addr), epoch1(ep1), epoch2(ep2){
+      VAddr dVAddr;
+      Epoch *epoch1;      
+      Epoch *epoch2;
+      RaceInfo(VAddr dVAddr, Epoch *ep1, Epoch *ep2, RaceType raceType)
+	: raceType(raceType), dVAddr(dVAddr), epoch1(ep1), epoch2(ep2){
       }
       void addType(RaceType newType){
 	raceType=static_cast<RaceType>(raceType|newType);
       }
     };
     
-    typedef std::map<Address,RaceInfo *> RaceByAddr;
+    typedef std::map<VAddr,RaceInfo *> RaceByAddr;
     typedef std::map<Epoch *,RaceByAddr> RaceByEpAddr;
     typedef std::map<Epoch *,RaceInfo *> RaceByEp;
     struct RaceAddrInfo{
       RaceByEp raceByEp;
-      Address   dAddrV;
+      VAddr dVAddr;
       enum Position { First, Second} myPosition;
       RaceInfo::RaceType raceTypes;
       TraceAccessEvent *readAccess;
       TraceAccessEvent *writeAccess;
-      RaceAddrInfo(Address dAddrV, Position myPosition)
-	: dAddrV(dAddrV), myPosition(myPosition), raceTypes(RaceInfo::None),
+      RaceAddrInfo(VAddr dVAddr, Position myPosition)
+	: dVAddr(dVAddr), myPosition(myPosition), raceTypes(RaceInfo::None),
 	  readAccess(0), writeAccess(0){
       }
       ~RaceAddrInfo(void){
@@ -1574,7 +1574,7 @@ namespace tls{
       void addType(RaceInfo::RaceType newType){
 	raceTypes=static_cast<RaceInfo::RaceType>(raceTypes|newType);
       }
-      void addReadAccess(Epoch *epoch, Address dAddrV){
+      void addReadAccess(Epoch *epoch, VAddr dVAddr){
 	if(myPosition==Second){
 	  // A read can be the second access only in a flow-type race
 	  if(raceTypes&RaceInfo::Flow){
@@ -1583,7 +1583,7 @@ namespace tls{
 	    // Thus, take the first eligible access in this epoch 
 	    if(!readAccess){
 	      readAccess=
-		new TraceAccessEvent(epoch,dAddrV,TraceAccessEvent::Read);
+		new TraceAccessEvent(epoch,dVAddr,TraceAccessEvent::Read);
 	      epoch->addAccessEvent(readAccess);
 	    }
 	  }
@@ -1598,12 +1598,12 @@ namespace tls{
 	    epoch->removeAccessEvent(readAccess);
 	    delete readAccess;
 	    readAccess=
-	      new TraceAccessEvent(epoch,dAddrV,TraceAccessEvent::Read);
+	      new TraceAccessEvent(epoch,dVAddr,TraceAccessEvent::Read);
 	    epoch->addAccessEvent(readAccess);
 	  }
 	}
       }
-      void addWriteAccess(Epoch *epoch, Address dAddrV){
+      void addWriteAccess(Epoch *epoch, VAddr dVAddr){
 	if(myPosition==Second){
 	  // A write can be the second access only in
 	  // output- and anti-type races
@@ -1613,7 +1613,7 @@ namespace tls{
 	    // Thus, take the first eligible access in this epoch 
 	    if(!writeAccess){
 	      writeAccess=
-		new TraceAccessEvent(epoch,dAddrV,TraceAccessEvent::Write);
+		new TraceAccessEvent(epoch,dVAddr,TraceAccessEvent::Write);
 	      epoch->addAccessEvent(writeAccess);
 	    }
 	  }
@@ -1628,13 +1628,13 @@ namespace tls{
 	    epoch->removeAccessEvent(writeAccess);
 	    delete writeAccess;
 	    writeAccess=
-	      new TraceAccessEvent(epoch,dAddrV,TraceAccessEvent::Write);
+	      new TraceAccessEvent(epoch,dVAddr,TraceAccessEvent::Write);
 	    epoch->addAccessEvent(writeAccess);
 	  }
 	}
       }
     };
-    typedef std::map<Address,RaceAddrInfo *> RaceByAddrEp;
+    typedef std::map<VAddr,RaceAddrInfo *> RaceByAddrEp;
     
     RaceByEpAddr myForwRacesByEpAddr;
     RaceByAddrEp myForwRacesByAddrEp;
@@ -1642,30 +1642,30 @@ namespace tls{
     RaceByAddrEp myBackRacesByAddrEp;
     
     void addRace(Epoch *epoch1, Epoch *epoch2,
-		 Address dAddrV, RaceInfo::RaceType raceType){
+		 VAddr dVAddr, RaceInfo::RaceType raceType){
       RaceByAddr &forwRaceByAddr=epoch1->myForwRacesByEpAddr[epoch2];
       std::pair<RaceByAddr::iterator,bool> insOutcome=
-	forwRaceByAddr.insert(RaceByAddr::value_type(dAddrV,(RaceInfo *)0));
+	forwRaceByAddr.insert(RaceByAddr::value_type(dVAddr,(RaceInfo *)0));
       if(insOutcome.second){
 	// If the element was actually inserted, create a new ReaceInfo
-	RaceInfo *raceInfo=new RaceInfo(dAddrV,epoch1,epoch2,raceType);
+	RaceInfo *raceInfo=new RaceInfo(dVAddr,epoch1,epoch2,raceType);
 	// Insert it into all the structures where it needs to be
 	insOutcome.first->second=raceInfo;
-	epoch2->myBackRacesByEpAddr[epoch1][dAddrV]=raceInfo;
+	epoch2->myBackRacesByEpAddr[epoch1][dVAddr]=raceInfo;
 	std::pair<RaceByAddrEp::iterator,bool> forwAddrEpInsOutcome=
-	  epoch1->myForwRacesByAddrEp.insert(RaceByAddrEp::value_type(dAddrV,(RaceAddrInfo *)0));
+	  epoch1->myForwRacesByAddrEp.insert(RaceByAddrEp::value_type(dVAddr,(RaceAddrInfo *)0));
 	if(forwAddrEpInsOutcome.second){
 	  RaceAddrInfo *forwAddrInfo=
-	    new RaceAddrInfo(dAddrV,RaceAddrInfo::First);
+	    new RaceAddrInfo(dVAddr,RaceAddrInfo::First);
 	  forwAddrEpInsOutcome.first->second=forwAddrInfo;
 	}
 	forwAddrEpInsOutcome.first->second->raceByEp[epoch2]=raceInfo;
 	forwAddrEpInsOutcome.first->second->addType(raceType);
 	std::pair<RaceByAddrEp::iterator,bool> backAddrEpInsOutcome=
-	  epoch2->myBackRacesByAddrEp.insert(RaceByAddrEp::value_type(dAddrV,(RaceAddrInfo *)0));
+	  epoch2->myBackRacesByAddrEp.insert(RaceByAddrEp::value_type(dVAddr,(RaceAddrInfo *)0));
 	if(backAddrEpInsOutcome.second){
 	  RaceAddrInfo *backAddrInfo=
-	    new RaceAddrInfo(dAddrV,RaceAddrInfo::Second);
+	    new RaceAddrInfo(dVAddr,RaceAddrInfo::Second);
 	  backAddrEpInsOutcome.first->second=backAddrInfo;
 	}
 	backAddrEpInsOutcome.first->second->raceByEp[epoch1]=raceInfo;
@@ -1673,15 +1673,15 @@ namespace tls{
       }else{
 	// Race info already exists, just update the type
 	insOutcome.first->second->addType(raceType);
-	I(epoch1->myForwRacesByAddrEp.count(dAddrV));
-	I(epoch2->myBackRacesByAddrEp.count(dAddrV));
-	epoch1->myForwRacesByAddrEp[dAddrV]->addType(raceType);
-	epoch2->myBackRacesByAddrEp[dAddrV]->addType(raceType);
-	I(epoch2->myBackRacesByEpAddr[epoch1][dAddrV]==
+	I(epoch1->myForwRacesByAddrEp.count(dVAddr));
+	I(epoch2->myBackRacesByAddrEp.count(dVAddr));
+	epoch1->myForwRacesByAddrEp[dVAddr]->addType(raceType);
+	epoch2->myBackRacesByAddrEp[dVAddr]->addType(raceType);
+	I(epoch2->myBackRacesByEpAddr[epoch1][dVAddr]==
 	  insOutcome.first->second);
-	I(epoch1->myForwRacesByAddrEp[dAddrV]->raceByEp[epoch2]==
+	I(epoch1->myForwRacesByAddrEp[dVAddr]->raceByEp[epoch2]==
 	  insOutcome.first->second);
-	I(epoch2->myBackRacesByAddrEp[dAddrV]->raceByEp[epoch1]==
+	I(epoch2->myBackRacesByAddrEp[dVAddr]->raceByEp[epoch1]==
 	  insOutcome.first->second);
       }
     }
@@ -1692,15 +1692,15 @@ namespace tls{
       // If any forward race address has not been traced already, return true
       for(RaceByAddrEp::iterator forwIt=myForwRacesByAddrEp.begin();
 	  forwIt!=myForwRacesByAddrEp.end();forwIt++){
-	Address dAddrV=forwIt->first;
-	if(!traceDataAddresses.count(dAddrV))
+	VAddr dVAddr=forwIt->first;
+	if(!traceDataAddresses.count(dVAddr))
 	  return true;
       }
       // If any forward race address has not been traced already, return true
       for(RaceByAddrEp::iterator backIt=myBackRacesByAddrEp.begin();
 	  backIt!=myBackRacesByAddrEp.end();backIt++){
-	Address dAddrV=backIt->first;
-	if(!traceDataAddresses.count(dAddrV))
+	VAddr dVAddr=backIt->first;
+	if(!traceDataAddresses.count(dVAddr))
 	  return true;
       }
       return false;
@@ -1708,23 +1708,23 @@ namespace tls{
     void extractRaceAddresses(void){
       for(RaceByAddrEp::iterator forwIt=myForwRacesByAddrEp.begin();
 	  forwIt!=myForwRacesByAddrEp.end();forwIt++){
-	Address dAddrV=forwIt->first;
-	traceDataAddresses.insert(dAddrV);
+	VAddr dVAddr=forwIt->first;
+	traceDataAddresses.insert(dVAddr);
       }
       for(RaceByAddrEp::iterator backIt=myBackRacesByAddrEp.begin();
 	  backIt!=myBackRacesByAddrEp.end();backIt++){
-	Address dAddrV=backIt->first;
-	traceDataAddresses.insert(dAddrV);
+	VAddr dVAddr=backIt->first;
+	traceDataAddresses.insert(dVAddr);
       }
     }
   public:
     // Prepare to read from this version. Returns the address to read from.
-    Address read(Address iAddrV, short iFlags,
-		 Address dAddrV, Address dAddrR);
+    RAddr read(VAddr iVAddr, short iFlags,
+		 VAddr dVAddr, Address dAddrR);
     
     // Prepare to write to this version. Returns the address to write to.
-    Address write(Address iAddrV, short iFlags,
-		  Address dAddrV, Address dAddrR);
+    RAddr write(VAddr iVAddr, short iFlags,
+		  VAddr dVAddr, Address dAddrR);
 
     void pendInstr(void){
       I(myState==State::Running);

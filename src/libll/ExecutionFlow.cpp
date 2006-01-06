@@ -395,11 +395,13 @@ DInst *ExecutionFlow::executePC()
   }
 #endif // (defined TASKSCALAR) || (defined TLS)
  
-  dinst=DInst::createInst(cPC, vaddr, fid);
-
+  dinst=DInst::createInst(cPC
+                          ,vaddr
+                          ,fid
 #if (defined TLS)
-  dinst->setEpoch(epoch);
+                          ,epoch
 #endif // (defined TLS)
+                         );
 
 #ifdef TASKSCALAR
   if (restartVer) {
@@ -447,11 +449,15 @@ DInst *ExecutionFlow::executePC()
   // "pendingDInst".
   pendingDInst=dinst;
   I(pendingDInst->getInst()->getAddr());
-  dinst = DInst::createInst(cPC, vaddr, fid);
 
+  dinst = DInst::createInst(cPC
+                            ,vaddr
+                            ,fid
 #if (defined TLS)
-  dinst->setEpoch(epoch);
+                            ,epoch
 #endif // (defined TLS)
+                           );
+
 
 #ifdef TASKSCALAR
   if (restartVer) {
@@ -520,11 +526,14 @@ DInst *ExecutionFlow::executePC()
   // In the case of the event, the original iBJ dissapears
   pendingDInst->scrap();
   // Create a fake dynamic instruction for the event
-  pendingDInst = DInst::createInst(Instruction::getEventID(ev), evAddr, fid);
-
+  pendingDInst = DInst::createInst(Instruction::getEventID(ev)
+                                   ,evAddr
+                                   ,fid
 #if (defined TLS)
-  pendingDInst->setEpoch(epoch);
+                                   ,epoch
 #endif // (defined TLS)
+                                  );
+
   if( evCB ) {
     pendingDInst->addEvent(evCB);
     evCB = NULL;

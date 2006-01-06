@@ -1044,20 +1044,20 @@ namespace tls{
   }
   
   Epoch::AddrToCount Epoch::atomicEntryCount;
-  size_t  Epoch::staticAtmOmmitCount;
-  size_t  Epoch::dynamicAtmOmmitCount;
-  Address Epoch::atmOmmitInstr;
-  size_t  Epoch::atmOmmitCount;
+  size_t Epoch::staticAtmOmmitCount;
+  size_t Epoch::dynamicAtmOmmitCount;
+  VAddr  Epoch::atmOmmitInstr;
+  size_t Epoch::atmOmmitCount;
   
-  void Epoch::beginReduction(Address addr){
-    beginAtomic(addr,false,false);
+  void Epoch::beginReduction(VAddr iVAddr){
+    beginAtomic(iVAddr,false,false);
   }
 
   void Epoch::endReduction(void){
     endAtomic();
   }
 
-  void Epoch::beginAtomic(Address addr, bool isAcq, bool isRel){
+  void Epoch::beginAtomic(VAddr iVAddr, bool isAcq, bool isRel){
     I(myState==State::NoAcq);
     I(myState==State::NoRel);
     I(atmNestLevel||(pendInstrCount==1));
@@ -1065,10 +1065,10 @@ namespace tls{
     if(myState==State::NoAtm){
       if(skipAtm)
 	return;
-      myAtomicSection=addr;
+      myAtomicSection=iVAddr;
       if(!(--dynamicAtmOmmitCount)){
 	skipAtm=true;
-	atmOmmitInstr=addr;
+	atmOmmitInstr=iVAddr;
 	I(!atmOmmitCount);
 	atmOmmitCount++;
 	return;
@@ -2626,8 +2626,8 @@ namespace tls{
     }
   }
 
-  Address Epoch::read(Address iAddrV, short iFlags,
-		      Address dAddrV, Address dAddrR){
+  RAddr Epoch::read(VAddr iVAddr, short iFlags,
+		    VAddr dVAddr, Address dAddrR){
 //#if (defined DEBUG)
 //    {
 //      EpochList::iterator listIt=allEpochs.begin();
@@ -2645,8 +2645,8 @@ namespace tls{
     I(myState!=State::Completed);
     if(!dAddrR)
       return 0;
-    if((myState==State::FullReplay)&&traceDataAddresses.count(dAddrV)){
-      traceCodeAddresses.insert(iAddrV);
+    if((myState==State::FullReplay)&&traceDataAddresses.count(dVAddr)){
+      traceCodeAddresses.insert(iVAddr);
       // Add access to the trace
       if(myTrace.size()>16){
 	TraceAccessEvent *prevEvent=0;
@@ -2654,10 +2654,10 @@ namespace tls{
 	  prevEvent=dynamic_cast<TraceAccessEvent *>(myTrace.back());
 	TraceAccessEvent *myEvent;
 	if(prevEvent){
-	  myEvent=prevEvent->newAccess(this,dAddrV,TraceAccessEvent::Read);
+	  myEvent=prevEvent->newAccess(this,dVAddr,TraceAccessEvent::Read);
 	}else{
-	  myEvent=new TraceAccessEvent(this,dAddrV,TraceAccessEvent::Read);
-	  I(iAddrV==(Address)(osSim->eventGetInstructionPointer(myPid)->addr));
+	  myEvent=new TraceAccessEvent(this,dVAddr,TraceAccessEvent::Read);
+	  I(iVAddr==(VAddr)(osSim->eventGetInstructionPointer(myPid)->addr));
 	}
 	if(myEvent){
 	  myTrace.push_back(myEvent);
@@ -2665,13 +2665,13 @@ namespace tls{
       }
       // Update the forward and backward race info of this access
       RaceByAddrEp::iterator forwRaceByAddrEpIt=
-	myForwRacesByAddrEp.find(dAddrV);
+	myForwRacesByAddrEp.find(dVAddr);
       if(forwRaceByAddrEpIt!=myForwRacesByAddrEp.end())
-	forwRaceByAddrEpIt->second->addReadAccess(this,dAddrV);
+	forwRaceByAddrEpIt->second->addReadAccess(this,dVAddr);
       RaceByAddrEp::iterator backRaceByAddrEpIt=
-	myBackRacesByAddrEp.find(dAddrV);
+	myBackRacesByAddrEp.find(dVAddr);
       if(backRaceByAddrEpIt!=myBackRacesByAddrEp.end())
-	backRaceByAddrEpIt->second->addReadAccess(this,dAddrV);
+	backRaceByAddrEpIt->second->addReadAccess(this,dVAddr);
       I((forwRaceByAddrEpIt!=myForwRacesByAddrEp.end())||
 	(backRaceByAddrEpIt!=myBackRacesByAddrEp.end()));
     }
@@ -2775,7 +2775,7 @@ namespace tls{
 	      if(myThread==(*wrPosRace)->epoch->myThread)
 		continue;
 	      I(newClock>(*wrPosRace)->epoch->myClock);
-	      currEpoch->myInstRaces.addAnom(iAddrV,versions->getAgeInThread(*wrPosRace));
+	      currEpoch->myInstRaces.addAnom(iVAddr,versions->getAgeInThread(*wrPosRace));
 	    }
 	  }
 	  // If truncated, remove the allocated buffer block and advance the new epoch
@@ -2905,12 +2905,12 @@ namespace tls{
 	  if(compareClock(wrBeforeEpoch)!=StrongBefore){
 	    // An anomaly should also be a data race (no VClock ordering)
 	    I(!VClock::isOrder(wrBeforeEpoch->myVClock,myVClock));
-	    myInstRaces.addAnom(iAddrV,versions->getAgeInThread(wrBeforeBlock));
+	    myInstRaces.addAnom(iVAddr,versions->getAgeInThread(wrBeforeBlock));
 	  }
 	  if(compareCheckClock(wrBeforeEpoch)!=StrongBefore){
 	    // A check-clock anomaly should also be a data race (no VClock ordering)
 	    I(!VClock::isOrder(wrBeforeEpoch->myVClock,myVClock));
-	    myInstRaces.addChka(iAddrV,versions->getAgeInThread(wrBeforeBlock));
+	    myInstRaces.addChka(iVAddr,versions->getAgeInThread(wrBeforeBlock));
 	  }
 	  // We have a running anomaly only if the predecessor writer is not Atm
 	  // Note: We can't also report an anomaly if "this" in not Atm because
@@ -2923,12 +2923,12 @@ namespace tls{
 	    // unless this is a case of an injected lacking-synchronization error
 	    I((!VClock::isOrder(wrBeforeEpoch->myVClock,myVClock))||
 	      wrBeforeEpoch->atmNestLevel);
-	    myInstRaces.addRuna(iAddrV,versions->getAgeInThread(wrBeforeBlock));
+	    myInstRaces.addRuna(iVAddr,versions->getAgeInThread(wrBeforeBlock));
 	  }
 	  if(!VClock::isOrder(wrBeforeEpoch->myVClock,myVClock))
-	    myInstRaces.addRace(iAddrV,versions->getAgeInThread(wrBeforeBlock));
+	    myInstRaces.addRace(iVAddr,versions->getAgeInThread(wrBeforeBlock));
 	  if(!LClock::isOrder((wrBeforeEpoch)->myLClock,myLClock))
-	    myInstRaces.addLama(iAddrV,versions->getAgeInThread(wrBeforeBlock));
+	    myInstRaces.addLama(iVAddr,versions->getAgeInThread(wrBeforeBlock));
 	}
 	if(memMask){
 	  // Source data for copy-in is in main memory
@@ -2969,28 +2969,28 @@ namespace tls{
 	  if(compareClock(wrAfterEpoch)!=StrongAfter){
 	    // An anomaly should also be a data race (no VClock ordering)
 	    I(!VClock::isOrder(myVClock,wrAfterEpoch->myVClock));
- 	    wrAfterEpoch->myInstRaces.addAnom(iAddrV,versions->getAgeInThread(wrAfterIt->block));
+ 	    wrAfterEpoch->myInstRaces.addAnom(iVAddr,versions->getAgeInThread(wrAfterIt->block));
 	  }
 	  if(compareCheckClock(wrAfterEpoch)!=StrongAfter){
 	    // A check-clock anomaly should also be a data race (no VClock ordering)
 	    I(!VClock::isOrder(myVClock,wrAfterEpoch->myVClock));
- 	    wrAfterEpoch->myInstRaces.addChka(iAddrV,versions->getAgeInThread(wrAfterIt->block));
+ 	    wrAfterEpoch->myInstRaces.addChka(iVAddr,versions->getAgeInThread(wrAfterIt->block));
 	  }
 	  if(((myState!=State::Atm)||(wrAfterEpoch->myState!=State::Atm))
 	     &&(wrAfterEpoch->myState!=State::Completed)){
 	    // A running anomaly should also be a data race (no VClock ordering)
 	    I(!VClock::isOrder(myVClock,wrAfterEpoch->myVClock));
- 	    wrAfterEpoch->myInstRaces.addRuna(iAddrV,versions->getAgeInThread(wrAfterIt->block));
+ 	    wrAfterEpoch->myInstRaces.addRuna(iVAddr,versions->getAgeInThread(wrAfterIt->block));
 	  }
 	  if(!VClock::isOrder(myVClock,wrAfterEpoch->myVClock)){
 	    // Clock adjustment prevents this from happening,
 	    // except for atomic sections and replay executions
 	    I((myState!=State::Initial)||
 	      ((myState==State::Atm)&&(myState!=State::Acq)&&(myState!=State::Rel)));
- 	    wrAfterEpoch->myInstRaces.addRace(iAddrV,versions->getAgeInThread(wrAfterIt->block));
+ 	    wrAfterEpoch->myInstRaces.addRace(iVAddr,versions->getAgeInThread(wrAfterIt->block));
 	  }
 	  if(!LClock::isOrder(myLClock,wrAfterEpoch->myLClock))
- 	    wrAfterEpoch->myInstRaces.addLama(iAddrV,versions->getAgeInThread(wrAfterIt->block));
+ 	    wrAfterEpoch->myInstRaces.addLama(iVAddr,versions->getAgeInThread(wrAfterIt->block));
 	}
       }
     }
@@ -3014,30 +3014,30 @@ namespace tls{
     return ((Address)(bufferBlock->wkData))+blockOffs;
   }
   
-  Address Epoch::write(Address iAddrV, short iFlags,
-		       Address dAddrV, Address dAddrR){
+  RAddr Epoch::write(VAddr iVAddr, short iFlags,
+		       VAddr dVAddr, Address dAddrR){
     I(iFlags&E_WRITE);
     I(myState!=State::Completed);
     if(!dAddrR)
       return 0;
-    if((myState==State::FullReplay)&&traceDataAddresses.count(dAddrV)){
-      traceCodeAddresses.insert(iAddrV);
+    if((myState==State::FullReplay)&&traceDataAddresses.count(dVAddr)){
+      traceCodeAddresses.insert(iVAddr);
       if(myTrace.size()>16){
 	// Add access to the trace
 	TraceAccessEvent *myEvent=
-	  new TraceAccessEvent(this,dAddrV,TraceAccessEvent::Write);
-	I(iAddrV==(Address)(osSim->eventGetInstructionPointer(myPid)->addr));
+	  new TraceAccessEvent(this,dVAddr,TraceAccessEvent::Write);
+	I(iVAddr==(VAddr)(osSim->eventGetInstructionPointer(myPid)->addr));
 	myTrace.push_back(myEvent);
       }
       // Update the forward and backward race info of this access
       RaceByAddrEp::iterator forwRaceByAddrEpIt=
-	myForwRacesByAddrEp.find(dAddrV);
+	myForwRacesByAddrEp.find(dVAddr);
       if(forwRaceByAddrEpIt!=myForwRacesByAddrEp.end())
-	forwRaceByAddrEpIt->second->addWriteAccess(this,dAddrV);
+	forwRaceByAddrEpIt->second->addWriteAccess(this,dVAddr);
       RaceByAddrEp::iterator backRaceByAddrEpIt=
-	myBackRacesByAddrEp.find(dAddrV);
+	myBackRacesByAddrEp.find(dVAddr);
       if(backRaceByAddrEpIt!=myBackRacesByAddrEp.end())
-	backRaceByAddrEpIt->second->addWriteAccess(this,dAddrV);
+	backRaceByAddrEpIt->second->addWriteAccess(this,dVAddr);
       I((forwRaceByAddrEpIt!=myForwRacesByAddrEp.end())||
 	(backRaceByAddrEpIt!=myBackRacesByAddrEp.end()));
     }
@@ -3139,7 +3139,7 @@ namespace tls{
 	    if((myState==State::Atm)&&((*acPosRace)->epoch->myState==State::Atm))
 	      continue;
 	    I(newClock>(*acPosRace)->epoch->myClock);
-	    currEpoch->myInstRaces.addAnom(iAddrV,versions->getAgeInThread(*acPosRace));
+	    currEpoch->myInstRaces.addAnom(iVAddr,versions->getAgeInThread(*acPosRace));
 	  }
 	  // If truncated, remove the allocated buffer block and advance the new epoch
 	  if(currEpoch!=this){
@@ -3242,23 +3242,23 @@ namespace tls{
 	      if(compareClock(forwEpoch)!=StrongAfter){
 		// An anomaly should also be a data race (no VClock ordering)
 		I(!VClock::isOrder(myVClock,forwEpoch->myVClock));
-		forwEpoch->myInstRaces.addAnom(iAddrV,versions->getAgeInThread(forwBlock));
+		forwEpoch->myInstRaces.addAnom(iVAddr,versions->getAgeInThread(forwBlock));
 	      }
 	      if(compareCheckClock(forwEpoch)!=StrongAfter){
 		// A check-clock anomaly should also be a data race (no VClock ordering)
 		I(!VClock::isOrder(myVClock,forwEpoch->myVClock));
-		forwEpoch->myInstRaces.addChka(iAddrV,versions->getAgeInThread(forwBlock));
+		forwEpoch->myInstRaces.addChka(iVAddr,versions->getAgeInThread(forwBlock));
 	      }
 	      if(((myState!=State::Atm)||(forwEpoch->myState!=State::Atm))
 		 &&(forwEpoch->myState!=State::Completed)){
 		// A running anomaly should also be a data race (no VClock ordering
                 I(!VClock::isOrder(myVClock,forwEpoch->myVClock));
-		forwEpoch->myInstRaces.addRuna(iAddrV,versions->getAgeInThread(forwBlock));
+		forwEpoch->myInstRaces.addRuna(iVAddr,versions->getAgeInThread(forwBlock));
 	      }
 	      if(!VClock::isOrder(myVClock,forwEpoch->myVClock))
-		forwEpoch->myInstRaces.addRace(iAddrV,versions->getAgeInThread(forwBlock));
+		forwEpoch->myInstRaces.addRace(iVAddr,versions->getAgeInThread(forwBlock));
 	      if(!LClock::isOrder(myLClock,forwEpoch->myLClock))
-		forwEpoch->myInstRaces.addLama(iAddrV,versions->getAgeInThread(forwBlock));
+		forwEpoch->myInstRaces.addLama(iVAddr,versions->getAgeInThread(forwBlock));
 	    }
 	  }
 	  // Move toward the beginning of the list
@@ -3302,23 +3302,23 @@ namespace tls{
 	  if(compareClock(otherBlock->epoch)!=StrongBefore){
 	    // An anomaly should also be a data race (no VClock ordering)
 	    I(!VClock::isOrder(prevEpoch->myVClock,myVClock));
-	    myInstRaces.addAnom(iAddrV,versions->getAgeInThread(otherBlock));
+	    myInstRaces.addAnom(iVAddr,versions->getAgeInThread(otherBlock));
 	  }
 	  if(compareCheckClock(otherBlock->epoch)!=StrongBefore){
 	    // A check-clock anomaly should also be a data race (no VClock ordering)
 	    I(!VClock::isOrder(prevEpoch->myVClock,myVClock));
-	    myInstRaces.addChka(iAddrV,versions->getAgeInThread(otherBlock));
+	    myInstRaces.addChka(iVAddr,versions->getAgeInThread(otherBlock));
 	  }
 	  if((prevEpoch->myState!=State::Atm)&&(myState!=State::Atm)&&
 	     (prevEpoch->myState!=State::Completed)){
 	    // A running anomaly should also be a data race (no VClock ordering)
 	    I(!VClock::isOrder(prevEpoch->myVClock,myVClock));
-	    myInstRaces.addRuna(iAddrV,versions->getAgeInThread(otherBlock));
+	    myInstRaces.addRuna(iVAddr,versions->getAgeInThread(otherBlock));
 	  }
 	  if(!VClock::isOrder(prevEpoch->myVClock,myVClock))
-	    myInstRaces.addRace(iAddrV,versions->getAgeInThread(otherBlock));
+	    myInstRaces.addRace(iVAddr,versions->getAgeInThread(otherBlock));
 	  if(!LClock::isOrder(prevEpoch->myLClock,myLClock))
-	    myInstRaces.addLama(iAddrV,versions->getAgeInThread(otherBlock));
+	    myInstRaces.addLama(iVAddr,versions->getAgeInThread(otherBlock));
 	}
       }
     }

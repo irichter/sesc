@@ -109,7 +109,13 @@ DInst *TraceFlow::executePC()
 
   nextPC = te.nextIAddr;   
 
-  return DInst::createDInst(inst, te.dAddr, cpuId);   
+  return DInst::createDInst(inst
+                            ,te.dAddr
+                            ,cpuId
+#if (defined TLS)
+                            ,0 // This will break things (epoch can't be 0)
+#endif // (defined TLS)
+                           );
 }
 
 void TraceFlow::dump(const char *str) const

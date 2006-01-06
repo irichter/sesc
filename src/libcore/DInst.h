@@ -238,9 +238,13 @@ private:
   void doAtExecuted();
   StaticCallbackMember0<DInst,&DInst::doAtExecuted> doAtExecutedCB;
 
-
+#if (defined TLS)
+  static DInst *createInst(InstID pc, VAddr va, int cId, tls::Epoch *epoch);
+  static DInst *createDInst(const Instruction *inst, VAddr va, int cId, tls::Epoch *epoch);
+#else
   static DInst *createInst(InstID pc, VAddr va, int cId);
   static DInst *createDInst(const Instruction *inst, VAddr va, int cId);
+#endif
 
   void killSilently();
   void scrap(); // Destroys the instruction without any other effects
@@ -293,9 +297,12 @@ private:
 
 #if (defined TLS)
   void setEpoch(tls::Epoch *epoch){
+    I(myEpoch);
+    I(epoch==myEpoch);
     myEpoch=epoch;
   }
   tls::Epoch *getEpoch(void) const{
+    I(myEpoch);
     return myEpoch;
   }
 #endif

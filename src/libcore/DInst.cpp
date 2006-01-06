@@ -183,8 +183,11 @@ void DInst::doAtExecuted()
   resource->executed(this);
 }
 
-
+#if (defined TLS)
+DInst *DInst::createDInst(const Instruction *inst, VAddr va, int cId, tls::Epoch *epoch)
+#else
 DInst *DInst::createDInst(const Instruction *inst, VAddr va, int cId)
+#endif
 {
 #ifdef SESC_MISPATH
   if (inst->isType(iOpInvalid))
@@ -251,7 +254,7 @@ DInst *DInst::createDInst(const Instruction *inst, VAddr va, int cId)
 #endif //TASKSCALAR
 
 #if (defined TLS)
-  ID(i->myEpoch=0);
+  i->myEpoch=epoch;
 #endif
 #ifdef DINST_PARENT
   i->pend[0].setParentDInst(0);
@@ -264,15 +267,28 @@ DInst *DInst::createDInst(const Instruction *inst, VAddr va, int cId)
   return i;
 }
 
+#if (defined TLS)
+DInst *DInst::createInst(InstID pc, VAddr va, int cId, tls::Epoch *epoch)
+#else
 DInst *DInst::createInst(InstID pc, VAddr va, int cId)
+#endif
 {
   const Instruction *inst = Instruction::getInst(pc);
+#if (defined TLS)
+  return createDInst(inst, va, cId, epoch);
+#else
   return createDInst(inst, va, cId);
+#endif
 }
 
 DInst *DInst::clone() 
 {
+#if (defined TLS)
+  DInst *newDInst = createDInst(inst, vaddr, cId, myEpoch);
+#else
   DInst *newDInst = createDInst(inst, vaddr, cId);
+#endif
+
 #ifdef TASKSCALAR
   // setting the LVID for the cloned instruction
   // this will call incOutsReqs for the HVersion.

@@ -332,7 +332,7 @@ func_desc_t Func_subst[] = {
   {"fchown",                  mint_fchown,                     1, OpExposed},
   {"lseek64",                 mint_lseek64,                    1, OpExposed},
   {"lseek",                   mint_lseek,                      1, OpExposed},
-  {"access",                  mint_access,                     1, OpExposed},
+  {"access",                  mint_access,                     1, OpInternal},
   {"stat64",                  mint_stat64,                     1, OpExposed},
   {"lstat64",                 mint_lstat64,                    1, OpExposed},
   {"fstat64",                 mint_fstat64,                    1, OpExposed},
@@ -2479,33 +2479,30 @@ OP(mint_lseek)
 /* ARGSUSED */
 OP(mint_access)
 {
-         int r4, r5;
-    int err;
-
+  MintFuncArgs args(pthread, picode);
+  VAddr namePtr = args.getVAddr();
+  int   amode   = args.getInt32();
+  int err;
+  
 #ifdef DEBUG_VERBOSE
-    printf("mint_access()\n");
+  printf("mint_access()\n");
 #endif
-    r4 = REGNUM(4);
-    r5 = REGNUM(5);
-
-    // r4 = pthread->virt2real(r4);
-
-#ifdef TASKSCALAR
-    {
-      char cad1[100];
-
-      rsesc_OS_read_string(pthread->getPid(), picode->addr, cad1, REGNUM(4), 100);
-      
-      err = access((const char *) cad1, r5);
-    }
+  
+#if (defined TLS) || (defined TASKSCALAR)
+  {
+    char tmpBuf[2048];
+    rsesc_OS_read_string(pthread->getPid(), picode->addr,
+			 tmpBuf, namePtr, sizeof(tmpBuf));
+    err = access(tmpBuf,amode);
+  }
 #else
-    err = access((const char *) pthread->virt2real(r4), r5);
+  err = access((const char *)pthread->virt2real(namePtr),amode);
 #endif
-
-    pthread->setRetVal(err);
-    if (err == -1)
-        pthread->setperrno(errno);
-    return pthread->getRetIcode();
+  
+  pthread->setRetVal(err);
+  if (err == -1)
+    pthread->setperrno(errno);
+  return pthread->getRetIcode();
 }
 
 /* ARGSUSED */
@@ -2527,13 +2524,14 @@ OP(mint_stat)
   {
     struct glibc_stat32 stat32p;
     struct stat stat_native;
-    char tmpbuff[2048];
+    char tmpBuf[2048];
       
-    rsesc_OS_read_string(pthread->getPid(), picode->addr, tmpbuff, namePtr, 2048);
+    rsesc_OS_read_string(pthread->getPid(), picode->addr,
+			 tmpBuf, namePtr, sizeof(tmpBuf));
 
-    err = stat(tmpbuff, &stat_native);
+    err = stat(tmpBuf, &stat_native);
     conv_stat32_native2glibc(&stat_native, &stat32p);
-
+    
     rsesc_OS_write_block(pthread->getPid(), picode->addr, statPtr,
                          &stat32p, sizeof(struct glibc_stat32));
   }
