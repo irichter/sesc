@@ -139,6 +139,10 @@ void DMemRequest::create(DInst *dinst, GMemorySystem *gmem, MemOperation mop)
   r->dataReq = true;
   r->prefetch= false;
   r->priority = 0;
+  #ifdef TLS
+  	r->clearStall();
+  #endif
+ 
 
   int ph_addr = gmem->getMemoryOS()->TLBTranslate(old_addr);
   if (ph_addr == -1) {
@@ -203,7 +207,9 @@ void IMemRequest::create(DInst *dinst, GMemorySystem *gmem, IBucket *bb)
   r->dataReq = false;
   r->prefetch= false;
   r->priority= 0;
-
+  #ifdef TLS
+  	r->clearStall();
+  #endif
   int old_addr = dinst->getInst()->getAddr();
   int ph_addr = gmem->getMemoryOS()->ITLBTranslate(old_addr);
   if (ph_addr == -1) {
@@ -270,7 +276,9 @@ CBMemRequest *CBMemRequest::create(TimeDelta_t lat, MemObj *m
   r->prefetch= false;
 
   r->accessCB.schedule(lat);
-
+  #ifdef TLS
+  r->clearStall();
+  #endif
   return r;
 }
 

@@ -1087,6 +1087,7 @@ namespace tls{
   }
 
   void Epoch::retryAtomic(void){
+    printf("Retry squash\n");
     I(atmNestLevel==1);
     if(myState!=State::Atm){
       I(myAtomicSection==atmOmmitInstr);
@@ -1327,7 +1328,8 @@ namespace tls{
   }
 
   void Epoch::tryCommit(void){
-    I(myState!=State::Committed);
+     if(myState!=State::Committed)
+  		  I(myState!=State::Committed);
     I((myState==State::Completed)||(myState==State::GlobalSafe));
     if(myState!=State::Completed)
       return;
@@ -2462,6 +2464,25 @@ namespace tls{
     bufferBlockList.erase(block->bufferPos);
     bufferBlockMap.erase(baseAddr);
     delete block;
+    //BACKEND:If this was called by backend remove it from list
+
+//   	printf("myBlockRemovalRequests count after erase %u\n",myBlockRemovalRequests.size());
+    int blkCount = pendWb.count(baseAddr);
+    if (blkCount>0)
+    {
+    	printf("Clear address %ul\n",baseAddr);
+    	multimap<Address,CallbackBase *>::iterator iter;
+     	multimap<Address,CallbackBase *>::iterator lower;
+    	multimap<Address,CallbackBase *>::iterator upper;
+    	lower=pendWb.lower_bound(baseAddr);
+    	upper=pendWb.upper_bound(baseAddr);
+	    for (iter=lower;iter!=upper;iter++)
+	    {
+	    	iter->second->call();
+	    }
+	    pendWb.erase(baseAddr);
+    }
+    
     // If this was the last block in a committed epoch,
     // the epoch itself should also be destroyed
     if(bufferBlockList.empty()){
@@ -2477,7 +2498,9 @@ namespace tls{
   void Epoch::mergeBlock(Address baseAddr){
     I(myState>=State::LazyMerge);
     BufferBlockMap::iterator blockIt=bufferBlockMap.find(baseAddr);
-    I(blockIt!=bufferBlockMap.end());
+    //I(blockIt!=bufferBlockMap.end());
+    if(blockIt==bufferBlockMap.end())
+    	I(blockIt!=bufferBlockMap.end());
     I(blockIt->first==baseAddr);
     BufferBlock *block=blockIt->second;
     // If block already merged, do nothing
@@ -2516,20 +2539,53 @@ namespace tls{
   Epoch::EpochSet Epoch::pendingBlockRemovals;
   bool Epoch::blockRemovalEnabled=true;
 
-  void Epoch::requestBlockRemoval(Address blockAddr){
-    I(bufferBlockMap.find(blockAddr)!=bufferBlockMap.end());
+  bool Epoch::requestBlockRemoval(Address blockAddr){
+    if(bufferBlockMap.find(blockAddr)==bufferBlockMap.end())
+    	return true;
+   //I(bufferBlockMap.find(blockAddr)!=bufferBlockMap.end());
     I(myState!=State::ReqEagerMerge);
     if(blockRemovalEnabled){
       requestLazyMerge();
       if(myState>=State::LazyMerge){
         mergeBlock(blockAddr);
         eraseBlock(blockAddr);
-        return;
+        return true;
       }
     }
     myBlockRemovalRequests.insert(blockAddr);
     pendingBlockRemovals.insert(this);
+    return false;
   }
+  bool Epoch::requestBlockRemovalWB(Address blockAddr, CallbackBase *wcb){
+    if(bufferBlockMap.find(blockAddr)==bufferBlockMap.end())
+    	return true;
+   //I(bufferBlockMap.find(blockAddr)!=bufferBlockMap.end());
+    I(myState!=State::ReqEagerMerge);
+    if(blockRemovalEnabled){
+      requestLazyMerge();
+      if(myState>=State::LazyMerge){
+        mergeBlock(blockAddr);
+        eraseBlock(blockAddr);
+        return true;
+      }
+    }
+    //BACKEND:Add to que to sending up request later
+    //I(pendWb.find(mreq) == pendWb.end());
+
+  	std::pair <Address,CallbackBase *> p1 (blockAddr,wcb);
+  	//pendWb[blockAddr]=wcb;
+    pendWb.insert(p1);
+    //Add request only once
+    if (myBlockRemovalRequests.find(blockAddr)==myBlockRemovalRequests.end())
+    {
+    	myBlockRemovalRequests.insert(blockAddr);
+    	pendingBlockRemovals.insert(this);
+    	//printf("myBlockRemovalRequests count %u\n",myBlockRemovalRequests.size());
+    }
+    return false;
+  }
+  
+  
   size_t Epoch::requestAnyBlockRemoval(size_t count){
     if(bufferBlockList.empty())
       return count;

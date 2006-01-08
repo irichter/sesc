@@ -16,6 +16,8 @@
 #include <algorithm>
 #include "mintapi.h"
 #include "ThreadContext.h"
+#include "MemRequest.h"
+#include "callback.h"
 
 class SysCallLog : public std::list<SysCall *>{
  public:
@@ -411,7 +413,15 @@ namespace tls{
     static void staticConstructor(void);
     static void report(void);
     static void staticDestructor(void);
+	ClockValue getClock(void) { return myClock; }
+
   private:
+    //BACKEND: to stall memory request going up
+    typedef std::multimap<Address,CallbackBase *> PendWb;
+    PendWb pendWb;
+
+    
+    
 
     // True iff epochs from the same thread must actually execute in sequence
     static bool threadsSequential;
@@ -532,7 +542,7 @@ namespace tls{
     // Number of runtime clock adjustments in this epoch
     size_t runtimeClockAdjustments;
     
-    ClockValue getClock(void) const{ return myClock; }
+
     ClockValue getSyncClockDelta(void) const{
       return myThread->getSyncClockDelta();
     }
@@ -541,7 +551,7 @@ namespace tls{
     LClock     myLClock;
     ClockValue getCheckClock(void) const{ return myCheckClock; }
     
-    Checkpoint *myCheckpoint;
+    class Checkpoint *myCheckpoint;
 
     // Position of this epoch in the allEpochs list
     EpochList::iterator myAllEpochsPos;
@@ -594,6 +604,7 @@ namespace tls{
       bool lamaEmpty(void) const{ return lama.empty(); }
       bool runaEmpty(void) const{ return runa.empty(); }
       bool anomEmpty(void) const{ return anom.empty(); }
+ 
       void add(const RaceEntry &other){
 	race.add(other.race);
 	chka.add(other.chka);
@@ -919,6 +930,10 @@ namespace tls{
     void advanceClock(const Epoch *predEpoch,bool sync);
     
   public:
+	//BACKEND: getter/setter for callback
+	//void setCB(CallbackBase *wcb) {wbCb=wcb;}
+	//CallbackBase * getCB(){return wbCb;}
+	
     const VClock *getVClock(void) const{
       return myVClock;
     }
@@ -1406,9 +1421,14 @@ namespace tls{
     // Internal function.
     // Input:  The address of the block in baseAddr
     // Effect: If possible, merge the block and erase it
-    void requestBlockRemoval(Address baseAddr);
+    public:
+    bool requestBlockRemoval(Address baseAddr);
     // Requests removal of a given number of blocks
     // Returns the number of blocks that could not be removed
+    //class std::MemRequest;
+    bool requestBlockRemovalWB(Address baseAddr,  CallbackBase *wcb);
+    // Called by backend
+    private:
     size_t requestAnyBlockRemoval(size_t count);
     size_t requestOldBlockRemoval(size_t count);
     typedef std::set<Address> AddressSet;

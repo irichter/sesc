@@ -33,6 +33,13 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "DInst.h"
 #include "Message.h"
 
+#ifdef TLS 
+namespace tls{
+  class Epoch;
+  class CacheFlags;
+}
+#endif
+
 
 // Additional cache coherence state should not be
 // added here, but in a derived class 
@@ -106,6 +113,10 @@ class MemRequest {
 private:
   virtual void destroy() = 0;
 protected:
+ #ifdef TLS
+ 	bool wbstall;
+ 	bool stalledOnce;//This is required to ensure we missed atlest one goUp
+ #endif
 
   ID(static int numMemReqs;)
 
@@ -123,8 +134,14 @@ protected:
   MemObj *currentMemObj;
   PAddr  pAddr; // physical address
   MemOperation memOp;
-
-  int priority;
+#ifdef TLS
+  typedef std::vector<tls::CacheFlags *> VcacheFlags;
+  VcacheFlags vcacheFlags;
+  bool memAccess;
+  bool setOthersExposed;
+  bool clearOthersExposed;
+#endif
+ int priority;
 
   Time_t l2MissDetection;
 
@@ -167,7 +184,34 @@ public:
   ID(int id() const { return reqId; })
 
   MemOperation getMemOperation() const { return memOp; }
-
+//For Tls
+#ifdef TLS
+	void setCacheFlags(tls::CacheFlags *cf)
+	{
+		vcacheFlags.push_back(cf);
+		//printf("vector size %d\n",vcacheFlags.size());
+	}
+	void setMemAccess() {memAccess=true;}
+	void clearMemAccess(){memAccess=false;}
+    bool getMemAccess() {return memAccess;}
+    void setSetOthersExposed() {setOthersExposed=true;}
+    void clearSetOthersExposed() {setOthersExposed=false;}
+    bool getSetOthersExposed() {return setOthersExposed;}
+    void setClearOthersExposed() {clearOthersExposed=true;}
+    void clearClearOthersExposed() {clearOthersExposed=false;}
+    bool getClearOthersExposed() {return clearOthersExposed;} 
+    VcacheFlags * getVcacheFlags() {return &vcacheFlags;}
+   	void setStall() 
+   	{
+   		printf("Setting stall\n");
+   		wbstall=true;
+   		stalledOnce=false;
+   	}
+  	void clearStall() {
+  		wbstall=false;
+  		}
+  	bool isStalledOnce(){return stalledOnce;}
+ #endif
   //Call for WB cache BEFORE pushing next level
   void mutateWriteToRead() {
     if (memOp == MemWrite) {
@@ -217,6 +261,20 @@ public:
   void goDown(TimeDelta_t lat, MemObj *newMemObj) {
     memStack.push(currentMemObj);
     clockStack.push(globalClock);
+	#ifdef TLS
+		if(memOp==MemWrite)
+			I(memOp!=MemWrite);
+		//Clear stall flag 1st time request is sent down
+		if (memStack.size()==1)
+		{
+			if (wbstall==true)
+			{
+			clearStall();
+			I(0);
+			}
+		}
+			
+	#endif
 #ifdef SESC_SMP_DEBUG
     registerVisit(currentMemObj, "goDown", globalClock);
 #endif
@@ -237,7 +295,16 @@ public:
   bool isTopLevel() const { return memStack.empty();  }
 
   void goUp(TimeDelta_t lat) {
+   
     if (memStack.empty()) {
+      #ifdef TLS
+  		if (wbstall==true)
+  		{
+  			printf("Stalled %p\n",this);
+  			stalledOnce=true;
+  			return;
+  		}
+  	  #endif
       ack(lat);
       destroy();
       return;
