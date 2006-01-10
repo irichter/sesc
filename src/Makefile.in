@@ -19,9 +19,6 @@ SUBDIRS+=libapp
 ifdef SESC_SMP
 SUBDIRS+=libsmp
 endif
-ifdef SESC_DSM
-SUBDIRS+=libdsm
-endif
 ifdef TS_VMEM
 SUBDIRS+=libvmem
 endif
@@ -69,7 +66,7 @@ config.h: Make.defs
 
 ##############################################################################
 #rules for final sesc executables
-EXECS=sesc.tst sesc.mem sesc.ncc sesc.tls sesc.smp sesc.dsm 
+EXECS=sesc.tst sesc.mem sesc.ncc sesc.tls sesc.smp 
 ifdef SESC_THERM
 EXECS+= sesctherm
 endif
@@ -80,7 +77,6 @@ ifdef SESC_ENERGY
 TSTLIBS+=$(OBJ)/libpower.a
 endif
 NETLIBS =$(OBJ)/libnet.a 
-DSMLIBS =$(OBJ)/libdsm.a
 SMPLIBS =$(OBJ)/libsmp.a
 MEMLIBS =$(OBJ)/libmem.a 
 TLSLIBS =$(OBJ)/libvmem.a
@@ -103,7 +99,7 @@ sesc.tls: $(OBJ)/tls.o $(TLSLIBS) $(MEMLIBS) $(TSTLIBS)
 sesc.tls.condor: $(OBJ)/tls.o $(TLSLIBS) $(MEMLIBS) $(TSTLIBS) 
 	$(CONDORLD) $(LDFLAGS) -o $@ $^  $(LIBS) $(STDLIBS)
 
-sesc.dsm: $(OBJ)/dsm.o $(DSMLIBS) $(SMPLIBS) $(MEMLIBS) $(TSTLIBS)
+sesc.smp: $(OBJ)/smp.o $(SMPLIBS) $(MEMLIBS) $(TSTLIBS)
 	$(CXX) $(LDFLAGS) -o $@ $^ $(LIBS) $(STDLIBS)
 
 sesc.smp.condor: $(OBJ)/smp.o $(SMPLIBS) $(MEMLIBS) $(TSTLIBS)
@@ -260,7 +256,7 @@ eclean: sharedclean
 
 edistclean:
 	-@rm -f config.status config.log cactify wattchify  panalyze sescspot sesctherm
-	-@rm -f config.h Make.defs Makefile sesc.mem sesc.tls sesc.smp sesc.dsm
+	-@rm -f config.h Make.defs Makefile sesc.mem sesc.tls sesc.smp
 	-@rm -rf obj
 
 size:
