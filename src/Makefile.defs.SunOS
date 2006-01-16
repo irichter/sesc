@@ -25,10 +25,10 @@ CXX     =CC
 CC      =cc
 ifdef DEBUG
 COPTS   :=-library=stlport4 -g $(PDEFS)
-LOPTS   :=-library=stlport4 -g
+LOPTS   :=-library=stlport4 -g 
 else
-COPTS   :=-xO2 -library=stlport4 -g $(PDEFS)
-LOPTS   :=-xO2 -library=stlport4 -g
+COPTS   :=-O -library=stlport4 -g $(PDEFS)
+LOPTS   :=-O -library=stlport4 -g
 endif
 else
 ##############

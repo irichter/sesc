@@ -436,8 +436,9 @@ void DInst::destroy()
 
   awakeRemoteInstructions();
 
-  GLOG(first != 0,"Instruction pc=0x%x failed first is pc=0x%x",(int)inst->getAddr(),(int)first->getDInst()->inst->getAddr());
   I(first == 0);   // no dependent instructions 
+  if (first)
+    LOG("Instruction pc=0x%x failed first is pc=0x%x",(int)inst->getAddr(),(int)first->getDInst()->inst->getAddr());
 
   scrap();
 }

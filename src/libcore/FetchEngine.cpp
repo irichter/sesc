@@ -84,9 +84,9 @@ FetchEngine::FetchEngine(int cId
   const char *bpredSection = SescConf->getCharPtr("cpucore","bpred",cId);
   
   if( fe )
-    bpred = new BPredictor(i,bpredSection,fe->bpred);
+    bpred = new BPredictor(i, FetchWidth, bpredSection, fe->bpred);
   else
-    bpred = new BPredictor(i,bpredSection);
+    bpred = new BPredictor(i, FetchWidth, bpredSection);
 
   SescConf->isInt(bpredSection, "BTACDelay");
   SescConf->isBetween(bpredSection, "BTACDelay", 0, 1024);

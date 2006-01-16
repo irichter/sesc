@@ -222,6 +222,10 @@ ifdef SESC_THERM
 DEFS += -DSESC_THERM
 endif
 
+ifdef SESC_SESCTHERM
+DEFS += -DSESC_SESCTHERM
+endif
+
 ################################################
 # Optimized Inorder Pipeline
 ifdef SESC_INORDER

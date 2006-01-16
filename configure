@@ -273,7 +273,7 @@ PACKAGE_VERSION='2'
 PACKAGE_STRING='esesc 2'
 PACKAGE_BUGREPORT='renau@soe.ucsc.edu luisceze@cs.uiuc.edu'
 
-ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS $1_OPT BUILD_DIR SRC_DIR TOPSRC_DIR DEFEXEC DEFCONF TASKSCALAR_OPT VALUEPRED_OPT SESC_ENERGY_OPT SESC_THERM_OPT SESC_MISPATH_OPT TS_VMEM_OPT DEBUG_OPT DEBUG_SILENT_OPT DIRECTORY_OPT TS_PROFILING_OPT TS_RISKLOADPROF_OPT NO_MERGELAST_OPT NO_MERGENEXT_OPT SESC_SMP_OPT SESC_SMP_DEBUG_OPT SESC_CHERRY_OPT SESC_SEED_OPT SESC_BAAD_OPT SESC_INORDER_OPT CONDOR_LINK_OPT LIBOBJS LTLIBOBJS'
+ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS $1_OPT BUILD_DIR SRC_DIR TOPSRC_DIR DEFEXEC DEFCONF TASKSCALAR_OPT VALUEPRED_OPT SESC_ENERGY_OPT SESC_SESCTHERM_OPT SESC_THERM_OPT SESC_MISPATH_OPT TS_VMEM_OPT DEBUG_OPT DEBUG_SILENT_OPT DIRECTORY_OPT TS_PROFILING_OPT TS_RISKLOADPROF_OPT NO_MERGELAST_OPT NO_MERGENEXT_OPT SESC_SMP_OPT SESC_SMP_DEBUG_OPT SESC_CHERRY_OPT SESC_SEED_OPT SESC_BAAD_OPT SESC_INORDER_OPT CONDOR_LINK_OPT LIBOBJS LTLIBOBJS'
 ac_subst_files=''
 
 # Initialize some variables set by options.
@@ -788,7 +788,8 @@ Optional Features:
   --enable-FEATURE[=ARG]  include FEATURE [ARG=yes]
   --enable-taskscalar     Enable TaskScalar TLS support (default is no)
   --enable-power          Enable power model (default is no)
-  --enable-therm          Enable thermal model (default is no)
+  --enable-therm          Enable therm model (sescspot only) (default is no)
+  --enable-sesctherm      Enable SESCTherm model (default is no)
   --enable-mispath        Enable simulation of wrong-path instructions
                           (default is no)
   --enable-debug          Enabes assertions and LOG messages (default is no)
@@ -1269,9 +1270,9 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 BUILD_DIR=`pwd`
 
-SRC_DIR=`pwd`/$srcdir/src
+SRC_DIR=$srcdir/src
 
-TOPSRC_DIR=`pwd`/$srcdir
+TOPSRC_DIR=$srcdir
 
 
                     ac_config_files="$ac_config_files Makefile:src/Makefile.in Make.defs:src/Make.defs.in"
@@ -1287,7 +1288,7 @@ DEFCONF=mem.conf
 
 
 
-# added 12/05/04 DVDB
+
 
 
 
@@ -1338,7 +1339,7 @@ if test "${enable_power+set}" = set; then
  fi
 fi;
 
-###SESC_THERM added 12/05/04 DVDB
+###SESC_THERM
 
 SESC_THERM_OPT=#SESC_THERM=1
 
@@ -1346,6 +1347,20 @@ SESC_THERM_OPT=#SESC_THERM=1
 if test "${enable_therm+set}" = set; then
   enableval="$enable_therm"
   if test "$enableval" = "yes"; then SESC_THERM_OPT=SESC_THERM=1
+ SESC_ENERGY_OPT=SESC_ENERGY=1
+ fi
+fi;
+
+###SESC_SESCTHERM  (sescspot & sesctherm)
+
+SESC_SESCTHERM_OPT=#SESC_SESCTHERM=1
+
+# Check whether --enable-sesctherm or --disable-sesctherm was given.
+if test "${enable_sesctherm+set}" = set; then
+  enableval="$enable_sesctherm"
+  if test "$enableval" = "yes"; then SESC_SESCTHERM_OPT=SESC_SESCTHERM=1
+ SESC_THERM_OPT=SESC_THERM=1
+ SESC_ENERGY_OPT=SESC_ENERGY=1
  fi
 fi;
 
@@ -2182,6 +2197,7 @@ s,@DEFCONF@,$DEFCONF,;t t
 s,@TASKSCALAR_OPT@,$TASKSCALAR_OPT,;t t
 s,@VALUEPRED_OPT@,$VALUEPRED_OPT,;t t
 s,@SESC_ENERGY_OPT@,$SESC_ENERGY_OPT,;t t
+s,@SESC_SESCTHERM_OPT@,$SESC_SESCTHERM_OPT,;t t
 s,@SESC_THERM_OPT@,$SESC_THERM_OPT,;t t
 s,@SESC_MISPATH_OPT@,$SESC_MISPATH_OPT,;t t
 s,@TS_VMEM_OPT@,$TS_VMEM_OPT,;t t

@@ -27,7 +27,10 @@ SUBDIRS+=libpower
 VPATH += $(SRC_DIR)/libpower/cacti $(SRC_DIR)/libpower/wattch $(SRC_DIR)/libpower/panalyzer
 endif
 ifdef SESC_THERM
-SUBDIRS+=libsescspot libsesctherm
+SUBDIRS+=libsescspot
+endif
+ifdef SESC_SESCTHERM
+SUBDIRS+=libsesctherm
 endif
 
 
@@ -67,7 +70,7 @@ config.h: Make.defs
 ##############################################################################
 #rules for final sesc executables
 EXECS=sesc.tst sesc.mem sesc.ncc sesc.tls sesc.smp 
-ifdef SESC_THERM
+ifdef SESC_SESCTHERM
 EXECS+= sesctherm
 endif
 
@@ -173,7 +176,9 @@ sescspot.sspot: $(TOPSRC_DIR)/confs/ev6.sspot
 sescspot.flp: $(TOPSRC_DIR)/confs/ev6.flp
 	@echo; echo "Generating EV6 $@ from: $(TOPSRC_DIR)/confs"
 	$(CP) $(TOPSRC_DIR)/confs/ev6.flp sescspot.flp
+endif
 
+ifdef SESC_SESCTHERM
 sesctherm: $(OBJ)/libsesctherm.a $(OBJ)/libsuc.a
 	$(CXX) $(CFLAGS) -o $@ $(OBJ)/sesctherm.o $(OBJ)/libsesctherm.a $(OBJ)/libsuc.a $(STDLIBS) 
 

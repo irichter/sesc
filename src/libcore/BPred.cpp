@@ -23,6 +23,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include <string.h>
 #include <strings.h>
 #include <math.h>
+#include <alloca.h>
 
 #include "ReportGen.h"
 #include "BPred.h"
@@ -37,21 +38,32 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  * BPred
  */
 
-BPred::BPred(int i, const char *s, const char *n)
+BPred::BPred(int i, int fetchWidth, const char *sec, const char *name)
   :id(i)
-   ,nHit("BPred(%d)_%s:nHit",i,n)
-   ,nMiss("BPred(%d)_%s:nMiss",i,n)
+   ,nHit("BPred(%d)_%s:nHit",i,name)
+   ,nMiss("BPred(%d)_%s:nMiss",i,name)
 {
-  if (strstr(n,"RAS") || strstr(n,"BTB"))
-    return; // RAS and BTB have their own energy counters (do not
-            // replicate counters)
+  // bpred4CycleAddrShift
+  if (SescConf->checkInt(sec, "bpred4Cycle")) {
+    SescConf->isPower2(sec, "bpred4Cycle");
+    SescConf->isBetween(sec, "bpred4Cycle", 1, fetchWidth);
+    bpred4Cycle = SescConf->getInt(sec, "bpred4Cycle");
+  }else{
+    bpred4Cycle = fetchWidth;
+  }
+  bpred4CycleAddrShift = log2i(fetchWidth/bpred4Cycle);
+  I(bpred4CycleAddrShift>=0 && bpred4CycleAddrShift<=log2i(fetchWidth));
 
-  char cadena[100];
-  
-  sprintf(cadena, "BPred(%d)_%s",i,n);
-  bpredEnergy = new GStatsEnergy("bpredEnergy", cadena, i, FetchPower, EnergyMgr::get("bpredEnergy",i));
-  
-  // Done
+  // Energy counters
+  if (strstr(name,"RAS")==0 && strstr(name,"BTB")==0) {
+    // RAS and BTB have their own energy counters (do not replicate counters)
+
+    char cadena[100];
+    
+    sprintf(cadena, "BPred(%d)_%s",i,name);
+    bpredEnergy = new GStatsEnergy("bpredEnergy", cadena, i, FetchPower, EnergyMgr::get("bpredEnergy",i));
+  }
+
 }
 
 BPred::~BPred()
@@ -61,8 +73,8 @@ BPred::~BPred()
 /*****************************************
  * RAS
  */
-BPRas::BPRas(int i, const char *section)
-  :BPred(i,section,"RAS")
+BPRas::BPRas(int i, int fetchWidth, const char *section)
+  :BPred(i, fetchWidth, section,"RAS")
    ,RasSize(SescConf->getInt(section,"rasSize"))
 {
   char cadena[100];
@@ -142,8 +154,8 @@ void BPRas::switchOut(Pid_t pid)
 /*****************************************
  * BTB
  */
-BPBTB::BPBTB(int i, const char *section, const char *name)
-  :BPred(i,section, name ? name : "BTB")
+BPBTB::BPBTB(int i, int fetchWidth,const char *section, const char *name)
+  :BPred(i, fetchWidth, section, name ? name : "BTB")
 {
   char cadena[100];
   
@@ -352,9 +364,9 @@ void BPStatic::switchOut(Pid_t pid)
  * BP2bit
  */
 
-BP2bit::BP2bit(int i, const char *section)
-  :BPred(i,section,"2bit")
-  ,btb(i,  section)
+BP2bit::BP2bit(int i, int fetchWidth, const char *section)
+  :BPred(i, fetchWidth, section, "2bit")
+  ,btb(  i, fetchWidth, section)
   ,table(i,section
          ,SescConf->getInt(section,"size")
          ,SescConf->getInt(section,"bits"))
@@ -407,9 +419,9 @@ void BP2bit::switchOut(Pid_t pid)
  * BP2level
  */
 
-BP2level::BP2level(int i, const char *section)
-  :BPred(i,section,"2level")
-   ,btb(i, section)
+BP2level::BP2level(int i, int fetchWidth, const char *section)
+  :BPred(i, fetchWidth, section,"2level")
+   ,btb( i, fetchWidth, section)
    ,l1Size(SescConf->getInt(section,"l1Size"))
    ,l1SizeMask(l1Size - 1)
    ,historySize(SescConf->getInt(section,"historySize"))
@@ -501,9 +513,9 @@ void BP2level::switchOut(Pid_t pid)
  * BPHybid
  */
 
-BPHybrid::BPHybrid(int i, const char *section)
-  :BPred(i,section,"Hybrid")
-  ,btb(i, section)
+BPHybrid::BPHybrid(int i, int fetchWidth, const char *section)
+  :BPred(i, fetchWidth, section,"Hybrid")
+  ,btb(  i, fetchWidth, section)
    ,historySize(SescConf->getInt(section,"historySize"))
    ,historyMask((1 << historySize) - 1)
    ,globalTable(i,section
@@ -624,9 +636,9 @@ void BPHybrid::switchOut(Pid_t pid)
  * A. Seznec, S. Felix, V. Krishnan, Y. Sazeides
  */
 
-BP2BcgSkew::BP2BcgSkew(int i, const char *section)
-  : BPred(i,section,"2BcgSkew")
-  ,btb(i, section)
+BP2BcgSkew::BP2BcgSkew(int i, int fetchWidth, const char *section)
+  : BPred(i, fetchWidth, section,"2BcgSkew")
+  ,btb(   i, fetchWidth, section)
   ,BIM(i,section,SescConf->getInt(section,"BIMSize"))
   ,G0(i,section,SescConf->getInt(section,"G0Size"))
   ,G0HistorySize(SescConf->getInt(section,"G0HistorySize"))
@@ -797,9 +809,9 @@ void BP2BcgSkew::switchOut(Pid_t pid)
  *
  */
 
-BPyags::BPyags(int i, const char *section)
-  :BPred(i,section,"yags")
-  ,btb(i,  section)
+BPyags::BPyags(int i, int fetchWidth, const char *section)
+  :BPred(i, fetchWidth, section, "yags")
+  ,btb(  i, fetchWidth, section)
   ,historySize(24)
   ,historyMask((1 << 24) - 1)
   ,table(i,section
@@ -942,9 +954,9 @@ void BPyags::switchOut(Pid_t pid)
  * 
  */
  
-BPOgehl::BPOgehl(int i, const char *section)
-  :BPred(i,section,"ogehl")
-  ,btb(i,section)
+BPOgehl::BPOgehl(int i, int fetchWidth,const char *section)
+  :BPred(i, fetchWidth, section, "ogehl")
+  ,btb(  i, fetchWidth, section)
   ,M_SIZ(SescConf->getInt(section,"mtables"))
   ,glength(200)
   ,nentry(3)
@@ -1012,7 +1024,7 @@ PredType BPOgehl::predict(const Instruction *inst, InstID oracleID, bool doUpdat
   bool ptaken = false;
 
   int S = (M_SIZ/2);
-  HistoryType iID[M_SIZ];
+  HistoryType *iID = (HistoryType *)alloca(M_SIZ*sizeof(HistoryType));
 
   // Prediction is sum of entries in M tables (table 1 is half-size to fit in 64k)
   for (int i = 0; i < M_SIZ; i++) {
@@ -1193,33 +1205,33 @@ void BPOgehl::switchOut(Pid_t pid)
  */
 
 
-BPred *BPredictor::getBPred(int id, const char *sec)
+BPred *BPredictor::getBPred(int id, int fetchWidth, const char *sec)
 {
-  BPred *pred;
+  BPred *pred=0;
   
   const char *type = SescConf->getCharPtr(sec, "type");
 
   // Normal Predictor
   if (strcasecmp(type, "oracle") == 0) {
-    pred = new BPOracle(id, sec);
+    pred = new BPOracle(id, fetchWidth, sec);
   } else if (strcasecmp(type, "NotTaken") == 0) {
-    pred = new BPNotTaken(id, sec);
+    pred = new BPNotTaken(id, fetchWidth, sec);
   } else if (strcasecmp(type, "Taken") == 0) {
-    pred = new BPTaken(id, sec);
+    pred = new BPTaken(id, fetchWidth, sec);
   } else if (strcasecmp(type, "2bit") == 0) {
-    pred = new BP2bit(id, sec);
+    pred = new BP2bit(id, fetchWidth, sec);
   } else if (strcasecmp(type, "2level") == 0) {
-    pred = new BP2level(id, sec);
+    pred = new BP2level(id, fetchWidth, sec);
   } else if (strcasecmp(type, "Static") == 0) {
-    pred = new BPStatic(id, sec);
+    pred = new BPStatic(id, fetchWidth, sec);
   } else if (strcasecmp(type, "2BcgSkew") == 0) {
-    pred = new BP2BcgSkew(id, sec);
+    pred = new BP2BcgSkew(id, fetchWidth, sec);
   } else if (strcasecmp(type, "Hybrid") == 0) {
-    pred = new BPHybrid(id, sec);
+    pred = new BPHybrid(id, fetchWidth, sec);
   } else if (strcasecmp(type, "yags") == 0) {
-    pred = new BPyags(id, sec);
+    pred = new BPyags(id, fetchWidth, sec);
   } else if (strcasecmp(type, "ogehl") == 0) {
-    pred = new BPOgehl(id, sec);
+    pred = new BPOgehl(id, fetchWidth, sec);
   } else {
     MSG("BPredictor::BPredictor Invalid branch predictor type [%s] in section [%s]", type,sec);
     exit(0);
@@ -1229,23 +1241,21 @@ BPred *BPredictor::getBPred(int id, const char *sec)
   return pred;
 }
 
-BPredictor::BPredictor(int i, const char *sec, BPredictor *bpred)
+BPredictor::BPredictor(int i, int fetchWidth, const char *sec, BPredictor *bpred)
   :id(i)
-   ,SMTcopy(bpred == 0 ? false : true)
-   ,ras(i, sec)
-   ,nBranches("BPred(%d):nBranches", i)
-   ,nTaken("BPred(%d):nTaken", i)
-   ,nMiss("BPred(%d):nMiss", i)
-   ,section(strdup(sec ? sec : "null" ))
+  ,SMTcopy(bpred != 0)
+  ,ras(i, fetchWidth, sec)
+  ,nBranches("BPred(%d):nBranches", i)
+  ,nTaken("BPred(%d):nTaken", i)
+  ,nMiss("BPred(%d):nMiss", i)
+  ,section(strdup(sec ? sec : "null" ))
 {
-  // Threads in SMT system share the predictor. Only the Ras is
-  // duplicated
 
+  // Threads in SMT system share the predictor. Only the Ras is duplicated
   if (bpred)
     pred = bpred->pred;
   else
-    pred = getBPred(id, section);
-    
+    pred = getBPred(id, fetchWidth, section);
 }
 
 BPredictor::~BPredictor()

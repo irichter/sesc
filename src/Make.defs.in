@@ -19,8 +19,8 @@ CP=cp
 #path variables
 
 BUILD_DIR =@BUILD_DIR@
-SRC_DIR   =@SRC_DIR@
-TOPSRC_DIR=@TOPSRC_DIR@
+SRC_DIR   =@BUILD_DIR@/@SRC_DIR@
+TOPSRC_DIR=@BUILD_DIR@/@TOPSRC_DIR@
 OBJ_DIR   =$(BUILD_DIR)/obj
 
 #trick for having all the .depend files in the same directory
@@ -49,6 +49,7 @@ DEFS = @DEFS@
 @SESC_SEED_OPT@
 @SESC_BAAD_OPT@
 @SESC_INORDER_OPT@
+@SESC_SESCTHERM_OPT@
 @SESC_THERM_OPT@
 @CONDOR_LINK_OPT@
 
