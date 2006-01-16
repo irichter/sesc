@@ -242,8 +242,8 @@ void NoGCCGLOG(int g,
                const char *format,
                ...);
 
-#define LOG         NoGCCLOG
-#define GLOG        NoGCCGLOG
+#define LOG         NoGCCMSG
+#define GLOG        NoGCCGMSG
 #endif   /* __GNUC__ */
 
 #endif   /* DEBUG */

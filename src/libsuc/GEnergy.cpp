@@ -82,6 +82,17 @@ void GStatsEnergy::setupDump(int procId)
     
     ReportTherm::field("%s\t", e->name);
   }
+  ReportTherm::field("\n");
+#if 0
+  for (size_t i = 0; i < eProcStore[procId].size(); i++) {
+    GStatsEnergy *e = eProcStore[procId][i];
+
+    e->inc(); // charge unit energy to compute power densities
+    double pwr = EnergyMgr::etop(e->getDouble());
+    ReportTherm::field("%g\t", pwr);
+  }
+  ReportTherm::field("\n");
+#endif
 }
 
 void GStatsEnergy::printDump(int procId) 

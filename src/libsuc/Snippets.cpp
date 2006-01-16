@@ -30,8 +30,11 @@ short log2i(unsigned int n)
   ulong m = 1;
   ulong i = 0;
 
+  if (n==1)
+    return 0;
+
   //assume integer power of 2
-  GI(n!=1,(n & (n - 1)) == 0);
+  I((n & (n - 1)) == 0);
 
   while(m<n) { 
     i++; 

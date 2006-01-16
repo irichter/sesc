@@ -67,7 +67,6 @@ void ReportTherm::report()
 {
   if (rep == 0) {
     GStatsEnergy::setupDump(0);
-    ReportTherm::field("\n");
     ReportTherm::flush();
     rep = 1;
   }

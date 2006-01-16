@@ -30,7 +30,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "xcacti_def.h"
 #include "xcacti_area.h"
 
-#ifdef SESC_THERM
+#ifdef SESC_SESCTHERM
 #include "ThermTrace.h"
 
 ThermTrace  *sescTherm=0;
@@ -90,7 +90,7 @@ int getInstQueueSize(const char* proc)
   return total/num;
 }
 
-#ifdef SESC_THERM
+#ifdef SESC_SESCTHERM
 static void update_layout_bank(const char *blockName, xcacti_flp *xflp, const ThermTrace::FLPUnit *flp) {
 
   double dx;
@@ -120,7 +120,6 @@ static void update_layout_bank(const char *blockName, xcacti_flp *xflp, const Th
     // Only if bankCtrl consumes energy
     sprintf(cadena, "%sBankCtrl %g %g %g %g", blockName, flp->delta_x, dy, flp->x, flp->y);
     SescConf->updateRecord(flpSec, "blockDescr", strdup(cadena) , max);
-    max++;
     sprintf(cadena,"%sBankCtrlEnergy", blockName);
     SescConf->updateRecord(flpSec, "blockMatch", strdup(cadena) , max);
     max++;
@@ -140,7 +139,6 @@ static void update_layout_bank(const char *blockName, xcacti_flp *xflp, const Th
     // Only if tag consumes energy
     sprintf(cadena,"%sTagCtrl   %g %g %g %g", blockName, dx/3, dy, flp->x+dx/3, tag_end_y);
     SescConf->updateRecord(flpSec, "blockDescr", strdup(cadena) , max);
-    max++;
     sprintf(cadena,"%sTagCtrlEnergy", blockName);
     SescConf->updateRecord(flpSec, "blockMatch", strdup(cadena) , max);
     max++;
@@ -148,7 +146,6 @@ static void update_layout_bank(const char *blockName, xcacti_flp *xflp, const Th
 
   sprintf(cadena,"%sDataCtrl  %g %g %g %g", blockName, (flp->delta_x-dx)/3, dy, flp->x+dx+(flp->delta_x-dx)/3, tag_end_y);
   SescConf->updateRecord(flpSec, "blockDescr", strdup(cadena) , max);
-  max++;
   sprintf(cadena,"%sDataCtrlEnergy", blockName);
   SescConf->updateRecord(flpSec, "blockMatch", strdup(cadena) , max);
   max++;
@@ -162,7 +159,6 @@ static void update_layout_bank(const char *blockName, xcacti_flp *xflp, const Th
     dx = flp->delta_x*(xflp->tag_array_a/a);
     sprintf(cadena, "%sTagArray  %g %g %g %g", blockName, dx, dy, flp->x, tag_start_y);
     SescConf->updateRecord(flpSec, "blockDescr", strdup(cadena) , max);
-    max++;
     sprintf(cadena,"%sTagArrayEnergy", blockName);
     SescConf->updateRecord(flpSec, "blockMatch", strdup(cadena) , max);
     max++;
@@ -172,7 +168,6 @@ static void update_layout_bank(const char *blockName, xcacti_flp *xflp, const Th
   dx = flp->delta_x*((xflp->decode_a)/a);
   sprintf(cadena, "%sDecode    %g %g %g %g", blockName, dx, dy, x, tag_start_y);
   SescConf->updateRecord(flpSec, "blockDescr", strdup(cadena) , max);
-  max++;
   sprintf(cadena,"%sDecodeEnergy", blockName);
   SescConf->updateRecord(flpSec, "blockMatch", strdup(cadena) , max);
   max++;
@@ -180,7 +175,6 @@ static void update_layout_bank(const char *blockName, xcacti_flp *xflp, const Th
   dx = flp->delta_x*((xflp->data_array_a)/a);
   sprintf(cadena, "%sDataArray %g %g %g %g", blockName, dx, dy, flp->x+flp->delta_x-dx, tag_start_y);
   SescConf->updateRecord(flpSec, "blockDescr", strdup(cadena) , max);
-  max++;
   sprintf(cadena,"%sDataArrayEnergy", blockName);
   SescConf->updateRecord(flpSec, "blockMatch", strdup(cadena) , max);
   max++;
@@ -220,7 +214,7 @@ static void update_sublayout(const char *blockName, xcacti_flp *xflp, const Ther
 
 void update_layout(const char *blockName, xcacti_flp *xflp) {
 
-#ifdef SESC_THERM
+#ifdef SESC_SESCTHERM
   const ThermTrace::FLPUnit *flp = sescTherm->findBlock(blockName);
   if (flp == 0) {
     MSG("Error: blockName[%s] not found in blockDescr",blockName);
@@ -271,7 +265,7 @@ void iterate()
         update_layout(blockName, &xflp);
       }
       
-#ifdef SESC_THERM2
+#ifdef SESC_SESCTHERM2
       // FIXME: partition energies per structure
 #else
       // write it
@@ -449,7 +443,7 @@ void processBranch(const char *proc)
 
     // 32 = 8bytes line * 4 predictions per byte (assume 2bit counter)
     bpred_power = getEnergy(size/32, 8, 1, 1, 1, 1, 0, 8, &xflp);
-#ifdef SESC_THERM
+#ifdef SESC_SESCTHERM
     // FIXME: update layout
 #endif
     size = SescConf->getInt(bpred,"metaSize");
@@ -463,7 +457,7 @@ void processBranch(const char *proc)
   }
 
   update_layout("BPred", &xflp);
-#ifdef SESC_THERM2
+#ifdef SESC_SESCTHERM2
   // FIXME: partition energies per structure
 #else
   SescConf->updateRecord(proc,"bpredEnergy",bpred_power) ;
@@ -476,7 +470,7 @@ void processBranch(const char *proc)
   if (btbSize) {
     btb_power = getEnergy(btbSize*8, 8, btbAssoc, 1, 0, 1, 1, 64, &xflp);
     update_layout("BTB", &xflp);
-#ifdef SESC_THERM2
+#ifdef SESC_SESCTHERM2
     // FIXME: partition energies per structure
 #else
     SescConf->updateRecord(proc,"btbEnergy",btb_power) ;
@@ -490,7 +484,7 @@ void processBranch(const char *proc)
   if (ras_size) {
     ras_power = getEnergy(ras_size*8, 8, 1, 1, 0, 1, 0, 64, &xflp);
     update_layout("RAS", &xflp);
-#ifdef SESC_THERM2
+#ifdef SESC_SESCTHERM2
     // FIXME: partition energies per structure
 #else
     SescConf->updateRecord(proc,"rasEnergy",ras_power) ;
@@ -547,7 +541,7 @@ void processorCore()
 
   update_layout("IntReg", &xflp);
   update_layout("FPReg" , &xflp); // FIXME: different energy for FP register
-#ifdef SESC_THERM2
+#ifdef SESC_SESCTHERM2
   // FIXME: partition energies per structure
 #else
   SescConf->updateRecord(proc,"wrRegEnergy",regEnergy);
@@ -567,7 +561,7 @@ void processorCore()
 
   regEnergy = getEnergy(size*2*bytes,2*bytes,size,rdPorts,wrPorts,banks,1, 2*bits, &xflp);
   update_layout("LDQ", &xflp);
-#ifdef SESC_THERM2
+#ifdef SESC_SESCTHERM2
   // FIXME: partition energies per structure
 #else
   SescConf->updateRecord(proc,"ldqRdWrEnergy",regEnergy);
@@ -579,7 +573,7 @@ void processorCore()
  
   regEnergy = getEnergy(size*4*bytes,4*bytes,size,rdPorts,wrPorts,banks,1, 2*bits, &xflp);
   update_layout("STQ", &xflp);
-#ifdef SESC_THERM2
+#ifdef SESC_SESCTHERM2
   // FIXME: partition energies per structure
 #else
   SescConf->updateRecord(proc,"stqRdWrEnergy",regEnergy);
@@ -598,7 +592,7 @@ void processorCore()
 
   SescConf->updateRecord(proc,"stqRdWrEnergyInOrder",regEnergy);
 
-#ifdef SESC_THERM
+#ifdef SESC_SESCTHERM
   I(0);
   exit(-1); // Not supported
 #endif
@@ -621,7 +615,7 @@ void processorCore()
 
   regEnergy = getEnergy(size*2,2*issueWidth,1,rdPorts,wrPorts,banks,0,16*issueWidth, &xflp);
   update_layout("ROB", &xflp);
-#ifdef SESC_THERM2
+#ifdef SESC_SESCTHERM2
   // FIXME: partition energies per structure
 #else
   SescConf->updateRecord(proc,"robEnergy",regEnergy);
@@ -641,7 +635,7 @@ void processorCore()
 
     regEnergy = getEnergy(size,1,1,rdPorts,wrPorts,banks,0,1, &xflp);
     update_layout("IntRAT", &xflp);
-#ifdef SESC_THERM
+#ifdef SESC_SESCTHERM
     // FIXME: partition energies per structure
 #endif
 
@@ -649,7 +643,7 @@ void processorCore()
 
     regEnergy += getEnergy(size,1,1,rdPorts/2+1,wrPorts/2+1,banks,0,1, &xflp);
     update_layout("FPRAT", &xflp);
-#ifdef SESC_THERM2
+#ifdef SESC_SESCTHERM2
     // FIXME: partition energies per structure
 #else
     // unified FP+Int RAT energy counter
@@ -709,7 +703,7 @@ void processorCore()
           const char *blockName = SescConf->getCharPtr(cluster,"blockName");
           update_layout(blockName, &xflp);
         }
-#ifdef SESC_THERM2
+#ifdef SESC_SESCTHERM2
         // FIXME: partition energies per structure
 #else
         // unified FP+Int RAT energy counter
@@ -720,7 +714,7 @@ void processorCore()
       }else{
         // SEED ISSUE LOGIC
 
-#ifdef SESC_THERM
+#ifdef SESC_SESCTHERM
         I(0);
         exit(-1); // Not supported
 #endif
@@ -783,7 +777,7 @@ void cacti_setup()
   fprintf(stderr, "tech : %9.0fnm\n" , tech);
   tech /= 1000;
 
-#ifdef SESC_THERM
+#ifdef SESC_SESCTHERM
   sescTherm = new ThermTrace(0); // No input trace, just read conf
 #endif
 

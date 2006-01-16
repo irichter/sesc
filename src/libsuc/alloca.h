@@ -23,12 +23,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define _AC_ALLOCA_H
 
 #ifdef SUNSTUDIO
-#include <sys/types.h>
-
-#define alloca(x)       __builtin_alloca(x)
-extern void *__builtin_alloca(size_t);
-extern void *alloca(size_t);
-
+#include "/usr/include/alloca.h"
 #elif (defined __GNUC__)
 #define alloca __builtin_alloca
 #elif (defined _AIX)
