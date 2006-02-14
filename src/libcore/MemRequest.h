@@ -34,10 +34,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "Message.h"
 
 #ifdef TLS 
-namespace tls{
-  class Epoch;
-  class CacheFlags;
-}
+#include "CacheFlags.h"
 #endif
 
 
@@ -116,6 +113,12 @@ protected:
  #ifdef TLS
  	bool wbstall;
  	bool stalledOnce;//This is required to ensure we missed atlest one goUp
+  	bool memAccess;
+ 	bool setOthersExposed;
+  	bool clearOthersExposed;
+
+ 	typedef std::vector<tls::CacheFlags> VcacheFlags;
+ 	VcacheFlags vcacheFlags;
  #endif
 
   ID(static int numMemReqs;)
@@ -134,13 +137,7 @@ protected:
   MemObj *currentMemObj;
   PAddr  pAddr; // physical address
   MemOperation memOp;
-#ifdef TLS
-  typedef std::vector<tls::CacheFlags *> VcacheFlags;
-  VcacheFlags vcacheFlags;
-  bool memAccess;
-  bool setOthersExposed;
-  bool clearOthersExposed;
-#endif
+
  int priority;
 
   Time_t l2MissDetection;
@@ -188,7 +185,8 @@ public:
 #ifdef TLS
 	void setCacheFlags(tls::CacheFlags *cf)
 	{
-		vcacheFlags.push_back(cf);
+		tls::CacheFlags cfcopy=*cf;
+		vcacheFlags.push_back(cfcopy);
 		//printf("vector size %d\n",vcacheFlags.size());
 	}
 	void setMemAccess() {memAccess=true;}

@@ -130,9 +130,10 @@ namespace tls{
   void Epoch::staticDestructor(void){
     BlockVersions::staticDestructor();
     I(numBegThread==numEndThread);
-    for(EpochList::iterator epochIt=allEpochs.begin();epochIt!=allEpochs.end();epochIt++){
-      I(0);
-      printf("Epoch %ld:%d still remains\n",(*epochIt)->myClock,(*epochIt)->getTid());
+    for(EpochList::reverse_iterator epochIt=allEpochs.rbegin();epochIt!=allEpochs.rend();epochIt++){
+      delete (*epochIt);
+      //I(0);
+      //printf("Epoch %ld:%d still remains\n",(*epochIt)->myClock,(*epochIt)->getTid());
     }
     Checkpoint::staticDestructor();
     VClock::staticDestructor();
@@ -1384,7 +1385,8 @@ namespace tls{
     I((destroyNow&&(pidToEpoch[myPidTmp]==this))||
       ((!destroyNow)&&((pidToEpoch[myPidTmp]==0)||(myState<State::LazyMerge)||(!bufferBlockList.empty()))));
     if(destroyNow)
-      delete this;
+    //Pevent block deletion, as backend pointers may still refer to the block
+    //delete this;
     advanceGlobalSafe();
   }
 
@@ -2488,7 +2490,8 @@ namespace tls{
     if(bufferBlockList.empty()){
       if(myState==State::Committed){
 	I(myState==State::NoWait);
-	delete this;
+	//Pevent block deletion, as backend pointers may still refer to the block
+	//delete this;
       }else if(myState==State::WaitFullyMerged){
 	becomeFullyMerged();
       }

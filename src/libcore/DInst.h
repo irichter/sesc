@@ -378,9 +378,9 @@ private:
   void addSrc2(DInst * d) {
     I(d->nDeps < MAX_PENDING_SOURCES);
     d->nDeps++;
-
+    #ifndef TLS
     I(!d->waitOnMemory); // pend[1] reused on memory ops. Not both! 
-
+    #endif
     DInstNext *n = &d->pend[1];
     I(!n->isUsed);
     n->isUsed = true;
@@ -399,9 +399,10 @@ private:
   void addFakeSrc(DInst * d) {
     I(d->nDeps < MAX_PENDING_SOURCES);
     d->nDeps++;
+    #ifndef TLS
     I(!d->waitOnMemory);
     d->waitOnMemory = true;
-
+    #endif
     DInstNext *n = &d->pend[1];
     I(!n->isUsed);
     n->isUsed = true;
