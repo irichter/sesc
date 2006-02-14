@@ -32,7 +32,9 @@ endif
 ifdef SESC_SESCTHERM
 SUBDIRS+=libsesctherm
 endif
-
+ifdef TLS
+SUBDIRS+=libtm
+endif
 
 ABSUBDIRS=$(addprefix $(SRC_DIR)/,$(SUBDIRS))
 
@@ -69,7 +71,7 @@ config.h: Make.defs
 
 ##############################################################################
 #rules for final sesc executables
-EXECS=sesc.tst sesc.mem sesc.ncc sesc.tls sesc.smp 
+EXECS=sesc.tst sesc.mem sesc.ncc sesc.tls sesc.smp sesc.tm 
 ifdef SESC_SESCTHERM
 EXECS+= sesctherm
 endif
@@ -83,6 +85,7 @@ NETLIBS =$(OBJ)/libnet.a
 SMPLIBS =$(OBJ)/libsmp.a
 MEMLIBS =$(OBJ)/libmem.a 
 TLSLIBS =$(OBJ)/libvmem.a
+TMLIBS  =$(OBJ)/libtm.a
 
 sesc.tst : $(OBJ)/main.o $(TSTLIBS)
 	$(CXX) $(LDFLAGS) -o $@  $^  $(LIBS) $(STDLIBS)
@@ -119,6 +122,13 @@ sesc.sta: $(OBJ)/sta.o $(TSTLIBS)
 
 sesc.sta.condor: $(OBJ)/sta.o $(TSTLIBS)
 	$(CONDORLD) $(LDFLAGS) -o $@ $^ $(LIBS) $(STDLIBS)
+
+sesc.tm: $(OBJ)/TMmain.o $(TMLIBS) $(MEMLIBS) $(TSTLIBS)
+	$(CXX) $(LDFLAGS) -o $@ $^ $(LIBS) $(STDLIBS)
+
+sesc.tm.condor: $(OBJ)/TMmain.o $(TMLIBS) $(MEMLIBS) $(TSTLIBS)
+	$(CONDORLD) $(LDFLAGS) -o $@ $^ $(LIBS) $(STDLIBS)
+
 
 ############ Simulator Benchmarking (bench the simulator, not the architecture)
 
