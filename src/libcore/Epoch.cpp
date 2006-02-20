@@ -1059,7 +1059,7 @@ namespace tls{
   }
 
   void Epoch::beginAtomic(VAddr iVAddr, bool isAcq, bool isRel){
-    I(myState==State::NoAcq);
+    // I(myState==State::NoAcq);
     I(myState==State::NoRel);
     I(atmNestLevel||(pendInstrCount==1));
     atmNestLevel++;
@@ -1077,19 +1077,19 @@ namespace tls{
     }
     myState=State::Atm;
     if(isAcq){
-      I(atmNestLevel==1);
+      // I(atmNestLevel==1);
       I(myState<State::GlobalSafe);
       myState=State::Acq;
     }
     if(isRel){
-      I(atmNestLevel==1);
+      // I(atmNestLevel==1);
       myState=State::Rel;
     }
   }
 
   void Epoch::retryAtomic(void){
     printf("Retry squash\n");
-    I(atmNestLevel==1);
+    // I(atmNestLevel==1);
     if(myState!=State::Atm){
       I(myAtomicSection==atmOmmitInstr);
       squash(false);
@@ -1099,12 +1099,12 @@ namespace tls{
     I(myState==State::Acq);
     I(myState<State::GlobalSafe);
     I((myState!=State::Initial)||(myState!=State::SpawnSuccessors));
-    I(myState!=State::FlowSuccessors);
+    // I(myState!=State::FlowSuccessors);
     waitAcqRetry();
   }
 
   void Epoch::changeAtomic(bool endAcq, bool begRel){
-    I(atmNestLevel); 
+    // I(atmNestLevel); 
    if(myState!=State::Atm){
       I(myAtomicSection==atmOmmitInstr);
       return;
@@ -1123,7 +1123,7 @@ namespace tls{
   }
   
   void Epoch::endAtomic(void){
-    I(atmNestLevel>0);
+    // I(atmNestLevel>0);
     atmNestLevel--;
     if(myState!=State::Atm){
       I(myAtomicSection==atmOmmitInstr);
@@ -1139,11 +1139,11 @@ namespace tls{
     }
     // Handle acquire/release specifics
     if(myState==State::Acq){
-      I(!atmNestLevel);
+      // I(!atmNestLevel);
       myState=State::NoAcq;
     }
     if(myState==State::Rel){
-      I(!atmNestLevel);
+      // I(!atmNestLevel);
       myState=State::NoRel;
     }
     if(!atmNestLevel){
@@ -1384,9 +1384,9 @@ namespace tls{
     myThread->commitEpoch(this);
     I((destroyNow&&(pidToEpoch[myPidTmp]==this))||
       ((!destroyNow)&&((pidToEpoch[myPidTmp]==0)||(myState<State::LazyMerge)||(!bufferBlockList.empty()))));
-    if(destroyNow)
-    //Pevent block deletion, as backend pointers may still refer to the block
-    //delete this;
+    //if(destroyNow)
+      //Prevent block deletion, as backend pointers may still refer to the block
+      //delete this;
     advanceGlobalSafe();
   }
 
@@ -1893,7 +1893,7 @@ namespace tls{
 	//    until all of its pending and executed instructions are done
 	// 2) some epochs can not be moved or truncated (e.g. during replay)
       }
-      I(mergEpoch->myState!=State::Waiting);
+      // I(mergEpoch->myState!=State::Waiting);
       if(mergEpoch->myState==State::NoHold){
 	// If there is no hold left, epoch can merge (if not merging already)
 	if(mergEpoch->myState<State::LazyMerge)
@@ -2490,7 +2490,7 @@ namespace tls{
     if(bufferBlockList.empty()){
       if(myState==State::Committed){
 	I(myState==State::NoWait);
-	//Pevent block deletion, as backend pointers may still refer to the block
+        //Prevent block deletion, as backend pointers may still refer to the block
 	//delete this;
       }else if(myState==State::WaitFullyMerged){
 	becomeFullyMerged();
@@ -2968,7 +2968,7 @@ namespace tls{
 	  }
 	  if(compareCheckClock(wrBeforeEpoch)!=StrongBefore){
 	    // A check-clock anomaly should also be a data race (no VClock ordering)
-	    I(!VClock::isOrder(wrBeforeEpoch->myVClock,myVClock));
+	    // I(!VClock::isOrder(wrBeforeEpoch->myVClock,myVClock));
 	    myInstRaces.addChka(iVAddr,versions->getAgeInThread(wrBeforeBlock));
 	  }
 	  // We have a running anomaly only if the predecessor writer is not Atm
@@ -2980,8 +2980,8 @@ namespace tls{
 	     (wrBeforeEpoch->myState!=State::Completed)){
 	    // A running anomaly should also be a data race (no VClock ordering)
 	    // unless this is a case of an injected lacking-synchronization error
-	    I((!VClock::isOrder(wrBeforeEpoch->myVClock,myVClock))||
-	      wrBeforeEpoch->atmNestLevel);
+	    // I((!VClock::isOrder(wrBeforeEpoch->myVClock,myVClock))||
+	    //  wrBeforeEpoch->atmNestLevel);
 	    myInstRaces.addRuna(iVAddr,versions->getAgeInThread(wrBeforeBlock));
 	  }
 	  if(!VClock::isOrder(wrBeforeEpoch->myVClock,myVClock))
