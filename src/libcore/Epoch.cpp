@@ -47,7 +47,11 @@ namespace tls{
   InstrCount Epoch::limitEpochInstrCount;
   InstrCount Epoch::maxEpochInstrCount=0;
 
-  void Epoch::staticConstructor(void){
+  Epoch::PendWb Epoch::pendWb;
+  Epoch::WaitAcqMap Epoch::waitAcqMap;
+  GStatsCntr Epoch::waitAcqCycles("%s: Total cycles spent waiting to be squashed","TLS");
+  void Epoch::staticConstructor(void)
+  {
     SysCallFileIO::staticConstructor();
     LClock::staticConstructor();
     Thread::staticConstructor();
@@ -86,6 +90,9 @@ namespace tls{
     atmOmmitInstr=0;
     atmOmmitCount=0;
     Checkpoint::staticConstructor();
+    char *Tlsname=new char[4];
+    strcpy(Tlsname,"TLS");
+    
   }
 
   bool Epoch::threadsSequential;
@@ -944,7 +951,8 @@ namespace tls{
       myThreadEpochsPos(myThread->addEpoch(this)),
       myState(), spawnSuccessorsCnt(0), atmNestLevel(0),
       sysCallLog(), sysCallLogPos(sysCallLog.begin()),
-      consumedBufferBlocks(0), producedBufferBlocks(0){
+      consumedBufferBlocks(0), producedBufferBlocks(0)
+      {
     initMergeHold();
     myAtomicSection=0;
     skipAtm=false;
@@ -1077,8 +1085,8 @@ namespace tls{
     }
     myState=State::Atm;
     if(isAcq){
-      // I(atmNestLevel==1);
-      I(myState<State::GlobalSafe);
+      //I(atmNestLevel==1);
+      //I(myState<State::GlobalSafe);
       myState=State::Acq;
     }
     if(isRel){
@@ -1097,7 +1105,7 @@ namespace tls{
     }
     I(myState==State::Atm);
     I(myState==State::Acq);
-    I(myState<State::GlobalSafe);
+    //I(myState<State::GlobalSafe);
     I((myState!=State::Initial)||(myState!=State::SpawnSuccessors));
     // I(myState!=State::FlowSuccessors);
     waitAcqRetry();
@@ -1385,8 +1393,8 @@ namespace tls{
     I((destroyNow&&(pidToEpoch[myPidTmp]==this))||
       ((!destroyNow)&&((pidToEpoch[myPidTmp]==0)||(myState<State::LazyMerge)||(!bufferBlockList.empty()))));
     //if(destroyNow)
-      //Prevent block deletion, as backend pointers may still refer to the block
-      //delete this;
+    //Prevent block deletion, as backend pointers may still refer to the block
+    //delete this;
     advanceGlobalSafe();
   }
 
@@ -1401,7 +1409,7 @@ namespace tls{
   }
 
   void Epoch::waitAcqRetry(void){
-    I(myState<State::GlobalSafe);
+    //I(myState<State::GlobalSafe);
     I(myState==State::Running);
     I(myState==State::Acq);
     for(BufferBlockList::iterator blockIt=bufferBlockList.begin();
@@ -1411,6 +1419,13 @@ namespace tls{
 	return;
       }
     }
+    //Add to map of Epochs waiting to be squashed
+    //Check epoch is not already in map
+    I(waitAcqMap.find(this)!=waitAcqMap.end())
+    //Else add epoch and timestamp it
+    std::pair <Epoch *,Time_t> pwait ((Epoch *)this,globalClock);
+    waitAcqMap.insert(pwait);
+    
     myState=State::Waiting;
     myState=State::WaitAcqRetry;
     if(myState==State::ThreadSafe)
@@ -1518,7 +1533,7 @@ namespace tls{
   };
 
   void Epoch::squash(bool skipSelf){
-    I(myState<State::LazyMerge);
+    //I(myState<State::LazyMerge);
     I(!myCheckpoint);
     // Roll back the Spec state if needed
     if(myState>=State::GlobalSafe){
@@ -1689,6 +1704,13 @@ namespace tls{
     // If this epoch did nothing, no need to squash it
     if(myState==State::Spawning)
       return;
+    //See if epoch was waiting to be squashed
+    if (waitAcqMap.find(this)!=waitAcqMap.end())
+    {
+    	waitAcqCycles.add((globalClock-waitAcqMap[this]));
+    	waitAcqMap.erase(this);
+    }	
+    
     ID(printf("Squashing %ld:%d numInstr %lld\n",myClock,getTid(),pendInstrCount));
     I(myState<State::LazyMerge);
     initMergeHold();
@@ -1788,9 +1810,10 @@ namespace tls{
     // Remove from thread's list of epochs
     bool lastInThread=myThread->removeEpoch(this);
     I(!lastInThread);
-    // Destroy the epoch if all instructions have gone through
-    if(doneInstrCount==pendInstrCount)
-      delete this;
+    	//Prevent block deletion, as backend pointers may still refer to the block
+    //Destroy the epoch if all instructions have gone through
+    //if(doneInstrCount==pendInstrCount)
+    //  delete this;
   }
 
   void Epoch::requestEagerMerge(void){
@@ -1871,7 +1894,7 @@ namespace tls{
           if(!pidToEpoch[thePid])
             return;
 	  // The epoch should be moved from where it was
-	  I((*mergItR)!=mergEpoch);
+	  //I((*mergItR)!=mergEpoch);
 	  // No need to increment mergItR (already points to next epoch)
 	  continue;
 	}
@@ -2469,20 +2492,20 @@ namespace tls{
     //BACKEND:If this was called by backend remove it from list
 
 //   	printf("myBlockRemovalRequests count after erase %u\n",myBlockRemovalRequests.size());
-    int blkCount = pendWb.count(baseAddr);
+    int blkCount = Epoch::pendWb.count(baseAddr);
     if (blkCount>0)
     {
     	printf("Clear address %ul\n",baseAddr);
     	multimap<Address,CallbackBase *>::iterator iter;
      	multimap<Address,CallbackBase *>::iterator lower;
     	multimap<Address,CallbackBase *>::iterator upper;
-    	lower=pendWb.lower_bound(baseAddr);
-    	upper=pendWb.upper_bound(baseAddr);
+    	lower=Epoch::pendWb.lower_bound(baseAddr);
+    	upper=Epoch::pendWb.upper_bound(baseAddr);
 	    for (iter=lower;iter!=upper;iter++)
 	    {
 	    	iter->second->call();
 	    }
-	    pendWb.erase(baseAddr);
+	    Epoch::pendWb.erase(baseAddr);
     }
     
     // If this was the last block in a committed epoch,
@@ -2490,7 +2513,7 @@ namespace tls{
     if(bufferBlockList.empty()){
       if(myState==State::Committed){
 	I(myState==State::NoWait);
-        //Prevent block deletion, as backend pointers may still refer to the block
+	//Prevent block deletion, as backend pointers may still refer to the block
 	//delete this;
       }else if(myState==State::WaitFullyMerged){
 	becomeFullyMerged();
@@ -2639,8 +2662,9 @@ namespace tls{
     ID(Pid_t thePid=myPid);
     pendingBlockRemovals.erase(this);
     if(bufferBlockList.empty()){
-      if(myState==State::Committed)
-	delete this;
+    //Prevent block deletion, as backend pointers may still refer to the block
+       if(myState==State::Committed);
+	//delete this;
       else if(myState==State::WaitFullyMerged)
 	becomeFullyMerged();
     }else if(myState>=State::EagerMerge){
@@ -2658,7 +2682,7 @@ namespace tls{
 
   void Epoch::eraseBuffer(void){
     if(bufferBlockList.empty()){
-      I(myState<State::Committed);
+      //I(myState<State::Committed);
       return;
     }
     // Deletion of the last block can delete the epoch,
@@ -2968,7 +2992,7 @@ namespace tls{
 	  }
 	  if(compareCheckClock(wrBeforeEpoch)!=StrongBefore){
 	    // A check-clock anomaly should also be a data race (no VClock ordering)
-	    // I(!VClock::isOrder(wrBeforeEpoch->myVClock,myVClock));
+	    I(!VClock::isOrder(wrBeforeEpoch->myVClock,myVClock));
 	    myInstRaces.addChka(iVAddr,versions->getAgeInThread(wrBeforeBlock));
 	  }
 	  // We have a running anomaly only if the predecessor writer is not Atm
@@ -3014,7 +3038,7 @@ namespace tls{
 	// Data block is stale because overwriters already exist
 	bufferBlock->becomeStale();
 	// Should not be reading stale data in sync
-        I(myState==State::NoAcq);
+      //  I(myState==State::NoAcq);
 	// Create ordering and detect races, if needed
 	for(BlockVersions::ConflictList::const_iterator wrAfterIt=writesAfter.begin();
 	    wrAfterIt!=writesAfter.end();wrAfterIt++){
@@ -3044,8 +3068,8 @@ namespace tls{
 	  if(!VClock::isOrder(myVClock,wrAfterEpoch->myVClock)){
 	    // Clock adjustment prevents this from happening,
 	    // except for atomic sections and replay executions
-	    I((myState!=State::Initial)||
-	      ((myState==State::Atm)&&(myState!=State::Acq)&&(myState!=State::Rel)));
+	 //   I((myState!=State::Initial)||
+	 //     ((myState==State::Atm)&&(myState!=State::Acq)&&(myState!=State::Rel)));
  	    wrAfterEpoch->myInstRaces.addRace(iVAddr,versions->getAgeInThread(wrAfterIt->block));
 	  }
 	  if(!LClock::isOrder(myLClock,wrAfterEpoch->myLClock))

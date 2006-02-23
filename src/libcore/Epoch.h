@@ -18,6 +18,7 @@
 #include "ThreadContext.h"
 #include "MemRequest.h"
 #include "callback.h"
+#include "GStats.h"
 
 class SysCallLog : public std::list<SysCall *>{
  public:
@@ -418,9 +419,11 @@ namespace tls{
   private:
     //BACKEND: to stall memory request going up
     typedef std::multimap<Address,CallbackBase *> PendWb;
-    PendWb pendWb;
-
-    
+    static PendWb pendWb;
+	//List of epoch that are waiting to be squashed (AnySync)
+	typedef std::map <Epoch *,Time_t> WaitAcqMap;
+	static WaitAcqMap  waitAcqMap;
+    static GStatsCntr waitAcqCycles;
     
 
     // True iff epochs from the same thread must actually execute in sequence
@@ -619,7 +622,7 @@ namespace tls{
 	chka.add(ageInfo);
       }
       void addLama(const std::pair<size_t,size_t> &ageInfo){
-        I(!race.empty());
+        //I(!race.empty());
 	lama.add(ageInfo);
       }
       void addRuna(const std::pair<size_t,size_t> &ageInfo){
@@ -1784,7 +1787,7 @@ namespace tls{
       I(doneInstrCount<=execInstrCount);
       doneInstrCount++;
       if((myState==State::WaitUnspawn)&&(doneInstrCount==pendInstrCount)){
-	delete this;
+	//delete this;
       }else if(myState==State::Completed){
 	tryCommit();
 	if(squashToTestRollback){
