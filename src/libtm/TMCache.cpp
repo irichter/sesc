@@ -28,8 +28,10 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "MESIProtocol.h"
 #include "Epoch.h"
 
-
- 
+//Transactions virtualization available
+#define TRANS_VERT 1 
+//Stall when insufficient space to buffer transaction
+//#define TRANS_STALL 0 
 
 
 
@@ -963,15 +965,26 @@ void SMPCache::doWriteBack(MemRequest *mreq)
  	 	protocol->sendWriteBack(mreq);
  	 	return;
    	}
-  	//Check if line is marked with a tag later than mreq tag. In this case ignore
-	if ((tid==mreq->getEpoch()->getTid()) &&(mreq->getEpoch()->getClock() < l->getEpoch()->getClock()))
-	{	
-		printf("Out of order Memory Tagging\n");
-  		commitResult= true;
-  	}
- 	else
-  		commitResult=l->getEpoch()->requestBlockRemovalWB(rpl_addr,doBlockRemovedCB::create(this, mreq));
-  commitResult=true;
+  	#ifdef TRANS_STALL
+	  	//Check if line is marked with a tag later than mreq tag. In this case ignore
+		if ((tid==mreq->getEpoch()->getTid()) &&(mreq->getEpoch()->getClock() < l->getEpoch()->getClock()))
+		{	
+			printf("Out of order Memory Tagging Request %d:%d, Line %d:%d\n",mreq->getEpoch()->getTid(),mreq->getEpoch()->getClock(),tid,l->getEpoch()->getClock());
+	  		commitResult= true;
+	  	}
+	 	else if ((tid==mreq->getEpoch()->getTid()) &&(mreq->getEpoch()->getClock() < l->getEpoch()->getClock()))
+	 	{
+	  		#ifdef TRANS_VIRT //if memory virtualization assumed
+	  			commitResult=true;
+	  		#else
+	  			commitResult=l->getEpoch()->requestBlockRemovalWB(rpl_addr,doBlockRemovedCB::create(this, mreq));
+	  		#endif
+	 	}
+	 	else
+		 	commitResult=l->getEpoch()->requestBlockRemovalWB(rpl_addr,doBlockRemovedCB::create(this, mreq));
+	#else
+	  commitResult=true;
+	#endif
   if (commitResult)
   {
   	writeBack.inc();

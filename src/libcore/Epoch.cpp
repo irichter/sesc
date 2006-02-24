@@ -1421,7 +1421,7 @@ namespace tls{
     }
     //Add to map of Epochs waiting to be squashed
     //Check epoch is not already in map
-    I(waitAcqMap.find(this)!=waitAcqMap.end())
+    I(waitAcqMap.find(this)==waitAcqMap.end());
     //Else add epoch and timestamp it
     std::pair <Epoch *,Time_t> pwait ((Epoch *)this,globalClock);
     waitAcqMap.insert(pwait);
