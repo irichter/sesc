@@ -313,7 +313,9 @@ public:
 #ifdef POOL_SIZE_CHECK
     psize++;
     if (psize>=warn_psize) {
-      I(0);
+      #ifndef TLS
+      	I(0);
+      #endif
       MSG("%s:pool class size grew to %lu", Name, psize);
       warn_psize=4*psize;
     }
