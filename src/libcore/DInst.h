@@ -396,11 +396,11 @@ private:
     last = n;
   }
 
-  void addFakeSrc(DInst * d) {
+  void addFakeSrc(DInst * d, bool requeue = false) {
     I(d->nDeps < MAX_PENDING_SOURCES);
     d->nDeps++;
     #ifndef TLS
-    I(!d->waitOnMemory);
+    GI(requeue == false, !d->waitOnMemory);
     d->waitOnMemory = true;
     #endif
     DInstNext *n = &d->pend[1];

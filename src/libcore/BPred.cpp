@@ -52,7 +52,8 @@ BPred::BPred(int i, int fetchWidth, const char *sec, const char *name)
     bpred4Cycle = fetchWidth;
   }
   bpred4CycleAddrShift = log2i(fetchWidth/bpred4Cycle);
-  I(bpred4CycleAddrShift>=0 && bpred4CycleAddrShift<=log2i(fetchWidth));
+  I(bpred4CycleAddrShift>=0 && 
+    (unsigned)bpred4CycleAddrShift<=roundUpPower2((unsigned)fetchWidth));
 
   // Energy counters
   if (strstr(name,"RAS")==0 && strstr(name,"BTB")==0) {
