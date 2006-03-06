@@ -36,6 +36,10 @@ protected:
 
   TimeDelta_t delay;
 
+#ifdef SESC_ENERGY
+  GStatsEnergy *busEnergy;
+#endif
+
   typedef HASH_MAP<MemRequest *, int, SMPMemReqHashFunc> PendReqsTable;
 
   PendReqsTable pendReqsTable;

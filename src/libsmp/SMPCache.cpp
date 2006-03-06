@@ -40,6 +40,10 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 MSHR<PAddr, SMPCache> *SMPCache::mutExclBuffer = NULL;
 
+#ifdef SESC_ENERGY
+unsigned SMPCache::cacheID = 0;
+#endif
+
 SMPCache::SMPCache(SMemorySystem *dms, const char *section, const char *name)
   : MemObj(section, name)
   , readHit("%s:readHit", name)
@@ -102,6 +106,31 @@ SMPCache::SMPCache(SMemorySystem *dms, const char *section, const char *name)
 
   SescConf->isInt(section, "missDelay");
   missDelay = SescConf->getInt(section, "missDelay");
+#ifdef SESC_ENERGY
+
+  myID = cacheID;
+  cacheID++;
+
+  rdEnergy[0] = new GStatsEnergy("rdHitEnergy",name
+				 ,myID
+				 ,MemPower
+				 ,EnergyMgr::get(section,"rdHitEnergy"));
+    
+  rdEnergy[1] = new GStatsEnergy("rdMissEnergy",name
+				 ,myID
+				 ,MemPower
+				 ,EnergyMgr::get(section,"rdMissEnergy"));
+
+  wrEnergy[0]  = new GStatsEnergy("wrHitEnergy",name
+				  ,myID
+				  ,MemPower
+				  ,EnergyMgr::get(section,"wrHitEnergy"));
+  
+  wrEnergy[1] = new GStatsEnergy("wrMissEnergy",name
+				 ,myID
+				 ,MemPower
+				 ,EnergyMgr::get(section,"wrMissEnergy"));
+#endif
 }
 
 SMPCache::~SMPCache() 
@@ -172,6 +201,9 @@ void SMPCache::doRead(MemRequest *mreq)
 
   if (l && l->canBeRead()) {
     readHit.inc();
+#ifdef SESC_ENERGY
+    rdEnergy[0]->inc();
+#endif    
     outsReq->retire(addr);
     mreq->goUp(hitDelay);
     return;
@@ -186,6 +218,9 @@ void SMPCache::doRead(MemRequest *mreq)
   GI(l, !l->isLocked());
 
   readMiss.inc(); 
+#ifdef SESC_ENERGY
+  rdEnergy[1]->inc();
+#endif
 
   if (!mutExclBuffer->issue(addr)) {
     mutExclBuffer->addEntry(addr, sendReadCB::create(this, mreq),
@@ -221,6 +256,9 @@ void SMPCache::doWrite(MemRequest *mreq)
 
   if (l && l->canBeWritten()) {
     writeHit.inc();
+#ifdef SESC_ENERGY
+    wrEnergy[0]->inc();
+#endif
     outsReq->retire(addr);
     mreq->goUp(hitDelay);  
     return;
@@ -246,6 +284,9 @@ void SMPCache::doWrite(MemRequest *mreq)
   }
 
   writeMiss.inc();
+#ifdef SESC_ENERGY
+  wrEnergy[1]->inc();
+#endif
 
   if (!mutExclBuffer->issue(addr)) {
     mutExclBuffer->addEntry(addr, sendWriteCB::create(this, mreq),

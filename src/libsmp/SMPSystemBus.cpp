@@ -47,6 +47,12 @@ SMPSystemBus::SMPSystemBus(SMemorySystem *dms, const char *section, const char *
   busPort = PortGeneric::create(portName, 
 				SescConf->getInt(section, "numPorts"), 
 				SescConf->getInt(section, "portOccp"));
+
+#ifdef SESC_ENERGY
+  busEnergy = new GStatsEnergy("busEnergy", "SMPSystemBus", 0,
+                               MemPower,
+                               EnergyMgr::get(section,"BusEnergy",0));
+#endif
 }
 
 SMPSystemBus::~SMPSystemBus() 
@@ -79,6 +85,10 @@ void SMPSystemBus::access(MemRequest *mreq)
        mreq->getMemOperation());
   
   I(mreq->getPAddr() > 1024); 
+
+#ifdef SESC_ENERGY
+  busEnergy->inc();
+#endif
 
   switch(mreq->getMemOperation()){
   case MemRead:     read(mreq);      break;
