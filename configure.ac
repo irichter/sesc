@@ -40,6 +40,8 @@ AC_SUBST(SESC_SEED_OPT)
 AC_SUBST(SESC_BAAD_OPT)
 AC_SUBST(SESC_INORDER_OPT)
 AC_SUBST(CONDOR_LINK_OPT)
+AC_SUBST(TRACE_DRIVEN_OPT)
+AC_SUBST(SESC_RSTTRACE_OPT)
 
 
 #we are not defining compiler options yet, but we should
@@ -100,7 +102,7 @@ AC_HELP_STRING([--enable-mispath],
 AC_NOCOMPOPT(DEBUG)
 AC_ARG_ENABLE(debug, 
 AC_HELP_STRING([--enable-debug],
-               [Enabes assertions and LOG messages (default is no)]),
+               [Enables assertions and LOG messages (default is no)]),
 [if test "$enableval" = "yes"; then AC_COMPOPT(DEBUG) fi],
 )
 
@@ -194,7 +196,7 @@ AC_HELP_STRING([--enable-smpdebug],
 AC_NOCOMPOPT(SESC_CHERRY)
 AC_ARG_ENABLE(cherry, 
 AC_HELP_STRING([--enable-cherry],
-               [Enabes cherry (default is no)]),
+               [Enables cherry (default is no)]),
 [if test "$enableval" = "yes"; then AC_COMPOPT(SESC_CHERRY) fi],
 )
 
@@ -233,5 +235,25 @@ AC_HELP_STRING([--enable-condor],
 [if test "$enableval" = "yes"; then AC_COMPOPT(CONDOR_LINK) 
 fi],
 )
+
+### TRACE
+
+AC_NOCOMPOPT(TRACE_DRIVEN)
+AC_ARG_ENABLE(trace, 
+AC_HELP_STRING([--enable-trace],
+               [Enables trace-driven simulation (default is no)]),
+[if test "$enableval" = "yes"; then AC_COMPOPT(TRACE_DRIVEN) fi],
+)
+
+### RSTTRACE
+
+AC_NOCOMPOPT(SESC_RSTTRACE)
+AC_ARG_ENABLE(rsttrace, 
+AC_HELP_STRING([--enable-rsttrace],
+               [Enables RST trace-driven simulation (default is no)]),
+[if test "$enableval" = "yes"; then AC_COMPOPT(SESC_RSTTRACE) AC_COMPOPT(TRACE_DRIVEN) fi],
+)
+
+
 
 AC_OUTPUT

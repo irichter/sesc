@@ -27,8 +27,8 @@ ifdef DEBUG
 COPTS   :=-library=stlport4 -g $(PDEFS)
 LOPTS   :=-library=stlport4 -g 
 else
-COPTS   :=-O -library=stlport4 -g $(PDEFS)
-LOPTS   :=-O -library=stlport4 -g
+COPTS   :=-fast -xtarget=native -xipo=2 -library=stlport4 $(PDEFS)
+LOPTS   :=-fast -xtarget=native -xipo=2 -library=stlport4
 endif
 else
 ##############

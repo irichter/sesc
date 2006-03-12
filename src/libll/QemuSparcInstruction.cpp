@@ -4,7 +4,7 @@
 
    Contributed by Saangetha
                   Keertika
-		  Jose Renau
+                  Jose Renau
 
 This file is part of SESC.
 
@@ -26,11 +26,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "globals.h"
 
 #include "Instruction.h"
-# include "QemuSescTrace.h"
-
-void Instruction::initializeQemuSescTrace(int argc, char **argv, char **envp) {
-  
-}
+#include "QemuSescTrace.h"
 
 void Instruction::QemuSparcDecodeInstruction(Instruction *inst, QemuSescTrace *qst)
 {

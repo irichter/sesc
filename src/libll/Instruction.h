@@ -35,7 +35,10 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "Snippets.h"
 #include "callback.h"
 #include "QemuSescReader.h"
-# include "QemuSescTrace.h"
+#include "QemuSescTrace.h"
+#ifdef SESC_RSTTRACE
+#include "RSTReader.h"
+#endif
 #ifdef SESC_SIMICS
 #include "SimicsTraceFormat.h"
 #endif
@@ -87,36 +90,36 @@ private:
   }
 
   static void initializeMINT(int argc,
-			     char **argv,
-			     char **envp);
+                             char **argv,
+                             char **envp);
   
   static void initializePPCTrace(int argc,
-				 char **argv,
-				 char **envp);
-  static void initializeQemuSescTrace(int argc, 
-                                      char **argv,
-                                      char **envp); 
+                                 char **argv,
+                                 char **envp);
 #ifdef SESC_SIMICS
   static void initializeSimicsTrace(int argc,
-				    char **argv,
-				    char **envp);
+                                    char **argv,
+                                    char **envp);
 #endif
 
   static void MIPSDecodeInstruction(size_t index
-				    ,icode_ptr &picode
-				    ,InstType &opcode
-				    ,InstSubType &subCode
-				    ,MemDataSize &dataSize
-				    ,RegType &src1
-				    ,RegType &dest
-				    ,RegType &src2
-				    ,EventType &uEvent
-				    ,bool &BJCondLikely
-				    ,bool &guessTaken
-				    ,bool &jumpLabel);
+                                    ,icode_ptr &picode
+                                    ,InstType &opcode
+                                    ,InstSubType &subCode
+                                    ,MemDataSize &dataSize
+                                    ,RegType &src1
+                                    ,RegType &dest
+                                    ,RegType &src2
+                                    ,EventType &uEvent
+                                    ,bool &BJCondLikely
+                                    ,bool &guessTaken
+                                    ,bool &jumpLabel);
 
   static void PPCDecodeInstruction(Instruction *inst, uint rawInst);
-  static void QemuSparcDecodeInstruction(Instruction *inst,QemuSescTrace *qst); 
+  static void QemuSparcDecodeInstruction(Instruction *inst, QemuSescTrace *qst); 
+#ifdef SESC_RSTTRACE
+  static void RSTDecodeInstruction(Instruction *inst, uint rawInst); 
+#endif
 
 #ifdef SESC_SIMICS
   static const Instruction *SimicsDecodeInstruction(TraceSimicsOpc_t op);
@@ -154,9 +157,9 @@ protected:
 
 public:
   static void initialize(int argc
-			 ,char **argv
-			 ,char **envp
-			 ,int start_argc);  
+                         ,char **argv
+                         ,char **envp
+                         ,int start_argc);  
   
   static void finalize();
 
@@ -165,41 +168,56 @@ public:
     return &InstTable[id];
   }
 
+  static const Instruction *getSharedInstByPC(int addr) {
+    InstHash::iterator it = instHash.find(addr);
+
+    if(it != instHash.end())
+      return it->second;
+
+    return 0;
+  }
+
   // this is what should be called by TraceFlow in TT6PPC mode
-
-//  static const Instruction *getPPCInstByPC(long addr, ulong rawInst) {    //here we will pass our structure...and then call PPCDecode passing our structure alone.
-
   static const Instruction *getPPCInstByPC(int addr, uint rawInst) {
 
     InstHash::iterator it = instHash.find(addr);
+    I(it != instHash.end());
 
-    if(it == instHash.end()) { // we haven't seen this instruction before
-      // horrible!! we need to fix this. --luis
-      Instruction *inst = new Instruction(); // maybe we should have a pool for 
-                                             // Instruction objects
-      PPCDecodeInstruction(inst, rawInst);  //calling PPCDecodeInstruction....go to PPCInsruction.cpp 
-      inst->addr = addr;  //
-                          //
-      instHash[addr] = inst;
-      return inst;   // to TraceFlow.cpp
-    }
-
-    // TODO: maybe we should make sure the instruction is still the same...
-    return it->second;
+    // horrible!! we need to fix this. --luis
+    Instruction *inst = new Instruction(); // maybe we should have a pool for 
+    // Instruction objects
+    PPCDecodeInstruction(inst, rawInst);  //calling PPCDecodeInstruction....go to PPCInsruction.cpp 
+    inst->addr = addr;  //
+    //
+    instHash[addr] = inst;
+    return inst;   // to TraceFlow.cpp
   }
   
-  static const Instruction *getSescInstByPC(unsigned int addr, QemuSescTrace *qst) {      	
+  static const Instruction *getQemuInstByPC(unsigned int addr, QemuSescTrace *qst) {            
     InstHash::iterator it = instHash.find(addr); 
-    if (it == instHash.end()) {
-      Instruction *inst = new Instruction();
+    I(it != instHash.end());
+
+    Instruction *inst = new Instruction();
       
-      QemuSparcDecodeInstruction(inst, qst);
-      inst->addr = addr;  
-      instHash[addr] = inst; 
-      return inst;
-    }  
-    return it->second; 
+    QemuSparcDecodeInstruction(inst, qst);
+    inst->addr = addr;  
+    instHash[addr] = inst; 
+    return inst;
   }
+
+#ifdef SESC_RSTTRACE
+  static const Instruction *getRSTInstByPC(unsigned int addr, uint rawInst) {
+    InstHash::iterator it = instHash.find(addr); 
+    I(it != instHash.end());
+
+    Instruction *inst = new Instruction();
+      
+    RSTDecodeInstruction(inst, rawInst);
+    inst->addr     = addr;  
+    instHash[addr] = inst; 
+    return inst;
+  }
+#endif
 
 #ifdef SESC_SIMICS
   // this is what should be called by TraceFlow in simics mode
@@ -312,7 +330,7 @@ public:
     // because some memory instructions at the beginning of the libcall are
     // modeled as returns, not as memory
     return (subCode == iMemory || opcode == iFence
-	    || subCode == iFetchOp || subCode == iAtomicMemory);
+            || subCode == iFetchOp || subCode == iAtomicMemory);
   }
 
   bool isFence() const { return opcode == iFence; }
@@ -348,7 +366,7 @@ public:
   // the default % size
   class HashAddress{
   public: 
-	 size_t operator()(const int &addr) const {
+         size_t operator()(const int &addr) const {
       return ((addr>>2) ^ (addr>>18));
     }
   };

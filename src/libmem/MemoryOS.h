@@ -85,8 +85,8 @@ public:
 
   virtual ~MemoryOS() { }
 
-  int TLBTranslate(int unsigned vAddr);
-  int ITLBTranslate(int unsigned vAddr);
+  int TLBTranslate(VAddr vAddr);
+  int ITLBTranslate(VAddr vAddr);
 
 };
 

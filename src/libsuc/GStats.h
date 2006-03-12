@@ -239,7 +239,7 @@ public:
   void reportValue() const;
 
 
-  void sample(unsigned int key, unsigned long long weight);
+  void sample(unsigned int key, unsigned long long weight=1);
 };
 
 class GStatsTimingHist : public GStatsHist {

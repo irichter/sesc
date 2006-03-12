@@ -49,7 +49,7 @@ Resource::Resource(Cluster *cls, PortGeneric *aGen)
 
 Resource::~Resource()
 {
-  GMSG(!EventScheduler::empty(), "Resources destroyed with %lu pending instructions"
+  GMSG(!EventScheduler::empty(), "Resources destroyed with %u pending instructions"
        ,EventScheduler::size());
   
   if(gen)

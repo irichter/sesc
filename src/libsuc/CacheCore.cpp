@@ -44,13 +44,15 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 template<class State, class Addr_t, bool Energy>
 CacheGeneric<State, Addr_t, Energy> *CacheGeneric<State, Addr_t, Energy>::create(int size, int assoc, int bsize, int addrUnit, const char *pStr)
 {
-  GLOG(size == (assoc * bsize), "Do you want a faster simulation? Then be nice and implement CacheFA.");
-
   CacheGeneric *cache;
 
   if (assoc==1) {
     // Direct Map cache
     cache = new CacheDM<State, Addr_t, Energy>(size, bsize, addrUnit, pStr);
+  }else if(size == (assoc * bsize)) {
+    // Do you want a faster simulation? Then be nice and implement CacheFA.
+    
+    cache = new CacheAssoc<State, Addr_t, Energy>(size, assoc, bsize, addrUnit, pStr);
   }else{
     // Associative Cache
     cache = new CacheAssoc<State, Addr_t, Energy>(size, assoc, bsize, addrUnit, pStr);

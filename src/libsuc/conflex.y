@@ -6,7 +6,7 @@
 
 #ifdef CYGWIN
 // This assumes that the build directory is located is a subdirectory of esesc
-#include <../../../src/libsuc/Config.h>
+#include <../../src/libsuc/Config.h>
 #else
 #include "Config.h"
 #endif

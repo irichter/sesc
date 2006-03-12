@@ -1,10 +1,10 @@
 /* 
    SESC: Super ESCalar simulator
-   Copyright (C) 2005 University California, Santa Cruz.
+   Copyright (C) 2006 University California, Santa Cruz.
 
    Contributed by Saangetha
                   Keertika
-		  Jose Renau
+                  Jose Renau
 
 This file is part of SESC.
 
@@ -21,38 +21,31 @@ SESC; see the file COPYING.  If not, write to the  Free Software Foundation, 59
 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 */
 
+#include "icode.h"
+#include "opcodes.h"
+#include "globals.h"
 
-#ifndef QEMU_SESC_READER_H
-#define QEMU_SESC_READER_H
+#include "Instruction.h"
+#include "SPARCInstruction.h"
 
-#include "ThreadContext.h"
-#include "minidecoder.h"
-#include "TraceEntry.h"
-#include "TraceReader.h"
-#include "QemuSescTrace.h"
+void Instruction::RSTDecodeInstruction(Instruction *inst, uint rawInst)
+{
+  InstType     type;
+  InstSubType  subType;
+  unsigned int rd;
+  unsigned int rs1;
+  unsigned int rs2;
 
-class QemuSescReader : public TraceReader {
- private:
-  FILE* trace;
-  unsigned int  PC;
-  
-  bool tracEof;
-  void readPC();
-  void readInst();
+  disas_sparc_insn(rawInst, type, subType, rd, rs1, rs2);
 
-  unsigned int  getCurrentPC() { return PC; }
-  void advancePC();
+  inst->src1 = static_cast<RegType>(rs1);
+  inst->src2 = static_cast<RegType>(rs2);
+  inst->dest = static_cast<RegType>(rd);
+  inst->uEvent = NoEvent;
+  inst->condLikely = false;
+  inst->guessTaken = true;
+  inst->jumpLabel = false;   //FIXME
 
-  QemuSescTrace *qst;
- public:
-  QemuSescTrace *currentInst() { return qst; }
-  QemuSescReader();
-
-  void openTrace(const char* basename);
-  void closeTrace();
-
-  void fillTraceEntry(TraceEntry *te, int id);
-
-};
-
-#endif
+  inst->opcode = type;
+  inst->subCode = subType;
+}

@@ -89,7 +89,7 @@ static void sescConfSignal(int sig)
   abort();
 }
 
-static void signalCatcher(int sig)
+extern "C" void signalCatcher(int sig)
 {
   osSim->reportOnTheFly();
 
@@ -240,12 +240,12 @@ void OSSim::processParams(int argc, char **argv, char **envp)
   for(; i < argc; i++) {
     if(argv[i][0] == '-') {
       if( argv[i][1] == 'w' ){
-	if( isdigit(argv[i][2]) )
-	  nInst2Skip = strtoll(&argv[i][2], 0, 0 );
-	else {
-	  i++;
-	  nInst2Skip = strtoll(argv[i], 0, 0 );
-	}
+        if( isdigit(argv[i][2]) )
+          nInst2Skip = strtoll(&argv[i][2], 0, 0 );
+        else {
+          i++;
+          nInst2Skip = strtoll(argv[i], 0, 0 );
+        }
       }else if( argv[i][1] == 'y' ){
         if( isdigit(argv[i][2]) )
           nInst2Sim = strtoll(&argv[i][2], 0, 0 );

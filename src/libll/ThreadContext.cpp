@@ -588,9 +588,9 @@ VAddr ThreadContext::real2virt(RAddr uaddr) const {
 int MintFuncArgs::getInt32(void) {
   int retVal; 
   I(sizeof(retVal)==4);
-  I(curPos%4==0);
+  I((curPos % 4)==0);
   if(curPos<16){
-    I(curPos%4==0);
+    I(curPos % 4==0);
     retVal=myContext->getIntReg((IntRegName)(4+curPos/4));
   }else{
     RAddr addr=myContext->virt2real(myContext->getStkPtr())+curPos;
@@ -608,7 +608,7 @@ int MintFuncArgs::getInt32(void) {
 long long int MintFuncArgs::getInt64(void){
   long long int retVal;
   I(sizeof(retVal)==8);
-  I(curPos%4==0);
+  I((curPos%4)==0);
   // Align current position                  
   if(curPos%8!=0)
     curPos+=4;               

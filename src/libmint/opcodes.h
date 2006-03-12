@@ -31,35 +31,35 @@
 
 
 struct op_desc {
-  char *opname;
+  const char *opname;
   PFPI *func;
   char regflags[4];
-  int iflags;		/* extra instruction flags */
-  short opflags;	/* opcode flags passed through to the event type */
+  int iflags;           /* extra instruction flags */
+  short opflags;        /* opcode flags passed through to the event type */
   short cycles;
 };
 
 /* flags for the registers */
-#define REG0	0x1	/* general register used */
-#define REG1	0x2	/* coprocessor 1 register used */
-#define DREG1	0x4	/* FPU double */
-#define CREG1	0x8	/* FPU control */
-#define MOD0	0x10	/* general register modified */
-#define MOD1	0x20	/* FPU register modified */
+#define REG0    0x1     /* general register used */
+#define REG1    0x2     /* coprocessor 1 register used */
+#define DREG1   0x4     /* FPU double */
+#define CREG1   0x8     /* FPU control */
+#define MOD0    0x10    /* general register modified */
+#define MOD1    0x20    /* FPU register modified */
 
 /* Flags for the opcodes that are not defined in event.h.
  * Note: these flags no longer need to be distinct from
  * the flags used in event.h.
  */
-#define IS_BRANCH	0x200	/* is a branch */
-#define IS_JUMP		0x400	/* is an absolute jump (j or jal) */
-#define IS_JUMPREG	0x800	/* is a register jump (jr or jalr) */
-#define MOD0_IS_NOP	0x1000	/* if write to r0 is the same as a nop */
-#define SIDE_EFFECT	0x2000	/* if instruction has side effect */
-#define FPU_FCR		0x4000	/* if instr requires restoring fcr */
+#define IS_BRANCH       0x200   /* is a branch */
+#define IS_JUMP         0x400   /* is an absolute jump (j or jal) */
+#define IS_JUMPREG      0x800   /* is a register jump (jr or jalr) */
+#define MOD0_IS_NOP     0x1000  /* if write to r0 is the same as a nop */
+#define SIDE_EFFECT     0x2000  /* if instruction has side effect */
+#define FPU_FCR         0x4000  /* if instr requires restoring fcr */
 
 /* bit mask for branches and jumps */
-#define BRANCH_OR_JUMP	(IS_BRANCH | IS_JUMP | IS_JUMPREG)
+#define BRANCH_OR_JUMP  (IS_BRANCH | IS_JUMP | IS_JUMPREG)
 
 /* The order of these opnums is important. They are used to index the
  * "desc_table" array. New opnums should be added at the end.

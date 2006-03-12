@@ -138,26 +138,22 @@ void TT6Reader::readCount() {
     }
 }
 
-TraceEntry TT6Reader::getTraceEntry(int id) {
+void TT6Reader::fillTraceEntry(TraceEntry *te, int id) {
   I(id == 0); // multi-threaded TT6 not supported yet;
   
-  TraceEntry te;
-
   if(getCurrentPC() == 0xffffffff) { // end of trace
-    te.eot = true;
-    return te;
+    te->eot = true;
+    return;
   }
   
-  te.rawInst = getCurrentInst();
-  te.iAddr = getCurrentPC();
+  te->rawInst = getCurrentInst();
+  te->iAddr   = getCurrentPC();
   
   if(isMemory()) {
-    te.dAddr = getCurrentDataAddress();
+    te->dAddr = getCurrentDataAddress();
   }
   
   advancePC();
 
-  te.nextIAddr = getCurrentPC();
-  
-  return te;
+  te->nextIAddr = getCurrentPC();
 }

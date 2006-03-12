@@ -54,6 +54,12 @@ void nanassertexit(){
 /* Compile only when there is no GCC compiler */
 #if (defined SUNSTUDIO) || !(defined __GNUC__)
 
+void VoidNoGCCMSG(const char *format, ...) {
+}
+
+void VoidNoGCCGMSG(int g, const char *format, ...) {
+}
+
 void NoGCCMSG(const char *format, ...) {
 
   va_list ap;

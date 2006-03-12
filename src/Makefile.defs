@@ -37,8 +37,6 @@ endif # DEBUG
 
 VPATH   =$(OBJ):$(SRC_DIR):$(BUILD_DIR):.
 
-#DEFS   +=-DTRACE_DRIVEN
-
 ##############################################################################
 M4_MACROS = $(SRC_DIR)/libmint/m4.macros
 ##############################################################################
@@ -103,11 +101,12 @@ DEFS += -DMEMANALYZER
 endif
 
 #####################################
-INC	= -I$(OBJ) -I$(SRC_DIR)/libapp -I$(SRC_DIR)/libsuc 
-INC	+= -I$(SRC_DIR)/libcore -I$(SRC_DIR)/libnet -I$(SRC_DIR)/libmem 
-INC	+= -I$(SRC_DIR)/libvmem 
-INC     += -I$(SRC_DIR)/libll -I$(SRC_DIR)/libmint -I$(SRC_DIR)/libpint 
-INC     += -I$(SRC_DIR)/libsmp -I. 
+INC := -I$(OBJ) -I$(SRC_DIR)/libapp -I$(SRC_DIR)/libsuc 
+INC += -I$(SRC_DIR)/libcore -I$(SRC_DIR)/libnet -I$(SRC_DIR)/libmem 
+INC += -I$(SRC_DIR)/libvmem  
+INC += -I$(SRC_DIR)/libll -I$(SRC_DIR)/libmint -I$(SRC_DIR)/libpint 
+INC += -I$(SRC_DIR)/libsmp -I. 
+INC += -I$(SRC_DIR)/librst
 ##############################################################################
 ifeq ($(findstring IRIX,$(ABINAME)),IRIX)
 LIBS    = -L$(OBJ) -L$(OBJ)/ -lgen -lsesc
@@ -214,6 +213,15 @@ endif
 # Bandwidth Analyzer model
 ifdef SESC_BAAD
 DEFS    += -DSESC_BAAD
+endif
+
+################################################
+# Trace Driven
+ifdef TRACE_DRIVEN
+DEFS += -DTRACE_DRIVEN
+ifdef SESC_RSTTRACE
+DEFS += -DSESC_RSTTRACE
+endif
 endif
 
 ################################################

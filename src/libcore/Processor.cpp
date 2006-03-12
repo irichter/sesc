@@ -127,15 +127,11 @@ icode_ptr Processor::getInstructionPointer(Pid_t pid)
 
 void Processor::switchIn(Pid_t pid)
 {
-  LOG("Processor(%ld):switchIn %d", Id, pid);
-    
   IFID.switchIn(pid);
 }
 
 void Processor::switchOut(Pid_t pid)
 {
-  LOG("Processor(%ld):switchOut %d", Id, pid);
-
   IFID.switchOut(pid);
 }
 

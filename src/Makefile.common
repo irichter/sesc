@@ -32,7 +32,7 @@ depend: $(DOTDEPEND)
 $(DOTDEPEND): $(OBJ_DIR)/$(ABINAME)_obj/mkdep $(BUILD_DIR)/config.h
 	-@echo > $(DOTDEPEND)
 ifneq ($(wildcard *.m4),)
-	@$(MAKE) --no-print-directory $(patsubst %.m4,$(OBJ)/%.cpp,$(wildcard *.m4))
+	@$(MAKE) $(MAKEFLAGS) --no-print-directory $(patsubst %.m4,$(OBJ)/%.cpp,$(wildcard *.m4))
 endif
 	@echo -n "\$$(OBJ)/$(SIGNATURE).a:" >$(OBJ)/.depend1.$(SIGNATURE)
 	@echo $(patsubst %.o,$$\(OBJ\)/%.o,$(OBJS)) >>$(OBJ)/.depend1.$(SIGNATURE)
@@ -51,7 +51,7 @@ _MAKEFILE_COMMON_SUBSHELL=1
 export
 
 %::
-	@$(MAKE) --no-print-directory -f $(SRC_DIR)/Makefile.common $*
+	@$(MAKE) $(MAKEFLAGS) --no-print-directory -f $(SRC_DIR)/Makefile.common $*
 
 else
 

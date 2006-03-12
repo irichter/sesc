@@ -36,12 +36,12 @@ QemuSescReader::QemuSescReader() {
   qst = (QemuSescTrace*)malloc(sizeof(QemuSescTrace));  
 }
 
-void QemuSescReader::openTrace(const char* filename) {
+void QemuSescReader::openTrace(const char *filename) {
 
   trace = fopen(filename, "rb");
 
   if (trace == NULL){
-    MSG("QemuSescReader::Can't open the trace file."); 
+    MSG("QemuSescReader::Can't open the trace file [%s].", filename); 
     exit(-1);
   }
 
@@ -67,7 +67,6 @@ void QemuSescReader::advancePC() {
   }
 
   readInst();
-
 }
 
 void QemuSescReader::readInst() { 
@@ -93,21 +92,17 @@ void QemuSescReader::readInst() {
       
 }
 
-TraceEntry QemuSescReader::getTraceEntry(int id) {
+void QemuSescReader::fillTraceEntry(TraceEntry *te, int id) {
   I(id == 0); // multi-threaded TT6 not supported yet;
 
-  static TraceEntry te;
-
   if(getCurrentPC() == 0xffffffff) {
-    te.eot = true;
-    return te;
+    te->eot = true;
   }
   
-  te.rawInst = 0;
-  te.iAddr = getCurrentPC();  
+  te->rawInst = 0;
+  te->iAddr     = getCurrentPC();  
 
-  te.nextIAddr = qst->npc;
+  te->nextIAddr = qst->npc;
   
   advancePC();   
-  return te;   
 }

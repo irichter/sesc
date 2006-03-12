@@ -96,7 +96,7 @@ int ExecutionFlow::exeInst(void)
   // For load/store instructions, need to translate the data address
   if(opflags&E_MEM_REF) {
     // Get the Virtual address
-	 dAddrV = (*((int *)&thread.reg[picodePC->args[RS]])) + picodePC->immed;
+         dAddrV = (*((int *)&thread.reg[picodePC->args[RS]])) + picodePC->immed;
     // Get the Real address
     dAddrR = thread.virt2real(dAddrV, opflags);
 
@@ -198,7 +198,7 @@ void ExecutionFlow::exeInstFast()
 
   if(iFlags&E_MEM_REF) {
     // Get the Logical address
-	 VAddr vaddr = (*((int *)&thread.reg[picodePC->args[RS]])) + picodePC->immed;
+         VAddr vaddr = (*((int *)&thread.reg[picodePC->args[RS]])) + picodePC->immed;
     // Get the Real address
     thread.setRAddr(thread.virt2real(vaddr, iFlags));
     if (trainCache)
@@ -207,8 +207,8 @@ void ExecutionFlow::exeInstFast()
 #ifdef TS_PROFILING
     if (osSim->enoughMarks1()) {
       if(iFlags&E_WRITE) {
-	  int value = *((int *)&thread.reg[picodePC->args[RT]]);
-	  if (value == SWAP_WORD(*(int *)thread.getRAddr())) {
+          int value = *((int *)&thread.reg[picodePC->args[RT]]);
+          if (value == SWAP_WORD(*(int *)thread.getRAddr())) {
           //silent store
           //LOG("silent store@0x%lx, %ld", picodePC->addr, value);
           osSim->getProfiler()->recWrite(vaddr, picodePC, true);
@@ -243,8 +243,7 @@ void ExecutionFlow::switchIn(int i)
   TraceGen::add(verID,"in=%lld",globalClock);
 #endif
 
-  LOG("ExecutionFlow[%d] switchIn pid(%d) 0x%lx @%lld"
-       , fid, i, picodePC->addr, globalClock);
+  MSG("ExecutionFlow[%d] switchIn pid(%d) 0x%x @%lld", fid, i, picodePC->addr, globalClock);
 
   //I(!pendingDInst);
   if( pendingDInst ) {
@@ -265,8 +264,7 @@ void ExecutionFlow::switchOut(int i)
   verID = 0;
 #endif
 
-  LOG("ExecutionFlow[%d] switchOut pid(%d) 0x%lx @%lld", 
-       fid, i, picodePC->addr, globalClock);
+  MSG("ExecutionFlow[%d] switchOut pid(%d) 0x%x @%lld", fid, i, picodePC->addr, globalClock);
 
   // Must be running thread i
   I(thread.getPid() == i);

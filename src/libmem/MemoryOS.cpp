@@ -53,7 +53,7 @@ MemoryOS::MemoryOS(GMemorySystem *ms, const char *section)
   numPhysicalPages = 65536;
 }
 
-int MemoryOS::TLBTranslate(unsigned int vAddr)
+int MemoryOS::TLBTranslate(VAddr vAddr)
 {
   int phPage = DTLB.translate(vAddr);
   if (phPage == -1)
@@ -194,7 +194,7 @@ PageTable::IntlPTEntry *StdMemoryOS::getReplPTEntry()
   do {
     p = PT->getReplPhPageL2Entry();
     tmp = GMemorySystem::calcFullPage(p->virtualPage);
-    if((TLBTranslate(tmp) & ITLBTranslate(tmp)) != -1) {
+    if((TLBTranslate(tmp) != -1 || ITLBTranslate(tmp)) != -1) {
 	// if the chosen page was in our TLB we update it in memory
 	// so as not to replace it and we repeat the process.
 	// Otherwise we could even be replacing a page that has already

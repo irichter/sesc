@@ -14,13 +14,13 @@ void icode::dump()
   printf("  instr: 0x%x\n", instr);
   /*CONSTCOND*/
   printf("  rs: 0x%x (r%d) (fmt %d)\n",
-	 args[RS], getRN(RS), args[RS]);
+         args[RS], getRN(RS), args[RS]);
   /*CONSTCOND*/
   printf("  rt: 0x%x (r%d) (ft $f%d)\n",
-	 args[RT], getRN(RT), getFPN(ICODEFT));
+         args[RT], getRN(RT), getFPN(ICODEFT));
   /*CONSTCOND*/
   printf("  rd: 0x%x (r%d) (fs $f%d)\n",
-	 args[RD], getRN(RD), getFPN(ICODEFS));
+         args[RD], getRN(RD), getFPN(ICODEFS));
   printf("  sa: 0x%x (fd $f%d)\n", args[SA], getFPN(ICODEFD));
   printf("  immed: 0x%x (%d)\n", immed, immed);
   printf("  target: 0x%p\n", (void*) target);
@@ -28,7 +28,7 @@ void icode::dump()
 
 const char *icode::dis_instr()
 {
-  char *opname;
+  const char *opname;
   struct op_desc *pdesc;
   static char buf[1024];
   static char *str;
@@ -38,7 +38,7 @@ const char *icode::dis_instr()
   str = buf;
   
   sprintf(str, "0x%x: %08x\t"
-	  ,(unsigned) addr, (unsigned) instr);
+          ,(unsigned) addr, (unsigned) instr);
   str += strlen(str);
   switch(opnum) {
   case move_opn:
@@ -46,11 +46,11 @@ const char *icode::dis_instr()
     if (args[RT] == 0)
       /*CONSTCOND*/
       sprintf(str, "move\tr%d, r%d",
-	      getRN(RD), getRN(RS));
+              getRN(RD), getRN(RS));
     else
       /*CONSTCOND*/
       sprintf(str, "addu\tr%d, r%d, r%d",
-	      getRN(RD), getRN(RS), getRN(RT));
+              getRN(RD), getRN(RS), getRN(RT));
     break;
   case add_opn:
   case and_opn:
@@ -66,57 +66,57 @@ const char *icode::dis_instr()
   case xor_opn:
     /*CONSTCOND*/
     sprintf(str, "%s\tr%d, r%d, r%d",
-	    opname, getRN(RD), getRN(RS), getRN(RT));
+            opname, getRN(RD), getRN(RS), getRN(RT));
     break;
   case li_opn:
   case addiu_opn:
     if (args[RS] == 0)
       /*CONSTCOND*/
       sprintf(str, "li\tr%d, %d",
-	      getRN(RT), immed);
+              getRN(RT), immed);
     else
       /*CONSTCOND*/
       sprintf(str, "addiu\tr%d, r%d, %d",
-	      getRN(RT), getRN(RS), immed);
+              getRN(RT), getRN(RS), immed);
     break;
   case addi_opn:
   case slti_opn:
     /*CONSTCOND*/
     sprintf(str, "%s\tr%d, r%d, %d",
-	    opname, getRN(RT), getRN(RS), immed);
+            opname, getRN(RT), getRN(RS), immed);
     break;
   case sltiu_opn:
     /*CONSTCOND*/
     sprintf(str, "%s\tr%d, r%d, %u",
-	    opname, getRN(RT), getRN(RS),
-	    (unsigned) immed);
+            opname, getRN(RT), getRN(RS),
+            (unsigned) immed);
     break;
   case andi_opn:
   case ori_opn:
   case xori_opn:
     /*CONSTCOND*/
     sprintf(str, "%s\tr%d, r%d, 0x%x",
-	    opname, getRN(RT), getRN(RS),
-	    (unsigned short) immed);
+            opname, getRN(RT), getRN(RS),
+            (unsigned short) immed);
     break;
   case beq_opn:
   case b_opn:
     if (args[RS] == 0 && args[RT] == 0)
       sprintf(str, "b\t0x%x",
-	      (unsigned) (addr + (immed << 2) + 4));
+              (unsigned) (addr + (immed << 2) + 4));
     else
       /*CONSTCOND*/
       sprintf(str, "beq\tr%d, r%d, 0x%x",
-	      getRN(RS), getRN(RT),
-	      (unsigned)  (addr + (immed << 2) + 4));
+              getRN(RS), getRN(RT),
+              (unsigned)  (addr + (immed << 2) + 4));
     break;
   case beql_opn:
   case bne_opn:
   case bnel_opn:
     /*CONSTCOND*/
     sprintf(str, "%s\tr%d, r%d 0x%x", opname,
-	    getRN(RS), getRN(RT),
-	    (unsigned)  (addr + 4 + (immed << 2)));
+            getRN(RS), getRN(RT),
+            (unsigned)  (addr + 4 + (immed << 2)));
     break;
   case bgez_opn:
   case bgezal_opn:
@@ -132,14 +132,14 @@ const char *icode::dis_instr()
   case bltzl_opn:
     /*CONSTCOND*/
     sprintf(str, "%s\tr%d, 0x%x", opname,
-	    getRN(RS),
-	    (unsigned)  (addr + 4 + (immed << 2)));
+            getRN(RS),
+            (unsigned)  (addr + 4 + (immed << 2)));
     break;
   case break_opn:
   case cache_opn:
     /*CONSTCOND*/
     sprintf(str, "%s\t%d, %d(r%d)",
-	    opname, getRN(RT), immed, getRN(RS));
+            opname, getRN(RT), immed, getRN(RS));
     break;
   case cop0_opn:
   case cop1_opn:
@@ -185,7 +185,7 @@ const char *icode::dis_instr()
   case swr_opn:
     /*CONSTCOND*/
     sprintf(str, "%s\tr%d, %d(r%d)",
-	    opname, getRN(RT), immed, getRN(RS));
+            opname, getRN(RT), immed, getRN(RS));
     break;
     
     /* VK: changed FPN to DPN for double precision register load/store */
@@ -197,7 +197,7 @@ const char *icode::dis_instr()
   case sdc3_opn:
     /*CONSTCOND*/
     sprintf(str, "%s\t$f%d, %d(r%d)",
-	    opname, getDPN(RT), immed, getRN(RS));
+            opname, getDPN(RT), immed, getRN(RS));
     break;
   case lwc1_opn:
   case lwc2_opn:
@@ -207,12 +207,12 @@ const char *icode::dis_instr()
   case swc3_opn:
     /*CONSTCOND*/
     sprintf(str, "%s\t$f%d, %d(r%d)",
-	    opname, getFPN(RT), immed, getRN(RS));
+            opname, getFPN(RT), immed, getRN(RS));
     break;
   case lui_opn:
     /*CONSTCOND*/
     sprintf(str, "%s\tr%d, 0x%x",
-	    opname, getRN(RT), (unsigned short) immed);
+            opname, getRN(RT), (unsigned short) immed);
     break;
   case mfhi_opn:
   case mflo_opn:
@@ -232,13 +232,13 @@ const char *icode::dis_instr()
     else
       /*CONSTCOND*/
       sprintf(str, "sll\tr%d, r%d, %d",
-	      getRN(RD), getRN(RT), getRN(SA));
+              getRN(RD), getRN(RT), getRN(SA));
     break;
   case sra_opn:
   case srl_opn:
     /*CONSTCOND*/
     sprintf(str, "%s\tr%d, r%d, %d",
-	    opname, getRN(RD), getRN(RT), getRN(SA));
+            opname, getRN(RD), getRN(RT), getRN(SA));
     break;
   case sync_opn:
   case syscall_opn:
@@ -269,7 +269,7 @@ const char *icode::dis_instr()
   case mul_s_opn:
   case div_s_opn:
     sprintf(str, "%s\t$f%d, $f%d, $f%d",
-	    opname, getFPN(ICODEFD), getFPN(ICODEFS), getFPN(ICODEFT));
+            opname, getFPN(ICODEFD), getFPN(ICODEFS), getFPN(ICODEFT));
     break;
   case sqrt_s_opn:
   case abs_s_opn:
@@ -281,7 +281,7 @@ const char *icode::dis_instr()
   case floor_w_s_opn:
   case cvt_w_s_opn:
     sprintf(str, "%s\t$f%d, $f%d",
-	    opname, getFPN(ICODEFD), getFPN(ICODEFS));
+            opname, getFPN(ICODEFD), getFPN(ICODEFS));
     break;
   case cvt_d_s_opn:
     sprintf(str, "%s\t$f%d, $f%d",
@@ -304,7 +304,7 @@ const char *icode::dis_instr()
   case c_le_s_opn:
   case c_ngt_s_opn:
     sprintf(str, "%s\t$f%d, $f%d",
-	    opname, getFPN(ICODEFS), getFPN(ICODEFT));
+            opname, getFPN(ICODEFS), getFPN(ICODEFT));
         break;
         /* double precision */
   case add_d_opn:
@@ -312,7 +312,7 @@ const char *icode::dis_instr()
   case mul_d_opn:
   case div_d_opn:
     sprintf(str, "%s\t$f%d, $f%d, $f%d",
-	    opname, getDPN(ICODEFD), getDPN(ICODEFS), getDPN(ICODEFT));
+            opname, getDPN(ICODEFD), getDPN(ICODEFS), getDPN(ICODEFT));
     break;
   case sqrt_d_opn:
   case abs_d_opn:
@@ -327,7 +327,7 @@ const char *icode::dis_instr()
   case cvt_s_d_opn:
   case cvt_w_d_opn:
     sprintf(str, "%s\t$f%d, $f%d",
-	    opname, getFPN(ICODEFD), getDPN(ICODEFS));
+            opname, getFPN(ICODEFD), getDPN(ICODEFS));
     break;
   case c_f_d_opn:
   case c_un_d_opn:
@@ -346,17 +346,17 @@ const char *icode::dis_instr()
   case c_le_d_opn:
   case c_ngt_d_opn:
     sprintf(str, "%s\t$f%d, $f%d",
-	    opname, getDPN(ICODEFS), getDPN(ICODEFT));
+            opname, getDPN(ICODEFS), getDPN(ICODEFT));
     break;
     
     /* fixed-point precision */
   case cvt_s_w_opn:
     sprintf(str, "%s\t$f%d, $f%d",
-	    opname, getFPN(ICODEFD), getFPN(ICODEFS));
+            opname, getFPN(ICODEFD), getFPN(ICODEFS));
     break;
   case cvt_d_w_opn:
     sprintf(str, "%s\t$f%d, $f%d",
-	    opname, getDPN(ICODEFD), getFPN(ICODEFS));
+            opname, getDPN(ICODEFD), getFPN(ICODEFS));
     break;
     
     /* other coprocessor instructions */
@@ -369,7 +369,7 @@ const char *icode::dis_instr()
   case ctc1_opn:
     /*CONSTCOND*/
     sprintf(str, "%s\tr%d, $%d",
-	    opname, getRN(RT), (int) args[RD]);
+            opname, getRN(RT), (int) args[RD]);
     break;
     
     /* coprocessor branch codes */
@@ -390,7 +390,7 @@ const char *icode::dis_instr()
   case bc3fl_opn:
   case bc3tl_opn:
     sprintf(str, "%s\t0x%x", opname,
-	    (unsigned)  addr + 4 + (immed << 2));
+            (unsigned)  addr + 4 + (immed << 2));
     break;
     
   case terminate_opn:

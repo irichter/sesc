@@ -32,9 +32,10 @@ class MemObj;
 
 
 enum TraceMode {
-  PPCTT6 = 0,
-  Simics,
-  QemuSp
+  PPCTT6Trace = 0,
+  SimicsTrace,
+  QemuSpTrace,
+  RSTTrace
 };
 
 class TraceFlow : public GFlow {
@@ -61,7 +62,7 @@ class TraceFlow : public GFlow {
   void addEvent(EventType e, CallbackBase *cb, int addr) {
     I(0);
   }
-	
+        
   // context-switch not supported in TraceFlow
   ThreadContext *getThreadContext(void) { I(0); return 0; }
   void saveThreadContext(int pid) { I(0); }
@@ -85,8 +86,8 @@ class TraceFlow : public GFlow {
 
   bool hasWork() const { 
     return (hasTrace || 
-	    (trace->hasBufferedEntries() &&  // this is weird, but it saves one  
-	     trace->hasBufferedEntries(cpuId))); // call to an STL method and makes it faster ;-)
+            (trace->hasBufferedEntries() &&  // this is weird, but it saves one  
+             trace->hasBufferedEntries(cpuId))); // call to an STL method and makes it faster ;-)
   }
 
   void dump(const char *str) const;

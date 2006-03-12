@@ -4,7 +4,7 @@
 
    Contributed by Luis Ceze
                   Jose Renau
-		  Karin Strauss
+                  Karin Strauss
 
 This file is part of SESC.
 
@@ -122,10 +122,6 @@ Cache::Cache(MemorySystem *gms, const char *section, const char *name)
     }
   }
 
-  // OK for a cache that always hits
-  GMSG(lower_level == NULL, 
-       "You are defining a cache with void as lowerLevel\n");
-
   int cacheNumPorts = SescConf->getInt(section, k_numPorts);
   int cachePortOccp = SescConf->getInt(section, k_portOccp);
   int bankNumPorts = cacheNumPorts;
@@ -207,7 +203,7 @@ Cache::~Cache()
 
 void Cache::access(MemRequest *mreq) 
 {
-  I(mreq->getPAddr() > 1024);
+  I(mreq->getPAddr() > 1024 || mreq->getPAddr() == 0);
   // this is printed when an iFetch event for an inexistent instruction
   // is performed. no need to print it, it is annoying
   //  GMSG(mreq->getPAddr() <= 1024
@@ -285,7 +281,7 @@ void Cache::readMissHandler(MemRequest *mreq)
   nextMSHRSlot(addr); // checking if there is a pending miss
   if(!getBankMSHR(addr)->issue(addr, MemRead)) {
     getBankMSHR(addr)->addEntry(addr, doReadQueuedCB::create(this, mreq), 
-				activateOverflowCB::create(this, mreq), MemRead);
+                                activateOverflowCB::create(this, mreq), MemRead);
     return;
   }
 
@@ -405,7 +401,7 @@ void Cache::writeMissHandler(MemRequest *mreq)
 
   if(!getBankMSHR(addr)->issue(addr, MemWrite)) {
     getBankMSHR(addr)->addEntry(addr, doWriteQueuedCB::create(this, mreq),
-				activateOverflowCB::create(this, mreq), MemWrite);
+                                activateOverflowCB::create(this, mreq), MemWrite);
     return;
   }
 
@@ -648,8 +644,8 @@ void Cache::doInvalidate(PAddr addr, ushort size)
       nextBankSlot(addr); // writing the INV bit in a Bank's line
       I(l->isValid());
       if(l->isDirty()) {
-	doWriteBack(addr);
-	l->makeClean();
+        doWriteBack(addr);
+        l->makeClean();
       }
       l->invalidate();
     } 
@@ -733,7 +729,7 @@ void Cache::dump() const
 // WBCache: Write back cache, only writes to lower level on displacements
 //
 WBCache::WBCache(MemorySystem *gms, const char *descr_section, 
-	const char *name) 
+        const char *name) 
   : Cache(gms, descr_section, name) 
 {
   // nothing to do
@@ -777,22 +773,22 @@ void WBCache::sendMiss(MemRequest *mreq)
 #ifdef TS_TIMELINE
   if (mreq->getDInst())
     TraceGen::add(mreq->getVersionRef()->getId(),"%sMiss=%lld"
-		  ,symbolicName
-		  ,globalClock
-		  );
+                  ,symbolicName
+                  ,globalClock
+                  );
 //     TraceGen::add(mreq->getVersionRef()->getId(),"%sMiss=%lld:%sPC=0x%x:%sAddr=0x%x"
-// 		  ,symbolicName
-// 		  ,globalClock
-// 		  ,symbolicName
-// 		  ,mreq->getDInst()->getInst()->getAddr()
-// 		  ,symbolicName
-// 		  ,mreq->getPAddr()
-// 		  );
+//                ,symbolicName
+//                ,globalClock
+//                ,symbolicName
+//                ,mreq->getDInst()->getInst()->getAddr()
+//                ,symbolicName
+//                ,mreq->getPAddr()
+//                );
 #endif
 
   mreq->mutateWriteToRead();
   mreq->goDown(missDelay + (nextMSHRSlot(mreq->getPAddr())-globalClock), 
-	       lowerLevel[0]);
+               lowerLevel[0]);
 }
 
 void WBCache::doWriteBack(PAddr addr) 
@@ -824,7 +820,7 @@ void WBCache::doReturnAccess(MemRequest *mreq)
 // WTCache: Write through cache, always propagates writes down
 
 WTCache::WTCache(MemorySystem *gms, const char *descr_section, 
-		 const char *name) 
+                 const char *name) 
   : Cache(gms, descr_section, name) 
 {
   // nothing to do 
@@ -858,8 +854,8 @@ void WTCache::writePropagateHandler(MemRequest *mreq)
 
   if(!getBankMSHR(addr)->issue(addr))
     getBankMSHR(addr)->addEntry(addr, reexecuteDoWriteCB::create(this, mreq),
-		   /*doWriteQueuedCB::create(this, mreq)*/
-		   reexecuteDoWriteCB::create(this, mreq));
+                   /*doWriteQueuedCB::create(this, mreq)*/
+                   reexecuteDoWriteCB::create(this, mreq));
   else
     propagateDown(mreq);
 }
@@ -877,7 +873,7 @@ void WTCache::reexecuteDoWrite(MemRequest *mreq)
 void WTCache::propagateDown(MemRequest *mreq)
 {
   mreq->goDown(missDelay + (nextMSHRSlot(mreq->getPAddr()) - globalClock), 
-	       lowerLevel[0]);
+               lowerLevel[0]);
 }
 
 void WTCache::sendMiss(MemRequest *mreq)
@@ -928,7 +924,7 @@ void WTCache::inclusionCheck(PAddr addr) {
 //only for cava for now
 
 SVCache::SVCache(MemorySystem *gms, const char *descr_section, 
-		 const char *name)
+                 const char *name)
   : WBCache(gms, descr_section, name) ,
     nInvLines("%s:nInvLines", name),
     nCommitedLines("%s:nCommitedLines", name),
@@ -988,11 +984,11 @@ void SVCache::preReturnAccess(MemRequest *mreq)
     for(unsigned int i = 0; i < getCacheBank(addr)->getAssoc(); i++) {
       Line *l = getCacheBank(addr)->getPLine(index+i);
       if(l->isValid() && l->isSpec()) {
-	I(l->isLocked());
-	lastLine = l;
+        I(l->isLocked());
+        lastLine = l;
       } else {
-	allLocked = false;
-	break;
+        allLocked = false;
+        break;
       }
     }
 
@@ -1009,14 +1005,14 @@ void SVCache::preReturnAccess(MemRequest *mreq)
 void SVCache::ckpRestart(unsigned int ckpId)
 {
   for(int b = 0; b < nBanks; b++) {
-	 for(uint i = 0; i < cacheBanks[b]->getNumLines(); i++) {
+         for(uint i = 0; i < cacheBanks[b]->getNumLines(); i++) {
       Line *l = cacheBanks[b]->getPLine(i);
       if(l->isValid() && l->isSpec()) {
-	I(l->isLocked());
-	if(l->getCkpId() == ckpId) {
-	  nInvLines.inc();
-	  l->invalidate();
-	}
+        I(l->isLocked());
+        if(l->getCkpId() == ckpId) {
+          nInvLines.inc();
+          l->invalidate();
+        }
       }
     }
   }
@@ -1025,16 +1021,16 @@ void SVCache::ckpRestart(unsigned int ckpId)
 void SVCache::ckpCommit(unsigned int ckpId)
 {
   for(int b = 0; b < nBanks; b++) {
-	 for(uint i = 0; i < cacheBanks[b]->getNumLines(); i++) {
+         for(uint i = 0; i < cacheBanks[b]->getNumLines(); i++) {
       Line *l = cacheBanks[b]->getPLine(i);
       if(l->isValid() && l->isSpec()) {
-	I(l->isLocked());
-	if(l->getCkpId() == ckpId) {
-	  nCommitedLines.inc();
-	  l->setSpec(false);
-	  l->setCkpId(0);
-	  l->validate(); //unlock
-	}
+        I(l->isLocked());
+        if(l->getCkpId() == ckpId) {
+          nCommitedLines.inc();
+          l->setSpec(false);
+          l->setCkpId(0);
+          l->validate(); //unlock
+        }
       }
     }
   }

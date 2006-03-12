@@ -1,10 +1,8 @@
 /* 
    SESC: Super ESCalar simulator
-   Copyright (C) 2004 University of Illinois.
+   Copyright (C) 2006 University California, Santa Cruz.
 
-   Contributed by Luis Ceze
-		  Pablo Montesinos Ortego
-		  Paul Sack
+   Contributed by Jose Renau
 
 This file is part of SESC.
 
@@ -21,26 +19,17 @@ SESC; see the file COPYING.  If not, write to the  Free Software Foundation, 59
 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 */
 
-/* this is the basic interface for trace readers in Sesc */
-/* for an example of a reader, look TT6Reader */
+#ifndef SPARCINSTRUCTION_H
+#define SPARCINSTRUCTION_H
 
-#ifndef TRACEREADER_H
-#define TRACEREADER_H
+#include "InstType.h"
 
-#include "TraceEntry.h"
-
-class TraceReader {
- private:
- public:
-  TraceReader() {}
-  virtual ~TraceReader() {}
-
-  virtual void openTrace(const char* basename) = 0;
-  virtual void closeTrace() = 0;
-
-  virtual void fillTraceEntry(TraceEntry *te, int id) = 0;
-
-  virtual bool hasBufferedEntries(int id=-1) { return false; }
-};
+void disas_sparc_insn(unsigned int insn,
+		      InstType    &type, 
+		      InstSubType &subType,
+		      unsigned int &rd,
+		      unsigned int &rs1,
+		      unsigned int &rs2
+		      );
 
 #endif

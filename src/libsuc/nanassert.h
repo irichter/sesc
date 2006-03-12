@@ -143,21 +143,19 @@ void nanassertexit();
 extern const char *NanassertID;
 
 #ifdef NANASSERTFILE
-#define doassert(asstOutput)               \
+#define doassert()               \
     do {                                   \
       fprintf(ASSERTSTREAM,"%s (%s),%s line %d failed for ",__FILE__,NANASSERTFILE,NanassertID,__LINE__); \
-      fprintf(ASSERTSTREAM,asstOutput);    \
-          fprintf(ASSERTSTREAM,"\n");          \
+      fprintf(ASSERTSTREAM,"\n");          \
       ASSERTACTION;                        \
-        }while(0)
+    }while(0)
 #else
-#define doassert(asstOutput)               \
+#define doassert()               \
     do {                                   \
       fprintf(ASSERTSTREAM,"%s,%s line %d failed for ",__FILE__,NanassertID,__LINE__);\
-      fprintf(ASSERTSTREAM,asstOutput);    \
-          fprintf(ASSERTSTREAM,"\n");          \
+      fprintf(ASSERTSTREAM,"\n");          \
       ASSERTACTION;                        \
-        }while(0)
+    }while(0)
 #endif
 
 
@@ -172,6 +170,9 @@ extern const char *NanassertID;
 void NoGCCMSG(const char *format, ...);
 void NoGCCGMSG(int g, const char *format, ...);
 
+void VoidNoGCCMSG(const char *format, ...);
+void VoidNoGCCGMSG(int g, const char *format, ...);
+
 #define MSG   NoGCCMSG
 #define GMSG  NoGCCGMSG
 
@@ -185,8 +186,8 @@ void NoGCCGMSG(int g, const char *format, ...);
 #define PREN(aC)                /* NDEBUG */
 #define PRE(aC)                 /* NDEBUG */
 #else    /* !NDEBUG */
-#define PREN(aC)   do{ int aRes=0; aC; if(!aRes) doassert("condition (" #aC ")"); }while(0)
-#define PRE(aC)    do{                 if(!(aC)) doassert("condition (" #aC ")"); }while(0)
+#define PREN(aC)   do{ int aRes=0; aC; if(!aRes) doassert(); }while(0)
+#define PRE(aC)    do{                 if(!(aC)) doassert(); }while(0)
 #endif   /* NDEBUG */
 
 /********************************************************
@@ -194,8 +195,8 @@ void NoGCCGMSG(int g, const char *format, ...);
  */
 
 #ifdef DEBUG
-#define IN(aC)   do{ int aRes=0; aC; if(!aRes) doassert("condition (" #aC ")"); }while(0)
-#define I(aC)    do{                 if(!(aC)) doassert("condition (" #aC ")"); }while(0)
+#define IN(aC)   do{ int aRes=0; aC; if(!aRes) doassert(); }while(0)
+#define I(aC)    do{                 if(!(aC)) doassert(); }while(0)
 #define GIN(g,e) do{ if(g) IN(e); }while(0)
 #define GI(g,e)  do{ if(g)  I(e); }while(0)
 #define GIS(g,e) do{ if(g)   e;   }while(0)
@@ -208,9 +209,8 @@ void NoGCCGMSG(int g, const char *format, ...);
 #define LOG(a...)               /* nodebug */
 #define GLOG(g,a...)            /* nodebug */
 #else    /* !__GNUC__ */
-
-#define LOG         NoGCCMSG
-#define GLOG        NoGCCGMSG
+#define LOG         VoidNoGCCMSG
+#define GLOG        VoidNoGCCGMSG
 #endif   /* __GNUC__ */
 #else
 #define LOG    MSG
@@ -236,14 +236,8 @@ void NoGCCGMSG(int g, const char *format, ...);
 #define LOG(a...)               /* nodebug */
 #define GLOG(g,a...)            /* nodebug */
 #else    /* !__GNUC__ */
-void NoGCCLOG(const char *format,
-              ...);
-void NoGCCGLOG(int g,
-               const char *format,
-               ...);
-
-#define LOG         NoGCCMSG
-#define GLOG        NoGCCGMSG
+#define LOG         VoidNoGCCMSG
+#define GLOG        VoidNoGCCGMSG
 #endif   /* __GNUC__ */
 
 #endif   /* DEBUG */

@@ -25,6 +25,9 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "SescConf.h"
 #include "TT6Reader.h"
 #include "QemuSescReader.h"
+#ifdef SESC_RSTTRACE
+#include "RSTReader.h"
+#endif
 #ifdef SESC_SIMICS
 #include "SimicsReader.h"
 #endif
@@ -43,16 +46,17 @@ TraceFlow::TraceFlow(int cId, int i, GMemorySystem *gms)
   
   const char *traceMode = SescConf->getCharPtr("","traceMode");
   
+  // FIXME: do not use traceMode. Try to discover with file name
   if(strcasecmp(traceMode, "ppctt6") == 0) {
-    if(createReader)
+    if(createReader) {
       trace = new TT6Reader();
-    mode = PPCTT6;
+    }
+    mode = PPCTT6Trace;
   }else if (strcmp (traceMode,"qemusparc")==0) {
     if (createReader) {
       trace = new QemuSescReader(); 
-      MSG("Creating object");
     }
-    mode = QemuSp;
+    mode = QemuSpTrace;
   } else if(strcmp(traceMode, "simics") == 0) {
 
 #ifdef SESC_SIMICS
@@ -63,10 +67,24 @@ TraceFlow::TraceFlow(int cId, int i, GMemorySystem *gms)
     exit(0);
 #endif
 
-    mode = Simics;
+    mode = SimicsTrace;
   } else {
       I(0);
   }
+
+  if (strstr (traceFile,"rz2.gz") || strstr (traceFile,"rz3.gz")) {
+#ifdef SESC_RSTTRACE
+    if (createReader) {
+      MSG("Using RST trace format");
+      trace = new RSTReader(); 
+    }
+#else
+    MSG("ERROR: You must compile wiht --enable-rsttrace to use RST traces");
+    exit(-1);
+#endif
+    mode = RSTTrace;
+  }
+
   
   if(createReader) {
     I(traceFile);
@@ -82,40 +100,55 @@ DInst *TraceFlow::executePC()
 { 
   I(hasTrace);
 
-  TraceEntry te = trace->getTraceEntry(0);   
-	
+  static TraceEntry te;
+
+  trace->fillTraceEntry(&te, 0);   
+        
   if(te.eot) { // end of trace
     hasTrace = false; // FIXME: remove 
-    //return te;
-  }
-
-  if(te.stallEntry) //  
     return 0;
-
-  const Instruction *inst;
-
-  if(mode == PPCTT6) {
-    inst = Instruction::getPPCInstByPC(te.iAddr, te.rawInst);    
-  }else if (mode == QemuSp) {   
-    inst = Instruction::getSescInstByPC(te.iAddr, static_cast<QemuSescReader *>(trace)->qst);  
-  } else {                           
-    I(mode == Simics);
-#ifdef SESC_SIMICS
-    inst = Instruction::getSimicsInst((TraceSimicsOpc_t) te.rawInst);
-#else
-    inst = 0; //avoiding warning
-#endif
   }
 
-  nextPC = te.nextIAddr;   
+  const Instruction *inst = Instruction::getSharedInstByPC(te.iAddr);
 
-  return DInst::createDInst(inst
-                            ,te.dAddr
-                            ,cpuId
+  if (inst ==0) {
+    // Instruction is still not predecoded
+    switch (mode) {
+    case QemuSpTrace:
+      inst = Instruction::getQemuInstByPC(te.iAddr, static_cast<QemuSescReader *>(trace)->currentInst());
+      break;
+
+    case PPCTT6Trace:
+      inst = Instruction::getPPCInstByPC(te.iAddr, te.rawInst);    
+      break;
+      
+    case SimicsTrace:
+#ifdef SESC_SIMICS
+      inst = Instruction::getSimicsInst((TraceSimicsOpc_t) te.rawInst);
+#else
+      inst = 0; //avoiding warning
+#endif
+      break;
+
+    case RSTTrace:
+#ifdef SESC_RSTTRACE
+      inst = Instruction::getRSTInstByPC(te.iAddr, te.rawInst);
+#else
+      inst = 0;
+#endif
+      break;
+    default:
+      I(0);
+    }
+  }
+
+  nextPC = te.nextIAddr;
+
+  return DInst::createDInst(inst, te.dAddr ,cpuId
 #if (defined TLS)
                             ,0 // This will break things (epoch can't be 0)
-#endif // (defined TLS)
-                           );
+#endif
+                            );
 }
 
 void TraceFlow::dump(const char *str) const

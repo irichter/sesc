@@ -46,18 +46,18 @@ class TT6Reader : public TraceReader {
   void readAddress();
   void readCount();
 
-  VAddr getCurrentPC() { return PC; }
-  int  getCurrentInst() { return inst; }
-  VAddr getCurrentDataAddress() { return address; }
-  int   getCurrentCount() { return count;}
+  VAddr getCurrentPC()    const { return PC; }
+  int   getCurrentInst()  const { return inst; }
+  int   getCurrentCount() const { return count;}
+  VAddr getCurrentDataAddress() const { return address; }
   
-  bool  isBranch() { return tt6_isFlowAltering(inst>>26, (inst>>1) & 0x3FF);};
-
+  bool  isBranch()  { return tt6_isFlowAltering(inst>>26, (inst>>1) & 0x3FF);};
+  
   bool  isMemory() { return (tt6_isMemory(inst>>26, (inst>>1) & 0x3FF) 
 			     || tt6_isMemoryExtended(inst>>26, (inst>>1) & 0x3FF));}
 
   bool  isMemoryExtended() {return tt6_isMemoryExtended(inst>>26, (inst>>1) & 0x3FF);}
-
+  
   void advancePC();
 
  public:
@@ -66,7 +66,7 @@ class TT6Reader : public TraceReader {
   void openTrace(const char* basename);
   void closeTrace();
 
-  TraceEntry getTraceEntry(int id);
+  void fillTraceEntry(TraceEntry *te, int id);
 };
 
 #endif

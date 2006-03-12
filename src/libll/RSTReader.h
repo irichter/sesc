@@ -1,6 +1,6 @@
 /* 
    SESC: Super ESCalar simulator
-   Copyright (C) 2005 University California, Santa Cruz.
+   Copyright (C) 2006 University California, Santa Cruz.
 
    Contributed by Saangetha
                   Keertika
@@ -22,31 +22,46 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 */
 
 
-#ifndef QEMU_SESC_READER_H
-#define QEMU_SESC_READER_H
+#ifndef RST_READER_H
+#define RST_READER_H
 
 #include "ThreadContext.h"
 #include "minidecoder.h"
 #include "TraceEntry.h"
 #include "TraceReader.h"
-#include "QemuSescTrace.h"
 
-class QemuSescReader : public TraceReader {
+#include "rstf.h"
+#include "Rstzip.h"
+
+class RSTReader : public TraceReader {
  private:
-  FILE* trace;
-  unsigned int  PC;
+  const int Max_Num_Recs;
+
+  Rstzip *rz;
   
-  bool tracEof;
-  void readPC();
-  void readInst();
+  // Current inst
+  VAddr   PC;
+  uint    inst;
+  VAddr   address;
 
-  unsigned int  getCurrentPC() { return PC; }
-  void advancePC();
+  // Decompressed buffer
+  bool end_of_trace;
+  int buf_pos;
+  int buf_end;
+  rstf_unionT *buf;
+  
+  void readInst(int fid);
+  void advancePC(int fid);
 
-  QemuSescTrace *qst;
+  VAddr getCurrentPC(int fid)    const { return PC; }
+  int   getCurrentInst(int fid)  const { return inst; }
+  VAddr getCurrentDataAddress(int fid) const { return address; }
+
  public:
-  QemuSescTrace *currentInst() { return qst; }
-  QemuSescReader();
+  rstf_unionT *currentInst() {
+    return &buf[buf_pos];
+  }
+  RSTReader();
 
   void openTrace(const char* basename);
   void closeTrace();

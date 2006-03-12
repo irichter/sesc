@@ -29,6 +29,9 @@ endif
 ifdef SESC_THERM
 SUBDIRS+=libsescspot
 endif
+ifdef TRACE_DRIVEN
+SUBDIRS+=librst
+endif
 ifdef SESC_SESCTHERM
 SUBDIRS+=libsesctherm
 endif
@@ -80,6 +83,9 @@ TSTLIBS =$(OBJ)/libcore.a $(OBJ)/libmint.a $(OBJ)/libll.a
 TSTLIBS+=$(OBJ)/libpint.a $(OBJ)/libsuc.a
 ifdef SESC_ENERGY
 TSTLIBS+=$(OBJ)/libpower.a
+endif
+ifdef TRACE_DRIVEN
+TSTLIBS+=$(OBJ)/librst.a
 endif
 NETLIBS =$(OBJ)/libnet.a 
 SMPLIBS =$(OBJ)/libsmp.a
@@ -163,7 +169,7 @@ runPoolBench : poolBench
 # if this section gets big, we should create a Makefile.rules inside
 # each directory
 
-.NOTPARALLEL: wattchify cactify panalyze
+#.NOTPARALLEL: wattchify cactify panalyze
 
 # libpower
 wattchify: reload $(OBJ)/powermain.o $(OBJ)/libwattch.a $(OBJ)/libcore.a  $(OBJ)/libsuc.a
@@ -191,7 +197,11 @@ endif
 ifdef SESC_SESCTHERM
 sesctherm: $(OBJ)/libsesctherm.a $(OBJ)/libsuc.a
 	$(CXX) $(CFLAGS) -o $@ $(OBJ)/sesctherm.o $(OBJ)/libsesctherm.a $(OBJ)/libsuc.a $(STDLIBS) 
+endif
 
+ifdef TRACE_DRIVEN
+rstexample: $(OBJ)/librst.a $(TOPSRC_DIR)/src/misc/rstexample.cpp $(OBJ)/libsuc.a $(OBJ)/libll.a
+	$(CXX) $(CFLAGS) -o $@ $(TOPSRC_DIR)/src/misc/rstexample.cpp $(OBJ)/librst.a $(OBJ)/libll.a $(OBJ)/libsuc.a $(STDLIBS) 
 endif
 
 # libapp

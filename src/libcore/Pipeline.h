@@ -96,7 +96,7 @@ protected:
   friend class PipeIBucketLess;
 
   Pipeline *const pipeLine;
-  ID2(bool fetched);
+  ID(bool fetched;)
 
   Time_t getPipelineId() const { return pipeId; }
   void setPipelineId(Time_t i) {

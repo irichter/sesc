@@ -1767,10 +1767,11 @@ OP(mint_ulimit)
   int cmd      = pthread->getIntArg1();
   int newlimit = pthread->getIntArg2();
   
-#ifndef CYGWIN
-  int err = ulimit(cmd, newlimit);
+#ifdef CYGWIN
+  //fatal("ulimit not supported in cygwin") ;
+  int err=-1;
 #else
-  fatal("ulimit not supported in cygwin") ;
+  int err = ulimit(cmd, newlimit);
 #endif
   pthread->setRetVal(err);
   if (err == -1)
@@ -3033,33 +3034,34 @@ OP(mint_getegid)
 /* ARGSUSED */
 OP(mint_getdomainname)
 {
-         int r4, r5;
-    int err;
+  int r4, r5;
+  int err;
 
 #ifdef DEBUG_VERBOSE
-    printf("mint_getdomainname()\n");
+  printf("mint_getdomainname()\n");
 #endif
 
-    r4 = REGNUM(4);
-    r5 = REGNUM(5);
+  r4 = REGNUM(4);
+  r5 = REGNUM(5);
 
 #if (defined SUNOS) || (defined AIX)
-    fatal("getdomainname not supported\n");
+  fatal("getdomainname not supported\n");
+  err = 0;
 #else
 #ifdef TASKSCALAR
-    {
-      char *cad1 = (char *)alloca(r5);
+  {
+    char *cad1 = (char *)alloca(r5);
       
-      err = getdomainname(cad1, r5);
+    err = getdomainname(cad1, r5);
 
-      if (r4)
-        rsesc_OS_write_block(pthread->getPid(), picode->addr, REGNUM(4), cad1, r5);
-    }
+    if (r4)
+      rsesc_OS_write_block(pthread->getPid(), picode->addr, REGNUM(4), cad1, r5);
+  }
 #else
-    // if (r4)
-    //     r4 = pthread->virt2real(r4);
+  // if (r4)
+  //     r4 = pthread->virt2real(r4);
 
-    err = getdomainname((char *) pthread->virt2real(r4), r5);
+  err = getdomainname((char *) pthread->virt2real(r4), r5);
 #endif
 #endif
 
@@ -3072,40 +3074,41 @@ OP(mint_getdomainname)
 /* ARGSUSED */
 OP(mint_setdomainname)
 {
-         int r4, r5;
-    int err;
+  int r4, r5;
+  int err;
 
 #ifdef DEBUG_VERBOSE
-    printf("mint_setdomainname()\n");
+  printf("mint_setdomainname()\n");
 #endif
 
-    r4 = REGNUM(4);
-    r5 = REGNUM(5);
+  r4 = REGNUM(4);
+  r5 = REGNUM(5);
 
 #if (defined SUNOS) || (defined AIX) || (defined CYGWIN) 
-    fatal("setdomainname not supported\n");
+  fatal("setdomainname not supported\n");
+  err = 0;
 #else
 #ifdef TASKSCALAR
-    {
-      char *cad1 = (char *)alloca(r5);
+  {
+    char *cad1 = (char *)alloca(r5);
       
-      if (r4)
-        rsesc_OS_read_block(pthread->getPid(), picode->addr, cad1, REGNUM(4), r5);
-      else
-        cad1 = 0;
+    if (r4)
+      rsesc_OS_read_block(pthread->getPid(), picode->addr, cad1, REGNUM(4), r5);
+    else
+      cad1 = 0;
 #ifndef CYGWIN
-      err = setdomainname(cad1, r5);
-#else
-      fatal("cygwin does not support setdomainname") ;
-#endif
-    }
-#else
-    // if (r4)
-    //     r4 = pthread->virt2real(r4);
-#ifndef CYGWIN
-    err = setdomainname((char *) pthread->virt2real(r4), r5);
+    err = setdomainname(cad1, r5);
 #else
     fatal("cygwin does not support setdomainname") ;
+#endif
+  }
+#else
+  // if (r4)
+  //     r4 = pthread->virt2real(r4);
+#ifndef CYGWIN
+  err = setdomainname((char *) pthread->virt2real(r4), r5);
+#else
+  fatal("cygwin does not support setdomainname") ;
 #endif
 
 #endif

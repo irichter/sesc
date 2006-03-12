@@ -33,6 +33,7 @@ short log2i(unsigned int n)
   if (n==1)
     return 0;
 
+  n= roundUpPower2(n);
   //assume integer power of 2
   I((n & (n - 1)) == 0);
 

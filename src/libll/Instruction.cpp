@@ -84,11 +84,13 @@ Instruction::InstHash Instruction::instHash;
 size_t Instruction::InstTableSize = 0;
 
 void Instruction::initialize(int argc
-			     ,char **argv
-			     ,char **envp
-			     ,int start_argc)
+                             ,char **argv
+                             ,char **envp
+                             ,int start_argc)
 {
 #ifdef TRACE_DRIVEN
+  start_argc++; // skip the -- argument
+
   const char *traceMode = SescConf->getCharPtr("","traceMode");
   printf("getting the trace mode parameter parameter from the Instruction.cpp file");
   if(argc < 1) {
@@ -102,12 +104,6 @@ void Instruction::initialize(int argc
     initializePPCTrace(argc, argv, envp);
   } else if(strcmp(traceMode, "simics") == 0) {
     //initializeSimicsTrace(argc, argv, envp);
-  } else if(strcmp(traceMode, "qemusparc") ==0) {
-    initializeQemuSescTrace(argc, argv,envp); 
-  }
-   else {
-    MSG("invalid taceMode in configuration file: %s", traceMode);
-    exit(-1);
   }
 
 #else

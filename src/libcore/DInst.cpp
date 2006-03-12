@@ -603,18 +603,23 @@ void DInst::setRetireTime()
 
   int pc = inst->getAddr();
   if (pc) {
-    printf("BAAD: wp=%d pc=0x%x op=%d src1=%d src2=%d dest=%u "
+    printf("BAAD: fetchT=%lld renameT=%lld exeT=%lld retireT=%lld wp=%d pc=0x%x op=%d src1=%d src2=%d dest=%u "
+           ,fetchTime
+           ,renameTime
+           ,exeTime
+           ,globalClock
            ,isFake()?1:0
            ,pc,inst->getOpcode()
-           ,inst->getSrc1(), inst->getSrc1(), inst->getDest()
+           ,inst->getSrc1(), inst->getSrc2(), inst->getDest()
            );
-    
+
     if (inst->isMemory())
-      printf(" addr=0x%x time=%d", getVaddr(), (int)(exeTime-schedTime));
+      printf(" noMiss addr=0x%x time=%d", getVaddr(), (int)(exeTime-schedTime));
     else if (getFetch())
       printf(" missBr");
-      
-    
+    else
+      printf(" noMiss");
+
     printf("\n");
   }
 }
