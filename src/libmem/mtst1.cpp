@@ -36,6 +36,7 @@ int main(int argc, char **argv, char **envp)
     GMemorySystem *gms = new MemorySystem(i);
     gms->buildMemorySystem();
     ms[i] = gms;
+    pr[i] = 0;
     if(SescConf->checkInt("cpucore","smtContexts",i)) {
       if( SescConf->getInt("cpucore","smtContexts",i) > 1 )
 	pr[i] =new SMTProcessor(ms[i], i);

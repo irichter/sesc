@@ -48,16 +48,16 @@ class TraceEntry {
   bool contextSwitch;
   
   TraceEntry() {
-    rawInst = 0;
-    iAddr = 0;
-    dAddr = 0;
+    rawInst   = 0;
+    iAddr     = 0;
+    dAddr     = 0;
     nextIAddr = 0;
-    pid = 0;
+    pid       = 0;
 
     dataSize = 0;
-    value = 0;
+    value    = 0;
 
-    eot = false;
+    eot           = false;
     contextSwitch = false;
   }
 };

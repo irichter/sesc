@@ -282,11 +282,11 @@ void StdMemoryOS::accessL2PT(MemRequest *origReq, PAddr paddr)
     CBMemRequest::create(1, cacheObj, MemWrite, paddr, 0);
   }
 
-  completeReq(origReq, vaddr, phPage);
+  completeReq(origReq, vaddr, vPage);
   // reset the busy flag
   busy = false;
   TLBTime.add(globalClock-startTime);
-  attemptToEmptyQueue(vaddr, phPage);
+  attemptToEmptyQueue(vaddr, vPage);
 }
 
 void StdMemoryOS::attemptToEmptyQueue(uint vaddr, uint phPage)
@@ -297,7 +297,7 @@ void StdMemoryOS::attemptToEmptyQueue(uint vaddr, uint phPage)
   std::vector<MemRequest *>::iterator it = pendingReqs.begin();
   if(it != pendingReqs.end()) {
     MemRequest *mm  = *it;
-	 int tmpPage  = GMemorySystem::calcPage(mm->getVaddr());
+    int tmpPage  = GMemorySystem::calcPage(mm->getVaddr());
     if(vPage == tmpPage) {
       launchReq(mm, GMemorySystem::calcPAddr(GMemorySystem::calcFullPage(vPage), mm->getVaddr()));
       it = pendingReqs.erase(it);

@@ -10,9 +10,11 @@ class TLB {
 private:
   class TLBState : public StateGeneric<> {
   public:
-	 int  physicalPage;
+    int  physicalPage;
 
-	 TLBState(int iphysicalPage = -1) {  physicalPage = iphysicalPage; }
+    TLBState(int iphysicalPage = -1) {  
+      physicalPage = iphysicalPage; 
+    }
 
     bool operator==(TLBState s) const {
       return physicalPage == s.physicalPage;

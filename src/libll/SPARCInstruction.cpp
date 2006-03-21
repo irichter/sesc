@@ -154,6 +154,10 @@ void disas_sparc_insn(unsigned int insn,
 	subType = iSubInvalid;
 	break;
       }
+    } else if (xop == 0x2a) { /* RDPR */
+      // Reads status register bits
+      type    = iALU;
+      subType = iSubInvalid;
     } else if (xop == 0x2b) { /* rdtbr / V9 flushw */
       type    = iFence;
       subType = iMemFence;

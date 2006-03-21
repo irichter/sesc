@@ -1,9 +1,8 @@
 /* 
    SESC: Super ESCalar simulator
-   Copyright (C) 2003 University of Illinois.
+   Copyright (C) 2006 University of Illinois.
 
-   Contributed by Luis Ceze
-                  Jose Renau
+   Contributed by Jose Renau
 
 This file is part of SESC.
 
@@ -20,53 +19,40 @@ SESC; see the file COPYING.  If not, write to the  Free Software Foundation, 59
 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 */
 
-#ifndef TRACEFLOW_H
-#define TRACEFLOW_H
+#ifndef RSTFLOW_H
+#define RSTFLOW_H
 
 #include "GFlow.h"
-#include "TraceReader.h"
+#include "RSTReader.h"
 
 class GMemoryOS;
 class GMemorySystem;
 class MemObj;
 
-
-enum TraceMode {
-  PPCTT6Trace = 0,
-  SimicsTrace,
-  QemuSpTrace
-};
-
-class TraceFlow : public GFlow {
+class RSTFlow : public GFlow {
  private:
-  bool hasTrace;
-  InstID nextPC;
 
   // Delay slot handling
   bool swappingDelaySlot;
   DInst *delayDInst;
 
-  static TraceReader *trace;
+  static RSTReader *trace;
   static char *traceFile;
 
-  TraceMode mode;
-  
  protected:
  public:
-  TraceFlow(int cId, int i, GMemorySystem *gms);
+  RSTFlow(int cId, int i, GMemorySystem *gms);
 
-  static void setTraceFile(const char* tf) { traceFile = strdup(tf); }
-  static const char* getTraceFile() { return traceFile; }
+  static void setTraceFile(const char *tf) { traceFile = strdup(tf); }
+  static const char *getTraceFile() { return traceFile; }
   
-  InstID getNextID() const {
-    return nextPC;
-  }
+  InstID getNextID() const;
 
   void addEvent(EventType e, CallbackBase *cb, int addr) {
     I(0);
   }
         
-  // context-switch not supported in TraceFlow
+  // context-switch not supported in RSTFlow
   ThreadContext *getThreadContext(void) { I(0); return 0; }
   void saveThreadContext(int pid) { I(0); }
   void loadThreadContext(int pid) { I(0); }
@@ -77,20 +63,18 @@ class TraceFlow : public GFlow {
 
   // lets make the pid the same as the processor id
   // ideally we shold decouple Pid from the flow and sesc from ossim... but fine.
-  int currentPid(void) { return cpuId; }
+  int currentPid(void) { return fid; }
 
   DInst *executePC();
 
   void goRabbitMode(long long n2skip=0) {
-    GMSG(!n2skip, "TraceFlow::indefinite rabbit mode not supported yet. ;-P");
+    GMSG(!n2skip, "RSTFlow::indefinite rabbit mode not supported yet. ;-P");
     while(n2skip > 0) 
       executePC();
   }
 
   bool hasWork() const { 
-    return (hasTrace || 
-            (trace->hasBufferedEntries() &&  // this is weird, but it saves one  
-             trace->hasBufferedEntries(cpuId))); // call to an STL method and makes it faster ;-)
+    return trace->hasWork(fid);
   }
 
   void dump(const char *str) const;

@@ -43,7 +43,7 @@ enum MESIState_t {
 
   MESI_MODIFIED         = 0x00300001, // data is dirty and writable 
   MESI_EXCLUSIVE        = 0x00300010, // data is present only in local cache
-  MESI_SHARED           = 0x00100100, // data is shared
+  MESI_SHARED           = 0x00100100  // data is shared
 };
 
 class MESIProtocol : public SMPProtocol {
@@ -69,7 +69,7 @@ public:
   typedef CallbackMember1<MESIProtocol, MemRequest *, 
                          &MESIProtocol::doWrite> doWriteCB;
     
-  void returnAccess(SMPMemRequest *sreq);
+  //  void returnAccess(SMPMemRequest *sreq);
 
   void sendReadMiss(MemRequest *mreq);
   void sendWriteMiss(MemRequest *mreq);

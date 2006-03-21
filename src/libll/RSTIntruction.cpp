@@ -28,8 +28,13 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "Instruction.h"
 #include "SPARCInstruction.h"
 
-void Instruction::RSTDecodeInstruction(Instruction *inst, uint rawInst)
-{
+
+const Instruction *Instruction::getRSTInstByPC(unsigned int addr, uint rawInst) {
+  InstHash::iterator it = instHash.find(addr); 
+  I(it == instHash.end());
+  
+  Instruction *inst = new Instruction();
+      
   InstType     type;
   InstSubType  subType;
   unsigned int rd;
@@ -38,14 +43,29 @@ void Instruction::RSTDecodeInstruction(Instruction *inst, uint rawInst)
 
   disas_sparc_insn(rawInst, type, subType, rd, rs1, rs2);
 
+  I(type!=iOpInvalid);
+
+  inst->opcode   = type;
+  inst->subCode  = subType;
+
+  inst->dataSize = 4; // FIXME: word 4, half 2, byte 1
+
   inst->src1 = static_cast<RegType>(rs1);
   inst->src2 = static_cast<RegType>(rs2);
   inst->dest = static_cast<RegType>(rd);
+  inst->src1Pool = whichPool(inst->src1);
+  inst->src2Pool = whichPool(inst->src2);
+  inst->dstPool  = whichPool(inst->dest);
+
   inst->uEvent = NoEvent;
   inst->condLikely = false;
   inst->guessTaken = true;
   inst->jumpLabel = false;   //FIXME
 
-  inst->opcode = type;
-  inst->subCode = subType;
+  inst->skipDelay= type == iBJ ? 8 : 4; // all branches have delay slot
+
+  inst->addr     = addr;  
+  instHash[addr] = inst;
+
+  return inst;
 }

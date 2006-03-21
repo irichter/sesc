@@ -104,31 +104,6 @@ void Pipeline::cleanMark()
   readyItem(b);
 }
 
-IBucket *Pipeline::newItem() 
-{
-  if(nIRequests == 0 || bucketPool.empty())
-    return 0;
-
-  nIRequests--;
-
-  IBucket *b = bucketPool.back();
-  bucketPool.pop_back();
-
-  b->setPipelineId(maxItemCntr);
-  maxItemCntr++;
-
-  IS(b->fetched = false);
-
-  I(b->empty());
-  return b;
-}
-
-bool Pipeline::hasOutstandingItems() const
-{
-  // bucketPool.size() has lineal time O(n)
-  return !buffer.empty() || !received.empty() || nIRequests < MaxIRequests;
-}
-
 void Pipeline::readyItem(IBucket *b) 
 {
   b->setClock();
@@ -167,14 +142,6 @@ void Pipeline::clearItems()
     else
       buffer.push(b);
   }
-}
-
-void Pipeline::doneItem(IBucket *b) 
-{
-  I(b->getPipelineId() < minItemCntr);
-  I(b->empty());
-  
-  bucketPool.push_back(b);
 }
 
 IBucket *Pipeline::nextItem() 

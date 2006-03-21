@@ -62,7 +62,7 @@ public:
 class GMemorySystem {
 private:
   static ushort Log2PageSize;
-  static int   PageMask;
+  static unsigned int PageMask;
 
   typedef HASH_MAP<const char*, unsigned int, HASH<const char*>, MemObjCaseeqstr > StrCounterType;
   static StrCounterType usedNames;
@@ -109,6 +109,7 @@ public:
   static PAddr calcPAddr4Page(int p) { return p << Log2PageSize; }
   static int  calcFullPage(int p) { return p << Log2PageSize; }
   static int  calcPageMask(int p) { return p & PageMask; }
+  static int  calcPageAddr(VAddr va) { return va & ~PageMask; }
   static PAddr calcPAddr(int p, VAddr a) {
     I((p & PageMask) == 0);
     return p | (a & PageMask); 

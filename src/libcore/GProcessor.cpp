@@ -4,7 +4,7 @@
 
    Contributed by Jose Renau
                   Luis Ceze
-		  Karin Strauss
+                  Karin Strauss
 
 This file is part of SESC.
 
@@ -101,7 +101,7 @@ GProcessor::GProcessor(GMemorySystem *gm, CPU_t i, size_t numFlows)
   for(unsigned r = 0; r < MaxNoRetResp; r++) {
     for(unsigned s = 0; s < MaxInstType; s++) {
       for(unsigned t = 0; t < MaxRetOutcome; t++) {
-	notRetired[r][s][t] = 0;
+        notRetired[r][s][t] = &notRetiredOtherCause;
       }
     }
   }

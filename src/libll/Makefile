@@ -16,7 +16,7 @@ OBJS	:=Instruction.o MIPSInstruction.o PPCInstruction.o GFlow.o \
 	TraceFlow.o TT6Reader.o QemuSescReader.o QemuSparcInstruction.o SPARCInstruction.o
 
 ifdef SESC_RSTTRACE
-OBJS += RSTIntruction.o RSTReader.o 
+OBJS += RSTIntruction.o RSTReader.o RSTFlow.o
 endif
 
 ##############################################################################

@@ -351,7 +351,10 @@ bool Processor::hasWork() const
   if (switching)
     return true;
 #endif
-  return IFID.hasWork() || !ROB.empty() || pipeQ.hasWork();
+  if (IFID.hasWork())
+    return true;
+
+  return !ROB.empty() || pipeQ.hasWork();
 }
 
 #ifdef SESC_MISPATH

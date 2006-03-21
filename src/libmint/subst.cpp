@@ -1119,7 +1119,7 @@ OP(mint_sysmp)
   return pthread->getRetIcode();
 }
 
-#ifndef __x86_64__
+#if 0
 // FIXME: the following code is not ready for 64 bit architectures
 
 /* Please, someone should port mint to execute mint3 and glibc from

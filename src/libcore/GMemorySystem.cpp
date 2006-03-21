@@ -26,7 +26,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "GMemorySystem.h"
 
 ushort GMemorySystem::Log2PageSize=0;
-int GMemorySystem::PageMask;
+unsigned int GMemorySystem::PageMask;
 
 MemoryObjContainer GMemorySystem::sharedMemoryObjContainer;
 GMemorySystem::StrCounterType  GMemorySystem::usedNames;

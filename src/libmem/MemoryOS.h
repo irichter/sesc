@@ -108,7 +108,7 @@ protected:
   };
 
   typedef struct {
-	 unsigned int physicalPage;
+    unsigned int physicalPage;
     short int status;
   } L1IntlPTEntry;
 
@@ -156,7 +156,7 @@ public:
     if (!(p->status & ValidPageStatus) )
       return -1;
     else 
-		return (int)((p->physicalPage) | ((vPage & maskEntriesPage) * BytesPerEntry)) + 0xFFFF;
+      return (int)((p->physicalPage) | ((vPage & maskEntriesPage) * BytesPerEntry)) + 0xFFFF;
   }
 
   void stampPhPage(const unsigned int pPage) {

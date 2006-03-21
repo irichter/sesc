@@ -60,13 +60,13 @@ SMPCache::SMPCache(SMemorySystem *dms, const char *section, const char *name)
   , invalDirty("%s:invalDirty", name)
   , allocDirty("%s:allocDirty", name)
 {
-  MemObj *lowerLevel = NULL;
+  MemObj *ll = NULL;
 
   I(dms);
-  lowerLevel = dms->declareMemoryObj(section, "lowerLevel");
+  ll = dms->declareMemoryObj(section, "lowerLevel");
 
-  if (lowerLevel != NULL)
-    addLowerLevel(lowerLevel);
+  if (ll != NULL)
+    addLowerLevel(ll);
 
   cache = CacheType::create(section, "", name);
   I(cache);
@@ -83,8 +83,8 @@ SMPCache::SMPCache(SMemorySystem *dms, const char *section, const char *name)
   SescConf->isInt(section, "portOccp");
 
   cachePort = PortGeneric::create(name, 
-				  SescConf->getInt(section, "numPorts"), 
-				  SescConf->getInt(section, "portOccp"));
+                                  SescConf->getInt(section, "numPorts"), 
+                                  SescConf->getInt(section, "portOccp"));
 
   // MSHR is used as an outstanding request buffer
   // even hits are added to MSHR
@@ -97,9 +97,9 @@ SMPCache::SMPCache(SMemorySystem *dms, const char *section, const char *name)
 
   if (mutExclBuffer == NULL)
     mutExclBuffer = MSHR<PAddr,SMPCache>::create("mutExclBuffer", 
-				  SescConf->getCharPtr(mshrSection, "type"),
-				  32000,
-				  SescConf->getInt(mshrSection, "bsize"));
+                                  SescConf->getCharPtr(mshrSection, "type"),
+                                  32000,
+                                  SescConf->getInt(mshrSection, "bsize"));
   
   SescConf->isInt(section, "hitDelay");
   hitDelay = SescConf->getInt(section, "hitDelay");
@@ -112,24 +112,24 @@ SMPCache::SMPCache(SMemorySystem *dms, const char *section, const char *name)
   cacheID++;
 
   rdEnergy[0] = new GStatsEnergy("rdHitEnergy",name
-				 ,myID
-				 ,MemPower
-				 ,EnergyMgr::get(section,"rdHitEnergy"));
+                                 ,myID
+                                 ,MemPower
+                                 ,EnergyMgr::get(section,"rdHitEnergy"));
     
   rdEnergy[1] = new GStatsEnergy("rdMissEnergy",name
-				 ,myID
-				 ,MemPower
-				 ,EnergyMgr::get(section,"rdMissEnergy"));
+                                 ,myID
+                                 ,MemPower
+                                 ,EnergyMgr::get(section,"rdMissEnergy"));
 
   wrEnergy[0]  = new GStatsEnergy("wrHitEnergy",name
-				  ,myID
-				  ,MemPower
-				  ,EnergyMgr::get(section,"wrHitEnergy"));
+                                  ,myID
+                                  ,MemPower
+                                  ,EnergyMgr::get(section,"wrHitEnergy"));
   
   wrEnergy[1] = new GStatsEnergy("wrMissEnergy",name
-				 ,myID
-				 ,MemPower
-				 ,EnergyMgr::get(section,"wrMissEnergy"));
+                                 ,myID
+                                 ,MemPower
+                                 ,EnergyMgr::get(section,"wrMissEnergy"));
 #endif
 }
 
@@ -165,7 +165,7 @@ void SMPCache::access(MemRequest *mreq)
   switch(mreq->getMemOperation()){
   case MemRead:  read(mreq);          break; 
   case MemWrite: /*I(cache->findLine(mreq->getPAddr())); will be transformed
-		   to MemReadW later */
+                   to MemReadW later */
   case MemReadW: write(mreq);         break; 
   case MemPush:  I(0);                break; // assumed write-through upperlevel
   default:       specialOp(mreq);     break;
@@ -186,7 +186,7 @@ void SMPCache::read(MemRequest *mreq)
 
   if (!outsReq->issue(addr)) {
     outsReq->addEntry(addr, doReadCB::create(this, mreq), 
-		            doReadCB::create(this, mreq));
+                            doReadCB::create(this, mreq));
     readHalfMiss.inc();
     return;
   }
@@ -224,7 +224,7 @@ void SMPCache::doRead(MemRequest *mreq)
 
   if (!mutExclBuffer->issue(addr)) {
     mutExclBuffer->addEntry(addr, sendReadCB::create(this, mreq),
-      			          sendReadCB::create(this, mreq));
+                                  sendReadCB::create(this, mreq));
     return;
   }
   sendRead(mreq);
@@ -241,7 +241,7 @@ void SMPCache::write(MemRequest *mreq)
   
   if (!outsReq->issue(addr)) {
     outsReq->addEntry(addr, doWriteCB::create(this, mreq), 
-   		            doWriteCB::create(this, mreq));
+                            doWriteCB::create(this, mreq));
     writeHalfMiss.inc();
     return;
   }
@@ -290,7 +290,7 @@ void SMPCache::doWrite(MemRequest *mreq)
 
   if (!mutExclBuffer->issue(addr)) {
     mutExclBuffer->addEntry(addr, sendWriteCB::create(this, mreq),
-			          sendWriteCB::create(this, mreq));
+                                  sendWriteCB::create(this, mreq));
     return;
   }
 
@@ -368,8 +368,8 @@ void SMPCache::realInvalidate(PAddr addr, ushort size)
       nextSlot(); // counts for occupancy to invalidate line
       I(l->isValid());
       if (l->isDirty()) {
-	invalDirty.inc();
-	doWriteBack(addr);
+        invalDirty.inc();
+        doWriteBack(addr);
       } 
       l->invalidate();
     }
@@ -445,9 +445,9 @@ void SMPCache::returnAccess(MemRequest *mreq)
     } 
     else if(memOp == MemReadW) {
       if(sreq->needsData()) {
-	protocol->writeMissAckHandler(sreq);
+        protocol->writeMissAckHandler(sreq);
       } else {
-	protocol->invalidateAckHandler(sreq);
+        protocol->invalidateAckHandler(sreq);
       }
     } 
     else if(memOp == MemWrite) {
@@ -468,17 +468,17 @@ void SMPCache::concludeAccess(MemRequest *mreq)
   PAddr addr = mreq->getPAddr();
 
   mreq->mutateReadToWrite(); /*
-			      Hack justification: It makes things much
-			      nicer if we can call mutateWriteToRead()
-			      in write() if the line is displaced from
-			      the cache between the time the write is
-			      processed in the L1 to the time it is
-			      processed in the L2.
+                              Hack justification: It makes things much
+                              nicer if we can call mutateWriteToRead()
+                              in write() if the line is displaced from
+                              the cache between the time the write is
+                              processed in the L1 to the time it is
+                              processed in the L2.
 
-			      BUT from the L2, we don't call
-			      mreq->goDown(), so we can't rely on
-			      mreq->goUp() to restore the memOp.
-			    */
+                              BUT from the L2, we don't call
+                              mreq->goDown(), so we can't rely on
+                              mreq->goUp() to restore the memOp.
+                            */
   mreq->goUp(0);
 
   outsReq->retire(addr);

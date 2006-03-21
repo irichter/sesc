@@ -368,6 +368,10 @@ public:
   void stopProcessor(CPU_t id) {
     cpus.stopProcessor(id);
   }
+  void restartProcessor(CPU_t id) {
+    cpus.restartProcessor(id);
+  }
+
 };
 
 typedef CallbackMember4<OSSim, Pid_t, int, int, const void *, &OSSim::postEvent> postEventCB;

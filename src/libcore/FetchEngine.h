@@ -5,7 +5,7 @@
    Contributed by Jose Renau
                   Milos Prvulovic
                   Smruti Sarangi
-		  Luis Ceze
+                  Luis Ceze
 
 This file is part of SESC.
 
@@ -36,6 +36,9 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #ifdef TASKSCALAR
 #include "TaskContext.h"
 #endif
+#ifdef SESC_RSTTRACE
+#include "RSTFlow.h"
+#endif
 
 #ifdef SESC_INORDER
 #include <stdio.h>
@@ -63,7 +66,11 @@ private:
   BPredictor *bpred;
   
 #ifdef TRACE_DRIVEN
+#ifdef SESC_RSTTRACE
+  RSTFlow   flow;
+#else
   TraceFlow flow;
+#endif
 #else
   ExecutionFlow flow;
 #endif
@@ -128,9 +135,9 @@ protected:
 
 public:
   FetchEngine(int cId, int i
-	      ,GMemorySystem *gms
-	      ,GProcessor *gp
-	      ,FetchEngine *fe = 0);
+              ,GMemorySystem *gms
+              ,GProcessor *gp
+              ,FetchEngine *fe = 0);
   ~FetchEngine();
 
   void addEvent(EventType ev, CallbackBase *cb, int vaddr) {
@@ -139,7 +146,7 @@ public:
  
 #ifdef SESC_INORDER
   void report(const char * str) {
-    pipeLineSelector.report(str);	
+    pipeLineSelector.report(str);       
   }
 #endif
  

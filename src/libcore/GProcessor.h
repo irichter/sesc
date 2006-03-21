@@ -135,15 +135,15 @@ protected:
 #endif
 
   // "Lack of Retirement" Stats
-  GStatsAvg retired;
+  GStatsAvg   retired;
+  GStatsCntr  notRetiredOtherCause;
   GStatsCntr *notRetired[MaxNoRetResp][MaxInstType][MaxRetOutcome];
-  GStatsCntr notRetiredOtherCause;
 
   // Construction
   void buildInstStats(GStatsCntr *nInstFake[MaxInstType], const char *txt);
 
   void buildUnit(const char *clusterName, GMemorySystem *ms, Cluster *cluster, InstType type
-		 ,GStatsEnergyCGBase *ecg);
+                 ,GStatsEnergyCGBase *ecg);
   void buildCluster(const char *clusterName, GMemorySystem * ms);
   void buildClusters(GMemorySystem *ms);
 
@@ -168,17 +168,9 @@ protected:
 
     addStatsRetire(index);
 
-    if(notRetired[Self][dinst->getInst()->getOpcode()][cause])
-      notRetired[Self][dinst->getInst()->getOpcode()][cause]->inc();
-    else
-      notRetiredOtherCause.inc();
-
-    if(notRetired[Other][dinst->getInst()->getOpcode()][cause])
-      notRetired[Other][dinst->getInst()->getOpcode()][cause]->add(RetireWidth - index - 1);
-    else 
-      notRetiredOtherCause.inc(); 
+    notRetired[Self][dinst->getInst()->getOpcode()][cause]->inc();
+    notRetired[Other][dinst->getInst()->getOpcode()][cause]->add(RetireWidth - index - 1);
   }
-
 
 public:
   //Lock counters

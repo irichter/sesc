@@ -4,7 +4,7 @@
 
    Contributed by Saangetha
                   Keertika
-		  Jose Renau
+                  Jose Renau
 
 This file is part of SESC.
 
@@ -24,17 +24,114 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include <sys/types.h>
 #include <dirent.h>
 
+#include "SescConf.h"
+#include "OSSim.h"
 #include "nanassert.h"
 #include "RSTReader.h"
 #include "rstf.h"
 #include "Rstzip.h"
 
+void RSTReader::addInstruction(const rstf_unionT *rp) {
+
+  int fid       = rstf_instrT_get_cpuid(&(rp->instr));
+ 
+  VAddr PC      = rp->instr.pc_va;
+  uint  rawInst = rp->instr.instr;
+  VAddr address = rp->instr.ea_va;
+
+  const Instruction *inst = Instruction::getSharedInstByPC(PC);
+  if (inst == 0) {
+    inst = Instruction::getRSTInstByPC(PC, rawInst);
+    GI(inst->isMemory(), address>1024 || address==0);
+  }
+  I(inst);
+
+  DInst *dinst=DInst::createDInst(inst, address , fid
+#ifdef TLS
+                                  ,0 // This will break things (epoch can't be 0)
+#endif
+                                  );
+
+  I(fid<nFlows);
+
+  head[fid].addSrc1(dinst);
+
+  head_size[fid]++;
+}
+
+void RSTReader::advancePC(int fid) { 
+
+  while(!end_of_trace) {
+    while (buf_pos < buf_end) {
+      rstf_unionT *rp = &buf[buf_pos++];
+
+      // skip markers, only INSTR_T
+      if (rp->proto.rtype != INSTR_T)
+        continue;
+
+      int inst_fid       = rstf_instrT_get_cpuid(&(rp->instr));
+      if (inst_fid >= nFlows) {
+        static int max_flow_found = nFlows;
+        if(max_flow_found < inst_fid) {
+          MSG("More Flows (%d) than thread contexts (%d)",inst_fid, nFlows);
+          max_flow_found = inst_fid;
+        }
+        continue;
+      }
+      if( head_size[inst_fid] > Max_Head_Size) {
+        buf_pos--;
+        // Too many instruction on the other context
+
+        if(head_size[fid]==0) {
+          // stop current fid (stopcpu)
+          osSim->stopProcessor(fid);
+        }
+        return;
+      }
+
+      addInstruction(rp);
+
+      // if instruction from another thread add it to the list
+      if(rstf_instrT_get_cpuid(&(rp->instr))!=fid && head_size[inst_fid]==1) {
+        osSim->restartProcessor(inst_fid);
+        continue;
+      }
+      
+      return;
+    }
+
+    // Fill Buffer
+    I(buf_pos == buf_end);
+
+    buf_end = rz->decompress(buf, Max_Num_Recs);
+    buf_pos = 0;
+    if (buf_end == 0) {
+      end_of_trace = true;
+    }
+  }
+}
+
 RSTReader::RSTReader()
-  : Max_Num_Recs(4096) {
+  : Max_Num_Recs(128)
+  , Max_Head_Size(32) {
 
   buf = (rstf_unionT *)malloc(sizeof(rstf_unionT)*Max_Num_Recs);
   buf_pos = 0;
   buf_end = 0;
+
+  int nProcs = SescConf->getRecordSize("","cpucore");
+  nFlows = 0;
+  for(Pid_t i = 0; i < nProcs; i ++) {
+    if(SescConf->checkInt("cpucore","smtContexts",i)) {
+      nFlows += SescConf->getInt("cpucore","smtContexts",i);
+    }else{
+      nFlows++;
+    }
+  }
+
+  head = new DInst [nFlows];
+  head_size = (char *)malloc(sizeof(char)*nFlows);
+  bzero(head_size, sizeof(char)*nFlows);
 }
 
 void RSTReader::openTrace(const char *filename) {
@@ -47,7 +144,50 @@ void RSTReader::openTrace(const char *filename) {
   }
 
   end_of_trace = false;
-  advancePC(0);
+
+  while(!end_of_trace) {
+    while (buf_pos < buf_end) {
+      rstf_unionT *rp = &buf[buf_pos++];
+
+      // skip markers, only INSTR_T
+      if (rp->proto.rtype != INSTR_T)
+        continue;
+
+      int fid       = rstf_instrT_get_cpuid(&(rp->instr));
+
+      VAddr PC      = rp->instr.pc_va;
+      uint  rawInst = rp->instr.instr;
+      VAddr address = rp->instr.ea_va;
+
+      const Instruction *inst = Instruction::getSharedInstByPC(PC);
+      if (inst == 0) {
+        inst = Instruction::getRSTInstByPC(PC, rawInst);
+        GI(inst->isMemory(), address>1024 || address==0);
+      }
+      I(inst);
+
+      DInst *dinst=DInst::createDInst(inst, address , fid
+#ifdef TLS
+                                  ,0 // This will break things (epoch can't be 0)
+#endif
+                                  );
+
+      fid = fid % nFlows;
+      head[fid].addSrc1(dinst);
+
+      head_size[fid]++;
+
+      return; // one instruction added :)
+    }
+
+    // Fill Buffer
+    I(buf_pos == buf_end);
+
+    buf_end = rz->decompress(buf, Max_Num_Recs);
+    buf_pos = 0;
+    if (buf_end == 0)
+      end_of_trace = true;
+  }
 }
 
 void RSTReader::closeTrace() {
@@ -55,65 +195,25 @@ void RSTReader::closeTrace() {
   delete rz;
 }
 
-void RSTReader::advancePC(int fid) {
+DInst *RSTReader::executePC(int fid) {
 
-  if (end_of_trace) {
-    PC =  0xffffffff;
-    return;
-  }
+  I(fid<nFlows);
 
-  readInst(fid);
-}
+  GI( head_size[fid],  head[fid].hasPending());
+  GI(!head_size[fid], !head[fid].hasPending());
 
-void RSTReader::readInst(int fid) { 
+  I((Max_Head_Size/4)>4);
+  if (head_size[fid] < (Max_Head_Size/4))
+    advancePC(fid);
 
-  do {
-    while (buf_pos < buf_end) {
-      rstf_unionT * rp = &buf[buf_pos++];
+  if (head_size[fid]==0)
+    return 0;
 
-      // skip markers, only INSTR_T
-      if (rp->proto.rtype != INSTR_T)
-	continue;
+  head_size[fid]--;
+  DInst *dinst = head[fid].getNextPending();
 
-      I(rstf_instrT_get_cpuid(&(rp->instr))==fid); // FIXME: not multi now
-      
-      PC      = rp->instr.pc_va;
-      inst    = rp->instr.instr;
-      address = rp->instr.ea_va;
+  if (head_size[fid]==0)
+    advancePC(fid);
 
-      //      printf("cpu=%d PC=0x%4x LD=0x%4x opcode=0x%4x\n"
-      //	     ,rstf_instrT_get_cpuid(&(rp->instr))
-      //	     , PC, address, inst);
-
-      return;
-    }
-
-    // Fill Buffer
-    I(buf_pos == buf_end);
-
-    buf_end = rz->decompress(buf, Max_Num_Recs);
-    if (buf_end == 0) {
-      end_of_trace = true;
-    }
-
-  }while(!end_of_trace);
-
-}
-
-void RSTReader::fillTraceEntry(TraceEntry *te, int fid) {
-  I(fid == 0);
-
-  if(end_of_trace) {
-    te->eot = true;
-    return;
-  }
-  
-  te->rawInst = getCurrentInst(fid);
-  te->iAddr   = getCurrentPC(fid);
-  
-  te->dAddr   = getCurrentDataAddress(fid);
-  
-  advancePC(fid);
-
-  te->nextIAddr = getCurrentPC(fid);
+  return dinst;
 }

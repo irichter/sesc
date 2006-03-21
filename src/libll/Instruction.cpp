@@ -35,7 +35,9 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "PPCDecoder.h"
 #include "SescConf.h"
 #include "TraceFlow.h"
-
+#ifdef SESC_RSTTRACE
+#include "RSTFlow.h"
+#endif
 
 void mint_init(int argc, char **argv, char **envp);
 OP(mint_getpid);
@@ -88,7 +90,12 @@ void Instruction::initialize(int argc
                              ,char **envp
                              ,int start_argc)
 {
-#ifdef TRACE_DRIVEN
+#ifdef SESC_RSTTRACE
+  start_argc++; // skip the -- argument
+
+  RSTFlow::setTraceFile(argv[start_argc]);
+  
+#elif TRACE_DRIVEN
   start_argc++; // skip the -- argument
 
   const char *traceMode = SescConf->getCharPtr("","traceMode");
@@ -105,7 +112,6 @@ void Instruction::initialize(int argc
   } else if(strcmp(traceMode, "simics") == 0) {
     //initializeSimicsTrace(argc, argv, envp);
   }
-
 #else
   initializeMINT(argc, argv, envp);
 #endif

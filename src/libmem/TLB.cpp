@@ -28,7 +28,7 @@ int TLB::translate(VAddr vAddr)
   if(GMemorySystem::calcPage(vAddr) == 0)
     return 0;
 
-  TLBCache::CacheLine *cl = cache->readLine(GMemorySystem::calcPage(vAddr));
+  TLBCache::CacheLine *cl = cache->readLine(GMemorySystem::calcPageAddr(vAddr));
 
   //GMSG(cl==0 && id==0, "[%llu] TLB MISS %lx", globalClock, vAddr>>Log2PageSize);
   if (cl == 0) 
@@ -43,7 +43,7 @@ void TLB::insert(VAddr vAddr, int  phPage)
     return;
 
   //GMSG(id==0, "[%llu] TLB INS %lx", globalClock, vAddr>>Log2PageSize);
-  TLBCache::CacheLine *cl = cache->fillLine(GMemorySystem::calcPage(vAddr));
+  TLBCache::CacheLine *cl = cache->fillLine(GMemorySystem::calcPageAddr(vAddr));
   cl->physicalPage = phPage;
 }
 

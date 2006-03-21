@@ -42,47 +42,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *  doneItem();  // when all the instructions are executed
  */
 
-class IBucket;
-
-
-class PipeIBucketLess {
- public:
-  bool operator()(const IBucket *x, const IBucket *y) const;
-};
-
-class Pipeline {
-private:
-  const size_t PipeLength;
-  const size_t bucketPoolMaxSize;
-  const int MaxIRequests;
-  int nIRequests;
-  FastQueue<IBucket *> buffer;
-
-  typedef std::vector<IBucket *> IBucketCont;
-  IBucketCont bucketPool;
-  IBucketCont cleanBucketPool;
-
-  std::priority_queue<IBucket *, std::vector<IBucket*>, PipeIBucketLess> received;
-
-  Time_t maxItemCntr;
-  Time_t minItemCntr;
-  
-  int nCleanMarks;
-  
-protected:
-  void clearItems();
-public:
-  Pipeline(size_t s, size_t fetch, int maxReqs);
-  virtual ~Pipeline();
- 
-  void cleanMark();
-
-  IBucket *newItem();
-  bool hasOutstandingItems() const; 
-  void readyItem(IBucket *b);
-  void doneItem(IBucket *b);
-  IBucket *nextItem();
-};
+class Pipeline;
 
 class IBucket : public FastQueue<DInst *> {
 private:
@@ -117,6 +77,70 @@ public:
   StaticCallbackMember0<IBucket, &IBucket::markFetched> markFetchedCB;
 };
 
+class PipeIBucketLess {
+ public:
+  bool operator()(const IBucket *x, const IBucket *y) const;
+};
+
+class Pipeline {
+private:
+  const size_t PipeLength;
+  const size_t bucketPoolMaxSize;
+  const int MaxIRequests;
+  int nIRequests;
+  FastQueue<IBucket *> buffer;
+
+  typedef std::vector<IBucket *> IBucketCont;
+  IBucketCont bucketPool;
+  IBucketCont cleanBucketPool;
+
+  std::priority_queue<IBucket *, std::vector<IBucket*>, PipeIBucketLess> received;
+
+  Time_t maxItemCntr;
+  Time_t minItemCntr;
+  
+  int nCleanMarks;
+  
+protected:
+  void clearItems();
+public:
+  Pipeline(size_t s, size_t fetch, int maxReqs);
+  virtual ~Pipeline();
+ 
+  void cleanMark();
+
+  IBucket *newItem() {
+    if(nIRequests == 0 || bucketPool.empty())
+      return 0;
+    
+    nIRequests--;
+    
+    IBucket *b = bucketPool.back();
+    bucketPool.pop_back();
+    
+    b->setPipelineId(maxItemCntr);
+    maxItemCntr++;
+    
+    IS(b->fetched = false);
+    
+    I(b->empty());
+    return b;
+  }
+
+  bool hasOutstandingItems() const {
+    // bucketPool.size() has lineal time O(n)
+    return !buffer.empty() || !received.empty() || nIRequests < MaxIRequests;
+  } 
+  void readyItem(IBucket *b);
+  void doneItem(IBucket *b) {
+    I(b->getPipelineId() < minItemCntr);
+    I(b->empty());
+    
+    bucketPool.push_back(b);
+  }
+  IBucket *nextItem();
+};
+
 class PipeQueue {
 public:
   PipeQueue(CPU_t i);
@@ -129,5 +153,6 @@ public:
     return pipeLine.hasOutstandingItems() || !instQueue.empty();
   }
 };
+
 
 #endif // PIPELINE_H

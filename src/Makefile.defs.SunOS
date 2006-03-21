@@ -38,13 +38,22 @@ CXX     =g++
 CC      =gcc
 
 ifdef DEBUG
-COPTS   :=-O0 -m32 -g -fno-inline-functions $(PDEFS)
-LOPTS   :=-O0 -m32
+COPTS   :=-O0 -g -fno-inline-functions $(PDEFS)
+LOPTS   :=-O0 
 else
 # -fast does not work by default. Dissable some opts
-COPTS   :=-O3 -m32 -g1 -finline-functions -finline-limit=1800
+COPTS   :=-O3 -g1 -finline-functions -finline-limit=1800
 COPTS +=-funroll-loops -fsched-interblock -fomit-frame-pointer
-LOPTS   :=-O3 -m32
+LOPTS   :=-O3 
+endif
+
+ifdef TRACE_DRIVEN
+# Trace driven works with 64bits (but most systems do not have the libraries)
+COPTS += -m32
+LOPTS += -m32
+else
+COPTS += -m32
+LOPTS += -m32
 endif
 endif
 

@@ -34,8 +34,9 @@ class GProcessor;
 class RunningProcs {
 private:
   bool stayInLoop;
+  size_t startProc;
 
-  typedef SLIST<GProcessor *> GProcCont;
+  typedef std::vector<GProcessor *> GProcCont;
   GProcCont  workingList;
 
   GProcessor *currentCPU;
@@ -77,6 +78,11 @@ public:
     I(core);
     workingListRemove(core);
   }
+  void restartProcessor(CPU_t cpu) {
+    GProcessor *core = getProcessor(cpu);
+    I(core);
+    workingListAdd(core);
+  }
 
   GProcessor *getCurrentCPU() const {
     return currentCPU;
@@ -86,6 +92,5 @@ public:
     return !workingList.empty();
   }
 };
-
 
 #endif // RUNNINGPROCS

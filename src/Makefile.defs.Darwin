@@ -36,7 +36,6 @@ COPTS	+=-DSESC_OSX_CHUD -F/System/Library/PrivateFrameworks
 endif
 endif
 
-
 # Shared COPTS (do not affect debugging)
 # Plaform Specific
 COPTS +=-faltivec -malign-power -mpowerpc-gpopt -force_cpusubtype_ALL

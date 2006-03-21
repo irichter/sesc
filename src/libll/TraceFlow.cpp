@@ -25,9 +25,6 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "SescConf.h"
 #include "TT6Reader.h"
 #include "QemuSescReader.h"
-#ifdef SESC_RSTTRACE
-#include "RSTReader.h"
-#endif
 #ifdef SESC_SIMICS
 #include "SimicsReader.h"
 #endif
@@ -72,37 +69,25 @@ TraceFlow::TraceFlow(int cId, int i, GMemorySystem *gms)
       I(0);
   }
 
-  if (strstr (traceFile,"rz2.gz") || strstr (traceFile,"rz3.gz")) {
-#ifdef SESC_RSTTRACE
-    if (createReader) {
-      MSG("Using RST trace format");
-      trace = new RSTReader(); 
-    }
-#else
-    MSG("ERROR: You must compile wiht --enable-rsttrace to use RST traces");
-    exit(-1);
-#endif
-    mode = RSTTrace;
-  }
-
-  
   if(createReader) {
     I(traceFile);
     MSG("TraceFlow::TraceFlow() traceFile=%s", traceFile);
     trace->openTrace(traceFile);
   }
   
-  nextPC = 0;
-  hasTrace = true;
+  nextPC     = 0;
+  hasTrace   = true;
+
+  delayDInst        = 0;
+  swappingDelaySlot = false;
 }
 
 DInst *TraceFlow::executePC() 
 { 
   I(hasTrace);
+  static TraceEntry te; // static for speed, otherwise constructor is called every time
 
-  static TraceEntry te;
-
-  trace->fillTraceEntry(&te, 0);   
+  trace->fillTraceEntry(&te, fid);
         
   if(te.eot) { // end of trace
     hasTrace = false; // FIXME: remove 
@@ -130,13 +115,6 @@ DInst *TraceFlow::executePC()
 #endif
       break;
 
-    case RSTTrace:
-#ifdef SESC_RSTTRACE
-      inst = Instruction::getRSTInstByPC(te.iAddr, te.rawInst);
-#else
-      inst = 0;
-#endif
-      break;
     default:
       I(0);
     }
@@ -144,11 +122,13 @@ DInst *TraceFlow::executePC()
 
   nextPC = te.nextIAddr;
 
-  return DInst::createDInst(inst, te.dAddr ,cpuId
+  DInst *dinst=DInst::createDInst(inst, te.dAddr ,cpuId
 #if (defined TLS)
                             ,0 // This will break things (epoch can't be 0)
 #endif
                             );
+
+  return dinst;
 }
 
 void TraceFlow::dump(const char *str) const

@@ -27,13 +27,13 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 SMPSystemBus::SMPSystemBus(SMemorySystem *dms, const char *section, const char *name)
   : MemObj(section, name)
 {
-  MemObj *lowerLevel = NULL;
+  MemObj *ll = NULL;
 
   I(dms);
-  lowerLevel = dms->declareMemoryObj(section, "lowerLevel");
+  ll = dms->declareMemoryObj(section, "lowerLevel");
 
-  if (lowerLevel != NULL)
-    addLowerLevel(lowerLevel);
+  if (ll != NULL)
+    addLowerLevel(ll);
 
   SescConf->isInt(section, "numPorts");
   SescConf->isInt(section, "portOccp");
@@ -45,8 +45,8 @@ SMPSystemBus::SMPSystemBus(SMemorySystem *dms, const char *section, const char *
   sprintf(portName, "%s_bus", name);
 
   busPort = PortGeneric::create(portName, 
-				SescConf->getInt(section, "numPorts"), 
-				SescConf->getInt(section, "portOccp"));
+                                SescConf->getInt(section, "numPorts"), 
+                                SescConf->getInt(section, "portOccp"));
 
 #ifdef SESC_ENERGY
   busEnergy = new GStatsEnergy("busEnergy", "SMPSystemBus", 0,
@@ -161,9 +161,9 @@ void SMPSystemBus::doRead(MemRequest *mreq)
     }
 
     // distribute requests to other caches, wait for responses
-	 for(uint i = 0; i < upperLevel.size(); i++) {
+         for(uint i = 0; i < upperLevel.size(); i++) {
       if(upperLevel[i] != static_cast<SMPMemRequest *>(mreq)->getRequestor()) {
-	upperLevel[i]->returnAccess(mreq);
+        upperLevel[i]->returnAccess(mreq);
       }
     }
   } 
@@ -215,9 +215,9 @@ void SMPSystemBus::doWrite(MemRequest *mreq)
     }
 
     // distribute requests to other caches, wait for responses
-	 for(uint i = 0; i < upperLevel.size(); i++) {
+         for(uint i = 0; i < upperLevel.size(); i++) {
       if(upperLevel[i] != static_cast<SMPMemRequest *>(mreq)->getRequestor()) {
-	upperLevel[i]->returnAccess(mreq);
+        upperLevel[i]->returnAccess(mreq);
       }
     }
   } 

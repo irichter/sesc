@@ -43,6 +43,7 @@ void RunningProcs::finishWorkNow()
   ReportTherm::stopCB();
 #endif
   workingList.clear();
+  startProc =0;
 }
 
 void RunningProcs::workingListRemove(GProcessor *core)
@@ -53,13 +54,21 @@ void RunningProcs::workingListRemove(GProcessor *core)
 
   if (core->hasWork())
     return;
-  
-  GProcCont::iterator it =std::find(workingList.begin(),
-				    workingList.end(),
-				    core);
-  I(it!=workingList.end());
-  workingList.erase(it);
-  stayInLoop=false;
+
+  bool found=false;
+  for(size_t i=0;i<workingList.size();i++) {
+    if (workingList[i] == core) {
+      found = true;
+      continue;
+    }else if (found) {
+      I(i>0);
+      workingList[i-1] = workingList[i];
+    }
+  }
+
+  workingList.pop_back();
+  startProc =0;
+  stayInLoop=!workingList.empty();
 }
 
 void RunningProcs::workingListAdd(GProcessor *core)
@@ -70,11 +79,12 @@ void RunningProcs::workingListAdd(GProcessor *core)
 
 // TODO: Ein?  I(core->hasWork());
 
-  GProcCont::iterator it =std::find(workingList.begin(),
-				    workingList.end(),
-				    core);
-  if(it == workingList.end())
-    workingList.push_front(core);
+  for(size_t i=0;i<workingList.size();i++) {
+    if (workingList[i] == core)
+      return;
+  }
+
+  workingList.push_back(core);
 }
 
 void RunningProcs::run()
@@ -95,45 +105,35 @@ void RunningProcs::run()
     while (hasWork()) {
       stayInLoop=true;
 
-      GProcCont::iterator startProc = workingList.begin();
+      startProc = 0;
 
       do{
+        // Loop duplicated so round-robin fetch starts on different
+        // processor each cycle <><>
 
-	// Loop duplicated so round-robin fetch starts on different
-	// processor each cycle <><>
+        for(size_t i=startProc ; i < workingList.size() ; i++) {
+          if (workingList[i]->hasWork()) {
+            currentCPU = workingList[i];
+            currentCPU->advanceClock();
+          }else{
+            workingListRemove(workingList[i]);
+          }
+        }
+        for(size_t i=0 ; i < startProc ; i++) {
+          if (workingList[i]->hasWork()) {
+            currentCPU = workingList[i];
+            currentCPU->advanceClock();
+          }else{
+            workingListRemove(workingList[i]);
+          }
+        }
 
-	for(GProcCont::iterator it=startProc
-	      ;it!=workingList.end() && stayInLoop
-	      ;it++) {
-	  // If you want to remove processors on the fly, when
-	  // cpuVector[i] is NULL execute a continue
-	  I( *it );
+        startProc++;
+        if (startProc >= workingList.size())
+          startProc = 0;
 
-	  if ((*it)->hasWork()) {
-	    currentCPU = *it;
-	    currentCPU->advanceClock();
-	  }else{
-	    workingListRemove(*it);
-	  }
-	}
-	for(GProcCont::iterator it=workingList.begin()
-	      ;it!=startProc && stayInLoop
-	      ;it++) {
-	  I( *it );
-	  if ((*it)->hasWork()) {
-	    currentCPU = *it;
-	    currentCPU->advanceClock();
-	  }else{
-	    workingListRemove(*it);
-	  }
-	}
-
-	startProc++;
-	if (startProc == workingList.end())
-	  startProc = workingList.begin();
-
-	IS(currentCPU = 0);
-	EventScheduler::advanceClock();
+        IS(currentCPU = 0);
+        EventScheduler::advanceClock();
       }while(stayInLoop);
 #ifdef SESC_THERM
       ReportTherm::stopCB();
@@ -255,8 +255,6 @@ void RunningProcs::switchIn(CPU_t id, ProcessId *proc)
   core->setStallUntil(globalClock+5);
 #endif  
   core->switchIn(proc->getPid()); // Must be the last thing because it can generate a switch
-
-
 }
 
 void RunningProcs::switchOut(CPU_t id, ProcessId *proc) 
@@ -265,13 +263,11 @@ void RunningProcs::switchOut(CPU_t id, ProcessId *proc)
   Pid_t pid = proc->getPid();
 
   proc->switchOut(core->getAndClearnGradInsts(pid),
-		  core->getAndClearnWPathInsts(pid));
+                  core->getAndClearnWPathInsts(pid));
 
   core->switchOut(pid);
 
   workingListRemove(core);
-
-
 }
 
 GProcessor *RunningProcs::getAvailableProcessor(void)
@@ -283,7 +279,7 @@ GProcessor *RunningProcs::getAvailableProcessor(void)
     //UGLY UGLY fix for the bug, i'll fix it soon. --luis
     for(unsigned cpuId = 0; cpuId < size(); cpuId++) {
       if(getProcessor(cpuId)->availableFlows() > 0)
-	return getProcessor(cpuId);
+        return getProcessor(cpuId);
     }
     return 0;
   }

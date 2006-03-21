@@ -4,7 +4,7 @@
 
    Contributed by Saangetha
                   Keertika
-		  Jose Renau
+                  Jose Renau
 
 This file is part of SESC.
 
@@ -25,49 +25,45 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #ifndef RST_READER_H
 #define RST_READER_H
 
-#include "ThreadContext.h"
-#include "minidecoder.h"
-#include "TraceEntry.h"
-#include "TraceReader.h"
-
+#include "DInst.h"
 #include "rstf.h"
 #include "Rstzip.h"
 
-class RSTReader : public TraceReader {
+class RSTReader {
  private:
   const int Max_Num_Recs;
+  const int Max_Head_Size;
 
   Rstzip *rz;
   
-  // Current inst
-  VAddr   PC;
-  uint    inst;
-  VAddr   address;
+  int nFlows;
+  DInst *head;
+  char *head_size;
 
   // Decompressed buffer
   bool end_of_trace;
-  int buf_pos;
-  int buf_end;
+  int  buf_pos;
+  int  buf_end;
   rstf_unionT *buf;
-  
-  void readInst(int fid);
+
+  void addInstruction(const rstf_unionT *rp);
+
   void advancePC(int fid);
 
-  VAddr getCurrentPC(int fid)    const { return PC; }
-  int   getCurrentInst(int fid)  const { return inst; }
-  VAddr getCurrentDataAddress(int fid) const { return address; }
-
  public:
-  rstf_unionT *currentInst() {
-    return &buf[buf_pos];
-  }
   RSTReader();
 
   void openTrace(const char* basename);
   void closeTrace();
 
-  void fillTraceEntry(TraceEntry *te, int id);
+  DInst *executePC(int fid);
+  VAddr currentPC(int fid) const {
+    return head_size[fid] ? 
+      head[fid].getFirstPending()->getInst()->getAddr(): 
+      0xffffffff ;
+  }
 
+  bool hasWork(int fid) const { return head_size[fid] != 0; }
 };
 
 #endif

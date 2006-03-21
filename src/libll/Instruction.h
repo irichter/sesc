@@ -36,9 +36,6 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "callback.h"
 #include "QemuSescReader.h"
 #include "QemuSescTrace.h"
-#ifdef SESC_RSTTRACE
-#include "RSTReader.h"
-#endif
 #ifdef SESC_SIMICS
 #include "SimicsTraceFormat.h"
 #endif
@@ -117,9 +114,6 @@ private:
 
   static void PPCDecodeInstruction(Instruction *inst, uint rawInst);
   static void QemuSparcDecodeInstruction(Instruction *inst, QemuSescTrace *qst); 
-#ifdef SESC_RSTTRACE
-  static void RSTDecodeInstruction(Instruction *inst, uint rawInst); 
-#endif
 
 #ifdef SESC_SIMICS
   static const Instruction *SimicsDecodeInstruction(TraceSimicsOpc_t op);
@@ -181,7 +175,7 @@ public:
   static const Instruction *getPPCInstByPC(int addr, uint rawInst) {
 
     InstHash::iterator it = instHash.find(addr);
-    I(it != instHash.end());
+    I(it == instHash.end());
 
     // horrible!! we need to fix this. --luis
     Instruction *inst = new Instruction(); // maybe we should have a pool for 
@@ -195,7 +189,7 @@ public:
   
   static const Instruction *getQemuInstByPC(unsigned int addr, QemuSescTrace *qst) {            
     InstHash::iterator it = instHash.find(addr); 
-    I(it != instHash.end());
+    I(it == instHash.end());
 
     Instruction *inst = new Instruction();
       
@@ -206,17 +200,7 @@ public:
   }
 
 #ifdef SESC_RSTTRACE
-  static const Instruction *getRSTInstByPC(unsigned int addr, uint rawInst) {
-    InstHash::iterator it = instHash.find(addr); 
-    I(it != instHash.end());
-
-    Instruction *inst = new Instruction();
-      
-    RSTDecodeInstruction(inst, rawInst);
-    inst->addr     = addr;  
-    instHash[addr] = inst; 
-    return inst;
-  }
+  static const Instruction *getRSTInstByPC(unsigned int addr, uint rawInst);
 #endif
 
 #ifdef SESC_SIMICS
@@ -309,11 +293,7 @@ public:
   }
 
   InstID calcNextInstID() const { 
-#ifdef TRACE_DRIVEN
-    return currentID()+4; // ugly, just bootstrapping the trace driven code
-#else
     return currentID()+skipDelay;  
-#endif
   }
 
   RegType getSrc2() const { return src2;  }
