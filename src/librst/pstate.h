@@ -81,4 +81,4 @@ class Pstate {
   }
 };  // Pstate
 
-#endif PSTATE_H
+#endif // PSTATE_H

@@ -120,12 +120,12 @@ sub main {
   if( $op_all ) {
     opendir(DIR,".");
     # short by modification date
-    @flist = sort {(stat($a))[9] cmp (stat($b))[9]} (grep (/sesc.+\..{6}$/, readdir (DIR)));
+    @flist = sort {(stat($a))[9] cmp (stat($b))[9]} (grep (/sesc\_.+\..{6}$/, readdir (DIR)));
     closedir(DIR);
   }elsif( $op_last ) {
     opendir(DIR,".");
     # short by modification date
-    my @tmp = sort {(stat($a))[9] cmp (stat($b))[9]} (grep (/sesc.+\..{6}$/, readdir (DIR)));
+    my @tmp = sort {(stat($a))[9] cmp (stat($b))[9]} (grep (/sesc\_.+\..{6}$/, readdir (DIR)));
     @flist = ($tmp[@tmp-1]);
     closedir(DIR);
   }else{
