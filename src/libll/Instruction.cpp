@@ -91,13 +91,10 @@ void Instruction::initialize(int argc
                              ,int start_argc)
 {
 #ifdef SESC_RSTTRACE
-  start_argc++; // skip the -- argument
 
-  RSTFlow::setTraceFile(argv[start_argc]);
+  RSTFlow::setTraceFile(argv[2]);
   
 #elif TRACE_DRIVEN
-  start_argc++; // skip the -- argument
-
   const char *traceMode = SescConf->getCharPtr("","traceMode");
   printf("getting the trace mode parameter parameter from the Instruction.cpp file");
   if(argc < 1) {
@@ -105,7 +102,7 @@ void Instruction::initialize(int argc
     exit(0);
   }
 
-  TraceFlow::setTraceFile(argv[start_argc]);
+  TraceFlow::setTraceFile(argv[2]);
 
   if(strcmp(traceMode, "ppctt6") == 0) {
     initializePPCTrace(argc, argv, envp);

@@ -1,0 +1,122 @@
+# Sesc-Therm 3D Model /w Micro-cooler implementation
+# Written by: Joseph Nayfach - Battilana
+# jnayfach@soe.ucsc.edu
+
+[Introduction]
+
+This package implementats a detailed modeling infrastructure to model the
+effect of placing micro-coolers on various locations on a chip die for cooling 
+purposes. Using the discretization of the heat equations governing heat flow,and 
+applying the implicit method of solving the linear equations, we solve a three-dimensional
+matrix for the temperatures in each of the discreet cross-sectional areas of the model
+after each of the discreet time intervals. 
+
+The equations are solved for transient temperatures. Thus, an average of a temperatures over
+time leads to a steady-state solution. 
+
+Once a given solution is found for a given time interval, the data is dumped to a trace file.
+Further, the data can be output in the form of a 3-dimensional graph (.png file). Lastly, 
+a steady-state analysis of the thermal data can be output as well (as a trace file
+or image file). 
+
+A warmup-option is also given. In this case, two passes are make to the circuit solver.
+A running average is generated for each of the functional units. This is used to "warm up"
+the chip for the next solver pass. Thus, the initial temperature value is not used 
+on the second pass. 
+
+[Used Packages]
+This toolkit makes use of the "Matrix Template Library" or "MTL" and "QwtPlot3D". 
+No changes were made to the original source. As per the terms of the artistic license,
+this toolkit is permitted to distribute the respective libraries. 
+See below for complete terms and conditions of source licenses.
+
+
+
+[Description of Files]
+
+The chip floorplan ex: "chip.flp" will contain the locations for the various
+functional units within the microprocessor being modeled. 
+
+The location of the micro-coolers is determined by the micro-cooler floorplan file "ucool.flp"
+This file contains the dimensions of each of the micro-coolers along with their respective
+locations on the die.
+
+The thermal properties of the chip/heatsink/heatspreader materials are governed by the "materials"
+section of the configuration file "sesctherm.cfg". These materials tare then assigned to each of 
+the respective layers within the model. This allows the the flexibility of changing the materials
+easily and effectively to accomodate different models. 
+
+The fan speed can be changed dynamicaly, by the initial fan speed is determined within 
+the configuration file.
+
+The properties of the micro-coolers is likewise determined within the configuration file. 
+
+
+
+
+[License Agreements]
+
+
+Matrix Template Library License Agreement
+
+
+Copyright ©1997-2005 , University of Notre Dame.
+
+Authors: Andrew Lumsdaine, Jeremy G. Siek, Lie-Quan Lee. 
+
+
+#  You may make and give away verbatim copies of the source form of the Standard Version 
+of this Package without restriction, provided that you duplicate all of the original copyright 
+notices and associated disclaimers.
+# You may apply bug fixes, portability fixes and other modifications derived from the
+Public Domain or from the Copyright Holder. A Package modified in such a way shall still
+be considered the Standard Version.
+# You may otherwise modify your copy of this Package in any way, provided that you insert
+a prominent notice in each changed file stating how and when you changed that file, and
+provided that you do at least ONE of the following:
+
+   1. place your modifications in the Public Domain or otherwise make them Freely Available,
+   such as by posting said modifications to Usenet or an equivalent medium, or placing the 
+   modifications on a major archive site such as uunet.uu.net, or by allowing the Copyright
+   Holder to include your modifications in the Standard Version of the Package.
+   2. use the modified Package only within your corporation or organization.
+   3. rename any non-standard types and functions so the names do not conflict with Standard 
+   Version, which must also be provided, and provide a separate documentation for each 
+   non-standard type of function that clearly documents how it differs from the Standard Version.
+   4. make other distribution arrangements with the Copyright Holder. 
+
+# You may charge a reasonable copying fee for any distribution of this Package. You may
+charge any fee you choose for support of this Package. You may not charge a fee for this 
+Package itself. However, you may distribute this Package in aggregate with other (possibly
+commercial) programs as part of a larger (possibly commercial) software distribution provided
+that you do not advertise this Package as a product of your own.
+# The name of the Copyright Holder may not be used to endorse or promote products derived from 
+this software without specific prior written permission.
+
+
+
+
+
+QWTPLOT3D License Agreement
+
+
+  QwtPlot3D license -- January 5th, 2005
+
+  Copyright (C) 2003-2005 Michael Bieber
+
+  This software is provided 'as-is', without any express or implied
+  warranty.  In no event will the author be held liable for any damages
+  arising from the use of this software.
+
+  Permission is granted to anyone to use this software for any purpose,
+  including commercial applications, and to alter it and redistribute it
+  freely, subject to the following restrictions:
+
+  1. The origin of this software must not be misrepresented; you must not
+     claim that you wrote the original software. If you use this software
+     in a product, an acknowledgment in the product documentation would be
+     appreciated but is not required.
+  2. Altered source versions must be plainly marked as such, and must not be
+     misrepresented as being the original software.
+  3. This notice may not be removed or altered from any source distribution.
+
