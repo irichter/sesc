@@ -131,7 +131,7 @@ MemObj *GMemorySystem::buildMemoryObj(const char *type, const char *section, con
 	|| strcasecmp(type, "cache") == 0 
 	|| strcasecmp(type, "mvcache") == 0 
 	|| strcasecmp(type, "icache") == 0 
-	|| strcasecmp(type, "mpcache") == 0 
+	|| strcasecmp(type, "smpcache") == 0 
 	)) {
     MSG("Invalid memory type [%s]", type);
   }
