@@ -55,7 +55,8 @@ void MESIProtocol::changeState(Line *l, unsigned newstate)
                                         newstate == MESI_MODIFIED ||
                                         newstate == MESI_TRANS_INV ||
                                         newstate == MESI_TRANS_WR);
-  GI(currentstate == MESI_MODIFIED,     newstate == MESI_SHARED ||
+  GI(currentstate == MESI_MODIFIED,     newstate == MESI_MODIFIED ||
+                                        newstate == MESI_SHARED ||
                                         newstate == MESI_TRANS_INV_D);
   
   l->changeStateTo(newstate);

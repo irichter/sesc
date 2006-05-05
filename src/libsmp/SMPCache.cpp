@@ -259,6 +259,7 @@ void SMPCache::doWrite(MemRequest *mreq)
 #ifdef SESC_ENERGY
     wrEnergy[0]->inc();
 #endif
+    protocol->makeDirty(l);
     outsReq->retire(addr);
     mreq->goUp(hitDelay);  
     return;
