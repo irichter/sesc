@@ -337,6 +337,10 @@ public:
   static unsigned long long getMemValue(RAddr p, unsigned dsize); 
 
   // BEGIN Memory Mapping
+  bool isValidDataVAddr(VAddr vaddr) const{
+    return isValidVAddr(vaddr);
+  }
+
   static bool isPrivateRAddr(RAddr raddr)  {
 	 return raddr >= PrivateStart &&  raddr <= PrivateEnd;
   }
