@@ -1345,6 +1345,9 @@ OP(mint_isatty)
 /* ARGSUSED */
 OP(mint_ioctl)
 {
+#if (defined __LP64__)
+  fatal("mint_ioctl: Not supported yet under __LP64__");
+#else
   int fd, cmd, arg;
   int err;
 
@@ -1399,6 +1402,7 @@ OP(mint_ioctl)
   pthread->setRetVal(err);
   if(err == -1)
     pthread->setperrno(errno);
+#endif // !(defined __LP64__)
   return pthread->getRetIcode();
 }
 
@@ -1468,7 +1472,7 @@ OP(mint_fcntl)
     break;
   case F_GETLK:
   case F_SETLK:
-#if (defined TLS)
+#if (defined TLS) || (defined __LP64__)
     fatal("mint_fcntl: F_GETLK and F_SETLK not supported.\n");
 #endif
     if (arg)
@@ -1565,7 +1569,7 @@ OP(mint_getrlimit)
   printf("mint_getrlimit()\n");
 #endif
   if(r5 == 0) {
-    fatal("uname called with a null pointer\n");
+    fatal("mint_getrlimit called with a null pointer\n");
   }
 
   ret = getrlimit(r4,(struct rlimit *)pthread->virt2real(r5));
@@ -1683,47 +1687,42 @@ OP(mint_cerror)
 /* ARGSUSED */
 OP(mint_gettimeofday)
 {
-  int tp, tzp;
-  int r4, r5;
+  // Prepare for parameter extraction
+  MintFuncArgs funcArgs(pthread, picode);
+  // First parameter is an address
+  VAddr tvVAddr = funcArgs.getVAddr();
+  // Note that we ignore the second (time zone) parameter
 
-  r4 = pthread->getIntArg1();
-  r5 = pthread->getIntArg2();
-
-  if (r4 == 0) {
+  // Check if the first parameter is a valid data address
+  if (!pthread->isValidDataVAddr(tvVAddr)){
     pthread->setRetVal(-1);
+    pthread->setErrno(EFAULT);
     return pthread->getRetIcode();
   }
-  tp = pthread->virt2real(r4);
 
-  if (r5)
-    tzp = pthread->virt2real(r5);
-  else
-    tzp = 0;
-
-  static int native_usecs=0;
-  if (native_usecs == 0) {
+  static uint64_t nativeMicroSeconds=0;
+  const static uint64_t secs2usecs=(uint64_t)1000*(uint64_t)1000;
+  if(!nativeMicroSeconds) {
     struct timeval tv;
     gettimeofday(&tv,0);
-    native_usecs = tv.tv_sec * 1000000 + tv.tv_usec;
+    nativeMicroSeconds = tv.tv_sec*secs2usecs + tv.tv_usec;
   }
 
-  int usecs = native_usecs + rsesc_usecs();
-  struct timeval tv;
+  uint64_t usecs = nativeMicroSeconds+rsesc_usecs();
 
-  tv.tv_sec  = SWAP_WORD(usecs / 1000000);
-  tv.tv_usec = SWAP_WORD(usecs % 1000000);
+  struct timeval tv;
+  tv.tv_sec  = SWAP_WORD((IntRegValue)(usecs/secs2usecs));
+  tv.tv_usec = SWAP_WORD((IntRegValue)(usecs%secs2usecs));
 
 #ifdef DEBUG_VERBOSE
-  printf("mint_gettimeofday() %d secs %d usesc\n", usecs / 1000000, usecs % 1000000);
+  printf("mint_gettimeofday() %lld secs %lld usesc\n",usecs/secs2usecs,usecs%secs2usecs);
 #endif
 
 #ifdef TASKSCALAR
-  rsesc_OS_write_block(pthread->getPid(), picode->addr, r4, &tv, sizeof(struct timeval));
+  rsesc_OS_write_block(pthread->getPid(),picode->addr,tvVAddr,&tv, sizeof(struct timeval));
 #else
-  struct timeval *r4map = (struct timeval *) pthread->virt2real(r4);
-  memcpy(r4map,&tv,sizeof(struct timeval));
+  memcpy((void *)(pthread->virt2real(tvVAddr)),&tv,sizeof(struct timeval));
 #endif
-
   pthread->setRetVal(0);
   return pthread->getRetIcode();
 }
@@ -2480,9 +2479,9 @@ OP(mint_lseek)
 /* ARGSUSED */
 OP(mint_access)
 {
-  MintFuncArgs args(pthread, picode);
-  VAddr namePtr = args.getVAddr();
-  int   amode   = args.getInt32();
+  MintFuncArgs funcArgs(pthread, picode);
+  VAddr namePtr = funcArgs.getVAddr();
+  int   amode   = funcArgs.getInt32();
   int err;
   
 #ifdef DEBUG_VERBOSE
@@ -2509,9 +2508,9 @@ OP(mint_access)
 /* ARGSUSED */
 OP(mint_stat)
 {
-  MintFuncArgs args(pthread, picode);
-  VAddr namePtr = args.getVAddr();
-  VAddr statPtr = args.getVAddr();
+  MintFuncArgs funcArgs(pthread, picode);
+  VAddr namePtr = funcArgs.getVAddr();
+  VAddr statPtr = funcArgs.getVAddr();
   int  err;
 
 #ifdef DEBUG_VERBOSE
@@ -2556,9 +2555,9 @@ OP(mint_stat)
 /* ARGSUSED */
 OP(mint_lstat)
 {
-  MintFuncArgs args(pthread, picode);
-  VAddr namePtr = args.getVAddr();
-  VAddr statPtr = args.getVAddr();
+  MintFuncArgs funcArgs(pthread, picode);
+  VAddr namePtr = funcArgs.getVAddr();
+  VAddr statPtr = funcArgs.getVAddr();
   int  err;
 
 #ifdef DEBUG_VERBOSE
@@ -2691,11 +2690,12 @@ OP(mint_fxstat64)
   I(pthread->getEpoch()&&(pthread->getEpoch()==tls::Epoch::getEpoch(pthread->getPid())));
   SysCallFileIO::execFXStat64(pthread,picode);
 #else // Begin (defined TLS) else block
-  /* We will completely ignore the glibc stat_ver */
-  long    statVer=pthread->getIntArg1();
-  int     fd=pthread->getIntArg2();
-  Address addr=pthread->getIntArg3();
-  int     retVal;
+  MintFuncArgs funcArgs(pthread, picode);
+  /* We ignore the glibc stat_ver parameter (parameter 1) */
+  int        statVer=funcArgs.getInt32();
+  int        fd     =funcArgs.getInt32();
+  VAddr      addr   =funcArgs.getVAddr();
+  int   retVal;
 #ifdef DEBUG_VERBOSE
   printf("mint_fxstat64(0x%08lx,0x%08lx,0x%08lx)\n", statVer, fd, addr);
 #endif
@@ -2830,6 +2830,9 @@ OP(mint_dup)
 /* ARGSUSED */
 OP(mint_getcwd)
 {
+#if (defined __LP64__)
+  fatal("mint_getcwd: Not working yet for __LP64__");
+#endif
   int r4 = REGNUM(4);
   int r5 = REGNUM(5);
   RAddr err;
@@ -2875,6 +2878,9 @@ OP(mint_getcwd)
 /* ARGSUSED */
 OP(mint_pipe)
 {
+#if (defined __LP64__)
+  fatal("mint_pipe: Not working yet with __LP64__");
+#endif
          int r4;
     int err;
 
@@ -2938,38 +2944,45 @@ OP(mint_symlink)
 /* ARGSUSED */
 OP(mint_readlink)
 {
-         int r4, r5, r6;
-    int err;
-
+  IntRegValue retVal;
+  IntRegValue errVal;
 #ifdef DEBUG_VERBOSE
-    printf("mint_readlink()\n");
+  printf("mint_readlink()\n");
 #endif
-    r4 = REGNUM(4);
-    r5 = REGNUM(5);
-    r6 = REGNUM(6);
+  MintFuncArgs funcArgs(pthread, picode);
+  VAddr  pathPtr=funcArgs.getVAddr();
+  VAddr  bufPtr =funcArgs.getVAddr();
+  size_t bufSiz =funcArgs.getInt32();
 
-    // r4 = pthread->virt2real(r4);
+  // Check if buffer is valid before doing a real system call
+  if((!pthread->isValidDataVAddr(bufPtr))||
+     (!pthread->isValidDataVAddr(bufPtr+bufSiz-1))){
+    pthread->setRetVal(-1);
+    pthread->setErrno(EFAULT);
+    return pthread->getRetIcode();
+  }
+
 #ifdef TASKSCALAR
-    {
-      char cad1[1024];
-      char *cad2 = (char *)alloca(r6);
-      
-      rsesc_OS_read_string(pthread->getPid(), picode->addr, cad1, REGNUM(4), 1024);
+  {
+    char cad1[1024];
+    char *cad2 = (char *)alloca(bufSiz);
+    
+    rsesc_OS_read_string(pthread->getPid(), picode->addr, cad1, REGNUM(4), 1024);
+    
+    retVal=readlink(cad1, cad2, bufSiz);
+    errVal=errno;
 
-      err = readlink(cad1, cad2, r6);
-
-      if (r5)
-        rsesc_OS_write_block(pthread->getPid(), picode->addr, REGNUM(5), cad2, r6);
-    }
+    if(bufPtr)
+      rsesc_OS_write_block(pthread->getPid(), picode->addr, REGNUM(5), cad2,bufSiz);
+  }
 #else
-    if (r5)
-        r5 = pthread->virt2real(r5);
-
-    err = readlink((const char *) pthread->virt2real(r4), (char *)pthread->virt2real(r5), r6);
+  retVal=readlink((const char *)pthread->virt2real(pathPtr),
+		  (char *)pthread->virt2real(bufPtr),bufSiz);
+  errVal=errno;
 #endif
-  pthread->setRetVal(err);
-  if (err == -1)
-    pthread->setperrno(errno);
+  pthread->setRetVal(retVal);
+  if(retVal==-1)
+    pthread->setErrno(errVal);
   return pthread->getRetIcode();
 }
 
@@ -3725,6 +3738,10 @@ OP(mint_time)
 /* ARGSUSED */
 OP(mint_getdents)
 {
+#if (defined __LP64__)
+  fatal("mint_getdents: Not working yet with __LP64__");
+#endif
+
          int r4, r5, r6;
     int err;
 
@@ -3773,6 +3790,9 @@ OP(mint_getdtablesize)
 /* ARGSUSED */
 OP(mint_syssgi)
 {
+#if (defined __LP64__)
+  fatal("mint_syssgi: Not working yet with __LP64__");
+#endif
   int r4, r5, r6;
 
 #ifdef DEBUG_VERBOSE
@@ -3951,7 +3971,7 @@ OP(mint_realloc)
   VAddr  oldAddr=pthread->getIntReg(IntArg1Reg);
   size_t newSize=pthread->getIntReg(IntArg2Reg);
   I(oldAddr||newSize);
-  if(oldAddr==0){
+  if(!oldAddr){
     // Equivalent to malloc
     pthread->setIntReg(IntArg1Reg,newSize);
     return mint_malloc(picode,pthread);
@@ -3973,7 +3993,7 @@ OP(mint_realloc)
 	      oldSize);
 #endif
     }
-    pthread->setIntReg(RetValReg,newAddr);    
+    pthread->setIntReg(RetValReg,newAddr);
   }
   // There should be no context switch
   I(pthread->getPid()==thePid);

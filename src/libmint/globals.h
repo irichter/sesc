@@ -25,6 +25,7 @@
 #define GLOBALS_H
 
 #include <stdint.h>
+#include "Addressing.h"
 
 #ifdef EXTERN
 #undef EXTERN
@@ -66,28 +67,38 @@ typedef intptr_t MINTAddrType;
 EXTERN MINTAddrType Text_start;/* text address when loaded in memory */
 EXTERN MINTAddrType Text_end;		/* addr of word past end of text */
 EXTERN MINTAddrType Text_entry;		/* addr of first instruction to execute */
-EXTERN MINTAddrType Data_start;		/* start of data section in memory */
-EXTERN MINTAddrType Data_end;		/* end of all private memory */
-EXTERN MINTAddrType Rdata_start;	/* start of rdata section in memory */
-EXTERN MINTAddrType Rdata_end;		/* end of rdata section */
-EXTERN MINTAddrType Bss_start;		/* start of bss section in memory */
-EXTERN MINTAddrType Private_start;	/* start of private memory */
-EXTERN MINTAddrType Private_end;	/* end of private memory */
-EXTERN MINTAddrType Heap_start;         /* start of malloc memory */
-EXTERN MINTAddrType Heap_end;		/* malloc memory allocated so far */
-EXTERN MINTAddrType Stack_start;         /* start of stack memory */
-EXTERN MINTAddrType Stack_end;
+
+#if 1
+//(defined __LP64__)
+EXTERN RAddr     realMemStart; // Real address where simulated memory begins
+EXTERN size_t    realMemSize;  // Size of simulated memory
+#endif
+EXTERN VAddr Data_start;		/* start of data section in memory */
+EXTERN VAddr Data_end;		        /* end of all private memory */
+EXTERN VAddr Rdata_start;	/* start of rdata section in memory */
+//EXTERN VAddr Rdata_end;		/* end of rdata section */
+EXTERN VAddr Bss_start;		/* start of bss section in memory */
+//EXTERN VAddr Private_start;	/* start of private memory */
+//EXTERN VAddr Private_end;	/* end of private memory */
+//EXTERN MINTAddrType Heap_start;         /* start of malloc memory */
+//EXTERN MINTAddrType Heap_end;		/* malloc memory allocated so far */
+//EXTERN MINTAddrType Stack_start;         /* start of stack memory */
+//EXTERN MINTAddrType Stack_end;
 
 EXTERN size_t Text_size;		/* text size in words (instructions) */
 EXTERN size_t Data_size;		/* data size in bytes */
 EXTERN size_t Rdata_size;		/* rdata size in bytes */
-EXTERN MINTAddrType Rsize_round;	/* rdata size rounded up to a nice boundary */
+//EXTERN MINTAddrType Rsize_round;	/* rdata size rounded up to a nice boundary */
 EXTERN size_t Bss_size;		/* bss size in bytes */
 EXTERN size_t Stack_size;		/* stack size in bytes */
 EXTERN size_t Heap_size;		/* heap size in bytes (for private malloc) */
+// On 64-bit native machines the simulated address space can be
+// stored in the simulator's memory contiguously so these are not needed
+#if 0
+//!(defined __LP64__)
 EXTERN size_t DB_size;		/* data + bss size in bytes */
 EXTERN size_t Mem_size;		/* data+bss+heap+(stack) size in bytes */
-
+#endif
 EXTERN size_t Text_seek;		/* seek offset in file for text section */
 EXTERN size_t Rdata_seek;		/* seek offset in file for rdata section */
 EXTERN size_t Data_seek;		/* seek offset in file for data section */
@@ -104,7 +115,7 @@ EXTERN size_t Sdata_seek;		/* seek offset in file for sdata section */
 #endif
 
 /* leave some space at the top of the stack for sproc() children */
-#define FRAME_SIZE 48
+#define FRAME_SIZE 64
 
 /* use this to enforce a minimum size for the stack */
 #ifndef STACK_SIZE_MIN

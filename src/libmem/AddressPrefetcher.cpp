@@ -65,6 +65,10 @@ AddressPrefetcher::AddressPrefetcher(MemorySystem* current
 
 void AddressPrefetcher::tryPrefetch(MemRequest *mreq)
 {
+#if (defined __LP64__)
+  // Milos: this code does not work, so just return before damage is done
+  return;
+#else
   // NOTE: This prefetcher works because PAddr and VAddr are the
   // same. If they were different, there should be a translation layer
   // in the middle
@@ -74,14 +78,12 @@ void AddressPrefetcher::tryPrefetch(MemRequest *mreq)
 
   PAddr vaddr = mreq->getPAddr();
 
-  if (!ThreadContext::isValidVAddr(vaddr))
+  if(!ThreadContext::getMainThreadContext()->isDataVAddr(vaddr))
     return; // Junk read or icache read (just ignore it)
 
   // Look at the words (word boundary) in the cache line displaced or
   // brough to the cache. Keep it in the small cache
   RAddr start = ThreadContext::getMainThreadContext()->virt2real(vaddr);
-
-  I(ThreadContext::isPrivateRAddr(start));
 
   RAddr end   = start + bsize;
 
@@ -96,6 +98,7 @@ void AddressPrefetcher::tryPrefetch(MemRequest *mreq)
     }
 #endif
   }
+#endif // (defined __LP64__)
 }
 
 void AddressPrefetcher::access(MemRequest *mreq)
