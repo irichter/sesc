@@ -107,7 +107,89 @@ void mint_init(int argc, char **argv, char **envp)
   read_hdrs(Objname);
   subst_init();
   read_text();
-  create_addr_space();
+
+//#if (defined __LP64__)
+  size_t realMemAlign;
+#if (defined __LP64__)
+  // Linux on x86-64 won't allocate more than 2GB in a block
+  // so we allocate that much and align it to 2GB boundary
+  realMemAlign=((size_t)1)<<31;
+  realMemSize=(((size_t)1)<<31)-M_ALIGN;
+#else
+  // For 32-bit host machines, align to 16MB boundary and
+  // try to allocate only the memory we actually need
+  realMemAlign=((size_t)1)<<24;
+  // Compute the size starting at address 0, then
+  // subtract the starting address of the data area
+  realMemSize=Bss_start+Bss_size;
+  // Page align, then add heap size
+  realMemSize=(realMemSize+M_ALIGN-1)&~(M_ALIGN-1);
+  realMemSize+=Heap_size;
+  // Page align, then add (page-aligned) size of all the stacks
+  realMemSize=(realMemSize+M_ALIGN-1)&~(M_ALIGN-1);
+  Stack_size = (Stack_size+M_ALIGN-1)&~(M_ALIGN-1);
+  realMemSize+=Max_nprocs*Stack_size;
+  realMemSize-=(Rdata_start<Data_start?Rdata_start:Data_start);
+#endif
+  int status=posix_memalign((void **)&realMemStart,realMemAlign,realMemSize);
+  if(status){
+    fprintf(stderr,"mint_init: Not enough memory for simulated address space\n");
+    exit(-1);
+  }
+#if !(defined __LP64__)
+  // We only have memory for the actual data area, not from address zero
+  realMemStart-=(Rdata_start<Data_start)?Rdata_start:Data_start;
+  realMemSize+=(Rdata_start<Data_start)?Rdata_start:Data_start;
+#endif
+  VAddr dataStart=realMemSize;
+  // Read in Rdata section if separate from Data
+  if(Rdata_start<Data_start){
+    I((VAddr)(Rdata_start+Rdata_size)<=Data_start);
+    I(Rdata_seek!=0);
+    I(Rdata_size>0);
+    if(fseek(Fobj,Rdata_seek,SEEK_SET)!=0)
+      fatal("mint_init: Can not seek to rdata section");
+    if(fread((void *)(realMemStart+Rdata_start),sizeof(char),Rdata_size,Fobj)<Rdata_size)
+      fatal("mint_init: Can not read rdata section");
+    if(dataStart>Data_start)
+      dataStart=Rdata_start;
+  }else{
+    I((Rdata_start>=Data_start)&&(Rdata_start+Rdata_size<=Data_start+Data_size));
+  }
+  // Read in Data section
+  I(Sdata_seek==0);
+  I(Data_seek!=0);
+  if(fseek(Fobj,Data_seek,SEEK_SET)!=0)
+    fatal("mint_init: Can not seek to data section");
+  if(fread((void *)(realMemStart+Data_start),sizeof(char),Data_size,Fobj)<Data_size)
+    fatal("mint_init: Can not read data section");
+  if(dataStart>Data_start)
+    dataStart=Data_start;
+  // Zero out BSS section
+  I(Bss_start!=0);
+  I(Bss_start>=(VAddr)(Data_start+Data_size));
+  memset((void *)(realMemStart+Bss_start),0,Bss_size);
+  // Page-align stacks
+  Stack_size = (Stack_size+M_ALIGN-1)&~(M_ALIGN-1);
+  VAddr stacksStart=realMemSize-Max_nprocs*Stack_size;
+  I(!(stacksStart&(M_ALIGN-1)));
+  // Page-align heap start and size
+  VAddr heapStart=Bss_start+Bss_size;
+  heapStart=(heapStart+M_ALIGN-1)&~(M_ALIGN-1);
+  if(Heap_size>(VAddr)(stacksStart-heapStart))
+    fatal("mint_init: Not enough room for requested heap size");
+  Heap_size=stacksStart-heapStart;
+  I(Heap_size==((Heap_size+M_ALIGN-1)&~(M_ALIGN-1)));
+  // Initialize heap, stack, and addressing for main thread context
+  ThreadContext *mainThreadContext=ThreadContext::getMainThreadContext();
+  mainThreadContext->setAddressing(realMemStart,
+				   dataStart,realMemSize-dataStart,
+				   heapStart,Heap_size,
+				   stacksStart,Max_nprocs*Stack_size,
+				   stacksStart,Stack_size);
+//#else
+//  create_addr_space();
+//#endif // (defined __LP64__)
   close_object();
   copy_argv(next_arg, argc, argv, envp);
   subst_functions();
@@ -190,7 +272,8 @@ copy_argv(int arg_start, int argc, char **argv, char **envp)
     int i, size, nenv;
     unsigned int *sp;
     int argc_obj;
-    char **argv_obj, **eptr, **envp_obj;
+    VAddr *argv_obj, *envp_obj;
+    char **eptr;
     ThreadContext *pthread;
     int sizeofptr;
 
@@ -233,76 +316,59 @@ copy_argv(int arg_start, int argc, char **argv, char **envp)
     size = (size + 0x1f) & ~0x1f;
 
     /* allocate stack space for all the args */
-    pthread->setREGNUM(29, pthread->getREGNUM(29) - size);
+    pthread->setStkPtr(pthread->getStkPtr()-size);
 
-    I((size_t)pthread->virt2real(pthread->getREGNUM(29)) >= (size_t)Stack_start && (size_t)pthread->virt2real(pthread->getREGNUM(29)) <= (size_t)Stack_end);
+    I(pthread->isLocalStackData((VAddr)(pthread->getStkPtr())));
 
     /* get the real address */
-    sp = (unsigned int *)pthread->virt2real(pthread->getREGNUM(29));
+    sp = (unsigned int *)pthread->virt2real(pthread->getStkPtr());
 
     /* the first stack item is the number of args (argc) */
     *sp++ = SWAP_WORD(argc_obj);
 	
     /* the next stack items are the array of pointers argv */
-    argv_obj = (char **) sp;
+    argv_obj = (VAddr *) sp;
 
     /* leave space for the argv array, including the NULL pointer */
     sp += argc_obj + 1;
 
     /* next come the pointers for the environment variables */
-    envp_obj = (char **) sp;
+    envp_obj = (VAddr *) sp;
     sp = &sp[nenv + 1];
 
     /* copy the args to the stack of the main thread */
     for (i = arg_start; i < argc; i++) {
-        strcpy((char *) sp, argv[i]);
-	argv_obj[i - arg_start] = (char *) SWAP_WORD(pthread->real2virt((RAddr)sp));
+        strcpy((char *)sp,argv[i]);
+	argv_obj[i - arg_start] = SWAP_WORD(pthread->real2virt((RAddr)sp));
 	RAddr val = (RAddr)sp + strlen(argv[i]) + 1;
 	/* Align word */
 	val = (val + 0x1f) & ~0x1f;
 	sp = (unsigned int *)(val);
     }
-    argv_obj[argc - arg_start] = NULL;
+    argv_obj[argc - arg_start] = (VAddr)0;
 
     /* copy the environment variables to the stack of the main thread */
     for (i = 0, eptr = envp; i < nenv; i++, eptr++) {
         strcpy((char *) sp, *eptr);
-	envp_obj[i] = (char *) SWAP_WORD(pthread->real2virt((RAddr)sp));
+	envp_obj[i] = SWAP_WORD(pthread->real2virt((RAddr)sp));
 	RAddr val =(RAddr)sp + strlen(*eptr) + 1;
 	/* Align word */
 	val = (val + 0x1f) & ~0x1f;
         sp = (unsigned int *)(val);
     }
-    envp_obj[nenv] = NULL;
+    envp_obj[nenv] = (VAddr)0;
 }
 
-/*
- * logbase2() returns the log (base 2) of its argument, rounded up.
- * It also rounds up its argument to the next higher power of 2.
- */
-static int
-logbase2(int *pnum)
-{
-    unsigned int logsize;
-	 int exp;
-
-    for (logsize = 0, exp = 1; exp < *pnum; logsize++)
-        exp *= 2;
-    
-    /* round pnum up to nearest power of 2 */
-    *pnum = exp;
-
-    return logsize;
-}
-
-void *allocate2(int nbytes)
-{
+#if 0
+// !(defined __LP64__)
+void *allocate2(size_t nbytes){
+  // Round nbytes up to the next power of 2
+  while(nbytes&(nbytes-1))
+    nbytes&=nbytes-1;
+  nbytes*=2;
   void *ptr;
   int size2;
   int status = 0;
-  /* round nbytes up to the next power of 2 */
-  size2 = nbytes;
-  logbase2(&size2);
 #ifdef SUNOS
   ptr = memalign(0x1000000,nbytes);
   status = (ptr == NULL);
@@ -471,7 +537,7 @@ static void create_addr_space()
 
   pthread->setREGNUM(29, pthread->real2virt(Stack_start+Stack_size));
 }
-
+#endif // !(defined __LP64__)
 
 /* Share the parent's address space with the child. This is used to
  * support the sproc() system call on the SGI. This also sets up
