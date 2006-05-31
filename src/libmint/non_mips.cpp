@@ -175,11 +175,10 @@ int mips_lwrBE(int value, char *addr)
 int mips_lwrLE(int value, char *addr)
 {
   int rval;
-  unsigned int offset;
   char *pval;
 
-  offset = ((uintptr_t)addr) & 0x3;
-  addr = (char *)(((uintptr_t )addr) & 0xFFFFFFFC);
+  RAddr offset = ((RAddr)addr)&0x3;
+  addr = (char *)(((RAddr)addr)-offset);
         
   rval = value;
   pval = (char *) &rval + offset;

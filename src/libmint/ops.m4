@@ -70,7 +70,7 @@ M4_IN(addiu_op,
 M4_IN(sp_over_op,
 {
   pthread->setREGNUM(29, pthread->getREG(picode, RS) + picode->immed);
-  if ((RAddr)pthread->getREGNUM(29) < pthread->getStackTop()) {
+  if((VAddr)(pthread->getStkPtr())<pthread->getStackTop()){
 #ifdef TASKSCALAR
     if(!rsesc_is_safe(pthread->getPid())) {
       rsesc_exception(pthread->getPid());

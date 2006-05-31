@@ -25,6 +25,7 @@
 #define GLOBALS_H
 
 #include <stdint.h>
+#include "Addressing.h"
 
 #ifdef EXTERN
 #undef EXTERN
