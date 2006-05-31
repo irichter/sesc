@@ -56,47 +56,18 @@ class ThreadContext {
   static ThreadContext *mainThreadContext;
 
   // Memory Mapping
+  static RAddr DataStart;
+  static RAddr DataEnd;
+  static MINTAddrType DataMap;  // Must be signed because it may increase or decrease
 
-  // Lower and upper bound for valid data addresses
-  VAddr dataAddrLb;
-  VAddr dataAddrUb;
-  // Lower and upper bound for stack addresses in all threads
-  VAddr allStacksAddrLb;
-  VAddr allStacksAddrUb;
-  // Lower and upper bound for stack addresses in this thread
-  VAddr myStackAddrLb;
-  VAddr myStackAddrUb;
+  static RAddr HeapStart;
+  static RAddr HeapEnd;
+  
+  static RAddr StackStart;
+  static RAddr StackEnd;
 
-#if 1
-//(defined __LP64__)
-  // On 64-bit host machines, all data is mapped together
-
-  // Real address is simply virtual address plus this offset
-  RAddr virtToRealOffset;
-#else
-  // On 32-bit host machines, data is split into static (rdata, data, bss)
-  // and dynamic (heap, stacks) regions which are mapped separately
-
-  // Real address for static data is simply virtual address plus this offset
-  RAddr staticVirtToRealOffset;
-  // Static data is in this range of virtual addresses
-  VAddr staticDataAddrLb;
-  VAddr staticDataAddrUb;
-
-  // Real address for dynamic data is equal to the virtual address
-  // Dynamic data is in this range of virtual addresses
-  VAddr dynamicDataAddrLb;
-  VAddr dynamicDataAddrUb;
- 
-  //  static RAddr DataStart;
-  //  static RAddr DataEnd;
-  //  static MINTAddrType DataMap;  // Must be signed because it may increase or decrease
-  //  static RAddr StackStart;
-  //  static RAddr StackEnd;
-
-  //  static RAddr PrivateStart;
-  //  static RAddr PrivateEnd;
-#endif // (defined __LP64__)
+  static RAddr PrivateStart;
+  static RAddr PrivateEnd;
 
   // Local Variables
  public:
@@ -117,22 +88,16 @@ class ThreadContext {
   ThreadContext *parent;    // pointer to parent
   ThreadContext *youngest;  // pointer to youngest child
   ThreadContext *sibling;   // pointer to next older sibling
-  //  VAddr stacktop;	    // lowest address allowed in the stack
+  RAddr stacktop;	    // lowest address allowed in the stack
   int *perrno;	            // pointer to the errno variable
   int rerrno;		    // most recent errno for this thread
 
   char      *fd;	    // file descriptors; =1 means open, =0 means closed
 
 private:
-#if 0
-// !(defined __LP64__)
-  bool isStaticDataVAddr(VAddr addr) const{
-    return (addr>=staticDataAddrLb)&&(addr<staticDataAddrUb);
+  static bool isDataVAddr(VAddr addr)  {
+	 return addr >= DataStart && addr <= DataEnd;
   }
-  bool isDynamicDataVAddr(VAddr addr) const{
-    return (addr>=dynamicDataAddrLb)&&(addr<dynamicDataAddrUb);
-  }
-#endif
 
 #ifdef TASKSCALAR
   void badSpecThread(VAddr addr, short opflags) const;
@@ -161,6 +126,7 @@ public:
   inline IntRegValue getIntReg(IntRegName name) const {
     return reg[name];
   }
+  
   inline void setIntReg(IntRegName name, IntRegValue value) {
     reg[name]=value;
   }
@@ -179,10 +145,6 @@ public:
   }
   inline IntRegValue getStkPtr(void) const{
     return getIntReg(StkPtrReg);
-  }
-  inline void setStkPtr(int val){
-    I(sizeof(val)==4);
-    setIntReg(StkPtrReg,val);
   }
   inline void setRetVal(int val){
     I(sizeof(val)==4);
@@ -351,14 +313,10 @@ public:
   float getFPNUM(int i) const { return fp[i]; }
   int getWFPNUM(int i) const  { return *((int *)&fp[i]); }
 
-  RAddr getRAddr() const {
-    I(isValidDataVAddr(real2virt(raddr)));
-    return raddr; 
-  }
-  void setRAddr(RAddr a){
+  RAddr getRAddr() const { return raddr; }
+  void setRAddr(RAddr a) {
     raddr = a;
-    I(isValidDataVAddr(real2virt(raddr)));
- }
+  }
 
 
   void dump();
@@ -379,8 +337,23 @@ public:
   static unsigned long long getMemValue(RAddr p, unsigned dsize); 
 
   // BEGIN Memory Mapping
-  bool isValidDataVAddr(VAddr addr) const{
-    return (addr>=dataAddrLb)&&(addr<dataAddrUb);
+  bool isValidDataVAddr(VAddr vaddr) const{
+    return isValidVAddr(vaddr);
+  }
+
+  static bool isPrivateRAddr(RAddr raddr)  {
+	 return raddr >= PrivateStart &&  raddr <= PrivateEnd;
+  }
+
+  static bool isValidVAddr(VAddr addr)  {
+    if (isDataVAddr(addr))
+       return true;
+
+#ifdef __x86_64__
+    return isPrivateRAddr((signed long long)addr+DataMap);
+#else
+    return isPrivateRAddr((RAddr)addr);
+#endif
   }
 
   void setHeapManager(HeapManager *newHeapManager) {
@@ -393,56 +366,22 @@ public:
     I(heapManager);
     return heapManager;
   }
-#if 1
-//(defined __LP64__)
-  void setAddressing(RAddr virtToRealOffset,
-		     VAddr dataStart,      size_t dataSize,
-		     VAddr heapStart,      size_t heapSize,
-		     VAddr allStacksStart, size_t allStacksSize,
-		     VAddr myStackStart,   size_t myStackSize){
-    ThreadContext::virtToRealOffset=virtToRealOffset;
-    dataAddrLb=dataStart;
-    dataAddrUb=dataStart+dataSize;
-    setHeapManager(HeapManager::create(heapStart,heapSize));
-    allStacksAddrLb=allStacksStart;
-    allStacksAddrUb=allStacksStart+allStacksSize;
-    myStackAddrLb=myStackStart;
-    myStackAddrUb=myStackStart+myStackSize;
-    //    stacktop=myStackStart;
-    setStkPtr(myStackAddrUb);
-  }
-  RAddr virt2real(VAddr vaddr, short opflags= E_READ | E_BYTE) const{
-#ifdef TASKSCALAR
-#error "Can not compile TLS/TaskScalar with 64bit architectures. Still not working"
-#endif
-    RAddr retVal=virtToRealOffset+vaddr;
-    I(retVal>=realMemStart);
-    I(retVal<=(RAddr)(realMemStart+realMemSize));
-    return retVal;
-  }
-  VAddr real2virt(RAddr raddr) const{
-    I(raddr>=realMemStart);
-    I(raddr<=(RAddr)(realMemStart+realMemSize));
-    VAddr retVal=raddr-virtToRealOffset;
-    return retVal;
-  }
-#else
+
   void initAddressing(MINTAddrType rMap, MINTAddrType mMap, MINTAddrType sTop);
+
   RAddr virt2real(VAddr vaddr, short opflags=E_READ | E_BYTE) const;
   VAddr real2virt(RAddr addr) const;
-#endif
 
-  bool isHeapData(VAddr addr) const{
-    I(heapManager);
-    return heapManager->isHeapAddr(addr);
+  bool isHeapData(RAddr addr) const {
+    return addr >= HeapStart && addr <= HeapEnd;
   }
 
-  bool isLocalStackData(VAddr addr) const {
-    return (addr>=myStackAddrLb)&&(addr<myStackAddrUb);
+  bool isStackData(RAddr addr) const {
+    return addr >= StackStart && addr <= StackEnd;
   }
 
-  VAddr getStackTop() const {
-    return myStackAddrLb;
+  RAddr getStackTop() const {
+    return stacktop;
   }
   // END Memory Mapping
 
