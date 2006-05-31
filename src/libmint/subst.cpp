@@ -3861,14 +3861,10 @@ OP(mint_malloc)
   I(sysCall);
   sysCall->exec(pthread,picode);
 #else // Begin (defined TLS) else block
-  RAddr addr=pthread->getHeapManager()->allocate(size);
-  if(addr){
-    // Map to logical address space
-    addr=pthread->real2virt(addr);
-  }else{
-    // Set errno to be POSIX compliant
+  VAddr addr=pthread->getHeapManager()->allocate(size);
+  // Set errno on error to be POSIX compliant
+  if(!addr)
     pthread->setErrno(ENOMEM);
-  }
   pthread->setIntReg(RetValReg,addr);
 #endif
   // Return from the call (and check for context switch)
@@ -3894,14 +3890,10 @@ OP(mint_calloc)
   I(sysCall);
   sysCall->exec(pthread,picode);
 #else // Begin (defined TLS) else block
-  RAddr addr=pthread->getHeapManager()->allocate(totalSize);
-  if(addr){
-    // Map to logical address space
-    addr=pthread->real2virt(addr);
-  }else{
-    // Set errno to be POSIX compliant
+  VAddr addr=pthread->getHeapManager()->allocate(totalSize);
+  // Set errno on error to be POSIX compliant
+  if(addr)
     pthread->setErrno(ENOMEM);
-  }
   pthread->setRetVal(addr);
 #endif // End (defined TLS) else block
   // Clear the allocated region
@@ -3934,7 +3926,7 @@ OP(mint_free)
   // This call should not context-switch
   ID(Pid_t thePid=pthread->getPid());
   // Get address parameter
-  RAddr addr=pthread->getIntReg(IntArg1Reg);
+  VAddr addr=pthread->getIntReg(IntArg1Reg);
   if(addr){
 #if (defined TLS)
     I(pthread->getEpoch()&&(pthread->getEpoch()==tls::Epoch::getEpoch(pthread->getPid())));
@@ -3942,8 +3934,6 @@ OP(mint_free)
     I(sysCall);
     sysCall->exec(pthread,picode);
 #else
-    // Map to real address space and deallocate
-    addr=pthread->virt2real(addr);
     pthread->getHeapManager()->deallocate(addr);
 #endif
   }
@@ -3958,7 +3948,7 @@ OP(mint_realloc)
   // This call should not context-switch
   ID(Pid_t thePid=pthread->getPid());
   // Get parameters
-  RAddr  oldAddr=pthread->getIntReg(IntArg1Reg);
+  VAddr  oldAddr=pthread->getIntReg(IntArg1Reg);
   size_t newSize=pthread->getIntReg(IntArg2Reg);
   I(oldAddr||newSize);
   if(oldAddr==0){
@@ -3970,14 +3960,18 @@ OP(mint_realloc)
     mint_free(picode,pthread);
     pthread->setIntReg(RetValReg,0);
   }else{
-    RAddr  oldAddrR=pthread->virt2real(oldAddr);
-    size_t oldSize =pthread->getHeapManager()->deallocate(oldAddrR);
-    RAddr  newAddrR=pthread->getHeapManager()->allocate(oldAddrR,newSize);
-    RAddr  newAddr =pthread->real2virt(newAddrR);
+    size_t oldSize=pthread->getHeapManager()->deallocate(oldAddr);
+    VAddr  newAddr=pthread->getHeapManager()->allocate(oldAddr,newSize);
     if(newAddr!=oldAddr){
+#if (defined TLS)
+      fatal("mint_realloc: Not working with TLS yet!");
+#else
       // Block could not grow in place, must copy old data
       I(newSize>oldSize);
-      memmove((void *)newAddrR,(void *)oldAddrR,oldSize);
+      memmove((void *)(pthread->virt2real(newAddr)),
+	      (void *)(pthread->virt2real(oldAddr)),
+	      oldSize);
+#endif
     }
     pthread->setIntReg(RetValReg,newAddr);    
   }

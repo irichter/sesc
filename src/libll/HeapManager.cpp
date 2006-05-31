@@ -1,8 +1,10 @@
 #include "HeapManager.h"
 #include "ReportGen.h"
 
-HeapManager::HeapManager(Address base, size_t size)
-  : refCount(0), begAddr(base), endAddr(base){
+HeapManager::HeapManager(VAddr base, size_t size)
+  : refCount(0),
+    heapAddrLb(base), heapAddrUb(base+size),
+    usedAddrLb(base), usedAddrUb(base){
   // The base and the size need to be non-zero multiples of MinBlockSize
   I(base&&!(base&MinBlockMask));
   I(size&&!(size&MinBlockMask));
@@ -12,16 +14,16 @@ HeapManager::HeapManager(Address base, size_t size)
 }
 
 HeapManager::~HeapManager(void){
-  Report::field("HeapManager:maxHeapSize=0x%08lx",endAddr-begAddr);         
+  Report::field("HeapManager:maxHeapSize=0x%08lx",usedAddrUb-usedAddrLb);         
 }
 
-Address HeapManager::allocate(size_t size)
+VAddr HeapManager::allocate(size_t size)
 {
   size_t blockSize=roundUp(size);
   BlocksBySize::iterator sizeIt=freeBySize.lower_bound(BlockInfo(0,blockSize));
   if(sizeIt==freeBySize.end())
     return 0;
-  Address blockBase=sizeIt->addr;
+  VAddr blockBase=sizeIt->addr;
   size_t  foundSize=sizeIt->size;
   I(foundSize>=blockSize);
   BlocksByAddr::iterator addrIt=freeByAddr.find(BlockInfo(blockBase,foundSize));
@@ -32,12 +34,12 @@ Address HeapManager::allocate(size_t size)
     freeBySize.insert(BlockInfo(blockBase+blockSize,foundSize-blockSize));
     freeByAddr.insert(BlockInfo(blockBase+blockSize,foundSize-blockSize));
   }
-  if(blockBase+blockSize>(size_t)endAddr)
-    endAddr=blockBase+blockSize;
+  if(blockBase+blockSize>(size_t)usedAddrUb)
+    usedAddrUb=blockBase+blockSize;
   return blockBase;
 }
 
-Address HeapManager::allocate(Address addr, size_t size)
+VAddr HeapManager::allocate(VAddr addr, size_t size)
 {
   size_t blockSize=roundUp(size);
   // Find block with next strictly higher address, then go to block before that
@@ -47,7 +49,7 @@ Address HeapManager::allocate(Address addr, size_t size)
     return allocate(size);
   }
   addrIt--;
-  Address foundAddr=addrIt->addr;
+  VAddr foundAddr=addrIt->addr;
   // Start of the block should be no higher than what we want
   I(foundAddr<=addr);
   size_t foundSize=addrIt->size;
@@ -78,37 +80,37 @@ Address HeapManager::allocate(Address addr, size_t size)
     I(foundSize==blockSize);
   }
   busyByAddr.insert(BlockInfo(addr,blockSize));
-  if(addr+blockSize>(size_t)endAddr)
-    endAddr=addr+blockSize;
+  if(addr+blockSize>(size_t)usedAddrUb)
+    usedAddrUb=addr+blockSize;
   return addr;
 }
 
-size_t HeapManager::deallocate(Address addr)
+size_t HeapManager::deallocate(VAddr addr)
 {
   // Find block in the busy set and remove it
   BlocksByAddr::iterator busyIt=busyByAddr.find(BlockInfo(addr,0));
   I(busyIt!=busyByAddr.end());
-  Address blockAddr=busyIt->addr;
+  VAddr blockAddr=busyIt->addr;
   size_t  oldBlockSize=busyIt->size;
   size_t  blockSize=roundUp(oldBlockSize);
   I(blockAddr==addr);
   busyByAddr.erase(busyIt);
   BlocksByAddr::iterator addrIt=freeByAddr.upper_bound(BlockInfo(blockAddr,0));
-  I((addrIt==freeByAddr.end())||(blockAddr+(Address)blockSize<=addrIt->addr));
+  I((addrIt==freeByAddr.end())||(blockAddr+(VAddr)blockSize<=addrIt->addr));
   // Try to merge with the next free block
-  if((addrIt!=freeByAddr.end())&&(blockAddr+(Address)blockSize==addrIt->addr)){
+  if((addrIt!=freeByAddr.end())&&(blockAddr+(VAddr)blockSize==addrIt->addr)){
     blockSize+=addrIt->size;
     freeBySize.erase(*addrIt);
     freeByAddr.erase(addrIt);
     // Erasing from a set invalidates iterators, so reinitialize addrIt
     addrIt=freeByAddr.upper_bound(BlockInfo(blockAddr,0));
-    I((addrIt==freeByAddr.end())||(blockAddr+(Address)blockSize<addrIt->addr));
+    I((addrIt==freeByAddr.end())||(blockAddr+(VAddr)blockSize<addrIt->addr));
   }
   // Try to merge with the previous free block
   if(addrIt!=freeByAddr.begin()){
     addrIt--;
-    I(addrIt->addr+(Address)(addrIt->size)<=blockAddr);
-    if(addrIt->addr+(Address)(addrIt->size)==blockAddr){
+    I(addrIt->addr+(VAddr)(addrIt->size)<=blockAddr);
+    if(addrIt->addr+(VAddr)(addrIt->size)==blockAddr){
       blockAddr=addrIt->addr;
       blockSize+=addrIt->size;
       freeBySize.erase(*addrIt);

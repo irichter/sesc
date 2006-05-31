@@ -13,10 +13,6 @@ namespace tls {
 }
 #endif
 
-typedef uint32_t VAddr; // Virtual Addresses inside the simulator
-typedef uint32_t PAddr; // Physical translation (memory subsystem view of VAddr)
-typedef uintptr_t RAddr; // Real Addresses. Where is the data mapped (32 or 64 bits, depends on architecture)
-
 /* For future support of the exec() call. Information needed about
  * the object file goes here.
  */

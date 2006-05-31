@@ -2,7 +2,7 @@
 #define HeapManager_h
 
 #include <set>
-
+#include "Addressing.h"
 #include "Snippets.h"
 #include "nanassert.h"
 
@@ -10,16 +10,19 @@ class HeapManager {
 private:
   // Reference counter for garbage collection
   size_t refCount;
+  // Bottom and top of the heap address range
+  VAddr heapAddrLb;
+  VAddr heapAddrUb;
   // Used to determine minimum required heap size
-  Address begAddr;
-  Address endAddr;
+  VAddr usedAddrLb;
+  VAddr usedAddrUb;
 
   // Minimum block size. Everything is aligned to this size
   enum {MinBlockSize=32, MinBlockMask=MinBlockSize-1};
   struct BlockInfo {
-    Address addr;
+    VAddr addr;
     size_t  size;
-    BlockInfo(Address addr, size_t size)
+    BlockInfo(VAddr addr, size_t size)
       : addr(addr), size(size){
     }
     struct lessBySize {
@@ -41,10 +44,10 @@ private:
   BlocksByAddr busyByAddr;
   BlocksByAddr freeByAddr;
   BlocksBySize freeBySize;
-  HeapManager(Address base, size_t size);
+  HeapManager(VAddr base, size_t size);
   ~HeapManager(void);
 public:
-  static HeapManager *create(Address base, size_t size){
+  static HeapManager *create(VAddr base, size_t size){
     return new HeapManager(base,size);
   }
   void addReference(void) {
@@ -58,9 +61,19 @@ public:
     }
   }
 
-  Address allocate(size_t size);
-  Address allocate(Address addr, size_t size);
-  size_t deallocate(Address addr);
+  VAddr allocate(size_t size);
+  VAddr allocate(VAddr addr, size_t size);
+  size_t deallocate(VAddr addr);
+
+  bool isHeapAddr(VAddr addr) const{
+    return (addr>=heapAddrLb)&&(addr<heapAddrUb);
+  }
+  VAddr getHeapAddrLb(void) const{
+    return heapAddrLb;
+  }
+  VAddr getHeapAddrUb(void) const{
+    return heapAddrUb;
+  }
 };
 
 #endif

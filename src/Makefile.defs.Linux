@@ -57,9 +57,24 @@ ifdef MINT_TARGET
 COPTS	+= -march=$(MINT_TARGET)
 LOPTS	+= -march=$(MINT_TARGET)
 else
-COPTS	+= -march=i686
-LOPTS	+= -march=i686
-endif 
+# Default architecture is i686
+OptArch := -march=i686
+# But now try to detect the real architecture
+VendorId:=$(shell cat /proc/cpuinfo | grep vendor_id | head -1)
+VendorId:=$(word $(words $(VendorId)),$(VendorId))
+# Intel processors
+ifeq ($(VendorId),GenuineIntel)
+  # Intel's only x86-64 option is nocona
+  ifeq ($(shell uname -p),x86_64)
+    OptArch := -march=nocona
+    ifdef SESC_32BIT
+      OptArch += -m32
+    endif
+  endif
+endif
+COPTS   += $(OptArch)
+LOPTS	+= $(OptArch)
+endif
 # Platform neutral
 COPTS +=-funroll-loops -fsched-interblock #-fomit-frame-pointer
 COPTS +=-ffast-math -fno-exceptions -fno-strict-aliasing -freg-struct-return 
