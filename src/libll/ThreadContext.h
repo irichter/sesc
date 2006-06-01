@@ -58,8 +58,8 @@ class ThreadContext {
   // Memory Mapping
 
   // Lower and upper bound for valid data addresses
-  VAddr dataAddrLb;
-  VAddr dataAddrUb;
+  VAddr dataVAddrLb;
+  VAddr dataVAddrUb;
   // Lower and upper bound for stack addresses in all threads
   VAddr allStacksAddrLb;
   VAddr allStacksAddrUb;
@@ -69,13 +69,6 @@ class ThreadContext {
 
   // Real address is simply virtual address plus this offset
   RAddr virtToRealOffset;
-
-  static RAddr DataStart;
-  static RAddr DataEnd;
-  static MINTAddrType DataMap;  // Must be signed because it may increase or decrease
-
-  static RAddr PrivateStart;
-  static RAddr PrivateEnd;
 
   // Local Variables
  public:
@@ -102,14 +95,11 @@ class ThreadContext {
   char      *fd;	    // file descriptors; =1 means open, =0 means closed
 
 private:
-  static bool isDataVAddr(VAddr addr)  {
-	 return addr >= DataStart && addr <= DataEnd;
-  }
 
 #ifdef TASKSCALAR
   void badSpecThread(VAddr addr, short opflags) const;
   bool checkSpecThread(VAddr addr, short opflags) const {
-    if (isValidVAddr(addr))
+    if (isValidDataVAddr(addr))
       return false;
 
 #if 0
@@ -324,8 +314,10 @@ public:
   float getFPNUM(int i) const { return fp[i]; }
   int getWFPNUM(int i) const  { return *((int *)&fp[i]); }
 
-  RAddr getRAddr() const { return raddr; }
-  void setRAddr(RAddr a) {
+  RAddr getRAddr() const{
+    return raddr;
+  }
+  void setRAddr(RAddr a){
     raddr = a;
   }
 
@@ -349,22 +341,7 @@ public:
 
   // BEGIN Memory Mapping
   bool isValidDataVAddr(VAddr vaddr) const{
-    return isValidVAddr(vaddr);
-  }
-
-  static bool isPrivateRAddr(RAddr raddr)  {
-	 return raddr >= PrivateStart &&  raddr <= PrivateEnd;
-  }
-
-  static bool isValidVAddr(VAddr addr)  {
-    if (isDataVAddr(addr))
-       return true;
-
-#ifdef __x86_64__
-    return isPrivateRAddr((signed long long)addr+DataMap);
-#else
-    return isPrivateRAddr((RAddr)addr);
-#endif
+    return (vaddr>=dataVAddrLb)&&(vaddr<dataVAddrUb);
   }
 
   void setHeapManager(HeapManager *newHeapManager) {
@@ -378,7 +355,8 @@ public:
     return heapManager;
   }
 
-  void initAddressing(MINTAddrType rMap, MINTAddrType mMap, MINTAddrType sTop);
+  void initAddressing(VAddr dataVAddrLb, VAddr dataVAddrUb,
+		      MINTAddrType rMap, MINTAddrType mMap, MINTAddrType sTop);
 
   RAddr virt2real(VAddr vaddr, short opflags=E_READ | E_BYTE) const;
   VAddr real2virt(RAddr addr) const;

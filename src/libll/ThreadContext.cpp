@@ -32,14 +32,6 @@ ThreadContext::ContextVector ThreadContext::pid2context;
 
 ThreadContext *ThreadContext::mainThreadContext;
 
-RAddr ThreadContext::DataStart;
-RAddr ThreadContext::DataEnd;
-MINTAddrType ThreadContext::DataMap;
-
-RAddr ThreadContext::PrivateStart;
-RAddr ThreadContext::PrivateEnd;
-
-
 void ThreadContext::staticConstructor(void)
 {
   nextActualPid=baseActualPid=0;
@@ -67,8 +59,8 @@ void ThreadContext::copy(const ThreadContext *src)
   sibling=src->sibling;
 
   // Copy virtual address ranges
-  dataAddrLb=src->dataAddrLb;
-  dataAddrUb=src->dataAddrUb;
+  dataVAddrLb=src->dataVAddrLb;
+  dataVAddrUb=src->dataVAddrUb;
   allStacksAddrLb=src->allStacksAddrLb;
   allStacksAddrUb=src->allStacksAddrUb;
   myStackAddrLb=src->myStackAddrLb;
@@ -187,63 +179,45 @@ void ThreadContext::free(void)
   nThreads--;
 }
 
-void ThreadContext::initAddressing(MINTAddrType rMap, MINTAddrType mMap, MINTAddrType sTop)
+void ThreadContext::initAddressing(VAddr dataVAddrLb, VAddr dataVAddrUb,
+				   MINTAddrType rMap, MINTAddrType mMap, MINTAddrType sTop)
 {
+  ThreadContext::dataVAddrLb=dataVAddrLb;
+  ThreadContext::dataVAddrUb=dataVAddrUb;
+  allStacksAddrLb=Stack_start;
+  allStacksAddrUb=Stack_end;
   myStackAddrLb = sTop;
   myStackAddrUb = myStackAddrLb + Stack_size;
   // Segments order: (Rdata|Data)...Bss...Heap...Stacks
   if(Data_start <= Rdata_start) {
-    DataStart = Data_start;
-    DataMap   = mMap;
+    virtToRealOffset = mMap;
   }else{
-    DataStart = Rdata_start;
-    DataMap   = rMap;
+    virtToRealOffset = rMap;
   }
-#if defined (__x86_64__)
-  DataMap -= Data_start;
-#endif
     
-  DataEnd   = Data_end;
-  // Rdata should between
-  I(Rdata_start >= (signed)DataStart && Rdata_end <= (signed)DataEnd);
-  // Data should between
-  I(Data_start >= (signed)DataStart && Data_end <= (signed)DataEnd);
-  // BSS should between
-  I(Bss_start >= (signed)DataStart && (Bss_start + (signed)Bss_size) <= (signed)DataEnd);
-
-  allStacksAddrLb=Stack_start;
-  allStacksAddrUb=Stack_end;
+  // Rdata should be in the static data area
+  I(Rdata_start >= dataVAddrLb &&
+    Rdata_end <= heapManager->getHeapAddrLb());
+  // Data should be in the static data area
+  I(Data_start >=  dataVAddrLb &&
+    Data_end <= heapManager->getHeapAddrLb());
+  // BSS should be in the static data area
+  I(Bss_start >= dataVAddrLb &&
+    (Bss_start + Bss_size) <= heapManager->getHeapAddrLb());
+  // Heap should be between static and stack areas
   I(allStacksAddrLb>=heapManager->getHeapAddrUb());
-
-  PrivateStart = Private_start;
-  PrivateEnd   = Private_end;
-
-  I(allStacksAddrUb<=PrivateEnd);
+  // Stack should be in the data area, too
+  I(allStacksAddrUb<=dataVAddrUb);
   
-  // Processor MAP:  (as long as there is not overlap, it is correct)
-  //
-  // Opt1: DataStart-DataEnd ... PrivateStart-PrivateEnd
-  //
-  // Opt2: PrivateStart-PrivateEnd ... DataStart-DataEnd
-
-  RAddr privSize = PrivateEnd-PrivateStart;
-  
-  MSG("Data[0x%x-0x%x]->[0x%x-...] Private[%p-%p] heap[%p-%p] stack[%p-%p]"
-      ,(unsigned)DataStart     ,(unsigned)DataEnd     ,(unsigned)DataStart-DataMap
-      ,(void*)PrivateStart ,(void*)PrivateEnd
-      ,(void*)(heapManager->getHeapAddrLb())
-      ,(void*)(heapManager->getHeapAddrUb())
-      ,(void*)allStacksAddrLb
-      ,(void*)allStacksAddrUb
+  MSG("static[0x%x-0x%x] heap[0x%x-0x%x] stack[0x%x-0x%x] -> [%p-%p]"
+      ,(VAddr)dataVAddrLb,(VAddr)(Bss_start+Bss_size)
+      ,(VAddr)(heapManager->getHeapAddrLb())
+      ,(VAddr)(heapManager->getHeapAddrUb())
+      ,(VAddr)allStacksAddrLb
+      ,(VAddr)allStacksAddrUb
+      ,(void*)(dataVAddrLb+virtToRealOffset)
+      ,(void*)(allStacksAddrUb+virtToRealOffset)
       );
-
-  if( (PrivateEnd > DataStart  && PrivateEnd < DataEnd)
-                || (PrivateStart > DataStart  && PrivateStart < DataEnd) ) {
-    MSG("There is an overlap between private and shared memory");
-    MSG("This is not allowed, try increase/decrease -h parameter");
-    MSG("or change mint memory allocation scheme");
-    exit(-1);
-  }
 }
 
 void ThreadContext::dump()
@@ -326,8 +300,8 @@ void ThreadContext::useSameAddrSpace(thread_ptr pthread)
   for (int i = 0; i < 32; i++)
     fp[i] = pthread->fp[i];
 
-  dataAddrLb=pthread->dataAddrLb;
-  dataAddrUb=pthread->dataAddrUb;
+  dataVAddrLb=pthread->dataVAddrLb;
+  dataVAddrUb=pthread->dataVAddrUb;
   allStacksAddrLb=pthread->allStacksAddrLb;
   allStacksAddrUb=pthread->allStacksAddrUb;
   myStackAddrLb=pthread->myStackAddrLb;
@@ -358,8 +332,8 @@ void ThreadContext::shareAddrSpace(thread_ptr pthread, int share_all, int copy_s
   fcr0 = pthread->fcr0;
   fcr31 = pthread->fcr31;
 
-  dataAddrLb=pthread->dataAddrLb;
-  dataAddrUb=pthread->dataAddrUb;
+  dataVAddrLb=pthread->dataVAddrLb;
+  dataVAddrUb=pthread->dataVAddrUb;
   allStacksAddrLb=pthread->allStacksAddrLb;
   allStacksAddrUb=pthread->allStacksAddrUb;
   myStackAddrLb=allStacksAddrLb+pid*Stack_size;
@@ -416,7 +390,7 @@ void ThreadContext::badSpecThread(VAddr addr, short opflags) const
   PAddr spawnAddr = 0xdeadbeef; // not valid address
   spawnAddr = TaskContext::getTaskContext(pid)->getSpawnAddr();
 
-  bool badAddr  = !isValidVAddr(addr);
+  bool badAddr  = !isValidDataVAddr(addr);
   bool badAlign = (
                    MemBufferEntry::calcAccessMask(opflags
                                                   ,MemBufferEntry::calcChunkOffset(addr))
@@ -542,9 +516,9 @@ unsigned long long ThreadContext::getMemValue(RAddr p, unsigned dsize) {
 
 RAddr ThreadContext::virt2real(VAddr vaddr, short opflags) const {
 #ifdef __LP64__
-    MINTAddrType m = (MINTAddrType)vaddr + DataMap;
+    MINTAddrType m = (MINTAddrType)vaddr + virtToRealOffset;
     RAddr r = static_cast<RAddr>(m);
-    MSG("SESC64: %p->virt2real(0x%x) = (0x%x + %p) = %p\n", (void*)this, vaddr, vaddr, (void*)DataMap, (void*)r);
+    MSG("SESC64: %p->virt2real(0x%x) = (0x%x + %p) = %p\n", (void*)this, vaddr, vaddr, (void*)virtToRealOffset, (void*)r);
     fflush(stdout);
     
     if(!(m >= Data_start && m <= Private_end-Data_start)) {
@@ -561,14 +535,12 @@ RAddr ThreadContext::virt2real(VAddr vaddr, short opflags) const {
       return 0;
 #endif
 #if (defined TLS)
-    if(!isValidVAddr(vaddr))
+    if(!isValidDataVAddr(vaddr))
       return 0;    
 #endif             
-    RAddr r = (vaddr >= DataStart && vaddr < DataEnd) ? 
-      static_cast<RAddr>(((signed)vaddr+ DataMap)) : vaddr;
+    RAddr r = (vaddr >= dataVAddrLb && vaddr <= dataVAddrUb) ? 
+      static_cast<RAddr>(((signed)vaddr+ virtToRealOffset)) : 0;
     
-    I(isPrivateRAddr(r)); // Once it is translated, it should map to
-                          // the beginning of the private map
 #endif
 
 #ifdef __LP64__
@@ -584,19 +556,19 @@ RAddr ThreadContext::virt2real(VAddr vaddr, short opflags) const {
 // physical mapping is the identity function.
 VAddr ThreadContext::real2virt(RAddr uaddr) const {
 #ifdef __x86_64__
-  uaddr = uaddr - DataMap;
+  uaddr = uaddr - virtToRealOffset;
 
   return (VAddr)uaddr;
 #else
   signed int addr = (signed int)uaddr;
 
   // Direct mapping for heap and stack
-  if (addr >= Heap_start && addr <= Private_end)
-    return addr;
+  //  if (addr >= Heap_start && addr <= Private_end)
+  //    return addr;
 
-  addr = addr - DataMap;
+  addr = addr - virtToRealOffset;
 
-  I(addr >= Data_start && addr < Data_end);
+  I(addr >= dataVAddrLb && addr <= dataVAddrUb);
 
   return addr;
 #endif

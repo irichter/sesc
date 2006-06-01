@@ -63,7 +63,7 @@ void VMemObj::access(MemRequest *mreq)
   // iCache requests can generate a non-valid data access (it should
   // be 100% of the time). The i-cache access should NOT go through
   // the version memory (il1 go directly to a non-version cache)
-  I(ThreadContext::isValidVAddr(mreq->getVaddr()));
+  I(ThreadContext::getMainThreadContext()->isValidDataVAddr(mreq->getVaddr()));
 
   LVID *lvid = static_cast<LVID *>(mreq->getLVID());
 

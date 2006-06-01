@@ -343,6 +343,9 @@ static void create_addr_space()
   MINTAddrType heap_start;
   size_t heap_size;
 
+  VAddr dataAddrLb;
+  VAddr dataAddrUb;
+
   /* this assumes that the bss is located higher in memory than the data */
 
   /* Segments order:
@@ -356,25 +359,31 @@ static void create_addr_space()
     if (Rsize_round != (Data_start - Rdata_start)) {
       fatal("Rdata is not contiguous with Data");
     }
+    dataAddrLb=Rdata_start;
   }else{
     // Data section includes rdata section (if it exists)
     Rsize_round = 0;
+    dataAddrLb=Data_start;
   }
 
   /* DB_size points to the beginning of Heap */
   DB_size  = Rsize_round + Bss_start + Bss_size - Data_start;
 
   Mem_size = DB_size;
-  Mem_size = (Mem_size + M_ALIGN - 1) & ~(M_ALIGN - 1);     // Page align
+  // Page align
+  Mem_size = ((Mem_size + dataAddrLb + M_ALIGN - 1) & ~(M_ALIGN - 1)) - dataAddrLb;
   size_t Heap_start_rel = Mem_size;
 
   Mem_size = Mem_size+Heap_size;
-  Mem_size = (Mem_size + M_ALIGN - 1) & ~(M_ALIGN - 1);     // Page align
+  // Page align
+  Mem_size = ((Mem_size + dataAddrLb + M_ALIGN - 1) & ~(M_ALIGN - 1)) - dataAddrLb;
   size_t Stack_start_rel = Mem_size;
 
   Stack_size = (Stack_size + M_ALIGN - 1) & ~(M_ALIGN - 1); // Page align
 
   Mem_size = Mem_size+Stack_size*Max_nprocs;
+
+  dataAddrUb=dataAddrLb+Mem_size;
 
   // Data_end includes Bss (may or may not include Rdata)
   Data_end  = Data_start  + Heap_start_rel;
@@ -445,7 +454,7 @@ static void create_addr_space()
   for (i = 0; i < dwords; i++)
     *addr++ = 0;
 
-  heap_start = Private_start + Heap_start_rel;
+  heap_start = dataAddrLb + Heap_start_rel;
   heap_size = Stack_start_rel - Heap_start_rel; // Next to heap is the stack
   if (heap_size < HEAP_SIZE_MIN) {
     fprintf(stderr, "Not enough memory for private malloc: %u\n", heap_size);
@@ -461,16 +470,18 @@ static void create_addr_space()
 
   /* point the sp to the top of the allocated space */
   /* (The stack grows down toward lower memory addresses.) */
-  Stack_start = Private_start + Stack_start_rel;
-  Stack_end   = Private_end;
+  Stack_start = dataAddrLb + Stack_start_rel;
+  Stack_end   = dataAddrUb;
   /* Change the sp so that mapping will work for sp-relative addresses. */
 
-  pthread->initAddressing(rdataMap                // RDataMap
+  pthread->initAddressing(dataAddrLb, // Start of virtual addresses for data 
+			  dataAddrUb, // End of virtual addresses for data
+			  rdataMap                // RDataMap
 			  ,addrSpace - Data_start // memMap
 			  ,Stack_start            // Stack Top
 			  );
 
-  pthread->setREGNUM(29, pthread->real2virt(Stack_start+Stack_size));
+  pthread->setStkPtr(Stack_start+Stack_size);
 }
 
 

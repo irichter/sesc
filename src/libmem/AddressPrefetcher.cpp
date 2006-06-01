@@ -74,14 +74,12 @@ void AddressPrefetcher::tryPrefetch(MemRequest *mreq)
 
   PAddr vaddr = mreq->getPAddr();
 
-  if (!ThreadContext::isValidVAddr(vaddr))
+  if (!ThreadContext::getMainThreadContext()->isValidDataVAddr(vaddr))
     return; // Junk read or icache read (just ignore it)
 
   // Look at the words (word boundary) in the cache line displaced or
   // brough to the cache. Keep it in the small cache
   RAddr start = ThreadContext::getMainThreadContext()->virt2real(vaddr);
-
-  I(ThreadContext::isPrivateRAddr(start));
 
   RAddr end   = start + bsize;
 
@@ -90,7 +88,7 @@ void AddressPrefetcher::tryPrefetch(MemRequest *mreq)
     VAddr val = SWAP_WORD(*pos);
 #if 0
     // FIXME: val is a virtual address, it must be translated
-    if (ThreadContext::isPrivateRAddr(val)) {
+    if(ThreadContext::getMainThreadContext()->isValidDataVAddr(val)){
       cache->fillLine(val); // FIXME
       MSG("prefetch [0x%x]",(uint) val);
     }
