@@ -36,12 +36,6 @@ RAddr ThreadContext::DataStart;
 RAddr ThreadContext::DataEnd;
 MINTAddrType ThreadContext::DataMap;
 
-RAddr ThreadContext::HeapStart;
-RAddr ThreadContext::HeapEnd;
-
-RAddr ThreadContext::StackStart;
-RAddr ThreadContext::StackEnd;
-
 RAddr ThreadContext::PrivateStart;
 RAddr ThreadContext::PrivateEnd;
 
@@ -71,7 +65,17 @@ void ThreadContext::copy(const ThreadContext *src)
   parent=src->parent;
   youngest=src->youngest;
   sibling=src->sibling;
-  stacktop=src->stacktop;
+
+  // Copy virtual address ranges
+  dataAddrLb=src->dataAddrLb;
+  dataAddrUb=src->dataAddrUb;
+  allStacksAddrLb=src->allStacksAddrLb;
+  allStacksAddrUb=src->allStacksAddrUb;
+  myStackAddrLb=src->myStackAddrLb;
+  myStackAddrUb=src->myStackAddrUb;
+
+  // Copy address mapping info
+  virtToRealOffset=src->virtToRealOffset;
 }
 
 ThreadContext *ThreadContext::getContext(Pid_t pid)
@@ -185,8 +189,8 @@ void ThreadContext::free(void)
 
 void ThreadContext::initAddressing(MINTAddrType rMap, MINTAddrType mMap, MINTAddrType sTop)
 {
-  stacktop   = sTop;
-
+  myStackAddrLb = sTop;
+  myStackAddrUb = myStackAddrLb + Stack_size;
   // Segments order: (Rdata|Data)...Bss...Heap...Stacks
   if(Data_start <= Rdata_start) {
     DataStart = Data_start;
@@ -207,17 +211,14 @@ void ThreadContext::initAddressing(MINTAddrType rMap, MINTAddrType mMap, MINTAdd
   // BSS should between
   I(Bss_start >= (signed)DataStart && (Bss_start + (signed)Bss_size) <= (signed)DataEnd);
 
-  HeapStart = Heap_start;
-  HeapEnd   = Heap_end;
-
-  StackStart = Stack_start;
-  StackEnd   = Stack_end;
-  I(StackStart >= HeapEnd);
+  allStacksAddrLb=Stack_start;
+  allStacksAddrUb=Stack_end;
+  I(allStacksAddrLb>=heapManager->getHeapAddrUb());
 
   PrivateStart = Private_start;
   PrivateEnd   = Private_end;
 
-  I(StackEnd <= PrivateEnd);
+  I(allStacksAddrUb<=PrivateEnd);
   
   // Processor MAP:  (as long as there is not overlap, it is correct)
   //
@@ -230,8 +231,10 @@ void ThreadContext::initAddressing(MINTAddrType rMap, MINTAddrType mMap, MINTAdd
   MSG("Data[0x%x-0x%x]->[0x%x-...] Private[%p-%p] heap[%p-%p] stack[%p-%p]"
       ,(unsigned)DataStart     ,(unsigned)DataEnd     ,(unsigned)DataStart-DataMap
       ,(void*)PrivateStart ,(void*)PrivateEnd
-      ,(void*)HeapStart     ,(void*)HeapEnd
-      ,(void*)StackStart    ,(void*)StackEnd
+      ,(void*)(heapManager->getHeapAddrLb())
+      ,(void*)(heapManager->getHeapAddrUb())
+      ,(void*)allStacksAddrLb
+      ,(void*)allStacksAddrUb
       );
 
   if( (PrivateEnd > DataStart  && PrivateEnd < DataEnd)
@@ -323,7 +326,14 @@ void ThreadContext::useSameAddrSpace(thread_ptr pthread)
   for (int i = 0; i < 32; i++)
     fp[i] = pthread->fp[i];
 
-  stacktop = pthread->stacktop;
+  dataAddrLb=pthread->dataAddrLb;
+  dataAddrUb=pthread->dataAddrUb;
+  allStacksAddrLb=pthread->allStacksAddrLb;
+  allStacksAddrUb=pthread->allStacksAddrUb;
+  myStackAddrLb=pthread->myStackAddrLb;
+  myStackAddrUb=pthread->myStackAddrUb;
+
+  virtToRealOffset=pthread->virtToRealOffset;
 
 #if (defined TLS) || (defined TASKSCALAR)
   fd = pthread->fd;
@@ -348,6 +358,16 @@ void ThreadContext::shareAddrSpace(thread_ptr pthread, int share_all, int copy_s
   fcr0 = pthread->fcr0;
   fcr31 = pthread->fcr31;
 
+  dataAddrLb=pthread->dataAddrLb;
+  dataAddrUb=pthread->dataAddrUb;
+  allStacksAddrLb=pthread->allStacksAddrLb;
+  allStacksAddrUb=pthread->allStacksAddrUb;
+  myStackAddrLb=allStacksAddrLb+pid*Stack_size;
+  myStackAddrUb=myStackAddrLb+Stack_size;
+  I(myStackAddrUb<=allStacksAddrUb);
+
+  virtToRealOffset=pthread->virtToRealOffset;
+
   if (copy_stack) {
 #if (defined TLS)
     // Need to use TLS read/write methods to properly copy the stack
@@ -368,14 +388,11 @@ void ThreadContext::shareAddrSpace(thread_ptr pthread, int share_all, int copy_s
     reg[29] = pthread->reg[29] + (pid - pthread->pid) * Stack_size;
 
     I(reg[29] >= Stack_start && reg[29] <= Stack_end);
-
-    stacktop = Stack_start + pid * Stack_size;
   } else {
     /* change the stack pointer to point to the top of the child's stack */
     reg[29] = Stack_start + (pid + 1) * Stack_size - FRAME_SIZE;
     /* Align stack (becuase of FRAME_SIZE)*/
     reg[29] = ((reg[29] + 0x1f) & ~0x1f);
-    stacktop = Stack_start + pid * Stack_size;
     I(reg[29] >= Stack_start && reg[29] <= Stack_end);
   }
 }

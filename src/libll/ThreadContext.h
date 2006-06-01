@@ -56,15 +56,23 @@ class ThreadContext {
   static ThreadContext *mainThreadContext;
 
   // Memory Mapping
+
+  // Lower and upper bound for valid data addresses
+  VAddr dataAddrLb;
+  VAddr dataAddrUb;
+  // Lower and upper bound for stack addresses in all threads
+  VAddr allStacksAddrLb;
+  VAddr allStacksAddrUb;
+  // Lower and upper bound for stack addresses in this thread
+  VAddr myStackAddrLb;
+  VAddr myStackAddrUb;
+
+  // Real address is simply virtual address plus this offset
+  RAddr virtToRealOffset;
+
   static RAddr DataStart;
   static RAddr DataEnd;
   static MINTAddrType DataMap;  // Must be signed because it may increase or decrease
-
-  static RAddr HeapStart;
-  static RAddr HeapEnd;
-  
-  static RAddr StackStart;
-  static RAddr StackEnd;
 
   static RAddr PrivateStart;
   static RAddr PrivateEnd;
@@ -88,7 +96,6 @@ class ThreadContext {
   ThreadContext *parent;    // pointer to parent
   ThreadContext *youngest;  // pointer to youngest child
   ThreadContext *sibling;   // pointer to next older sibling
-  RAddr stacktop;	    // lowest address allowed in the stack
   int *perrno;	            // pointer to the errno variable
   int rerrno;		    // most recent errno for this thread
 
@@ -145,6 +152,10 @@ public:
   }
   inline IntRegValue getStkPtr(void) const{
     return getIntReg(StkPtrReg);
+  }
+  inline void setStkPtr(int val){
+    I(sizeof(val)==4);
+    setIntReg(StkPtrReg,val);
   }
   inline void setRetVal(int val){
     I(sizeof(val)==4);
@@ -372,16 +383,17 @@ public:
   RAddr virt2real(VAddr vaddr, short opflags=E_READ | E_BYTE) const;
   VAddr real2virt(RAddr addr) const;
 
-  bool isHeapData(RAddr addr) const {
-    return addr >= HeapStart && addr <= HeapEnd;
+  bool isHeapData(VAddr addr) const{
+    I(heapManager);
+    return heapManager->isHeapAddr(addr);
   }
 
-  bool isStackData(RAddr addr) const {
-    return addr >= StackStart && addr <= StackEnd;
+  bool isLocalStackData(VAddr addr) const {
+    return (addr>=myStackAddrLb)&&(addr<myStackAddrUb);
   }
 
-  RAddr getStackTop() const {
-    return stacktop;
+  VAddr getStackTop() const{
+    return myStackAddrLb;
   }
   // END Memory Mapping
 

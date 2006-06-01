@@ -190,7 +190,8 @@ copy_argv(int arg_start, int argc, char **argv, char **envp)
     int i, size, nenv;
     unsigned int *sp;
     int argc_obj;
-    char **argv_obj, **eptr, **envp_obj;
+    VAddr *argv_obj, *envp_obj;
+    char **eptr;
     ThreadContext *pthread;
     int sizeofptr;
 
@@ -233,47 +234,47 @@ copy_argv(int arg_start, int argc, char **argv, char **envp)
     size = (size + 0x1f) & ~0x1f;
 
     /* allocate stack space for all the args */
-    pthread->setREGNUM(29, pthread->getREGNUM(29) - size);
+    pthread->setStkPtr(pthread->getStkPtr()-size);
 
-    I((size_t)pthread->virt2real(pthread->getREGNUM(29)) >= (size_t)Stack_start && (size_t)pthread->virt2real(pthread->getREGNUM(29)) <= (size_t)Stack_end);
+    I(pthread->isLocalStackData((VAddr)(pthread->getStkPtr())));
 
     /* get the real address */
-    sp = (unsigned int *)pthread->virt2real(pthread->getREGNUM(29));
+    sp = (unsigned int *)pthread->virt2real(pthread->getStkPtr());
 
     /* the first stack item is the number of args (argc) */
     *sp++ = SWAP_WORD(argc_obj);
 	
     /* the next stack items are the array of pointers argv */
-    argv_obj = (char **) sp;
+    argv_obj = (VAddr *) sp;
 
     /* leave space for the argv array, including the NULL pointer */
     sp += argc_obj + 1;
 
     /* next come the pointers for the environment variables */
-    envp_obj = (char **) sp;
+    envp_obj = (VAddr *) sp;
     sp = &sp[nenv + 1];
 
     /* copy the args to the stack of the main thread */
     for (i = arg_start; i < argc; i++) {
-        strcpy((char *) sp, argv[i]);
-	argv_obj[i - arg_start] = (char *) SWAP_WORD(pthread->real2virt((RAddr)sp));
+        strcpy((char *)sp,argv[i]);
+	argv_obj[i - arg_start] = SWAP_WORD(pthread->real2virt((RAddr)sp));
 	RAddr val = (RAddr)sp + strlen(argv[i]) + 1;
 	/* Align word */
 	val = (val + 0x1f) & ~0x1f;
 	sp = (unsigned int *)(val);
     }
-    argv_obj[argc - arg_start] = NULL;
+    argv_obj[argc - arg_start] = (VAddr)0;
 
     /* copy the environment variables to the stack of the main thread */
     for (i = 0, eptr = envp; i < nenv; i++, eptr++) {
         strcpy((char *) sp, *eptr);
-	envp_obj[i] = (char *) SWAP_WORD(pthread->real2virt((RAddr)sp));
+	envp_obj[i] = SWAP_WORD(pthread->real2virt((RAddr)sp));
 	RAddr val =(RAddr)sp + strlen(*eptr) + 1;
 	/* Align word */
 	val = (val + 0x1f) & ~0x1f;
         sp = (unsigned int *)(val);
     }
-    envp_obj[nenv] = NULL;
+    envp_obj[nenv] = (VAddr)0;
 }
 
 /*
