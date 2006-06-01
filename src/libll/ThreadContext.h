@@ -25,7 +25,9 @@ typedef struct objfile {
 /* The maximum number of file descriptors per thread. */
 #define MAX_FDNUM 20
 
-typedef int IntRegValue;
+// Simulated machine has 32-bit registers
+typedef int32_t IntRegValue;
+
 enum IntRegName{
   RetValReg   =  2,
   RetValHiReg =  2,
@@ -123,7 +125,6 @@ public:
   inline IntRegValue getIntReg(IntRegName name) const {
     return reg[name];
   }
-  
   inline void setIntReg(IntRegName name, IntRegValue value) {
     reg[name]=value;
   }
@@ -140,7 +141,7 @@ public:
   inline IntRegValue getIntArg4(void) const{
     return getIntReg(IntArg4Reg);
   }
-  inline IntRegValue getStkPtr(void) const{
+  inline VAddr getStkPtr(void) const{
     return getIntReg(StkPtrReg);
   }
   inline void setStkPtr(int val){
@@ -358,8 +359,23 @@ public:
   void initAddressing(VAddr dataVAddrLb, VAddr dataVAddrUb,
 		      MINTAddrType rMap, MINTAddrType mMap, MINTAddrType sTop);
 
-  RAddr virt2real(VAddr vaddr, short opflags=E_READ | E_BYTE) const;
-  VAddr real2virt(RAddr addr) const;
+  RAddr virt2real(VAddr vaddr, short opflags=E_READ | E_BYTE) const{
+#ifdef TASKSCALAR
+    if(checkSpecThread(vaddr, opflags))
+      return 0;
+#endif
+#if (defined TLS)
+    if(!isValidDataVAddr(vaddr))
+      return 0;    
+#endif
+    I(isValidDataVAddr(vaddr));
+    return virtToRealOffset+vaddr;
+  }
+  VAddr real2virt(RAddr raddr) const{
+    VAddr vaddr=raddr-virtToRealOffset;
+    I(isValidDataVAddr(vaddr));
+    return vaddr;
+  }
 
   bool isHeapData(VAddr addr) const{
     I(heapManager);

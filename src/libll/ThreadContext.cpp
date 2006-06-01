@@ -514,66 +514,6 @@ unsigned long long ThreadContext::getMemValue(RAddr p, unsigned dsize) {
   return value;
 }
 
-RAddr ThreadContext::virt2real(VAddr vaddr, short opflags) const {
-#ifdef __LP64__
-    MINTAddrType m = (MINTAddrType)vaddr + virtToRealOffset;
-    RAddr r = static_cast<RAddr>(m);
-    MSG("SESC64: %p->virt2real(0x%x) = (0x%x + %p) = %p\n", (void*)this, vaddr, vaddr, (void*)virtToRealOffset, (void*)r);
-    fflush(stdout);
-    
-    if(!(m >= Data_start && m <= Private_end-Data_start)) {
-      MSG("SESC64: virtual address %p is out of bounds", (void*)m);
-      exit(1);
-    }
-    
-#ifdef TASKSCALAR
-#error "Can not compile TLS/TaskScalar with 64bit architectures. Still not working"
-#endif
-#else
-#ifdef TASKSCALAR
-    if(checkSpecThread(vaddr, opflags))
-      return 0;
-#endif
-#if (defined TLS)
-    if(!isValidDataVAddr(vaddr))
-      return 0;    
-#endif             
-    RAddr r = (vaddr >= dataVAddrLb && vaddr <= dataVAddrUb) ? 
-      static_cast<RAddr>(((signed)vaddr+ virtToRealOffset)) : 0;
-    
-#endif
-
-#ifdef __LP64__
-      printf("\n%p->virt2real(0x%x) = %p", (void*)this, vaddr, (void*)r);
-      fflush(stdout);
-#endif
-    
-    return r;
-}
-  
-// This assumes the address "addr" is known to be private.  Shared
-// addresses do not need to be translated since the virtual-to-
-// physical mapping is the identity function.
-VAddr ThreadContext::real2virt(RAddr uaddr) const {
-#ifdef __x86_64__
-  uaddr = uaddr - virtToRealOffset;
-
-  return (VAddr)uaddr;
-#else
-  signed int addr = (signed int)uaddr;
-
-  // Direct mapping for heap and stack
-  //  if (addr >= Heap_start && addr <= Private_end)
-  //    return addr;
-
-  addr = addr - virtToRealOffset;
-
-  I(addr >= dataVAddrLb && addr <= dataVAddrUb);
-
-  return addr;
-#endif
-}
-
 int MintFuncArgs::getInt32(void) {
   int retVal; 
   I(sizeof(retVal)==4);

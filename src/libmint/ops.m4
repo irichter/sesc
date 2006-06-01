@@ -70,7 +70,7 @@ M4_IN(addiu_op,
 M4_IN(sp_over_op,
 {
   pthread->setREGNUM(29, pthread->getREG(picode, RS) + picode->immed);
-  if((VAddr)(pthread->getStkPtr())<pthread->getStackTop()){
+  if(pthread->getStkPtr()<pthread->getStackTop()){
 #ifdef TASKSCALAR
     if(!rsesc_is_safe(pthread->getPid())) {
       rsesc_exception(pthread->getPid());
@@ -80,7 +80,7 @@ M4_IN(sp_over_op,
     } else {
 #endif
       fprintf(stderr, "stack overflow at instruction 0x%x sp v=0x%x p=0x%x stack top=0x%x\n", picode->addr
-                      ,pthread->virt2real(pthread->getREGNUM(29))
+	      ,pthread->virt2real(pthread->getStkPtr())
                       ,pthread->getREGNUM(29)
                       ,pthread->getStackTop());
       fprintf(stderr, "Increase the stack size with the `-k' option.\n");
