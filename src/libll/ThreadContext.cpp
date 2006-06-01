@@ -347,27 +347,19 @@ void ThreadContext::shareAddrSpace(thread_ptr pthread, int share_all, int copy_s
     // Need to use TLS read/write methods to properly copy the stack
     I(!copy_stack);
 #endif
-    /* copy the stack */
-    unsigned pthread_sp = pthread->reg[29];
-
-    I(pthread->reg[29] >= Stack_start && pthread->reg[29] <= Stack_end);
-
-    int *dest = (int *) (pthread_sp + (pid - pthread->pid) * Stack_size);
-    int *last = (int *) (Stack_start + (pthread->pid + 1) * Stack_size);
-    int *src = (int *) this->virt2real(pthread_sp);
-    while (src < last)
-      *dest++ = *src++;
-
-    /* change the stack pointer to point into the child's stack copy */
-    reg[29] = pthread->reg[29] + (pid - pthread->pid) * Stack_size;
-
-    I(reg[29] >= Stack_start && reg[29] <= Stack_end);
+    // Compute the child's stack pointer and copy the used portion of the stack
+    VAddr srcStkPtr=pthread->getStkPtr();
+    I(pthread->isLocalStackData(srcStkPtr));
+    VAddr dstStkPtr=myStackAddrLb+(srcStkPtr-pthread->myStackAddrLb);
+    setStkPtr(dstStkPtr);
+    I(isLocalStackData(dstStkPtr));
+    memcpy((void *)(virt2real(dstStkPtr)),
+	   (void *)(pthread->virt2real(srcStkPtr)),
+	   myStackAddrUb-dstStkPtr);
   } else {
-    /* change the stack pointer to point to the top of the child's stack */
-    reg[29] = Stack_start + (pid + 1) * Stack_size - FRAME_SIZE;
-    /* Align stack (becuase of FRAME_SIZE)*/
-    reg[29] = ((reg[29] + 0x1f) & ~0x1f);
-    I(reg[29] >= Stack_start && reg[29] <= Stack_end);
+    // Point to the top of the stack (but leave some empty space there)
+    setStkPtr(myStackAddrUb-FRAME_SIZE);
+    I(isLocalStackData(getStkPtr()));
   }
 }
 
