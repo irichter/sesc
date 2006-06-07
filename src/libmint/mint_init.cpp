@@ -84,11 +84,18 @@ void allocate_fixed(int addr, int nbytes);
 
 /* private functions */
 static void parse_args(int argc, char **argv);
-static void copy_argv(int arg_start, int argc, char **argv, char **envp);
+static void copy_argv(int argc, char **argv, char **envp);
 static void mint_stats();
+#if !(defined ADDRESS_SPACES)
 static void create_addr_space();
+#endif // !(defined ADDRESS_SPACES)
+
 static void read_text();
 static void usage();
+
+#if (defined ADDRESS_SPACES)
+#include "ElfObject.h"
+#endif // (defined ADDRESS_SPACES)
 
 void mint_init(int argc, char **argv, char **envp)
 {
@@ -103,13 +110,30 @@ void mint_init(int argc, char **argv, char **envp)
 
   next_arg = optind;
   Objname = argv[next_arg];
+  
+#if (defined ADDRESS_SPACES)
+  ThreadContext *mainThread=ThreadContext::getMainThreadContext();
+  AddressSpace  *addrSpace=new AddressSpace();
+  mainThread->setAddressSpace(addrSpace);
+  loadElfObject(Objname,mainThread);
+  size_t heapSize=Heap_size;
+  VAddr  heapStart=addrSpace->findVMemLow(heapSize);
+  addrSpace->newRMem(heapStart,heapStart+heapSize);
+  mainThread->setHeapManager(HeapManager::create(heapStart,heapSize));
+  size_t stackSize=Stack_size;
+  VAddr  stackStart=addrSpace->findVMemHigh(stackSize);
+  addrSpace->newRMem(stackStart,stackStart+stackSize);
+  mainThread->setStack(stackStart,stackStart+stackSize,stackStart+stackSize);
+#endif // (defined ADDRESS_SPACES)
 
   read_hdrs(Objname);
   subst_init();
   read_text();
+#if !(defined ADDRESS_SPACES)
   create_addr_space();
+#endif // !(defined ADDRESS_SPACES)
   close_object();
-  copy_argv(next_arg, argc, argv, envp);
+  copy_argv(argc-next_arg,argv+next_arg,envp);
   subst_functions();
 
   ThreadContext::initMainThread();
@@ -180,103 +204,68 @@ static void parse_args(int argc, char **argv)
   if (errflag) {
     usage();
     exit(1);
+
   }
 }
 
-/* copy application args onto the simulated stack for the main process */
-static void
-copy_argv(int arg_start, int argc, char **argv, char **envp)
-{
-    int i, size, nenv;
-    unsigned int *sp;
-    int argc_obj;
-    VAddr *argv_obj, *envp_obj;
-    char **eptr;
-    ThreadContext *pthread;
-    int sizeofptr;
-
-    pthread = ThreadContext::getMainThreadContext();
-    sizeofptr = sizeof(char *);
-
-    /* add up sizes of all the arguments */
-    size = 0;
-    for (i = arg_start; i < argc; i++) {
-	unsigned int val =size + strlen(argv[i]) + 1;
-	val = (val + 0x1f) & ~0x1f;
-	size = val;
+/* Copy application args onto the simulated stack for the main process */
+static void copy_argv(int argc, char **argv, char **envp){
+  ThreadContext *context=ThreadContext::getMainThreadContext();
+  // Count the environment variables
+  int envc=0;
+  while(envp[envc])
+    envc++;
+  // We will need to know where on the simulated stack
+  // did we put the arg and env strings
+  VAddr argVAddrs[argc];
+  VAddr envVAddrs[envc];
+  // Put the env strings on the stack
+  if(envc){
+    for(int envIdx=envc-1;envIdx>=0;envIdx--){
+      size_t strSize=alignUp(strlen(envp[envIdx])+1,32);
+      context->setStkPtr(context->getStkPtr()-strSize);
+      strcpy((char *)(context->virt2real(context->getStkPtr())),envp[envIdx]);
+      envVAddrs[envIdx]=context->getStkPtr();
     }
-
-    /* Add in the sizes of all the environment variables, and count
-     * the number of environment variable pointers that we need.
-     */
-    nenv = 0;
-    for (eptr = envp; *eptr; eptr++) {
-	unsigned int val =size + strlen(*eptr) + 1;
-	val = (val + 0x1f) & ~0x1f;
-	size = val;
-        nenv++;
+  }
+  // Put the arg string on the stack
+  if(argc){
+    for(int argIdx=argc-1;argIdx>=0;argIdx--){
+      size_t strSize=alignUp(strlen(argv[argIdx])+1,32);
+      context->setStkPtr(context->getStkPtr()-strSize);
+      strcpy((char *)(context->virt2real(context->getStkPtr())),argv[argIdx]);
+      argVAddrs[argIdx]=context->getStkPtr();
     }
-
-    /* get the number of arguments to the simulated object program */
-    argc_obj = argc - arg_start;
-
-    /* add in space for the argv and envp pointers, including
-     * two NULL pointers
-     */
-    size += (argc_obj + nenv + 2) * sizeofptr;
-
-    /* add in space for argc */
-    size += sizeof(int);
-
-    /* Originaly round the size up to a double word boundary, for
-     * performance reasons is much better to have a bigger alignment
-     **/
-    size = (size + 0x1f) & ~0x1f;
-
-    /* allocate stack space for all the args */
-    pthread->setStkPtr(pthread->getStkPtr()-size);
-
-    I(pthread->isLocalStackData((VAddr)(pthread->getStkPtr())));
-
-    /* get the real address */
-    sp = (unsigned int *)pthread->virt2real(pthread->getStkPtr());
-
-    /* the first stack item is the number of args (argc) */
-    *sp++ = SWAP_WORD(argc_obj);
-	
-    /* the next stack items are the array of pointers argv */
-    argv_obj = (VAddr *) sp;
-
-    /* leave space for the argv array, including the NULL pointer */
-    sp += argc_obj + 1;
-
-    /* next come the pointers for the environment variables */
-    envp_obj = (VAddr *) sp;
-    sp = &sp[nenv + 1];
-
-    /* copy the args to the stack of the main thread */
-    for (i = arg_start; i < argc; i++) {
-        strcpy((char *)sp,argv[i]);
-	argv_obj[i - arg_start] = SWAP_WORD(pthread->real2virt((RAddr)sp));
-	RAddr val = (RAddr)sp + strlen(argv[i]) + 1;
-	/* Align word */
-	val = (val + 0x1f) & ~0x1f;
-	sp = (unsigned int *)(val);
+  }
+  // Put the envp array (with NULL at the end) on the stack
+  context->setStkPtr(context->getStkPtr()-sizeof(VAddr));
+  *((VAddr *)(context->virt2real(context->getStkPtr())))=
+    bigEndian((VAddr)0);
+  if(envc){
+    for(int envIdx=envc-1;envIdx>=0;envIdx--){
+      context->setStkPtr(context->getStkPtr()-sizeof(VAddr));
+      *((VAddr *)(context->virt2real(context->getStkPtr())))=
+	bigEndian(envVAddrs[envIdx]);
     }
-    argv_obj[argc - arg_start] = (VAddr)0;
-
-    /* copy the environment variables to the stack of the main thread */
-    for (i = 0, eptr = envp; i < nenv; i++, eptr++) {
-        strcpy((char *) sp, *eptr);
-	envp_obj[i] = SWAP_WORD(pthread->real2virt((RAddr)sp));
-	RAddr val =(RAddr)sp + strlen(*eptr) + 1;
-	/* Align word */
-	val = (val + 0x1f) & ~0x1f;
-        sp = (unsigned int *)(val);
+  }
+  // Put the argv array (with NULL at the end) on the stack
+  context->setStkPtr(context->getStkPtr()-sizeof(VAddr));
+  *((VAddr *)(context->virt2real(context->getStkPtr())))=
+    bigEndian((VAddr)0);
+  if(argc){
+    for(int argIdx=argc-1;argIdx>=0;argIdx--){
+      context->setStkPtr(context->getStkPtr()-sizeof(VAddr));
+      *((VAddr *)(context->virt2real(context->getStkPtr())))=
+	bigEndian(argVAddrs[argIdx]);
     }
-    envp_obj[nenv] = (VAddr)0;
+  }
+  // Put the argc on the stack
+  context->setStkPtr(context->getStkPtr()-sizeof(VAddr));
+  *((IntRegValue *)(context->virt2real(context->getStkPtr())))=
+    bigEndian((IntRegValue)argc);
 }
 
+#if !(defined ADDRESS_SPACES)
 /*
  * logbase2() returns the log (base 2) of its argument, rounded up.
  * It also rounds up its argument to the next higher power of 2.
@@ -483,6 +472,7 @@ static void create_addr_space()
 
   pthread->setStkPtr(Stack_start+Stack_size);
 }
+#endif // !(defined ADDRESS_SPACES)
 
 
 /* Share the parent's address space with the child. This is used to

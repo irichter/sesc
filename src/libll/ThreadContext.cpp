@@ -59,15 +59,22 @@ void ThreadContext::copy(const ThreadContext *src)
   sibling=src->sibling;
 
   // Copy virtual address ranges
+#if !(defined ADDRESS_SPACES)
   dataVAddrLb=src->dataVAddrLb;
   dataVAddrUb=src->dataVAddrUb;
   allStacksAddrLb=src->allStacksAddrLb;
   allStacksAddrUb=src->allStacksAddrUb;
+#endif // !(defined ADDRESS_SPACES)
   myStackAddrLb=src->myStackAddrLb;
   myStackAddrUb=src->myStackAddrUb;
 
+#if !(defined ADDRESS_SPACES)
   // Copy address mapping info
   virtToRealOffset=src->virtToRealOffset;
+#else // (defined ADDRESS_SPACES)
+  addressSpace=src->addressSpace;
+  heapManager=src->heapManager;
+#endif // (defined ADDRESS_SPACES)
 }
 
 ThreadContext *ThreadContext::getContext(Pid_t pid)
@@ -169,6 +176,10 @@ void ThreadContext::free(void)
   I((size_t)pid<pid2context.size());
   I(pid2context[pid]==this);
   pid2context[pid]=0;
+#if (defined ADDRESS_SPACES)
+  addressSpace->delReference();
+  addressSpace=0;
+#endif // (defined ADDRESS_SPACES)
   heapManager->delReference();
   heapManager=0;
   if(isCloned()) {
@@ -179,6 +190,7 @@ void ThreadContext::free(void)
   nThreads--;
 }
 
+#if !(defined ADDRESS_SPACES)
 void ThreadContext::initAddressing(VAddr dataVAddrLb, VAddr dataVAddrUb,
 				   MINTAddrType rMap, MINTAddrType mMap, MINTAddrType sTop)
 {
@@ -219,6 +231,7 @@ void ThreadContext::initAddressing(VAddr dataVAddrLb, VAddr dataVAddrUb,
       ,(void*)(allStacksAddrUb+virtToRealOffset)
       );
 }
+#endif // !(defined ADDRESS_SPACES)
 
 void ThreadContext::dump()
 {
@@ -287,6 +300,9 @@ void ThreadContext::dumpStack()
 
 void ThreadContext::useSameAddrSpace(thread_ptr pthread)
 {
+#if (defined ADDRESS_SPACES)
+  setAddressSpace(pthread->getAddressSpace());
+#endif // (defined ADDRESS_SPACES)
   setHeapManager(pthread->getHeapManager());
   
   lo = pthread->lo;
@@ -300,14 +316,19 @@ void ThreadContext::useSameAddrSpace(thread_ptr pthread)
   for (int i = 0; i < 32; i++)
     fp[i] = pthread->fp[i];
 
+#if !(defined ADDRESS_SPACES)
   dataVAddrLb=pthread->dataVAddrLb;
   dataVAddrUb=pthread->dataVAddrUb;
   allStacksAddrLb=pthread->allStacksAddrLb;
   allStacksAddrUb=pthread->allStacksAddrUb;
+#endif // !(defined ADDRESS_SPACES)
+
   myStackAddrLb=pthread->myStackAddrLb;
   myStackAddrUb=pthread->myStackAddrUb;
 
+#if !(defined ADDRESS_SPACES)
   virtToRealOffset=pthread->virtToRealOffset;
+#endif // !(defined ADDRESS_SPACES)
 
 #if (defined TLS) || (defined TASKSCALAR)
   fd = pthread->fd;
@@ -320,6 +341,9 @@ void ThreadContext::shareAddrSpace(thread_ptr pthread, int share_all, int copy_s
 
   I(share_all); // share_all is the only supported
 
+#if (defined ADDRESS_SPACES)
+  setAddressSpace(pthread->getAddressSpace());
+#endif // (defined ADDRESS_SPACES)
   setHeapManager(pthread->getHeapManager());
 
   /* copy all the registers */
@@ -332,15 +356,20 @@ void ThreadContext::shareAddrSpace(thread_ptr pthread, int share_all, int copy_s
   fcr0 = pthread->fcr0;
   fcr31 = pthread->fcr31;
 
+#if !(defined ADDRESS_SPACES)
   dataVAddrLb=pthread->dataVAddrLb;
   dataVAddrUb=pthread->dataVAddrUb;
   allStacksAddrLb=pthread->allStacksAddrLb;
   allStacksAddrUb=pthread->allStacksAddrUb;
+
   myStackAddrLb=allStacksAddrLb+pid*Stack_size;
   myStackAddrUb=myStackAddrLb+Stack_size;
   I(myStackAddrUb<=allStacksAddrUb);
 
   virtToRealOffset=pthread->virtToRealOffset;
+#else // (defined ADDRESS_SPACES)
+  fatal("In shareAddrSpace, stack allocation for ADDRESS_SPACES not implemented");
+#endif // (defined ADDRESS_SPACES)
 
   if (copy_stack) {
 #if (defined TLS)

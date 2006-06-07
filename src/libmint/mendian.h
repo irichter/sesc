@@ -1,7 +1,7 @@
 #ifndef MENDIAN_H_
 #define MENDIAN_H_
 
-#include "elf.h"
+#include "myelf.h"
 #include "coff.h"
 
 void EndianElf32_Ehdr(Elf32_Ehdr *ehdr);

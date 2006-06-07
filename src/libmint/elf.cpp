@@ -27,7 +27,7 @@
 
 #include "icode.h"
 #include "globals.h"
-#include "elf.h"
+#include "myelf.h"
 #include "coff.h"
 #include "symtab.h"
 

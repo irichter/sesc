@@ -45,6 +45,10 @@ ifdef TLS
 DEFS += -DTLS
 endif
 
+ifdef ADDRESS_SPACES
+DEFS += -DADDRESS_SPACES
+endif
+
 ifdef LOCKPROFILE
 DEFS    +=-DSESC_LOCKPROFILE
 endif

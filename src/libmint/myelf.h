@@ -1,7 +1,9 @@
-
 #ifndef MELF_H
 #define MELF_H
 
+#include <elf.h>
+
+#if 0
 /* this structure is at the beginning of the ELF object file */
 #define EI_NIDENT	16
 typedef struct {
@@ -54,7 +56,12 @@ typedef struct {
 
 #define SHT_PROGBITS	1
 #define SHT_STRTAB	3
+
+#endif
+
 #define SHT_MDEBUG	0x70000005
+
+#if 0
 
 typedef struct {
 	 unsigned int st_name;
@@ -73,6 +80,8 @@ typedef struct {
 #define STT_FUNC	2
 #define STT_SECTION	3
 #define STT_FILE	4
+
+#endif
 
 void elf_read_hdrs(char *objfile);
 void elf_read_nmlist();

@@ -29,7 +29,7 @@
 #include "icode.h"
 #include "globals.h"
 #include "coff.h"
-#include "elf.h"
+#include "myelf.h"
 #include "symtab.h"
 
 #include "mendian.h"

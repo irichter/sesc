@@ -4,6 +4,9 @@
 #include <stdint.h>
 #include <vector>
 #include "event.h"
+#if (defined ADDRESS_SPACES)
+#include "AddressSpace.h"
+#endif // (defined ADDRESS_SPACES)
 #include "HeapManager.h"
 #include "icode.h"
 
@@ -37,6 +40,7 @@ enum IntRegName{
   IntArg3Reg  =  6,
   IntArg4Reg  =  7,
   JmpPtrReg   = 25,
+  GlobPtrReg  = 28,
   StkPtrReg   = 29,
   RetAddrReg  = 31
 };
@@ -59,18 +63,22 @@ class ThreadContext {
 
   // Memory Mapping
 
+#if !(defined ADDRESS_SPACES)
   // Lower and upper bound for valid data addresses
   VAddr dataVAddrLb;
   VAddr dataVAddrUb;
   // Lower and upper bound for stack addresses in all threads
   VAddr allStacksAddrLb;
   VAddr allStacksAddrUb;
+#endif //!(defined ADDRESS_SPACES)
   // Lower and upper bound for stack addresses in this thread
   VAddr myStackAddrLb;
   VAddr myStackAddrUb;
 
+#if !(defined ADDRESS_SPACES)
   // Real address is simply virtual address plus this offset
   RAddr virtToRealOffset;
+#endif //!(defined ADDRESS_SPACES)
 
   // Local Variables
  public:
@@ -87,7 +95,11 @@ class ThreadContext {
   icode_ptr target;	// place to store branch target during delay slot
 
   /* Addresses MUST be signed */
-  HeapManager *heapManager; // Heap manager for this thread
+#if (defined ADDRESS_SPACES)
+  AddressSpace *addressSpace; // Address space for this thread
+#endif // (defined ADDRESS_SPACES)
+  HeapManager  *heapManager;  // Heap manager for this thread
+
   ThreadContext *parent;    // pointer to parent
   ThreadContext *youngest;  // pointer to youngest child
   ThreadContext *sibling;   // pointer to next older sibling
@@ -140,6 +152,12 @@ public:
   }
   inline IntRegValue getIntArg4(void) const{
     return getIntReg(IntArg4Reg);
+  }
+  inline VAddr getGlobPtr(void) const{
+    return getIntReg(GlobPtrReg);
+  }
+  inline void setGlobPtr(VAddr addr){
+    setIntReg(GlobPtrReg,addr);
   }
   inline VAddr getStkPtr(void) const{
     return getIntReg(StkPtrReg);
@@ -342,22 +360,46 @@ public:
 
   // BEGIN Memory Mapping
   bool isValidDataVAddr(VAddr vaddr) const{
+#if !(defined ADDRESS_SPACES)
     return (vaddr>=dataVAddrLb)&&(vaddr<dataVAddrUb);
+#else
+    return (addressSpace->virtToReal(vaddr)!=0);
+#endif
   }
 
-  void setHeapManager(HeapManager *newHeapManager) {
-    I(heapManager==0);
+#if (defined ADDRESS_SPACES)
+  void setAddressSpace(AddressSpace *newAddressSpace){
+    I(!addressSpace);
+    addressSpace=newAddressSpace;
+    addressSpace->addReference();
+  }
+  AddressSpace *getAddressSpace(void) const{
+    I(addressSpace);
+    return addressSpace;
+  }
+#endif // (defined ADDRESS_SPACES)
+
+  void setHeapManager(HeapManager *newHeapManager){
+    I(!heapManager);
     heapManager=newHeapManager;
     heapManager->addReference();
   }
 
-  HeapManager *getHeapManager(void) {
+  HeapManager *getHeapManager(void) const{
     I(heapManager);
     return heapManager;
   }
 
+  void setStack(VAddr stackLb, VAddr stackUb, VAddr stkPtr){
+    myStackAddrLb=stackLb;
+    myStackAddrUb=stackUb;
+    setStkPtr(stkPtr);
+  }
+
+#if !(defined ADDRESS_SPACES)
   void initAddressing(VAddr dataVAddrLb, VAddr dataVAddrUb,
 		      MINTAddrType rMap, MINTAddrType mMap, MINTAddrType sTop);
+#endif // !(defined ADDRESS_SPACES)
 
   RAddr virt2real(VAddr vaddr, short opflags=E_READ | E_BYTE) const{
 #ifdef TASKSCALAR
@@ -368,13 +410,21 @@ public:
     if(!isValidDataVAddr(vaddr))
       return 0;    
 #endif
+#if !(defined ADDRESS_SPACES)
     I(isValidDataVAddr(vaddr));
     return virtToRealOffset+vaddr;
+#else // (defined ADDRESS_SPACES)
+    return addressSpace->virtToReal(vaddr);
+#endif // (defined ADDRESS_SPACES)
   }
   VAddr real2virt(RAddr raddr) const{
+#if !(defined ADDRESS_SPACES)
     VAddr vaddr=raddr-virtToRealOffset;
     I(isValidDataVAddr(vaddr));
     return vaddr;
+#else // (defined ADDRESS_SPACES)
+    return addressSpace->realToVirt(raddr);
+#endif // (defined ADDRESS_SPACES)
   }
 
   bool isHeapData(VAddr addr) const{
