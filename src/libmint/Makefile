@@ -11,7 +11,9 @@ all	: $(OBJ)/libmint.a
 ##############################################################################
 OBJS	:= mint_init.o opcodes.o dump.o exec.o subst.o error_ops.o symtab.o \
 	ops.o coproc.o utils.o elf.o mendian.o non_mips.o icode.o
-
+ifdef ADDRESS_SPACES
+OBJS    += AddressSpace.o
+endif
 ##############################################################################
 #                             Change Rules                                   # 
 ##############################################################################
