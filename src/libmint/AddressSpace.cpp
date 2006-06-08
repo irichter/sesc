@@ -34,7 +34,7 @@ void AddressSpace::newRMem(VAddr begVAddr, VAddr endVAddr){
 void AddressSpace::delRMem(VAddr begVAddr, VAddr endVAddr){
   begVAddr=alignDown(begVAddr,getPageSize());
   endVAddr=alignUp(endVAddr,getPageSize());
-  RAddr begRAddr=pageTable[begVAddr];
+  RAddr begRAddr=pageTable[getVPage(begVAddr)];
   free((void *)begRAddr);
   for(VAddr pageNum=getVPage(begVAddr);pageNum!=getVPage(endVAddr);pageNum++){
     if(pageTable[pageNum]!=begRAddr+(pageNum*getPageSize()-begVAddr))

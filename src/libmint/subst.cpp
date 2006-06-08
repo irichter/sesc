@@ -83,67 +83,67 @@ int getdents(unsigned int fd, struct dirent *dirp, unsigned int count);
 #endif
 
 struct glibc_stat64 {
-  unsigned int  st_dev;
-  unsigned int  st_pad0[3];     /* Reserved for st_dev expansion  */
+  targULong     st_dev;
+  targLong      st_pad0[3]; /* Reserved for st_dev expansion  */
+  targULongLong st_ino;
 
-  unsigned long long    st_ino;
+  targUInt      st_mode;
+  targInt       st_nlink;
 
-  unsigned int  st_mode;
-  int           st_nlink;
+  targInt       st_uid;
+  targInt       st_gid;
 
-  int           st_uid;
-  int           st_gid;
+  targULong     st_rdev;
+  targLong      st_pad1[3];     /* Reserved for st_rdev expansion  */
 
-  unsigned int  st_rdev;
-  unsigned int  st_pad1[3];     /* Reserved for st_rdev expansion  */
-
-  long long     st_size;
+  targLongLong  st_size;
 
   /*
    * Actually this should be timestruc_t st_atime, st_mtime and st_ctime
    * but we don't have it under Linux.
    */
-  int          st_atim;
-  unsigned int  reserved0;      /* Reserved for st_atime expansion  */
+  targInt       st_atim;
+  targLong      reserved0;      /* Reserved for st_atime expansion  */
 
-  int          st_mtim;
-  unsigned int  reserved1;      /* Reserved for st_mtime expansion  */
+  targInt       st_mtim;
+  targLong      reserved1;      /* Reserved for st_mtime expansion  */
 
-  int          st_ctim;
-  unsigned int  reserved2;      /* Reserved for st_ctime expansion  */
+  targInt       st_ctim;
+  targLong      reserved2;      /* Reserved for st_ctime expansion  */
 
-  unsigned int  st_blksize;
-  unsigned int  st_pad2;
+  targUInt      st_blksize;
+  targLong      st_pad2;
 
-  long long     st_blocks;
+  targLongLong  st_blocks;
+  targLong      st_pad3[14];
 };
 
 /* defines to survive the 64 bits mix */
 struct glibc_stat32 {
-  unsigned int    st_dev;
-  int           st_pad1[3];             /* Reserved for network id */
-  unsigned int   st_ino;
-  unsigned int    st_mode;
-  int             st_nlink;
-  int             st_uid;
-  int             st_gid;
-  unsigned int    st_rdev;
-  int           st_pad2[2];
-  int            st_size;
-  int           st_pad3;
+  targUInt      st_dev;
+  targInt       st_pad1[3];             /* Reserved for network id */
+  targUInt      st_ino;
+  targUInt      st_mode;
+  targInt       st_nlink;
+  targInt       st_uid;
+  targInt       st_gid;
+  targULong     st_rdev;
+  targLong      st_pad2[2];
+  targInt       st_size;
+  targLong      st_pad3;
   /*
    * Actually this should be timestruc_t st_atime, st_mtime and st_ctime
    * but we don't have it under Linux.
    */
-  int            st_atim;
-  int           reserved0;
-  int            st_mtim;
-  int           reserved1;
-  int            st_ctim;
-  int           reserved2;
-  int           st_blksize;
-  int           st_blocks;
-  int           st_pad4[14];
+  targInt       st_atim;
+  targLong      reserved0;
+  targInt       st_mtim;
+  targLong      reserved1;
+  targInt       st_ctim;
+  targLong      reserved2;
+  targInt       st_blksize;
+  targInt       st_blocks;
+  targLong      st_pad4[14];
 };
 
 void conv_stat32_native2glibc(const struct stat *statp, struct glibc_stat32 *stat32p)
@@ -719,13 +719,14 @@ OP(mint_sesc_spawn){
   // Process ID of the parent thread
   Pid_t ppid=pthread->getPid();
   // Arguments of the sesc_spawn call
-  RAddr entry = pthread->getIntArg1();
-  RAddr arg   = pthread->getIntArg2();
-  int   flags = pthread->getIntArg3();
+  MintFuncArgs funcArgs(pthread,picode);
+  VAddr entry = funcArgs.getVAddr();
+  VAddr arg   = funcArgs.getVAddr();
+  int   flags = funcArgs.getInt32();
   
 #ifdef DEBUG_VERBOSE
   printf("sesc_spawn( 0x%lx, 0x%lx, 0x%lx ) pid = %d\n",
-         entry,arg,flags,ppid);
+         (unsigned long)entry,(unsigned long)arg,(unsigned long)flags,ppid);
 #endif
   
   // Allocate a new thread for the child
@@ -1561,6 +1562,9 @@ OP(mint_uname)
 /* ARGSUSED */
 OP(mint_getrlimit)
 {
+#if (defined __LP64__)
+  fatal("mint_getrlimit not supported yet for LP64\n");
+#endif
   int r4 = pthread->getIntArg1();
   int r5 = pthread->getIntArg2();
   int  ret;
@@ -1584,6 +1588,9 @@ OP(mint_getrlimit)
 /* ARGSUSED */
 OP(mint_getrusage)
 {
+#if (defined __LP64__)
+  fatal("mint_getrusage not supported yet for LP64\n");
+#endif
   int r4 = pthread->getIntArg1();
   int r5 = pthread->getIntArg2();
   int  ret;
@@ -1684,6 +1691,11 @@ OP(mint_cerror)
   return pthread->getRetIcode();
 }
 
+struct targTimeval{
+  targULong tv_sec;
+  targULong tv_usec;
+};
+
 /* ARGSUSED */
 OP(mint_gettimeofday)
 {
@@ -1710,7 +1722,7 @@ OP(mint_gettimeofday)
 
   uint64_t usecs = nativeMicroSeconds+rsesc_usecs();
 
-  struct timeval tv;
+  struct targTimeval tv;
   tv.tv_sec  = SWAP_WORD((IntRegValue)(usecs/secs2usecs));
   tv.tv_usec = SWAP_WORD((IntRegValue)(usecs%secs2usecs));
 
@@ -1719,9 +1731,9 @@ OP(mint_gettimeofday)
 #endif
 
 #ifdef TASKSCALAR
-  rsesc_OS_write_block(pthread->getPid(),picode->addr,tvVAddr,&tv, sizeof(struct timeval));
+  rsesc_OS_write_block(pthread->getPid(),picode->addr,tvVAddr,&tv, sizeof(tv));
 #else
-  memcpy((void *)(pthread->virt2real(tvVAddr)),&tv,sizeof(struct timeval));
+  memcpy((void *)(pthread->virt2real(tvVAddr)),&tv,sizeof(tv));
 #endif
   pthread->setRetVal(0);
   return pthread->getRetIcode();
@@ -2079,11 +2091,11 @@ OP(mint_write){
   sysCall->exec(pthread,picode);
 #else // Begin (defined TLS) else block
   // Arguments of the write call
-  int    fd   =pthread->getIntReg(IntArg1Reg);
-  RAddr  buf  =pthread->getIntReg(IntArg2Reg);
-  size_t count=pthread->getIntReg(IntArg3Reg);
+  MintFuncArgs funcArgs(pthread,picode);
+  int    fd    = funcArgs.getInt32();
+  VAddr  buf   = funcArgs.getVAddr();
+  size_t count = funcArgs.getInt32();
 
-  int err;
   int pid=pthread->getPid();
 
 #ifdef DEBUG_VERBOSE
@@ -2097,9 +2109,9 @@ OP(mint_write){
     err=write(fd,tempbuff,count);
   }
 #else
-  err=write(fd,(const void *)pthread->virt2real(buf),count);
+  int err=write(fd,(const void *)(pthread->virt2real(buf)),count);
 #endif
-  pthread->setIntReg(RetValReg,err);
+  pthread->setRetVal(err);
   if(err==-1)
     pthread->setErrno(errno);
 #endif // End (defined TLS) else block
@@ -3507,6 +3519,9 @@ OP(mint_recvmsg)
 /* ARGSUSED */
 OP(mint_select)
 {
+#if (defined __LP64__)
+  fatal("mint_getdents: Not working yet with __LP64__");
+#endif
          int r4, r5, r6, r7;
          int *sp, arg5;
     int err;
