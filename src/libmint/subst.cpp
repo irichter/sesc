@@ -1772,6 +1772,9 @@ OP(mint_sesc_pseudoreset)
 /* ARGSUSED */
 OP(mint_ulimit)
 {
+#if (defined __LP64__)
+  fatal("mint_ulimit: Not working yet for __LP64__");
+#endif
 #ifdef DEBUG_VERBOSE
   printf("mint_ulimit()\n");
 #endif
@@ -1863,7 +1866,7 @@ OP(mint_munmap)
     I(sysCall);
     sysCall->exec(pthread,picode);
 #else
-    int startVAddr=pthread->getIntArg1();
+    VAddr startVAddr=pthread->getIntArg1();
 #ifdef DEBUG_VERBOSE
     printf("mint_unmmap(%d)\n", (int) r4);
 #endif
@@ -1960,24 +1963,23 @@ OP(mint_open)
   I(sysCall);
   sysCall->exec(pthread,picode);
 #else // (defined TLS) not true
-  int r4, r5, r6;
   int err;
 
-  r4 = pthread->getIntArg1();
-  r5 = pthread->getIntArg2();
-  r6 = pthread->getIntArg3();
+  VAddr   pathname  = pthread->getIntArg1();
+  targInt targFlags = pthread->getIntArg2();
+  targInt mode      = pthread->getIntArg3();
     
-  r5 = conv_flags_to_native(r5);
+  int flags = conv_flags_to_native(targFlags);
 
 #ifdef TASKSCALAR
   {
     char cadena[100];
 
-    rsesc_OS_read_string(pthread->getPid(), picode->addr, cadena, r4, 100);
+    rsesc_OS_read_string(pthread->getPid(), picode->addr, cadena, pathname, 100);
     err = open((const char *) cadena, r5, r6);
     if( err == -1 ) {
-      fprintf(stderr,"original flag = %ld, and conv_flag = %ld\n", pthread->getIntArg2(), r5);
-      fprintf(stderr,"mint_open(%s,%ld,%ld) (failed) ret=%d\n",(const char *) cadena, r5, r6, err);
+      fprintf(stderr,"original flag = %ld, and conv_flag = %ld\n", pthread->getIntArg2(), flags);
+      fprintf(stderr,"mint_open(%s,%ld,%ld) (failed) ret=%d\n",(const char *) cadena, flags, mode, err);
     }  
 
 
@@ -1986,10 +1988,10 @@ OP(mint_open)
 #endif
   }
 #else
-  err = open((const char *)pthread->virt2real(r4) , r5, r6);
+  err = open((const char *)(pthread->virt2real(pathname)), flags, mode);
 
 #ifdef DEBUG_VERBOSE
-  fprintf(stderr,"mint_open(%s,%ld,%ld) ret=%d\n",(const char *) pthread->virt2real(r4), r5, r6, err);
+  fprintf(stderr,"mint_open(%s,%ld,%ld) ret=%d\n",(const char *) pthread->virt2real(pathname), flags, mode, err);
 #endif
 #endif
 
@@ -2050,7 +2052,7 @@ OP(mint_read)
     int err;
 
     r4 = pthread->getIntArg1();
-    r5 = pthread->getIntArg2();
+    VAddr buf = pthread->getIntArg2();
     r6 = pthread->getIntArg3();
 
 #ifdef DEBUG_VERBOSE
@@ -2064,10 +2066,10 @@ OP(mint_read)
 
       err = read(r4, tempbuff, r6);
       if (err > 0)
-        rsesc_OS_write_block(pthread->getPid(), picode->addr, r5, tempbuff, err);
+        rsesc_OS_write_block(pthread->getPid(), picode->addr, buf, tempbuff, err);
     }
 #else
-    err = read(r4, (void *) pthread->virt2real(r5), r6);
+    err = read(r4, (void *)(pthread->virt2real(buf)), r6);
 #endif
 
     pthread->setRetVal(err);
@@ -2122,7 +2124,10 @@ OP(mint_write){
 /* ARGSUSED */
 OP(mint_readv)
 {
-         int r4, r5, r6;
+#if (defined __LP64__)
+  fatal("mint_readv: Not working yet for __LP64__");
+#endif
+    int r4, r5, r6;
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -2155,6 +2160,9 @@ OP(mint_readv)
 /* ARGSUSED */
 OP(mint_writev)
 {
+#if (defined __LP64__)
+  fatal("mint_writev: Not working yet for __LP64__");
+#endif
          int r4, r5, r6;
     int err;
 
@@ -2187,7 +2195,10 @@ OP(mint_writev)
 /* ARGSUSED */
 OP(mint_creat)
 {
-         int r4, r5;
+#if (defined __LP64__)
+  fatal("mint_creat: Not working yet for __LP64__");
+#endif
+    int r4, r5;
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -2219,7 +2230,10 @@ OP(mint_creat)
 /* ARGSUSED */
 OP(mint_link)
 {
-         int r4, r5;
+#if (defined __LP64__)
+  fatal("mint_link: Not working yet for __LP64__");
+#endif
+    int r4, r5;
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -2254,7 +2268,10 @@ OP(mint_link)
 /* ARGSUSED */
 OP(mint_unlink)
 {
-         int r4;
+#if (defined __LP64__)
+  fatal("mint_unlink: Not working yet for __LP64__");
+#endif
+    int r4;
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -2284,7 +2301,10 @@ OP(mint_unlink)
 /* ARGSUSED */
 OP(mint_rename)
 {
-         int r4, r5;
+#if (defined __LP64__)
+  fatal("mint_rename: Not working yet for __LP64__");
+#endif
+    int r4, r5;
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -2319,7 +2339,10 @@ OP(mint_rename)
 /* ARGSUSED */
 OP(mint_chdir)
 {
-         int r4;
+#if (defined __LP64__)
+  fatal("mint_chdir: Not working yet for __LP64__");
+#endif
+    int r4;
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -2349,7 +2372,10 @@ OP(mint_chdir)
 /* ARGSUSED */
 OP(mint_chmod)
 {
-         int r4, r5;
+#if (defined __LP64__)
+  fatal("mint_chmod: Not working yet for __LP64__");
+#endif
+    int r4, r5;
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -2380,7 +2406,10 @@ OP(mint_chmod)
 /* ARGSUSED */
 OP(mint_fchmod)
 {
-         int r4, r5;
+#if (defined __LP64__)
+  fatal("mint_fchmod: Not working yet for __LP64__");
+#endif
+    int r4, r5;
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -2399,6 +2428,9 @@ OP(mint_fchmod)
 /* ARGSUSED */
 OP(mint_chown)
 {
+#if (defined __LP64__)
+  fatal("mint_chown: Not working yet for __LP64__");
+#endif
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -2429,6 +2461,9 @@ OP(mint_chown)
 /* ARGSUSED */
 OP(mint_fchown)
 {
+#if (defined __LP64__)
+  fatal("mint_fchown: Not working yet for __LP64__");
+#endif
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -2471,6 +2506,9 @@ OP(mint_lseek64)
 /* ARGSUSED */
 OP(mint_lseek)
 {
+#if (defined __LP64__)
+  fatal("mint_lseek: Not working yet for __LP64__");
+#endif
          int r4 = REGNUM(4);
          int r5 = REGNUM(5);
          int r6 = REGNUM(6);
@@ -2508,7 +2546,7 @@ OP(mint_access)
     err = access(tmpBuf,amode);
   }
 #else
-  err = access((const char *)pthread->virt2real(namePtr),amode);
+  err = access((const char *)(pthread->virt2real(namePtr)),amode);
 #endif
   
   pthread->setRetVal(err);
@@ -2549,7 +2587,7 @@ OP(mint_stat)
   }
 #else
   {
-    struct glibc_stat32 *stat32p = (struct glibc_stat32 *)pthread->virt2real(statPtr);
+    struct glibc_stat32 *stat32p = (struct glibc_stat32 *)(pthread->virt2real(statPtr));
     struct stat stat_native;
       
     err = stat((const char *)pthread->virt2real(namePtr), &stat_native);
@@ -2596,7 +2634,7 @@ OP(mint_lstat)
   }
 #else
   {
-    struct glibc_stat32 *stat32p = (struct glibc_stat32 *)pthread->virt2real(statPtr);
+    struct glibc_stat32 *stat32p = (struct glibc_stat32 *)(pthread->virt2real(statPtr));
     struct stat stat_native;
       
     err = lstat((const char *)pthread->virt2real(namePtr), &stat_native);
@@ -2614,8 +2652,8 @@ OP(mint_lstat)
 /* ARGSUSED */
 OP(mint_fstat)
 {
-  int r4 = REGNUM(4);
-  int r5 = REGNUM(5);
+  targInt r4 = REGNUM(4);
+  VAddr   r5 = REGNUM(5);
   int  err;
 
 #ifdef DEBUG_VERBOSE
@@ -2638,7 +2676,7 @@ OP(mint_fstat)
   }
 #else
   {
-    struct glibc_stat64 *stat64p = (struct glibc_stat64 *)pthread->virt2real(r5);
+    struct glibc_stat64 *stat64p = (struct glibc_stat64 *)(pthread->virt2real(r5));
     struct stat stat_native;
       
     err = fstat(r4, &stat_native);
@@ -2704,8 +2742,8 @@ OP(mint_fxstat64)
 #else // Begin (defined TLS) else block
   MintFuncArgs funcArgs(pthread, picode);
   /* We ignore the glibc stat_ver parameter (parameter 1) */
-  int        statVer=funcArgs.getInt32();
-  int        fd     =funcArgs.getInt32();
+  targInt    statVer=funcArgs.getInt32();
+  targInt    fd     =funcArgs.getInt32();
   VAddr      addr   =funcArgs.getVAddr();
   int   retVal;
 #ifdef DEBUG_VERBOSE
@@ -2723,7 +2761,7 @@ OP(mint_fxstat64)
 #if (defined TLS) || (defined TASKSCALAR)
   rsesc_OS_write_block(pthread->getPid(),picode->addr, addr, &stat64p,sizeof(struct glibc_stat64));
 #else
-  memcpy((struct glibc_stat64 *)pthread->virt2real(addr),&stat64p,sizeof(struct glibc_stat64));
+  memcpy((struct glibc_stat64 *)(pthread->virt2real(addr)),&stat64p,sizeof(struct glibc_stat64));
 #endif
 #endif // End (defined TLS) else block
   return pthread->getRetIcode();
@@ -2776,8 +2814,8 @@ OP(mint_lstat64)
 /* ARGSUSED */
 OP(mint_stat64)
 {
-  int r4 = REGNUM(4);
-  int r5 = REGNUM(5);
+  VAddr r4 = REGNUM(4);
+  VAddr r5 = REGNUM(5);
   int  err;
   
 #ifdef DEBUG_VERBOSE
@@ -2802,10 +2840,10 @@ OP(mint_stat64)
   }
 #else
   {
-    struct glibc_stat64 *stat64p = (struct glibc_stat64 *)pthread->virt2real(r5);
+    struct glibc_stat64 *stat64p = (struct glibc_stat64 *)(pthread->virt2real(r5));
     struct stat stat_native;
       
-    err = stat((const char *)pthread->virt2real(r4), &stat_native);
+    err = stat((const char *)(pthread->virt2real(r4)), &stat_native);
       
     conv_stat64_native2glibc(&stat_native, stat64p);
   }
@@ -2923,7 +2961,7 @@ OP(mint_pipe)
 /* ARGSUSED */
 OP(mint_symlink)
 {
-         int r4, r5;
+    VAddr r4, r5;
     int err;
 
 #ifdef DEBUG_VERBOSE
@@ -2932,8 +2970,6 @@ OP(mint_symlink)
     r4 = REGNUM(4);
     r5 = REGNUM(5);
 
-    // r4 = pthread->virt2real(r4);
-    // r5 = pthread->virt2real(r5);
 #ifdef TASKSCALAR
     {
       char cad1[1024];
@@ -2945,7 +2981,7 @@ OP(mint_symlink)
       err = symlink((const char *) cad1, (const char *) cad2);
     }
 #else
-    err = symlink((const char *) pthread->virt2real(r4), (const char *) pthread->virt2real(r5));
+    err = symlink((const char *)(pthread->virt2real(r4)),(const char *)(pthread->virt2real(r5)));
 #endif
   pthread->setRetVal(err);
   if (err == -1)
@@ -2988,8 +3024,8 @@ OP(mint_readlink)
       rsesc_OS_write_block(pthread->getPid(), picode->addr, REGNUM(5), cad2,bufSiz);
   }
 #else
-  retVal=readlink((const char *)pthread->virt2real(pathPtr),
-		  (char *)pthread->virt2real(bufPtr),bufSiz);
+  retVal=readlink((const char *)(pthread->virt2real(pathPtr)),
+		  (char *)(pthread->virt2real(bufPtr)),bufSiz);
   errVal=errno;
 #endif
   pthread->setRetVal(retVal);
@@ -3059,6 +3095,9 @@ OP(mint_getegid)
 /* ARGSUSED */
 OP(mint_getdomainname)
 {
+#if (defined __LP64__)
+  fatal("mint_getdomainname: Not working yet with __LP64__");
+#endif
   int r4, r5;
   int err;
 
@@ -3099,6 +3138,9 @@ OP(mint_getdomainname)
 /* ARGSUSED */
 OP(mint_setdomainname)
 {
+#if (defined __LP64__)
+  fatal("mint_setdomainname: Not working yet with __LP64__");
+#endif
   int r4, r5;
   int err;
 
@@ -3148,6 +3190,9 @@ OP(mint_setdomainname)
 /* ARGSUSED */
 OP(mint_gethostname)
 {
+#if (defined __LP64__)
+  fatal("mint_gethostname: Not working yet with __LP64__");
+#endif
          int r4, r5;
     int err;
 
@@ -3183,6 +3228,9 @@ OP(mint_gethostname)
 /* ARGSUSED */
 OP(mint_socket)
 {
+#if (defined __LP64__)
+  fatal("mint_socket: Not working yet with __LP64__");
+#endif
          int r4, r5, r6;
     int err;
 
@@ -3207,6 +3255,9 @@ OP(mint_socket)
 /* ARGSUSED */
 OP(mint_connect)
 {
+#if (defined __LP64__)
+  fatal("mint_connect: Not working yet with __LP64__");
+#endif
   int r4, r5, r6;
   int err;
 
@@ -3241,6 +3292,9 @@ OP(mint_connect)
 /* ARGSUSED */
 OP(mint_send)
 {
+#if (defined __LP64__)
+  fatal("mint_send: Not working yet with __LP64__");
+#endif
          int r4, r5, r6, r7;
     int err;
 
@@ -3280,6 +3334,9 @@ OP(mint_send)
 /* ARGSUSED */
 OP(mint_sendto)
 {
+#if (defined __LP64__)
+  fatal("mint_sendto: Not working yet with __LP64__");
+#endif
          int r4, r5, r6, r7;
          int *sp, arg5, arg6;
     int err;
@@ -3315,6 +3372,9 @@ OP(mint_sendto)
 /* ARGSUSED */
 OP(mint_sendmsg)
 {
+#if (defined __LP64__)
+  fatal("mint_sendmsg: Not working yet with __LP64__");
+#endif
          int r4, r5, r6;
     int err;
     uint i;
@@ -3386,6 +3446,9 @@ OP(mint_sendmsg)
 /* ARGSUSED */
 OP(mint_recv)
 {
+#if (defined __LP64__)
+  fatal("mint_recv: Not working yet with __LP64__");
+#endif
          int r4, r5, r6, r7;
     int err;
 
@@ -3415,6 +3478,9 @@ OP(mint_recv)
 /* ARGSUSED */
 OP(mint_recvfrom)
 {
+#if (defined __LP64__)
+  fatal("mint_recvfrom: Not working yet with __LP64__");
+#endif
          int r4, r5, r6, r7;
          int *sp, arg5, arg6;
     int err;
@@ -3452,6 +3518,9 @@ OP(mint_recvfrom)
 /* ARGSUSED */
 OP(mint_recvmsg)
 {
+#if (defined __LP64__)
+  fatal("mint_recvmsg: Not working yet with __LP64__");
+#endif
          int r4, r5, r6;
     int err;
     uint i;
@@ -3520,7 +3589,7 @@ OP(mint_recvmsg)
 OP(mint_select)
 {
 #if (defined __LP64__)
-  fatal("mint_getdents: Not working yet with __LP64__");
+  fatal("mint_select: Not working yet with __LP64__");
 #endif
          int r4, r5, r6, r7;
          int *sp, arg5;
@@ -3561,6 +3630,9 @@ OP(mint_select)
 /* ARGSUSED */
 OP(mint_getsockopt)
 {
+#if (defined __LP64__)
+  fatal("mint_getsockopt: Not working yet with __LP64__");
+#endif
          int r4, r5, r6, r7;
          int *sp, arg5;
     int err;
@@ -3595,6 +3667,9 @@ OP(mint_getsockopt)
 /* ARGSUSED */
 OP(mint_setsockopt)
 {
+#if (defined __LP64__)
+  fatal("mint_setsockopt: Not working yet with __LP64__");
+#endif
          int r4, r5, r6, r7;
          int *sp, arg5;
     int err;
@@ -3627,6 +3702,9 @@ OP(mint_setsockopt)
 /* ARGSUSED */
 OP(mint_oserror)
 {
+#if (defined __LP64__)
+  fatal("mint_oserror: Not working yet with __LP64__");
+#endif
 #ifdef DEBUG_VERBOSE
   printf("mint_oserror()\n");
 #endif
@@ -3638,6 +3716,9 @@ OP(mint_oserror)
 /* ARGSUSED */
 OP(mint_setoserror)
 {
+#if (defined __LP64__)
+  fatal("mint_setoserror: Not working yet with __LP64__");
+#endif
          int r4;
 
 #ifdef DEBUG_VERBOSE
@@ -3653,6 +3734,9 @@ OP(mint_setoserror)
 /* ARGSUSED */
 OP(mint_perror)
 {
+#if (defined __LP64__)
+  fatal("mint_perror: Not working yet with __LP64__");
+#endif
          int r4;
 
 #ifdef DEBUG_VERBOSE
@@ -3681,6 +3765,9 @@ OP(mint_perror)
 /* ARGSUSED */
 OP(mint_times)
 {
+#if (defined __LP64__)
+  fatal("mint_times: Not working yet with __LP64__");
+#endif
   ID(Pid_t thePid=pthread->getPid());
 #if (defined TLS)
   I(pthread->getEpoch()&&(pthread->getEpoch()==tls::Epoch::getEpoch(pthread->getPid())));
@@ -3721,6 +3808,9 @@ OP(mint_times)
 /* ARGSUSED */
 OP(mint_time)
 {
+#if (defined __LP64__)
+  fatal("mint_time: Not working yet with __LP64__");
+#endif
          int r4;
     int err;
 
@@ -3795,6 +3885,9 @@ OP(mint_getdents)
 /* ARGSUSED */
 OP(mint_getdtablesize)
 {
+#if (defined __LP64__)
+  fatal("mint_getdtablesize: Not working yet with __LP64__");
+#endif
 #ifdef DEBUG_VERBOSE
     printf("mint_getdtablesize()\n");
 #endif
@@ -3947,7 +4040,7 @@ OP(mint_calloc)
       rsesc_OS_write_block(pthread->getPid(),picode->addr, blockPtr, &zero,blockSize);
     }
 #else
-    memset((void *)pthread->virt2real(blockPtr),0,blockSize);
+    memset((void *)(pthread->virt2real(blockPtr)),0,blockSize);
 #endif
   }
   // There should be no context switch
