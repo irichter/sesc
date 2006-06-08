@@ -1559,55 +1559,128 @@ OP(mint_uname)
   return pthread->getRetIcode();
 }
 
+struct targRlimit{
+  targULong rlim_cur;
+  targULong rlim_max;
+};
+
 /* ARGSUSED */
 OP(mint_getrlimit)
 {
-#if (defined __LP64__)
-  fatal("mint_getrlimit not supported yet for LP64\n");
-#endif
-  int r4 = pthread->getIntArg1();
-  int r5 = pthread->getIntArg2();
-  int  ret;
-  
+  MintFuncArgs funcArgs(pthread,picode);
+  targInt resource = funcArgs.getInt32();
+  VAddr   rlim     = funcArgs.getVAddr();
+  targInt retVal;
 #ifdef DEBUG_VERBOSE
   printf("mint_getrlimit()\n");
 #endif
-  if(r5 == 0) {
+  if(rlim==0) {
     fatal("mint_getrlimit called with a null pointer\n");
   }
-
-  ret = getrlimit(r4,(struct rlimit *)pthread->virt2real(r5));
-
-  if(ret == -1)
-    pthread->setperrno(errno);
-    
-  pthread->setRetVal(ret);
+  struct targRlimit *targRlimitPtr=(struct targRlimit *)(pthread->virt2real(rlim));
+  switch(resource){
+    case RLIMIT_STACK:
+      targRlimitPtr->rlim_cur=SWAP_WORD(Stack_size);
+      targRlimitPtr->rlim_max=SWAP_WORD(Stack_size);
+      retVal=0;
+      break;
+    default:
+      fatal("mint_getrlimit does not yet support resource %d\n",resource);
+  }
+  if(retVal == -1)
+    pthread->setErrno(errno);
+  pthread->setRetVal(retVal);
   return pthread->getRetIcode();
 }
+
+int rsesc_usecs();
+
+struct targTimeval{
+  targULong tv_sec;
+  targULong tv_usec;
+};
+
+struct targRusage{
+  // Total amount of user time used.
+  struct targTimeval ru_utime;
+  // Total amount of system time used.
+  struct targTimeval ru_stime;
+  // Maximum resident set size (in kilobytes).
+  targLong ru_maxrss;
+  // Amount of sharing of text segment memory
+  // with other processes (kilobyte-seconds).
+  targLong ru_ixrss;
+  // Amount of data segment memory used (kilobyte-seconds).
+  targLong ru_idrss;
+  // Amount of stack memory used (kilobyte-seconds).
+  targLong ru_isrss;
+  // Number of soft page faults (i.e. those serviced by reclaiming
+  // a page from the list of pages awaiting reallocation.
+  targLong ru_minflt;
+  // Number of hard page faults (i.e. those that required I/O).
+  targLong ru_majflt;
+  // Number of times a process was swapped out of physical memory.
+  targLong ru_nswap;
+  // Number of input operations via the file system.  Note: This
+  //  and `ru_oublock' do not include operations with the cache.
+  targLong ru_inblock;
+  // Number of output operations via the file system.
+  targLong ru_oublock;
+  // Number of IPC messages sent.
+  targLong ru_msgsnd;
+  // Number of IPC messages received.
+  targLong ru_msgrcv;
+  // Number of signals delivered.
+  targLong ru_nsignals;
+  // Number of voluntary context switches, i.e. because the process
+  // gave up the process before it had to (usually to wait for some
+  // resource to be available).
+  targLong ru_nvcsw;
+  // Number of involuntary context switches, i.e. a higher priority process
+  // became runnable or the current process used up its time slice.
+  targLong ru_nivcsw;
+};
 
 /* ARGSUSED */
 OP(mint_getrusage)
 {
-#if (defined __LP64__)
-  fatal("mint_getrusage not supported yet for LP64\n");
-#endif
-  int r4 = pthread->getIntArg1();
-  int r5 = pthread->getIntArg2();
-  int  ret;
-  
+  MintFuncArgs funcArgs(pthread,picode);
+  targInt who   = funcArgs.getInt32();
+  VAddr   usage = funcArgs.getVAddr();
+  targInt retVal;  
 #ifdef DEBUG_VERBOSE
   printf("mint_getrusage()\n");
 #endif
-  if(r5 == 0) {
+  if(usage == 0) {
     fatal("uname called with a null pointer\n");
   }
-
-  ret = getrusage(r4,(struct rusage *)pthread->virt2real(r5));
-
-  if(ret == -1)
-    pthread->setperrno(errno);
-    
-  pthread->setRetVal(ret);
+  struct targRusage *targRusagePtr=(struct targRusage *)(pthread->virt2real(usage));
+  // For user time, get the microsecond count since the beginning of the simulation
+  uint64_t sescUusecs=rsesc_usecs();
+  // System time is simply 1% of user time
+  uint64_t sescSusecs=sescUusecs/100;
+  targRusagePtr->ru_utime.tv_sec  = SWAP_WORD(sescUusecs/1000000);
+  targRusagePtr->ru_utime.tv_usec = SWAP_WORD(sescUusecs%1000000);
+  targRusagePtr->ru_stime.tv_sec  = SWAP_WORD(sescSusecs/1000000);
+  targRusagePtr->ru_stime.tv_usec = SWAP_WORD(sescSusecs%1000000);
+  // Fake some values for the other stuff
+  targRusagePtr->ru_maxrss   = SWAP_WORD(1);
+  targRusagePtr->ru_ixrss    = SWAP_WORD(1);
+  targRusagePtr->ru_idrss    = SWAP_WORD(50);
+  targRusagePtr->ru_isrss    = SWAP_WORD(10);
+  targRusagePtr->ru_minflt   = SWAP_WORD(10);
+  targRusagePtr->ru_majflt   = SWAP_WORD(5);
+  targRusagePtr->ru_nswap    = SWAP_WORD(1);
+  targRusagePtr->ru_inblock  = SWAP_WORD(4);
+  targRusagePtr->ru_oublock  = SWAP_WORD(2);
+  targRusagePtr->ru_msgsnd   = SWAP_WORD(1);
+  targRusagePtr->ru_msgrcv   = SWAP_WORD(1);
+  targRusagePtr->ru_nsignals = SWAP_WORD(3);
+  targRusagePtr->ru_nvcsw    = SWAP_WORD(2);
+  targRusagePtr->ru_nivcsw   = SWAP_WORD(10);
+  if(retVal == -1)
+    pthread->setErrno(errno);
+  pthread->setRetVal(retVal);
   return pthread->getRetIcode();
 }
 
@@ -1636,8 +1709,6 @@ OP(mint_getppid)
 
   return pthread->getRetIcode();
 }
-
-int rsesc_usecs();
 
 /* ARGSUSED */
 OP(mint_clock)
@@ -1690,11 +1761,6 @@ OP(mint_cerror)
   pthread->setRetVal(-1);
   return pthread->getRetIcode();
 }
-
-struct targTimeval{
-  targULong tv_sec;
-  targULong tv_usec;
-};
 
 /* ARGSUSED */
 OP(mint_gettimeofday)
