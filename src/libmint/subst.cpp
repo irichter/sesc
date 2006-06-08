@@ -1570,7 +1570,7 @@ OP(mint_getrlimit)
   MintFuncArgs funcArgs(pthread,picode);
   targInt resource = funcArgs.getInt32();
   VAddr   rlim     = funcArgs.getVAddr();
-  targInt retVal;
+  targInt retVal=0;
 #ifdef DEBUG_VERBOSE
   printf("mint_getrlimit()\n");
 #endif
@@ -1647,7 +1647,7 @@ OP(mint_getrusage)
   MintFuncArgs funcArgs(pthread,picode);
   targInt who   = funcArgs.getInt32();
   VAddr   usage = funcArgs.getVAddr();
-  targInt retVal;  
+  targInt retVal=0;
 #ifdef DEBUG_VERBOSE
   printf("mint_getrusage()\n");
 #endif
