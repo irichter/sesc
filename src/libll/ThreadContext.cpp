@@ -175,6 +175,15 @@ void ThreadContext::free(void)
   I(pid>=0);
   I((size_t)pid<pid2context.size());
   I(pid2context[pid]==this);
+  // Stupid hack needed to prevent the main thread's address space from
+  // ever being freed. When the last thread is freed, some memory requests are
+  // still pending and check for validity of their addresses using the
+  // main thread context. This needs to be fixed: 1) the thread should die
+  // only when its last instruction retires, and 2) a dinst should know
+  // its thread, becasue with multiple address spaces it is not enough to
+  // know the vaddr and use the main thread to check vaddr validity
+  if(this==mainThreadContext)
+    return;
   pid2context[pid]=0;
 #if (defined ADDRESS_SPACES)
   addressSpace->delReference();
