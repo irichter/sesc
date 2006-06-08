@@ -186,6 +186,11 @@ void ThreadContext::free(void)
     return;
   pid2context[pid]=0;
 #if (defined ADDRESS_SPACES)
+  if(!isCloned()){
+    // Delete stack memory from address space
+    addressSpace->delRMem(myStackAddrLb,myStackAddrUb);
+  }
+  // Detach from address space
   addressSpace->delReference();
   addressSpace=0;
 #endif // (defined ADDRESS_SPACES)
@@ -377,7 +382,11 @@ void ThreadContext::shareAddrSpace(thread_ptr pthread, int share_all, int copy_s
 
   virtToRealOffset=pthread->virtToRealOffset;
 #else // (defined ADDRESS_SPACES)
-  fatal("In shareAddrSpace, stack allocation for ADDRESS_SPACES not implemented");
+  // Create my stack space and map it into my address space
+  size_t stackSize=Stack_size;    
+  VAddr  stackStart=addressSpace->findVMemHigh(stackSize);
+  addressSpace->newRMem(stackStart,stackStart+stackSize);
+  setStack(stackStart,stackStart+stackSize);
 #endif // (defined ADDRESS_SPACES)
 
   if (copy_stack) {

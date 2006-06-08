@@ -65,16 +65,17 @@ VAddr AddressSpace::findVMemHigh(size_t memSize){
   size_t foundPages=0;
   // Skip the last page, it creates addressing problems
   // becasue its upper-bound address is 0 due to wrap-around
-  size_t pageNum=pageTable.size()-2;
+  size_t pageNum=pageTable.size()-1;
   while(foundPages<needPages){
-    if(pageTable[pageNum])
-      foundPages=0;
-    else
-      foundPages++;
     pageNum--;
     // Can not use page zero because that would make the null pointer valid
     if(pageNum==0)
       fatal("AddressSpace::findVMemLow not enough available virtual memory\n");
+    if(pageTable[pageNum]){
+      foundPages=0;
+    }else{
+      foundPages++;
+    }
   }
   return pageNum*getPageSize();
 }

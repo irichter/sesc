@@ -123,7 +123,8 @@ void mint_init(int argc, char **argv, char **envp)
   size_t stackSize=Stack_size;
   VAddr  stackStart=addrSpace->findVMemHigh(stackSize);
   addrSpace->newRMem(stackStart,stackStart+stackSize);
-  mainThread->setStack(stackStart,stackStart+stackSize,stackStart+stackSize);
+  mainThread->setStack(stackStart,stackStart+stackSize);
+  mainThread->setStkPtr(stackStart+stackSize);
 #endif // (defined ADDRESS_SPACES)
 
   read_hdrs(Objname);
@@ -704,9 +705,7 @@ read_text()
 	picode->target = addr2icode(target);
 	picode->target->is_target = 1;
       }
-    } else if (opnum == lui_opn)
-      /* precompute the shift, use the target field */
-    picode->target =  (icode_ptr)(((int)immed) << 16)/*addr2icode(((int)immed) << 16)*/;
+    }
     picode->not_taken = picode + 2;
 
     /* Find user define opnums and handle them appropriately

@@ -522,7 +522,7 @@ M4_READ(ll_op, pthread->getREG(picode, RT),
 
 M4_IN(lui_op,
 {
-  pthread->setREG(picode, RT, (intptr_t)picode->target);
+  pthread->setREG(picode,RT,((IntRegValue)picode->immed)<<16);
 })
 
 M4_READ(lw_op, pthread->getREG(picode, RT),

@@ -390,10 +390,9 @@ public:
     return heapManager;
   }
 
-  void setStack(VAddr stackLb, VAddr stackUb, VAddr stkPtr){
+  void setStack(VAddr stackLb, VAddr stackUb){
     myStackAddrLb=stackLb;
     myStackAddrUb=stackUb;
-    setStkPtr(stkPtr);
   }
 
 #if !(defined ADDRESS_SPACES)
