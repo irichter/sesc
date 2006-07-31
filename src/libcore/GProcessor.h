@@ -135,6 +135,9 @@ protected:
 #endif
 
   // "Lack of Retirement" Stats
+  GStatsCntr  noFetch;
+  GStatsCntr  noFetch2;
+
   GStatsAvg   retired;
   GStatsCntr  notRetiredOtherCause;
   GStatsCntr *notRetired[MaxNoRetResp][MaxInstType][MaxRetOutcome];

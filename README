@@ -8,7 +8,7 @@ building sesc
 
    Now you can create a directory for the build process:
 
-> cd ../shadow
+> cd ../
 > mkdir build
 
    We recommend that you have one build directory per simulator
@@ -26,7 +26,7 @@ building sesc
    any options, the default configuration will be built; to see all
    options, type configure --help).
 
-> ../shadow/esesc/configure
+> ../esesc/configure
 
 4) to build all sesc directories:
 
@@ -44,6 +44,8 @@ building sesc
 # Activate version memory (taskscalar included in vmem) with silent debug mode
 # ./configure --enable-debug-silent --enable-vmem
 #
+
+Check docs/README.compile for more detailed examples
 
 modifying and testing the simulator
 -----------------------------------
@@ -95,6 +97,7 @@ libvmem       - versioning cache backend
 libmint       - functional simulator
 libcc         - Cache Coherence (directory based)
 libsmp        - Cache Coherence (bus snooping)
+librst        - RST SUN traces interface (check docs/README.rst)
 misc          - miscellaneous files
 
    The other files are mainly associated to the build process.

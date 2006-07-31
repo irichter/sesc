@@ -926,6 +926,8 @@ sub showStatReport {
               $cf->getResultField("P(${i})_IL1","writeMiss") + 
               $cf->getResultField("P(${i})_IL1","writeHit");
 
+         $iaccess = 1 unless ($iaccess);
+
           printf " %9.2f ", 100*($cf->getResultField("P(${i})_IL1","readMiss")+$cf->getResultField("P(${i})_IL1","writeMiss")) /$iaccess;
           
           printf "\n";

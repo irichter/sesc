@@ -1779,7 +1779,7 @@ OP(mint_gettimeofday)
   }
 
   static uint64_t nativeMicroSeconds=0;
-  const static uint64_t secs2usecs=(uint64_t)1000*(uint64_t)1000;
+  static const uint64_t secs2usecs=(uint64_t)1000*(uint64_t)1000;
   if(!nativeMicroSeconds) {
     struct timeval tv;
     gettimeofday(&tv,0);

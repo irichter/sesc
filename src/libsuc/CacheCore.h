@@ -80,7 +80,7 @@ template<class State, class Addr_t = uint, bool Energy=true>
   };
 
   // findLine returns a cache line that has tag == addr, NULL otherwise
-  virtual CacheLine *findLineTag(Addr_t tag)=0;
+  virtual CacheLine *findLinePrivate(Addr_t addr)=0;
   protected:
 
   CacheGeneric(uint s, uint a, uint b, uint u)
@@ -105,7 +105,7 @@ template<class State, class Addr_t = uint, bool Energy=true>
 
   public:
   // Do not use this interface, use other create
-  static CacheGeneric<State, Addr_t, Energy> *create(int size, int assoc, int blksize, int addrUnit, const char *pStr);
+  static CacheGeneric<State, Addr_t, Energy> *create(int size, int assoc, int blksize, int addrUnit, const char *pStr, bool skew);
   static CacheGeneric<State, Addr_t, Energy> *create(const char *section, const char *append, const char *format, ...);
   void destroy() {
   }
@@ -140,7 +140,7 @@ template<class State, class Addr_t = uint, bool Energy=true>
 
   // Use this when you need to change the line state but
   // do not want to account for energy
-  CacheLine *findLineTagNoEffect(Addr_t addr) {
+  CacheLine *findLineNoEffect(Addr_t addr) {
     IS(goodInterface=true);
     CacheLine *line = findLine(addr);
     IS(goodInterface=false);
@@ -148,14 +148,13 @@ template<class State, class Addr_t = uint, bool Energy=true>
   }
 
   CacheLine *findLine(Addr_t addr) {
-    return findLineTag(calcTag(addr));
+    return findLinePrivate(addr);
   }
 
   CacheLine *readLine(Addr_t addr) {
-    Addr_t tag = calcTag(addr);
 
     IS(goodInterface=true);
-    CacheLine *line = findLineTag(tag);
+    CacheLine *line = findLine(addr);
     IS(goodInterface=false);
 
     if(!Energy)
@@ -167,10 +166,9 @@ template<class State, class Addr_t = uint, bool Energy=true>
   }
 
   CacheLine *writeLine(Addr_t addr) {
-    Addr_t tag = calcTag(addr);
 
     IS(goodInterface=true);
-    CacheLine *line = findLineTag(tag);
+    CacheLine *line = findLine(addr);
     IS(goodInterface=false);
 
     if(!Energy)
@@ -255,7 +253,7 @@ protected:
   friend class CacheGeneric<State, Addr_t, Energy>;
   CacheAssoc(int size, int assoc, int blksize, int addrUnit, const char *pStr);
 
-  Line *findLineTag(Addr_t addr);
+  Line *findLinePrivate(Addr_t addr);
 public:
   virtual ~CacheAssoc() {
     delete content;
@@ -293,9 +291,47 @@ protected:
   friend class CacheGeneric<State, Addr_t, Energy>;
   CacheDM(int size, int blksize, int addrUnit, const char *pStr);
 
-  Line *findLineTag(Addr_t addr);
+  Line *findLinePrivate(Addr_t addr);
 public:
   virtual ~CacheDM() {
+    delete content;
+    delete mem;
+  };
+
+  // TODO: do an iterator. not this junk!!
+  Line *getPLine(uint l) {
+    // Lines [l..l+assoc] belong to the same set
+    I(l<numLines);
+    return content[l];
+  }
+
+  Line *findLine2Replace(Addr_t addr, bool ignoreLocked=false);
+};
+
+#ifdef SESC_ENERGY
+template<class State, class Addr_t = uint, bool Energy=true>
+#else
+template<class State, class Addr_t = uint, bool Energy=false>
+#endif
+class CacheDMSkew : public CacheGeneric<State, Addr_t, Energy> {
+  using CacheGeneric<State, Addr_t, Energy>::numLines;
+  using CacheGeneric<State, Addr_t, Energy>::goodInterface;
+
+private:
+public:
+  typedef typename CacheGeneric<State, Addr_t, Energy>::CacheLine Line;
+
+protected:
+  
+  Line *mem;
+  Line **content;
+
+  friend class CacheGeneric<State, Addr_t, Energy>;
+  CacheDMSkew(int size, int blksize, int addrUnit, const char *pStr);
+
+  Line *findLinePrivate(Addr_t addr);
+public:
+  virtual ~CacheDMSkew() {
     delete content;
     delete mem;
   };

@@ -180,7 +180,6 @@ void Processor::advanceClock()
     IBucket *bucket = pipeQ.pipeLine.newItem();
     if( bucket ) {
       IFID.fetch(bucket);
-      // readyItem would be called once the bucket is fetched
     }
   }
   
@@ -193,7 +192,11 @@ void Processor::advanceClock()
       
       spaceInInstQueue -= bucket->size();
       pipeQ.instQueue.push(bucket);
+    }else{
+      noFetch2.inc();
     }
+  }else{
+    noFetch.inc();
   }
 
   // RENAME Stage

@@ -541,7 +541,7 @@ Cache::Line *Cache::allocateLine(PAddr addr, CallbackBase *cb)
 
 void Cache::doAllocateLine(PAddr addr, PAddr rpl_addr, CallbackBase *cb)
 {
-  Line *l = getCacheBank(addr)->findLineTagNoEffect(addr);
+  Line *l = getCacheBank(addr)->findLineNoEffect(addr);
   I(l);
 
 #ifdef MSHR_BWSTATS
@@ -801,7 +801,7 @@ void WBCache::doWriteBack(PAddr addr)
 void WBCache::doReturnAccess(MemRequest *mreq)
 {
   PAddr addr = mreq->getPAddr();
-  Line *l = getCacheBank(addr)->findLineTagNoEffect(addr);
+  Line *l = getCacheBank(addr)->findLineNoEffect(addr);
   I(l);
   l->validate();
 
@@ -898,7 +898,7 @@ void WTCache::pushLine(MemRequest *mreq)
 void WTCache::doReturnAccess(MemRequest *mreq)
 {
   PAddr addr = mreq->getPAddr();
-  Line *l = getCacheBank(addr)->findLineTagNoEffect(addr);
+  Line *l = getCacheBank(addr)->findLineNoEffect(addr);
   I(l);
   l->validate();
 

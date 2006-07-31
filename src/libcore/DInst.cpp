@@ -601,6 +601,7 @@ void DInst::setRetireTime()
   retireQHistDown->sample(retireQSize);
   retireQSize--;
 
+#if 0
   int pc = inst->getAddr();
   if (pc) {
     printf("BAAD: fetchT=%lld renameT=%lld exeT=%lld retireT=%lld wp=%d pc=0x%x op=%d src1=%d src2=%d dest=%u "
@@ -622,6 +623,7 @@ void DInst::setRetireTime()
 
     printf("\n");
   }
+#endif
 }
 #endif
 

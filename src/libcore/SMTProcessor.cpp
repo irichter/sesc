@@ -46,11 +46,10 @@ SMTProcessor::SMTProcessor(GMemorySystem *gm, CPU_t i)
   ,smtDecodes4Clk(SescConf->getInt("cpucore", "smtDecodes4Clk",i))
   ,smtIssues4Clk(SescConf->getInt("cpucore", "smtIssues4Clk",i))
   ,firstContext(i*smtContexts)
-  ,fetchDist("P(%d)_fetchDist", i)
-  ,noFetch("P(%d)_noFetch", i)
+  ,fetchDist("Processor(%d)_fetchDist", i) // noFetch is on GProcessor
 #ifdef TASKSCALAR
-  ,fetchFromSafe("P(%d)_fetchFromSafe", i)
-  ,fetchFromSpec("P(%d)_fetchFromSpec", i)
+  ,fetchFromSafe("Processor(%d)_fetchFromSafe", i)
+  ,fetchFromSpec("Processor(%d)_fetchFromSpec", i)
 #endif
 {
   SescConf->isInt("cpucore", "smtContexts",Id);

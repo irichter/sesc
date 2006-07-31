@@ -1646,8 +1646,8 @@ protected:
             num_noninstr_count++;
           }
         } else {
-          if (noninstr_count_buf[num_noninstr_count] == INT8_MAX) {
-            fprintf(stderr, "Error: num_noninstr > %d in Rstzip::read_chunk()\n", INT8_MAX);
+          if (noninstr_count_buf[num_noninstr_count] == LLONG_MAX) {
+            fprintf(stderr, "Error: num_noninstr > %d in Rstzip::read_chunk()\n", LLONG_MAX);
             exit(2);
           }
 

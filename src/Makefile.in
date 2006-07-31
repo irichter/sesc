@@ -23,6 +23,7 @@ ifdef TS_VMEM
 SUBDIRS+=libvmem
 endif
 ifdef SESC_ENERGY
+SUBDIRS+=libpv
 SUBDIRS+=libpower
 VPATH += $(SRC_DIR)/libpower/cacti $(SRC_DIR)/libpower/wattch $(SRC_DIR)/libpower/panalyzer
 endif
@@ -34,6 +35,7 @@ SUBDIRS+=librst
 endif
 ifdef SESC_SESCTHERM
 SUBDIRS+=libsesctherm
+CFLAGS+= -I$(SRC_DIR)/libsesctherm/SuperLU_MT/SRC -D_PTHREAD -DAdd_ -lpthread
 endif
 ifdef TLS
 SUBDIRS+=libtm
@@ -181,6 +183,9 @@ cactify: reload $(OBJ)/cacmain.o  $(OBJ)/libcacti.a $(OBJ)/libcore.a  $(OBJ)/lib
 panalyze: reload $(OBJ)/panalyze.o $(OBJ)/libpanalyzer.a $(OBJ)/libcore.a  $(OBJ)/libsuc.a 
 	$(CXX) $(CFLAGS) -o $@ $(OBJ)/panalyze.o $(OBJ)/libpanalyzer.a $(OBJ)/libcore.a  $(OBJ)/libsuc.a $(LIBS) $(STDLIBS) 
 
+pvmain: reload $(OBJ)/pv_main.o  $(OBJ)/libpv.a  $(OBJ)/libsuc.a
+	$(CXX) $(CFLAGS) -o $@ $(OBJ)/pv_main.o  $(OBJ)/libpv.a $(OBJ)/libsuc.a $(LIBS) $(STDLIBS) 
+
 ifdef SESC_THERM
 sescspot: $(OBJ)/libsescspot.a sescspot.sspot sescspot.flp $(OBJ)/libsuc.a
 	$(CXX) $(CFLAGS) -o $@ $(OBJ)/sescspot.o $(OBJ)/libsescspot.a $(OBJ)/libsuc.a $(STDLIBS) 
@@ -195,8 +200,8 @@ sescspot.flp: $(TOPSRC_DIR)/confs/ev6.flp
 endif
 
 ifdef SESC_SESCTHERM
-sesctherm: $(OBJ)/libsesctherm.a $(OBJ)/libsuc.a
-	$(CXX) $(CFLAGS) -o $@ $(OBJ)/sesctherm.o $(OBJ)/libsesctherm.a $(OBJ)/libsuc.a $(STDLIBS) 
+sesctherm: $(OBJ)/libsesctherm.a $(OBJ)/libsuc.a 
+	$(CXX) $(CFLAGS) -o $@ $(OBJ)/sesctherm.o $(OBJ)/libsesctherm.a $(OBJ)/libsuc.a $(SRC_DIR)/libsesctherm/SuperLU_MT/blas_PTHREAD.a $(SRC_DIR)/libsesctherm/SuperLU_MT/superlu_mt_PTHREAD.a $(STDLIBS)  
 endif
 
 ifdef TRACE_DRIVEN

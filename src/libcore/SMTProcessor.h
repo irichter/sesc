@@ -46,7 +46,6 @@ private:
   const int firstContext;
 
   GStatsHist fetchDist;
-  GStatsCntr  noFetch;
 #ifdef TASKSCALAR
   GStatsAvg fetchFromSafe;
   GStatsAvg fetchFromSpec;

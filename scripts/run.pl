@@ -146,11 +146,6 @@ sub runItLowLevel {
     my $aprg = shift;
 
     # Refresh the automount. Linux AS 2.0 automount problem
-    system("ls -al ${op_bhome} ${op_sesc} ${op_bindir} . >/dev/null");
-    system("ls -al /cse/faculty/renau/build >/dev/null") if ( $ENV{"USER"} =~ /renau/ );
-    system("ls -al >/dev/null");
-    sleep 5;
-
     if( $op_dump ) {
         print "[${sprg} ${aprg}]\n";
     }elsif ($op_native) {
@@ -329,13 +324,19 @@ sub runBench {
     print "Running mcf\n";
 
     my $marks = getMarks("-11 -26", "-11 -250");
-    runIt("${sesc_parms} -h0x6000000 ${marks}","${executable} ${BHOME}/CINT2000/181.mcf/${dataset}/inp.in", "${BHOME}/CINT2000/181.mcf/${dataset}/inp.in",  $baseoutput);
+    runIt("${sesc_parms} -h0x6000000 ${marks}","${executable} ${BHOME}/CINT2000/181.mcf/${dataset}/inp.in", "",  $baseoutput);
 
   }elsif( $param{bench} eq 'crafty' ) {
     print "Running crafty\n";
 
     my $marks = getMarks("-18 -212", "-18 -215");
     runIt("${sesc_parms} -h0x800000 ${marks}","${executable}", "${BHOME}/CINT2000/186.crafty/${dataset}/crafty.in",  $baseoutput);
+  }elsif( $param{bench} eq 'eon' ) {
+    print "Running eon\n";
+
+    my $common= "${BHOME}/CINT2000/252.eon/${dataset}/";
+    my $marks = getMarks("", "");
+    runIt("${sesc_parms} -h0x800000 ${marks}","${executable} ${common}/chair.control.cook ${common}/chair.camera ${common}/chair.surfaces eon.out eon.out 32", "", $baseoutput);
 
   }elsif( $param{bench} eq 'parser' ) {
     print "Running parser\n";
@@ -975,6 +976,10 @@ sub cleanAll {
       unlink 'lenums';
       unlink 'vortex1.out';
       unlink 'vortex2.out';
+      unlink 'eon.out';
+      unlink 'eon.dat';
+      unlink 'materials';
+      unlink 'spectra.dat';
       unlink 'vortex.msg';
       unlink 'lib';
       unlink <fort*>;
@@ -1062,7 +1067,7 @@ sub processParams {
 
   if( $badparams or $op_help ){
     print "usage:\n\trun.pl <options> <benchs>*\n";
-    print "CINT2000: crafty mcf parser gzip vpr bzip2 gcc gap twolf vortex perlbmk\n";
+    print "CINT2000: crafty mcf parser gzip vpr bzip2 gcc gap twolf vortex perlbmk eon\n";
     print "CFP2000 : wupwise swim mgrid applu apsi equake ammp art mesa\n";
     print "SPLASH2: cholesky fft lu radix barnes fmm ocean radiosity  \n";
     print "         raytrace volrend water-nsquared water-spatial     \n";
@@ -1104,7 +1109,10 @@ sub setupDirectory {
       system("cp ${BHOME}/CINT2000/197.parser/data/all/input/words/* words/");
   }
   system("cp ${BHOME}/CINT2000/300.twolf/${dataset}/${op_data}.* .");
-  system("ln -sf ${BHOME}/CINT2000/253.perlbmk/data/all/input/lib lib") unless ( -l "lib")
+  system("ln -sf ${BHOME}/CINT2000/253.perlbmk/data/all/input/lib lib") unless ( -l "lib");
+  system("cp ${BHOME}/CINT2000/252.eon/data/ref/input/eon.dat .");
+  system("cp ${BHOME}/CINT2000/252.eon/data/ref/input/materials .");
+  system("cp ${BHOME}/CINT2000/252.eon/data/ref/input/spectra.dat .");
 }
 
 exit &main();
