@@ -108,7 +108,13 @@ endif
 INC := -I$(OBJ) -I$(SRC_DIR)/libapp -I$(SRC_DIR)/libsuc 
 INC += -I$(SRC_DIR)/libcore -I$(SRC_DIR)/libnet -I$(SRC_DIR)/libmem 
 INC += -I$(SRC_DIR)/libvmem  
-INC += -I$(SRC_DIR)/libll -I$(SRC_DIR)/libmint -I$(SRC_DIR)/libpint 
+INC += -I$(SRC_DIR)/libll
+ifdef MIPS_EMUL
+INC += -I$(SRC_DIR)/libemul 
+else
+INC += -I$(SRC_DIR)/libmint 
+endif
+INC += -I$(SRC_DIR)/libpint 
 INC += -I$(SRC_DIR)/libsmp -I. 
 INC += -I$(SRC_DIR)/librst
 ##############################################################################

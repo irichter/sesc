@@ -11,8 +11,12 @@ ifdef CONDOR_LINK
 DEFEXEC=@DEFEXEC@.condor
 endif
 
-SUBDIRS:=libmint libpint libll libsuc libcore
-
+SUBDIRS:= libpint libll libsuc libcore
+ifdef MIPS_EMUL
+SUBDIRS+=libemul
+else
+SUBDIRS+=libmint
+endif
 SUBDIRS+=libnet
 SUBDIRS+=libmem
 SUBDIRS+=libapp
@@ -81,8 +85,14 @@ ifdef SESC_SESCTHERM
 EXECS+= sesctherm
 endif
 
-TSTLIBS =$(OBJ)/libcore.a $(OBJ)/libmint.a $(OBJ)/libll.a
-TSTLIBS+=$(OBJ)/libpint.a $(OBJ)/libsuc.a
+TSTLIBS := $(OBJ)/libcore.a
+ifdef MIPS_EMUL
+TSTLIBS += $(OBJ)/libemul.a
+else
+TSTLIBS += $(OBJ)/libmint.a
+endif
+TSTLIBS += $(OBJ)/libll.a
+TSTLIBS += $(OBJ)/libpint.a $(OBJ)/libsuc.a
 ifdef SESC_ENERGY
 TSTLIBS+=$(OBJ)/libpower.a
 endif

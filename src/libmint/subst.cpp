@@ -4036,6 +4036,8 @@ OP(mint_sesc_get_num_cpus)
 
 OP(mint_do_nothing)
 {
+  // Set the return value
+  pthread->setIntReg(RetValReg,0);
   // Just return from the call
   return pthread->getRetIcode();
 }
