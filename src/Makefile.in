@@ -87,11 +87,12 @@ endif
 
 TSTLIBS := $(OBJ)/libcore.a
 ifdef MIPS_EMUL
+TSTLIBS += $(OBJ)/libll.a
 TSTLIBS += $(OBJ)/libemul.a
 else
 TSTLIBS += $(OBJ)/libmint.a
-endif
 TSTLIBS += $(OBJ)/libll.a
+endif
 TSTLIBS += $(OBJ)/libpint.a $(OBJ)/libsuc.a
 ifdef SESC_ENERGY
 TSTLIBS+=$(OBJ)/libpower.a

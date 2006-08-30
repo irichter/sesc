@@ -82,8 +82,10 @@ protected:
   void loadThreadContext(Pid_t pid);
   ThreadContext *getThreadContext(Pid_t pid);
 
+#if !(defined MIPS_EMUL)
   void setInstructionPointer(Pid_t pid, icode_ptr picode);
   icode_ptr getInstructionPointer(Pid_t pid);
+#endif
 
   void switchIn(Pid_t pid);
   void switchOut(Pid_t pid);

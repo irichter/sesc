@@ -214,6 +214,7 @@ public:
   // When called, the processor must be running thread pid
   virtual void loadThreadContext(Pid_t pid)=0;
 
+#if !(defined MIPS_EMUL)
   // Sets the program counter of the thread to picode
   // When called, the processor must be running the thread
   virtual void setInstructionPointer(Pid_t pid, icode_ptr picode)=0;
@@ -221,6 +222,7 @@ public:
   // Returns the program counter of the thread
   // When called, the processor must be running the thread
   virtual icode_ptr getInstructionPointer(Pid_t pid)=0;
+#endif
 
   // Inserts a fid in the processor. Notice that before called it must be sure
   // that availableFlows is bigger than one

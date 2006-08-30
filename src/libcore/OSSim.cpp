@@ -710,6 +710,7 @@ int OSSim::getContextRegister(Pid_t pid, int regnum)
 }
 
 void OSSim::eventSetInstructionPointer(Pid_t pid, icode_ptr picode){
+#if !(defined MIPS_EMUL)
   I(pid!=-1);
   ProcessId *proc = ProcessId::getProcessId(pid);
   if(proc->getState()==RunningState){
@@ -718,10 +719,13 @@ void OSSim::eventSetInstructionPointer(Pid_t pid, icode_ptr picode){
   }else{
     ThreadContext::getContext(pid)->setPicode(picode);
   }
+#endif
 }
 icode_ptr OSSim::eventGetInstructionPointer(Pid_t pid)
 {
-
+#if (defined MIPS_EMUL)
+  return 0;
+#else
   if(pid < 0) // -1
     return &invalidIcode;
   
@@ -735,6 +739,7 @@ icode_ptr OSSim::eventGetInstructionPointer(Pid_t pid)
   I(context);
 
   return context->getPicode();
+#endif
 }
 
 void OSSim::eventLoadContext(Pid_t pid)

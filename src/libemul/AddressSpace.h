@@ -5,8 +5,8 @@
 #include <vector>
 #include <map>
 #include "Addressing.h"
-#include "InstDesc.h"
 #include "CvtEndian.h"
+#include "InstDesc.h"
 #include "common.h"
 #include "nanassert.h"
 
@@ -226,7 +226,7 @@ class AddressSpace{
   AddressSpace(void);
   AddressSpace(AddressSpace &src);
   ~AddressSpace(void);
-  void addReference(void);
+  void addReference();
   void delReference(void);
   template<class T>
   inline bool readMemRaw(VAddr addr, T &val){
@@ -244,6 +244,9 @@ class AddressSpace{
     *(reinterpret_cast<T *>(myPage.data+getPageOff(addr)))=val;
     return true;
   }
+ private:
+  // Number of threads that are using this address space
+  size_t refCount;
  private:
   // Mapping of function names to code addresses
   typedef std::map<char *,VAddr> NameToAddrMap;

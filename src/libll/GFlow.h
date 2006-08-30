@@ -65,9 +65,11 @@ class GFlow {
 
   virtual void loadThreadContext(int pid) = 0;
 
+#if !(defined MIPS_EMUL)
   virtual icode_ptr getInstructionPointer(void) = 0;
 
   virtual void setInstructionPointer(icode_ptr picode) = 0;
+#endif // !(defined MIPS_EMUL)
 
   virtual void switchIn(int i) = 0;
   virtual void switchOut(int i) = 0;

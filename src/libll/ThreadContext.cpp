@@ -1,8 +1,12 @@
 
+#if !(defined MIPS_EMUL)
 #include "icode.h"
+#endif
 #include "ThreadContext.h"
 #include "globals.h"
+#if !(defined MIPS_EMUL)
 #include "opcodes.h"
+#endif
 
 #ifdef TASKSCALAR
 #include "MemBuffer.h"
@@ -43,6 +47,12 @@ void ThreadContext::staticConstructor(void)
 
 void ThreadContext::copy(const ThreadContext *src)
 {
+  parent=src->parent;
+  youngest=src->youngest;
+  sibling=src->sibling;
+#if (defined MIPS_EMUL)
+  addressSpace=src->addressSpace;
+#else // For (defined MIPS_EMUL)
   for(size_t i=0;i<32;i++) {
     reg[i]=src->reg[i];
     fp[i]=src->fp[i];
@@ -54,27 +64,18 @@ void ThreadContext::copy(const ThreadContext *src)
   fcr31=src->fcr31;
   picode=src->picode;
   target=src->target;
-  parent=src->parent;
-  youngest=src->youngest;
-  sibling=src->sibling;
+
+  // Copy address mapping info
+  virtToRealOffset=src->virtToRealOffset;
 
   // Copy virtual address ranges
-#if !(defined ADDRESS_SPACES)
   dataVAddrLb=src->dataVAddrLb;
   dataVAddrUb=src->dataVAddrUb;
   allStacksAddrLb=src->allStacksAddrLb;
   allStacksAddrUb=src->allStacksAddrUb;
-#endif // !(defined ADDRESS_SPACES)
+#endif // For else of (defined MIPS_EMUL)
   myStackAddrLb=src->myStackAddrLb;
   myStackAddrUb=src->myStackAddrUb;
-
-#if !(defined ADDRESS_SPACES)
-  // Copy address mapping info
-  virtToRealOffset=src->virtToRealOffset;
-#else // (defined ADDRESS_SPACES)
-  addressSpace=src->addressSpace;
-  heapManager=src->heapManager;
-#endif // (defined ADDRESS_SPACES)
 }
 
 ThreadContext *ThreadContext::getContext(Pid_t pid)
@@ -102,8 +103,9 @@ ThreadContext *ThreadContext::newActual(void)
 {
   ThreadContext *context;
   if(actualPool.empty()) {
+#if !(defined MIPS_EMUL)
     I(nextActualPid<Max_nprocs);
-
+#endif
     context=static_cast<ThreadContext *>(calloc(1,sizeof(ThreadContext)));
     // Initialize the actual context for the first time
     context->pid=nextActualPid++;
@@ -185,17 +187,18 @@ void ThreadContext::free(void)
   if(this==mainThreadContext)
     return;
   pid2context[pid]=0;
-#if (defined ADDRESS_SPACES)
+#if (defined MIPS_EMUL)
   if(!isCloned()){
     // Delete stack memory from address space
-    addressSpace->delRMem(myStackAddrLb,myStackAddrUb);
+    addressSpace->deleteSegment(myStackAddrLb,myStackAddrUb-myStackAddrLb);
   }
   // Detach from address space
   addressSpace->delReference();
   addressSpace=0;
-#endif // (defined ADDRESS_SPACES)
+#else
   heapManager->delReference();
   heapManager=0;
+#endif // (defined MIPS_EMUL)
   if(isCloned()) {
     clonedPool.push_back(this);
   }else{
@@ -204,7 +207,7 @@ void ThreadContext::free(void)
   nThreads--;
 }
 
-#if !(defined ADDRESS_SPACES)
+#if !(defined MIPS_EMUL)
 void ThreadContext::initAddressing(VAddr dataVAddrLb, VAddr dataVAddrUb,
 				   MINTAddrType rMap, MINTAddrType mMap, MINTAddrType sTop)
 {
@@ -245,7 +248,7 @@ void ThreadContext::initAddressing(VAddr dataVAddrLb, VAddr dataVAddrUb,
       ,(void*)(allStacksAddrUb+virtToRealOffset)
       );
 }
-#endif // !(defined ADDRESS_SPACES)
+#endif // !(defined MIPS_EMUL)
 
 void ThreadContext::dump()
 {
@@ -286,6 +289,7 @@ void ThreadContext::dump()
          parent, youngest,  sibling);
 }
 
+#if !(defined MIPS_EMUL)
 /* dump the stack for stksize number of words */
 void ThreadContext::dumpStack()
 {
@@ -311,12 +315,13 @@ void ThreadContext::dumpStack()
     printf("\n");
   }
 }
+#endif // !(defined MIPS_EMUL)
 
 void ThreadContext::useSameAddrSpace(thread_ptr pthread)
 {
-#if (defined ADDRESS_SPACES)
+#if (defined MIPS_EMUL)
   setAddressSpace(pthread->getAddressSpace());
-#endif // (defined ADDRESS_SPACES)
+#else // For (defined MIPS_EMUL)
   setHeapManager(pthread->getHeapManager());
   
   lo = pthread->lo;
@@ -330,23 +335,20 @@ void ThreadContext::useSameAddrSpace(thread_ptr pthread)
   for (int i = 0; i < 32; i++)
     fp[i] = pthread->fp[i];
 
-#if !(defined ADDRESS_SPACES)
   dataVAddrLb=pthread->dataVAddrLb;
   dataVAddrUb=pthread->dataVAddrUb;
   allStacksAddrLb=pthread->allStacksAddrLb;
   allStacksAddrUb=pthread->allStacksAddrUb;
-#endif // !(defined ADDRESS_SPACES)
 
   myStackAddrLb=pthread->myStackAddrLb;
   myStackAddrUb=pthread->myStackAddrUb;
 
-#if !(defined ADDRESS_SPACES)
   virtToRealOffset=pthread->virtToRealOffset;
-#endif // !(defined ADDRESS_SPACES)
 
 #if (defined TLS) || (defined TASKSCALAR)
   fd = pthread->fd;
 #endif
+#endif // For else of (defined MIPS_EMUL)
 }
 
 void ThreadContext::shareAddrSpace(thread_ptr pthread, int share_all, int copy_stack)
@@ -355,9 +357,14 @@ void ThreadContext::shareAddrSpace(thread_ptr pthread, int share_all, int copy_s
 
   I(share_all); // share_all is the only supported
 
-#if (defined ADDRESS_SPACES)
+#if (defined MIPS_EMUL)
   setAddressSpace(pthread->getAddressSpace());
-#endif // (defined ADDRESS_SPACES)
+//   // Create my stack space and map it into my address space
+//   size_t stackSize=Stack_size;    
+//   VAddr  stackStart=addressSpace->findVMemHigh(stackSize);
+//   addressSpace->newRMem(stackStart,stackStart+stackSize);
+//   setStack(stackStart,stackStart+stackSize);
+#else // For (defined MIPS_EMUL)
   setHeapManager(pthread->getHeapManager());
 
   /* copy all the registers */
@@ -370,7 +377,6 @@ void ThreadContext::shareAddrSpace(thread_ptr pthread, int share_all, int copy_s
   fcr0 = pthread->fcr0;
   fcr31 = pthread->fcr31;
 
-#if !(defined ADDRESS_SPACES)
   dataVAddrLb=pthread->dataVAddrLb;
   dataVAddrUb=pthread->dataVAddrUb;
   allStacksAddrLb=pthread->allStacksAddrLb;
@@ -381,13 +387,6 @@ void ThreadContext::shareAddrSpace(thread_ptr pthread, int share_all, int copy_s
   I(myStackAddrUb<=allStacksAddrUb);
 
   virtToRealOffset=pthread->virtToRealOffset;
-#else // (defined ADDRESS_SPACES)
-  // Create my stack space and map it into my address space
-  size_t stackSize=Stack_size;    
-  VAddr  stackStart=addressSpace->findVMemHigh(stackSize);
-  addressSpace->newRMem(stackStart,stackStart+stackSize);
-  setStack(stackStart,stackStart+stackSize);
-#endif // (defined ADDRESS_SPACES)
 
   if (copy_stack) {
 #if (defined TLS)
@@ -408,6 +407,7 @@ void ThreadContext::shareAddrSpace(thread_ptr pthread, int share_all, int copy_s
     setStkPtr(myStackAddrUb-FRAME_SIZE);
     I(isLocalStackData(getStkPtr()));
   }
+#endif // For else of (defined MIPS_EMUL)
 }
 
 #ifdef TASKSCALAR
@@ -453,6 +453,8 @@ void ThreadContext::badSpecThread(VAddr addr, short opflags) const
 
 void ThreadContext::init()
 {
+  youngest  = NULL;
+#if !(defined MIPS_EMUL)
   int i;
 
   reg[0]    = 0;
@@ -468,6 +470,7 @@ void ThreadContext::init()
   /* init all file descriptors to "closed" */
   for (i = 0; i < MAX_FDNUM; i++)
     fd[i] = 0;
+#endif // For !(defined MIPS_EMUL)
 }
 
 void ThreadContext::initMainThread()
@@ -475,12 +478,14 @@ void ThreadContext::initMainThread()
   int i, entry_index;
   thread_ptr pthread=getMainThreadContext();
 
+  pthread->parent = NULL;
+  pthread->sibling = NULL;
+
+#if !(defined MIPS_EMUL)
   Maxpid = 0;
 
   pthread->init();
 
-  pthread->parent = NULL;
-  pthread->sibling = NULL;
 #ifdef MIPS2_FNATIVE
   pthread->fcr31 = s_get_fcr31();
 #else
@@ -495,12 +500,14 @@ void ThreadContext::initMainThread()
 
   /* initialize the icodes for the terminator functions */
   /* set up this picode so that terminator1() gets called */
+  Idone1 = Itext[Text_size + DONE_ICODE];
   Idone1->func = terminator1;
   Idone1->opnum = terminate_opn;
 
   /* Set up the return address so that terminator1() gets called.
    * This probably isn't necessary since exit() gets called instead */
   pthread->reg[31]=(int)icode2addr(Idone1);
+#endif // For !(defined MIPS_EMUL)
 }
 
 void ThreadContext::newChild(ThreadContext *child)
@@ -520,6 +527,7 @@ Pid_t ThreadContext::getThreadPid(void) const{
 #endif
 }
 
+#if !(defined MIPS_EMUL)
 unsigned long long ThreadContext::getMemValue(RAddr p, unsigned dsize) {
   unsigned long long value = 0;
   switch(dsize) {
@@ -598,3 +606,129 @@ long long int MintFuncArgs::getInt64(void){
   curPos+=8;
   return retVal;
 }
+#endif // !(defined MIPS_EMUL)
+
+#if (defined MIPS_EMUL)
+void ThreadContext::writeMemFromBuf(VAddr addr, size_t len, void *buf){
+  I(canWrite(addr,len));
+  uint8_t *byteBuf=(uint8_t *)buf;
+  while(len){
+    if((addr&sizeof(uint8_t))||(len<sizeof(uint16_t))){
+      writeMemRaw(addr,*((uint8_t *)byteBuf));
+      addr+=sizeof(uint8_t);
+      byteBuf+=sizeof(uint8_t);
+      len-=sizeof(uint8_t);
+    }else if((addr&sizeof(uint16_t))||(len<sizeof(uint32_t))){
+      writeMemRaw(addr,*((uint16_t *)byteBuf));
+      addr+=sizeof(uint16_t);
+      byteBuf+=sizeof(uint16_t);
+      len-=sizeof(uint16_t);
+    }else if((addr&sizeof(uint32_t))||(len<sizeof(uint64_t))){
+      writeMemRaw(addr,*((uint32_t *)byteBuf));
+      addr+=sizeof(uint32_t);
+      byteBuf+=sizeof(uint32_t);
+      len-=sizeof(uint32_t);
+    }else{
+      I(!(addr%sizeof(uint64_t)));
+      I(len>=sizeof(uint64_t));
+      writeMemRaw(addr,*((uint64_t *)byteBuf));
+      addr+=sizeof(uint64_t);
+      byteBuf+=sizeof(uint64_t);
+      len-=sizeof(uint64_t);
+    }
+  }
+}
+ssize_t ThreadContext::writeMemFromFile(VAddr addr, size_t len, int fd){
+  I(canWrite(addr,len));
+  ssize_t retVal=0;
+  uint8_t buf[AddressSpace::getPageSize()];
+  while(len){
+    size_t ioSiz=AddressSpace::getPageSize()-(addr&(AddressSpace::getPageSize()-1));
+    if(ioSiz>len) ioSiz=len;
+    ssize_t nowRet=read(fd,buf,ioSiz);
+    if(nowRet==-1)
+      return nowRet;
+    retVal+=nowRet;
+    writeMemFromBuf(addr,nowRet,buf);
+    addr+=nowRet;
+    len-=nowRet;
+    if(nowRet<(ssize_t)ioSiz)
+      break;
+  }
+  return retVal;
+}
+void ThreadContext::writeMemWithByte(VAddr addr, size_t len, uint8_t c){
+  I(canWrite(addr,len));
+  uint8_t buf[AddressSpace::getPageSize()];
+  memset(buf,c,AddressSpace::getPageSize());
+  while(len){
+    size_t wrSiz=AddressSpace::getPageSize()-(addr&(AddressSpace::getPageSize()-1));
+    if(wrSiz>len) wrSiz=len;
+    writeMemFromBuf(addr,wrSiz,buf);
+    addr+=wrSiz;
+    len-=wrSiz;
+  }
+}
+void ThreadContext::readMemToBuf(VAddr addr, size_t len, void *buf){
+  I(canRead(addr,len));
+  uint8_t *byteBuf=(uint8_t *)buf;
+  while(len){
+    if((addr&sizeof(uint8_t))||(len<sizeof(uint16_t))){
+      readMemRaw(addr,*((uint8_t *)byteBuf));
+      addr+=sizeof(uint8_t);
+      byteBuf+=sizeof(uint8_t);
+      len-=sizeof(uint8_t);
+    }else if((addr&sizeof(uint16_t))||(len<sizeof(uint32_t))){
+      readMemRaw(addr,*((uint16_t *)byteBuf));
+      addr+=sizeof(uint16_t);
+      byteBuf+=sizeof(uint16_t);
+      len-=sizeof(uint16_t);
+    }else if((addr&sizeof(uint32_t))||(len<sizeof(uint64_t))){
+      readMemRaw(addr,*((uint32_t *)byteBuf));
+      addr+=sizeof(uint32_t);
+      byteBuf+=sizeof(uint32_t);
+      len-=sizeof(uint32_t);
+    }else{
+      I(!(addr%sizeof(uint64_t)));
+      I(len>=sizeof(uint64_t));
+      readMemRaw(addr,*((uint64_t *)byteBuf));
+      addr+=sizeof(uint64_t);
+      byteBuf+=sizeof(uint64_t);
+      len-=sizeof(uint64_t);
+    }
+  }
+}
+ssize_t ThreadContext::readMemToFile(VAddr addr, size_t len, int fd){
+  I(canRead(addr,len));
+  ssize_t retVal=0;
+  uint8_t buf[AddressSpace::getPageSize()];
+  while(len){
+    size_t ioSiz=AddressSpace::getPageSize()-(addr&(AddressSpace::getPageSize()-1));
+    if(ioSiz>len) ioSiz=len;
+    readMemToBuf(addr,ioSiz,buf);
+    ssize_t nowRet=write(fd,buf,ioSiz);
+    if(nowRet==-1)
+      return nowRet;
+    retVal+=nowRet;
+    addr+=nowRet;
+    len-=nowRet;
+    if(nowRet<(ssize_t)ioSiz)
+      break;
+  }
+  return retVal;
+}
+ssize_t ThreadContext::readMemString(VAddr stringVAddr, size_t maxSize, char *dstStr){
+  size_t i=0;
+  while(true){
+    char c;
+    if(!readMem(stringVAddr+i,c))
+      return -1;
+    if(i<maxSize)
+      dstStr[i]=c;
+    i++;
+    if(c==(char)0)
+      break;
+  }
+  return i;
+}
+#endif // (define MIPS_EMUL)

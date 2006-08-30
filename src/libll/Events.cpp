@@ -354,6 +354,7 @@ ThreadContext *rsesc_get_thread_context(int pid)
   return osSim->getContext(pid);
 }
 
+#if !(defined MIPS_EMUL)
 void rsesc_set_instruction_pointer(int pid, icode_ptr picode)
 {
   osSim->eventSetInstructionPointer(pid,picode);
@@ -363,6 +364,7 @@ icode_ptr rsesc_get_instruction_pointer(int pid)
 {
   return osSim->eventGetInstructionPointer(pid);
 }
+#endif // For !(defined MIPS_EMUL)
 
 void rsesc_spawn_opcode(int pid, const int *params, int nParams)
 {

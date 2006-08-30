@@ -113,6 +113,7 @@ ThreadContext *Processor::getThreadContext(Pid_t pid)
   return IFID.getThreadContext();
 }
 
+#if !(defined MIPS_EMUL)
 void Processor::setInstructionPointer(Pid_t pid, icode_ptr picode)
 {
   I(IFID.getPid()==pid);
@@ -124,6 +125,7 @@ icode_ptr Processor::getInstructionPointer(Pid_t pid)
   I(IFID.getPid()==pid);
   return IFID.getInstructionPointer();  
 }
+#endif
 
 void Processor::switchIn(Pid_t pid)
 {

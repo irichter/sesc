@@ -241,29 +241,29 @@ static void copy_argv(int argc, char **argv, char **envp){
   // Put the envp array (with NULL at the end) on the stack
   context->setStkPtr(context->getStkPtr()-sizeof(VAddr));
   *((VAddr *)(context->virt2real(context->getStkPtr())))=
-    bigEndian((VAddr)0);
+    SWAP_WORD((VAddr)0);
   if(envc){
     for(int envIdx=envc-1;envIdx>=0;envIdx--){
       context->setStkPtr(context->getStkPtr()-sizeof(VAddr));
       *((VAddr *)(context->virt2real(context->getStkPtr())))=
-	bigEndian(envVAddrs[envIdx]);
+	SWAP_WORD(envVAddrs[envIdx]);
     }
   }
   // Put the argv array (with NULL at the end) on the stack
   context->setStkPtr(context->getStkPtr()-sizeof(VAddr));
   *((VAddr *)(context->virt2real(context->getStkPtr())))=
-    bigEndian((VAddr)0);
+    SWAP_WORD((VAddr)0);
   if(argc){
     for(int argIdx=argc-1;argIdx>=0;argIdx--){
       context->setStkPtr(context->getStkPtr()-sizeof(VAddr));
       *((VAddr *)(context->virt2real(context->getStkPtr())))=
-	bigEndian(argVAddrs[argIdx]);
+	SWAP_WORD(argVAddrs[argIdx]);
     }
   }
   // Put the argc on the stack
   context->setStkPtr(context->getStkPtr()-sizeof(VAddr));
   *((IntRegValue *)(context->virt2real(context->getStkPtr())))=
-    bigEndian((IntRegValue)argc);
+    SWAP_WORD((IntRegValue)argc);
 }
 
 #if !(defined ADDRESS_SPACES)

@@ -144,6 +144,7 @@ ThreadContext *SMTProcessor::getThreadContext(Pid_t pid)
   return fetch->IFID.getThreadContext();
 }
 
+#if !(defined MIPS_EMUL)
 void SMTProcessor::setInstructionPointer(Pid_t pid, icode_ptr picode)
 {
   Fetch *fetch = findFetch(pid);
@@ -159,6 +160,7 @@ icode_ptr SMTProcessor::getInstructionPointer(Pid_t pid)
 
   return fetch->IFID.getInstructionPointer();;
 }
+#endif
 
 void SMTProcessor::switchIn(Pid_t pid)
 {

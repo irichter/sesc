@@ -39,7 +39,11 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "RSTFlow.h"
 #endif
 
+#if (defined MIPS_EMUL)
+#include "EmulInit.h"
+#else
 void mint_init(int argc, char **argv, char **envp);
+#endif
 OP(mint_getpid);
 int isFirstInFuncCall(unsigned int addr);
 char *print_instr_regs(icode_ptr picode, thread_ptr pthread, int maxlen);
@@ -109,6 +113,8 @@ void Instruction::initialize(int argc
   } else if(strcmp(traceMode, "simics") == 0) {
     //initializeSimicsTrace(argc, argv, envp);
   }
+#elif (defined MIPS_EMUL)
+  emulInit(argc, argv, envp);
 #else
   initializeMINT(argc, argv, envp);
 #endif
@@ -135,7 +141,8 @@ void Instruction::dump(const char *str) const
   MSG("%s:0x%8x: reg[%2d] = reg[%2d] [%8s:%2d] reg[%2d] (uEvent=%d)", str,
       (int)getAddr(), dest, src1, opcode2Name(opcode), subCode, src2, uEvent);
 
-#ifndef TRACE_DRIVEN //this is mint-only junk
+#if !((defined TRACE_DRIVEN)||(defined MIPS_EMUL))
+  // This is mint-only junk
   Itext[currentID()]->dump();
 #endif
 }

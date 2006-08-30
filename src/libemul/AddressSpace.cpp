@@ -3,7 +3,7 @@
 #include "nanassert.h"
 
 AddressSpace::AddressSpace(void) :
-  brkBase(0)
+  brkBase(0), refCount(0)
 {
 #if (defined SPLIT_PAGE_TABLE)
 #else
@@ -48,10 +48,13 @@ AddressSpace::~AddressSpace(void){
 #endif
 }
 
-void AddressSpace::addReference(void){
+void AddressSpace::addReference(){
+  refCount++;
 }
 
 void AddressSpace::delReference(void){
+  I(refCount!=0);
+  refCount--;
 }
 
 // Add a new function name-address mapping

@@ -80,13 +80,16 @@ private:
   void propagateDepsIfNeeded() { }
 #endif
 
+#if !(defined MIPS_EMUL)
   InstID getPCInst() const {
     I(picodePC);
     return picodePC->instID;
   }
+#endif // !(defined MIPS_EMUL)
 
   void exeInstFast();
 
+#if !(defined MIPS_EMUL)
   // Executes a single instruction. Return value:
   //   If no instruction could be executed, returns 0 (zero)
   //   If an instruction was executed, returns non-zero
@@ -94,15 +97,18 @@ private:
   //   value is the virtual address of the data accessed. Note that
   //   load/store accesses to a virtual address of zero are not allowed.
   int exeInst();
-
-  // Returns the next dynamic instruction, 0 if none can be executed
-  // Executes instruction(s) as needed to generate the return value
+#endif // !(defined MIPS_EMUL)
 
 protected:
 public:
   InstID getNextID() const {
+#if (defined MIPS_EMUL)
+    I(thread.getPid()!=-1);
+    return thread.getNextInstDesc()->addr;    
+#else
     I(picodePC);
     return picodePC->instID;
+#endif
   }
 
   void addEvent(EventType e, CallbackBase *cb, int addr) {
@@ -119,9 +125,11 @@ public:
 
   void saveThreadContext(int pid) {
     I(thread.getPid()==pid);
+#if !(defined MIPS_EMUL)
 #if !(defined TLS)
     thread.setPCIcode(picodePC);
 #endif
+#endif // !(defined MIPS_EMUL)
     ThreadContext::getContext(thread.getPid())->copy(&thread);
 #if (defined TLS)
     I(thread.getEpoch()==ThreadContext::getContext(pid)->getEpoch());
@@ -132,14 +140,18 @@ public:
     I((thread.getPid()==-1)||(thread.getPid()==pid));
     thread.copy(ThreadContext::getContext(pid));
     thread.setPid(pid); // Not in copyContext
+#if !(defined MIPS_EMUL)
     picodePC=thread.getPCIcode();
+#endif // !(defined MIPS_EMUL)
 #if (defined TLS)
     thread.setEpoch(ThreadContext::getContext(pid)->getEpoch());
 #endif
   }
 
+#if !(defined MIPS_EMUL)
   icode_ptr getInstructionPointer(void); 
   void setInstructionPointer(icode_ptr picode) ;
+#endif // !(defined MIPS_EMUL)
 
   void switchIn(int i);
   void switchOut(int i);

@@ -172,6 +172,7 @@ public:
     I(flow.currentPid()!=-1);
     flow.loadThreadContext(flow.currentPid());
   }
+#if !(defined MIPS_EMUL)
   void setInstructionPointer(icode_ptr picode){
     I(flow.currentPid()!=-1);
     flow.setInstructionPointer(picode);
@@ -180,7 +181,7 @@ public:
     I(flow.currentPid()!=-1);
     return flow.getInstructionPointer();    
   }
-
+#endif
   // -1 if there is no pid
   Pid_t getPid() const { return pid; }
 

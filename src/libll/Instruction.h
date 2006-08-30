@@ -119,7 +119,11 @@ private:
   static const Instruction *SimicsDecodeInstruction(TraceSimicsOpc_t op);
 #endif
 
-protected:
+#if (defined MIPS_EMUL)
+ public:
+#else
+ protected:
+#endif
   InstType opcode;
   RegType src1;
   RegType src2;
@@ -245,7 +249,7 @@ public:
   }
   
   InstID currentID() const {  
-#ifdef TRACE_DRIVEN
+#if ((defined TRACE_DRIVEN)||(defined MIPS_EMUL))
     return addr;
 #else
     return (this - InstTable);  
@@ -253,7 +257,7 @@ public:
   }
 
   int getAddr() const {
-#ifdef TRACE_DRIVEN
+#if ((defined TRACE_DRIVEN)||(defined MIPS_EMUL))
     return addr;
 #else
     icode_ptr picode = Itext[currentID()];
@@ -263,7 +267,7 @@ public:
   }
 
   icode_ptr getICode() const { 
-#ifdef TRACE_DRIVEN
+#if ((defined TRACE_DRIVEN)||(defined MIPS_EMUL))
     return 0;
 #else
     icode_ptr picode = Itext[currentID()];
@@ -284,6 +288,7 @@ public:
   int getSrc2Pool() const { return src2Pool; } //  0 Int , 1 FP, 2 none
   int getDstPool() const  { return dstPool;  } //  0 Int , 1 FP, 2 none
 
+#if !(defined MIPS_EMUL)
   InstID getTarget() const {
     I(opcode == iBJ);
     icode_ptr picode = Itext[currentID()];
@@ -291,6 +296,7 @@ public:
       return picode->target->instID;
     return calcNextInstID();
   }
+#endif
 
   InstID calcNextInstID() const { 
     return currentID()+skipDelay;  

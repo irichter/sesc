@@ -45,8 +45,8 @@ ifdef TLS
 DEFS += -DTLS
 endif
 
-ifdef ADDRESS_SPACES
-DEFS += -DADDRESS_SPACES
+ifdef MIPS_EMUL
+DEFS += -DMIPS_EMUL
 endif
 
 ifdef LOCKPROFILE
@@ -111,6 +111,7 @@ INC += -I$(SRC_DIR)/libvmem
 INC += -I$(SRC_DIR)/libll
 ifdef MIPS_EMUL
 INC += -I$(SRC_DIR)/libemul 
+INC += -I$(SRC_DIR)/libmint 
 else
 INC += -I$(SRC_DIR)/libmint 
 endif

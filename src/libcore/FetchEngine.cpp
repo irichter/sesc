@@ -410,6 +410,7 @@ void FetchEngine::realFetch(IBucket *bucket, int fetchMax)
 
     const Instruction *inst = dinst->getInst();
 
+#if !(defined MIPS_EMUL)
     if (inst->isStore()) {
 #if (defined TLS)
       dinst->getEpoch()->pendInstr();
@@ -430,6 +431,7 @@ void FetchEngine::realFetch(IBucket *bucket, int fetchMax)
       n2Fetched--;
       nGradInsts++;
     }
+#endif // For !(defined MIPS_EMUL)
 
     instFetched(dinst);
     bucket->push(dinst);

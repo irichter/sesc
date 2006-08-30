@@ -23,7 +23,9 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define SNIPPETS_H
 
 #include <stdint.h>
+#if !(defined MIPS_EMUL)
 #include "mendian.h"
+#endif
 
 //**************************************************
 // Generic typedefs
