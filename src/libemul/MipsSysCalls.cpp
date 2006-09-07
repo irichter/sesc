@@ -527,7 +527,7 @@ void mipsProgArgs(ThreadContext *context, int argc, char **argv, char **envp){
   int envc=0;
   while(envp[envc])
     envc++;
-  RegVal &regSP=context->getReg(static_cast<RegName>(Mips::RegSP));
+  uint32_t regSP=Mips::getReg<uint32_t>(context,static_cast<RegName>(Mips::RegSP));
   // We will push arg and env string pointer arrays later, with nulls at end
   VAddr envVAddrs[envc+1];
   I(sizeof(envVAddrs)==(envc+1)*sizeof(VAddr));
@@ -563,6 +563,7 @@ void mipsProgArgs(ThreadContext *context, int argc, char **argv, char **envp){
   int32_t argcVal=argc;
   regSP-=sizeof(argcVal);
   context->writeMem(regSP,argcVal);
+  Mips::setReg<uint32_t>(context,static_cast<RegName>(Mips::RegSP),regSP);
 }
 
 // Process control system calls

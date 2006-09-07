@@ -82,7 +82,7 @@ void emulInit(int argc, char **argv, char **envp){
   mainThread->setStack(stackStart,stackStart+stackSize);
   switch(mainThread->getMode()){
   case Mips32:
-    mainThread->getReg(static_cast<RegName>(Mips::RegSP))=stackStart+stackSize;
+    Mips::setReg<uint32_t>(mainThread,static_cast<RegName>(Mips::RegSP),stackStart+stackSize);
     mipsProgArgs(mainThread,appArgc,appArgv,appEnvp);
     break;
   case Mips64:

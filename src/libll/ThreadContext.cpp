@@ -250,6 +250,7 @@ void ThreadContext::initAddressing(VAddr dataVAddrLb, VAddr dataVAddrUb,
 }
 #endif // !(defined MIPS_EMUL)
 
+#if !(defined MIPS_EMUL)
 void ThreadContext::dump()
 {
   int i, j;
@@ -289,7 +290,6 @@ void ThreadContext::dump()
          parent, youngest,  sibling);
 }
 
-#if !(defined MIPS_EMUL)
 /* dump the stack for stksize number of words */
 void ThreadContext::dumpStack()
 {

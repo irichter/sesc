@@ -706,7 +706,12 @@ ThreadContext *OSSim::getContext(Pid_t pid)
 int OSSim::getContextRegister(Pid_t pid, int regnum)
 {
   ThreadContext *s = getContext(pid);
+#if (defined MIPS_EMUL)
+  I(0);
+  return 0;
+#else
   return (* (int *) (s->reg + ((regnum) << 2)));
+#endif
 }
 
 void OSSim::eventSetInstructionPointer(Pid_t pid, icode_ptr picode){

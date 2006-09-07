@@ -339,7 +339,7 @@ void loadElfObject(const char *fname, ThreadContext *threadContext){
 	cvtEndianBig(myRegInfo);
 	if(myRegInfo.ri_cprmask[0] || myRegInfo.ri_cprmask[2] || myRegInfo.ri_cprmask[3])
 	  fail("Unsupported coprocessor registers used in ELF file %s",fname);
-	threadContext->getReg(static_cast<RegName>(Mips::RegGP))=myRegInfo.ri_gp_value;
+	Mips::setReg<uint32_t>(threadContext,static_cast<RegName>(Mips::RegGP),myRegInfo.ri_gp_value);
       } break;
       case SHT_NOBITS: case SHT_PROGBITS: {
 	// Code/data section, need to allocate space for it

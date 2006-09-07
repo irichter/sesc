@@ -88,10 +88,12 @@ class ThreadContext {
 #endif //!(defined MIPS_EMUL)
 
   // Local Variables
+#if !(defined MIPS_EMUL)
  public:
   IntRegValue reg[33];	// The extra register is for writes to r0
   int lo;
   int hi;
+#endif
  private:
   unsigned int fcr0;	// floating point control register 0
   float fp[32];	        // floating point (and double) registers
@@ -159,12 +161,12 @@ public:
     return cpuMode;
   }
 
-  inline const RegVal &getReg(RegName name) const{
-    return regs[name];
+  inline const void *getReg(RegName name) const{
+    return &(regs[name]);
   }
-  inline RegVal &getReg(RegName name){
-    return regs[name];
-  }  
+  inline void *getReg(RegName name){
+    return &(regs[name]);
+  }
 #else
   inline IntRegValue getIntReg(IntRegName name) const {
     return reg[name];
@@ -260,6 +262,7 @@ public:
 
   void copy(const ThreadContext *src);
 
+#if !(defined MIPS_EMUL)
   unsigned int getFPUControl31() const { return fcr31; }
   void setFPUControl31(unsigned int v) {
     fcr31 = v;
@@ -372,7 +375,7 @@ public:
   void setRAddr(RAddr a){
     raddr = a;
   }
-
+#endif // !(defined MIPS_EMUL)
 
   void dump();
   void dumpStack();
