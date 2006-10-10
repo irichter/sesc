@@ -473,7 +473,7 @@ sub runBench {
       $params = "-stride 2 -startx 134 -starty 220 -endx 184 -endy 240 -objects 3";
     } elsif ($op_data eq 'ref') {
       $params = "-trainfile2 ${BHOME}/CFP2000/179.art/${dataset}/hc.img";
-      $params = "-stride 2 -startx 110 -starty 200 -endx 160 -endy 240 -objects 10";
+      $params .= "-stride 2 -startx 110 -starty 200 -endx 160 -endy 240 -objects 10";
       # --OR-- (spec runs both)
       # $params .= " -stride 2 -startx 470 -starty 140 -endx 520 -endy 180 -objects 10";
     }

@@ -76,6 +76,12 @@ typedef struct {
 
 #else
 #include <elf.h>
+#ifndef EF_MIPS_PIC
+#define EF_MIPS_PIC         2 
+#endif
+#ifndef EF_MIPS_CPIC
+#define EF_MIPS_CPIC        4 
+#endif
 #endif
 
 #define SHT_MDEBUG	0x70000005

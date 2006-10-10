@@ -2572,23 +2572,21 @@ OP(mint_lseek64)
 /* ARGSUSED */
 OP(mint_lseek)
 {
-#if (defined __LP64__)
-  fatal("mint_lseek: Not working yet for __LP64__");
-#endif
-         int r4 = REGNUM(4);
-         int r5 = REGNUM(5);
-         int r6 = REGNUM(6);
-    int err;
+  int r4 = REGNUM(4);
+  int r5 = REGNUM(5);
+  int r6 = REGNUM(6);
+  int err;
 
 #ifdef DEBUG_VERBOSE
-    printf("mint_lseek()\n");
+  printf("mint_lseek()\n");
 #endif
 
-    err = (int) lseek((int) r4, (off64_t) r5, (int) r6);
-    pthread->setRetVal(err);
-    if (err == -1)
-        pthread->setperrno(errno);
-    return pthread->getRetIcode();
+  err = (int) lseek((int) r4, (off64_t) r5, (int) r6);
+  pthread->setRetVal(err);
+  if (err == -1)
+    pthread->setperrno(errno);
+
+  return pthread->getRetIcode();
 }
 
 
@@ -3829,11 +3827,8 @@ OP(mint_perror)
 }
 
 /* ARGSUSED */
-OP(mint_times)
-{
-#if (defined __LP64__)
-  fatal("mint_times: Not working yet with __LP64__");
-#endif
+OP(mint_times) {
+
   ID(Pid_t thePid=pthread->getPid());
 #if (defined TLS)
   I(pthread->getEpoch()&&(pthread->getEpoch()==tls::Epoch::getEpoch(pthread->getPid())));
@@ -3852,10 +3847,10 @@ OP(mint_times)
       rsesc_OS_write_block(pthread->getPid(), picode->addr, REGNUM(4), cad1 , sizeof(struct tms));
     }
 #else
-         int r4 = REGNUM(4);
-
+    int r4 = REGNUM(4);
+    
     // r4 = pthread->virt2real(r4);
-         err = (int) times((struct tms *)pthread->virt2real(r4));
+    err = (int) times((struct tms *)pthread->virt2real(r4));
 #endif
 
 #ifdef DEBUG_VERBOSE

@@ -677,7 +677,7 @@ sub showBaadStats {
 
         $nInst += $cf->getResultField("PendingWindow(${i})_iBJ","n")
             + $cf->getResultField("PendingWindow(${i})_iLoad","n")
-            + $cf->getResultField("PendingWindow(${i})_iStore","n")
+#            + $cf->getResultField("PendingWindow(${i})_iStore","n")
             + $cf->getResultField("PendingWindow(${i})_iALU","n")
             + $cf->getResultField("PendingWindow(${i})_iComplex","n")
             + $cf->getResultField("PendingWindow(${i})_fpALU","n")
@@ -725,7 +725,7 @@ sub showStatReport {
         
         $nInst += $cf->getResultField("PendingWindow(${i})_iBJ","n")
             + $cf->getResultField("PendingWindow(${i})_iLoad","n")
-            + $cf->getResultField("PendingWindow(${i})_iStore","n")
+# Do not add Stores because they get partition in two (alu+store)            + $cf->getResultField("PendingWindow(${i})_iStore","n")
             + $cf->getResultField("PendingWindow(${i})_iALU","n")
             + $cf->getResultField("PendingWindow(${i})_iComplex","n")
             + $cf->getResultField("PendingWindow(${i})_fpALU","n")
@@ -893,7 +893,7 @@ sub showStatReport {
 
           my $nInst   = $cf->getResultField("PendingWindow(${i})_iBJ","n")
               + $cf->getResultField("PendingWindow(${i})_iLoad","n")
-              + $cf->getResultField("PendingWindow(${i})_iStore","n")
+# Do not add Stores because they get partition in two (alu+store)            + $cf->getResultField("PendingWindow(${i})_iStore","n")
               + $cf->getResultField("PendingWindow(${i})_iALU","n")
               + $cf->getResultField("PendingWindow(${i})_iComplex","n")
               + $cf->getResultField("PendingWindow(${i})_fpALU","n")
@@ -1150,7 +1150,7 @@ sub showTLSReport {
 
       $nInst += $cf->getResultField("PendingWindow(${i})_iBJ","n")
           + $cf->getResultField("PendingWindow(${i})_iLoad","n")
-          + $cf->getResultField("PendingWindow(${i})_iStore","n")
+# Do not add Stores because they get partition in two (alu+store)            + $cf->getResultField("PendingWindow(${i})_iStore","n")
           + $cf->getResultField("PendingWindow(${i})_iALU","n")
           + $cf->getResultField("PendingWindow(${i})_iComplex","n")
           + $cf->getResultField("PendingWindow(${i})_fpALU","n")
@@ -1321,7 +1321,8 @@ sub simStats {
           + $cf->getResultField("PendingWindow(${i})_fpComplex","n")
           + $cf->getResultField("PendingWindow(${i})_other","n");
   }
-  $nInstTotal += $nLoadTotal + $nStoreTotal;
+#  $nInstTotal += $nLoadTotal + $nStoreTotal;
+  $nInstTotal += $nLoadTotal;
 
   # End Global Stats
 
@@ -1353,55 +1354,56 @@ sub instStats {
       printf " %3d ",$i;
 
       my $iBJ    = $cf->getResultField("PendingWindow(${i})_iBJ","n");
-    my $iLoad  = $cf->getResultField("PendingWindow(${i})_iLoad","n");
-    my $iStore = $cf->getResultField("PendingWindow(${i})_iStore","n");
-    my $INT    = $cf->getResultField("PendingWindow(${i})_iALU","n")
-      + $cf->getResultField("PendingWindow(${i})_iComplex","n");
-    my $FP     = $cf->getResultField("PendingWindow(${i})_fpALU","n")
-      + $cf->getResultField("PendingWindow(${i})_fpComplex","n");
+      my $iLoad  = $cf->getResultField("PendingWindow(${i})_iLoad","n");
+      my $iStore = $cf->getResultField("PendingWindow(${i})_iStore","n");
+      my $INT    = $cf->getResultField("PendingWindow(${i})_iALU","n")
+	+ $cf->getResultField("PendingWindow(${i})_iComplex","n");
+      $INT -= $iStore; # Stores get split in two (ALU+Store)
+      my $FP     = $cf->getResultField("PendingWindow(${i})_fpALU","n")
+	+ $cf->getResultField("PendingWindow(${i})_fpComplex","n");
+      
+      my $nFor   = $cf->getResultField("FULoad(${i})","nForwarded");
+      
+      my $nInst = $iBJ + $iLoad + $iStore + $INT + $FP
+	+ $cf->getResultField("PendingWindow(${i})_other","n");
+      
+      $nInst = 1 if ($nInst == 0);
 
-    my $nFor   = $cf->getResultField("FULoad(${i})","nForwarded");
-
-    my $nInst = $iBJ + $iLoad + $iStore + $INT + $FP
-      + $cf->getResultField("PendingWindow(${i})_other","n");
-
-    $nInst = 1 if ($nInst == 0);
-
-    printf " %10.0f " ,$nInst;
-    printf " %5.2f%% ",100*$iBJ/$nInst;
-    printf " %5.2f%% ",100*$iLoad/$nInst;
-    printf " %5.2f%% ",100*$iStore/$nInst;
-    printf " %5.2f%% ",100*$INT/$nInst;
-    printf " %5.2f%% ",100*$FP/$nInst;
-
-    $iLoad = 1 if( $iLoad == 0 );
-    printf " :     %5.2f%%",100*$nFor/$iLoad;
-
-    my $cpuType    = $cf->getConfigEntry(key=>"cpucore",index=>$i);
-    my $worstUnit;
-    my $worstValue = 0;
-    my $nReplay = 0;
-    for (my $j=0; ; $j++) {
-      my $clusterType = $cf->getConfigEntry(key=>"cluster", section=>$cpuType, index=>$j);
-      last unless (defined $clusterType);
-
-      $nReplay += $cf->getResultField("Proc(${i})_${clusterType}","nReplay");
-
-      foreach my $unitID ("iBJUnit", "iLoadUnit", "iStoreUnit", "iALUUnit"
-                          , "iMultUnit", "iDivUnit", "fpALUUnit", "fpMultUnit", "fpDivUnit") {
-        
-        my $tmp     = $cf->getConfigEntry(key=>$unitID, section=>$clusterType);
-        next unless (defined $tmp);
-
-        my $val     = $cf->getResultField("${tmp}(${i})_occ","v");
-
-        if ($val > $worstValue ) {
-          $worstValue = $val;
-          $worstUnit  = $tmp;
-        }
+      printf " %10.0f " ,$nInst;
+      printf " %5.2f%% ",100*$iBJ/$nInst;
+      printf " %5.2f%% ",100*$iLoad/$nInst;
+      printf " %5.2f%% ",100*$iStore/$nInst;
+      printf " %5.2f%% ",100*$INT/$nInst;
+      printf " %5.2f%% ",100*$FP/$nInst;
+      
+      $iLoad = 1 if( $iLoad == 0 );
+      printf " :     %5.2f%%",100*$nFor/$iLoad;
+      
+      my $cpuType    = $cf->getConfigEntry(key=>"cpucore",index=>$i);
+      my $worstUnit;
+      my $worstValue = 0;
+      my $nReplay = 0;
+      for (my $j=0; ; $j++) {
+	my $clusterType = $cf->getConfigEntry(key=>"cluster", section=>$cpuType, index=>$j);
+	last unless (defined $clusterType);
+	
+	$nReplay += $cf->getResultField("Proc(${i})_${clusterType}","nReplay");
+	
+	foreach my $unitID ("iBJUnit", "iLoadUnit", "iStoreUnit", "iALUUnit"
+			    , "iMultUnit", "iDivUnit", "fpALUUnit", "fpMultUnit", "fpDivUnit") {
+	  
+	  my $tmp     = $cf->getConfigEntry(key=>$unitID, section=>$clusterType);
+	  next unless (defined $tmp);
+	  
+	  my $val     = $cf->getResultField("${tmp}(${i})_occ","v");
+	  
+	  if ($val > $worstValue ) {
+	    $worstValue = $val;
+	    $worstUnit  = $tmp;
+	  }
+	}
       }
-    }
-
+      
       
     if ($nReplay) {
 	printf "   %5.0f inst/repl ",$nInst/$nReplay;
@@ -1540,7 +1542,7 @@ sub tradCPUStats {
 
     my $nInst   = $cf->getResultField("PendingWindow(${i})_iBJ","n")
         + $cf->getResultField("PendingWindow(${i})_iLoad","n")
-        + $cf->getResultField("PendingWindow(${i})_iStore","n")
+#        + $cf->getResultField("PendingWindow(${i})_iStore","n")
         + $cf->getResultField("PendingWindow(${i})_iALU","n")
         + $cf->getResultField("PendingWindow(${i})_iComplex","n")
         + $cf->getResultField("PendingWindow(${i})_fpALU","n")

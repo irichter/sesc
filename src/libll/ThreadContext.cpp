@@ -1,5 +1,8 @@
 
 #if !(defined MIPS_EMUL)
+
+#include <string.h>
+
 #include "icode.h"
 #endif
 #include "ThreadContext.h"
@@ -208,11 +211,11 @@ void ThreadContext::free(void)
 }
 
 #if !(defined MIPS_EMUL)
-void ThreadContext::initAddressing(VAddr dataVAddrLb, VAddr dataVAddrUb,
+void ThreadContext::initAddressing(VAddr dataVAddrLb2, VAddr dataVAddrUb2,
 				   MINTAddrType rMap, MINTAddrType mMap, MINTAddrType sTop)
 {
-  ThreadContext::dataVAddrLb=dataVAddrLb;
-  ThreadContext::dataVAddrUb=dataVAddrUb;
+  dataVAddrLb=dataVAddrLb2;
+  dataVAddrUb=dataVAddrUb2;
   allStacksAddrLb=Stack_start;
   allStacksAddrUb=Stack_end;
   myStackAddrLb = sTop;

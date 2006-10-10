@@ -22,6 +22,7 @@
  * the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
+#include "alloca.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -218,8 +219,8 @@ static void copy_argv(int argc, char **argv, char **envp){
     envc++;
   // We will need to know where on the simulated stack
   // did we put the arg and env strings
-  VAddr argVAddrs[argc];
-  VAddr envVAddrs[envc];
+  VAddr *argVAddrs = (VAddr *)alloca(sizeof(VAddr)*argc);
+  VAddr *envVAddrs = (VAddr *)alloca(sizeof(VAddr)*envc);
   // Put the env strings on the stack
   if(envc){
     for(int envIdx=envc-1;envIdx>=0;envIdx--){

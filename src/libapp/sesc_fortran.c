@@ -5,7 +5,7 @@ void sesc_f77_simulation_mark__() {
   sesc_simulation_mark();
 } 
 
-#if (defined DARWIN) || (defined XCC_SPARC)
+#if (defined DARWIN) || (defined XCC_SPARC) || (defined SPARC)
 // Do nothing
 #else
 

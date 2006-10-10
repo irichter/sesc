@@ -49,13 +49,14 @@ int main(int argc, char **argv, char **envp)
 
   // Reaches this point only when all the active threads have finished.
   
+  
   for(int i = 0; i < nProcs; i ++) {
     GProcessor *gp = pr[i];
-    delete gp;
     delete ms[i];
   }
 
   delete osSim;
+  
 
   return 0;
 }
