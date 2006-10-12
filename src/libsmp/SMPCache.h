@@ -59,11 +59,13 @@ protected:
     int outsResps;        // outstanding responses: number of caches 
                           // that still need to acknowledge invalidates
     bool invalidate;
+    bool writeback;
     CallbackBase *cb;
     Entry() {
       outsResps = 0;
       cb = 0;
       invalidate = false;
+      writeback = false;
     }
   };
 
@@ -159,7 +161,7 @@ public:
 
   void invalidate(PAddr addr, ushort size, MemObj *oc);
   void doInvalidate(PAddr addr, ushort size);
-  void realInvalidate(PAddr addr, ushort size);
+  void realInvalidate(PAddr addr, ushort size, bool writeBack);
 
   // END MemObj interface
 
@@ -180,7 +182,7 @@ public:
   // interface used by protocol to operate on cache lines
   Line *getLine(PAddr addr);
   void writeLine(PAddr addr);
-  void invalidateLine(PAddr addr, CallbackBase *cb);
+  void invalidateLine(PAddr addr, CallbackBase *cb, bool writeBack = false);
   Line *allocateLine(PAddr addr, CallbackBase *cb);
   void doAllocateLine(PAddr addr, PAddr rpl_addr, CallbackBase *cb);
 

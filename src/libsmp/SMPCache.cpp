@@ -343,23 +343,25 @@ void SMPCache::doInvalidate(PAddr addr, ushort size)
   I(pendInvTable.find(addr) != pendInvTable.end());
   CallbackBase *cb = 0;
   bool invalidate = false;
+  bool writeBack = false;
 
   PendInvTable::iterator it = pendInvTable.find(addr);
   Entry *record = &(it->second);
   if(--(record->outsResps) <= 0) {
     cb = record->cb;
     invalidate = record->invalidate;
+    writeBack = record->writeback;
     pendInvTable.erase(addr);
   }
 
   if(invalidate)
-    realInvalidate(addr, size);
+    realInvalidate(addr, size, writeBack);
 
   if(cb)
     EventScheduler::schedule((TimeDelta_t) 2,cb);
 }
 
-void SMPCache::realInvalidate(PAddr addr, ushort size)
+void SMPCache::realInvalidate(PAddr addr, ushort size, bool writeBack)
 {
   while(size) {
 
@@ -370,7 +372,8 @@ void SMPCache::realInvalidate(PAddr addr, ushort size)
       I(l->isValid());
       if (l->isDirty()) {
         invalDirty.inc();
-        doWriteBack(addr);
+	if(writeBack)
+	  doWriteBack(addr);
       } 
       l->invalidate();
     }
@@ -561,7 +564,7 @@ void SMPCache::writeLine(PAddr addr) {
   I(l);
 }
 
-void SMPCache::invalidateLine(PAddr addr, CallbackBase *cb) 
+void SMPCache::invalidateLine(PAddr addr, CallbackBase *cb, bool writeBack) 
 {
   Line *l = cache->findLine(addr);
   
@@ -571,6 +574,7 @@ void SMPCache::invalidateLine(PAddr addr, CallbackBase *cb)
   pendInvTable[addr].outsResps = getNumCachesInUpperLevels();
   pendInvTable[addr].cb = cb;
   pendInvTable[addr].invalidate = true;
+  pendInvTable[addr].writeback = writeBack;
 
   protocol->preInvalidate(l);
 

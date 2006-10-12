@@ -238,7 +238,7 @@ void MESIProtocol::writeMissHandler(SMPMemRequest *sreq)
   
   if(l && !l->isLocked()) {
     combineResponses(sreq, (MESIState_t) l->getState());
-    pCache->invalidateLine(addr, sendWriteMissAckCB::create(this, sreq));
+    pCache->invalidateLine(addr, sendWriteMissAckCB::create(this, sreq), false);
     return;
   } else {
     sendWriteMissAck(sreq);
@@ -254,7 +254,7 @@ void MESIProtocol::invalidateHandler(SMPMemRequest *sreq)
   
   if(l && !l->isLocked()) {
     combineResponses(sreq, (MESIState_t) l->getState());
-    pCache->invalidateLine(addr, sendInvalidateAckCB::create(this, sreq));
+    pCache->invalidateLine(addr, sendInvalidateAckCB::create(this, sreq), false);
     return;
   } else {
     sendInvalidateAck(sreq);

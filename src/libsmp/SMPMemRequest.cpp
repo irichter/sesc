@@ -53,8 +53,10 @@ SMPMemRequest *SMPMemRequest::create(MemRequest *mreq,
 
   I(reqCache);
   sreq->requestor = reqCache;
+  sreq->supplier = 0;
   sreq->currentMemObj = reqCache;
 
+  sreq->writeDown = false;
   sreq->needData = sendData;
  
   if(sreq->memOp == MemPush) 
@@ -95,8 +97,10 @@ SMPMemRequest *SMPMemRequest::create(MemObj *reqCache,
 
   I(reqCache);
   sreq->requestor = reqCache;
+  sreq->supplier = 0;
   sreq->currentMemObj = reqCache;
 
+  sreq->writeDown = needsWriteDown;
   sreq->needData = false; // TODO: check this (should it be true?)
  
   if(sreq->memOp == MemPush) 
