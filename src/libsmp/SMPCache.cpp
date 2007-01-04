@@ -34,6 +34,11 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 // request is serviced, the other one will be allowed to proceed. This
 // is implemented by the mutExclBuffer.
 
+// When this cache is not used as the last level of caching before
+// memory, we are assuming all levels between this cache and memory
+// are not necessarily inclusive. This does not mean they are
+// exclusive.
+
 // Another important assumption is that every cache line in the memory
 // subsystem is the same size. This is not hard to fix, though. Any
 // candidates?
@@ -60,23 +65,23 @@ SMPCache::SMPCache(SMemorySystem *dms, const char *section, const char *name)
   , invalDirty("%s:invalDirty", name)
   , allocDirty("%s:allocDirty", name)
 {
-  MemObj *ll = NULL;
+  MemObj *lowerLevel = NULL;
 
   I(dms);
-  ll = dms->declareMemoryObj(section, "lowerLevel");
+  lowerLevel = dms->declareMemoryObj(section, "lowerLevel");
 
-  if (ll != NULL)
-    addLowerLevel(ll);
+  if (lowerLevel != NULL)
+    addLowerLevel(lowerLevel);
 
   cache = CacheType::create(section, "", name);
   I(cache);
 
   const char *prot = SescConf->getCharPtr(section, "protocol");
   if(!strcasecmp(prot, "MESI")) {
-    protocol = new MESIProtocol(this);
+    protocol = new MESIProtocol(this, name);
   } else {
     MSG("unknown protocol, using MESI");
-    protocol = new MESIProtocol(this);    
+    protocol = new MESIProtocol(this, name);    
   }
 
   SescConf->isInt(section, "numPorts");
@@ -97,7 +102,7 @@ SMPCache::SMPCache(SMemorySystem *dms, const char *section, const char *name)
 
   if (mutExclBuffer == NULL)
     mutExclBuffer = MSHR<PAddr,SMPCache>::create("mutExclBuffer", 
-                                  SescConf->getCharPtr(mshrSection, "type"),
+				  SescConf->getCharPtr(mshrSection, "type"),
                                   32000,
                                   SescConf->getInt(mshrSection, "bsize"));
   
@@ -106,6 +111,7 @@ SMPCache::SMPCache(SMemorySystem *dms, const char *section, const char *name)
 
   SescConf->isInt(section, "missDelay");
   missDelay = SescConf->getInt(section, "missDelay");
+
 #ifdef SESC_ENERGY
 
   myID = cacheID;
@@ -160,7 +166,7 @@ void SMPCache::access(MemRequest *mreq)
        (unsigned int) mreq->getVaddr(),
        mreq->getMemOperation());
   
-  I(addr > 1024); 
+  I(addr >= 1024); 
 
   switch(mreq->getMemOperation()){
   case MemRead:  read(mreq);          break; 
@@ -211,13 +217,17 @@ void SMPCache::doRead(MemRequest *mreq)
     
   if (l && l->isLocked()) {
     readRetry.inc();
-    doReadCB::scheduleAbs(nextSlot(), this, mreq);
+    Time_t nextTry = nextSlot();
+    if (nextTry == globalClock)
+      nextTry++;
+    doReadCB::scheduleAbs(nextTry, this, mreq);
     return;
   }
 
   GI(l, !l->isLocked());
 
   readMiss.inc(); 
+
 #ifdef SESC_ENERGY
   rdEnergy[1]->inc();
 #endif
@@ -227,6 +237,7 @@ void SMPCache::doRead(MemRequest *mreq)
                                   sendReadCB::create(this, mreq));
     return;
   }
+
   sendRead(mreq);
 }
 
@@ -268,23 +279,27 @@ void SMPCache::doWrite(MemRequest *mreq)
   if (l && l->isLocked()) {
     writeRetry.inc();
     mreq->mutateWriteToRead();
-    doWriteCB::scheduleAbs(nextSlot(), this, mreq);
+    Time_t nextTry = nextSlot();
+    if (nextTry == globalClock)
+      nextTry++;
+    doWriteCB::scheduleAbs(nextTry, this, mreq);
     return;
   }
 
   GI(l, !l->isLocked());
 
-  // this should never happen unless this is highest level because L2
-  // is inclusive; there is only one case in which this could happen when 
-  // SMPCache is used as an L2:
-  // 1) line is written in L1 and scheduled to go down to L2
-  // 2) line is invalidated in both L1 and L2
-  // 3) doWrite in L2 is executed after line is invalidated
+  // this should never happen unless this is highest level because
+  // SMPCache is inclusive of all other caches closer to the
+  // processor; there is only one case in which this could happen when
+  // SMPCache is used as an L2: 1) line is written in L1 and scheduled
+  // to go down to L2 2) line is invalidated in both L1 and L2 3)
+  // doWrite in L2 is executed after line is invalidated
   if(!l && mreq->getMemOperation() == MemWrite) {
     mreq->mutateWriteToRead();
   }
 
   writeMiss.inc();
+
 #ifdef SESC_ENERGY
   wrEnergy[1]->inc();
 #endif
@@ -324,11 +339,17 @@ void SMPCache::specialOp(MemRequest *mreq)
 
 void SMPCache::invalidate(PAddr addr, ushort size, MemObj *oc)
 {
+  Line *l = cache->findLine(addr);
+
   I(oc);
   I(pendInvTable.find(addr) == pendInvTable.end());
   pendInvTable[addr].outsResps = getNumCachesInUpperLevels();
   pendInvTable[addr].cb = doInvalidateCB::create(oc, addr, size);
   pendInvTable[addr].invalidate = true;
+  //  pendInvTable[addr].writeback = true;
+
+  if (l)
+    protocol->preInvalidate(l);
 
   if (!isHighestLevel()) {
     invUpperLevel(addr, size, this);
@@ -358,7 +379,7 @@ void SMPCache::doInvalidate(PAddr addr, ushort size)
     realInvalidate(addr, size, writeBack);
 
   if(cb)
-    EventScheduler::schedule((TimeDelta_t) 2,cb);
+    EventScheduler::schedule((TimeDelta_t) 2, cb);
 }
 
 void SMPCache::realInvalidate(PAddr addr, ushort size, bool writeBack)
@@ -451,6 +472,7 @@ void SMPCache::returnAccess(MemRequest *mreq)
       if(sreq->needsData()) {
         protocol->writeMissAckHandler(sreq);
       } else {
+	I(sreq->needsSnoop());
         protocol->invalidateAckHandler(sreq);
       }
     } 
@@ -490,7 +512,8 @@ void SMPCache::concludeAccess(MemRequest *mreq)
 
 }
 
-SMPCache::Line *SMPCache::allocateLine(PAddr addr, CallbackBase *cb)
+SMPCache::Line *SMPCache::allocateLine(PAddr addr, CallbackBase *cb, 
+				       bool canDestroyCB)
 {
   PAddr rpl_addr = 0;
   I(cache->findLineDebug(addr) == 0);
@@ -508,7 +531,8 @@ SMPCache::Line *SMPCache::allocateLine(PAddr addr, CallbackBase *cb)
   nextSlot(); // have to do an access to check which line is free
 
   if(!l->isValid()) {
-    cb->destroy();
+    if(canDestroyCB)
+      cb->destroy();
     l->setTag(cache->calcTag(addr));
     return l;
   }
@@ -519,7 +543,8 @@ SMPCache::Line *SMPCache::allocateLine(PAddr addr, CallbackBase *cb)
       doWriteBack(rpl_addr);
     } 
 
-    cb->destroy();
+    if(canDestroyCB)
+      cb->destroy();
     l->invalidate();
     l->setTag(cache->calcTag(addr));
     return l;
@@ -529,6 +554,7 @@ SMPCache::Line *SMPCache::allocateLine(PAddr addr, CallbackBase *cb)
   pendInvTable[rpl_addr].outsResps = getNumCachesInUpperLevels();
   pendInvTable[rpl_addr].cb = doAllocateLineCB::create(this, addr, rpl_addr, cb);
   pendInvTable[rpl_addr].invalidate = false;
+  pendInvTable[rpl_addr].writeback = true;
 
   protocol->preInvalidate(l);
 
@@ -539,6 +565,30 @@ SMPCache::Line *SMPCache::allocateLine(PAddr addr, CallbackBase *cb)
 
 void SMPCache::doAllocateLine(PAddr addr, PAddr rpl_addr, CallbackBase *cb)
 {
+  // this is very dangerous (don't do it at home) if rpl_addr is zero,
+  // it means allocateLine was not able to allocate a line at its last
+  // try probably because all lines in the set were
+  // locked. allocateLine has scheduled a callback to doAllocateLine
+  // in the next cycle, with rpl_addr zero. The code below will call
+  // allocateLine again, which will schedule another doAllocateLine if
+  // necessary. If that happens, allocateLine will return 0, which
+  // means doAllocateLine shouldn't do anything else. If allocateLine
+  // returns a line, then the line was successfully allocated, and all
+  // that's left is to call the callback allocateLine has initially
+  // received as a parameter
+  if(!rpl_addr) {
+    Line *l = allocateLine(addr, cb, false);
+
+    if(l) {
+      I(cb);
+      l->setTag(calcTag(addr));
+      l->changeStateTo(SMP_TRANS_RSV);
+      cb->call();
+    }
+
+    return;
+  }
+
   Line *l = cache->findLine(rpl_addr); 
   I(l && l->isLocked());
 
@@ -586,6 +636,7 @@ void SMPCache::invalidateLine(PAddr addr, CallbackBase *cb, bool writeBack)
   doInvalidate(addr, cache->getLineSize());
 }
 
+#ifdef SESC_SMP_DEBUG
 void SMPCache::inclusionCheck(PAddr addr) {
   const LevelType* la = getUpperLevel();
   MemObj* c  = (*la)[0];
@@ -595,4 +646,4 @@ void SMPCache::inclusionCheck(PAddr addr) {
 
   I(!((Cache*)cc)->isInCache(addr));
 }
-
+#endif

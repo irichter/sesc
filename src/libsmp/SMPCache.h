@@ -183,17 +183,21 @@ public:
   Line *getLine(PAddr addr);
   void writeLine(PAddr addr);
   void invalidateLine(PAddr addr, CallbackBase *cb, bool writeBack = false);
-  Line *allocateLine(PAddr addr, CallbackBase *cb);
+  Line *allocateLine(PAddr addr, CallbackBase *cb, bool canDestroyCB = true);
   void doAllocateLine(PAddr addr, PAddr rpl_addr, CallbackBase *cb);
 
   typedef CallbackMember3<SMPCache, PAddr, PAddr, CallbackBase *,
                          &SMPCache::doAllocateLine> doAllocateLineCB;
 
+  PAddr calcTag(PAddr addr) { return cache->calcTag(addr); }
+
   // END protocol interface
 
-  // debug functions
+  // debug function
+#ifdef SESC_SMP_DEBUG
   Line* findLine(PAddr addr) { return cache->findLine(addr); }
   void inclusionCheck(PAddr addr);
+#endif
 };
 
 

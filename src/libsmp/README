@@ -20,22 +20,40 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 */ 
 
 This directory implements the memory backend of an SMP
-system. The implementation assumes some simplifications:
+system. This implementation allows two modes of operation:
 
-1) SMPCache should be used as a private inclusive L2. Now it is also
-possible to use it as a private L1 (thanks to Hou Rui for helping with
-that). Making it work as a shared cache my be a little more
-complicated (any candidates?).
+A) Write-through L1 cache (Cache.cpp) and private inclusive coherent
+L2 cache (SMPCache.cpp). This is called SMP mode. In this mode:
 
-2) L1 (from Cache.cpp) used with SMPCache has to be write-through.
+1) SMPCache should be used as a private inclusive L2 cache, which is
+the point of coherence.
 
-3) MSHR has to be non-aliasing, guaranteed (this means you shouldn't
+2) Cache has to be used as a write-through private L1 cache.
+
+B) Write-back coherent L1 cache (SMPCache.cpp) and shared
+non-inclusive L2 cache (Cache.cpp). This is called CMP mode. In this
+mode:
+
+1) SMPCache should be used as a private L1 cache, which is the point
+of coherence. Write-back is the only option.
+
+2) Any caches below the L1 level (i.e., closer to memory) should be
+non-inclusive (please notice that this is different from exclusive)
+and shared among all the L1 caches. Only one level has been tested
+(L2). To obtain a non-inclusive cache, add "inclusive = false" to the
+section representing the L2 cache. Don't forget to set the lowerLevel
+parameter of the L1 cache level as "shared".
+
+For both configurations:
+
+- The MSHR has to be non-aliasing, guaranteed (this means you shouldn't
 use the full mshr, which allows aliasing; single mshr is recommended).
 
-4) Data movement is not modeled (only control messages), although it
+- Data movement is not modeled (only control messages), although it
 is not too complicated to add the data messages (any candidates?).
 
 If you are using sesc to generate data for a publication, please
 include a reference to sesc in your publication.
 
-Thanks to Hou Rui and Matteo Monchiero for contributions to libsmp.
+Thanks to Paul Sack, Hou Rui and Matteo Monchiero for contributions to
+libsmp.

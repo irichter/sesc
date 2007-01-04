@@ -52,7 +52,7 @@ protected:
 
 public:  
 
-  MESIProtocol(SMPCache *cache); 
+  MESIProtocol(SMPCache *cache, const char *name); 
   ~MESIProtocol();
 
   void changeState(Line *l, unsigned newstate);

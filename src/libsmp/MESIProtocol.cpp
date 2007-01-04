@@ -21,7 +21,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 #include "MESIProtocol.h"
 
-MESIProtocol::MESIProtocol(SMPCache *cache)
+MESIProtocol::MESIProtocol(SMPCache *cache, const char *name)
   : SMPProtocol(cache)
 {
   protocolType = MESI_Protocol;
