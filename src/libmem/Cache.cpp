@@ -48,8 +48,12 @@ static const char
 
 Cache::Cache(MemorySystem *gms, const char *section, const char *name)
   : MemObj(section, name)
-    // FIXME    inclusiveCache(SescConf->getBool(section, "inclusive"))
+#ifdef SESC_SMP
+  ,inclusiveCache(SescConf->checkBool(section, "inclusive") ?
+		  SescConf->getBool(section, "inclusive") : true)
+#else
   ,inclusiveCache(true)
+#endif
   ,readHalfMiss("%s:readHalfMiss", name)
   ,writeHalfMiss("%s:writeHalfMiss", name)
   ,writeMiss("%s:writeMiss", name)
@@ -515,7 +519,9 @@ Cache::Line *Cache::allocateLine(PAddr addr, CallbackBase *cb)
   }
 
   // line was valid
-  if(isHighestLevel()) { // at the L1, just write back if dirty and use line
+  // at the L1, just write back if dirty and use line
+  // in non-inclusiveCache, no need to invalidate line in upper levels
+  if(isHighestLevel() || !inclusiveCache) { 
 #ifdef MSHR_BWSTATS
     // update some eviction stats
     secondaryMissHist.sample(l->getReadMisses(), 1);
@@ -530,7 +536,10 @@ Cache::Line *Cache::allocateLine(PAddr addr, CallbackBase *cb)
     return l;
   }
 
-  // not highest level, must invalidate old line, which may take a while
+  I(inclusiveCache);
+
+  // not highest level or non-inclusive, 
+  // must invalidate old line, which may take a while
   l->lock();
   I(pendInvTable.find(rpl_addr) == pendInvTable.end());
   pendInvTable[rpl_addr].outsResps = getNumCachesInUpperLevels();
@@ -747,25 +756,27 @@ void WBCache::pushLine(MemRequest *mreq)
   // Line has to be pushed from a higher level to this level
   I(!isHighestLevel());
 
-  //FIXME: a line should be allocated if the cache is not inclusive
-  // since cache is inclusive (want to implement the 
-  // non-inclusive one? =), request has to hit
-  I(inclusiveCache);
-
   linePush.inc();
 
   nextBankSlot(mreq->getPAddr());
   Line *l = getCacheBank(mreq->getPAddr())->writeLine(mreq->getPAddr());
 
-  // l == 0 if the upper level is sending a push due to a
-  // displacement of the lower level
-  if (l != 0) {
-    l->validate();
-    l->makeDirty();
-  }
+  if (inclusiveCache || l != 0) {
+    // l == 0 if the upper level is sending a push due to a
+    // displacement of the lower level
+    if (l != 0) {
+      l->validate();
+      l->makeDirty();
+    }
   
-  nextCacheSlot();
-  mreq->goUp(0);
+    nextCacheSlot();
+    mreq->goUp(0);
+    return;
+  }
+
+  // cache is not inclusive and line does not exist: push line directly to lower level
+  I(!inclusiveCache && l == 0);
+  mreq->goDown(0, lowerLevel[0]);  
 }
 
 void WBCache::sendMiss(MemRequest *mreq)
