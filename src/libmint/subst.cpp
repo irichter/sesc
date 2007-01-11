@@ -2029,6 +2029,7 @@ OP(mint_open)
   I(sysCall);
   sysCall->exec(pthread,picode);
 #else // (defined TLS) not true
+  long r4, r5, r6;
   int err;
 
   VAddr   pathname  = pthread->getIntArg1();
@@ -2164,6 +2165,8 @@ OP(mint_write){
   VAddr  buf   = funcArgs.getVAddr();
   size_t count = funcArgs.getInt32();
 
+  int err;
+
   int pid=pthread->getPid();
 
 #ifdef DEBUG_VERBOSE
@@ -2177,7 +2180,7 @@ OP(mint_write){
     err=write(fd,tempbuff,count);
   }
 #else
-  int err=write(fd,(const void *)(pthread->virt2real(buf)),count);
+  err=write(fd,(const void *)(pthread->virt2real(buf)),count);
 #endif
   pthread->setRetVal(err);
   if(err==-1)
