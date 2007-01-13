@@ -928,7 +928,7 @@ void WTCache::inclusionCheck(PAddr addr) {
   MemObj*    c  = (*la)[0];
   const LevelType* lb = c->getLowerLevel();
   MemObj*    cc = (*lb)[0];
-  I(((SMPCache*)cc)->findLine(addr));
+  //I(((SMPCache*)cc)->findLine(addr));
 }
 
 //SVCache versioning speculative cache 
