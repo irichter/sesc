@@ -574,7 +574,8 @@ int MintFuncArgs::getInt32(void) {
   }else{
     RAddr addr=myContext->virt2real(myContext->getStkPtr())+curPos;
 #if (defined TASKSCALAR) || (defined TLS)
-    int *ptr =(int *)(rsesc_OS_read(myContext->getPid(),myIcode->addr,addr,E_WORD));
+    VAddr vaddr = myContext->real2virt(addr);
+    int *ptr =(int *)(rsesc_OS_read(myContext->getPid(),myIcode->addr,vaddr,E_WORD));
 #else
     int *ptr=(int *)addr;
 #endif
