@@ -45,8 +45,15 @@
 #ifdef CYGWIN
 #include <sys/dirent.h>
 #else
+#if (defined LINUX) && (defined __i386)
+#include <ulimit.h>
+#include <asm/types.h>
+#include <asm/posix_types.h>
+#include <linux/dirent.h>
+#else
 #include <ulimit.h>
 #include <dirent.h>
+#endif
 #endif
 
 /* #define DEBUG_VERBOSE 1 */
@@ -63,8 +70,13 @@ typedef off_t off64_t;
 #include <linux/unistd.h>
 typedef __off64_t off64_t;
 
-static _syscall3(int, getdents, uint, fd, struct dirent *, dirp, uint, count);
-int getdents(unsigned int fd, struct dirent *dirp, unsigned int count);
+//#ifdef SYS_getdents
+#define getdents(fd,dirp,count) syscall(SYS_getdents,fd,dirp,count)
+//#else
+//static _syscall3(int, getdents, uint, fd, struct dirent *, dirp, uint, count);
+//int getdents(unsigned int fd, struct dirent *dirp, unsigned int count);
+//#endif
+
 #endif
 
 #include "alloca.h"
@@ -2043,7 +2055,8 @@ OP(mint_open)
     char cadena[100];
 
     rsesc_OS_read_string(pthread->getPid(), picode->addr, cadena, pathname, 100);
-    err = open((const char *) cadena, r5, r6);
+ 
+   err = open((const char *) cadena, flags, mode);
     if( err == -1 ) {
       fprintf(stderr,"original flag = %ld, and conv_flag = %ld\n", pthread->getIntArg2(), flags);
       fprintf(stderr,"mint_open(%s,%ld,%ld) (failed) ret=%d\n",(const char *) cadena, flags, mode, err);
@@ -3921,27 +3934,44 @@ OP(mint_getdents)
     r5 = REGNUM(5);
     r6 = REGNUM(6);
 
+#ifdef DEBUG_VERBOSE
+    //fprintf(stderr,"mint_getdents r4=%d r5=%d r6=%d\n",r4,r5,r6);
+#endif
+
 #if (defined LINUX) && (defined __i386__)
 #ifdef TASKSCALAR
     {
-      char *cad1 = (char *)alloca(r6);
-      
-                err = (int) getdents(r4, (struct dirent *)cad1, r6);
-
-      rsesc_OS_write_block(pthread->getPid(), picode->addr, REGNUM(5), cad1, r6);
+      char *cad1 = (char *)alloca(r6);      
+      err = (int) getdents(r4, (struct dirent *)cad1, r6);  
+      rsesc_OS_write_block(pthread->getPid(), picode->addr, REGNUM(5), cad1, err);
     }
 #else
     r5 = pthread->virt2real(r5);
-
-         err = (int) getdents(r4, (struct dirent *)r5, r6);
+    err = (int) getdents(r4, (struct dirent *)r5, r6);
 #endif
 #else
     err = -1;
     fatal("getdents is only implemented in Linux i386.");
 #endif
 
+#if 0
+  fprintf(stderr,"mint_getdents %d\n",err);
+  
+  int tot=0;
+  char *p = (char*) pthread->virt2real(REGNUM(5));
+  int i=0;
+  struct dirent *d = (struct dirent *)p;
+
+  while(tot<err) {
+      tot += d->d_reclen;
+      fprintf(stderr,"tot=%d i=%d name=%s d_off=%d d_reclen=%d\n",tot,i,(d->d_name),(d->d_off),(d->d_reclen));
+      i++;
+      d = (struct dirent*) ( (char *)d + (long)d->d_reclen );
+  }  
+#endif
+
   pthread->setRetVal(err);
-  if (err == -1)
+  if (err == -1) 
     pthread->setperrno(errno);
   return pthread->getRetIcode();
 }
