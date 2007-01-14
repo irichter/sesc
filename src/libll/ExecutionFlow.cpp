@@ -260,7 +260,7 @@ void ExecutionFlow::switchIn(int i)
 #endif
 
 #if !(defined MIPS_EMUL)
-  MSG("ExecutionFlow[%d] switchIn pid(%d) 0x%x @%lld", fid, i, picodePC->addr, globalClock);
+  LOG("ExecutionFlow[%d] switchIn pid(%d) 0x%x @%lld", fid, i, picodePC->addr, globalClock);
 #else
   MSG("ExecutionFlow[%d] switchIn pid(%d) 0x%x @%lld", fid, i, thread.getNextInstDesc()->addr, globalClock);
 #endif
@@ -284,7 +284,7 @@ void ExecutionFlow::switchOut(int i)
 #endif
 
 #if !(defined MIPS_EMUL)
-  MSG("ExecutionFlow[%d] switchOut pid(%d) 0x%x @%lld", fid, i, picodePC->addr, globalClock);
+  LOG("ExecutionFlow[%d] switchOut pid(%d) 0x%x @%lld", fid, i, picodePC->addr, globalClock);
 #else
   MSG("ExecutionFlow[%d] switchOut pid(%d) 0x%x @%lld", fid, i, thread.getNextInstDesc()->addr, globalClock);
 #endif

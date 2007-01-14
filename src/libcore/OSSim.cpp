@@ -710,7 +710,7 @@ int OSSim::getContextRegister(Pid_t pid, int regnum)
   I(0);
   return 0;
 #else
-  return (* (int *) (s->reg + ((regnum) << 2)));
+  return (* (long *) ((long)(s->reg) + ((regnum) << 2)));
 #endif
 }
 
