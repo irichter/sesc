@@ -5,6 +5,10 @@
 #include "MipsSysCalls.h"
 #include "MipsRegs.h" 
 #include "EmulInit.h"
+#include "FileSys.h"
+
+// For Mips32_STD*_FILENO
+//#include "Mips32Defs.h"
 
 void fail(const char *fmt, ...){
   va_list ap;
@@ -17,9 +21,9 @@ void fail(const char *fmt, ...){
 }
 
 void emulInit(int argc, char **argv, char **envp){
-  int sim_stdin_fd =0;
-  int sim_stdout_fd=1;
-  int sim_stderr_fd=2;
+  int sim_stdin_fd =-1;
+  int sim_stdout_fd=-1;
+  int sim_stderr_fd=-1;
 
   bool argErr=false;
   extern char *optarg;
@@ -52,6 +56,27 @@ void emulInit(int argc, char **argv, char **envp){
       break;
     }
   }
+  if(sim_stdin_fd==-1){
+    sim_stdin_fd=dup(STDIN_FILENO);
+    if(sim_stdin_fd==-1){
+      fprintf(stderr,"Could not duplicate stdin\n");
+      argErr=true;
+    }
+  }
+  if(sim_stdout_fd==-1){
+    sim_stdout_fd=dup(STDOUT_FILENO);
+    if(sim_stdout_fd==-1){
+      fprintf(stderr,"Could not duplicate stdout\n");
+      argErr=true;
+    }
+  }
+  if(sim_stderr_fd==-1){
+    sim_stderr_fd=dup(STDERR_FILENO);
+    if(sim_stderr_fd==-1){
+      fprintf(stderr,"Could not duplicate stderr\n");
+      argErr=true;
+    }
+  }
   if(argErr){
     fprintf(stderr,"\n");
     fprintf(stderr,"Usage: %s [EmulOpts] [-- SimOpts] AppExec [AppOpts]\n",argv[0]);
@@ -64,31 +89,40 @@ void emulInit(int argc, char **argv, char **envp){
   int    appArgc=argc-optind;
   char **appArgv=&(argv[optind]);
   char **appEnvp=envp;
+  // Count environment variables
+  int    appEnvc=0;
+  while(appEnvp[appEnvc])
+    appEnvc++;
   ThreadContext::staticConstructor();
   ThreadContext::initMainThread();
   ThreadContext *mainThread=ThreadContext::getMainThreadContext();
+  mainThread->setSignalTable(new SignalTable());
+  mainThread->setSignalState(new SignalState());
   AddressSpace  *addrSpace=new AddressSpace();
   mainThread->setAddressSpace(addrSpace);
   loadElfObject(appArgv[0],mainThread);
   I(mainThread->getMode()==Mips32);
-  // Stack starts at 16KB, but can autogrow
-  size_t stackSize=0x4000;
-  VAddr stackStart=addrSpace->newSegmentAddr(stackSize);
-  I(stackStart);
-  // Stack is created with read/write permissions, and autogrows down
-  addrSpace->newSegment(stackStart,stackSize,true,true,false);
-  addrSpace->setGrowth(stackStart,true,true);
-  mainThread->writeMemWithByte(stackStart,stackSize,0);
-  mainThread->setStack(stackStart,stackStart+stackSize);
   switch(mainThread->getMode()){
   case Mips32:
-    Mips::setReg<uint32_t>(mainThread,static_cast<RegName>(Mips::RegSP),stackStart+stackSize);
-    mipsProgArgs(mainThread,appArgc,appArgv,appEnvp);
+//     I(Mips32_STDIN_FILENO == STDIN_FILENO );
+//     I(Mips32_STDOUT_FILENO== STDOUT_FILENO);
+//     I(Mips32_STDERR_FILENO== STDERR_FILENO);
+    Mips::initSystem(mainThread);
+    Mips::createStack(mainThread);
+    Mips::setProgArgs(mainThread,appArgc,appArgv,appEnvc,appEnvp);
     break;
-  case Mips64:
+  default:
     I(0);
   }
-  addrSpace->newSimFd(sim_stdin_fd, STDIN_FILENO);
-  addrSpace->newSimFd(sim_stdout_fd,STDOUT_FILENO);
-  addrSpace->newSimFd(sim_stderr_fd,STDERR_FILENO);
+  FileSys::OpenFiles *openFiles=new FileSys::OpenFiles();
+  openFiles->getDesc(STDIN_FILENO )->setStatus(FileSys::StreamStatus::wrap(sim_stdin_fd ));
+  openFiles->getDesc(STDIN_FILENO )->setCloexec(false);
+  openFiles->getDesc(STDOUT_FILENO)->setStatus(FileSys::StreamStatus::wrap(sim_stdout_fd));
+  openFiles->getDesc(STDOUT_FILENO)->setCloexec(false);
+  openFiles->getDesc(STDERR_FILENO)->setStatus(FileSys::StreamStatus::wrap(sim_stderr_fd));
+  openFiles->getDesc(STDERR_FILENO)->setCloexec(false);
+  mainThread->setOpenFiles(openFiles);
+  close(sim_stdin_fd );
+  close(sim_stdout_fd);
+  close(sim_stderr_fd);
 }

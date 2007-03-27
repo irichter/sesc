@@ -152,9 +152,11 @@ void LDSTBuffer::getLoadEntry(DInst *dinst)
 
     I(calcWord(dinst) == calcWord(pdinst));
 
+#ifdef LOG_FORWARD
     LOG( "FORWARD pc=0x%x [addr=0x%x] (%p)-> pc=0x%x [addr=0x%x] (%p)"
         ,(int)pdinst->getInst()->getAddr() , (int)pdinst->getVaddr(), pdinst
         ,(int)dinst->getInst()->getAddr()  , (int)dinst->getVaddr(), dinst);
+#endif
 
     return;
   }

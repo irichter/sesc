@@ -845,6 +845,9 @@ void Instruction::MIPSDecodeInstruction(size_t        index
     subCode = iNop;
   }
 
+//   printf("Inst at 0x%08x Type %02d SubType %02d Src1 %02d Src2 %02d Dst %02d\n",
+// 	 epicode->addr,opcode,subCode,src1,src2,dest);
+
   if(epicode->next == 0)
     return;
 

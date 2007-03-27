@@ -262,7 +262,9 @@ void ExecutionFlow::switchIn(int i)
 #if !(defined MIPS_EMUL)
   LOG("ExecutionFlow[%d] switchIn pid(%d) 0x%x @%lld", fid, i, picodePC->addr, globalClock);
 #else
+#if (defined DEBUG_SIGNALS)
   MSG("ExecutionFlow[%d] switchIn pid(%d) 0x%x @%lld", fid, i, thread.getNextInstDesc()->addr, globalClock);
+#endif
 #endif
   //I(!pendingDInst);
   if( pendingDInst ) {
@@ -286,9 +288,10 @@ void ExecutionFlow::switchOut(int i)
 #if !(defined MIPS_EMUL)
   LOG("ExecutionFlow[%d] switchOut pid(%d) 0x%x @%lld", fid, i, picodePC->addr, globalClock);
 #else
+#if (defined DEBUG_SIGNALS)
   MSG("ExecutionFlow[%d] switchOut pid(%d) 0x%x @%lld", fid, i, thread.getNextInstDesc()->addr, globalClock);
 #endif
-
+#endif
   // Must be running thread i
   I(thread.getPid() == i);
   // Save the context of the thread
@@ -340,8 +343,8 @@ DInst *ExecutionFlow::executePC()
     VAddr vaddr=thread.getLastDataVAddr();
     if(vaddr)
       thread.setLastDataVAddr(0);
-    DInst *myDInst=DInst::createDInst(iDesc->inst,vaddr,fid);
-    if(thread.getJumpInstDesc()){
+    DInst *myDInst=DInst::createDInst(iDesc->getSescInst(),vaddr,fid);
+    if(thread.getJumpInstDesc()!=NoJumpInstDesc){
       retVal=executePC();
       pendingDInst=myDInst;
     }else{

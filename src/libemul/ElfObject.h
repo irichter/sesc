@@ -3,6 +3,7 @@
 
 class ThreadContext;
 
+int  checkElfObject(const char *fname);
 void loadElfObject(const char *fname, ThreadContext *threadContext);
 
 #endif

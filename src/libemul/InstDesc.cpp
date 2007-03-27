@@ -159,7 +159,7 @@ namespace Mips {
     FWOpInv18, FWOpInv19, FWOpInv1A, FWOpInv1B, FWOpInv1C, FWOpInv1D, FWOpInv1E,FWOpInv1F,
     OpFcvtsw,  OpFcvtdw,  FWOpInv22, FWOpInv23, FWOpInv24, FWOpInv25, FWOpInv26,FWOpInv27,
     FWOpInv28, FWOpInv29, FWOpInv2A, FWOpInv2B, FWOpInv2C, FWOpInv2D, FWOpInv2E,FWOpInv2F,
-  FWOpInv30, FWOpInv31, FWOpInv32, FWOpInv33, FWOpInv34, FWOpInv35, FWOpInv36,FWOpInv37,
+    FWOpInv30, FWOpInv31, FWOpInv32, FWOpInv33, FWOpInv34, FWOpInv35, FWOpInv36,FWOpInv37,
     FWOpInv38, FWOpInv39, FWOpInv3A, FWOpInv3B, FWOpInv3C, FWOpInv3D, FWOpInv3E,FWOpInv3F,
     // Opcodes decoded using the "func" field for MOpCop1 and C1OpFmtl
     FLOpInv00, FLOpInv01, FLOpInv02, FLOpInv03, FLOpInv04, FLOpInv05, FLOpInv06,FLOpInv07,
@@ -171,7 +171,19 @@ namespace Mips {
     FLOpInv30, FLOpInv31, FLOpInv32, FLOpInv33, FLOpInv34, FLOpInv35, FLOpInv36,FLOpInv37,
     FLOpInv38, FLOpInv39, FLOpInv3A, FLOpInv3B, FLOpInv3C, FLOpInv3D, FLOpInv3E,FLOpInv3F,
     // Derived opcodes (special cases of real opcodes)
-    OpNop, // Do nothing
+    OpNop,  // Do nothing
+    OpB,    // Unconditional branch (IP-relative)
+    OpBal,  // Unconditional branch and link (IP-relative)
+    OpBeqz, // Branch if equal to zero
+    OpBeqzl,// Branch if equal to zero likely
+    OpBnez, // Branch if not zero
+    OpBnezl,// Branch if not zero likely
+    OpMov,  // GPR-to-GPR move
+    OpLi,   // Put immediate in GPR
+    OpClr,  // Put zero in GPR
+    OpNot,  // Bit-wise not
+    OpNeg,  // Arithmetic negate (unary minus)
+    OpNegu, // Arithmetic negate (unary minus) without overflow detection
     NumOfOpcodes,
 
     // These have to be after "NumOfOpcodes", they are not real opcodes
@@ -204,20 +216,29 @@ namespace Mips {
     FLOpBase=FLOpInv00,
   } Opcode;
   
+  static inline void preExec(InstDesc *inst, ThreadContext *context){
+#if (defined DEBUG_BENCH)
+    context->execInst(inst->addr,getReg<uint32_t>(context,static_cast<RegName>(RegSP)));
+#endif
+  }
+
   // Called by non-jump emulX functions to handle transition to the next instruction
   template<bool delaySlot>
   inline void emulNext(InstDesc *inst, ThreadContext *context){
-    if(delaySlot&&context->getJumpInstDesc()){
+    if(delaySlot&&(context->getJumpInstDesc()!=NoJumpInstDesc)){
       context->setNextInstDesc(context->getJumpInstDesc());
-      context->setJumpInstDesc(0);
+      context->setJumpInstDesc(NoJumpInstDesc);
     }else{
       I(inst->nextInst->addr==inst->addr+(inst->ctlInfo&CtlISize));
       context->setNextInstDesc(inst->nextInst);
     }
+    handleSignals(context);
+    I(context->getNextInstDesc()!=InvalidInstDesc);
   }
 
   template<Opcode op, bool delaySlot, CpuMode mode>
   void emulNop(InstDesc *inst, ThreadContext *context){
+    preExec(inst,context);
     return emulNext<delaySlot>(inst,context);
   }
 
@@ -227,14 +248,20 @@ namespace Mips {
     // Evaluate the branch/jump condition
     bool cond;
     switch(op){
-    case OpJ:  case OpJal: case OpJr: case OpJalr:
+    case OpJ:  case OpB: case OpJal: case OpJr: case OpJalr: case OpBal:
       cond=true;
       break;
     case OpBeq:  case OpBeql:
       cond=(getReg<RegSigT>(context,inst->regSrc1)==getReg<RegSigT>(context,inst->regSrc2));
       break;
+    case OpBeqz:  case OpBeqzl:
+      cond=(getReg<RegSigT>(context,inst->regSrc1)==0);
+      break;
     case OpBne:  case OpBnel:
       cond=(getReg<RegSigT>(context,inst->regSrc1)!=getReg<RegSigT>(context,inst->regSrc2));
+      break;
+    case OpBnez:  case OpBnezl:
+      cond=(getReg<RegSigT>(context,inst->regSrc1)!=0);
       break;
     case OpBlez: case OpBlezl:
       cond=(getReg<RegSigT>(context,inst->regSrc1)<=0);
@@ -265,7 +292,7 @@ namespace Mips {
     }
     // Link if needed
     switch(op){
-    case OpJal: case OpJalr: case OpBgezal: case OpBltzal: case OpBgezall: case OpBltzall:
+    case OpJal: case OpJalr: case OpBgezal: case OpBltzal: case OpBgezall: case OpBltzall: case OpBal:
       setReg<RegUnsT>(context,inst->regDst,inst->addr+2*sizeof(RawInst));
       break;
     default:
@@ -282,9 +309,12 @@ namespace Mips {
       default:
 	context->setJumpInstDesc(inst->imm1.i); break;
       }
+#if (defined DEBUG_BENCH)
+      context->execJump(inst->addr,context->getJumpInstDesc()->addr);
+#endif
     }else{
       switch(op){
-      case OpBeql:   case OpBnel:  case OpBlezl:   case OpBgezl: 
+      case OpBeql:   case OpBeqzl: case OpBnel:  case OpBnezl: case OpBlezl:   case OpBgezl: 
       case OpBgtzl:  case OpBltzl: case OpBgezall: case OpBltzall:
       case OpFbc1fl: case OpFbc1tl:
 	// Instruction after the delay slot executes next
@@ -304,6 +334,7 @@ namespace Mips {
   void emulJump(InstDesc *inst, ThreadContext *context){
     I(op==inst->op);
     I(!delaySlot);
+    preExec(inst,context);
     switch(mode){
     case Mips32: calcJump<op,int32_t,uint32_t>(inst,context); break;
     case Mips64: calcJump<op,int64_t,uint64_t>(inst,context); break;
@@ -343,6 +374,7 @@ namespace Mips {
   template<Opcode op, bool delaySlot, CpuMode mode>
   void emulTcnd(InstDesc *inst, ThreadContext *context){
     I(inst->op==op);
+    preExec(inst,context);
     bool cond;
     switch(mode){
     case Mips32: cond=evalTcnd<op,int32_t,uint32_t>(inst,context); break;
@@ -357,7 +389,7 @@ namespace Mips {
   inline void calcAlu(InstDesc *inst, ThreadContext *context){
     I(inst->op==op);
     switch(op){
-    case OpLui: {
+    case OpLui: case OpLi: case OpClr: {
       setReg<RegSigT>(context,inst->regDst,static_cast<RegSigT>(inst->imm1.s));
     }  break;
     case OpAddi: case OpAddiu: {
@@ -370,6 +402,10 @@ namespace Mips {
     } break;
     case OpSub: case OpSubu: {
       int32_t res=getReg<int32_t>(context,inst->regSrc1)-getReg<int32_t>(context,inst->regSrc2);
+      setReg<RegSigT>(context,inst->regDst,static_cast<RegSigT>(res));
+    } break;
+    case OpNeg: case OpNegu: {
+      int32_t res=-getReg<int32_t>(context,inst->regSrc1);
       setReg<RegSigT>(context,inst->regDst,static_cast<RegSigT>(res));
     } break;
     case OpSll: {
@@ -421,11 +457,21 @@ namespace Mips {
       RegUnsT res=~(getReg<RegUnsT>(context,inst->regSrc1)|getReg<RegUnsT>(context,inst->regSrc2));
       setReg<RegUnsT>(context,inst->regDst,res);
     } break;
+    case OpNot: {
+      RegUnsT res=~getReg<RegUnsT>(context,inst->regSrc1);
+      setReg<RegUnsT>(context,inst->regDst,res);
+    } break;
     case OpSlti: {
       bool cond=(getReg<RegSigT>(context,inst->regSrc1)<static_cast<RegSigT>(inst->imm1.s));
       setReg<RegSigT>(context,inst->regDst,cond?1:0);
     }  break;
     case OpSlt:  {
+#if (defined DEBUG)
+      if(static_cast<MipsRegName>(inst->regSrc1)==RegZero){
+	setReg<RegSigT>(context,inst->regDst,(0<getReg<RegSigT>(context,inst->regSrc2))?1:0);
+	break;
+      }
+#endif
       bool cond=(getReg<RegSigT>(context,inst->regSrc1)<getReg<RegSigT>(context,inst->regSrc2));
       setReg<RegSigT>(context,inst->regDst,cond?1:0);
     }  break;
@@ -434,10 +480,16 @@ namespace Mips {
       setReg<RegSigT>(context,inst->regDst,cond?1:0);
     }  break;
     case OpSltu:  {
+#if (defined DEBUG)
+      if(static_cast<MipsRegName>(inst->regSrc1)==RegZero){
+	setReg<RegSigT>(context,inst->regDst,(0<getReg<RegUnsT>(context,inst->regSrc2))?1:0);
+	break;
+      }
+#endif
       bool cond=(getReg<RegUnsT>(context,inst->regSrc1)<getReg<RegUnsT>(context,inst->regSrc2));
       setReg<RegSigT>(context,inst->regDst,cond?1:0);
     }  break;
-    case OpMfhi: case OpMflo: case OpMthi: case OpMtlo:
+    case OpMfhi: case OpMflo: case OpMthi: case OpMtlo: case OpMov:
       setReg<RegSigT>(context,inst->regDst,getReg<RegSigT>(context,inst->regSrc1));
       break;
     case OpMovf:
@@ -486,12 +538,15 @@ namespace Mips {
       setReg<RegSigT>(context,static_cast<RegName>(RegLo),static_cast<RegSigT>(static_cast<RegUnsT>(par1/par2)));
       setReg<RegSigT>(context,static_cast<RegName>(RegHi),static_cast<RegSigT>(static_cast<RegUnsT>(par1%par2)));
     } break;
+    default:
+      fail("emulAlu: unsupported instruction at 0x%08x\n",inst->addr); break;
     }
   }
 
   template<Opcode op,bool delaySlot, CpuMode mode>
   void emulAlu(InstDesc *inst, ThreadContext *context){
     I(op==inst->op);
+    preExec(inst,context);
     switch(mode){
     case Mips32: calcAlu<op,int32_t,uint32_t>(inst,context); break;
     case Mips64: calcAlu<op,int64_t,uint64_t>(inst,context); break;
@@ -529,6 +584,7 @@ namespace Mips {
   template<Opcode op,bool delaySlot, CpuMode mode>
   void emulMvcop(InstDesc *inst, ThreadContext *context){
     I(op==inst->op);
+    preExec(inst,context);
     switch(mode){
     case Mips32: calcMvcop<op,int32_t,mode>(inst,context); break;
     case Mips64: calcMvcop<op,int64_t,mode>(inst,context); break;
@@ -565,6 +621,8 @@ namespace Mips {
     RegUnsT sa=context->getStackAddr();
     size_t  sl=context->getStackSize();
     I(context->getAddressSpace()->isSegment(sa,sl));
+    I(sp<sa);
+    I(context->getAddressSpace()->isNoSegment(sp,sa-sp));
     // If there is room to grow stack, do it
     if((sp<sa)&&(context->getAddressSpace()->isNoSegment(sp,sa-sp))){
       // Try to grow it to a 16KB boundary, but if we can't then grow only to cover sp
@@ -579,7 +637,8 @@ namespace Mips {
   inline bool readMem(ThreadContext *context, RegUnsT addr, T &val){
     if(!context->readMem(addr,val)){
       growStack<RegUnsT>(context);
-      return context->readMem(addr,val);
+      if(!context->readMem(addr,val))
+	fail("readMem: segmentation fault\n");
     }
     return true;
   }
@@ -587,7 +646,8 @@ namespace Mips {
   inline bool writeMem(ThreadContext *context, RegUnsT addr, const T &val){
     if(!context->writeMem(addr,val)){
       growStack<RegUnsT>(context);
-      return context->writeMem(addr,val);
+      if(!context->writeMem(addr,val))
+	fail("writeMem: segmentation fault\n");
     }
     return true;
   }
@@ -596,6 +656,7 @@ namespace Mips {
     I(op==inst->op);
     // Compute the effective (virtual) address
     RegUnsT vaddr=calcAddr<op,RegSigT,RegUnsT>(inst,context);
+    //    I(vaddr!=0x10008edc);
     context->setLastDataVAddr(vaddr);
     switch(op){
     case OpLb:  {
@@ -650,20 +711,22 @@ namespace Mips {
       uint32_t mval;
       readMem(context,addr,mval);
       switch(op){
-      case OpLwl: {
-	uint32_t LoMask32[]={ 0x00000000, 0x000000FF, 0x0000FFFF, 0x00FFFFFF, 0xFFFFFFFF };
-	size_t  rbits=8*offs;
-	size_t  mbits=32-rbits;
-	rval=((rval&LoMask32[offs])|(mval<<rbits));
-	if(static_cast<int32_t>(rval)!=val) fail("OpLwl old-new mismatch\n");
-      } break;
-      case OpLwr: {
-	uint32_t HiMask32[]={ 0xFFFFFFFF, 0xFFFFFF00, 0xFFFF0000, 0xFF000000, 0x00000000 };
-	size_t  mbits=8*(offs+1);
-	size_t  rbits=32-mbits;
-	rval=((rval&(0xFFFFFFFFu<<mbits))|(mval>>rbits));
-	if(static_cast<int32_t>(rval)!=val) fail("OpLwr old-new mismatch\n");
-      } break;
+      case OpLwl: 
+	{
+	  uint32_t LoMask32[]={ 0x00000000, 0x000000FF, 0x0000FFFF, 0x00FFFFFF, 0xFFFFFFFF };
+	  size_t  rbits=8*offs;
+	  size_t  mbits=32-rbits;
+	  rval=((rval&LoMask32[offs])|(mval<<rbits));
+	  if(static_cast<int32_t>(rval)!=val) fail("OpLwl old-new mismatch\n");
+	} break;
+      case OpLwr:
+	{
+	  uint32_t HiMask32[]={ 0xFFFFFFFF, 0xFFFFFF00, 0xFFFF0000, 0xFF000000, 0x00000000 };
+	  size_t  mbits=8*(offs+1);
+	  size_t  rbits=32-mbits;
+	  rval=((rval&(0xFFFFFFFFu<<mbits))|(mval>>rbits));
+	  if(static_cast<int32_t>(rval)!=val) fail("OpLwr old-new mismatch\n");
+	} break;
       }
      
       setReg<RegSigT>(context,inst->regDst,static_cast<RegSigT>(val));
@@ -681,14 +744,40 @@ namespace Mips {
       setRegFp<float64_t,mode>(context,inst->regDst,val);
     } break;
     case OpSb:
+#if (defined DEBUG)
+      if(static_cast<MipsRegName>(inst->regSrc2)==RegZero){
+	writeMem(context,vaddr,static_cast<uint8_t>(0));
+	break;
+      }
+#endif
       writeMem(context,vaddr,(uint8_t )(getReg<uint32_t>(context,inst->regSrc2)));
       break;
     case OpSh:
+#if (defined DEBUG)
+      if(static_cast<MipsRegName>(inst->regSrc2)==RegZero){
+	writeMem(context,vaddr,static_cast<uint16_t>(0));
+	break;
+      }
+#endif
       writeMem(context,vaddr,(uint16_t)(getReg<uint32_t>(context,inst->regSrc2)));
       break;
     case OpSc:  // TODO: Do the actual link check, then proceed to OpSw
+#if (defined DEBUG)
+      if(static_cast<MipsRegName>(inst->regSrc2)==RegZero){
+	writeMem(context,vaddr,static_cast<uint32_t>(0));
+	break;
+      }
+#endif
+      writeMem(context,vaddr,getReg<uint32_t>(context,inst->regSrc2));
       setReg<RegSigT>(context,inst->regDst,1);
+      break;
     case OpSw:
+#if (defined DEBUG)
+      if(static_cast<MipsRegName>(inst->regSrc2)==RegZero){
+	writeMem(context,vaddr,static_cast<uint32_t>(0));
+	break;
+      }
+#endif
       writeMem(context,vaddr,getReg<uint32_t>(context,inst->regSrc2));
       break;
     case OpSd:
@@ -723,6 +812,7 @@ namespace Mips {
   template<Opcode op, bool delaySlot, CpuMode mode>
   void emulLdSt(InstDesc *inst, ThreadContext *context){
     I(op==inst->op);
+    preExec(inst,context);
     switch(mode){
     case Mips32: calcLdSt<op,int32_t,uint32_t,mode>(inst,context); break;
     case Mips64: calcLdSt<op,int64_t,uint64_t,mode>(inst,context); break;
@@ -733,6 +823,7 @@ namespace Mips {
   template<Opcode op,bool delaySlot, CpuMode mode>
   void emulFcvt(InstDesc *inst, ThreadContext *context){
     I(op==inst->op);
+    preExec(inst,context);
     int savedRoundMode=fegetround();
     switch(op){
     case OpFroundws: case OpFroundwd: case OpFroundls: case OpFroundld:
@@ -857,6 +948,7 @@ namespace Mips {
   template<Opcode op,bool delaySlot, CpuMode mode>
   void emulFcond(InstDesc *inst, ThreadContext *context){
     I(op==inst->op);
+    preExec(inst,context);
     switch(op){
     case OpFcfs:   case OpFcuns:   case OpFceqs:  case OpFcueqs:
     case OpFcolts: case OpFcults:  case OpFcoles: case OpFcules:
@@ -940,6 +1032,7 @@ namespace Mips {
   template<Opcode op,bool delaySlot, CpuMode mode>
   void emulFpu(InstDesc *inst, ThreadContext *context){
     I(op==inst->op);
+    preExec(inst,context);
     switch(op){
     case OpFsqrts: case OpFabss: case OpFmovs:  case OpFnegs:  case OpFrecips: case OpFrsqrts:
       // Single-precision single-operand ops
@@ -966,7 +1059,6 @@ namespace Mips {
       calcFpu3<op,float64_t,mode>(inst,context);
       break;
     case OpFmovfs: case OpFmovfd: OpFmovts: case OpFmovtd:
-      I(isGprName(inst->regSrc2));
       bool zero;
       switch(op){
       case OpFmovfs: case OpFmovfd: case OpFmovts: case OpFmovtd:
@@ -975,6 +1067,7 @@ namespace Mips {
 	zero=((getReg<uint32_t>(context,static_cast<RegName>(RegFCSR))&inst->imm1.u)==0);
 	break;
       case OpFmovzs: case OpFmovzd: case OpFmovns: case OpFmovnd:
+	I(isGprName(inst->regSrc2));
 	switch(mode){
 	case Mips32: zero=(getReg<int32_t>(context,inst->regSrc2)==0); break;
 	case Mips64: zero=(getReg<int64_t>(context,inst->regSrc2)==0); break;
@@ -1011,6 +1104,7 @@ namespace Mips {
   template<Opcode op,bool delaySlot, CpuMode mode>
   void emulSyscl(InstDesc *inst, ThreadContext *context){
     I(!delaySlot);
+    preExec(inst,context);
     // Note the ordering of emulNext and mipsSysCall, which allows
     // mipsSysCall to change control flow or simply let it continue
     emulNext<delaySlot>(inst,context);
@@ -1022,7 +1116,11 @@ namespace Mips {
   // Where does a source operand of the instruction come from
   enum InstSrcInfo  {SrcNo, SrcRt, SrcRs, SrcFt, SrcFs, SrcFr, SrcFCs, SrcFCSR, SrcHi, SrcLo};
   // What is the format of the immediate (if any)
-  enum InstImmInfo  {ImmNo, ImmJpTg, ImmBrOf, ImmSExt, ImmZExt, ImmLui, ImmSh, ImmExCd, ImmTrCd, ImmFccc, ImmFbcc};
+  enum InstImmInfo  {
+    ImmNo, ImmJpTg, ImmBrOf,
+    ImmSExt, ImmZExt, ImmLui, ImmZero,
+    ImmSh, ImmExCd, ImmTrCd, ImmFccc, ImmFbcc
+  };
 
   struct OpcodeInfo{
     // The opcode, should be either OpInvalid or equal to array index
@@ -1610,35 +1708,22 @@ namespace Mips {
     OpcodeInfo(), // FLOpInv3F
     // Derived opcodes (special cases of real opcodes)
     OpcodeInfo(OpInfo(OpNop     ,emulNop  ), CtlNon, TypNop  , DstNo  , SrcNo  , SrcNo, SrcNo, ImmNo),
+    OpcodeInfo(OpInfo(OpB       ,emulJump ), CtlJmp, BrOpJump, DstNo  , SrcNo  , SrcNo, SrcNo, ImmBrOf),
+    OpcodeInfo(OpInfo(OpBal     ,emulJump ), CtlJal, BrOpCall, DstRa  , SrcNo  , SrcNo, SrcNo, ImmBrOf),
+    OpcodeInfo(OpInfo(OpBeqz    ,emulJump ), CtlJmp, BrOpCond, DstNo  , SrcRs  , SrcNo, SrcNo, ImmBrOf),
+    OpcodeInfo(OpInfo(OpBeqzl   ,emulJump ), CtlJpL, BrOpCond, DstNo  , SrcRs  , SrcNo, SrcNo, ImmBrOf),
+    OpcodeInfo(OpInfo(OpBnez    ,emulJump )), // Decoded via OpBne, not using this table
+    OpcodeInfo(OpInfo(OpBnezl   ,emulJump )), // Decoded via OpBnel, not using this table
+    OpcodeInfo(OpInfo(OpMov     ,emulAlu  ), CtlNon, IntOpALU, DstRd  , SrcRs  , SrcNo, SrcNo, ImmNo),
+    OpcodeInfo(OpInfo(OpLi      ,emulAlu  )), // Decoded via OpAddiu or OpOri, not using this table
+    OpcodeInfo(OpInfo(OpClr     ,emulAlu  ), CtlNon, IntOpALU, DstRd  , SrcNo  , SrcNo, SrcNo, ImmZero),
+    OpcodeInfo(OpInfo(OpNot     ,emulAlu  )), // Decoded via OpNor, not using this table
+    OpcodeInfo(OpInfo(OpNeg     ,emulAlu  )), // Decoded via OpSub, not using this table
+    OpcodeInfo(OpInfo(OpNegu    ,emulAlu  )), // Decoded via OpSubu, not using this table
   };
   
-  static inline RegType getRegType(RegName reg, bool src){
-    if(static_cast<MipsRegName>(reg)==RegZero)
-      return NoDependence;
-    if(static_cast<MipsRegName>(reg)==RegJunk)
-      return InvalidOutput;
-    if(isGprName(reg))
-      return static_cast<RegType>(reg&RegNumMask);
-    if(isFprName(reg))
-      return static_cast<RegType>(IntFPBoundary+(reg&RegNumMask));
-    if(reg&RegTypeCtl)
-      return CoprocStatReg;
-    if((static_cast<MipsRegName>(reg)==RegHi)||(static_cast<MipsRegName>(reg)==RegLo))
-      return HiReg;
-    I(static_cast<RegName>(reg)==RegNone);
-    return src?NoDependence:InvalidOutput;
-  }
-
-  void decodeInst(InstDesc *inst, ThreadContext *context){
-    // Read the raw MIPS instruction
-    I(context->virt2inst(inst->addr)==inst);
-    RawInst rawInst;
-    context->readMem(inst->addr,rawInst.whole);
-    // Remeber if this instruction was classified as a wranch before this decoding
-    bool wasBranch=(inst->ctlInfo&CtlBr);
-    // Determine the Opcode for this instruction
+  Opcode decodeOp(RawInst rawInst){
     Opcode op=(Opcode)(OpBase+rawInst.op);
-    InstTypInfo typInfo;
     switch(op){
     case MOpSpecial:
       op=(Opcode)(SOpBase+rawInst.func);
@@ -1687,8 +1772,19 @@ namespace Mips {
     default: 
       break;
     }
-    bool decodedOp=false;
-    while(!decodedOp){
+    return op;
+  }
+
+  void decodeInst(InstDesc *inst, ThreadContext *context){
+    // Read the raw MIPS instruction
+    I(context->virt2inst(inst->addr)==inst);
+    RawInst rawInst;
+    context->readMem(inst->addr,rawInst.whole);
+    // Remeber if this instruction was classified as a branch before this decoding
+    bool wasBranch=(inst->ctlInfo&CtlBr);
+    // Determine the Opcode for this instruction
+    Opcode op=decodeOp(rawInst);
+    while(true){
       if(op==OpInvalid){
 	fail("Mips::decodeInst: unsupported instruction at 0x%08x\n",inst->addr);
       }else if(opcodeInfo[op].op!=op){
@@ -1698,7 +1794,7 @@ namespace Mips {
       inst->ctlInfo=(InstCtlInfo)(inst->ctlInfo&CtlLMask);
       I(!(opcodeInfo[op].ctl&CtlLMask));
       inst->ctlInfo=(InstCtlInfo)(inst->ctlInfo|opcodeInfo[op].ctl);
-      typInfo=opcodeInfo[op].typ;
+      inst->typInfo=opcodeInfo[op].typ;
       switch(opcodeInfo[op].dst){
       case DstNo:   inst->regDst=RegNone; break;
       case DstRd:   inst->regDst=(RegName)(rawInst.rd); break;
@@ -1768,6 +1864,7 @@ namespace Mips {
       case ImmSExt: inst->imm1.s=rawInst.simmed; break;
       case ImmZExt: inst->imm1.u=rawInst.uimmed; break;
       case ImmLui:  inst->imm1.s=(rawInst.simmed<<16); break;
+      case ImmZero: inst->imm1.s=0; break;
       case ImmSh:   inst->imm1.u=rawInst.sa; break;
       case ImmExCd: inst->imm1.u=rawInst.excode; break;
       case ImmTrCd: inst->imm1.u=rawInst.trcode; break;
@@ -1780,22 +1877,84 @@ namespace Mips {
       case ImmFbcc: inst->imm2.u=(1<<(23+rawInst.fbcc+(rawInst.fbcc>0))); break;
       default: fail("Mips::DecodeInst: invalid imm2 for instruction at 0x%08x\n",inst->addr);
       }
-      inst->emulFunc=opcodeInfo[op].emulFunc[(bool)(inst->ctlInfo&CtlInDSlot)][context->getMode()];
-      // Done decoding the instruction based on its Opcode
-      decodedOp=true;
       // Now handle special cases
       // Only OpNop should have no control flow or memory and no destination register
-      I((op==OpNop)||(inst->ctlInfo&CtlIMask)||((typInfo&TypOpMask)==TypMemOp)||(inst->regDst!=RegNone));
+      I((op==OpNop)||(inst->ctlInfo&CtlIMask)||((inst->typInfo&TypOpMask)==TypMemOp)||(inst->regDst!=RegNone));
       // Now see if there is *actually* no effect (write to RegJunk with no side effects)
-      if(((inst->ctlInfo&CtlIMask)==0)&&((typInfo&TypOpMask)!=TypMemOp)&&(static_cast<MipsRegName>(inst->regDst)==RegJunk)){
+      if(((inst->ctlInfo&CtlIMask)==0)&&((inst->typInfo&TypOpMask)!=TypMemOp)&&
+	 (static_cast<MipsRegName>(inst->regDst)==RegJunk)){
 	op=OpNop;
-	decodedOp=false; // Must re-decode (changed Opcode)
+      }else if((op==OpBgezal)&&(static_cast<MipsRegName>(inst->regSrc1)==RegZero)){
+	op=OpBal;
+      }else if((op==OpBeq)&&(static_cast<MipsRegName>(inst->regSrc2)==RegZero)){
+	if(static_cast<MipsRegName>(inst->regSrc1)==RegZero){
+	  op=OpB;
+	}else{
+	  op=OpBeqz;
+	}
+      }else if((op==OpBeql)&&(static_cast<MipsRegName>(inst->regSrc2)==RegZero)){
+	op=OpBeqzl;
+      }else if((op==OpBne)&&
+	       ((static_cast<MipsRegName>(inst->regSrc1)==RegZero)||
+		(static_cast<MipsRegName>(inst->regSrc2)==RegZero))){
+	op=OpBnez;
+	if(static_cast<MipsRegName>(inst->regSrc1)==RegZero)
+	  inst->regSrc1=inst->regSrc2;
+	inst->regSrc2=RegNone;
+	break;
+      }else if((op==OpBnel)&&
+	       ((static_cast<MipsRegName>(inst->regSrc1)==RegZero)||
+		(static_cast<MipsRegName>(inst->regSrc2)==RegZero))){
+	op=OpBnezl;
+	if(static_cast<MipsRegName>(inst->regSrc1)==RegZero)
+	  inst->regSrc1=inst->regSrc2;
+	inst->regSrc2=RegNone;
+	break;
+      }else if((op==OpAddu)&&(static_cast<MipsRegName>(inst->regSrc2)==RegZero)){
+	if(static_cast<MipsRegName>(inst->regSrc1)==RegZero){
+	  op=OpClr;
+	}else{
+ 	  op=OpMov;
+	}
+      }else if(((op==OpAddiu)||(op==OpOri))&&(static_cast<MipsRegName>(inst->regSrc1)==RegZero)){
+	op=OpLi;
+	inst->regSrc1=RegNone;
+	break;
+      }else if((op==OpNor)&&
+	       ((static_cast<MipsRegName>(inst->regSrc1)==RegZero)||
+		(static_cast<MipsRegName>(inst->regSrc2)==RegZero))){
+	op=OpNot;
+	if(static_cast<MipsRegName>(inst->regSrc1)==RegZero)
+	  inst->regSrc1=inst->regSrc2;
+	inst->regSrc2=RegNone;
+	break;
+      }else if((op==OpSub)&&(static_cast<MipsRegName>(inst->regSrc1)==RegZero)){
+	op=OpNeg;
+	inst->regSrc1=inst->regSrc2;
+	inst->regSrc2=RegNone;
+	break;
+      }else if((op==OpSubu)&&(static_cast<MipsRegName>(inst->regSrc1)==RegZero)){
+	op=OpNegu;
+	inst->regSrc1=inst->regSrc2;
+	inst->regSrc2=RegNone;
+	break;
+      }else if((op==OpJr)&&(static_cast<MipsRegName>(inst->regSrc1)==RegRA)){
+	inst->typInfo=BrOpRet;
+	break;
+      }else if((op==OpJalr)&&(static_cast<MipsRegName>(inst->regDst)==RegRA)){
+	inst->typInfo=BrOpCall;
+	break;
+      }else{
+	// The opcode is fully decoded now (no more special cases)
+	break;
       }
     }
+    // Function to emulate this opcode
+    inst->emulFunc=opcodeInfo[op].emulFunc[(bool)(inst->ctlInfo&CtlInDSlot)][context->getMode()];
+    // Info for debugging
     I((rawInst.whole!=0)||(op==OpNop));
 #if (defined DEBUG)
     inst->op=(Opcode)op;
-    inst->typInfo=typInfo;
 #endif
     VAddr nextAddr=inst->addr+(inst->ctlInfo&CtlISize);
     I(nextAddr==inst->addr+4);
@@ -1813,84 +1972,11 @@ namespace Mips {
     if(isBranch){
       decodeInst(inst->nextInst,context);
     }
-    // Create a SESC Instruction for this static instruction
-    inst->inst=new Instruction();
-    inst->inst->addr=inst->addr;
-    InstType    iType    =iOpInvalid;
-    InstSubType iSubType =iSubInvalid;
-    MemDataSize iDataSize=0;
-    switch(typInfo&TypOpMask){
-    case TypNop:  iType=iALU; iSubType=iNop; break;
-    case TypIntOp:
-      switch(typInfo&TypSubMask){
-      case IntOpALU: iType=iALU; break;
-      case IntOpMul: iType=iMult; break;
-      case IntOpDiv: iType=iDiv; break;
-      default: fail("Mips::decodeInst: Unknown subtype for TypIntOp\n");
-      }
-      break;
-    case TypFpOp:
-      switch(typInfo&TypSubMask){
-      case FpOpALU: iType=fpALU; break;
-      case FpOpMul: iType=fpMult; break;
-      case FpOpDiv: iType=fpDiv; break;
-      default: fail("Mips::decodeInst: Unknown subtype for TypFpOp\n");
-      }
-      break;
-    case TypBrOp:
-      iType=iBJ;
-      switch(typInfo&TypSubMask){
-      case BrOpJump: iSubType=BJUncond; break;
-      case BrOpCond: iSubType=BJCond; break;
-      case BrOpCall: iSubType=BJCall; break;
-      case BrOpRet:  iSubType=BJRet; break;
-      case BrOpTrap: iType=iALU; iSubType=iNop; break;
-      default: fail("Mips::decodeInst: Unknown subtype for TypBrOp\n");
-      }
-      break;
-    case TypMemOp:
-      iSubType=iMemory;
-      switch(typInfo&TypSubMask){
-      case TypMemLd: iType=iLoad; break;
-      case TypMemSt: iType=iStore; break;
-      default: fail("Mips::decodeInst: Unknown subtype for TypMemOp\n");
-      }
-      iDataSize=(typInfo&MemSizeMask);
-      break;
-    default: fail("Mips::decodeInst: Unknown instruction type\n");
-    }
-    inst->inst->opcode   =iType;
-    inst->inst->subCode  =iSubType;
-    inst->inst->dataSize =iDataSize;
-    inst->inst->skipDelay=inst->nextInst->addr-inst->addr;
-    inst->inst->uEvent=NoEvent;
-    inst->inst->guessTaken=false;
-    inst->inst->condLikely=false;
-    inst->inst->jumpLabel =false;
-    if(inst->ctlInfo&CtlBr){
-      if(inst->ctlInfo&CtlFix){
-	inst->inst->jumpLabel=true;
-	I((opcodeInfo[op].imm1==ImmJpTg)||(opcodeInfo[op].imm1==ImmBrOf));
-	if(inst->imm1.i->addr<inst->addr)
-	  inst->inst->guessTaken=true;
-      }
-      if(inst->ctlInfo&CtlAnull){
-	inst->inst->condLikely=true;
-	inst->inst->guessTaken=true;
-      }
-      if((typInfo&TypSubMask)!=BrOpCond)
-	inst->inst->guessTaken=true;
-    }
-    inst->inst->src1=getRegType(inst->regSrc1,true);
-    inst->inst->src2=getRegType(inst->regSrc2,true);
-    inst->inst->dest=getRegType(inst->regDst,false);
-    inst->inst->src1Pool=Instruction::whichPool(inst->inst->src1);
-    inst->inst->src2Pool=Instruction::whichPool(inst->inst->src2);
-    inst->inst->dstPool =Instruction::whichPool(inst->inst->dest);
   }
 }; // namespace Mips
 
 void instDecode(InstDesc *inst, ThreadContext *context){
+  //  I(inst->addr!=0x4603d4);
   switch(context->getMode()){
   case Mips32: case Mips64:
     Mips::decodeInst(inst,context);
@@ -1900,4 +1986,135 @@ void instDecode(InstDesc *inst, ThreadContext *context){
     break;
   }
   inst->emulFunc(inst,context);
+}
+
+static inline RegType getSescRegType(RegName reg, bool src){
+  if(src){
+    if((reg==RegNone)||(static_cast<Mips::MipsRegName>(reg)==Mips::RegZero))
+      return NoDependence;
+  }else{
+    if((reg==RegNone)||(static_cast<Mips::MipsRegName>(reg)==Mips::RegJunk))
+      return InvalidOutput;
+  }
+  if(isGprName(reg))
+    return static_cast<RegType>(reg&RegNumMask);
+  if(isFprName(reg))
+    return static_cast<RegType>(IntFPBoundary+(reg&RegNumMask));
+  if(getRegType(reg)==RegTypeCtl)
+    return CoprocStatReg;
+  if((static_cast<Mips::MipsRegName>(reg)==Mips::RegHi)||(static_cast<Mips::MipsRegName>(reg)==Mips::RegLo))
+    return HiReg;
+  I(0);
+  return NoDependence;
+}
+
+// Create a SESC Instruction for this static instruction
+Instruction *createSescInst(const InstDesc *inst){
+  Instruction *sescInst=new Instruction();
+  sescInst->addr=inst->addr;
+  InstType    iType    =iOpInvalid;
+  InstSubType iSubType =iSubInvalid;
+  MemDataSize iDataSize=0;
+  switch(inst->typInfo&TypOpMask){
+  case TypNop:
+    sescInst->opcode=iALU;
+    sescInst->subCode=iNop;
+    break;
+  case TypIntOp:
+    switch(inst->typInfo&TypSubMask){
+    case IntOpALU:
+      sescInst->opcode=iALU;
+      break;
+    case IntOpMul:
+      sescInst->opcode=iMult;
+      break;
+    case IntOpDiv:
+      sescInst->opcode=iDiv;
+      break;
+    default:
+      fail("createSescInst: Unknown subtype for TypIntOp\n");
+    }
+    sescInst->subCode=iSubInvalid;
+    break;
+  case TypFpOp:
+    switch(inst->typInfo&TypSubMask){
+    case FpOpALU:
+      sescInst->opcode=fpALU;
+      break;
+    case FpOpMul:
+      sescInst->opcode=fpMult;
+      break;
+    case FpOpDiv:
+      sescInst->opcode=fpDiv;
+      break;
+    default:
+      fail("createSescInst: Unknown subtype for TypFpOp\n");
+    }
+    sescInst->subCode=iSubInvalid;    
+    break;
+  case TypBrOp:
+    sescInst->opcode=iBJ;
+    switch(inst->typInfo&TypSubMask){
+    case BrOpJump:
+      sescInst->subCode=BJUncond;
+      break;
+    case BrOpCond:
+      sescInst->subCode=BJCond;
+      break;
+    case BrOpCall:
+      sescInst->subCode=BJCall;
+      break;
+    case BrOpRet:
+      sescInst->subCode=BJRet;
+      break;
+    case BrOpTrap:
+      sescInst->opcode=iALU;
+      sescInst->subCode=iNop;
+      break;
+    default:
+      fail("createSescInst: Unknown subtype for TypBrOp\n");
+    }
+    break;
+  case TypMemOp:
+    switch(inst->typInfo&TypSubMask){
+    case TypMemLd:
+      sescInst->opcode=iLoad;
+      break;
+    case TypMemSt:
+      sescInst->opcode=iStore;
+      break;
+    default:
+      fail("createSescInst: Unknown subtype for TypMemOp\n");
+    }
+    sescInst->dataSize=(inst->typInfo&MemSizeMask);
+    sescInst->subCode=iMemory;
+    break;
+  default:
+    fail("createSescInst: Unknown instruction type\n");
+  }
+  sescInst->skipDelay=inst->nextInst->addr-inst->addr;
+  sescInst->uEvent=NoEvent;
+  sescInst->guessTaken=false;
+  sescInst->condLikely=false;
+  sescInst->jumpLabel =false;
+  if(inst->ctlInfo&CtlBr){
+    if(inst->ctlInfo&CtlFix){
+      sescInst->jumpLabel=true;
+      if(inst->imm1.i->addr<inst->addr)
+	sescInst->guessTaken=true;
+    }
+    if(inst->ctlInfo&CtlAnull){
+      sescInst->condLikely=true;
+      sescInst->guessTaken=true;
+    }
+    if((inst->typInfo&TypSubMask)!=BrOpCond)
+      sescInst->guessTaken=true;
+  }
+  sescInst->src1=getSescRegType(inst->regSrc1,true);
+  sescInst->src2=getSescRegType(inst->regSrc2,true);
+  sescInst->dest=getSescRegType(inst->regDst,false);
+  sescInst->src1Pool=Instruction::whichPool(sescInst->src1);
+  sescInst->src2Pool=Instruction::whichPool(sescInst->src2);
+  sescInst->dstPool =Instruction::whichPool(sescInst->dest);
+  return sescInst;
 }

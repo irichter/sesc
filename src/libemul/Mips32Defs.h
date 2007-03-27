@@ -1,3 +1,5 @@
+#if !(defined _Mips32_DEFS_H_)
+#define _Mips32_DEFS_H_
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif
@@ -38,11 +40,11 @@ enum Mips32_MremapFlags {
 #include <fcntl.h>
 // Define File open flags
 enum Mips32_OpenFlags {
-  Mips32_O_ACCMODE = 0x3, // Mask
-  // These choices are masked with O_ACCMODE
-  Mips32_O_RDONLY  = 0x0,
-  Mips32_O_WRONLY  = 0x1,
-  Mips32_O_RDWR    = 0x2,
+  Mips32_O_ACCMODE   = 0x3, // Mask
+  // These choices are masked with O_ACCMODE  
+  Mips32_O_RDONLY    = 0x0,
+  Mips32_O_WRONLY    = 0x1,
+  Mips32_O_RDWR      = 0x2,
   // End of choices masked with O_ACCMODE  
   Mips32_O_CREAT     = 0x100, // Flag
   Mips32_O_EXCL      = 0x400, // Flag
@@ -61,6 +63,14 @@ enum Mips32_OpenFlags {
 // Define ioctl requests
 enum Mips32_IoctlReq {
   Mips32_TCGETS = 0x540d,
+  Mips32_TCSETS = 0x540e,
+  Mips32_TCSETSW = 0x540f,
+  Mips32_TCSETSF = 0x5410,
+  Mips32_TCGETA = 0x5401,
+  Mips32_TCSETA = 0x5402,
+  Mips32_TCSETAW = 0x5403,
+  Mips32_TCSETAF = 0x5404,
+  Mips32_TIOCGWINSZ = 0x40087468,
 };
 // Define fcntl commands
 enum Mips32_FcntlCmd {
@@ -89,6 +99,13 @@ enum Mips32_ErrNums {
   Mips32_EINVAL    = 0x16,
   Mips32_EOVERFLOW = 0x4f,
   Mips32_ENOTTY    = 0x19,
+  Mips32_ERANGE    = 0x22,
+  Mips32_EINTR     = 0x4,
+  Mips32_ENFILE    = 0x17,
+  Mips32_EMFILE    = 0x18,
+  Mips32_ENOEXEC   = 0x8,
+  Mips32_ECHILD    = 0xa,
+  Mips32_ENOTDIR   = 0x14,
 };
 #include <signal.h>
 // Define Signal numbers
@@ -112,6 +129,81 @@ enum Mips32_SigNums {
   Mips32_SIGCONT = 0x19,
   Mips32_SIGSTOP = 0x17,
   Mips32_SIGTSTP = 0x18,
+};
+// Define Sigprocmask 'how' values
+enum Mips32_SigMaskHow {
+  Mips32_SIG_BLOCK = 0x1,
+  Mips32_SIG_UNBLOCK = 0x2,
+  Mips32_SIG_SETMASK = 0x3,
+};
+// Define Number of kernel signals
+enum Mips32_KernelNumSignals {
+  Mips32__K_NSIG = 0x80,
+};
+// Define Pre-defined signal handlers
+enum Mips32_SigHandlers {
+  Mips32_SIG_DFL = 0x0,
+  Mips32_SIG_IGN = 0x1,
+};
+#include <signal.h>
+// Define Sigaction flags
+enum Mips32_SigactionFlags {
+  Mips32_SA_NOCLDSTOP = 0x1, // Flag
+  Mips32_SA_NOCLDWAIT = 0x10000, // Flag
+  Mips32_SA_RESETHAND = 0x80000000, // Flag
+  Mips32_SA_ONSTACK   = 0x8000000, // Flag
+  Mips32_SA_RESTART   = 0x10000000, // Flag
+  Mips32_SA_NODEFER   = 0x40000000, // Flag
+  Mips32_SA_SIGINFO   = 0x8, // Flag
+  Mips32_SA_INTERRUPT = 0x20000000, // Flag
+};
+#include <sys/wait.h>
+// Define wait3/wait4 options
+enum Mips32_WaitOptions {
+  Mips32_WNOHANG   = 0x1, // Flag
+  Mips32_WUNTRACED = 0x2, // Flag
+};
+#include <unistd.h>
+// Define Standard file ids
+enum Mips32_StdFileNums {
+  Mips32_STDIN_FILENO  = 0x0,
+  Mips32_STDOUT_FILENO = 0x1,
+  Mips32_STDERR_FILENO = 0x2,
+};
+#include <unistd.h>
+// Define Whence for lseek
+enum Mips32_WhenceFlags {
+  Mips32_SEEK_SET = 0x0,
+  Mips32_SEEK_END = 0x2,
+  Mips32_SEEK_CUR = 0x1,
+};
+// Define Top-level names for sysctl
+enum Mips32_SysCtl {
+  Mips32_CTL_KERN = 0x1,
+};
+// Define CTL_KERN names for sysctl
+enum Mips32_SysCtlKern {
+  Mips32_KERN_VERSION = 0x4,
+};
+// Define Flags for clone
+enum Mips32_CloneFlags {
+  Mips32_CSIGNAL       = 0xff, // Mask
+  // These choices are masked with CSIGNAL      
+  // End of choices masked with CSIGNAL      
+  Mips32_CLONE_VM      = 0x100, // Flag
+  Mips32_CLONE_FS      = 0x200, // Flag
+  Mips32_CLONE_FILES   = 0x400, // Flag
+  Mips32_CLONE_SIGHAND = 0x800, // Flag
+  Mips32_CLONE_VFORK   = 0x4000, // Flag
+};
+// Define Flags for poll
+enum Mips32_PollFlags {
+  Mips32_POLLIN = 0x1, // Flag
+  Mips32_POLLPRI = 0x2, // Flag
+  Mips32_POLLOUT = 0x4, // Flag
+  Mips32_POLLERR = 0x8, // Flag
+  Mips32_POLLHUP = 0x10, // Flag
+  Mips32_POLLNVAL = 0x20, // Flag
 };
 // Convert Rlimit resource numbers to native
 int toNativeRlimitNums(int val){
@@ -183,10 +275,10 @@ int toNativeMremapFlags(int val){
 // Convert File open flags to native
 int toNativeOpenFlags(int val){
   int retVal=0;
-  switch(val&Mips32_O_ACCMODE){
-    case Mips32_O_RDONLY : retVal|=O_RDONLY ; break;
-    case Mips32_O_WRONLY : retVal|=O_WRONLY ; break;
-    case Mips32_O_RDWR   : retVal|=O_RDWR   ; break;
+  switch(val&Mips32_O_ACCMODE  ){
+    case Mips32_O_RDONLY   : retVal|=O_RDONLY   ; break;
+    case Mips32_O_WRONLY   : retVal|=O_WRONLY   ; break;
+    case Mips32_O_RDWR     : retVal|=O_RDWR     ; break;
     default: fail("Unknown value %d (0x%x) for mask Mips32_O_ACCMODE  \n",val,val);
   }
   val^=(val&Mips32_O_ACCMODE  );
@@ -246,6 +338,14 @@ int toNativeIoctlReq(int val){
   int retVal=0;
   switch(val){
     case Mips32_TCGETS: retVal+=TCGETS; break;
+    case Mips32_TCSETS: retVal+=TCSETS; break;
+    case Mips32_TCSETSW: retVal+=TCSETSW; break;
+    case Mips32_TCSETSF: retVal+=TCSETSF; break;
+    case Mips32_TCGETA: retVal+=TCGETA; break;
+    case Mips32_TCSETA: retVal+=TCSETA; break;
+    case Mips32_TCSETAW: retVal+=TCSETAW; break;
+    case Mips32_TCSETAF: retVal+=TCSETAF; break;
+    case Mips32_TIOCGWINSZ: retVal+=TIOCGWINSZ; break;
     default: fail("Unknown value %d (0x%x)\n",val,val);
   }
   val=0;
@@ -293,6 +393,13 @@ int toNativeErrNums(int val){
     case Mips32_EINVAL   : retVal+=EINVAL   ; break;
     case Mips32_EOVERFLOW: retVal+=EOVERFLOW; break;
     case Mips32_ENOTTY   : retVal+=ENOTTY   ; break;
+    case Mips32_ERANGE   : retVal+=ERANGE   ; break;
+    case Mips32_EINTR    : retVal+=EINTR    ; break;
+    case Mips32_ENFILE   : retVal+=ENFILE   ; break;
+    case Mips32_EMFILE   : retVal+=EMFILE   ; break;
+    case Mips32_ENOEXEC  : retVal+=ENOEXEC  ; break;
+    case Mips32_ECHILD   : retVal+=ECHILD   ; break;
+    case Mips32_ENOTDIR  : retVal+=ENOTDIR  ; break;
     default: fail("Unknown value %d (0x%x)\n",val,val);
   }
   val=0;
@@ -322,6 +429,97 @@ int toNativeSigNums(int val){
     case Mips32_SIGCONT: retVal+=SIGCONT; break;
     case Mips32_SIGSTOP: retVal+=SIGSTOP; break;
     case Mips32_SIGTSTP: retVal+=SIGTSTP; break;
+    default: fail("Unknown value %d (0x%x)\n",val,val);
+  }
+  val=0;
+  I(val==0);
+  return retVal;
+}
+// Convert Sigprocmask 'how' values to native
+int toNativeSigMaskHow(int val){
+  int retVal=0;
+  switch(val){
+    case Mips32_SIG_BLOCK: retVal+=SIG_BLOCK; break;
+    case Mips32_SIG_UNBLOCK: retVal+=SIG_UNBLOCK; break;
+    case Mips32_SIG_SETMASK: retVal+=SIG_SETMASK; break;
+    default: fail("Unknown value %d (0x%x)\n",val,val);
+  }
+  val=0;
+  I(val==0);
+  return retVal;
+}
+// Convert Sigaction flags to native
+int toNativeSigactionFlags(int val){
+  int retVal=0;
+  if(val&Mips32_SA_NOCLDSTOP){
+    retVal|=SA_NOCLDSTOP;
+    val^=Mips32_SA_NOCLDSTOP;
+  }
+  if(val&Mips32_SA_NOCLDWAIT){
+    retVal|=SA_NOCLDWAIT;
+    val^=Mips32_SA_NOCLDWAIT;
+  }
+  if(val&Mips32_SA_RESETHAND){
+    retVal|=SA_RESETHAND;
+    val^=Mips32_SA_RESETHAND;
+  }
+  if(val&Mips32_SA_ONSTACK  ){
+    retVal|=SA_ONSTACK  ;
+    val^=Mips32_SA_ONSTACK  ;
+  }
+  if(val&Mips32_SA_RESTART  ){
+    retVal|=SA_RESTART  ;
+    val^=Mips32_SA_RESTART  ;
+  }
+  if(val&Mips32_SA_NODEFER  ){
+    retVal|=SA_NODEFER  ;
+    val^=Mips32_SA_NODEFER  ;
+  }
+  if(val&Mips32_SA_SIGINFO  ){
+    retVal|=SA_SIGINFO  ;
+    val^=Mips32_SA_SIGINFO  ;
+  }
+  if(val&Mips32_SA_INTERRUPT){
+    retVal|=SA_INTERRUPT;
+    val^=Mips32_SA_INTERRUPT;
+  }
+  I(val==0);
+  return retVal;
+}
+// Convert wait3/wait4 options to native
+int toNativeWaitOptions(int val){
+  int retVal=0;
+  if(val&Mips32_WNOHANG  ){
+    retVal|=WNOHANG  ;
+    val^=Mips32_WNOHANG  ;
+  }
+  if(val&Mips32_WUNTRACED){
+    retVal|=WUNTRACED;
+    val^=Mips32_WUNTRACED;
+  }
+  I(val==0);
+  return retVal;
+}
+// Convert Standard file ids to native
+int toNativeStdFileNums(int val){
+  int retVal=0;
+  switch(val){
+    case Mips32_STDIN_FILENO : retVal+=STDIN_FILENO ; break;
+    case Mips32_STDOUT_FILENO: retVal+=STDOUT_FILENO; break;
+    case Mips32_STDERR_FILENO: retVal+=STDERR_FILENO; break;
+    default: fail("Unknown value %d (0x%x)\n",val,val);
+  }
+  val=0;
+  I(val==0);
+  return retVal;
+}
+// Convert Whence for lseek to native
+int toNativeWhenceFlags(int val){
+  int retVal=0;
+  switch(val){
+    case Mips32_SEEK_SET: retVal+=SEEK_SET; break;
+    case Mips32_SEEK_END: retVal+=SEEK_END; break;
+    case Mips32_SEEK_CUR: retVal+=SEEK_CUR; break;
     default: fail("Unknown value %d (0x%x)\n",val,val);
   }
   val=0;
@@ -383,10 +581,10 @@ int fromNativeMremapFlags(int val){
 // Convert File open flags from native
 int fromNativeOpenFlags(int val){
   int retVal=0;
-  switch(val&O_ACCMODE){
-    case O_RDONLY : retVal|=Mips32_O_RDONLY ; break;
-    case O_WRONLY : retVal|=Mips32_O_WRONLY ; break;
-    case O_RDWR   : retVal|=Mips32_O_RDWR   ; break;
+  switch(val&O_ACCMODE  ){
+    case O_RDONLY   : retVal|=Mips32_O_RDONLY   ; break;
+    case O_WRONLY   : retVal|=Mips32_O_WRONLY   ; break;
+    case O_RDWR     : retVal|=Mips32_O_RDWR     ; break;
     default: fail("Unknown value %d (0x%x) for mask O_ACCMODE  \n",val,val);
   }
   val^=(val&O_ACCMODE  );
@@ -410,6 +608,14 @@ int fromNativeIoctlReq(int val){
   int retVal=0;
   switch(val){
     case TCGETS: retVal+=Mips32_TCGETS; break;
+    case TCSETS: retVal+=Mips32_TCSETS; break;
+    case TCSETSW: retVal+=Mips32_TCSETSW; break;
+    case TCSETSF: retVal+=Mips32_TCSETSF; break;
+    case TCGETA: retVal+=Mips32_TCGETA; break;
+    case TCSETA: retVal+=Mips32_TCSETA; break;
+    case TCSETAW: retVal+=Mips32_TCSETAW; break;
+    case TCSETAF: retVal+=Mips32_TCSETAF; break;
+    case TIOCGWINSZ: retVal+=Mips32_TIOCGWINSZ; break;
     default: fail("Unknown value %d (0x%x)\n",val,val);
   }
   val=0;
@@ -454,6 +660,13 @@ int fromNativeErrNums(int val){
     case EINVAL   : retVal+=Mips32_EINVAL   ; break;
     case EOVERFLOW: retVal+=Mips32_EOVERFLOW; break;
     case ENOTTY   : retVal+=Mips32_ENOTTY   ; break;
+    case ERANGE   : retVal+=Mips32_ERANGE   ; break;
+    case EINTR    : retVal+=Mips32_EINTR    ; break;
+    case ENFILE   : retVal+=Mips32_ENFILE   ; break;
+    case EMFILE   : retVal+=Mips32_EMFILE   ; break;
+    case ENOEXEC  : retVal+=Mips32_ENOEXEC  ; break;
+    case ECHILD   : retVal+=Mips32_ECHILD   ; break;
+    case ENOTDIR  : retVal+=Mips32_ENOTDIR  ; break;
     default: fail("Unknown value %d (0x%x)\n",val,val);
   }
   val=0;
@@ -489,20 +702,81 @@ int fromNativeSigNums(int val){
   I(val==0);
   return retVal;
 }
+// Convert Sigprocmask 'how' values from native
+int fromNativeSigMaskHow(int val){
+  int retVal=0;
+  switch(val){
+    case SIG_BLOCK: retVal+=Mips32_SIG_BLOCK; break;
+    case SIG_UNBLOCK: retVal+=Mips32_SIG_UNBLOCK; break;
+    case SIG_SETMASK: retVal+=Mips32_SIG_SETMASK; break;
+    default: fail("Unknown value %d (0x%x)\n",val,val);
+  }
+  val=0;
+  I(val==0);
+  return retVal;
+}
+// Convert Sigaction flags from native
+int fromNativeSigactionFlags(int val){
+  int retVal=0;
+  if(val&SA_NOCLDSTOP){ retVal|=Mips32_SA_NOCLDSTOP; val^=SA_NOCLDSTOP; }
+  if(val&SA_NOCLDWAIT){ retVal|=Mips32_SA_NOCLDWAIT; val^=SA_NOCLDWAIT; }
+  if(val&SA_RESETHAND){ retVal|=Mips32_SA_RESETHAND; val^=SA_RESETHAND; }
+  if(val&SA_ONSTACK  ){ retVal|=Mips32_SA_ONSTACK  ; val^=SA_ONSTACK  ; }
+  if(val&SA_RESTART  ){ retVal|=Mips32_SA_RESTART  ; val^=SA_RESTART  ; }
+  if(val&SA_NODEFER  ){ retVal|=Mips32_SA_NODEFER  ; val^=SA_NODEFER  ; }
+  if(val&SA_SIGINFO  ){ retVal|=Mips32_SA_SIGINFO  ; val^=SA_SIGINFO  ; }
+  if(val&SA_INTERRUPT){ retVal|=Mips32_SA_INTERRUPT; val^=SA_INTERRUPT; }
+  I(val==0);
+  return retVal;
+}
+// Convert wait3/wait4 options from native
+int fromNativeWaitOptions(int val){
+  int retVal=0;
+  if(val&WNOHANG  ){ retVal|=Mips32_WNOHANG  ; val^=WNOHANG  ; }
+  if(val&WUNTRACED){ retVal|=Mips32_WUNTRACED; val^=WUNTRACED; }
+  I(val==0);
+  return retVal;
+}
+// Convert Standard file ids from native
+int fromNativeStdFileNums(int val){
+  int retVal=0;
+  switch(val){
+    case STDIN_FILENO : retVal+=Mips32_STDIN_FILENO ; break;
+    case STDOUT_FILENO: retVal+=Mips32_STDOUT_FILENO; break;
+    case STDERR_FILENO: retVal+=Mips32_STDERR_FILENO; break;
+    default: fail("Unknown value %d (0x%x)\n",val,val);
+  }
+  val=0;
+  I(val==0);
+  return retVal;
+}
+// Convert Whence for lseek from native
+int fromNativeWhenceFlags(int val){
+  int retVal=0;
+  switch(val){
+    case SEEK_SET: retVal+=Mips32_SEEK_SET; break;
+    case SEEK_END: retVal+=Mips32_SEEK_END; break;
+    case SEEK_CUR: retVal+=Mips32_SEEK_CUR; break;
+    default: fail("Unknown value %d (0x%x)\n",val,val);
+  }
+  val=0;
+  I(val==0);
+  return retVal;
+}
 // Define Virtual address
 typedef uint32_t Mips32_VAddr;
 // Note: VAddr plays the role of native type void *
 // Define Memory size
 typedef uint32_t Mips32_VSize;
 // Note: VSize plays the role of native type size_t
-#include <sys/uio.h>
+#include "sys/uio.h"
 
 // Define iovec for readv/writev
 typedef struct Mips32_iovec {
   Mips32_VAddr iov_base;
   Mips32_VSize iov_len ;
 } Mips32_iovec;
-#include <sys/resource.h>
+#include "sys/resource.h"
 // Define Resource limit size
 typedef uint32_t Mips32_rlim_t;
 // Note: rlim_t plays the role of native type rlim_t
@@ -541,7 +815,7 @@ typedef struct Mips32_rusage {
 // Define Clock type
 typedef int32_t Mips32_clock_t;
 // Note: clock_t plays the role of native type clock_t
-#include <sys/times.h>
+#include "sys/times.h"
 
 // Define tms structure for times
 typedef struct Mips32_tms {
@@ -550,7 +824,7 @@ typedef struct Mips32_tms {
   Mips32_clock_t tms_cutime;
   Mips32_clock_t tms_cstime;
 } Mips32_tms;
-#include <sys/utsname.h>
+#include "sys/utsname.h"
 
 // Define utsname for uname
 typedef struct Mips32_utsname {
@@ -633,6 +907,58 @@ typedef struct Mips32_stat {
   Mips32_blkcnt_t  st_blocks;
   uint32_t  st_pad5[14];
 } Mips32_stat;
+#include "dirent.h"
+
+// Define dirent64 for getdents
+typedef struct Mips32_dirent64 {
+  Mips32_ino64_t d_ino;
+  Mips32_off64_t d_off;
+  uint16_t d_reclen;
+  uint8_t d_type;
+  char d_name[256];
+} Mips32_dirent64;
+#include "sys/ioctl.h"
+
+// Define winsize for WINSZ ioctls
+typedef struct Mips32_winsize {
+  uint16_t ws_row;
+  uint16_t ws_col;
+  uint16_t ws_xpixel;
+  uint16_t ws_ypixel;
+} Mips32_winsize;
+
+// Define kernel sigaction for [rt_]sigaction
+typedef struct Mips32_k_sigaction {
+  uint32_t sa_flags;
+  Mips32_VAddr k_sa_handler;
+  uint32_t sa_mask[4];
+  Mips32_VAddr sa_restorer;
+  uint32_t sa_pad;
+} Mips32_k_sigaction;
+
+// Define timespec for nanosleep
+typedef struct Mips32_timespec {
+  Mips32_time_t  tv_sec ;
+  int32_t tv_nsec;
+} Mips32_timespec;
+
+// Define args for sysctl
+typedef struct Mips32___sysctl_args {
+  Mips32_VAddr    name;
+  int32_t  nlen;
+  Mips32_VAddr    oldval;
+  Mips32_VAddr    oldlenp;
+  Mips32_VAddr    newval;
+  Mips32_VSize    newlen;
+  uint32_t __unused[4];
+} Mips32___sysctl_args;
+
+// Define Pollfd for poll
+typedef struct Mips32_pollfd {
+  int32_t  fd;
+  int16_t  events;
+  int16_t  revents;
+} Mips32_pollfd;
 // Convert endianness of iovec for readv/writev
 void cvtEndianBig(Mips32_iovec &val){
   cvtEndianBig(val.iov_base);
@@ -715,3 +1041,46 @@ void cvtEndianBig(Mips32_stat &val){
   cvtEndianBig(val.st_blksize);
   cvtEndianBig(val.st_blocks);
 }
+// Convert endianness of dirent64 for getdents
+void cvtEndianBig(Mips32_dirent64 &val){
+  cvtEndianBig(val.d_ino);
+  cvtEndianBig(val.d_off);
+  cvtEndianBig(val.d_reclen);
+  cvtEndianBig(val.d_type);
+  { for(int i=0;i<256;i++) cvtEndianBig(val.d_name[i]); }
+}
+// Convert endianness of winsize for WINSZ ioctls
+void cvtEndianBig(Mips32_winsize &val){
+  cvtEndianBig(val.ws_row);
+  cvtEndianBig(val.ws_col);
+  cvtEndianBig(val.ws_xpixel);
+  cvtEndianBig(val.ws_ypixel);
+}
+// Convert endianness of kernel sigaction for [rt_]sigaction
+void cvtEndianBig(Mips32_k_sigaction &val){
+  cvtEndianBig(val.sa_flags);
+  cvtEndianBig(val.k_sa_handler);
+  { for(int i=0;i<4;i++) cvtEndianBig(val.sa_mask[i]); }
+  cvtEndianBig(val.sa_restorer);
+}
+// Convert endianness of timespec for nanosleep
+void cvtEndianBig(Mips32_timespec &val){
+  cvtEndianBig(val.tv_sec );
+  cvtEndianBig(val.tv_nsec);
+}
+// Convert endianness of args for sysctl
+void cvtEndianBig(Mips32___sysctl_args &val){
+  cvtEndianBig(val.name);
+  cvtEndianBig(val.nlen);
+  cvtEndianBig(val.oldval);
+  cvtEndianBig(val.oldlenp);
+  cvtEndianBig(val.newval);
+  cvtEndianBig(val.newlen);
+}
+// Convert endianness of Pollfd for poll
+void cvtEndianBig(Mips32_pollfd &val){
+  cvtEndianBig(val.fd);
+  cvtEndianBig(val.events);
+  cvtEndianBig(val.revents);
+}
+#endif

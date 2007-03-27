@@ -10,9 +10,9 @@ namespace Mips {
     GprNameLb = RegTypeGpr,
     RegZero   = GprNameLb,
     RegAT,
-    RegV0,
+    RegV0, // 2
     RegV1,
-    RegA0,
+    RegA0, // 4
     RegA1,
     RegA2,
     RegA3,
@@ -20,11 +20,11 @@ namespace Mips {
     RegA5,
     RegA6,
     RegA7,
-    RegT4,
+    RegT4, // 12
     RegT5,
     RegT6,
     RegT7,
-    RegS0,
+    RegS0, // 16
     RegS1,
     RegS2,
     RegS3,
@@ -33,14 +33,15 @@ namespace Mips {
     RegS6,
     RegS7,
     RegT8,
-    RegT9,
+    RegT9, // 25
     RegKT0,
     RegKT1,
     RegGP,
-    RegSP,
-    RegS8,
+    RegSP, // 29
+    RegS8, // 30
     RegFP     = RegS8,
-    RegRA,
+    RegRA, // 31
+    RegTmp, // Temporary GPR for implementing micro-ops
     GprNameUb,
     // Floating-point registers
     FprNameLb = RegTypeFpr,
@@ -76,6 +77,7 @@ namespace Mips {
     RegF29,
     RegF30,
     RegF31,
+    RegFpTmp, // Temporary FPR for implementing micro-ops
     FprNameUb,
     // Control registers
     FcrNameLb = RegTypeCtl,
@@ -91,13 +93,16 @@ namespace Mips {
     // We use RegLo as a target to create a dependence
     RegHL=RegLo,
     RegJunk, // Junk register, stores to RegZero go here
+    RegCond, // Condition register for implementing micro-ops
     SpcNameUb,
   };
 
   template<typename T>
   inline T getReg(const ThreadContext *context, RegName name){
     I(!isFprName(name));
-    const T *ptr=static_cast<const T *>(context->getReg(name));
+    I(static_cast<MipsRegName>(name)!=RegJunk);
+    //    I(static_cast<MipsRegName>(name)!=RegZero);
+   const T *ptr=static_cast<const T *>(context->getReg(name));
     switch(sizeof(T)){
     case 8:
       I(context->getMode()==Mips64);
@@ -113,6 +118,8 @@ namespace Mips {
   template<typename T>
   inline void setReg(ThreadContext *context, RegName name, T val){
     I(!isFprName(name));
+    I(static_cast<MipsRegName>(name)!=RegJunk);
+    I(static_cast<MipsRegName>(name)!=RegZero);
     T *ptr=static_cast<T *>(context->getReg(name));
     switch(sizeof(T)){
     case 8:

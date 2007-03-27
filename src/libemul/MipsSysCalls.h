@@ -4,7 +4,12 @@
 class ThreadContext;
 class InstDesc;
 
-void mipsProgArgs(ThreadContext *context, int argc, char **argv, char **envp);
+namespace Mips{
+  void initSystem(ThreadContext *context);
+  void createStack(ThreadContext *context);
+  void setProgArgs(ThreadContext *context, int argc, char **argv, int envc, char **envp);
+  bool handleSignals(ThreadContext *context);
+}
 
 void mipsSysCall(InstDesc *inst, ThreadContext *context);
 

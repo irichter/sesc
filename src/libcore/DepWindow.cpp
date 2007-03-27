@@ -516,11 +516,13 @@ void DepWindow::executed(DInst *dinst)
       I(dstReady->isSrc2Ready());
       I(dstReady->getInst()->isLoad());
 
+#ifdef LOG_ENFORCEMENT
       LOG("across cluster dependence enforcement (%p) pc=0x%x [addr=0x%x] vs (%p) pc=0x%x [addr=0x%x]"
       	  ,dinst
       	  ,(int)dinst->getInst()->getAddr()   , (int)dinst->getVaddr()
       	  ,dstReady
       	  ,(int)dstReady->getInst()->getAddr(), (int)dstReady->getVaddr());
+#endif
 
     dinst->addFakeSrc(dstReady, true); // Requeue the instruction at the end
 

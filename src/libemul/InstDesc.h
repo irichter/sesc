@@ -69,12 +69,15 @@ enum InstCtlInfoEnum{
 
   CtlLMask   = 0xF000,  // Mask for all the bits that are a property of the location where the instruction is, not if instruction itself
   CtlInDSlot = 0x1000,  // This instruction is in a delay slot of another instruction
+  CtlEndTrac = 0x8000,  // This is the last instruction in a trace
 };
 typedef InstCtlInfoEnum InstCtlInfo;
 
 void instDecode(InstDesc *inst, ThreadContext *context);
 
 class Instruction;
+
+Instruction *createSescInst(const InstDesc *inst);
 
 class InstDesc{
  public:
@@ -95,12 +98,12 @@ class InstDesc{
   InstCtlInfo ctlInfo;
 #if (defined DEBUG)
   Opcode   op;
-  InstTypInfo typInfo;
 #endif
+  InstTypInfo typInfo;
   InstDesc *nextInst;
-  Instruction *inst;
+  Instruction *sescInst;
  public:
-  InstDesc(void) : emulFunc(instDecode), ctlInfo(CtlInvalid), nextInst(0){
+  InstDesc(void) : emulFunc(instDecode), ctlInfo(CtlInvalid), nextInst(0), sescInst(0){
 #if (defined DEBUG)
     op=OpInvalid;
     typInfo=TypNop;
@@ -110,7 +113,6 @@ class InstDesc{
     regSrc1=regSrc2=regSrc3=RegNone;
     imm1.i=0;
     imm2.u=0;
-    inst=0;
   }
   size_t getInstSize(void){
     return ctlInfo&CtlISize;
@@ -124,7 +126,15 @@ class InstDesc{
   bool isInDSlot(void){
     return ctlInfo&CtlInDSlot;
   }
+  Instruction *getSescInst(void){
+    if(!sescInst)
+      sescInst=createSescInst(this);
+    return sescInst;
+  }
 };
+
+#define InvalidInstDesc ((InstDesc *)0)
+#define NoJumpInstDesc  ((InstDesc *)-2)
 
 #endif // !(defined INST_DESC_H)
 

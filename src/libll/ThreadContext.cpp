@@ -9,6 +9,8 @@
 #include "globals.h"
 #if !(defined MIPS_EMUL)
 #include "opcodes.h"
+#else
+#include "FileSys.h"
 #endif
 
 #ifdef TASKSCALAR
@@ -54,7 +56,31 @@ void ThreadContext::copy(const ThreadContext *src)
   youngest=src->youngest;
   sibling=src->sibling;
 #if (defined MIPS_EMUL)
+  parentID=src->parentID;
+  childIDs=src->childIDs;
+  waiting=src->waiting;
+  exited=src->exited;
+  exitCode=src->exitCode;
+  killSignal=src->killSignal;
+  // Registers and processor mode
+  cpuMode=src->cpuMode;
+  memcpy(regs,src->regs,sizeof(regs));
+  // Address space and signals
   addressSpace=src->addressSpace;
+  sigTable=src->sigTable;
+  sigState=src->sigState;
+  exitSig=src->exitSig;
+  // File system
+  openFiles=src->openFiles;
+  // Instruction pointer
+  jumpInstDesc=src->jumpInstDesc;
+  nextInstDesc=src->nextInstDesc;
+  // Call stack
+  entryStack=src->entryStack;
+  raddrStack=src->raddrStack;
+  frameStack=src->frameStack;
+  I(!src->pendJump);
+  pendJump=false;
 #else // For (defined MIPS_EMUL)
   for(size_t i=0;i<32;i++) {
     reg[i]=src->reg[i];
@@ -126,6 +152,9 @@ ThreadContext *ThreadContext::newActual(void)
 #if (defined TLS)
   context->myEpoch=0;
 #endif
+#if (defined MIPS_EMUL)
+  context->parentID=-1;
+#endif
   nThreads++;
   return context;
 }
@@ -145,6 +174,9 @@ ThreadContext *ThreadContext::newActual(Pid_t pid)
   pid2context[pid]=context;
 #if (defined TLS)
   context->myEpoch=0;
+#endif
+#if (defined MIPS_EMUL)
+  context->parentID=-1;
 #endif
   nThreads++;
   return context;
@@ -180,6 +212,10 @@ void ThreadContext::free(void)
   I(pid>=0);
   I((size_t)pid<pid2context.size());
   I(pid2context[pid]==this);
+#if (defined MIPS_EMUL)
+  // Detach from file descriptor table
+  setOpenFiles(0);
+#endif
   // Stupid hack needed to prevent the main thread's address space from
   // ever being freed. When the last thread is freed, some memory requests are
   // still pending and check for validity of their addresses using the
@@ -191,10 +227,10 @@ void ThreadContext::free(void)
     return;
   pid2context[pid]=0;
 #if (defined MIPS_EMUL)
-  if(!isCloned()){
-    // Delete stack memory from address space
-    addressSpace->deleteSegment(myStackAddrLb,myStackAddrUb-myStackAddrLb);
-  }
+//   if(!isCloned()){
+//     // Delete stack memory from address space
+//     addressSpace->deleteSegment(myStackAddrLb,myStackAddrUb-myStackAddrLb);
+//   }
   // Detach from address space
   addressSpace->delReference();
   addressSpace=0;
@@ -613,9 +649,69 @@ long long int MintFuncArgs::getInt64(void){
 #endif // !(defined MIPS_EMUL)
 
 #if (defined MIPS_EMUL)
-void ThreadContext::writeMemFromBuf(VAddr addr, size_t len, void *buf){
+
+ThreadContext *ThreadContext::createChild(bool shareAddrSpace, bool shareSigTable, bool shareOpenFiles, SignalID sig){
+  ThreadContext *newContext=newActual();
+  // Set up parent/child relationship
+  I(newContext->parentID==-1);
+  newContext->parentID=pid;
+  I(childIDs.find(newContext->pid)==childIDs.end());
+  childIDs.insert(newContext->pid);
+  newContext->waiting=false;
+  newContext->exited=false;
+  newContext->killSignal=SigNone;
+  // Copy registers and processor mode
+  newContext->cpuMode=cpuMode;
+  memcpy(newContext->regs,regs,sizeof(regs));
+  // Copy address space and signals
+  if(shareAddrSpace){
+    newContext->setAddressSpace(getAddressSpace());
+  }else{
+    newContext->setAddressSpace(new AddressSpace(*(getAddressSpace())));
+  }
+  newContext->myStackAddrLb=myStackAddrLb;
+  newContext->myStackAddrUb=myStackAddrUb;
+  if(shareSigTable){
+    newContext->setSignalTable(getSignalTable());
+  }else{
+    newContext->setSignalTable(new SignalTable(*(getSignalTable())));
+  }
+  newContext->setSignalState(new SignalState(*(getSignalState())));
+  // Copy files system info
+  if(shareOpenFiles){
+    newContext->setOpenFiles(getOpenFiles());
+  }else{
+    newContext->setOpenFiles(new FileSys::OpenFiles(*(getOpenFiles())));
+  }
+  // Copy instruction pointer
+  I(jumpInstDesc==NoJumpInstDesc);
+  newContext->jumpInstDesc=NoJumpInstDesc;
+  newContext->nextInstDesc=newContext->virt2inst(nextInstDesc->addr);
+  I(newContext->nextInstDesc!=InvalidInstDesc);
+  // Copy call stack
+  newContext->entryStack=entryStack;
+  newContext->raddrStack=raddrStack;
+  newContext->frameStack=frameStack;
+  I(!pendJump);
+  newContext->pendJump=false;
+  newContext->exitSig=sig;
+  return newContext;
+}
+
+#include "OSSim.h"
+
+int ThreadContext::findZombieChild(void) const{
+  for(IntSet::iterator childIt=childIDs.begin();childIt!=childIDs.end();childIt++){
+    ThreadContext *childContext=getContext(*childIt);
+    if(childContext->isExited()||childContext->isKilled())
+      return *childIt;
+  }
+  return 0;
+}
+
+void ThreadContext::writeMemFromBuf(VAddr addr, size_t len, const void *buf){
   I(canWrite(addr,len));
-  uint8_t *byteBuf=(uint8_t *)buf;
+  const uint8_t *byteBuf=(uint8_t *)buf;
   while(len){
     if((addr&sizeof(uint8_t))||(len<sizeof(uint16_t))){
       writeMemRaw(addr,*((uint8_t *)byteBuf));
@@ -642,14 +738,15 @@ void ThreadContext::writeMemFromBuf(VAddr addr, size_t len, void *buf){
     }
   }
 }
-ssize_t ThreadContext::writeMemFromFile(VAddr addr, size_t len, int fd){
+ssize_t ThreadContext::writeMemFromFile(VAddr addr, size_t len, int fd, bool natFile){
   I(canWrite(addr,len));
   ssize_t retVal=0;
   uint8_t buf[AddressSpace::getPageSize()];
   while(len){
     size_t ioSiz=AddressSpace::getPageSize()-(addr&(AddressSpace::getPageSize()-1));
-    if(ioSiz>len) ioSiz=len;
-    ssize_t nowRet=read(fd,buf,ioSiz);
+    if(ioSiz>len)
+      ioSiz=len;
+    ssize_t nowRet=(natFile?(read(fd,buf,ioSiz)):(openFiles->read(fd,buf,ioSiz)));
     if(nowRet==-1)
       return nowRet;
     retVal+=nowRet;
@@ -702,7 +799,7 @@ void ThreadContext::readMemToBuf(VAddr addr, size_t len, void *buf){
     }
   }
 }
-ssize_t ThreadContext::readMemToFile(VAddr addr, size_t len, int fd){
+ssize_t ThreadContext::readMemToFile(VAddr addr, size_t len, int fd, bool natFile){
   I(canRead(addr,len));
   ssize_t retVal=0;
   uint8_t buf[AddressSpace::getPageSize()];
@@ -710,7 +807,7 @@ ssize_t ThreadContext::readMemToFile(VAddr addr, size_t len, int fd){
     size_t ioSiz=AddressSpace::getPageSize()-(addr&(AddressSpace::getPageSize()-1));
     if(ioSiz>len) ioSiz=len;
     readMemToBuf(addr,ioSiz,buf);
-    ssize_t nowRet=write(fd,buf,ioSiz);
+    ssize_t nowRet=(natFile?(write(fd,buf,ioSiz)):(openFiles->write(fd,buf,ioSiz)));
     if(nowRet==-1)
       return nowRet;
     retVal+=nowRet;
@@ -734,5 +831,102 @@ ssize_t ThreadContext::readMemString(VAddr stringVAddr, size_t maxSize, char *ds
       break;
   }
   return i;
+}
+
+void ThreadContext::setOpenFiles(FileSys::OpenFiles *newOpenFiles){
+  if(newOpenFiles)
+    newOpenFiles->addRef();
+  if(openFiles)
+    openFiles->delRef();
+  openFiles=newOpenFiles;
+}
+
+#include "MipsRegs.h"
+
+void ThreadContext::execJump(VAddr src, VAddr dst){
+  I(!pendJump);
+  pendJump=true;
+  jumpSrc=src;
+  jumpDst=dst;
+}
+void ThreadContext::execInst(VAddr addr, VAddr sp){
+  if(!pendJump){
+    return;
+  }
+  if(addr!=jumpDst){
+    I(addr==jumpSrc+4);
+    return;
+  }
+  pendJump=false;
+  VAddr srcFunc=addressSpace->getFuncAddr(jumpSrc);
+  VAddr dstFunc=addressSpace->getFuncAddr(jumpDst);
+  if((!srcFunc)||(!dstFunc))
+    return;
+  if(jumpDst==dstFunc){
+    // Jump to function entry point, see  where the return address is 
+    VAddr  retAddr=(VAddr)(Mips::getReg<uint32_t>(this,static_cast<RegName>(Mips::RegRA)));
+    VAddr  retFunc=addressSpace->getFuncAddr(retAddr);
+    if((!frameStack.empty())&&(sp==frameStack.back())){
+      // Tail function call
+      I(retAddr==raddrStack.back());
+      entryStack.pop_back();
+      raddrStack.pop_back();
+      frameStack.pop_back();
+      I(entryStack.empty()||(retFunc==entryStack.back()));
+    }else{
+      // Normal function call
+      I(retFunc==srcFunc);
+    }
+    entryStack.push_back(dstFunc);
+    raddrStack.push_back(retAddr);
+    frameStack.push_back(sp);
+//     printf("Call from %s to %s\n",
+// 	   addressSpace->getFuncName(srcFunc),
+// 	   addressSpace->getFuncName(dstFunc));
+  }else if(!raddrStack.empty()&&(jumpDst==raddrStack.back())&&(sp==frameStack.back())){
+    // Normal function return
+    entryStack.pop_back();
+    raddrStack.pop_back();
+    frameStack.pop_back();
+//     printf("Return from %s to %s\n",
+// 	   addressSpace->getFuncName(srcFunc),
+// 	   addressSpace->getFuncName(dstFunc));
+  }else if((!frameStack.empty())&&(sp<=frameStack.back())){
+    I(srcFunc==dstFunc);
+  }else if(!frameStack.empty()){
+    printf("Weird jump from %s to %s, unwinding stack\n",
+	   addressSpace->getFuncName(srcFunc),
+	   addressSpace->getFuncName(dstFunc));
+    while((!frameStack.empty())&&(sp>frameStack.back())){
+      printf("Popping entry for %s from call stack\n",addressSpace->getFuncName(entryStack.back()));
+      entryStack.pop_back();
+      raddrStack.pop_back();
+      frameStack.pop_back();
+    }
+    if((!entryStack.empty())&&(entryStack.back()!=dstFunc)){
+      printf("Stack frame is for %s, but we are in %s. Clearing call-stack.\n",
+	     addressSpace->getFuncName(entryStack.back()),
+	     addressSpace->getFuncName(dstFunc));
+      entryStack.clear();
+      raddrStack.clear();
+      frameStack.clear();
+    }
+  }
+}
+
+void ThreadContext::dumpCallStack(void){
+  I(entryStack.size()==frameStack.size());
+  printf("Call stack dump for thread %d begins\n",pid);
+  for(size_t i=0;i<entryStack.size();i++){
+    printf("  Entry 0x%08x from 0x%08x, stack 0x%08x Name %s\n",entryStack[i],raddrStack[i],frameStack[i],addressSpace->getFuncName(entryStack[i]));
+  }
+  printf("Call stack dump for thread %d ends\n",pid);
+}
+
+void ThreadContext::clearCallStack(void){
+  printf("Clearing call stack for %d\n",pid);
+  entryStack.clear();
+  raddrStack.clear();
+  frameStack.clear();
 }
 #endif // (define MIPS_EMUL)

@@ -33,20 +33,26 @@ else
 ##############
 # gcc Compiler
 PDEFS	:=-W -Wall -Wno-unused
-CXX	=g++ 
+CXX	=g++
 CC	=gcc
 
-LOPTS	:=-O2
-
 ifdef PERFORMANCE
-COPTS	:=-O2 -pg 
-LOPTS   += -pg 
+COPTS	:=-O2 -pg
+LOPTS   :=-O2 -pg 
 else
 ifdef DEBUG
-COPTS	:=-O0 -g -fno-inline-functions $(PDEFS)
+# Profiling and coverage analysis options
+#COPTS	:= -O0 -g -pg -fprofile-arcs -ftest-coverage -fno-inline-functions $(PDEFS)
+#LOPTS	+= -O0 -g -pg -fprofile-arcs -ftest-coverage
+# Memory bug checking
+#COPTS	:= -O0 -g -fno-inline-functions -fmudflap -lmudflap $(PDEFS)
+#LOPTS	+= -O0 -g -fmudflap -lmudflap
+COPTS	:= -O0 -g -fno-inline-functions $(PDEFS)
+LOPTS	+= -O0 -g
 else
 # -fast does not work by default. Disable some opts
 COPTS	:=-O3
+LOPTS	:=-O2
 endif # DEBUG
 endif # PERFORMANCE
 

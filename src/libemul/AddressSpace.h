@@ -3,12 +3,14 @@
 
 #include <unistd.h>
 #include <vector>
+#include <set>
 #include <map>
 #include "Addressing.h"
 #include "CvtEndian.h"
 #include "InstDesc.h"
 #include "common.h"
 #include "nanassert.h"
+#include "GCObject.h"
 
 #define AddrSpacPageOffsBits (12)
 #define AddrSpacPageSize     (1<<AddrSpacPageOffsBits)
@@ -18,10 +20,13 @@
 //#define SPLIT_PAGE_TABLE
 #if (defined SPLIT_PAGE_TABLE)
 #define AddrSpacRootBits (AddrSpacPageNumBits/2)
+#define AddrSpacRootSize (1<<AddrSpacRootBits)
 #define AddrSpacLeafBits (AddrSpacPageNumBits-AddrSpacRootBits)
 #define AddrSpacLeafSize (1<<AddrSpacLeafBits)
 #define AddrSpacLeafMask (AddrSpacLeafSize-1)
 #endif
+
+typedef uint64_t MemAlignType;
 
 class AddressSpace{
   struct SegmentDesc{
@@ -63,20 +68,71 @@ class AddressSpace{
   };
   typedef std::map<VAddr,SegmentDesc,std::greater<VAddr> > SegmentMap;
   SegmentMap segmentMap;
+  // Information about pages of physical memory
+  class FrameDesc : public GCObject{
+  private:
+    MemAlignType data[AddrSpacPageSize/sizeof(MemAlignType)];
+    size_t cpOnWrCount;
+  public:
+    FrameDesc();
+    FrameDesc(FrameDesc &src);
+    ~FrameDesc();
+    int8_t *getData(VAddr addr){
+      size_t offs=(addr&AddrSpacPageOffsMask);
+      int8_t *retVal=&(reinterpret_cast<int8_t *>(data)[offs]);
+      I(reinterpret_cast<unsigned long int>(retVal)>=reinterpret_cast<unsigned long int>(data));
+      I(AddrSpacPageSize==sizeof(data));
+      I(reinterpret_cast<unsigned long int>(retVal)<reinterpret_cast<unsigned long int>(data)+AddrSpacPageSize);
+      return retVal;
+    }
+    void addCpOnWr(void){
+      cpOnWrCount++;
+    }
+    size_t getCpOnWrCount(void) const{
+      return cpOnWrCount;
+    }
+    void delRef(void){
+      I(getRefCount()>0);
+      I(getRefCount()==cpOnWrCount+1);
+      if(cpOnWrCount)
+	cpOnWrCount--;
+      GCObject::delRef();
+    }
+  };
+  // Information about decoded instructions for a page of virtual memory
+  class TraceDesc : public GCObject{
+  private:
+    InstDesc inst[AddrSpacPageSize];
+  public:
+    TraceDesc(VAddr addr) : GCObject(){
+      for(size_t pageOffs=0;pageOffs<AddrSpacPageSize;pageOffs++)
+	inst[pageOffs].addr=addr+pageOffs;
+      addRef();
+    }
+    InstDesc *getInst(VAddr addr){
+      size_t offs=(addr&AddrSpacPageOffsMask);
+      I(inst[offs].addr=addr);
+      return &(inst[offs]);
+    }
+  };
+  // Information about pages of virtual memory (in each AddressSpace)
   struct PageDesc{
-    uint8_t   *data;
-    InstDesc  *inst;
+    FrameDesc *frame;
+    TraceDesc *insts;
     // Number of can-read segments that overlap with this page
     size_t     canRead;
     // Number of can-write segments that overlap with this page
     size_t     canWrite;
     // Number of can-exec segments that overlap with this page
     size_t     canExec;
-    PageDesc(void) : data(0), inst(0), canRead(0), canWrite(0), canExec(0) { }
+    // Is this page shared
+    bool shared;
+    PageDesc(void) : frame(0), insts(0), canRead(0), canWrite(0), canExec(0), shared(false){ }
+    PageDesc &operator=(const PageDesc &src);
   };
 #if (defined SPLIT_PAGE_TABLE)
   typedef PageDesc *PageMapLeaf;
-  PageMapLeaf pageMapRoot[1<<AddrSpacRootBits];
+  PageMapLeaf pageMapRoot[AddrSpacRootSize];
 #else
   PageDesc pageMap[AddrSpacPageNumCount];
 #endif
@@ -100,6 +156,7 @@ class AddressSpace{
   }
   void addPages(size_t pageNumLb, size_t pageNumUb, bool canRead, bool canWrite, bool canExec);
   void delPages(size_t pageNumLb, size_t pageNumUb, bool canRead, bool canWrite, bool canExec);
+  void removePage(PageDesc &pageDesc, size_t pageNum);
   VAddr brkBase;
  public:
   static inline size_t getPageSize(void){
@@ -108,7 +165,10 @@ class AddressSpace{
   // Returns true iff the specified block does not ovelap with any allocated segment
   bool isNoSegment(VAddr addr, size_t len) const{
     SegmentMap::const_iterator segIt=segmentMap.upper_bound(addr+len);
-    return (segIt==segmentMap.end())||(segIt->second.addr+segIt->second.len<=addr);
+    if(segIt==segmentMap.end())
+      return true;
+    const SegmentDesc &segDesc=segIt->second;
+    return (segDesc.addr+segDesc.len<=addr);
   }
   // Returns true iff the specified block is entirely within the same allocated segment
   bool isInSegment(VAddr addr, size_t len) const{
@@ -121,10 +181,12 @@ class AddressSpace{
     return (segIt!=segmentMap.end())&&(segIt->second.len==len);
   }
   void setBrkBase(VAddr addr){
-    I(isNoSegment(addr,sizeof(uint64_t)));
+    while(addr%sizeof(MemAlignType))
+      addr++;
+    I(isNoSegment(addr,sizeof(MemAlignType)));
     brkBase=addr;
-    newSegment(brkBase,sizeof(uint64_t),true,true,false);
-    uint64_t val=0;
+    newSegment(brkBase,sizeof(MemAlignType),true,true,false);
+    MemAlignType val=0;
     writeMemRaw(brkBase,val);
   }
   VAddr getBrkBase(void) const{
@@ -187,77 +249,107 @@ class AddressSpace{
     size_t rootNum=(pageNum>>AddrSpacLeafBits);
     size_t leafNum=(pageNum&AddrSpacLeafMask);
     PageMapLeaf leafTable=pageMapRoot[rootNum];
-    RAddr  frameBase=leafTable?((RAddr)(leafTable[leafNum].data)):0;
+    if(!leafTable)
+      return 0;
+    FrameDesc *frame=leafTable[leafNum].frame;
 #else
-    RAddr  frameBase=(RAddr)(pageMap[pageNum].data);
+    FrameDesc *frame=pageMap[pageNum].frame;
 #endif
-    return frameBase+(frameBase!=0)*pageOffs;
+    if(!frame)
+      return 0;
+    return (RAddr)(frame->getData(addr));
   }
   inline InstDesc *virtToInst(VAddr addr) const{
-    size_t pageOffs=(addr&AddrSpacPageOffsMask);
     size_t pageNum=(addr>>AddrSpacPageOffsBits);
     //    I(addr==pageNum*PageSize+pageOffs);
 #if (defined SPLIT_PAGE_TABLE)
     size_t rootNum=(pageNum>>AddrSpacLeafBits);
     size_t leafNum=(pageNum&AddrSpacLeafMask);
     PageMapLeaf leafTable=pageMapRoot[rootNum];
-    InstDesc *frameBase=leafTable?(leafTable[leafNum].inst):0;
+    if(!leafTable)
+      return 0;
+    TraceDesc *insts=leafTable[leafNum].insts;
 #else
-    InstDesc *frameBase=pageMap[pageNum].inst;
+    TraceDesc *insts=pageMap[pageNum].insts;
 #endif
-    return (frameBase==0)?0:frameBase+pageOffs;
+    if(!insts)
+      return 0;
+    return insts->getInst(addr);
   }
  public:
-  struct FileDesc{
-    // Real open file descriptor
-    int fd;
-    // Close-on-exec flag, false by default
-    bool cloexec;
-    FileDesc(void) : fd(-1){ }
-  };
-  typedef std::vector<FileDesc> FileDescMap;
-  FileDescMap openFiles;
-  int  getRealFd(int simfd) const;
-  int  newSimFd(int realfd);
-  void newSimFd(int realfd, int simfd);
-  void delSimFd(int simfd);
-  bool getCloexec(int simfd) const;
-  void setCloexec(int simfd, bool cloexec);
+
+/*   struct FileDesc{ */
+/*     // Real open file descriptor */
+/*     int fd; */
+/*     // Close-on-exec flag, false by default */
+/*     bool cloexec; */
+/*     FileDesc(void) : fd(-1){ } */
+/*     FileDesc(const FileDesc &src) : fd(src.fd), cloexec(src.cloexec){ */
+/*       if(fd!=-1){ */
+/* 	fd=dup(fd); */
+/* 	I(fd>=0); */
+/*       } */
+/*     } */
+/*   }; */
+/*   typedef std::vector<FileDesc> FileDescMap; */
+/*   FileDescMap openFiles; */
+/*   int  getRealFd(int simfd) const; */
+/*   int  newSimFd(int realfd); */
+/*   void newSimFd(int realfd, int simfd); */
+/*   void delSimFd(int simfd); */
+/*   bool getCloexec(int simfd) const; */
+/*   void setCloexec(int simfd, bool cloexec); */
+
   AddressSpace(void);
   AddressSpace(AddressSpace &src);
+  void clear(bool isExec);
   ~AddressSpace(void);
   void addReference();
   void delReference(void);
   template<class T>
   inline bool readMemRaw(VAddr addr, T &val){
-    PageDesc &myPage=getPageDesc(getPageNum(addr));
+    size_t pageNum=getPageNum(addr);
+    I(addr+sizeof(T)<=(pageNum+1)*AddrSpacPageSize);
+    PageDesc &myPage=getPageDesc(pageNum);
     if(!myPage.canRead)
       return false;
-    val=*(reinterpret_cast<T *>(myPage.data+getPageOff(addr)));
+    val=*(reinterpret_cast<T *>(myPage.frame->getData(addr)));
     return true;
   }
   template<class T>
   inline bool writeMemRaw(VAddr addr, const T &val){
-    PageDesc &myPage=getPageDesc(getPageNum(addr));
+    size_t pageNum=getPageNum(addr);
+    I(addr+sizeof(T)<=(pageNum+1)*AddrSpacPageSize);
+    PageDesc &myPage=getPageDesc(pageNum);
     if(!myPage.canWrite)
       return false;
-    *(reinterpret_cast<T *>(myPage.data+getPageOff(addr)))=val;
+    I(myPage.frame->getCpOnWrCount()==myPage.frame->getRefCount()-1);
+    if(myPage.frame->getCpOnWrCount())
+      myPage.frame=new FrameDesc(*myPage.frame);
+    I(!myPage.frame->getCpOnWrCount());
+    I(myPage.frame->getCpOnWrCount()==myPage.frame->getRefCount()-1);    
+    *(reinterpret_cast<T *>(myPage.frame->getData(addr)))=val;
     return true;
   }
  private:
   // Number of threads that are using this address space
   size_t refCount;
- private:
+
+  //
   // Mapping of function names to code addresses
-  typedef std::map<char *,VAddr> NameToAddrMap;
+  //
+ private:
   typedef std::multimap<VAddr,char *> AddrToNameMap;
-  NameToAddrMap funcNameToAddr;
   AddrToNameMap funcAddrToName;
  public:
   // Add a new function name-address mapping
   void addFuncName(const char *name, VAddr addr);
   // Return name of the function with given entry point
-  const char *getFuncName(VAddr addr);
+  const char *getFuncName(VAddr addr) const;
+  // Given a code address, return where the function begins (best guess)
+  VAddr getFuncAddr(VAddr addr) const;
+  // Given a code address, return the function size (best guess)
+  size_t getFuncSize(VAddr addr) const;
   // Print name(s) of function(s) with given entry point
   void printFuncName(VAddr addr);
 };

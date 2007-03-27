@@ -65,32 +65,37 @@ void cvtEndianBig(Elf32_RegInfo &info){
   cvtEndianBig(info.ri_gp_value);
 }
 
-void loadElfObject(const char *fname, ThreadContext *threadContext){
-  int fd=open(fname,O_RDONLY);
-  if(fd==-1)
-      fail("Could not open ELF file %s",fname);
-
+int  checkElfObject(const char *fname){
+  char *myfname=(char *)(alloca(strlen(fname)+strlen(".Sesc")+1));
+  strcpy(myfname,fname);
+  int fd=open(myfname,O_RDONLY);
+  if(fd==-1){
+    strcpy(myfname+strlen(fname),".Sesc");
+    fd==open(myfname,O_RDONLY);
+    if(fd==-1)
+      return errno;
+  }
   // Read the ELF header
   Elf32_Ehdr myElfHdr;
   if(read(fd,&myElfHdr,sizeof(myElfHdr))!=sizeof(myElfHdr))
-    fail("Could not read ELF header for file %s",fname);
+    return ENOEXEC;
   char elfMag[]= {ELFMAG0, ELFMAG1, ELFMAG2, ELFMAG3 };
   if(memcmp(myElfHdr.e_ident,elfMag,sizeof(elfMag)))
-    fail("Not an ELF file: %s",fname);
+    return ENOEXEC;
   if(myElfHdr.e_ident[EI_DATA]!=ELFDATA2MSB)
-    fail("Not a big-endian ELF file: %s",fname);
+    return ENOEXEC;
   if(myElfHdr.e_ident[EI_CLASS]!=ELFCLASS32)
-    fail("Not a 32-bit ELF file: %s",fname);
+    return ENOEXEC;
   cvtEndianBig(myElfHdr);
   if((myElfHdr.e_ident[EI_VERSION]!=EV_CURRENT) ||
      (myElfHdr.e_version!=EV_CURRENT))
-    fail("Wrong ELF version in file %s",fname);
+    return ENOEXEC;
   if(myElfHdr.e_ehsize!=sizeof(myElfHdr))
-    fail("Wrong ELF header size in file %s\n",fname);
+    return ENOEXEC;
   if(myElfHdr.e_machine!=EM_MIPS)
-    fail("Not a MIPS ELF file %s",fname);
+    return ENOEXEC;
   if(myElfHdr.e_type!=ET_EXEC)
-    fail("Not an executable file %s",fname);
+    return ENOEXEC;
   int mipsArch;
   switch(myElfHdr.e_flags&EF_MIPS_ARCH){
   case EF_MIPS_ARCH_1: mipsArch=1; break;    
@@ -98,20 +103,71 @@ void loadElfObject(const char *fname, ThreadContext *threadContext){
   case EF_MIPS_ARCH_3: mipsArch=3; break;
   case EF_MIPS_ARCH_4: mipsArch=4; break;
   default:
-    fail("Using architecture above MIPS4 in ELF file %s",fname);
+    return ENOEXEC;
+  }
+  if(myElfHdr.e_phentsize!=sizeof(Elf32_Phdr))
+    return ENOEXEC;
+  if(myElfHdr.e_shentsize!=sizeof(Elf32_Shdr))
+    return ENOEXEC;
+  close(fd);
+  return 0;					\
+}
+
+void loadElfObject(const char *fname, ThreadContext *threadContext){
+  char *myfname=(char *)(alloca(strlen(fname)+strlen(".Sesc")+1));
+  strcpy(myfname,fname);
+  int fd=open(myfname,O_RDONLY);
+  if(fd==-1){
+    strcpy(myfname+strlen(fname),".Sesc");
+    fd==open(myfname,O_RDONLY);
+    if(fd==-1)
+      fail("Could not open ELF file %s (nor %s)",fname,myfname);
+  }
+  // Read the ELF header
+  Elf32_Ehdr myElfHdr;
+  if(read(fd,&myElfHdr,sizeof(myElfHdr))!=sizeof(myElfHdr))
+    fail("Could not read ELF header for file %s",myfname);
+  char elfMag[]= {ELFMAG0, ELFMAG1, ELFMAG2, ELFMAG3 };
+  if(memcmp(myElfHdr.e_ident,elfMag,sizeof(elfMag)))
+    fail("Not an ELF file: %s",myfname);
+  if(myElfHdr.e_ident[EI_DATA]!=ELFDATA2MSB)
+    fail("Not a big-endian ELF file: %s",myfname);
+  if(myElfHdr.e_ident[EI_CLASS]!=ELFCLASS32)
+    fail("Not a 32-bit ELF file: %s",myfname);
+  cvtEndianBig(myElfHdr);
+  if((myElfHdr.e_ident[EI_VERSION]!=EV_CURRENT) ||
+     (myElfHdr.e_version!=EV_CURRENT))
+    fail("Wrong ELF version in file %s",myfname);
+  if(myElfHdr.e_ehsize!=sizeof(myElfHdr))
+    fail("Wrong ELF header size in file %s\n",myfname);
+  if(myElfHdr.e_machine!=EM_MIPS)
+    fail("Not a MIPS ELF file %s",myfname);
+  if(myElfHdr.e_type!=ET_EXEC)
+    fail("Not an executable file %s",myfname);
+  int mipsArch;
+  switch(myElfHdr.e_flags&EF_MIPS_ARCH){
+  case EF_MIPS_ARCH_1: mipsArch=1; break;    
+  case EF_MIPS_ARCH_2: mipsArch=2; break;
+  case EF_MIPS_ARCH_3: mipsArch=3; break;
+  case EF_MIPS_ARCH_4: mipsArch=4; break;
+  default:
+    fail("Using architecture above MIPS4 in ELF file %s",myfname);
     mipsArch=-1;
     break;
   }
-  printf("Executable %s uses mips%d architecture\n",fname,mipsArch);
-  if(myElfHdr.e_flags&(EF_MIPS_PIC|EF_MIPS_CPIC))
-    printf("Executable %s contains or uses PIC code\n",fname);
+  //  printf("Executable %s uses mips%d architecture\n",fname,mipsArch);
+  //  if(myElfHdr.e_flags&(EF_MIPS_PIC|EF_MIPS_CPIC))
+  //    printf("Executable %s contains or uses PIC code\n",fname);
   if(myElfHdr.e_phentsize!=sizeof(Elf32_Phdr))
-    fail("Wrong ELF program table entry size in %s",fname);
+    fail("Wrong ELF program table entry size in %s",myfname);
   if(myElfHdr.e_shentsize!=sizeof(Elf32_Shdr))
-    fail("Wrong ELF section table entry size in %s",fname);
+    fail("Wrong ELF section table entry size in %s",myfname);
 
   // It's a 32-bit file, but which ABI?
   threadContext->setMode((myElfHdr.e_flags&EF_MIPS_ABI2)?Mips64:Mips32);
+
+  // Clear all the registers (this is actually needed for correct operation)
+  threadContext->clearRegs();
   
   // Address space of the thread
   AddressSpace *addrSpace=threadContext->getAddressSpace();
@@ -222,22 +278,22 @@ void loadElfObject(const char *fname, ThreadContext *threadContext){
   // Get the section name string table
   char *secNamTab=0;
   if(myElfHdr.e_shstrndx==SHN_UNDEF)
-    fail("No section name string table in ELF file %s",fname);
+    fail("No section name string table in ELF file %s",myfname);
   else{
     if(lseek(fd,(off_t)(myElfHdr.e_shoff+myElfHdr.e_shstrndx*sizeof(Elf32_Shdr)),SEEK_SET)!=
        (off_t)(myElfHdr.e_shoff+myElfHdr.e_shstrndx*sizeof(Elf32_Shdr)))
-      fail("Couldn't seek to section for section name string table in ELF file %s",fname);
+      fail("Couldn't seek to section for section name string table in ELF file %s",myfname);
     Elf32_Shdr mySecHdr;
     if(read(fd,&mySecHdr,sizeof(mySecHdr))!=sizeof(mySecHdr))
-      fail("Could not read ELF section table entry %d in %s",myElfHdr.e_shstrndx,fname);
+      fail("Could not read ELF section table entry %d in %s",myElfHdr.e_shstrndx,myfname);
     cvtEndianBig(mySecHdr);
     if(mySecHdr.sh_type!=SHT_STRTAB)
-      fail("Section table entry for section name string table is not of SHT_STRTAB type in ELF file %s",fname);
+      fail("Section table entry for section name string table is not of SHT_STRTAB type in ELF file %s",myfname);
     if(lseek(fd,mySecHdr.sh_offset,SEEK_SET)!=mySecHdr.sh_offset)
-      fail("Could not seek to section name string table in ELF file %s",fname);
+      fail("Could not seek to section name string table in ELF file %s",myfname);
     secNamTab=(char *)malloc(mySecHdr.sh_size);
     if(read(fd,secNamTab,mySecHdr.sh_size)!=mySecHdr.sh_size)
-      fail("Could not read the section name string table in ELF file %s",fname);
+      fail("Could not read the section name string table in ELF file %s",myfname);
   }
     
   // Read symbol tables and their string tables
@@ -246,15 +302,15 @@ void loadElfObject(const char *fname, ThreadContext *threadContext){
     for(uint16_t secTabIdx=0;secTabIdx<myElfHdr.e_shnum;secTabIdx++){
       Elf32_Shdr mySymSecHdr;
       if(lseek(fd,secTabPos,SEEK_SET)!=secTabPos)
-	fail("Couldn't seek to current ELF section table position in %s",fname);
+	fail("Couldn't seek to current ELF section table position in %s",myfname);
       if(read(fd,&mySymSecHdr,sizeof(mySymSecHdr))!=sizeof(mySymSecHdr))
-	fail("Could not read ELF section table entry in %s",fname);
+	fail("Could not read ELF section table entry in %s",myfname);
       cvtEndianBig(mySymSecHdr);
       if((secTabPos=lseek(fd,0,SEEK_CUR))==(off_t)-1)
-	fail("Could not get current file position in %s",fname);
+	fail("Could not get current file position in %s",myfname);
       if(mySymSecHdr.sh_type==SHT_SYMTAB){
 	if(mySymSecHdr.sh_entsize!=sizeof(Elf32_Sym))
-	  fail("Symbol table has entries of wrong size in ELF file %s",fname);
+	  fail("Symbol table has entries of wrong size in ELF file %s",myfname);
 	Elf32_Shdr myStrSecHdr;
 	uint64_t  symTabSize=mySymSecHdr.sh_size;
 	Elf32_Off symTabOffs=mySymSecHdr.sh_offset;
@@ -262,23 +318,23 @@ void loadElfObject(const char *fname, ThreadContext *threadContext){
 	if(lseek(fd,(off_t)(myElfHdr.e_shoff+strTabSec*sizeof(myStrSecHdr)),SEEK_SET)!=
 	   (off_t)(myElfHdr.e_shoff+strTabSec*sizeof(myStrSecHdr)))
 	  fail("Couldn't seek to string table section %d for symbol table section %d in ELF file %s",
-		secTabIdx,strTabSec,fname);
+		secTabIdx,strTabSec,myfname);
 	if(read(fd,&myStrSecHdr,sizeof(myStrSecHdr))!=sizeof(myStrSecHdr))
-	  fail("Could not read ELF section table entry %d in %s",fname,secTabIdx);
+	  fail("Could not read ELF section table entry %d in %s",myfname,secTabIdx);
 	cvtEndianBig(myStrSecHdr);
 	if(myStrSecHdr.sh_type!=SHT_STRTAB)
-	  fail("SYMTAB section %d links to non-STRTAB section %d in ELF file %s",secTabIdx,strTabSec,fname);
+	  fail("SYMTAB section %d links to non-STRTAB section %d in ELF file %s",secTabIdx,strTabSec,myfname);
 	if(lseek(fd,myStrSecHdr.sh_offset,SEEK_SET)!=myStrSecHdr.sh_offset)
-	  fail("Could not seek to string table for SYMTAB section %d in ELF file %s",secTabIdx,fname);
+	  fail("Could not seek to string table for SYMTAB section %d in ELF file %s",secTabIdx,myfname);
 	char *strTab=(char *)malloc(myStrSecHdr.sh_size);
 	if(read(fd,strTab,myStrSecHdr.sh_size)!=myStrSecHdr.sh_size)
-	  fail("Could not read string table for SYMTAB section %d in ELF file %s",secTabIdx,fname);
+	  fail("Could not read string table for SYMTAB section %d in ELF file %s",secTabIdx,myfname);
 	if(lseek(fd,symTabOffs,SEEK_SET)!=symTabOffs)
-	  fail("Could not seek to symbol table for section %d in ELF file %s",secTabIdx,fname);
+	  fail("Could not seek to symbol table for section %d in ELF file %s",secTabIdx,myfname);
 	for(uint64_t symTabIdx=0;symTabIdx<symTabSize/sizeof(Elf32_Sym);symTabIdx++){
 	  Elf32_Sym mySym;
 	  if(read(fd,&mySym,sizeof(mySym))!=sizeof(mySym))
-	    fail("Could not read symbol in ELF file %s",fname);
+	    fail("Could not read symbol in ELF file %s",myfname);
 	  cvtEndianBig(mySym);
 	  switch(ELF32_ST_TYPE(mySym.st_info)){
 	  case STT_FILE:   // Ignore file name symbols
@@ -287,11 +343,12 @@ void loadElfObject(const char *fname, ThreadContext *threadContext){
 	  case STT_NOTYPE: // Ignore miscelaneous (no-type) symbols
 	    break;
 	  case STT_FUNC:   // Function entry point
-	    char *funcName=strTab+mySym.st_name;
-	    VAddr funcAddr=mySym.st_value;
-	    if(funcAddr)
-	      addrSpace->addFuncName(funcName,funcAddr);
-	    break;
+	    {
+	      char *funcName=strTab+mySym.st_name;
+	      VAddr funcAddr=mySym.st_value;
+	      if(funcAddr)
+		addrSpace->addFuncName(funcName,funcAddr);
+	    } break;
 	  default:
 	    fail("Unknown symbol type %d for symbol %s value %x\n",
 		  ELF32_ST_TYPE(mySym.st_info),
@@ -313,12 +370,12 @@ void loadElfObject(const char *fname, ThreadContext *threadContext){
     for(uint16_t secTabIdx=0;secTabIdx<myElfHdr.e_shnum;secTabIdx++){
       Elf32_Shdr mySecHdr;
       if(lseek(fd,secTabPos,SEEK_SET)!=secTabPos)
-	fail("Couldn't seek to current ELF section table position in %s",fname);
+	fail("Couldn't seek to current ELF section table position in %s",myfname);
       if(read(fd,&mySecHdr,sizeof(mySecHdr))!=sizeof(mySecHdr))
-	fail("Could not read ELF section table entry in %s",fname);
+	fail("Could not read ELF section table entry in %s",myfname);
       cvtEndianBig(mySecHdr);
       if((secTabPos=lseek(fd,0,SEEK_CUR))==(off_t)-1)
-	fail("Could not get current file position in %s",fname);
+	fail("Could not get current file position in %s",myfname);
       switch(mySecHdr.sh_type){
       case SHT_NULL:         // This section is unused by definition
       case SHT_MIPS_DWARF:   // Debugging info, we ignore it
@@ -329,16 +386,16 @@ void loadElfObject(const char *fname, ThreadContext *threadContext){
       case SHT_MIPS_REGINFO: {
 	// Register use info, parse to get initial global pointer value
 	if(mySecHdr.sh_size!=sizeof(Elf32_RegInfo))
-	  fail("SHT_MIPS_REGINFO section size mismatch in ELF file %s",fname);
+	  fail("SHT_MIPS_REGINFO section size mismatch in ELF file %s",myfname);
 	Elf32_RegInfo myRegInfo;
 	off_t regInfoOff=mySecHdr.sh_offset;
 	if(lseek(fd,regInfoOff,SEEK_SET)!=regInfoOff)
-	  fail("Couldn't seek to ELF RegInfo segment in %s",fname);
+	  fail("Couldn't seek to ELF RegInfo segment in %s",myfname);
 	if(read(fd,&myRegInfo,sizeof(myRegInfo))!=sizeof(myRegInfo))
-	  fail("Could not read ELF RegInfo segment in %s",fname);
+	  fail("Could not read ELF RegInfo segment in %s",myfname);
 	cvtEndianBig(myRegInfo);
 	if(myRegInfo.ri_cprmask[0] || myRegInfo.ri_cprmask[2] || myRegInfo.ri_cprmask[3])
-	  fail("Unsupported coprocessor registers used in ELF file %s",fname);
+	  fail("Unsupported coprocessor registers used in ELF file %s",myfname);
 	Mips::setReg<uint32_t>(threadContext,static_cast<RegName>(Mips::RegGP),myRegInfo.ri_gp_value);
       } break;
       case SHT_NOBITS: case SHT_PROGBITS: {
@@ -348,9 +405,9 @@ void loadElfObject(const char *fname, ThreadContext *threadContext){
 	  addrSpace->newSegment(mySecHdr.sh_addr,mySecHdr.sh_size,false,true,false);
 	  if(mySecHdr.sh_type==SHT_PROGBITS){
 	    if(lseek(fd,mySecHdr.sh_offset,SEEK_SET)!=mySecHdr.sh_offset)
-	      fail("Couldn't seek to a SHT_PROGBITS section in ELF file %s",fname);
-	    if(threadContext->writeMemFromFile(mySecHdr.sh_addr,mySecHdr.sh_size,fd)!=mySecHdr.sh_size)
-	      fail("Could not read a SHT_PROGBITS section from ELF file %s",fname);
+	      fail("Couldn't seek to a SHT_PROGBITS section in ELF file %s",myfname);
+	    if(threadContext->writeMemFromFile(mySecHdr.sh_addr,mySecHdr.sh_size,fd,true)!=mySecHdr.sh_size)
+	      fail("Could not read a SHT_PROGBITS section from ELF file %s",myfname);
 	  }else{
 	    threadContext->writeMemWithByte(mySecHdr.sh_addr,mySecHdr.sh_size,0);
 	  }
@@ -381,5 +438,5 @@ void loadElfObject(const char *fname, ThreadContext *threadContext){
   // Set instruction pointer to the program entry point
   VAddr entryIAddr=myElfHdr.e_entry;
   threadContext->setNextInstDesc(threadContext->virt2inst(entryIAddr));
-  threadContext->setJumpInstDesc(0);
+  threadContext->setJumpInstDesc(NoJumpInstDesc);
 }
