@@ -678,6 +678,18 @@ public:
   VAddr jumpSrc;
   VAddr jumpDst;
 
+  void execCall(VAddr  retAddr, VAddr dstFunc, VAddr sp){
+    I(!pendJump);
+    entryStack.push_back(dstFunc);
+    raddrStack.push_back(retAddr);
+    frameStack.push_back(sp);
+  }
+  void execRet(void){
+    I(!pendJump);
+    entryStack.pop_back();
+    raddrStack.pop_back();
+    frameStack.pop_back();
+  }
   void execJump(VAddr src, VAddr dst);
   void execInst(VAddr addr, VAddr sp);
   void dumpCallStack(void);

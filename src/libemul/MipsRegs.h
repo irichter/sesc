@@ -94,6 +94,7 @@ namespace Mips {
     RegHL=RegLo,
     RegJunk, // Junk register, stores to RegZero go here
     RegCond, // Condition register for implementing micro-ops
+    RegLink, // Link register for implementing LL/SC
     SpcNameUb,
   };
 

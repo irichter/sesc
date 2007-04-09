@@ -877,17 +877,13 @@ void ThreadContext::execInst(VAddr addr, VAddr sp){
       // Normal function call
       I(retFunc==srcFunc);
     }
-    entryStack.push_back(dstFunc);
-    raddrStack.push_back(retAddr);
-    frameStack.push_back(sp);
+    execCall(retAddr,dstFunc,sp);
 //     printf("Call from %s to %s\n",
 // 	   addressSpace->getFuncName(srcFunc),
 // 	   addressSpace->getFuncName(dstFunc));
   }else if(!raddrStack.empty()&&(jumpDst==raddrStack.back())&&(sp==frameStack.back())){
     // Normal function return
-    entryStack.pop_back();
-    raddrStack.pop_back();
-    frameStack.pop_back();
+    execRet();
 //     printf("Return from %s to %s\n",
 // 	   addressSpace->getFuncName(srcFunc),
 // 	   addressSpace->getFuncName(dstFunc));

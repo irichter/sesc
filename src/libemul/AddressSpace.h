@@ -180,6 +180,19 @@ class AddressSpace{
     SegmentMap::const_iterator segIt=segmentMap.find(addr);
     return (segIt!=segmentMap.end())&&(segIt->second.len==len);
   }
+  // returns true iff the entire specified block is mapped
+  bool isMapped(VAddr addr, size_t len) const{
+    while(true){
+      SegmentMap::const_iterator segIt=segmentMap.lower_bound(addr);
+      if(segIt==segmentMap.end())
+	return false;
+      VAddr endAddr=segIt->second.addr+segIt->second.len;
+      if(endAddr>=addr+len)
+	return true;
+      len-=(endAddr-addr);
+      addr=endAddr;
+    }
+  }
   void setBrkBase(VAddr addr){
     while(addr%sizeof(MemAlignType))
       addr++;
@@ -202,6 +215,9 @@ class AddressSpace{
     segmentMap[addr].autoGrow=autoGrow;
     segmentMap[addr].growDown=growDown;
   }
+  // Splits a segment into two, one that ends at the pivot and one that begins there
+  // The pivot must be within an existing segment
+  void splitSegment(VAddr pivot);
   void newSegment(VAddr addr, size_t len, bool canRead, bool canWrite, bool canExec, bool shared=false, bool fileMap=false);
   void protectSegment(VAddr addr, size_t len, bool canRead, bool canWrite, bool canExec);
   VAddr newSegmentAddr(size_t len);

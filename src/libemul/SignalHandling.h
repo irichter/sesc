@@ -5,6 +5,9 @@
 #include <bitset>
 #include <vector>
 
+// Define this to enable debugging of signal handling and delivery
+//#define DEBUG_SIGNALS
+
 typedef enum{
   SigActTerm   = 0,
   SigActIgnore = 1,
@@ -51,6 +54,7 @@ typedef void SigCallBackFun(SigInfo *);
 class SigCallBack{
  public:
   virtual void operator()(SigInfo *sigInfo) = 0;
+  virtual ~SigCallBack(){ }
 };
 
 class SignalState{
@@ -108,15 +112,36 @@ class SignalState{
     }
   }
   void pushMask(const SignalSet &newMask){
+#if (defined DEBUG_SIGNALS)
+    if((newMask.test(32))&&(!masks.back().test(32)))
+      printf("Disabling signal 32\n");
+    if((!newMask.test(32))&&(masks.back().test(32)))
+      printf("Enabling signal 32\n");
+#endif
     masks.push_back(newMask);
     maskChanged();
   }
   void setMask(const SignalSet &newMask){
+#if (defined DEBUG_SIGNALS)
+    if((newMask.test(32))&&(!masks.back().test(32)))
+      printf("Disabling signal 32\n");
+    if((!newMask.test(32))&&(masks.back().test(32)))
+      printf("Enabling signal 32\n");
+#endif
     masks.back()=newMask;
     maskChanged();
   }
   void popMask(void){
+#if (defined DEBUG_SIGNALS)
+    SignalSet oldMask=masks.back();
+#endif
     masks.pop_back();
+#if (defined DEBUG_SIGNALS)
+    if((oldMask.test(32))&&(!masks.back().test(32)))
+      printf("Enabling signal 32\n");
+    if((!oldMask.test(32))&&(masks.back().test(32)))
+      printf("Disabling signal 32\n");
+#endif
     I(!masks.empty());
     maskChanged();
   }

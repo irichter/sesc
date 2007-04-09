@@ -11,6 +11,9 @@
 #include "EmulInit.h"
 // This is the SESC Instruction class to let us create a DInst
 #include "Instruction.h"
+// To get getContext(pid), needed to implement LL/SC
+// (Remove this when ThreadContext stays in one place on thread switching)
+#include "OSSim.h"
 
 namespace Mips {
 
@@ -216,6 +219,9 @@ namespace Mips {
     FLOpBase=FLOpInv00,
   } Opcode;
   
+  typedef std::set<Pid_t> PidSet;
+  PidSet linkset;
+
   static inline void preExec(InstDesc *inst, ThreadContext *context){
 #if (defined DEBUG_BENCH)
     context->execInst(inst->addr,getReg<uint32_t>(context,static_cast<RegName>(RegSP)));
@@ -649,6 +655,19 @@ namespace Mips {
       if(!context->writeMem(addr,val))
 	fail("writeMem: segmentation fault\n");
     }
+    if(!linkset.empty()){
+      PidSet::iterator pidIt=linkset.begin();
+      while(pidIt!=linkset.end()){
+	if((*pidIt==context->getPid())||
+	   (getReg<RegUnsT>(osSim->getContext(*pidIt),static_cast<RegName>(RegLink))==(addr-(addr&0x7)))){
+	  setReg<RegUnsT>(osSim->getContext(*pidIt),static_cast<RegName>(RegLink),0);
+	  linkset.erase(pidIt);
+	  pidIt=linkset.begin();
+	}else{
+	  pidIt++;
+	}
+      }
+    }
     return true;
   }
   template<Opcode op, typename RegSigT, typename RegUnsT, CpuMode mode>
@@ -680,6 +699,8 @@ namespace Mips {
       setReg<RegUnsT>(context,inst->regDst,static_cast<RegUnsT>(val));
     } break;
     case OpLl:  // TODO: Do the actual link, then same as OpLw
+      setReg<RegSigT>(context,static_cast<RegName>(RegLink),vaddr-(vaddr&0x7));
+      linkset.insert(context->getPid());
     case OpLw:  {
       int32_t  val;
       readMem(context,vaddr,val);
@@ -761,15 +782,23 @@ namespace Mips {
 #endif
       writeMem(context,vaddr,(uint16_t)(getReg<uint32_t>(context,inst->regSrc2)));
       break;
-    case OpSc:  // TODO: Do the actual link check, then proceed to OpSw
-#if (defined DEBUG)
-      if(static_cast<MipsRegName>(inst->regSrc2)==RegZero){
-	writeMem(context,vaddr,static_cast<uint32_t>(0));
-	break;
-      }
+    case OpSc:
+      // If link does not match, regDst becomes zero and there is no write 
+      if(getReg<RegUnsT>(context,static_cast<RegName>(RegLink))!=(vaddr-(vaddr&0x7))){
+	setReg<RegSigT>(context,inst->regDst,0);
+#if (defined DEBUG_BENCH)
+	printf("OpSc fails inst 0x%08x addr 0x%08lx in %d\n",inst->addr,(long unsigned int)vaddr,context->getPid());
 #endif
-      writeMem(context,vaddr,getReg<uint32_t>(context,inst->regSrc2));
-      setReg<RegSigT>(context,inst->regDst,1);
+      }else{
+#if (defined DEBUG)
+	if(static_cast<MipsRegName>(inst->regSrc2)==RegZero){
+	  writeMem(context,vaddr,static_cast<uint32_t>(0));
+	  break;
+	}
+#endif
+	writeMem(context,vaddr,getReg<uint32_t>(context,inst->regSrc2));
+	setReg<RegSigT>(context,inst->regDst,1);
+      }
       break;
     case OpSw:
 #if (defined DEBUG)

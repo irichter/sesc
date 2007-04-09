@@ -211,6 +211,26 @@ VAddr AddressSpace::newSegmentAddr(size_t len){
   }
   return retVal;
 }
+void AddressSpace::splitSegment(VAddr pivot){
+  // Find segment that begins below pivot - this will be the one to split
+  SegmentMap::iterator segIt=segmentMap.upper_bound(pivot);
+  // Return if no such segment
+  if(segIt==segmentMap.end())
+    return;
+  SegmentDesc &oldSeg=segIt->second;
+  // If segment ends at or below pivot, no split needed
+  if(oldSeg.addr+oldSeg.len<=pivot)
+    return;
+  SegmentDesc &newSeg=segmentMap[pivot];
+  newSeg.setAddr(pivot);
+  newSeg.setLen(oldSeg.addr+oldSeg.len-newSeg.addr);
+  newSeg.copyFlags(oldSeg);
+  oldSeg.setLen(oldSeg.len-newSeg.len);
+  if(newSeg.pageNumLb<oldSeg.pageNumUb){
+    I(newSeg.pageNumLb+1==oldSeg.pageNumUb);
+    addPages(newSeg.pageNumLb,newSeg.pageNumUb,newSeg.canRead,newSeg.canWrite,newSeg.canExec);
+  }
+}
 void AddressSpace::growSegmentDown(VAddr oldaddr, VAddr newaddr){
   I(segmentMap.find(oldaddr)!=segmentMap.end());
   I(newaddr<oldaddr);
@@ -332,6 +352,8 @@ void AddressSpace::newSegment(VAddr addr, size_t len, bool canRead, bool canWrit
   }
 }
 void AddressSpace::protectSegment(VAddr addr, size_t len, bool canRead, bool canWrite, bool canExec){
+  splitSegment(addr);
+  splitSegment(addr+len);
   I(isSegment(addr,len));
   SegmentDesc &mySeg=segmentMap[addr];
   I(mySeg.addr==addr);

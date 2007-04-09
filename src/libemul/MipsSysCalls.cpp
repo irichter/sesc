@@ -12,11 +12,17 @@
 // For process control calls (spawn/wait/etc)
 #include "OSSim.h"
 
-//#define DEBUG_SIGNALS
 //#define DEBUG_SYSCALLS
 //#define DEBUG_FILES
+//#define DEBUG_MEMORY
 
 namespace Mips {
+
+#if (defined DEBUG_SIGNALS)
+  typedef std::set<Pid_t> PidSet;
+  PidSet suspSet;
+#endif
+
   void sysCall32_syscall(InstDesc *inst, ThreadContext *context);
   void sysCall32_exit(InstDesc *inst, ThreadContext *context);
   void sysCall32_fork(InstDesc *inst, ThreadContext *context);
@@ -555,15 +561,21 @@ int64_t Mips32FuncArgs::getL(void){
 namespace Mips {
 
   static VAddr  sysCodeAddr=AddrSpacPageSize;
-  static size_t sysCodeSize=2*sizeof(uint32_t);
+  static size_t sysCodeSize=4*sizeof(uint32_t);
   
   void initSystem(ThreadContext *context){
     AddressSpace *addrSpace=context->getAddressSpace();
     addrSpace->newSegment(sysCodeAddr,sysCodeSize,false,true,false,false,false);
+    addrSpace->addFuncName("sysCode",sysCodeAddr);
+    addrSpace->addFuncName("invalid",sysCodeAddr+sysCodeSize);
+    // jalr t9
+    context->writeMem<uint32_t>(sysCodeAddr+0*sizeof(uint32_t),0x0320f809);
+    // nop
+    context->writeMem<uint32_t>(sysCodeAddr+1*sizeof(uint32_t),0x00000000);
     // li v0,4193 (syscall number for rt_sigreturn)
-    context->writeMem<uint32_t>(sysCodeAddr,0x24020000+4193);
+    context->writeMem<uint32_t>(sysCodeAddr+2*sizeof(uint32_t),0x24020000+4193);
     // Syscall
-    context->writeMem<uint32_t>(sysCodeAddr+sizeof(uint32_t),0x0000000C);
+    context->writeMem<uint32_t>(sysCodeAddr+3*sizeof(uint32_t),0x0000000C);
     addrSpace->protectSegment(sysCodeAddr,sysCodeSize,true,false,true);
   }
 
@@ -694,6 +706,9 @@ namespace Mips {
 
   bool handleSignal(ThreadContext *context, SigInfo *sigInfo){
     SignalDesc &sigDesc=(*(context->getSignalTable()))[sigInfo->signo];
+#if (defined DEBUG_SIGNALS)
+    printf("Mips::handleSignal for pid=%d, signal=%d, action=0x%08x\n",context->getPid(),sigInfo->signo,sigDesc.handler);
+#endif
     switch((SignalAction)(sigDesc.handler)){
     case SigActCore:
     case SigActTerm:
@@ -701,15 +716,23 @@ namespace Mips {
       return true;
     case SigActIgnore: 
       return false;
-    case SigActStop: 
+    case SigActStop:
+#if (defined DEBUG_SIGNALS)
+      suspSet.insert(context->getPid());
+#endif
       osSim->eventSuspend(context->getPid(),-1);
       return true;
     default:
       break;
     }
     I(context->getJumpInstDesc()==NoJumpInstDesc);
+    // Set the sigaction's signal mask
+    SignalState *sstate=context->getSignalState();
+    sstate->pushMask(sigDesc.mask);
+    // Save registers and PC
     VAddr pc=context->getNextInstDesc()->addr;
     VAddr sp=Mips::getReg<uint32_t>(context,static_cast<RegName>(Mips::RegSP));
+    context->execCall(pc,Mips::sysCodeAddr,sp);
     for(size_t i=0;i<32;i++){
       uint32_t wrVal;
       switch(i){
@@ -725,9 +748,8 @@ namespace Mips {
     }
     Mips::setReg<uint32_t>(context,static_cast<RegName>(Mips::RegSP),sp);
     Mips::setReg<uint32_t>(context,static_cast<RegName>(Mips::RegA0),sigFromLocal(sigInfo->signo));
-    Mips::setReg<uint32_t>(context,static_cast<RegName>(Mips::RegRA),Mips::sysCodeAddr);
     Mips::setReg<uint32_t>(context,static_cast<RegName>(Mips::RegT9),sigDesc.handler);
-    context->setNextInstDesc(context->virt2inst(sigDesc.handler));
+    context->setNextInstDesc(context->virt2inst(Mips::sysCodeAddr));
     return true;
   }
   bool handleSignals(ThreadContext *context){
@@ -810,6 +832,11 @@ namespace Mips {
 #if (defined DEBUG_SIGNALS)
     printf("Suspend %d in sysCall32_exit\n",context->getPid());
     context->dumpCallStack();
+    printf("Also suspended:");
+    for(PidSet::iterator suspIt=suspSet.begin();suspIt!=suspSet.end();suspIt++)
+      printf(" %d",*suspIt);
+    printf("\n");
+    suspSet.insert(context->getPid());
 #endif
     osSim->eventSuspend(context->getPid(),context->getPid());
     // Deliver the exit signal to the parent process if needed
@@ -842,6 +869,7 @@ namespace Mips {
     virtual void operator()(SigInfo *sigInfo){
 #if (defined DEBUG_SIGNALS)
       printf("Resume %d from SigCallBack_wait4\n",pid);
+      suspSet.erase(pid);
 #endif
       osSim->eventResume(pid,pid);
     }
@@ -871,6 +899,9 @@ namespace Mips {
       }
       if(rusage)
 	fail("sysCall32_wait4 with rusage parameter not supported\n");
+#if (defined DEBUG_SIGNALS)
+      suspSet.erase(pid);
+#endif
       osSim->eventResume(pid,cpid);
       osSim->eventExit(cpid,ccontext->getExitCode());
       context->doHarvest(cpid);
@@ -881,7 +912,12 @@ namespace Mips {
     context->setNextInstDesc(inst);
     context->getSignalState()->setWakeup(new SigCallBack_wait4(context->getPid()));
 #if (defined DEBUG_SIGNALS)
-    printf("Suspend %d in sysCall32_wait4(pid=%d,status=%x,options=%x\n",context->getPid(),pid,status,options);
+    printf("Suspend %d in sysCall32_wait4(pid=%d,status=%x,options=%x)\n",context->getPid(),pid,status,options);
+    printf("Also suspended:");
+    for(PidSet::iterator suspIt=suspSet.begin();suspIt!=suspSet.end();suspIt++)
+      printf(" %d",*suspIt);
+    printf("\n");
+    suspSet.insert(context->getPid());
 #endif
     osSim->eventSuspend(context->getPid(),context->getPid());
   }
@@ -1136,7 +1172,7 @@ namespace Mips {
     sigInfo->pid=context->getPid();
     kcontext->getSignalState()->raise(sigInfo);
 #if (defined DEBUG_SIGNALS)
-    printf("sysCall32_kill: signal %d sent to process %d\n",sig,pid);
+    printf("sysCall32_kill: signal %d sent from process %d to %d\n",sig,context->getPid(),pid);
 #endif
     sysCall32SetRet(context,0);
   }
@@ -1145,7 +1181,12 @@ namespace Mips {
   }
 
   void sysCall32_rt_sigreturn(InstDesc *inst, ThreadContext *context){
+#if (defined DEBUG_SIGNALS)
+    printf("sysCall32_rt_sigreturn pid %d to ",context->getPid());
+#endif    
     I(context->getJumpInstDesc()==NoJumpInstDesc);
+    SignalState *sstate=context->getSignalState();
+    sstate->popMask();
     VAddr sp=getReg<uint32_t>(context,static_cast<RegName>(RegSP));
     for(size_t i=0;i<32;i++){
       uint32_t rdVal;
@@ -1153,6 +1194,9 @@ namespace Mips {
       sp+=4;
       switch(31-i){
       case 0:
+#if (defined DEBUG_SIGNALS)
+	printf("0x%08x\n",rdVal);
+#endif    
 	context->setNextInstDesc(context->virt2inst(rdVal));
 	break;
       default:
@@ -1161,6 +1205,7 @@ namespace Mips {
       }
     }
     I(sp==getReg<uint32_t>(context,static_cast<RegName>(RegSP)));
+    context->execRet();
   }
   void sysCall32_rt_sigaction(InstDesc *inst, ThreadContext *context){
     Mips32FuncArgs myArgs(context);
@@ -1230,7 +1275,7 @@ namespace Mips {
     VAddr  nset=myArgs.getA();
     VAddr  oset=myArgs.getA();
     size_t size=myArgs.getW();
-    if(!context->canRead(nset,size))
+    if((nset)&&(!context->canRead(nset,size)))
       return sysCall32SetErr(context,Mips32_EFAULT);
     if((oset)&&(!context->canWrite(oset,size)))
       return sysCall32SetErr(context,Mips32_EFAULT);
@@ -1241,22 +1286,24 @@ namespace Mips {
       for(size_t w=0;w<Mips32__K_NSIG/32;w++)
 	context->writeMem(oset+w*4,omask[w]);
     }
-    uint32_t nmask[Mips32__K_NSIG/32];
-    for(size_t w=0;w<Mips32__K_NSIG/32;w++)
-      context->readMem(nset+w*4,nmask[w]);
-    SignalSet lset;
-    sigMaskToLocal(nmask,lset);
-    switch(how){
-    case Mips32_SIG_BLOCK:
-      sstate->setMask(sstate->getMask()|lset);
-      break;
-    case Mips32_SIG_UNBLOCK:
-      sstate->setMask((sstate->getMask()|lset)^lset);
-      break;
-    case Mips32_SIG_SETMASK:
-      sstate->setMask(lset);
-      break;
-    default: fail("Unsupported value of how\n");
+    if(nset){
+      uint32_t nmask[Mips32__K_NSIG/32];
+      for(size_t w=0;w<Mips32__K_NSIG/32;w++)
+	context->readMem(nset+w*4,nmask[w]);
+      SignalSet lset;
+      sigMaskToLocal(nmask,lset);
+      switch(how){
+      case Mips32_SIG_BLOCK:
+	sstate->setMask(sstate->getMask()|lset);
+	break;
+      case Mips32_SIG_UNBLOCK:
+	sstate->setMask((sstate->getMask()|lset)^lset);
+	break;
+      case Mips32_SIG_SETMASK:
+	sstate->setMask(lset);
+	break;
+      default: fail("Unsupported value of how\n");
+      }
     }
     sysCall32SetRet(context,0);
   }
@@ -1271,6 +1318,7 @@ namespace Mips {
       sysCall32SetErr(context,Mips32_EINTR);
 #if (defined DEBUG_SIGNALS)
       printf("Resume %d from SigCallBack_sigsuspend\n",pid);
+      suspSet.erase(pid);
 #endif
       osSim->eventResume(pid,pid);
     }
@@ -1298,6 +1346,11 @@ namespace Mips {
 #if (defined DEBUG_SIGNALS)
       printf("Suspend %d in sysCall32_rt_sigsuspend\n",pid);
       context->dumpCallStack();
+      printf("Also suspended:");
+      for(PidSet::iterator suspIt=suspSet.begin();suspIt!=suspSet.end();suspIt++)
+	printf(" %d",*suspIt);
+      printf("\n");
+      suspSet.insert(context->getPid());
 #endif
       osSim->eventSuspend(pid,pid);
       sstate->setWakeup(new SigCallBack_sigsuspend(pid));
@@ -1396,8 +1449,6 @@ namespace Mips {
     int    flags=myArgs.getW();
     int    fd=myArgs.getW();
     off_t  offset=myArgs.getW();
-    if(!(prot&Mips32_PROT_READ))
-      fail("sysCall32_mmap: mapping without PROT_READ not supported\n");
     if(flags&Mips32_MAP_FIXED)
       fail("sysCall32Mmap: MAP_FIXED not supported\n");
     I((flags&Mips32_MAP_SHARED)||(flags&Mips32_MAP_PRIVATE));
@@ -1412,8 +1463,18 @@ namespace Mips {
     }
     if(!retVal)
       return sysCall32SetErr(context,Mips32_ENOMEM);
-    context->getAddressSpace()->newSegment(retVal,length,true,prot&Mips32_PROT_WRITE,prot&Mips32_PROT_EXEC,flags&Mips32_MAP_SHARED);
+    // Create a write-only segment and zero it out
+    context->getAddressSpace()->newSegment(retVal,length,false,true,false,flags&Mips32_MAP_SHARED);
     context->writeMemWithByte(retVal,length,0);
+    context->getAddressSpace()->protectSegment(retVal,length,prot&Mips32_PROT_READ,prot&Mips32_PROT_WRITE,prot&Mips32_PROT_EXEC);
+#if (defined DEBUG_MEMORY)
+    printf("sysCall32_mmap addr 0x%08x len 0x%08lx R%d W%d X%d S%d\n",
+	   retVal,(unsigned long)length,
+	   (bool)(prot&Mips32_PROT_READ),
+	   (bool)(prot&Mips32_PROT_WRITE),
+	   (bool)(prot&Mips32_PROT_EXEC),
+	   (bool)(flags&Mips32_MAP_SHARED));
+#endif
     return sysCall32SetRet(context,retVal);
   }
   void sysCall32_mremap(InstDesc *inst, ThreadContext *context){
@@ -1450,10 +1511,33 @@ namespace Mips {
     size_t length=myArgs.getW();
     //  printf("munmap from 0x%08x to 0x%08lx\n",start,start+length);
     context->getAddressSpace()->deleteSegment(start,length);
+#if (defined DEBUG_MEMORY)
+    printf("sysCall32_munmap addr 0x%08x len 0x%08lx\n",
+	   start,(unsigned long)length);
+#endif
     sysCall32SetRet(context,0);
   }
   void sysCall32_mprotect(InstDesc *inst, ThreadContext *context){
-    // TODO: It does nothing now, implement actual protections
+    Mips32FuncArgs myArgs(context);
+    VAddr  addr=myArgs.getA();
+    size_t len=myArgs.getW();
+    int    prot=myArgs.getW();
+#if (defined DEBUG_MEMORY)
+    printf("sysCall32_mprotect addr 0x%08x len 0x%08lx R%d W%d X%d\n",
+	   addr,(unsigned long)len,
+	   (bool)(prot&Mips32_PROT_READ),
+	   (bool)(prot&Mips32_PROT_WRITE),
+	   (bool)(prot&Mips32_PROT_EXEC));
+#endif
+    if(!context->getAddressSpace()->isMapped(addr,len))
+      printf("sysCall32_mprotect EINVAL at addr 0x%08x len 0x%08lx R%d W%d X%d\n",
+	     addr,(unsigned long)len,
+	     (bool)(prot&Mips32_PROT_READ),
+	     (bool)(prot&Mips32_PROT_WRITE),
+	     (bool)(prot&Mips32_PROT_EXEC));
+    if(!context->getAddressSpace()->isMapped(addr,len))
+      return sysCall32SetErr(context,Mips32_EINVAL);
+    context->getAddressSpace()->protectSegment(addr,len,prot&Mips32_PROT_READ,prot&Mips32_PROT_WRITE,prot&Mips32_PROT_EXEC);
     sysCall32SetRet(context,0);
   }
   void sysCall32_msync(InstDesc *inst, ThreadContext *context){
@@ -1645,6 +1729,7 @@ namespace Mips {
     virtual void operator()(SigInfo *sigInfo){
 #if (defined DEBUG_SIGNALS)
       printf("Resume %d from SigCallBack_read\n",pid);
+      suspSet.erase(pid);
 #endif
       osSim->eventResume(pid,pid);
       ThreadContext *context=osSim->getContext(pid);
@@ -1675,6 +1760,12 @@ namespace Mips {
       context->getOpenFiles()->addReadBlock(fd,context->getPid());
 #if (defined DEBUG_SIGNALS)
       printf("Suspend %d in sysCall32_read(fd=%d)\n",context->getPid(),fd);
+      context->dumpCallStack();
+      printf("Also suspended:");
+      for(PidSet::iterator suspIt=suspSet.begin();suspIt!=suspSet.end();suspIt++)
+	printf(" %d",*suspIt);
+      printf("\n");
+      suspSet.insert(context->getPid());
 #endif
       osSim->eventSuspend(context->getPid(),context->getPid());
     }
@@ -2622,6 +2713,7 @@ namespace Mips {
     virtual void operator()(SigInfo *sigInfo){
 #if (defined DEBUG_SIGNALS)
       printf("Resume %d from SigCallBack_poll\n",pid);
+      suspSet.erase(pid);
 #endif
       osSim->eventResume(pid,pid);
       ThreadContext *context=osSim->getContext(pid);
@@ -2662,6 +2754,12 @@ namespace Mips {
       }
 #if (defined DEBUG_SIGNALS)
       printf(")\n");
+      context->dumpCallStack();
+      printf("Also suspended:");
+      for(PidSet::iterator suspIt=suspSet.begin();suspIt!=suspSet.end();suspIt++)
+	printf(" %d",*suspIt);
+      printf("\n");
+      suspSet.insert(context->getPid());
 #endif
       osSim->eventSuspend(context->getPid(),context->getPid());
     }
