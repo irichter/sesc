@@ -13,7 +13,11 @@ all: $(OBJ)/ta.o $(OBJ)/main.o $(OBJ)/libll.a $(OBJ)/sta.o
 ##############################################################################
 OBJS	:=Instruction.o MIPSInstruction.o PPCInstruction.o GFlow.o \
 	ExecutionFlow.o Events.o ThreadContext.o HeapManager.o TraceReader.o \
-	TraceFlow.o TT6Reader.o QemuSescReader.o QemuSparcInstruction.o SPARCInstruction.o
+	TraceFlow.o TT6Reader.o QemuSescReader.o  SPARCInstruction.o
+
+ifdef QEMU_DRIVEN
+OBJS += QEMUFlow.o QemuSparcInstruction.o
+endif
 
 ifdef SESC_RSTTRACE
 OBJS += RSTIntruction.o RSTReader.o RSTFlow.o

@@ -56,6 +56,18 @@ bool rz3_section_header::read(gzFile gzf) {
     return false;
   }
 
+  //jan {
+  //Need to swap multi-byte values on little endian machines
+  nrecords = SWAP_WORD(nrecords);
+  CompressedBufferSize = SWAP_LONG(CompressedBufferSize);
+  //fprintf(stderr, "NRECORDS: %x;\nCOMPRESSEDBUFFERSIZE: %llx;\n", nrecords, CompressedBufferSize);
+
+  for (int j=0; j<rstzip3::bitarray_count; j++) {
+    rz3_bitarray_counts[j] = SWAP_WORD(rz3_bitarray_counts[j]);
+    //fprintf(stderr, "J: %d; BITARRAYCOUNTS: %x;\n", j, rz3_bitarray_counts[j]);
+  }
+  //jan }
+
   // sanity checks
 
   return sanity_check();
@@ -248,7 +260,9 @@ bool rz3_section_data::read(gzFile gzf) {
       delete [] membuf;
       membuf = new uint8_t [membufsz];
     }
+
     if ((uint64_t)gzread(gzf, (void *)membuf, (unsigned int)sz) != sz) {
+      fprintf(stderr, "gzread failed\n"); //jan
       return false;
     }
     uint64_t bytes_copied = bitarrays[i]->CopyFrom(membuf, shdr->rz3_bitarray_counts[i]);

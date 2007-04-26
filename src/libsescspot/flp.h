@@ -31,7 +31,7 @@ typedef struct flp_t_st
 void print_flp_fig (flp_t *flp);
 
 /* read floorplan file and allocate memory	*/
-flp_t *read_flp(char *file);
+flp_t *read_flp(const char *file);
 
 /* memory uninitialization	*/
 void free_flp(flp_t *flp);

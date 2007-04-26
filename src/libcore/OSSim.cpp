@@ -65,6 +65,11 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 OSSim   *osSim=0;
 
+#ifdef QEMU_DRIVEN
+extern "C" long long n_inst_stop;
+extern "C" long long n_inst_start;
+#endif
+
 /**********************
  * OSSim
  */
@@ -424,18 +429,20 @@ void OSSim::processParams(int argc, char **argv, char **envp)
 
   I(nInst2Skip>=0);
 
-  int start_argc = i;
+#ifndef QEMU_DRIVEN
   nargv[ni++]= strdup("--");
+#endif
   
   for(; i < argc; i++) {
-    nargv[ni++] = strdup(argv[i]);
+    nargv[ni] = strdup(argv[i]);
+    ni++;
   }
   nargc = ni;
 
   SescConf = new SConfig(confName);   // First thing to do
 
-  Instruction::initialize(nargc, nargv, envp, start_argc);
- 
+  Instruction::initialize(nargc, nargv, envp);
+
   if( reportTo ) {
     reportFile = (char *)malloc(30 + strlen(reportTo));
     sprintf(reportFile, "%s.%s", reportTo, extension ? extension : x6);
@@ -957,7 +964,12 @@ void OSSim::preBoot()
   }
 
   FetchEngine::setnInst2Sim(nInst2Sim);
-  
+
+#ifdef QEMU_DRIVEN
+  n_inst_stop = nInst2Sim;
+  n_inst_start= nInst2Skip;
+#endif  
+
 #ifdef TS_PROFILING
   profiler = new Profile();
 #endif  

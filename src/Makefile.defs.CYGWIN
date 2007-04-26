@@ -42,7 +42,7 @@ COPTS	+= -march=i686
 endif 
 # Platform neutral
 COPTS +=-funroll-loops -fsched-interblock -fomit-frame-pointer
-COPTS +=-ffast-math -fno-exceptions -fno-strict-aliasing -freg-struct-return 
+COPTS +=-ffast-math -fno-strict-aliasing -freg-struct-return 
 ##############################################################################
 
 ##############################################################################

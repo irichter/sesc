@@ -91,8 +91,8 @@
     )
 
 #define tt6_isMemoryExtended(majorOp, minorOp) ( \
-    (majorOp==31 && minorOp==533) ||/* lswx Ð emit XER */		\
-  (majorOp==31 && minorOp==661) ||    /* stswx Ð emit XER */		\
-  (majorOp==31 && minorOp==342) ||/* dst, dstt Ð emit rB */    \
-(majorOp==31 && minorOp==374) /* dstst, dststt Ð emit rB */	\
+    (majorOp==31 && minorOp==533) ||/* lswx  emit XER */		\
+  (majorOp==31 && minorOp==661) ||    /* stswx  emit XER */		\
+  (majorOp==31 && minorOp==342) ||/* dst, dstt  emit rB */    \
+(majorOp==31 && minorOp==374) /* dstst, dststt  emit rB */	\
      )

@@ -307,9 +307,9 @@ double *hotspot_vector(int n_units)
 /* sets the temperature of a vector 'temp' allocated using 'hotspot_vector'	*/
 void set_temp(double *temp, int n_units, double val)
 {
-	int i;
-	for(i=0; i < NL*n_units + EXTRA; i++)
-		temp[i] = val;
+  int i;
+  for(i=0; i < NL*n_units + EXTRA; i++)
+    temp[i] = val;
 }
 
 /* dump temperature vector alloced using 'hotspot_vector' to 'file' */ 

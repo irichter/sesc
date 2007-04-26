@@ -9,7 +9,7 @@ all	: $(OBJ)/libsuc.a
 ##############################################################################
 #                Objects
 ##############################################################################
-OBJS	:= sescspot.o temperature.o RCutil.o flp.o util.o
+OBJS	:= sescspot.o temperature.o RCutil.o flp.o util.o gatherm2.o GenConf.o
 
 ##############################################################################
 #                             Change Rules                                   # 

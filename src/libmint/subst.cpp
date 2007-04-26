@@ -3854,20 +3854,19 @@ OP(mint_times) {
 #else // Begin (defined TLS) else block
     int err;
 
-#ifdef TASKSCALAR
     {
       char *cad1 = (char *)alloca(sizeof(struct tms));
       
                 err = (int) times((struct tms *)cad1);
 
+#ifdef TASKSCALAR
       rsesc_OS_write_block(pthread->getPid(), picode->addr, REGNUM(4), cad1 , sizeof(struct tms));
-    }
 #else
-    int r4 = REGNUM(4);
-    
-    // r4 = pthread->virt2real(r4);
-    err = (int) times((struct tms *)pthread->virt2real(r4));
+    struct tms *t = (struct tms *)pthread->virt2real(REGNUM(4));
+    // FIXME: convert from 64 to 32bit
+    err = 0;
 #endif
+    }
 
 #ifdef DEBUG_VERBOSE
     printf("mint_times()\n");

@@ -355,8 +355,11 @@ void GStatsHist::reportValue() const
     if((*it).first > maxKey)
       maxKey = (*it).first;
   }
+  long double div = cumulative; // cummulative has 64bits (double has 54bits mantisa)
+  div /= numSample;
+
   Report::field("%s_MaxKey=%lu",name,maxKey);
-  Report::field("%s_Avg=%f",name,((float) cumulative)/((float) numSample));
+  Report::field("%s_Avg=%f",name,(float)div);
   Report::field("%s_Samples=%lu",name,numSample);
 }
 

@@ -18,7 +18,7 @@ AS	=mipseb-linux-as
 LD	=mipseb-linux-ld
 
 ifdef DEBUG
-COPTS	:=-O1 -g -fno-default-inline
+COPTS	:=-O1 -g 
 LOPTS	:=-O1 -g
 else
 ##########################################################3

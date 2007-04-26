@@ -35,6 +35,10 @@ DEFS    +=-DNDEBUG
 DEFS    +=-DDEBUG2=0
 endif # DEBUG
 
+ifdef SESC_LDSTQ_FWD
+DEFS	+= -DLDSTQ_FWD
+endif
+
 VPATH   =$(OBJ):$(SRC_DIR):$(BUILD_DIR):.
 
 ##############################################################################
@@ -142,6 +146,14 @@ XLIBS   = -lpthread -L$(OBJ) -lapp
 endif
 endif
 
+ifdef SESC_SESCTHERM
+CFLAGS	+=-I$(SRC_DIR)/libsesctherm/SuperLU_MT/SRC -D_PTHREAD -DAdd_
+CFLAGS	+=-I$(SRC_DIR)/libsesctherm/
+STDLIBS	+=$(SRC_DIR)/libsesctherm/SuperLU_MT/blas_PTHREAD.a 
+STDLIBS +=$(SRC_DIR)/libsesctherm/SuperLU_MT/superlu_mt_PTHREAD.a
+STDLIBS +=-lpthread -lblas
+endif
+
 ifdef SESCAPI_NATIVE
 CFLAGS +=-DSESCAPI_NATIVE
 endif
@@ -169,6 +181,7 @@ endif
 ifdef SESC_NO_LDSTQ
 DEFS    += -DLDSTBUFFER_IGNORE_DEPS
 endif
+
 
 ##############################################################################
 # Section for defines specific for different papers. Those are extensions
@@ -233,6 +246,13 @@ DEFS += -DTRACE_DRIVEN
 ifdef SESC_RSTTRACE
 DEFS += -DSESC_RSTTRACE
 endif
+endif
+
+################################################
+# QEMU 
+ifdef QEMU_DRIVEN
+DEFS   += -DQEMU_DRIVEN -I$(SRC_DIR)/../../qemu/sesc/
+LIBS   += $(SRC_DIR)/../../qemu/sparc-softmmu/*.o $(SRC_DIR)/../../qemu/sparc-softmmu/slirp/*.o $(SRC_DIR)/../../qemu/sparc-softmmu/libqemu.a -lSDL -lrt -lutil -lz
 endif
 
 ################################################

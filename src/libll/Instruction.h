@@ -39,6 +39,9 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #ifdef SESC_SIMICS
 #include "SimicsTraceFormat.h"
 #endif
+#ifdef QEMU_DRIVEN
+#include "qemu_sesc.h"
+#endif
 
 // 0 int, 1 FP, 2 none
 #define INSTRUCTION_MAX_DESTPOOL 3
@@ -113,7 +116,9 @@ private:
                                     ,bool &jumpLabel);
 
   static void PPCDecodeInstruction(Instruction *inst, uint rawInst);
+#ifdef QEMU_DRIVEN
   static void QemuSparcDecodeInstruction(Instruction *inst, QemuSescTrace *qst); 
+#endif
 
 #ifdef SESC_SIMICS
   static const Instruction *SimicsDecodeInstruction(TraceSimicsOpc_t op);
@@ -154,10 +159,11 @@ private:
 #endif
 
 public:
-  static void initialize(int argc
-                         ,char **argv
-                         ,char **envp
-                         ,int start_argc);  
+#ifdef QEMU_DRIVEN
+  static void QemuSparcDecodeInstruction(Instruction *inst, Sparc_Inst_Predecode *predec);
+#endif
+
+  static void initialize(int argc, char **argv, char **envp);  
   
   static void finalize();
 
@@ -197,7 +203,9 @@ public:
 
     Instruction *inst = new Instruction();
       
+#ifdef QEMU_DRIVEN
     QemuSparcDecodeInstruction(inst, qst);
+#endif
     inst->addr = addr;  
     instHash[addr] = inst; 
     return inst;
@@ -249,7 +257,7 @@ public:
   }
   
   InstID currentID() const {  
-#if ((defined TRACE_DRIVEN)||(defined MIPS_EMUL))
+#if ((defined TRACE_DRIVEN)||(defined MIPS_EMUL)||(defined QEMU_DRIVEN))
     return addr;
 #else
     return (this - InstTable);  
@@ -257,7 +265,7 @@ public:
   }
 
   int getAddr() const {
-#if ((defined TRACE_DRIVEN)||(defined MIPS_EMUL))
+#if ((defined TRACE_DRIVEN)||(defined MIPS_EMUL)||(defined QEMU_DRIVEN))
     return addr;
 #else
     icode_ptr picode = Itext[currentID()];
@@ -267,7 +275,7 @@ public:
   }
 
   icode_ptr getICode() const { 
-#if ((defined TRACE_DRIVEN)||(defined MIPS_EMUL))
+#if ((defined TRACE_DRIVEN)||(defined MIPS_EMUL)||(defined QEMU_DRIVEN))
     return 0;
 #else
     icode_ptr picode = Itext[currentID()];

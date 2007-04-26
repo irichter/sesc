@@ -403,8 +403,6 @@ protected:
 
         // Get the CpuCount records.
         zfread(zbuffer, size32);
-        size32 = SWAP_WORD(size32);
-
         ncpurecs = decompressCpuCount(zbuffer, cpucount, size32);
 
 #if 0

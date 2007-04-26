@@ -31,15 +31,17 @@ SUBDIRS+=libpv
 SUBDIRS+=libpower
 VPATH += $(SRC_DIR)/libpower/cacti $(SRC_DIR)/libpower/wattch $(SRC_DIR)/libpower/panalyzer
 endif
-ifdef SESC_THERM
-SUBDIRS+=libsescspot
-endif
 ifdef TRACE_DRIVEN
 SUBDIRS+=librst
 endif
+ifdef SESC_THERM
+SUBDIRS+=libsescspot
+endif
 ifdef SESC_SESCTHERM
 SUBDIRS+=libsesctherm
-CFLAGS+= -I$(SRC_DIR)/libsesctherm/SuperLU_MT/SRC -D_PTHREAD -DAdd_ -lpthread
+endif
+ifdef SESC_GATHERM
+SUBDIRS+=libgatherm
 endif
 ifdef TLS
 SUBDIRS+=libtm
@@ -107,7 +109,7 @@ TLSLIBS =$(OBJ)/libvmem.a
 TMLIBS  =$(OBJ)/libtm.a
 
 sesc.tst : $(OBJ)/main.o $(TSTLIBS)
-	$(CXX) $(LDFLAGS) -o $@  $^  $(LIBS) $(STDLIBS)
+	$(CXX) $(LDFLAGS) -o $@  $^  $(TSTLIBS) $(STDLIBS)
 
 sesc.tst.condor: $(OBJ)/main.o $(TSTLIBS)
 	$(CONDORLD) $(LDFLAGS) -o $@  $^  $(LIBS) $(STDLIBS)
@@ -212,7 +214,25 @@ endif
 
 ifdef SESC_SESCTHERM
 sesctherm: $(OBJ)/libsesctherm.a $(OBJ)/libsuc.a 
-	$(CXX) $(CFLAGS) -o $@ $(OBJ)/sesctherm.o $(OBJ)/libsesctherm.a $(OBJ)/libsuc.a $(SRC_DIR)/libsesctherm/SuperLU_MT/blas_PTHREAD.a $(SRC_DIR)/libsesctherm/SuperLU_MT/superlu_mt_PTHREAD.a $(STDLIBS)  
+	$(CXX) $(CFLAGS) -o $@ $(OBJ)/sesctherm.o $(OBJ)/libsesctherm.a $(OBJ)/libsuc.a $(STDLIBS)  
+endif
+
+ifdef SESC_GATHERM
+ifdef SESC_SESCTHERM
+gatherm: $(OBJ)/libgatherm.a $(OBJ)/libsesctherm.a $(OBJ)/libsuc.a 
+	$(CXX) $(CFLAGS) -o $@ $(OBJ)/gatherm.o $(OBJ)/libgatherm.a $(OBJ)/libsesctherm.a $(OBJ)/libsuc.a  $(STDLIBS)  
+
+gentherm: $(OBJ)/libgatherm.a $(OBJ)/libsesctherm.a $(OBJ)/libsuc.a
+	$(CXX) $(CFLAGS) -o $@ $(OBJ)/GenTherm.o $(OBJ)/libgatherm.a $(OBJ)/libsesctherm.a $(OBJ)/libsuc.a $(STDLIBS) 
+
+gentherm-mp: $(OBJ)/libgatherm.a $(OBJ)/libsesctherm.a $(OBJ)/libsuc.a
+	$(CXX) $(CFLAGS) -o $@ $(OBJ)/GenTherm-mp.o $(OBJ)/libgatherm.a $(OBJ)/libsesctherm.a $(OBJ)/libsuc.a $(STDLIBS) 
+endif
+
+ifdef SESC_THERM
+gatherm2: $(OBJ)/libgatherm.a $(OBJ)/libsescspot.a $(OBJ)/libsuc.a
+	$(CXX) $(CFLAGS) -o $@ $(OBJ)/gatherm2.o $(OBJ)/libgatherm.a $(OBJ)/libsescspot.a $(OBJ)/libsuc.a $(STDLIBS) 
+endif
 endif
 
 ifdef TRACE_DRIVEN

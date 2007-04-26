@@ -188,7 +188,6 @@ public:
 
   void reportValue() const;
 
-
   void sample(uint key);
 };
 
@@ -227,7 +226,7 @@ protected:
   
   typedef HASH_MAP<unsigned int, unsigned long long> Histogram;
 
-  uint numSample;
+  unsigned long long numSample;
   unsigned long long cumulative;
 
   Histogram H;

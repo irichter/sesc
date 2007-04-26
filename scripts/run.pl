@@ -16,7 +16,7 @@ my $op_key;
 my $op_key2;
 my $op_ext;
 my $op_load=1;
-my $op_mload=2;
+my $op_mload=4;
 my $op_clean;
 my $op_bhome=$ENV{'BENCHDIR'};
 my $op_prof;

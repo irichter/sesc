@@ -663,41 +663,15 @@ sub showBaadStats {
     
     printf "###############################################################################\n";
 
-    printf "#baad0       BBSize   FetchSize\n";
+    printf "#baad0       BBSize   FetchSize  FetchBlock\n";
     printf "baad0  ";
 
-    my $nInst;
-    my $niBJ;
-    my $nBranches;
-    my $nTaken;
-    for(my $i=0;$i<$nCPUs;$i++) {
-        next unless( $cf->getResultField("Proc(${i})","clockTicks") );
-
-        $niBJ += $cf->getResultField("PendingWindow(${i})_iBJ","n");
-
-        $nInst += $cf->getResultField("PendingWindow(${i})_iBJ","n")
-            + $cf->getResultField("PendingWindow(${i})_iLoad","n")
-#            + $cf->getResultField("PendingWindow(${i})_iStore","n")
-            + $cf->getResultField("PendingWindow(${i})_iALU","n")
-            + $cf->getResultField("PendingWindow(${i})_iComplex","n")
-            + $cf->getResultField("PendingWindow(${i})_fpALU","n")
-            + $cf->getResultField("PendingWindow(${i})_fpComplex","n")
-            + $cf->getResultField("PendingWindow(${i})_other","n");
-        
-        $nBranches += $cf->getResultField("BPred(${i})","nBranches");
-        $nTaken    += $cf->getResultField("BPred(${i})","nTaken");
-    }
-
-    $nTaken = 1 unless ($nTaken);
-    $nInst  = 1 unless ($nInst);
-    $niBJ   = 1 unless ($niBJ);
-
-    $nTaken = $niBJ - $nTaken;
-
     # BBSize
-    printf " %9.2f ", 1/($niBJ/$nInst);
+    printf " %9.2f ", $cf->getResultField("FetchEngine(0)","szBB_Avg");
     # FetchSize
-    printf " %9.2f ", $nBranches/($nTaken*($niBJ/$nInst));
+    printf " %9.2f ", $cf->getResultField("FetchEngine(0)","szFS_Avg");
+    # FetchBlock
+    printf " %9.2f ", $cf->getResultField("FetchEngine(0)","szFB_Avg");
     printf "\n";
 }
 
@@ -724,8 +698,8 @@ sub showStatReport {
         $tmp += $cf->getResultField("FetchEngine(${i})","nDelayInst1");
         
         $nInst += $cf->getResultField("PendingWindow(${i})_iBJ","n")
-            + $cf->getResultField("PendingWindow(${i})_iLoad","n")
-# Do not add Stores because they get partition in two (alu+store)            + $cf->getResultField("PendingWindow(${i})_iStore","n")
+	    + $cf->getResultField("PendingWindow(${i})_iLoad","n")
+	    + $cf->getResultField("PendingWindow(${i})_iStore","n")
             + $cf->getResultField("PendingWindow(${i})_iALU","n")
             + $cf->getResultField("PendingWindow(${i})_iComplex","n")
             + $cf->getResultField("PendingWindow(${i})_fpALU","n")
@@ -893,7 +867,7 @@ sub showStatReport {
 
           my $nInst   = $cf->getResultField("PendingWindow(${i})_iBJ","n")
               + $cf->getResultField("PendingWindow(${i})_iLoad","n")
-# Do not add Stores because they get partition in two (alu+store)            + $cf->getResultField("PendingWindow(${i})_iStore","n")
+ 	      + $cf->getResultField("PendingWindow(${i})_iStore","n")
               + $cf->getResultField("PendingWindow(${i})_iALU","n")
               + $cf->getResultField("PendingWindow(${i})_iComplex","n")
               + $cf->getResultField("PendingWindow(${i})_fpALU","n")
@@ -1150,7 +1124,7 @@ sub showTLSReport {
 
       $nInst += $cf->getResultField("PendingWindow(${i})_iBJ","n")
           + $cf->getResultField("PendingWindow(${i})_iLoad","n")
-# Do not add Stores because they get partition in two (alu+store)            + $cf->getResultField("PendingWindow(${i})_iStore","n")
+	  + $cf->getResultField("PendingWindow(${i})_iStore","n")
           + $cf->getResultField("PendingWindow(${i})_iALU","n")
           + $cf->getResultField("PendingWindow(${i})_iComplex","n")
           + $cf->getResultField("PendingWindow(${i})_fpALU","n")
@@ -1321,8 +1295,7 @@ sub simStats {
           + $cf->getResultField("PendingWindow(${i})_fpComplex","n")
           + $cf->getResultField("PendingWindow(${i})_other","n");
   }
-#  $nInstTotal += $nLoadTotal + $nStoreTotal;
-  $nInstTotal += $nLoadTotal;
+  $nInstTotal += $nLoadTotal + $nStoreTotal;
 
   # End Global Stats
 
@@ -1358,7 +1331,6 @@ sub instStats {
       my $iStore = $cf->getResultField("PendingWindow(${i})_iStore","n");
       my $INT    = $cf->getResultField("PendingWindow(${i})_iALU","n")
 	+ $cf->getResultField("PendingWindow(${i})_iComplex","n");
-      $INT -= $iStore; # Stores get split in two (ALU+Store)
       my $FP     = $cf->getResultField("PendingWindow(${i})_fpALU","n")
 	+ $cf->getResultField("PendingWindow(${i})_fpComplex","n");
       
@@ -1542,7 +1514,7 @@ sub tradCPUStats {
 
     my $nInst   = $cf->getResultField("PendingWindow(${i})_iBJ","n")
         + $cf->getResultField("PendingWindow(${i})_iLoad","n")
-#        + $cf->getResultField("PendingWindow(${i})_iStore","n")
+        + $cf->getResultField("PendingWindow(${i})_iStore","n")
         + $cf->getResultField("PendingWindow(${i})_iALU","n")
         + $cf->getResultField("PendingWindow(${i})_iComplex","n")
         + $cf->getResultField("PendingWindow(${i})_fpALU","n")

@@ -39,6 +39,8 @@
 #include <strings.h>
 #include <stdint.h>
 
+#include "mendian.h"
+
 // set this to 1 for debugging - outputs every update to each bitarray
 const int rz3_bitarray_debug = 0;
 
@@ -136,6 +138,7 @@ class rz3_bitarray {
     } else {
       value = (u64[u64idx] >> offs) & elem_mask;
     }
+
     return true;
   }
 
@@ -182,6 +185,15 @@ class rz3_bitarray {
     int n_u64 = (nbits + 63)/64;
     int sz = n_u64 * sizeof(uint64_t);
     memcpy(u64, membuf, sz);
+
+    //jan {
+    //We need to swap_long here on little endian machines because the
+    //cast from char* byte array to uint64_t messes things up otherwise
+    for (int j=0; j<n_u64; j++) { 
+      u64[j] = SWAP_LONG(u64[j]);
+    }
+    //jan }
+      
     return sz;
   }
 

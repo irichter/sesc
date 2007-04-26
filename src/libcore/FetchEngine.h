@@ -39,6 +39,9 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #ifdef SESC_RSTTRACE
 #include "RSTFlow.h"
 #endif
+#ifdef QEMU_DRIVEN
+#include "QEMUFlow.h"
+#endif
 
 #ifdef SESC_INORDER
 #include <stdio.h>
@@ -65,6 +68,9 @@ private:
 
   BPredictor *bpred;
   
+#ifdef QEMU_DRIVEN
+  QEMUFlow flow;
+#else
 #ifdef TRACE_DRIVEN
 #ifdef SESC_RSTTRACE
   RSTFlow   flow;
@@ -74,8 +80,11 @@ private:
 #else
   ExecutionFlow flow;
 #endif
+#endif
   
   ushort FetchWidth;
+  ushort bbSize;
+  ushort fbSize;
   
   ushort BB4Cycle;
   ushort maxBB;
@@ -113,7 +122,7 @@ private:
 protected:
   void instFetched(DInst *dinst) {
 #ifdef SESC_BAAD
-    dinst->setFetchTime();
+    dinst->setFetch1Time();
 #endif
     
 #ifdef TS_PARANOID
@@ -129,6 +138,9 @@ protected:
   GStatsCntr nDelayInst2;
   GStatsCntr nFetched;
   GStatsCntr nBTAC;
+  GStatsHist szBB;
+  GStatsHist szFB;
+  GStatsHist szFS;
   long long nGradInsts;
   long long nWPathInsts;
   // *******************

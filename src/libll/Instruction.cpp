@@ -38,6 +38,9 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #ifdef SESC_RSTTRACE
 #include "RSTFlow.h"
 #endif
+#ifdef QEMU_DRIVEN
+#include "qemu_sesc.h"
+#endif
 
 #if (defined MIPS_EMUL)
 #include "EmulInit.h"
@@ -91,13 +94,13 @@ size_t Instruction::InstTableSize = 0;
 
 void Instruction::initialize(int argc
                              ,char **argv
-                             ,char **envp
-                             ,int start_argc)
+                             ,char **envp)
 {
 #ifdef SESC_RSTTRACE
-
   RSTFlow::setTraceFile(argv[2]);
-  
+#elif QEMU_DRIVEN
+  ThreadContext::staticConstructor();
+  qemu_loader(argc, argv);
 #elif TRACE_DRIVEN
   const char *traceMode = SescConf->getCharPtr("","traceMode");
   printf("getting the trace mode parameter parameter from the Instruction.cpp file");

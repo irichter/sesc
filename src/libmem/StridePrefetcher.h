@@ -92,6 +92,8 @@ private:
   GStatsCntr halfMiss;
   GStatsCntr miss;
   GStatsCntr hit;
+  GStatsCntr predictions;
+  GStatsCntr accesses;
   GStatsCntr unitStrideStreams;
   GStatsCntr nonUnitStrideStreams;
   GStatsCntr ignoredStreams;

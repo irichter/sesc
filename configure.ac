@@ -22,6 +22,7 @@ AC_SUBST(DEFCONF,[mem.conf])
 AC_SUBST(TASKSCALAR_OPT)
 AC_SUBST(VALUEPRED_OPT)
 AC_SUBST(SESC_ENERGY_OPT)
+AC_SUBST(SESC_GATHERM_OPT)
 AC_SUBST(SESC_SESCTHERM_OPT)
 AC_SUBST(SESC_THERM_OPT)
 AC_SUBST(SESC_MISPATH_OPT)
@@ -42,6 +43,7 @@ AC_SUBST(SESC_INORDER_OPT)
 AC_SUBST(CONDOR_LINK_OPT)
 AC_SUBST(TRACE_DRIVEN_OPT)
 AC_SUBST(SESC_RSTTRACE_OPT)
+AC_SUBST(QEMU_DRIVEN_OPT)
 
 
 #we are not defining compiler options yet, but we should
@@ -67,6 +69,15 @@ AC_ARG_ENABLE(power,
 AC_HELP_STRING([--enable-power],
                [Enable power model (default is no)]),
 [if test "$enableval" = "yes"; then AC_COMPOPT(SESC_ENERGY) fi],
+)
+
+###SESC_GATHERM  (sescspot & sesctherm)
+
+AC_NOCOMPOPT(SESC_SESCTHERM)
+AC_ARG_ENABLE(gatherm, 
+AC_HELP_STRING([--enable-gatherm],
+               [Enable GATherm model (default is no)]),
+[if test "$enableval" = "yes"; then AC_COMPOPT(SESC_GATHERM) AC_COMPOPT(SESC_THERM) AC_COMPOPT(SESC_ENERGY) fi],
 )
 
 ###SESC_THERM 
@@ -254,6 +265,14 @@ AC_HELP_STRING([--enable-rsttrace],
 [if test "$enableval" = "yes"; then AC_COMPOPT(SESC_RSTTRACE) AC_COMPOPT(TRACE_DRIVEN) fi],
 )
 
+### QEMU
+
+AC_NOCOMPOPT(QEMU_DRIVEN)
+AC_ARG_ENABLE(qemu, 
+AC_HELP_STRING([--enable-qemu],
+               [Enables qemu-driven simulation (default is no)]),
+[if test "$enableval" = "yes"; then AC_COMPOPT(QEMU_DRIVEN) fi],
+)
 
 
 AC_OUTPUT

@@ -69,8 +69,14 @@ FetchEngine::FetchEngine(int cId
   ,nDelayInst2("FetchEngine(%d):nDelayInst2", i) // Not enough BB/LVIDs per cycle 
   ,nFetched("FetchEngine(%d):nFetched",i)
   ,nBTAC("FetchEngine(%d):nBTAC", i) // BTAC corrections to BTB
+  ,szBB("FetchEngine(%d):szBB", i)
+  ,szFB("FetchEngine(%d):szFB", i)
+  ,szFS("FetchEngine(%d):szFS", i)
   ,unBlockFetchCB(this)
 {
+  bbSize=0;
+  fbSize=0;
+  
   // Constraints
   SescConf->isInt("cpucore", "fetchWidth",cId);
   SescConf->isBetween("cpucore", "fetchWidth", 1, 1024, cId);
@@ -326,6 +332,10 @@ bool FetchEngine::processBranch(DInst *dinst, ushort n2Fetched)
   PredType prediction     = bpred->predict(inst, oracleID, !dinst->isFake());
 #endif
 
+  if( oracleID != inst->calcNextInstID() ) {
+    szFB.sample(fbSize);
+    fbSize=0;
+  }
   if(prediction == CorrectPrediction) {
     if( oracleID != inst->calcNextInstID() ) {
       // Only when the branch is taken check maxBB
@@ -416,20 +426,6 @@ void FetchEngine::realFetch(IBucket *bucket, int fetchMax)
       dinst->getEpoch()->pendInstr();
       dinst->getEpoch()->execInstr();
 #endif // (defined TLS)
-      // Break in two instructions. Address calculation, and store
-      DInst *fakeALU = DInst::createInst(Instruction::getEventID(static_cast<EventType>(FakeInst + inst->getSrc1()))
-                                         ,0
-                                         ,dinst->getContextId()
-#if (defined TLS)
-                                         ,dinst->getEpoch()
-#endif
-                                        );
-
-      I(fakeALU->getInst()->isStoreAddr());
-      instFetched(fakeALU);
-      bucket->push(fakeALU);
-      n2Fetched--;
-      nGradInsts++;
     }
 #endif // For !(defined MIPS_EMUL)
 
@@ -442,9 +438,15 @@ void FetchEngine::realFetch(IBucket *bucket, int fetchMax)
 
     n2Fetched--;
   
+    bbSize++;
+    fbSize++;
     if(inst->isBranch()) {
-      if (!processBranch(dinst, n2Fetched))
-        break;
+      szBB.sample(bbSize);
+      bbSize=0;
+      
+      if (!processBranch(dinst, n2Fetched)) {
+	break;
+      }
     }
 
   }while(n2Fetched>0 && flow.currentPid()==myPid);
@@ -473,12 +475,13 @@ void FetchEngine::fetch(IBucket *bucket, int fetchMax)
   }else{
     realFetch(bucket, fetchMax);
 #ifdef SESC_INORDER  
-	 int pc = bucket->top()->getInst()->getAddr();
+    int pc = bucket->top()->getInst()->getAddr();
     gatherRunTimeData(pc);
 #endif
   }
   
   if(enableICache && !bucket->empty()) {
+    szFS.sample(bucket->size());
     if (bucket->top()->getInst()->isStoreAddr())
       IMemRequest::create(bucket->topNext(), gms, bucket);
     else

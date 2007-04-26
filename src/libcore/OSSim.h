@@ -95,9 +95,9 @@ private:
 #else
   typedef struct {
     Pid_t pid;
-	 uint total;
-	 uint begin;
-	 uint end;
+    unsigned long total;
+    unsigned long begin;
+    unsigned long end;
     bool  mtMarks;
   } SimulationMark_t;
 

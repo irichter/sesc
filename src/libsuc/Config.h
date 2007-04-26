@@ -94,10 +94,14 @@ protected:
     }
 
     Record(bool val);
-	 Record(int val);
+    Record(int val);
     Record(double val);
     Record(const char *val);
-	 Record(const char *val,int x, int y);
+
+    Record(bool val,int x, int y);
+    Record(int val,int x, int y);
+    Record(double val,int x, int y);
+    Record(const char *val,int x, int y);
 
     bool isEnv() const {
       return env;
@@ -245,14 +249,27 @@ public:
   void addVRecord(const char *block,
                   const char *name,
                   const char *val,
-						int X,
-						int Y);
+		  int X,
+		  int Y);
+
+  void addVRecord(const char *block,
+                  const char *name,
+                  double val,
+		  int X,
+		  int Y);
+
+  void addVRecord(const char *block,
+                  const char *name,
+                  int val,
+		  int X,
+		  int Y);
+
   void addRecord(const char *block,
                  const char *name,
                  bool val);
   void addRecord(const char *block,
                  const char *name,
-					  int val);
+		 int val);
   void addRecord(const char *block,
                  const char *name,
                  double val);

@@ -40,6 +40,8 @@ StridePrefetcher::StridePrefetcher(MemorySystem* current
   ,halfMiss("%s:halfMiss", name)
   ,miss("%s:miss", name)
   ,hit("%s:hits", name)
+  ,predictions("%s:predictions", name)
+  ,accesses("%s:accesses", name)
   ,unitStrideStreams("%s:unitStrideStreams", name)
   ,nonUnitStrideStreams("%s:nonUnitStrideStreams", name)
   ,ignoredStreams("%s:ignoredStreams", name)
@@ -246,6 +248,7 @@ void StridePrefetcher::prefetch(pEntry *pe, Time_t lat)
 	  r->markPrefetch();
 	}
 	pendingFetches.insert(prefAddr);
+	predictions.inc();
       }
     }
     prefAddr += pe->stride;
@@ -271,6 +274,7 @@ void StridePrefetcher::access(MemRequest *mreq)
 
     mreq->goDown(0, lowerLevel[0]);
   }
+  accesses.inc();
 }
 
 void StridePrefetcher::returnAccess(MemRequest *mreq)

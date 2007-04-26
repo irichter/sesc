@@ -466,7 +466,7 @@ elf_read_hdrs(char *objfile)
 #endif
           Data_size += size + addr - ( Data_start + Data_size);
         }else{
-          fprintf(stderr,".got (%x vs %x)\n"
+          fprintf(stderr,".got (%x vs %lx)\n"
                   ,addr,( Data_start + Data_size));
           fatal(".srdata data sections not contiguous\n");
         }
@@ -485,7 +485,7 @@ elf_read_hdrs(char *objfile)
 #endif
           Data_size += size + addr - ( Data_start + Data_size);
         }else{
-          fprintf(stderr,".srdata (%x vs %x)\n"
+          fprintf(stderr,".srdata (%x vs %lx)\n"
                   ,addr,( Data_start + Data_size));
                 
           fatal(".srdata data sections not contiguous\n");

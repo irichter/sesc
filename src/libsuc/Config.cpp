@@ -75,6 +75,39 @@ Config::Record::Record(const char *val)
   Y=0;
 }
 
+Config::Record::Record(bool val, int x, int y)
+  :env(false)
+   ,used(false)
+   ,printed(false)
+{
+  type = RCBool;
+  v.Bool = val;
+  X=x;
+  Y=y;
+}
+
+Config::Record::Record(int val, int x, int y)
+  :env(false)
+  ,used(false)
+  ,printed(false)
+{
+  type = RCInt;
+  v.Int = val;
+  X=x;
+  Y=y;
+}
+
+Config::Record::Record(double val, int x, int y)
+  :env(false)
+  ,used(false)
+  ,printed(false)
+{
+  type = RCDouble;
+  v.Double = val;
+  X=x;
+  Y=y;
+}
+
 Config::Record::Record(const char *val, int x, int y)
   :env(false)
    ,used(false)
@@ -322,13 +355,67 @@ void Config::addRecord(const char *block,
 void Config::addVRecord(const char *block,
                         const char *name,
                         const char *val,
-								int X,
-								int Y)
+			int X,
+			int Y)
 {
   Record *rec;
 
   if( X > Y ) {
     MSG("Config:: [%s] %s[%d:%d]=[%s] vector invalid limits %d < %d "
+        ,block,name,X,Y,val,X,Y);
+    errorReading = true;
+  }
+
+  const char *env=getEnvVar(block, name);
+  if(env) {
+    MSG("Config::addVRecord Not allowed to override vectors with environment variables");
+//        rec = new Record(env,X,Y);
+//        rec->setEnv();
+    errorReading = true;
+  }
+
+  rec = new Record(val,X,Y);
+
+  addRecord(block, name, rec);
+}
+
+void Config::addVRecord(const char *block,
+                        const char *name,
+                        double val,
+			int X,
+			int Y)
+{
+  Record *rec;
+
+  if( X > Y ) {
+    MSG("Config:: [%s] %s[%d:%d]=[%g] vector invalid limits %d < %d "
+        ,block,name,X,Y,val,X,Y);
+    errorReading = true;
+  }
+
+  const char *env=getEnvVar(block, name);
+  if(env) {
+    MSG("Config::addVRecord Not allowed to override vectors with environment variables");
+//        rec = new Record(env,X,Y);
+//        rec->setEnv();
+    errorReading = true;
+  }
+
+  rec = new Record(val,X,Y);
+
+  addRecord(block, name, rec);
+}
+
+void Config::addVRecord(const char *block,
+                        const char *name,
+                        int val,
+			int X,
+			int Y)
+{
+  Record *rec;
+
+  if( X > Y ) {
+    MSG("Config:: [%s] %s[%d:%d]=[%d] vector invalid limits %d < %d "
         ,block,name,X,Y,val,X,Y);
     errorReading = true;
   }

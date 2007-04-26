@@ -23,12 +23,19 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include <ctype.h>
 #include <math.h>
 
+//#include "nanassert.h"
+//#include "Snippets.h"
+//#include "SescConf.h"
 #include "nanassert.h"
-#include "Snippets.h"
 #include "SescConf.h"
+#include "Snippets.h"
 
-#include "xcacti_def.h"
-#include "xcacti_area.h"
+extern "C" {
+#include "cacti42_areadef.h"
+#include "cacti_interface.h"
+#include "cacti42_def.h"
+#include "cacti42_io.h"
+}
 
 #ifdef SESC_SESCTHERM
 #include "ThermTrace.h"
@@ -57,10 +64,37 @@ double getEnergy(int size
 double getEnergy(const char *,xcacti_flp *);
 
 
-extern "C" void output_data(result_type *result, arearesult_type *arearesult,
-                            area_type *arearesult_subbanked, 
-                            parameter_type *parameters, double *NSubbanks);
+//extern "C" void output_data(result_type *result, arearesult_type *arearesult,
+//                            area_type *arearesult_subbanked, 
+//                            parameter_type *parameters, double *NSubbanks);
+/*
+extern "C" void output_data(result_type *result, 
+							arearesult_type *arearesult, 
+							parameter_type *parameters);
+ 
 
+extern "C" total_result_type cacti_interface(
+		int cache_size,
+		int line_size,
+		int associativity,
+		int rw_ports,
+		int excl_read_ports,
+		int excl_write_ports,
+		int single_ended_read_ports,
+		int banks,
+		double tech_node,
+		int output_width,
+		int specific_tag,
+		int tag_width,
+		int access_mode,
+		int pure_sram);
+
+extern "C" void xcacti_power_flp(const result_type *result,
+                      const arearesult_type *arearesult,
+                      const area_type *arearesult_subbanked,
+                      const parameter_type *parameters,
+                      xcacti_flp *xflp);
+*/
 
 void iterate();
 
@@ -216,6 +250,7 @@ void update_layout(const char *blockName, xcacti_flp *xflp) {
 
 #ifdef SESC_SESCTHERM
   const ThermTrace::FLPUnit *flp = sescTherm->findBlock(blockName);
+  I(flp);
   if (flp == 0) {
     MSG("Error: blockName[%s] not found in blockDescr",blockName);
     exit(-1);
@@ -262,6 +297,7 @@ void iterate()
 
       if (SescConf->checkCharPtr(block,"blockName")) {
         const char *blockName = SescConf->getCharPtr(block,"blockName");
+        MSG("%s (block=%s) has blockName %s",name, block, blockName);
         update_layout(blockName, &xflp);
       }
       
@@ -301,6 +337,10 @@ double getEnergy(int size
                  ,xcacti_flp *xflp
                  ) {
   int nsets = size/(bsize*assoc);
+  int fully_assoc, associativity;
+  int custom_tag, custom_tag_width;
+  int rwPorts = 0;
+  double ret;
 
   if (nsets == 0) {
     printf("Invalid cache parameters size[%d], bsize[%d], assoc[%d]\n", size, bsize, assoc);
@@ -320,9 +360,24 @@ double getEnergy(int size
     wrPorts = rdPorts-2;
     rdPorts = 2;
   }
+  if ((rdPorts+wrPorts+rwPorts) < 1) {
+    rdPorts = 0;
+	wrPorts = 0;
+	rwPorts = 1;
+  }
+  
+  if (size < 16*1024) {
+    rdPorts = 0;
+	wrPorts = 0;
+	rwPorts = 1;
+  }
+
+  if (bsize*8 < bits)
+    bsize = bits/8;
 
   BITOUT = bits;
 
+  /* PK
   parameter_type parameters;
 
   if (size == bsize * assoc) {
@@ -330,9 +385,36 @@ double getEnergy(int size
   }else{
     parameters.fully_assoc = 0;
   }
+*/
+
+  if (size == bsize * assoc) {
+    fully_assoc = 1;
+  }else{
+    fully_assoc = 0;
+  }
 
   size = roundUpPower2(size);
 
+  if (fully_assoc) {
+    associativity = size/bsize;
+  }else{
+    associativity = assoc;
+  }
+
+  if (associativity >= 32)
+    associativity = size/bsize;
+
+  nsets = size/(bsize*associativity);
+
+  if (1 == useTag) {
+    custom_tag = 0;  // no custom tag
+    custom_tag_width = 0; // if not using custom tag then this does not matter.
+  } else {
+    custom_tag = 1; //custom tag with width 0 means ignore it.
+    custom_tag_width = 0; //This will ensure that we r not using tag.
+  }
+
+  /* PK
   if (parameters.fully_assoc) {
     parameters.associativity = size/bsize;
   }else{
@@ -352,6 +434,7 @@ double getEnergy(int size
   parameters.tech_size=tech;
   parameters.NSubbanks = subBanks;
 
+
   if (!xcacti_parameter_check(&parameters)) {
     xcacti_parameters_dump(&parameters);
     exit(0);
@@ -365,12 +448,53 @@ double getEnergy(int size
 
   xcacti_calculate_time(&parameters,&result,&arearesult,&arearesult_subbanked);
 
-#ifdef DEBUG
-  xcacti_output_data(&result,&arearesult,&arearesult_subbanked,&parameters);
-#endif
-  xcacti_power_flp(&result,&arearesult,&arearesult_subbanked,&parameters, xflp);
+  PK */
 
-  return wattch2cactiFactor * 1e9*(result.total_power_without_routing/subBanks + result.total_routing_power);
+  total_result_type result2;
+
+  //For testing PK
+  printf("\n\n\n########################################################");
+  printf("\n######## Testing by PK begin ###########");
+  printf("\nInput to Cacti_Interface...");
+  printf("\n size = %d, bsize = %d, assoc = %d, rports = %d, wports = %d", 
+	  size, bsize, associativity, rdPorts, wrPorts);
+  printf("\n subBanks = %d, tech = %f, bits = %d, customTag = %d, ctagWidth = %d", 
+	  subBanks, tech, bits, custom_tag, custom_tag_width);
+  
+result2 = cacti_interface(size, bsize, associativity, 
+	              rwPorts, rdPorts, wrPorts, 
+	              0, subBanks, tech, bits, 
+				  custom_tag, custom_tag_width, 
+				  0, 0);
+
+#ifdef DEBUG
+  //output_data(&result,&arearesult,&arearesult_subbanked,&parameters);
+  output_data(&result2.result,&result2.area,&result2.params);
+#endif
+
+  // for testing PK
+  output_data(&result2.result,&result2.area,&result2.params);
+
+  //xcacti_power_flp(&result,&arearesult,&arearesult_subbanked,&parameters, xflp);
+  xcacti_power_flp(&result2.result, &result2.area, &result2.arearesult_subbanked,
+	               &result2.params, xflp);
+
+  // For testing PK
+  printf("\n wattch2cactiFactor =  %f", wattch2cactiFactor);
+  printf("\n result2.result.total_power_without_routing.readOp.dynamic = %f ",
+	  result2.result.total_power_without_routing.readOp.dynamic);
+  printf("\n subBanks = %d ", subBanks);
+  printf("\n result2.result.total_routing_power.readOp.dynamic = %f ",
+	  result2.result.total_routing_power.readOp.dynamic);
+  ret = wattch2cactiFactor * 1e9*(result2.result.total_power_without_routing.readOp.dynamic / subBanks + 
+	  result2.result.total_routing_power.readOp.dynamic);
+  printf("\n Output Energy = %f", ret);
+  printf("\n############# Testing by PK end ##############");
+  
+
+  //return wattch2cactiFactor * 1e9*(result.total_power_without_routing/subBanks + result.total_routing_power);
+  return wattch2cactiFactor * 1e9*(result2.result.total_power_without_routing.readOp.dynamic / subBanks + 
+	  result2.result.total_routing_power.readOp.dynamic);
 }
 
 
@@ -438,6 +562,13 @@ void processBranch(const char *proc)
     // 32 = 8bytes line * 4 predictions per byte (assume 2bit counter)
     bpred_power = getEnergy(size/32, 8, 1, 1, 1, 1, 0, 8, &xflp);
 
+  }else if(!strcmp(type,"ogehl")) {
+    int nTables = SescConf->getInt(bpred,"ntables") ;
+    int size    = SescConf->getInt(bpred,"tsize") ;
+
+    // 32 = 8bytes line * 4 predictions per byte (assume 2bit counter)
+    bpred_power = getEnergy(size/32, 8, 1, 1, 1, 1, 0, 8, &xflp) * nTables;
+
   }else if(!strcmp(type,"hybrid")) {
 	 int size = SescConf->getInt(bpred,"localSize") ;
 
@@ -469,7 +600,7 @@ void processBranch(const char *proc)
 
   if (btbSize) {
     btb_power = getEnergy(btbSize*8, 8, btbAssoc, 1, 0, 1, 1, 64, &xflp);
-    update_layout("BTB", &xflp);
+    update_layout("BPred", &xflp);
 #ifdef SESC_SESCTHERM2
     // FIXME: partition energies per structure
 #else
@@ -483,7 +614,7 @@ void processBranch(const char *proc)
   int ras_size = SescConf->getInt(bpred,"rasSize");
   if (ras_size) {
     ras_power = getEnergy(ras_size*8, 8, 1, 1, 0, 1, 0, 64, &xflp);
-    update_layout("RAS", &xflp);
+    update_layout("BPred", &xflp);
 #ifdef SESC_SESCTHERM2
     // FIXME: partition energies per structure
 #else
@@ -614,7 +745,7 @@ void processorCore()
   wrPorts   = 1;
 
   regEnergy = getEnergy(size*2,2*issueWidth,1,rdPorts,wrPorts,banks,0,16*issueWidth, &xflp);
-  update_layout("ROB", &xflp);
+  update_layout("ROB", &xflp); //FIXME
 #ifdef SESC_SESCTHERM2
   // FIXME: partition energies per structure
 #else
@@ -634,7 +765,7 @@ void processorCore()
     wrPorts   = issueWidth;
 
     regEnergy = getEnergy(size,1,1,rdPorts,wrPorts,banks,0,1, &xflp);
-    update_layout("IntRAT", &xflp);
+    update_layout("IntRAT", &xflp); //FIXME:
 #ifdef SESC_SESCTHERM
     // FIXME: partition energies per structure
 #endif
@@ -642,7 +773,7 @@ void processorCore()
     printf("\nrename [%d bytes] banks[%d] Energy[%g]\n",size, banks, regEnergy);
 
     regEnergy += getEnergy(size,1,1,rdPorts/2+1,wrPorts/2+1,banks,0,1, &xflp);
-    update_layout("FPRAT", &xflp);
+    update_layout("IntRAT", &xflp);
 #ifdef SESC_SESCTHERM2
     // FIXME: partition energies per structure
 #else

@@ -41,7 +41,7 @@ void print_flp_fig (flp_t *flp)
 // read_flp : Reads info from the input .flp file and creates the 
 //            list for the foorplan
 
-flp_t *read_flp(char *file)
+flp_t *read_flp(const char *file)
 {
   char str[STR_SIZE], copy[STR_SIZE];
   FILE *fp = fopen(file, "r");

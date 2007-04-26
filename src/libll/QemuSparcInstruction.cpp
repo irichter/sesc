@@ -28,6 +28,8 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "Instruction.h"
 #include "QemuSescTrace.h"
 
+#include "qemu_sesc.h"
+
 void Instruction::QemuSparcDecodeInstruction(Instruction *inst, QemuSescTrace *qst)
 {
   inst->src1 = static_cast <RegType> (qst->src1);
@@ -41,4 +43,19 @@ void Instruction::QemuSparcDecodeInstruction(Instruction *inst, QemuSescTrace *q
 
   inst->opcode = static_cast <InstType> (qst->type);
   inst->subCode = static_cast <InstSubType> (0); // FIXME
+}
+
+void Instruction::QemuSparcDecodeInstruction(Instruction *inst, Sparc_Inst_Predecode *predec)
+{
+  inst->src1 = static_cast <RegType> (predec->rs1);
+  inst->dest = static_cast <RegType> (predec->rd);
+  inst->src2 = static_cast <RegType> (predec->rs2);
+  inst->uEvent = NoEvent;
+  inst->condLikely = false;
+  inst->guessTaken = true;   //FIXME
+  inst->jumpLabel = false;
+  inst->addr = predec->pc;
+
+  inst->opcode = static_cast <InstType> (predec->type);
+  inst->subCode = static_cast <InstSubType> (predec->subType); 
 }

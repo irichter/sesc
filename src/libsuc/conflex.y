@@ -85,7 +85,19 @@ CFNAME CFEQUAL texp    { configptr->addRecord(blockName,$1,$3); }
 |
  CFNAME CFOB lexp CFCB CFEQUAL CFQSTRING { configptr->addVRecord(blockName,$1,$6,$3,$3); }
 |
+ CFNAME CFOB lexp CFCB CFEQUAL lexp      { configptr->addVRecord(blockName,$1,$6,$3,$3); }
+|
+ CFNAME CFOB lexp CFCB CFEQUAL dexp      { configptr->addVRecord(blockName,$1,$6,$3,$3); }
+|
+ CFNAME CFOB lexp CFCB CFEQUAL CFBOOL      { configptr->addVRecord(blockName,$1,$6,$3,$3); }
+|
  CFNAME CFOB lexp CFDDOT lexp CFCB CFEQUAL CFQSTRING { configptr->addVRecord(blockName,$1,$8,$3,$5); }
+|
+ CFNAME CFOB lexp CFDDOT lexp CFCB CFEQUAL lexp { configptr->addVRecord(blockName,$1,$8,$3,$5); }
+|
+ CFNAME CFOB lexp CFDDOT lexp CFCB CFEQUAL dexp { configptr->addVRecord(blockName,$1,$8,$3,$5); }
+|
+ CFNAME CFOB lexp CFDDOT lexp CFCB CFEQUAL CFBOOL { configptr->addVRecord(blockName,$1,$8,$3,$5); }
 ;
 
 

@@ -748,6 +748,14 @@ class Rstunzip : public RstzipBase {
 
       if (rtype <= z_INSTR_T) {    // non-loop rtype
         read_inbuf(instr_buf, num_instr * sizeof(uint32_t));
+
+	//jan {
+	//reading byte stream into uint32_t - need to swap_word on little endian
+	for (int i = 0; i < num_instr; i++) {
+	  instr_buf[i] = SWAP_WORD(instr_buf[i]);
+	}
+	// jan }
+
         read_inbuf(flags_buf, num_instr * sizeof(flags_t));
         find_num_ea();
         read_ea(NULL);
@@ -790,6 +798,9 @@ class Rstunzip : public RstzipBase {
 
         if (unzip_chunk_chunk_counter % checksum_freq == 0) {
           read_inbuf(&chksm, 8);
+
+	  chksm = SWAP_LONG(chksm); //jan
+
           if (chksm != unzip_chunk_chksm_sum) {
             //hash.print_set(hashval);
             //print_chunk(stderr);
@@ -1021,6 +1032,14 @@ class Rstunzip : public RstzipBase {
     if (num_ea > 0) {
       if (rtype == z_INSTR_T) {
         n = read_inbuf(ea_buf, num_ea * sizeof(uint64_t));
+
+	//jan {
+	//reading byte stream into uint64_t - need to swap_long on little endian
+	for (int j = 0; j < num_ea; j++) {
+	  ea_buf[j] = SWAP_LONG(ea_buf[j]);
+	}
+	// jan }
+
       } else {
         for (i = 0; i < num_ea; i++) {
           n += read_inbuf(&offset8, sizeof(offset8));
@@ -1040,6 +1059,7 @@ class Rstunzip : public RstzipBase {
             break;
           case RESERVED_OFFSET_16BITS:
             n += read_inbuf(&offset16, sizeof(offset16));
+	    offset16 = SWAP_SHORT(offset16);  //jan
             ea_buf[i] = table->ea_buf[i] + offset16;
 
             offset_count[OFFSET_16BITS_IDX]++;
@@ -1052,6 +1072,7 @@ class Rstunzip : public RstzipBase {
             break;
           case RESERVED_OFFSET_32BITS:
             n += read_inbuf(&offset32, sizeof(offset32));
+	    offset32 = SWAP_WORD(offset32);  //jan
             ea_buf[i] = table->ea_buf[i] + offset32;
 
             offset_count[OFFSET_32BITS_IDX]++;
@@ -1064,6 +1085,7 @@ class Rstunzip : public RstzipBase {
             break;
           case RESERVED_OFFSET_64BITS:
             n += read_inbuf(&offset64, sizeof(offset64));
+	    offset64 = SWAP_LONG(offset64);  //jan
             ea_buf[i] = table->ea_buf[i] + offset64;
 
             offset_count[OFFSET_64BITS_IDX]++;

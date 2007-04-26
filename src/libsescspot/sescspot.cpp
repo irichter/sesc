@@ -29,7 +29,7 @@ using namespace std;
 
 
 // simulator options
-static char *flp_cfg = "sescspot.flp";		/* has the floorplan configuration	*/
+static char *flp_cfg = "amd.flp";		/* has the floorplan configuration	*/
 static int omit_lateral = 0;			/* omit lateral chip resistances?	*/
 static double init_temp = 60 + 273.15;		/* 60 degree C converted to Kelvin	*/
 static int dtm_used = 0;			/* set accordingly	*/

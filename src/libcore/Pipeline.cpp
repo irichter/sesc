@@ -36,6 +36,12 @@ void IBucket::markFetched()
   I(fetched == false);
   IS(fetched = true); // Only called once
 
+#ifdef SESC_BAAD
+  for(size_t i =0 ; i<size() ; i++) {
+    getData(getIdFromTop(i))->setFetch2Time();
+  }
+#endif
+  
   pipeLine->readyItem(this);
 }
 

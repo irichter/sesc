@@ -6,6 +6,19 @@
    
 _______________________________________________________________________
 
+# REMOVE OLD/useless code
+#!/bin/bash
+
+for file in *
+do
+	echo "cleaning $file"
+	unifdef -USESCAPI_NATIVE_IRIX -USESC_LOCKPROFILE -UWINDOW_USE_HIST -USESC_SEED -USESC_SEED_OVERFLOW -USESC_CHERRY -UXACTION -USESC_INORDER_ENERGY -USESC_INORDER_SWITCH -UTS_PARANOID -UTS_RISKLOADPROF -USESC_PASS_ENVIRONMENT -UOLDMARKS -USESC_SEED_STALL_LOADS -ULOCAL_WRITE -UWRITE_REVISE -UOOO_PAPER_STATS -UVERBOSE -UVERBOSE2 -UAIX -UFOLLOW_MISPRO_ADVICE -UMIPS2_FNATIVE -UMSHR_BWSTATS -UTRANS_STALL -UVMEM_CVBASE_IN_ADDR -UVMEM_PRED_FORWARD $file >temp
+	mv temp $file
+done
+
+
+_______________________________________________________________________
+
 
 swifthWidth on power (renamed)
 ________________________________________________________________________

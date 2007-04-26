@@ -136,42 +136,52 @@ private:
   // END Time counters
 
 #ifdef SESC_BAAD
-  static int fetchQSize;
+  static int fetch1QSize;
+  static int fetch2QSize;
   static int issueQSize;
   static int schedQSize;
   static int exeQSize;
   static int retireQSize;
 
-  static GStatsTimingHist *fetchQHist1;
+  static GStatsTimingHist *fetch1QHist1;
+  static GStatsTimingHist *fetch2QHist1;
   static GStatsTimingHist *issueQHist1;
   static GStatsTimingHist *schedQHist1;
   static GStatsTimingHist *exeQHist1;
   static GStatsTimingHist *retireQHist1;
   
-  static GStatsHist *fetchQHist2;
+  static GStatsHist *fetch1QHist2;
+  static GStatsHist *fetch2QHist2;
   static GStatsHist *issueQHist2;
   static GStatsHist *schedQHist2;
   static GStatsHist *exeQHist2;
   static GStatsHist *retireQHist2;
 
-  static GStatsHist *fetchQHistUp;
+  static GStatsHist *fetch1QHistUp;
+  static GStatsHist *fetch2QHistUp;
   static GStatsHist *issueQHistUp;
   static GStatsHist *schedQHistUp;
   static GStatsHist *exeQHistUp;
   static GStatsHist *retireQHistUp;
 
-  static GStatsHist *fetchQHistDown;
+  static GStatsHist *fetch1QHistDown;
+  static GStatsHist *fetch2QHistDown;
   static GStatsHist *issueQHistDown;
   static GStatsHist *schedQHistDown;
   static GStatsHist *exeQHistDown;
   static GStatsHist *retireQHistDown;
 
-  static GStatsHist **avgFetchQTime;
+  static GStatsHist **avgFetch1QTime;
+  static GStatsHist **avgFetch2QTime;
   static GStatsHist **avgIssueQTime;
   static GStatsHist **avgSchedQTime;
   static GStatsHist **avgExeQTime;
   static GStatsHist **avgRetireQTime;
-  Time_t fetchTime;
+
+  static GStatsHist *brdistHist1;
+
+  Time_t fetch1Time;
+  Time_t fetch2Time;
   Time_t renameTime;
   Time_t issueTime;
   Time_t schedTime;
@@ -565,7 +575,8 @@ private:
   Time_t getWakeUpTime() const { return wakeUpTime; }
 
 #ifdef SESC_BAAD
-  void setFetchTime();
+  void setFetch1Time();
+  void setFetch2Time();
   void setRenameTime();
   void setIssueTime();
   void setSchedTime();
