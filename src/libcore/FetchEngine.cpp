@@ -33,12 +33,6 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "Pipeline.h"
 
 
-#ifdef SESC_INORDER
-#include <time.h>
-#include "GEnergy.h"
-#include "GProcessor.h"
-#include "Signature.h"
-#endif
 
 #ifdef XACTION
 #include "XactionManager.h"
@@ -131,142 +125,8 @@ FetchEngine::FetchEngine(int cId
   pid = cId;
 #endif  
 
-#ifdef SESC_INORDER
-  char strTime[16], fileName[64];
-  const char *benchName;
-  time_t rawtime;
-  struct tm * timeinfo;
-
-  time ( &rawtime );
-  timeinfo = localtime ( &rawtime );
-  strftime(strTime, 16, "%H%M",timeinfo);
-  benchName = OSSim::getBenchName();
-  strcpy(fileName,"/home/masc/spkale/SWITCH/deltas_");
-  strncat(fileName,benchName,strlen(benchName));
-  //  strncat(fileName,strTime,strlen(strTime));
-
-#ifdef SESC_INORDER_ENERGY
-  energyInstFile = fopen(fileName, "w");
-  if(energyInstFile == NULL){
-    printf("Error, could not open file energy_instr file for writing\n");
-  }else{
-    // fprintf(energyInstFile,"#interval\tenergy\ttime\n");
-  }
-#endif //SESC_INORDER_ENERGY
-
-  instrCount = 0;
-  intervalCount = 0;
-  previousTotEnergy = 0.0;
-  previousClockCount = 0;
-
-#ifdef SESC_INORDER_SWITCH
-  printf("Opening switch file\n"); 
-
-  char switchFileName[64];
-  strcpy(switchFileName,"/home/masc/spkale/04_04_05/");
-  strcat(switchFileName, OSSim::getBenchName());
-  strcat(switchFileName,"/eddTally.dat");
-  printf("Opening file:%s\n", switchFileName); 
-  switchFile = fopen(switchFileName, "r");
-
-  if(switchFile == NULL){
-    printf("Error, could not open file energy_instr file for writing\n");
-  }else{
-    int mode = getNextCoreMode();
-    gproc->setMode(mode);       
-  }  
-#endif
-#endif
 }
 
-#ifdef SESC_INORDER
-int FetchEngine::gatherRunTimeData(int pc)
-{
- //int mode = 1;
- instrCount++;
-// mode = pipeLineSelector.getPipeLineMode(pc, globalClock, GStatsEnergy::getTotalEnergy());
-// gproc->setMode(mode);
-
-#ifdef SESC_INORDER_ENERGY
-
-#if 0
- if(intervalCount > 2000 && intervalCount < 3000){
-   if(instrCount == 200){
-     
-     ++subIntervalCount;
-     
-     if(subIntervalCount % 10 == 0){
-       ++intervalCount;
-       subIntervalCount = 0;
-     }
-     
-     double energy = GStatsEnergy::getTotalEnergy();
-     double delta_energy = energy - previousTotEnergy;
-	  int delta_time = globalClock - previousClockCount;
-     
-     fprintf(energyInstFile,"%d\t%.3f\t%ld\n", intervalCount * 10 + subIntervalCount, delta_energy, delta_time);
-     
-     
-     previousTotEnergy =  GStatsEnergy::getTotalEnergy();
-     previousClockCount = globalClock;
-     
-     instrCount = 0;
-     
-   }/* End if instrCount == 200 */
- }
-#endif
- if(instrCount == 25) {
-   intervalCount++;
-   
-#ifdef SESC_INORDER_SWITCH
-   int mode = 1; /* INORDER */
-   mode = pipeLineSelector.getPipeLineMode(pc, globalClock, GStatsEnergy::getTotalEnergy());
-   
-   /* Get next core change */
-   // int mode = getNextCoreMode(); //get next mode from file
-   gproc->setMode(mode);
-#endif //SESC_INORDER_SWITCH
-   
-   if(energyInstFile != NULL) {
-     double energy =  GStatsEnergy::getTotalEnergy();
-     double delta_energy = energy - previousTotEnergy; 
-	  int  delta_time = globalClock - previousClockCount;
-     
-     fprintf(energyInstFile,"%d\t%.3f\t%ld\n", intervalCount * 10, delta_energy, delta_time);
-   }
-   
-   previousTotEnergy =  GStatsEnergy::getTotalEnergy();
-   previousClockCount = globalClock;
-   instrCount = 0;
- }/* Endif instrcount = 2000 */
-}
-#endif //SESC_INORDER_ENERGY
-
-#ifdef SESC_INORDER_SWITCH
-int FetchEngine::getNextCoreMode()
-{
-  char line[128];
-  char *c, *pch;
-  int interval;
-  int mode; 
-
-  if(switchFile == NULL)
-          return -1;
-
-  c = fgets(line, 128, switchFile);
-  if(c == NULL)
-          return -1;
-
-  pch = strtok(line,"\t");
-  interval = atol(pch);
-
-  pch = strtok(NULL, " ");
-  mode = atoi(pch);
-
-  return mode;
-}
-#endif
-#endif
 
 FetchEngine::~FetchEngine()
 {
@@ -276,14 +136,6 @@ FetchEngine::~FetchEngine()
   I(nWPathInsts == 0);
 #endif
 
-#ifdef SESC_INORDER
-  if(energyInstFile != NULL)
-    fclose(energyInstFile);
-#ifdef SESC_INORDER_SWITCH
-  if(switchFile != NULL)
-     fclose(switchFile);
-#endif
-#endif
   
   delete bpred;
 }
@@ -474,10 +326,6 @@ void FetchEngine::fetch(IBucket *bucket, int fetchMax)
     fakeFetch(bucket, fetchMax);
   }else{
     realFetch(bucket, fetchMax);
-#ifdef SESC_INORDER  
-    int pc = bucket->top()->getInst()->getAddr();
-    gatherRunTimeData(pc);
-#endif
   }
   
   if(enableICache && !bucket->empty()) {

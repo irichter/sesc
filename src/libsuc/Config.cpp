@@ -135,7 +135,7 @@ void Config::Record::dump(const char *prev,
   if(type == RCInt)
     Report::field("%-10s=%d%s", pre, v.Int, post);
   else if(type == RCDouble)
-    Report::field("%-10s=%g%s", pre, v.Double, post);
+    Report::field("%-10s=%e%s", pre, v.Double, post);
   else if(type == RCBool)
     Report::field("%-10s=%s%s", pre, v.Bool ? "true" : "false", post);
   else if(type == RCCharPtr) {

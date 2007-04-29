@@ -46,38 +46,6 @@ private:
   const TimeDelta_t SchedDelay;
   const TimeDelta_t RegFileDelay;
 
-#ifdef SESC_SEED
-  const int Banks;
-  const int DepTableEntries;
-  const int DepTableNumPorts;
-
-
-  const TimeDelta_t DepTableDelay;
-
-#ifdef SESC_SEED_OVERFLOW
-  const int MaxOverflowing;
-  const int MaxUnderflowing;
-#endif
-
-  int nOverflowing;
-
-  SCTable  depPred;
-
-  GStatsCntr nDepsCorrect;
-  GStatsCntr nDepsMiss;
-  GStatsCntr nDepsOverflow;
-  GStatsCntr nDepsUnderflow;
-
-  GStatsCntr *nDepsCntr[3];
-
-  int addInstBank;
-
-  Time_t lastWakeUpTime;
-  
-  PortGeneric **depTablePort;
-
-  GStatsEnergy *depTableEnergy; // FIXME: correct energy computed
-#endif
 
   GStatsCntr nReplay;
 
@@ -88,35 +56,10 @@ private:
   GStatsEnergyBase *windowCheckEnergy; // Check for dependences on the window
   GStatsEnergyBase *windowSelEnergy;   // instruction selection
 
-#ifdef SESC_INORDER
-  GStatsEnergyBase *windowRdWrEnergyInOrder; 
-  GStatsEnergyBase *windowCheckEnergyInOrder;
-  GStatsEnergyBase *windowSelEnergyInOrder;  
-
-  GStatsEnergyBase *windowRdWrEnergyOutOrder;  
-  GStatsEnergyBase *windowCheckEnergyOutOrder;
-  GStatsEnergyBase *windowSelEnergyOutOrder;
-
-  bool InOrderMode;
-  bool OutOrderMode;
-  bool currentMode;
-  
-#endif
   
   PortGeneric *wakeUpPort;
   PortGeneric *schedPort;
 
-#ifdef SESC_SEED
-  int getBank() {
-	 int tmp = addInstBank;
-    addInstBank = (addInstBank+1) % Banks;
-    return tmp;
-  }
-  void addParentSrcShared(DInst *child, DInst *parent);
-  void addParentSrc1(DInst *child);
-  void addParentSrc2(DInst *child);
-  bool hasDepTableSpace(const DInst *dinst) const;
-#endif
 
 protected:
   void preSelect(DInst *dinst);
@@ -133,9 +76,6 @@ public:
   void addInst(DInst *dinst);
   void executed(DInst *dinst);
 
-#ifdef SESC_INORDER
-  void setMode(bool mode);
-#endif
 
 };
 

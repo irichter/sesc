@@ -403,10 +403,6 @@ StallCause SMTProcessor::addInst(DInst *dinst)
 
 bool SMTProcessor::hasWork() const 
 {
-#ifdef SESC_INORDER
-  if (switching)
-    return true;
-#endif
 
   if (!ROB.empty())
     return true;

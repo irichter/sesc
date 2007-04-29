@@ -662,10 +662,8 @@ void ExecutionFlow::goRabbitMode(long long n2skip)
       }
     }
 
-#ifndef OLDMARKS
     if( osSim->enoughMTMarks1(thread.getPid(),true) )
       break;
-#endif
     if( n2skip == 0 && goingRabbit && osSim->enoughMarks1() && nFastSims == 0 )
       break;
 

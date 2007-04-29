@@ -248,7 +248,6 @@ static void update_sublayout(const char *blockName, xcacti_flp *xflp, const Ther
 
 void update_layout(const char *blockName, xcacti_flp *xflp) {
 
-#ifdef SESC_SESCTHERM
   const ThermTrace::FLPUnit *flp = sescTherm->findBlock(blockName);
   I(flp);
   if (flp == 0) {
@@ -256,9 +255,8 @@ void update_layout(const char *blockName, xcacti_flp *xflp) {
     exit(-1);
     return; // no match found
   }
-
+  
   update_sublayout(blockName, xflp, flp, xflp->NSubbanks*xflp->assoc);
-#endif  
 }
 
 void iterate()
@@ -295,14 +293,12 @@ void iterate()
       xcacti_flp xflp;
       double eng = getEnergy(block, &xflp);
 
+#ifdef SESC_SESCTHERM2
       if (SescConf->checkCharPtr(block,"blockName")) {
         const char *blockName = SescConf->getCharPtr(block,"blockName");
         MSG("%s (block=%s) has blockName %s",name, block, blockName);
         update_layout(blockName, &xflp);
       }
-      
-#ifdef SESC_SESCTHERM2
-      // FIXME: partition energies per structure
 #else
       // write it
       SescConf->updateRecord(block, "RdHitEnergy"   ,eng);
@@ -338,7 +334,6 @@ double getEnergy(int size
                  ) {
   int nsets = size/(bsize*assoc);
   int fully_assoc, associativity;
-  int custom_tag, custom_tag_width;
   int rwPorts = 0;
   double ret;
 
@@ -362,30 +357,14 @@ double getEnergy(int size
   }
   if ((rdPorts+wrPorts+rwPorts) < 1) {
     rdPorts = 0;
-	wrPorts = 0;
-	rwPorts = 1;
+    wrPorts = 0;
+    rwPorts = 1;
   }
   
-  if (size < 16*1024) {
-    rdPorts = 0;
-	wrPorts = 0;
-	rwPorts = 1;
-  }
-
   if (bsize*8 < bits)
     bsize = bits/8;
 
   BITOUT = bits;
-
-  /* PK
-  parameter_type parameters;
-
-  if (size == bsize * assoc) {
-    parameters.fully_assoc = 1;
-  }else{
-    parameters.fully_assoc = 0;
-  }
-*/
 
   if (size == bsize * assoc) {
     fully_assoc = 1;
@@ -406,91 +385,30 @@ double getEnergy(int size
 
   nsets = size/(bsize*associativity);
 
-  if (1 == useTag) {
-    custom_tag = 0;  // no custom tag
-    custom_tag_width = 0; // if not using custom tag then this does not matter.
-  } else {
-    custom_tag = 1; //custom tag with width 0 means ignore it.
-    custom_tag_width = 0; //This will ensure that we r not using tag.
-  }
-
-  /* PK
-  if (parameters.fully_assoc) {
-    parameters.associativity = size/bsize;
-  }else{
-    parameters.associativity = assoc;
-  }
-
-  parameters.latchsa    = 1;
-  parameters.ignore_tag = !useTag;
-  parameters.cache_size = size;
-  parameters.block_size = bsize;
-  parameters.num_readwrite_ports = 0;
-  parameters.num_read_ports = rdPorts;
-  parameters.num_write_ports = wrPorts;
-  parameters.num_single_ended_read_ports =0;
-  parameters.number_of_sets = size/(bsize*parameters.associativity);
-  parameters.fudgefactor = .8/tech;   
-  parameters.tech_size=tech;
-  parameters.NSubbanks = subBanks;
-
-
-  if (!xcacti_parameter_check(&parameters)) {
-    xcacti_parameters_dump(&parameters);
-    exit(0);
-  }
-
-  xcacti_parameter_adjust(&parameters);
-
-  area_type arearesult_subbanked;
-  arearesult_type arearesult;
-  result_type result;
-
-  xcacti_calculate_time(&parameters,&result,&arearesult,&arearesult_subbanked);
-
-  PK */
-
   total_result_type result2;
 
-  //For testing PK
   printf("\n\n\n########################################################");
-  printf("\n######## Testing by PK begin ###########");
   printf("\nInput to Cacti_Interface...");
   printf("\n size = %d, bsize = %d, assoc = %d, rports = %d, wports = %d", 
-	  size, bsize, associativity, rdPorts, wrPorts);
-  printf("\n subBanks = %d, tech = %f, bits = %d, customTag = %d, ctagWidth = %d", 
-	  subBanks, tech, bits, custom_tag, custom_tag_width);
+	 size, bsize, associativity, rdPorts, wrPorts);
+  printf("\n subBanks = %d, tech = %f, bits = %d", 
+	 subBanks, tech, bits);
   
-result2 = cacti_interface(size, bsize, associativity, 
-	              rwPorts, rdPorts, wrPorts, 
-	              0, subBanks, tech, bits, 
-				  custom_tag, custom_tag_width, 
-				  0, 0);
+  result2 = cacti_interface(size, bsize, associativity, 
+			    rwPorts, rdPorts, wrPorts, 
+			    0, subBanks, tech, bits, 
+			    0, 0,  // custom tag
+			    0, 
+			    useTag);
 
 #ifdef DEBUG
   //output_data(&result,&arearesult,&arearesult_subbanked,&parameters);
   output_data(&result2.result,&result2.area,&result2.params);
 #endif
 
-  // for testing PK
-  output_data(&result2.result,&result2.area,&result2.params);
-
   //xcacti_power_flp(&result,&arearesult,&arearesult_subbanked,&parameters, xflp);
   xcacti_power_flp(&result2.result, &result2.area, &result2.arearesult_subbanked,
 	               &result2.params, xflp);
-
-  // For testing PK
-  printf("\n wattch2cactiFactor =  %f", wattch2cactiFactor);
-  printf("\n result2.result.total_power_without_routing.readOp.dynamic = %f ",
-	  result2.result.total_power_without_routing.readOp.dynamic);
-  printf("\n subBanks = %d ", subBanks);
-  printf("\n result2.result.total_routing_power.readOp.dynamic = %f ",
-	  result2.result.total_routing_power.readOp.dynamic);
-  ret = wattch2cactiFactor * 1e9*(result2.result.total_power_without_routing.readOp.dynamic / subBanks + 
-	  result2.result.total_routing_power.readOp.dynamic);
-  printf("\n Output Energy = %f", ret);
-  printf("\n############# Testing by PK end ##############");
-  
 
   //return wattch2cactiFactor * 1e9*(result.total_power_without_routing/subBanks + result.total_routing_power);
   return wattch2cactiFactor * 1e9*(result2.result.total_power_without_routing.readOp.dynamic / subBanks + 
@@ -541,7 +459,7 @@ void processBranch(const char *proc)
 
   xcacti_flp xflp;
 
-  double bpred_power;
+  double bpred_power=0;
   // switch based on the type
   if(!strcmp(type,"Taken") || 
      !strcmp(type,"Oracle") || 
@@ -553,43 +471,45 @@ void processBranch(const char *proc)
 	 int size = SescConf->getInt(bpred,"size") ;
 
     // 32 = 8bytes line * 4 predictions per byte (assume 2bit counter)
-    bpred_power = getEnergy(size/32, 8, 1, 1, 1, 1, 0, 8, &xflp);
+    bpred_power = getEnergy(size/32, 8, 1, 1, 0, 1, 0, 8, &xflp);
     bpred_power= 0;
 
   }else if(!strcmp(type,"2level")) {
 	 int size = SescConf->getInt(bpred,"l2size") ;
 
     // 32 = 8bytes line * 4 predictions per byte (assume 2bit counter)
-    bpred_power = getEnergy(size/32, 8, 1, 1, 1, 1, 0, 8, &xflp);
+    bpred_power = getEnergy(size/32, 8, 1, 1, 0, 1, 0, 8, &xflp);
 
   }else if(!strcmp(type,"ogehl")) {
-    int nTables = SescConf->getInt(bpred,"ntables") ;
+    int mTables = SescConf->getInt(bpred,"mtables") ;
     int size    = SescConf->getInt(bpred,"tsize") ;
 
+    I(0);
     // 32 = 8bytes line * 4 predictions per byte (assume 2bit counter)
-    bpred_power = getEnergy(size/32, 8, 1, 1, 1, 1, 0, 8, &xflp) * nTables;
+    bpred_power = getEnergy(size/32, 8, 1, 1, 0, 1, 0, 8, &xflp) * mTables;
 
   }else if(!strcmp(type,"hybrid")) {
 	 int size = SescConf->getInt(bpred,"localSize") ;
 
     // 32 = 8bytes line * 4 predictions per byte (assume 2bit counter)
-    bpred_power = getEnergy(size/32, 8, 1, 1, 1, 1, 0, 8, &xflp);
-#ifdef SESC_SESCTHERM
+    bpred_power = getEnergy(size/32, 8, 1, 1, 0, 1, 0, 8, &xflp);
+#ifdef SESC_SESCTHERM2
     // FIXME: update layout
 #endif
     size = SescConf->getInt(bpred,"metaSize");
 
     // 32 = 8bytes line * 4 predictions per byte (assume 2bit counter)
-    bpred_power += getEnergy(size/32, 8, 1, 1, 1, 1, 0, 8, &xflp);
+    bpred_power += getEnergy(size/32, 8, 1, 1, 0, 1, 0, 8, &xflp);
 
   }else{
     MSG("Unknown energy for branch predictor type [%s]", type);
     exit(-1);
   }
 
-  update_layout("BPred", &xflp);
 #ifdef SESC_SESCTHERM2
   // FIXME: partition energies per structure
+  const char *bpredBlockName = SescConf->getCharPtr(bpred, "blockName");
+  update_layout(bpredBlockName, &xflp);
 #else
   SescConf->updateRecord(proc,"bpredEnergy",bpred_power) ;
 #endif
@@ -600,9 +520,9 @@ void processBranch(const char *proc)
 
   if (btbSize) {
     btb_power = getEnergy(btbSize*8, 8, btbAssoc, 1, 0, 1, 1, 64, &xflp);
-    update_layout("BPred", &xflp);
 #ifdef SESC_SESCTHERM2
     // FIXME: partition energies per structure
+    update_layout(bpredBlockName, &xflp);
 #else
     SescConf->updateRecord(proc,"btbEnergy",btb_power) ;
 #endif
@@ -614,9 +534,9 @@ void processBranch(const char *proc)
   int ras_size = SescConf->getInt(bpred,"rasSize");
   if (ras_size) {
     ras_power = getEnergy(ras_size*8, 8, 1, 1, 0, 1, 0, 64, &xflp);
-    update_layout("BPred", &xflp);
 #ifdef SESC_SESCTHERM2
-    // FIXME: partition energies per structure
+    // FIXME: partition energies per structure (all bpred may share a block)
+    update_layout(bpredBlockName, &xflp);
 #else
     SescConf->updateRecord(proc,"rasEnergy",ras_power) ;
 #endif
@@ -670,10 +590,13 @@ void processorCore()
   printf("\nRegister [%d bytes] banks[%d] ports[%d] Energy[%g]\n"
          ,size*bytes, banks, rdPorts+wrPorts, regEnergy);
 
-  update_layout("IntReg", &xflp);
-  update_layout("FPReg" , &xflp); // FIXME: different energy for FP register
 #ifdef SESC_SESCTHERM2
-  // FIXME: partition energies per structure
+  const char *blockName = SescConf->getCharPtr(proc,"IntRegBlockName");
+  I(blockName);
+  update_layout(blockName, &xflp);
+  blockName = SescConf->getCharPtr(proc,"fpRegBlockName");
+  I(blockName);
+  update_layout(blockName , &xflp); // FIXME: different energy for FP register
 #else
   SescConf->updateRecord(proc,"wrRegEnergy",regEnergy);
   SescConf->updateRecord(proc,"rdRegEnergy",regEnergy);
@@ -691,9 +614,11 @@ void processorCore()
     banks = SescConf->getInt(proc,"lsqBanks");
 
   regEnergy = getEnergy(size*2*bytes,2*bytes,size,rdPorts,wrPorts,banks,1, 2*bits, &xflp);
-  update_layout("LDQ", &xflp);
 #ifdef SESC_SESCTHERM2
   // FIXME: partition energies per structure
+  blockName = SescConf->getCharPtr(proc,"LSQBlockName");
+  I(blockName);
+  update_layout(lsqBlockName, &xflp);
 #else
   SescConf->updateRecord(proc,"ldqRdWrEnergy",regEnergy);
 #endif
@@ -703,9 +628,11 @@ void processorCore()
   size      =  SescConf->getInt(proc,"maxStores");
  
   regEnergy = getEnergy(size*4*bytes,4*bytes,size,rdPorts,wrPorts,banks,1, 2*bits, &xflp);
-  update_layout("STQ", &xflp);
 #ifdef SESC_SESCTHERM2
   // FIXME: partition energies per structure
+  blockName = SescConf->getCharPtr(proc,"LSQBlockName");
+  I(blockName);
+  update_layout(lsqBlockName, &xflp);
 #else
   SescConf->updateRecord(proc,"stqRdWrEnergy",regEnergy);
 #endif
@@ -745,8 +672,10 @@ void processorCore()
   wrPorts   = 1;
 
   regEnergy = getEnergy(size*2,2*issueWidth,1,rdPorts,wrPorts,banks,0,16*issueWidth, &xflp);
-  update_layout("ROB", &xflp); //FIXME
 #ifdef SESC_SESCTHERM2
+  const char *blockName = SescConf->getCharPtr(proc,"robBlockName");
+  I(blockName);
+  update_layout(blockName, &xflp);
   // FIXME: partition energies per structure
 #else
   SescConf->updateRecord(proc,"robEnergy",regEnergy);
@@ -765,16 +694,16 @@ void processorCore()
     wrPorts   = issueWidth;
 
     regEnergy = getEnergy(size,1,1,rdPorts,wrPorts,banks,0,1, &xflp);
-    update_layout("IntRAT", &xflp); //FIXME:
-#ifdef SESC_SESCTHERM
+#ifdef SESC_SESCTHERM2
+    update_layout("IntRAT", &xflp); //FIXME: create a IntRATblockName
     // FIXME: partition energies per structure
 #endif
 
     printf("\nrename [%d bytes] banks[%d] Energy[%g]\n",size, banks, regEnergy);
 
     regEnergy += getEnergy(size,1,1,rdPorts/2+1,wrPorts/2+1,banks,0,1, &xflp);
-    update_layout("IntRAT", &xflp);
 #ifdef SESC_SESCTHERM2
+    update_layout("IntRAT", &xflp);
     // FIXME: partition energies per structure
 #else
     // unified FP+Int RAT energy counter
@@ -793,109 +722,41 @@ void processorCore()
     for(int i = min ; i <= max ; i++) {
       const char *cluster = SescConf->getCharPtr(proc,"cluster",i) ;
 
+      // TRADITIONAL COLLAPSING ISSUE LOGIC
+      // Recalculate windowRdWrEnergy using CACTI (keep select and wake)
       
-      bool useSEED = false; 
-      if(SescConf->checkInt(cluster,"depTableNumPorts"))
-        useSEED = SescConf->getInt(cluster,"depTableNumPorts") != 0;
-
-      if (!useSEED) {
-        // TRADITIONAL COLLAPSING ISSUE LOGIC
-
-        // Keep SescConf->updateRecord(proc,"windowCheckEnergy",0);
-        // Keep SescConf->updateRecord(proc,"windowSelEnergy" ,0);
-
-        // Recalculate windowRdWrEnergy
-
-        size      = SescConf->getInt(cluster,"winSize");
-        banks     = 1;
-        rdPorts   = SescConf->getInt(cluster,"wakeUpNumPorts");
-        wrPorts   = issueWidth;
-        int robSize          = SescConf->getInt(proc,"robSize");
-        float entryBits = 4*(log(robSize)/log(2)); // src1, src2, dest, instID
-        entryBits += 7; // opcode
-        entryBits += 1; // ready bit
-        
-        int tableBits = static_cast<int>(entryBits * size);
-        int tableBytes;
-        if (tableBits < 8) {
-          tableBits  = 8;
-          tableBytes = 1;
-        }else{
-          tableBytes = tableBits/8;
-        }
-        int assoc= roundUpPower2(static_cast<unsigned int>(entryBits/8));
-        tableBytes = roundUpPower2(tableBytes);
-        regEnergy = getEnergy(tableBytes,tableBytes/assoc,assoc,rdPorts,wrPorts,banks,1,static_cast<int>(entryBits), &xflp);
-        
-        printf("\nWindow [%d bytes] assoc[%d] banks[%d] ports[%d] Energy[%g]\n"
-               ,tableBytes, assoc, banks, rdPorts+wrPorts, regEnergy);
-
-        if (SescConf->checkCharPtr(cluster,"blockName")) {
-          const char *blockName = SescConf->getCharPtr(cluster,"blockName");
-          update_layout(blockName, &xflp);
-        }
-#ifdef SESC_SESCTHERM2
-        // FIXME: partition energies per structure
-#else
-        // unified FP+Int RAT energy counter
-        SescConf->updateRecord(proc,"windowRdWrEnergy" ,regEnergy);
-#endif
-        
-        SescConf->updateRecord(proc,"depTableEnergy",0.0);
+      size      = SescConf->getInt(cluster,"winSize");
+      banks     = 1;
+      rdPorts   = SescConf->getInt(cluster,"wakeUpNumPorts");
+      wrPorts   = issueWidth;
+      int robSize          = SescConf->getInt(proc,"robSize");
+      float entryBits = 4*(log(robSize)/log(2)); // src1, src2, dest, instID
+      entryBits += 7; // opcode
+      entryBits += 1; // ready bit
+      
+      int tableBits = static_cast<int>(entryBits * size);
+      int tableBytes;
+      if (tableBits < 8) {
+	tableBits  = 8;
+	tableBytes = 1;
       }else{
-        // SEED ISSUE LOGIC
-
-#ifdef SESC_SESCTHERM
-        I(0);
-        exit(-1); // Not supported
-#endif
-        // RAT has register and token
-        {
-          double bitsPerEntry = 2*log(SescConf->getInt(proc,"intRegs"))/log(2);
-    
-          size      = roundUpPower2(static_cast<unsigned int>(32*bitsPerEntry/8));
-          banks     = 1; 
-          rdPorts   = 2*issueWidth;
-          wrPorts   = issueWidth;
-          
-          regEnergy = getEnergy(size,1,1,rdPorts,wrPorts,banks,0,1, &xflp);
-          
-          SescConf->updateRecord(proc,"renameEnergy",regEnergy);
-        }
-
-        SescConf->updateRecord(proc,"windowCheckEnergy",0.0);
-        SescConf->updateRecord(proc,"windowRdWrEnergy" ,0.0);
-        SescConf->updateRecord(proc,"windowSelEnergy"  ,0.0);
-
-        //----------------------------------------------
-        // DepTable
-        int robSize          = SescConf->getInt(proc,"robSize");
-        size                 = SescConf->getInt(cluster,"winSize");
-        banks                = roundUpPower2(SescConf->getInt(cluster,"banks"));
-        int depTableEntries  = SescConf->getInt(cluster,"depTableEntries");
-        rdPorts   = SescConf->getInt(cluster,"depTableNumPorts");
-        wrPorts   = 0;
-        float entryBits = 4*(log(robSize)/log(2)); // src1, src2, dest, instID
-        entryBits += 7 ; // opcode
-        entryBits += log(depTableEntries)/log(2); // use pos
-        entryBits += 1; // speculative bit
-        
-        int tableBits = static_cast<int>(entryBits * depTableEntries + log(robSize)/log(2)); // + BBid
-        int tableBytes;
-        if (tableBits < 8) {
-          tableBits  = 8;
-          tableBytes = 1;
-        }else{
-          tableBytes = tableBits/8;
-        }
-
-        regEnergy = getEnergy(tableBytes*size,tableBytes+1,1,rdPorts,wrPorts,banks,0,tableBits, &xflp);
-
-        printf("\ndepTable [%d bytes] [bytes read %d] [bits per entry %d] size[%d] Energy[%g] ports[%d]\n"
-               ,size*tableBytes,tableBytes,tableBits/depTableEntries, size, regEnergy, wrPorts+ rdPorts);
-        
-        SescConf->updateRecord(proc,"depTableEnergy",regEnergy);
+	tableBytes = tableBits/8;
       }
+      int assoc= roundUpPower2(static_cast<unsigned int>(entryBits/8));
+      tableBytes = roundUpPower2(tableBytes);
+      regEnergy = getEnergy(tableBytes,tableBytes/assoc,assoc,rdPorts,wrPorts,banks,1,static_cast<int>(entryBits), &xflp);
+      
+      printf("\nWindow [%d bytes] assoc[%d] banks[%d] ports[%d] Energy[%g]\n"
+	     ,tableBytes, assoc, banks, rdPorts+wrPorts, regEnergy);
+      
+#ifdef SESC_SESCTHERM2
+      const char *blockName = SescConf->getCharPtr(cluster,"blockName");
+      I(blockName);
+      update_layout(blockName, &xflp);
+#else
+      // unified FP+Int RAT energy counter
+      SescConf->updateRecord(cluster,"windowRdWrEnergy" ,regEnergy,0);
+#endif
     }
   }
 }

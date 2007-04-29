@@ -344,13 +344,3 @@ void ClusterManager::misBranchRestore()
 }
 #endif
 
-#ifdef SESC_INORDER	 
-void ClusterManager::setMode(bool mode)
-{
-  for(int t=0;t<MaxInstType;t++) {
-    Resource *r =  res[t];
-    if(r)
-      r->setMode(mode);
-  }	
-}
-#endif

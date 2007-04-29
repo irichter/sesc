@@ -289,10 +289,6 @@ PipeLineSelector::PipeLineSelector()
   currState = 0;
   inOrderWindowCount  = 0;
   outOrderWindowCount = 0;
-#ifdef SESC_INORDER
- pipelineSelectorEnergy = new GStatsEnergy("pipelineSelectorEnergy","",0,PipelineSelectorEnergy
-                                              ,EnergyMgr::get("pipelineSelectorEnergy",0),"SIGNATURE");
-#endif
 }
 
 PipeLineSelector::~PipeLineSelector()
@@ -342,11 +338,7 @@ int PipeLineSelector::getPipeLineMode(unsigned int pc)
   if(windowInstCount != 1000)
     return currPipelineMode;
 
-#ifdef SESC_INORDER
-   double currTotEnergy = GStatsEnergy::getTotalEnergy();
-#else
    double currTotEnergy =0;
-#endif
 
 	int currClockCount = globalClock;
   // FIXME: begin of getPipeLineMode (move previous instructions to updateHashPC)

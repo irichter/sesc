@@ -50,10 +50,6 @@ class FetchEngine;
 class FReg;
 class BPredictor;
 
-#if (defined SESC_SEED)
-#define DINST_PARENT 1
-#endif
-
 // FIXME: do a nice class. Not so public
 class DInstNext {
  private:
@@ -119,12 +115,6 @@ private:
   bool resolved; // For load/stores when the address is computer, for
 		 // the rest of instructions when it is executed
 
-#ifdef SESC_CHERRY
-  bool earlyRecycled;
-  bool canBeRecycled;
-  bool memoryIssued;
-  bool registerRecycled;
-#endif
 
 #ifdef SESC_MISPATH
   bool fake;
@@ -215,15 +205,6 @@ private:
   tls::Epoch *myEpoch;
 #endif // (defined TLS)
 
-#ifdef SESC_SEED
-  DInst *predParent;
-  int    nDepTableEntries;
-  int   bank;
-  int   xtraBank;
-  bool   predParentSrc1;
-  bool   overflowing;
-  bool   stallOnLoad;
-#endif
 
   char nDeps;              // 0, 1 or 2 for RISC processors
 
@@ -430,44 +411,7 @@ private:
 
   char getnDeps() const { return nDeps; }
 
-#ifdef SESC_SEED
-  void addDepTableEntry() {
-    nDepTableEntries++;
-  }
-  int getnDepTableEntries() const { return nDepTableEntries; }
-  int getXtraBank() const { return xtraBank; }
-  void setXtraBank(int i) {
-    xtraBank = i;
-  }
-  int getBank() const { return bank; }
-  void setBank(int i) {
-    bank = i;
-  }
-  // No getPredParent because predParent can be an stale pointer. Only parent
-  // should access (it may retire)
-  bool isOverflowing() const {  return overflowing; }
-  void setOverflowing()   {  overflowing = true; }
-
-  bool isStallOnLoad() const {  
-    return inst->isLoad() && stallOnLoad; 
-  }
-  void setStallOnLoad() {
-    I(inst->isLoad());
-    stallOnLoad = true; 
-  }
-
-  bool isPredParentSrc1() const { 
-    I(predParent); 
-    return predParentSrc1; 
-  }
-  DInst *getPredParent() const { return predParent; }
-  void setPredParent(DInst *p, bool src1=false) {
-    predParent = p;
-    predParentSrc1 = src1;
-  }
-#else
   bool isStallOnLoad() const {  return false; }
-#endif
 
   bool isSrc1Ready() const { return !pend[0].isUsed; }
   bool isSrc2Ready() const { return !pend[1].isUsed; }
@@ -507,9 +451,6 @@ private:
     I(issued);
     I(!executed);
     executed = true;
-#ifdef SESC_CHERRY
-    resolved = true;
-#endif
   }
 
   bool isDeadStore() const { return deadStore; }
@@ -537,14 +478,7 @@ private:
     resolved = true; 
   }
 
-#ifdef SESC_CHERRY
-  bool isEarlyRecycled() const { return earlyRecycled; }
-  void setEarlyRecycled() { earlyRecycled = true; }
-  bool hasRegisterRecycled() const { return registerRecycled; }
-  void setRegisterRecycled() { registerRecycled = true; }
-#else
   bool isEarlyRecycled() const { return false; }
-#endif
 
 #ifdef SESC_MISPATH
   void setFake() { 
@@ -556,13 +490,6 @@ private:
   bool isFake() const  { return false; }
 #endif
 
-#ifdef SESC_CHERRY
-  bool hasCanBeRecycled() const { return canBeRecycled; }
-  void setCanBeRecycled() { canBeRecycled = true; }
-
-  bool isMemoryIssued() const { return memoryIssued; }
-  void setMemoryIssued() {  memoryIssued  = true; }
-#endif
 
   void awakeRemoteInstructions();
 

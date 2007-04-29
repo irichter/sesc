@@ -36,10 +36,7 @@ AC_SUBST(NO_MERGELAST_OPT)
 AC_SUBST(NO_MERGENEXT_OPT)
 AC_SUBST(SESC_SMP_OPT)
 AC_SUBST(SESC_SMP_DEBUG_OPT)
-AC_SUBST(SESC_CHERRY_OPT)
-AC_SUBST(SESC_SEED_OPT)
 AC_SUBST(SESC_BAAD_OPT)
-AC_SUBST(SESC_INORDER_OPT)
 AC_SUBST(CONDOR_LINK_OPT)
 AC_SUBST(TRACE_DRIVEN_OPT)
 AC_SUBST(SESC_RSTTRACE_OPT)
@@ -200,24 +197,6 @@ AC_ARG_ENABLE(smpdebug,
 AC_HELP_STRING([--enable-smpdebug],
 	       [Enables SMP System advanced debug features (default is no)]),
 [if test "$enableval" = "yes"; then AC_COMPOPT(SESC_SMP_DEBUG) fi],
-)
-
-### Cherry (no TLS Cherry)
-
-AC_NOCOMPOPT(SESC_CHERRY)
-AC_ARG_ENABLE(cherry, 
-AC_HELP_STRING([--enable-cherry],
-               [Enables cherry (default is no)]),
-[if test "$enableval" = "yes"; then AC_COMPOPT(SESC_CHERRY) fi],
-)
-
-### SEED (Scalable Efficient Enforcement of Dependences)
-
-AC_NOCOMPOPT(SESC_SEED)
-AC_ARG_ENABLE(seed, 
-AC_HELP_STRING([--enable-seed],
-               [Enables Scalable Efficient Enforcement of Dependences (default is no)]),
-[if test "$enableval" = "yes"; then AC_COMPOPT(SESC_SEED) fi],
 )
 
 ### BAAD (Bandwidth Analyzer)

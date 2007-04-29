@@ -201,39 +201,6 @@ endif
 #DEFS    +=-DSESC_BRANCH_AT_RETIRE
 
 ################################################
-# Cherry
-ifdef SESC_CHERRY
-DEFS    += -DSESC_CHERRY
-endif
-
-################################################
-# Scalable Efficient Enforcement of Dependeces
-ifdef SESC_SEED
-DEFS    +=-DSESC_SEED
-#DEFS    +=-DSESC_SEED_OVERFLOW
-DEFS    +=-DSESC_SEED_INORDER
-
-#############################
-# BEGIN PREDICTOR SELECTION 
-
-# seed (Random Predictor) (DEFAULT)
-DEFS    +=-DSESC_SEED_DEPPRED_RAND
-
-# seednp (No predictor)
-
-# seeddp (SRC predictor)
-#DEFS    +=-DSESC_SEED_DEPPRED_SRC
-
-# seedbp (Both predictors)
-#DEFS    +=-DSESC_SEED_DEPPRED_BOTH
-# END PREDICTOR SELECTION
-#############################
-
-# Processor.cpp
-#DEFS    +=-DSESC_SEED_STALL_LOADS
-endif
-
-################################################
 # Bandwidth Analyzer model
 ifdef SESC_BAAD
 DEFS    += -DSESC_BAAD
@@ -264,16 +231,6 @@ endif
 ifdef SESC_SESCTHERM
 DEFS += -DSESC_SESCTHERM
 endif
-
-################################################
-# Optimized Inorder Pipeline
-ifdef SESC_INORDER
-DEFS    += -DSESC_INORDER
-DEFS    += -DSESC_INORDER_OUT_DEPS
-DEFS    += -DSESC_INORDER_ENERGY
-DEFS   	+= -DSESC_INORDER_SWITCH
-endif
-
 
 ################################################
 # HVersion (TaskScalar)

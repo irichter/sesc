@@ -43,12 +43,6 @@ private:
 
 protected:
 
-#ifdef SESC_INORDER  
-  Time_t RATTIME[NumArchRegs];
-  int latencyVal[MaxInstType];
-  
-  bool isStall(DInst *dinst);
-#endif             
 
   // BEGIN VIRTUAL FUNCTIONS of GProcessor
   DInst **getRAT(const int contextId);

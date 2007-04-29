@@ -43,10 +43,6 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "QEMUFlow.h"
 #endif
 
-#ifdef SESC_INORDER
-#include <stdio.h>
-#include "Signature.h"
-#endif
 
 class GMemorySystem;
 class IBucket;
@@ -105,18 +101,6 @@ private:
 #endif
   bool enableICache;
 
-#ifdef SESC_INORDER
-  PipeLineSelector pipeLineSelector;
-  FILE *energyInstFile, *switchFile;
-  int instrCount;
-  int subIntervalCount;
-  int previousClockCount;
-  int intervalCount;
-  double previousTotEnergy;
-  
-  int getNextCoreMode(); 
-  int gatherRunTimeData(int pc);
-#endif
 
  
 protected:
@@ -156,11 +140,6 @@ public:
     flow.addEvent(ev,cb,vaddr);
   }
  
-#ifdef SESC_INORDER
-  void report(const char * str) {
-    pipeLineSelector.report(str);       
-  }
-#endif
  
   // Fills the current fetch buffer.
   //  Always fetches at most fetchWidth instructions

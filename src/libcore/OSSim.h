@@ -88,11 +88,6 @@ private:
 
   unsigned long long snapshotGlobalClock;
 
-#ifdef OLDMARKS
-  uint simulationMarks;
-  uint simulationMark1;
-  uint simulationMark2;
-#else
   typedef struct {
     Pid_t pid;
     unsigned long total;
@@ -107,7 +102,6 @@ private:
   int numIdSimMarks;
   int waitBeginIdSimMarks;
   int waitEndIdSimMarks;
-#endif
 
 #ifdef TS_PROFILING
   Profile *profiler;
@@ -184,16 +178,6 @@ public:
   void eventSetPPid(Pid_t pid, Pid_t ppid);
   Pid_t eventGetPPid(Pid_t pid);
 
-#ifdef OLDMARKS
-  void eventSimulationMark() {
-    simulationMarks++;
-  }
-  uint getSimulationMark() const { return simulationMarks; }
-  uint getSimulationMark1() const { return simulationMark1; }
-  uint getSimulationMark2() const { return simulationMark2; }
-  bool enoughMarks1() const { return simulationMarks > simulationMark1; }
-  bool enoughMarks2() const { return simulationMarks > simulationMark2; }
-#else
   void eventSimulationMark() {
     simMarks.total++;
   }
@@ -217,9 +201,7 @@ public:
   // goRabbitMode when marks are not used. Thanks, Milos. 
   bool enoughMarks1() const { return simMarks.total >= simMarks.begin; }
   bool enoughMarks2() const { return simMarks.total > simMarks.end; }
-#endif
 
-#ifndef OLDMARKS
   uint getSimulationMark(int id) const {
     std::map<int,SimulationMark_t>::const_iterator it = idSimMarks.find(id);
     return (*it).second.total;
@@ -265,7 +247,6 @@ public:
 
     return ret;
   }
-#endif
 
 #ifdef TS_PROFILING
   Profile *getProfiler() const {

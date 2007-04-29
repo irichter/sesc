@@ -227,12 +227,6 @@ DInst *DInst::createDInst(const Instruction *inst, VAddr va, int cId)
   i->wakeUpTime = 0;
   i->vaddr      = va;
   i->first      = 0;
-#ifdef SESC_SEED
-  i->predParent   = 0;
-  i->nDepTableEntries = 0;
-  i->overflowing  = false;
-  i->stallOnLoad  = false;
-#endif
 #ifdef DEBUG
   i->ID = currentID++;
 #endif
@@ -248,12 +242,6 @@ DInst *DInst::createDInst(const Instruction *inst, VAddr va, int cId)
   i->resolved     = false;
   i->deadInst     = false;
   i->waitOnMemory = false;
-#ifdef SESC_CHERRY
-  i->earlyRecycled= false;
-  i->canBeRecycled= false;
-  i->memoryIssued = false;
-  i->registerRecycled= false;
-#endif
 #ifdef SESC_MISPATH
   i->fake         = false;
 #endif

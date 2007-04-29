@@ -88,44 +88,6 @@ MemResource::MemResource(Cluster *cls
   ldqRdWrEnergy  = new GStatsEnergyNull; // No stats
 #endif
 
-#ifdef SESC_INORDER
-  ldqCheckEnergyOutOrder = new GStatsEnergy("ldqCheckEnergy",cadena,id, ExecPower
-                                    ,EnergyMgr::get("ldqCheckEnergy",id),"LSQ");
-
-  ldqRdWrEnergyOutOrder = new GStatsEnergy("ldqRdWrEnergy",cadena,id, ExecPower
-                                   ,EnergyMgr::get("ldqRdWrEnergy",id),"LSQ");
-
-  ldqCheckEnergyInOrder = new GStatsEnergyNull; // No stats
-  ldqRdWrEnergyInOrder  = new GStatsEnergyNull; // No stats
-
-  ldqCheckEnergy = ldqCheckEnergyOutOrder; // No stats
-  ldqRdWrEnergy  = ldqRdWrEnergyOutOrder; // No stats
-  
-  
-  stqCheckEnergyOutOrder = new GStatsEnergy("stqCheckEnergy",cadena,id, ExecPower
-                                    ,EnergyMgr::get("stqCheckEnergy",id),"LSQ");
-
-
-  stqRdWrEnergyOutOrder = new GStatsEnergy("stqRdWrEnergy",cadena,id, ExecPower
-                                   ,EnergyMgr::get("stqRdWrEnergy",id),"LSQ");
-                                   
-                                   
-  stqCheckEnergyInOrder = new GStatsEnergy("stqCheckEnergyInOrder",cadena,id, ExecPower
-                                    ,EnergyMgr::get("stqCheckEnergy",id),"LSQ");
-
-
-  stqRdWrEnergyInOrder = new GStatsEnergy("stqRdWrEnergyInOrder",cadena,id, ExecPower
-                                   ,EnergyMgr::get("stqRdWrEnergy",id),"LSQ");
-                                   
-  stqCheckEnergy = stqCheckEnergyOutOrder; // No stats
-  stqRdWrEnergy  = stqRdWrEnergyOutOrder; // No stats
-                           
-
-  InOrderMode = true;
-  OutOrderMode = false;
-  currentMode = OutOrderMode;
-
-#else
   ldqCheckEnergy = new GStatsEnergy("ldqCheckEnergy",cadena,id, ExecPower
                                     ,EnergyMgr::get("ldqCheckEnergy",id));
 
@@ -140,37 +102,11 @@ MemResource::MemResource(Cluster *cls
   stqRdWrEnergy  = new GStatsEnergy("stqRdWrEnergy",cadena,id, ExecPower
                                     ,EnergyMgr::get("stqRdWrEnergy",id));
                                    
-#endif
 
   iAluEnergy = new GStatsEnergy("iAluEnergy", cadena , id, ExecPower
                                 ,EnergyMgr::get("iALUEnergy",id));
 }
 
-#ifdef SESC_INORDER
-void MemResource::setMode(bool mode)
-{
-  if(currentMode == mode)
-    return;
-
-  cluster->setMode(mode);
-
-  currentMode = mode;
-
-  if(mode == InOrderMode){
-   ldqCheckEnergy = ldqCheckEnergyInOrder; // No stats
-   ldqRdWrEnergy  = ldqRdWrEnergyInOrder; // No stats
-   stqCheckEnergy = stqCheckEnergyInOrder; // No stats
-   stqRdWrEnergy  = stqRdWrEnergyInOrder; // No stats
-   currentMode = InOrderMode;
-  }else{
-   ldqCheckEnergy = ldqCheckEnergyInOrder; // No stats
-   ldqRdWrEnergy  = ldqRdWrEnergyInOrder; // No stats
-   stqCheckEnergy = stqCheckEnergyInOrder; // No stats
-   stqRdWrEnergy  = stqRdWrEnergyInOrder; // No stats
-   currentMode = OutOrderMode;
-  }
-}
-#endif
 /***********************************************/
 
 FUMemory::FUMemory(Cluster *cls, GMemorySystem *ms, int id)
@@ -245,12 +181,6 @@ RetOutcome FUMemory::retire(DInst *dinst)
   return Retired;
 }
 
-#ifdef SESC_CHERRY
-void FUMemory::earlyRecycle(DInst *dinst)
-{
-  I(0);  // TODO
-}
-#endif
 
 /***********************************************/
 
@@ -315,10 +245,6 @@ void FULoad::simTime(DInst *dinst)
   ldqCheckEnergy->inc();        
 
   if (dinst->isLoadForwarded()) {
-#ifdef SESC_CHERRY
-    dinst->markResolved();
-    cluster->getGProcessor()->propagateUnresolvedLoad();
-#endif
 
     dinst->doAtExecutedCB.scheduleAbs(when+LSDelay);
     // forwardEnergy->inc(); // TODO: CACTI == a read in the STQ
@@ -347,10 +273,6 @@ void FULoad::cacheDispatched(DInst *dinst)
     return;
   }
 
-#ifdef SESC_CHERRY
-  dinst->markResolved();
-  cluster->getGProcessor()->propagateUnresolvedLoad();
-#endif
 
   I( !dinst->isLoadForwarded() );
   // LOG("[0x%p] %lld 0x%lx read", dinst, globalClock, dinst->getVaddr());
@@ -383,20 +305,6 @@ RetOutcome FULoad::retire(DInst *dinst)
   return Retired;
 }
 
-#ifdef SESC_CHERRY
-void FULoad::earlyRecycle(DInst *dinst)
-{
-  I(!dinst->isEarlyRecycled());
-
-  //  MSG("0x%x load recycled @%lld",dinst->getInst()->currentID(), globalClock);
-  if (dinst->isFake())
-    misLoads--;
-  else
-    freeLoads++;
-
-  dinst->setEarlyRecycled();
-}
-#endif
 
 #ifdef SESC_MISPATH
 void FULoad::misBranchRestore()
@@ -464,21 +372,10 @@ void FUStore::executed(DInst *dinst)
   ldqCheckEnergy->inc(); // Check st-ld replay traps
 
 
-#ifdef SESC_CHERRY
-  dinst->markResolved();
-  cluster->getGProcessor()->propagateUnresolvedStore();
-#endif
 
   cluster->executed(dinst);
   cluster->getGProcessor()->getLSQ()->executed(dinst);
 
-#ifdef SESC_CHERRY
-  if (dinst->isEarlyRecycled()) {
-    dinst->setMemoryIssued();
-
-    DMemRequest::create(dinst, memorySystem, MemWrite);
-  }
-#endif
 }
 
 void FUStore::doRetire(DInst *dinst)
@@ -500,23 +397,13 @@ void FUStore::doRetire(DInst *dinst)
 RetOutcome FUStore::retire(DInst *dinst)
 {
   if (dinst->isDeadInst() || dinst->isFake() || dinst->isEarlyRecycled()
-#ifdef SESC_CHERRY
-      || dinst->isMemoryIssued()
-#endif
       ) {
     doRetire(dinst);
 
     if (dinst->isDeadStore())
       nDeadStore.inc();
 
-#ifdef SESC_CHERRY
-    if (dinst->isMemoryIssued() && !dinst->hasCanBeRecycled())
-      dinst->setCanBeRecycled();
-    else
-      dinst->destroy();
-#else
     dinst->destroy();
-#endif
     return Retired;
   }
 
@@ -531,10 +418,6 @@ RetOutcome FUStore::retire(DInst *dinst)
   // Note: The store is retired from the LDSTQueue as soon as it is send to the
   // L1 Cache. It does NOT wait until the ack from the L1 Cache is received
 
-#ifdef SESC_CHERRY
-  dinst->setCanBeRecycled();
-  dinst->setMemoryIssued();
-#endif
 
   gen->nextSlot();
 
@@ -553,28 +436,6 @@ RetOutcome FUStore::retire(DInst *dinst)
   return Retired;
 }
 
-#ifdef SESC_CHERRY
-void FUStore::earlyRecycle(DInst *dinst)
-{
-  I(!dinst->isEarlyRecycled());
-
-  dinst->setEarlyRecycled();
-
-  if (dinst->isDeadStore() && !dinst->isFake()) {
-    freeStores++;
-    return;
-  }
-
-  if (!dinst->isFake())
-    freeStores++;
-  
-  if (dinst->isResolved()) {
-    dinst->setMemoryIssued();
-
-    DMemRequest::create(dinst, memorySystem, MemWrite);
-  }
-}
-#endif
 
 void FUStore::storeCompleted()
 {
@@ -627,19 +488,6 @@ void FUGeneric::executed(DInst *dinst)
   cluster->executed(dinst);
 }
 
-#ifdef SESC_CHERRY
-void FUGeneric::earlyRecycle(DInst *dinst)
-{
-  I(0);
-}
-#endif
-#ifdef SESC_INORDER
-void FUGeneric::setMode(bool mode)
-{
-  cluster->setMode(mode);
-  // Nothing
-}
-#endif
 
 /***********************************************/
 
@@ -684,10 +532,6 @@ void FUBranch::executed(DInst *dinst)
 
   freeBranches++;
 
-#ifdef SESC_CHERRY
-  dinst->markResolved();
-  cluster->getGProcessor()->propagateUnresolvedBranch();
-#endif
 
   cluster->executed(dinst);
 }
@@ -712,19 +556,6 @@ RetOutcome FUBranch::retire(DInst *dinst)
 }
 #endif
 
-#ifdef SESC_CHERRY
-void FUBranch::earlyRecycle(DInst *dinst)
-{
-  I(0);  // TODO
-}
-#endif
-#ifdef SESC_INORDER
-void FUBranch::setMode(bool mode)
-{
-  cluster->setMode(mode);
-  // Nothing
-}
-#endif
 
 /***********************************************/
 
@@ -756,17 +587,4 @@ void FUEvent::simTime(DInst *dinst)
   cluster->executed(dinst);
 }
 
-#ifdef SESC_CHERRY
-void FUEvent::earlyRecycle(DInst *dinst)
-{
-  I(0);  // TODO
-}
-#endif
 
-#ifdef SESC_INORDER
-void FUEvent::setMode(bool mode)
-{
-  cluster->setMode(mode);
-  // Nothing
-}
-#endif

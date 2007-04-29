@@ -98,12 +98,6 @@ public:
   virtual void executed(DInst *dinst);
   virtual RetOutcome retire(DInst *dinst);
 
-#ifdef SESC_CHERRY
-  virtual void earlyRecycle(DInst *dinst) = 0;
-#endif
-#ifdef SESC_INORDER
-  virtual void setMode(bool mode) = 0;
-#endif
 };
 
 class GMemorySystem;
@@ -114,23 +108,6 @@ protected:
   MemObj  *L1DCache;
   GMemorySystem *memorySystem;
 
-#ifdef SESC_INORDER
-  GStatsEnergyBase *ldqCheckEnergyOutOrder; // Check for data dependence
-  GStatsEnergyBase *ldqRdWrEnergyOutOrder;  // Read-write operations (insert, exec, retire)
-
-  GStatsEnergyBase *ldqCheckEnergyInOrder; // Check for data dependence
-  GStatsEnergyBase *ldqRdWrEnergyInOrder;  // Read-write operations (insert, exec, retire)
-
-  GStatsEnergyBase *stqCheckEnergyOutOrder; // Check for data dependence
-  GStatsEnergyBase *stqRdWrEnergyOutOrder; 
-  
-  GStatsEnergyBase *stqCheckEnergyInOrder; // Check for data dependence
-  GStatsEnergyBase *stqRdWrEnergyInOrder; 
-  
-  bool InOrderMode;
-  bool OutOrderMode;
-  bool currentMode;
-#endif
   
   GStatsEnergyBase *ldqCheckEnergy; // Check for data dependence
   GStatsEnergyBase *ldqRdWrEnergy;  // Read-write operations (insert, exec, retire)
@@ -141,9 +118,6 @@ protected:
 
   MemResource(Cluster *cls, PortGeneric *aGen, GMemorySystem *ms, int id, const char *cad);
 public:
-#ifdef SESC_INORDER
-  void setMode(bool mode);
-#endif
 };
 
 class FUMemory : public MemResource {
@@ -156,9 +130,6 @@ public:
   void simTime(DInst *dinst);
   RetOutcome retire(DInst *dinst);
 
-#ifdef SESC_CHERRY
-  void earlyRecycle(DInst *dinst);
-#endif
 };
 
 class FULoad : public MemResource {
@@ -188,9 +159,6 @@ public:
   void executed(DInst *dinst);
   int freeEntries() const { return freeLoads; }
 
-#ifdef SESC_CHERRY
-  void earlyRecycle(DInst *dinst);
-#endif
 
 #ifdef SESC_MISPATH
   void misBranchRestore();
@@ -230,9 +198,6 @@ public:
 
   int freeEntries() const { return freeStores; }
 
-#ifdef SESC_CHERRY
-  void earlyRecycle(DInst *dinst);
-#endif
 
 #ifdef SESC_MISPATH
   void misBranchRestore();
@@ -261,13 +226,7 @@ public:
   StallCause canIssue(DInst *dinst);
   void simTime(DInst *dinst);
   void executed(DInst *dinst);
-#ifdef SESC_CHERRY
-  void earlyRecycle(DInst *dinst);
-#endif
 
-#ifdef SESC_INORDER
-  void setMode(bool mode);
-#endif
 
 };
 
@@ -289,12 +248,6 @@ public:
 #ifdef SESC_BRANCH_AT_RETIRE
   RetOutcome retire(DInst *dinst);
 #endif
-#ifdef SESC_CHERRY
-  void earlyRecycle(DInst *dinst);
-#endif
-#ifdef SESC_INORDER
-  void setMode(bool mode);
-#endif
 };
 
 class FUEvent : public Resource {
@@ -306,13 +259,7 @@ public:
   StallCause canIssue(DInst *dinst);
   void simTime(DInst * dinst);
 
-#ifdef SESC_CHERRY
-  void earlyRecycle(DInst *dinst);
-#endif
 
-#ifdef SESC_INORDER
-  void setMode(bool mode);
-#endif
   
 };
 

@@ -69,17 +69,6 @@ int input_data(int argc,char *argv[])
    double logbanksfloor, assocfloor;
    int bits_output = 64;
 
-//#ifdef XCACTI
-//  int latchsa = 0;
-//  int ignore_tag = 0;
-//#endif
-
-   /*if ((argc!=6) && (argc!=9)) {
-      printf("Cmd-line parameters: C B A TECH NSubbanks\n");
-      printf("                 OR: C B A TECH RWP ERP EWP NSubbanks\n");
-      exit(0);
-   }*/
-
    if ((argc!=6) && (argc!=9)&& (argc!=15)) {
       printf("Cmd-line parameters: C B A TECH NSubbanks\n");
       printf("                 OR: C B A TECH RWP ERP EWP NSubbanks\n");
@@ -702,7 +691,7 @@ total_result_type cacti_interface(
 	   //exit(1);
    }
 
-   A = C/B;
+   //A = C/B;
    if (A > 16) {
        parameters.fully_assoc = 1;
        A = 16;

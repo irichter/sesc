@@ -44,39 +44,6 @@ Processor::Processor(GMemorySystem *gm, CPU_t i)
 
   l1Cache = gm->getDataSource();
 
-#ifdef SESC_INORDER
-  TimeDelta_t l1HitDelay = SescConf->getInt(l1Cache->getDescrSection(),"hitDelay");
-
-  bzero(RATTIME,sizeof(Time_t*)*NumArchRegs);
-  const char *cpucore = SescConf->getCharPtr("","cpucore", i);
-  I(cpucore);
-
-  int nClusters = SescConf->getRecordSize(cpucore,"cluster");
-  for(int i=0 ; i< nClusters; i++) {
-    const char *cluster = SescConf->getCharPtr(cpucore,"cluster", i);
-    I(cluster);
-
-    if (SescConf->checkInt(cluster, "iALULat"))
-      latencyVal[iALU]       = SescConf->getInt(cluster, "iALULat");
-    if (SescConf->checkInt(cluster, "iMultLat"))
-      latencyVal[iMult]      = SescConf->getInt(cluster, "iMultLat");
-    if (SescConf->checkInt(cluster, "iDivLat"))
-      latencyVal[iDiv]       = SescConf->getInt(cluster, "iDivLat");
-    if (SescConf->checkInt(cluster, "iBJLat"))
-      latencyVal[iBJ]        = SescConf->getInt(cluster, "iBJLat");
-    if (SescConf->checkInt(cluster, "iLoadLat"))
-      latencyVal[iLoad]      = SescConf->getInt(cluster, "iLoadLat") + l1HitDelay;
-    if (SescConf->checkInt(cluster, "iStorelat"))
-      latencyVal[iStore]     = SescConf->getInt(cluster, "iStorelat");
-    if (SescConf->checkInt(cluster, "fpALULat"))
-      latencyVal[fpALU]      = SescConf->getInt(cluster, "fpALULat");
-    if (SescConf->checkInt(cluster, "fpMultLat"))
-      latencyVal[fpMult]     = SescConf->getInt(cluster, "fpMultLat");
-    if (SescConf->checkInt(cluster, "fpDivLat"))
-      latencyVal[fpDiv]      = SescConf->getInt(cluster, "fpDivLat");
-  }
-
-#endif
 }
 
 Processor::~Processor()
@@ -210,62 +177,11 @@ void Processor::advanceClock()
   retire();
 }
 
-#ifdef SESC_INORDER
-bool Processor::isStall(DInst *dinst)
-{
- if (dinst == 0)
-    return false;
-
- const Instruction *tempinst = dinst->getInst();
- if (tempinst->getOpcode() != iLoad)
-    return false;
-
- return !static_cast<Cache *>(l1Cache)->isInCache(static_cast<PAddr>(dinst->getVaddr()));
-}
-#endif
 
 StallCause Processor::addInst(DInst *dinst) 
 {
   const Instruction *inst = dinst->getInst();
 
-#ifdef SESC_INORDER
-  if (InOrderCore) {
-    // Update the RATTIME for the destiantion register
-    Time_t newTime = globalClock;
-    newTime += latencyVal[inst->getOpcode()];
-    
-    if (isStall(RAT[inst->getSrc1()])
-        || isStall(RAT[inst->getSrc2()])
-#ifdef SESC_INORDER_OUT_DEPS
-        || isStall(RAT[inst->getDest()])
-#endif
-        ) {
-      return SmallWinStall;
-    }
-      
-    if (RATTIME[inst->getSrc1()] > globalClock
-       || RATTIME[inst->getSrc2()] > globalClock
-#ifdef SESC_INORDER_OUT_DEPS
-       || RATTIME[inst->getDest()] > globalClock 
-#endif
-        ) {
-      return SmallWinStall;
-    }
-
-    {
-      // Instructions can not be issued out-of-order
-      static Time_t lastTime = 0;
-      if (lastTime > newTime) {
-        return SmallWinStall;
-      }
-      lastTime = newTime;
-    }
-
-    // No Stalls occured  
-    RATTIME[inst->getDest()] = newTime;
-  }
- 
-#else
   if (InOrderCore) {
     if(RAT[inst->getSrc1()] != 0 || RAT[inst->getSrc2()] != 0 
        || RAT[inst->getDest()] != 0
@@ -273,58 +189,11 @@ StallCause Processor::addInst(DInst *dinst)
       return SmallWinStall;
     }
   }
-#endif
 
   StallCause sc = sharedAddInst(dinst);
   if (sc != NoStall)
     return sc;
 
-#ifdef SESC_SEED
-  {
-    // Small L1 cache predictor
-    static SCTable l1HitPred(0,"l1HitPred",8192,3);
-    static GStatsCntr  *nL1Hit_pHit  =0;
-    static GStatsCntr  *nL1Hit_pMiss =0;
-    static GStatsCntr  *nL1Miss_pHit =0;
-    static GStatsCntr  *nL1Miss_pMiss=0;
-    if (nL1Hit_pMiss == 0) {
-      nL1Hit_pHit   = new GStatsCntr("L1Pred:nL1Hit_pHit");
-      nL1Hit_pMiss  = new GStatsCntr("L1Pred:nL1Hit_pMiss");
-      nL1Miss_pHit  = new GStatsCntr("L1Pred:nL1Miss_pHit");
-      nL1Miss_pMiss = new GStatsCntr("L1Pred:nL1Miss_pMiss");
-    }
-    
-    if (inst->isLoad()) {
-      bool l1Hit  = static_cast<Cache *>(l1Cache)->isInCache(static_cast<PAddr>(dinst->getVaddr()));
-      bool pL1Hit = l1HitPred.isHighest(inst->currentID());
-      if (l1Hit)
-        l1HitPred.predict(inst->currentID(), true);
-      else
-        l1HitPred.clear(inst->currentID());
-
-      if (l1Hit && pL1Hit) {
-#ifdef SESC_SEED_STALL_LOADS
-        dinst->setStallOnLoad();
-#endif
-        nL1Hit_pHit->inc();
-      }else if (l1Hit && !pL1Hit) {
-        // additional stall on load only if L1 hit & predict miss
-        dinst->setStallOnLoad();
-        nL1Hit_pMiss->inc();
-      }else if (!l1Hit && pL1Hit) {
-#ifdef SESC_SEED_STALL_LOADS
-        dinst->setStallOnLoad();
-#endif
-        nL1Miss_pHit->inc();
-      }else{
-#ifdef SESC_SEED_STALL_LOADS
-        dinst->setStallOnLoad();
-#endif
-        nL1Miss_pMiss->inc();
-      }
-    }
-  }
-#endif
 
   I(dinst->getResource() != 0); // Resource::schedule must set the resource field
 
@@ -352,10 +221,6 @@ StallCause Processor::addInst(DInst *dinst)
 
 bool Processor::hasWork() const 
 {
-#ifdef SESC_INORDER
-  if (switching)
-    return true;
-#endif
   if (IFID.hasWork())
     return true;
 

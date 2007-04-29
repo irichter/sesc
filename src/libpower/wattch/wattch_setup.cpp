@@ -262,7 +262,7 @@ void wattch_setup()
   SescConf->updateRecord(proc,"rdRegEnergy",pp.regfile_power/div);
 
   div = 2.0 * dfac1;
-  SescConf->updateRecord(proc,"bpredEnergy",pp.bpred_power/div) ;
+  SescConf->updateRecord(proc,"bpredEnergy",(double)pp.bpred_power/div) ;
   SescConf->updateRecord(proc,"btbEnergy",pp.btb/div) ;
   SescConf->updateRecord(proc,"rasEnergy",pp.ras/div) ;
   

@@ -99,11 +99,6 @@ class Cluster {
 
   GProcessor *getGProcessor() const { return gproc; }
 
-#ifdef SESC_INORDER
-  void setMode(bool mode) {
-    window.setMode(mode);
-  }
-#endif
 
 };
 
@@ -142,9 +137,6 @@ class ClusterManager {
     return res[type];
   }
 
-#ifdef SESC_INORDER
-  void setMode(bool mode);
-#endif
 
 #ifdef SESC_MISPATH
   void misBranchRestore();

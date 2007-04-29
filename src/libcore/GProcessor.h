@@ -74,14 +74,6 @@ protected:
   FastQueue<DInst *> replayQ;
   LDSTQ lsq;
 
-#ifdef SESC_CHERRY
-  int unresolvedLoad;   // Ul in cherry paper
-  int unresolvedStore;  // Us in cherry paper
-  int unresolvedBranch; // Ub in cherry paper
-
-  int recycleStore;   // min(Ul,Ub)
-  DInst *cherryRAT[NumArchRegs];
-#endif
 
 
 #ifdef XACTION
@@ -97,18 +89,6 @@ protected:
   GStatsEnergyBase *renameEnergy;
   GStatsEnergyBase *robEnergy;
   
-#ifdef SESC_INORDER
-  GStatsEnergyBase *renameEnergyOutOrder;
-  GStatsEnergyBase *robEnergyOutOrder;
-
-  GStatsEnergyBase *renameEnergyInOrder;
-  GStatsEnergyBase *robEnergyInOrder;
-
-  bool InOrderMode;
-  bool OutOrderMode;
-  bool currentMode;
-  bool switching; /* indicates if switch from outorder to inorder core */
-#endif  
   
   GStatsEnergyBase *wrRegEnergy[3]; // 0 INT, 1 FP, 2 NONE
   GStatsEnergyBase *rdRegEnergy[3]; // 0 INT, 1 FP, 2 NONE
@@ -247,12 +227,6 @@ public:
 
   virtual bool hasWork() const=0;
 
-#ifdef SESC_CHERRY
-  void checkRegisterRecycle();
-  void propagateUnresolvedLoad();
-  void propagateUnresolvedStore();
-  void propagateUnresolvedBranch();
-#endif
 
 #ifdef SESC_MISPATH
   virtual void misBranchRestore(DInst *dinst)= 0;
@@ -268,9 +242,6 @@ public:
   virtual bool isStall() const { return (stallUntil >= globalClock); }
 #endif
 
-#ifdef SESC_INORDER
-  void setMode(bool mode);
-#endif
   
 };
 

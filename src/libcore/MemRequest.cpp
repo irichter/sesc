@@ -99,14 +99,7 @@ void DMemRequest::dinstAck(DInst *dinst, MemOperation memOp, TimeDelta_t lat)
     FUStore* r = (FUStore*) c->getResource(iStore);
     r->storeCompleted();
     I(dinst->isExecuted());
-#ifdef SESC_CHERRY
-    if (dinst->hasCanBeRecycled())
-      dinst->destroy();
-    else
-      dinst->setCanBeRecycled();
-#else
     dinst->destroy();
-#endif
   }else{
     I(memOp == MemRead);
     I(dinst->getResource());

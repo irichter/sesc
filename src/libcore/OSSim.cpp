@@ -191,11 +191,6 @@ void OSSim::processParams(int argc, char **argv, char **envp)
   nInst2Skip=0;
   nInst2Sim=0;
 
-#ifdef OLDMARKS
-  simulationMarks = 0;
-  simulationMark1 = 0;
-  simulationMark2 = (~0UL)-1;
-#else
   bool useMTMarks = false;
   int  mtId;
 
@@ -203,7 +198,6 @@ void OSSim::processParams(int argc, char **argv, char **envp)
   simMarks.begin = 0;
   simMarks.end = (~0UL)-1;
   simMarks.mtMarks=false;
-#endif  
 
   const char *xtraPat=0;
   const char *reportTo=0;
@@ -260,7 +254,6 @@ void OSSim::processParams(int argc, char **argv, char **envp)
         }
       }
 
-#ifndef OLDMARKS
       else if( argv[i][1] == 'm' ) {
         useMTMarks=true;
         simMarks.mtMarks=true;
@@ -309,27 +302,6 @@ void OSSim::processParams(int argc, char **argv, char **envp)
         if(!useMTMarks)
           simMarks.total = 0;
       }
-#else
-      else if( argv[i][1] == '1' ) {
-        if( argv[i][2] != 0 )
-          simulationMark1 = strtol(&argv[i][2], 0, 0 );
-        else {
-          i++;
-          simulationMark1 = strtol(argv[i], 0, 0 );
-        }
-        simulationMarks = 0;
-      }
-      
-      else if( argv[i][1] == '2' ) {
-        if( argv[i][2] != 0 )
-          simulationMark2 = strtol(&argv[i][2], 0, 0 );
-        else {
-          i++;
-          simulationMark2 = strtol(argv[i], 0, 0 );
-        }
-        simulationMarks = 0;
-      }
-#endif
 
 #ifdef TS_PROFILING        
       else if( argv[i][1] == 'r' ) {
@@ -996,14 +968,6 @@ void OSSim::preBoot()
     GProcessor *proc = pid2GProcessor(0);
     proc->goRabbitMode(nInst2Skip);
     MSG("...End Skipping Initialization (Rabbit mode)");
-#ifdef OLDMARKS
-  }else if( simulationMark1 ) {
-    MSG("Start Skipping Initialization (skipping %ld simulation marks)...", simulationMark1);
-    GProcessor *proc = pid2GProcessor(0);
-    proc->goRabbitMode(1);
-    MSG("...End Skipping Initialization (Rabbit mode)");
-  }
-#else
   }else if( simMarks.begin || simMarks.mtMarks ) {
     unsigned i=0;
 
@@ -1042,7 +1006,6 @@ void OSSim::preBoot()
     //proc->goRabbitMode(1);
     //MSG("...End Skipping Initialization (Rabbit mode)");
   }
-#endif
 }
 
 void OSSim::postBoot()

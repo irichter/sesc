@@ -183,27 +183,10 @@ GProcessor::GProcessor(GMemorySystem *gm, CPU_t i, size_t numFlows)
   char cadena[100];
   sprintf(cadena, "Proc(%d)", (int)i);
 
-#ifdef SESC_INORDER
-  renameEnergyOutOrder = new GStatsEnergy("renameEnergy", cadena, i, IssuePower
-                                          ,EnergyMgr::get("renameEnergy",i));
-  robEnergyOutOrder    = new GStatsEnergy("ROBEnergy",cadena,i,IssuePower,EnergyMgr::get("robEnergy",i));
-
-  renameEnergyInOrder  = new GStatsEnergyNull();
-  robEnergyInOrder     = new GStatsEnergyNull();
-
-  renameEnergy = renameEnergyOutOrder;
-  robEnergy    = robEnergyOutOrder;
- 
-  InOrderMode  = true;
-  OutOrderMode = false;
-  currentMode  = OutOrderMode;
-  switching    = false;
-#else
   renameEnergy = new GStatsEnergy("renameEnergy", cadena, i, IssuePower
                                   ,EnergyMgr::get("renameEnergy",i));
 
   robEnergy = new GStatsEnergy("ROBEnergy",cadena, i, IssuePower, EnergyMgr::get("robEnergy",i));
-#endif
 
   wrRegEnergy[0] = new GStatsEnergy("wrIRegEnergy", cadena, i, ExecPower
                                     ,EnergyMgr::get("wrRegEnergy",i));
@@ -226,15 +209,6 @@ GProcessor::GProcessor(GMemorySystem *gm, CPU_t i, size_t numFlows)
   // CHANGE "PendingWindow" instead of "Proc" for script compatibility reasons
   buildInstStats(nInst, "PendingWindow");
   
-#ifdef SESC_CHERRY
-  unresolvedLoad  = -1;
-  unresolvedStore = -1;
-  unresolvedBranch= -1;
-  
-  recycleStore    = -1; // min(Ul,Ub)
-
-  bzero(cherryRAT, sizeof(DInst *) * NumArchRegs);
-#endif
   
 #ifdef SESC_MISPATH
   buildInstStats(nInstFake, "FakePendingWindow");
@@ -250,39 +224,6 @@ GProcessor::~GProcessor()
 {
 }
 
-#ifdef SESC_INORDER      
-void GProcessor::setMode(bool mode)
-{
-  if(currentMode == mode)
-    return;
-
-  //currentMode = mode;
-  printf("Called setMode\n");
-  if(currentMode == InOrderMode)
-    mode = OutOrderMode;
-  else 
-    mode = InOrderMode;
-
-  switching   = true;
-
-  if(mode == InOrderMode){
-    printf("Switching to InOrderMode\n"); 
-    renameEnergy = renameEnergyInOrder;
-    robEnergy =  robEnergyInOrder;
-    currentMode = InOrderMode;
-    InOrderCore = true;
-  }else{
-    printf("Switching to OutOrderMode\n"); 
-   renameEnergy = renameEnergyOutOrder;
-   robEnergy =  robEnergyOutOrder;
-   currentMode = OutOrderMode;
-   InOrderCore = false;
-  }
-
-  clusterManager.setMode(mode);
-  printf("Done setting Mode\n");        
-}
-#endif
 
 void GProcessor::buildInstStats(GStatsCntr *i[MaxInstType], const char *txt)
 {
@@ -383,29 +324,6 @@ StallCause GProcessor::sharedAddInst(DInst *dinst)
 
   ROB.push(dinst);
 
-#ifdef SESC_CHERRY
-  cherryRAT[inst->getDest()] = dinst;
-
-  // Before addInst because it can execute it :(
-
-  // TODO: try to move to schedule? so that the ifs are avoided
-  if (inst->isLoad()) {
-    if (unresolvedLoad == -1) {
-      if (!dinst->isResolved())
-        unresolvedLoad = ROB.getIdFromTop(ROB.size()-1);
-
-      // Early recycle Loads
-      if (unresolvedStore == -1)
-        dinst->getResource()->earlyRecycle(dinst);
-    }
-  }else if (inst->isStore()) {
-    if (unresolvedStore == -1 && !dinst->isResolved())
-      unresolvedStore = ROB.getIdFromTop(ROB.size()-1);
-  }else if (inst->isBranch()) {
-    if (unresolvedBranch == -1 && !dinst->isResolved())
-      unresolvedBranch = ROB.getIdFromTop(ROB.size()-1);
-  }
-#endif
 
   dinst->setResource(res);
 
@@ -572,9 +490,6 @@ void GProcessor::retire()
     int rp = dinst->getInst()->getDstPool();
 
     bool fake = dinst->isFake();
-#ifdef SESC_CHERRY
-    RegType dest= dinst->getInst()->getDest();
-#endif
 
     I(dinst->getResource());
     RetOutcome retOutcome = dinst->getResource()->retire(dinst);
@@ -587,15 +502,6 @@ void GProcessor::retire()
     if (!fake)
       regPool[rp]++;
 
-#ifdef SESC_CHERRY
-    cherryRAT[dest] = 0;
-
-    // If the instruction can get retired for sure that the unresolved
-    // pointer advanced
-    I(ROB.getIdFromTop(0) != unresolvedLoad);
-    //    I(ROB.getIdFromTop(0) != unresolvedStore);
-    //    I(ROB.getIdFromTop(0) != unresolvedBranch);
-#endif
     ROB.pop();
 
     robEnergy->inc(); // read ROB entry (finished?, update retirement rat...)
@@ -606,159 +512,3 @@ void GProcessor::retire()
   
 }
 
-#ifdef SESC_CHERRY
-void GProcessor::checkRegisterRecycle()
-{
-  // Register Recycle min(Us,Ub) (not multi)
-  ushort robPos = ROB.getIdFromTop(ROB.size()-1);
-  while(1) {
-    DInst *dinst = ROB.getData(robPos);
-    
-    if (!dinst->hasRegisterRecycled() 
-        && dinst->isExecuted() 
-        && !dinst->hasPending()
-        && cherryRAT[dinst->getInst()->getDest()] != dinst) {
-      dinst->setRegisterRecycled();
-
-#ifdef SESC_MISPATH
-      if (dinst->isFake()) {
-        misRegPool[dinst->getInst()->getDstPool()]--;
-      }else{
-        regPool[dinst->getInst()->getDstPool()]++;
-      }
-#else
-      regPool[dinst->getInst()->getDstPool()]++;
-#endif
-    }
-
-    robPos = ROB.getNextId(robPos);
-    if (ROB.isEnd(robPos))
-      break;
-  }
-}
-
-void GProcessor::propagateUnresolvedLoad()
-{
-  I(unresolvedLoad>=0);
-  while(1) {
-    DInst *dinst = ROB.getData(unresolvedLoad);
-    if (!dinst->isResolved() && dinst->getInst()->isLoad())
-      break; // only stop advancing pointer for an unresolved load
-             // (faster than waiting for an un-executed load)
-
-    ushort robPos = ROB.getNextId(unresolvedLoad);
-    if (ROB.isEnd(robPos)) {
-      // There are no more instructions. The Ul covers the whole ROB
-#ifdef DEBUG
-      // Verify that all loads are resolved
-      robPos = ROB.getIdFromTop(0);
-      while(!ROB.isEnd(robPos)) {
-        DInst *dinst = ROB.getData(robPos);
-        I(!(dinst->getInst()->isLoad() && !dinst->isResolved()));
-        robPos = ROB.getNextId(robPos);
-      }
-#endif
-      unresolvedLoad = -1;
-      break;
-    }
-
-    unresolvedLoad = robPos;
-
-    // BEGIN RECYCLE FOR Ul advance
-
-    // Store recycle at min(Ul,Ub)
-    if (recycleStore == -1 || recycleStore != unresolvedBranch)
-      recycleStore = unresolvedLoad;
-
-    if (recycleStore == unresolvedLoad) {
-      dinst = ROB.getData(unresolvedLoad);
-      if (dinst->getInst()->isStore() && !dinst->isEarlyRecycled())
-        dinst->getResource()->earlyRecycle(dinst);
-    }
-  }
-}
-
-void GProcessor::propagateUnresolvedStore()
-{
-  I(unresolvedStore>=0);
-  while(1) {
-    DInst *dinst = ROB.getData(unresolvedStore);
-    if (!dinst->isResolved() && dinst->getInst()->isStore())
-      break; // only stop advancing pointer for an unresolved Store
-             // (faster than waiting for an un-executed Store)
-
-    ushort robPos = ROB.getNextId(unresolvedStore);
-    if (ROB.isEnd(robPos)) {
-      // There are no more instructions. The Ul covers the whole ROB
-#ifdef DEBUG
-      // Verify that all stores are resolved
-      robPos = ROB.getIdFromTop(0);
-      while(!ROB.isEnd(robPos)) {
-        DInst *dinst = ROB.getData(robPos);
-        I(!(dinst->getInst()->isStore() && !dinst->isResolved()));
-        robPos = ROB.getNextId(robPos);
-      }
-#endif
-      unresolvedStore = -1;
-      break;
-    }
-
-    unresolvedStore = robPos;
-    // BEGIN RECYCLE for Us advance
-    
-    // LDQ entry recycled when Us
-    dinst = ROB.getData(unresolvedStore);
-    if (dinst->getInst()->isLoad() && !dinst->isEarlyRecycled()) {
-      // Entry can be recycled
-      dinst->getResource()->earlyRecycle(dinst);
-    }
-  }
-
-  // checkRegisterRecycle(); all the time is an overkilll. Checked
-  // when branches are resolved
-}
-
-void GProcessor::propagateUnresolvedBranch()
-{
-  I(unresolvedBranch>=0);
-  while(1) {
-    DInst *dinst = ROB.getData(unresolvedBranch);
-    if (!dinst->isResolved() && dinst->getInst()->isBranch())
-      break; // only stop advancing pointer for an unresolved branch
-             // (faster than waiting for an un-executed branch)
-
-    ushort robPos = ROB.getNextId(unresolvedBranch);
-    if (ROB.isEnd(robPos)) {
-      // There are no more instructions. The Ul covers the whole ROB
-#ifdef DEBUG
-      // Verify that all stores are resolved
-      robPos = ROB.getIdFromTop(0);
-      while(!ROB.isEnd(robPos)) {
-        DInst *dinst = ROB.getData(robPos);
-        I(!(dinst->getInst()->isBranch() && !dinst->isResolved()));
-        robPos = ROB.getNextId(robPos);
-      }
-#endif
-      unresolvedBranch = -1;
-      break;
-    }
-
-    unresolvedBranch = robPos;
-
-    // BEGIN RECYCLE FOR Ul advance
-
-    // Store recycle at min(Ul,Ub)
-    if (recycleStore == -1 || recycleStore != unresolvedLoad)
-      recycleStore = unresolvedBranch;
-
-    if (recycleStore == unresolvedBranch) {
-      dinst = ROB.getData(unresolvedBranch);
-      if (dinst->getInst()->isStore() && !dinst->isEarlyRecycled())
-        dinst->getResource()->earlyRecycle(dinst);
-    }
-  }
-
-  checkRegisterRecycle();
-
-}
-#endif
