@@ -49,7 +49,11 @@ class MemObj;
 class ExecutionFlow : public GFlow {
 private:
 
+#if (defined MIPS_EMUL)
+  ThreadContext *context;
+#else
   ThreadContext thread;
+#endif
 
 #ifdef TS_TIMELINE
   int verID;
@@ -103,8 +107,8 @@ protected:
 public:
   InstID getNextID() const {
 #if (defined MIPS_EMUL)
-    I(thread.getPid()!=-1);
-    return thread.getNextInstDesc()->addr;    
+    I(context);
+    return context->getNextInstDesc()->addr;
 #else
     I(picodePC);
     return picodePC->instID;
@@ -118,6 +122,8 @@ public:
   }
 
   ExecutionFlow(int cId, int i, GMemorySystem *gms);
+
+#if !(defined MIPS_EMUL)
   ThreadContext *getThreadContext(void) {
     I(thread.getPid()!=-1);
     return &thread;
@@ -125,11 +131,9 @@ public:
 
   void saveThreadContext(int pid) {
     I(thread.getPid()==pid);
-#if !(defined MIPS_EMUL)
 #if !(defined TLS)
     thread.setPCIcode(picodePC);
 #endif
-#endif // !(defined MIPS_EMUL)
     ThreadContext::getContext(thread.getPid())->copy(&thread);
 #if (defined TLS)
     I(thread.getEpoch()==ThreadContext::getContext(pid)->getEpoch());
@@ -140,15 +144,12 @@ public:
     I((thread.getPid()==-1)||(thread.getPid()==pid));
     thread.copy(ThreadContext::getContext(pid));
     thread.setPid(pid); // Not in copyContext
-#if !(defined MIPS_EMUL)
     picodePC=thread.getPCIcode();
-#endif // !(defined MIPS_EMUL)
 #if (defined TLS)
     thread.setEpoch(ThreadContext::getContext(pid)->getEpoch());
 #endif
   }
 
-#if !(defined MIPS_EMUL)
   icode_ptr getInstructionPointer(void); 
   void setInstructionPointer(icode_ptr picode) ;
 #endif // !(defined MIPS_EMUL)
@@ -156,7 +157,15 @@ public:
   void switchIn(int i);
   void switchOut(int i);
 
-  int currentPid(void) { return thread.getPid();  }
+  int currentPid(void) {
+#if (defined MIPS_EMUL)
+    if(!context)
+      return -1;
+    return context->getPid();
+#else // (defined MIPS_EMUL)
+    return thread.getPid();
+#endif // Else (defined MIPS_EMUL)
+  }
   DInst *executePC();
 
   void goRabbitMode(long long n2skip=0);

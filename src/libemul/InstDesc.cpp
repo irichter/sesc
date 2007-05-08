@@ -232,12 +232,14 @@ namespace Mips {
   template<bool delaySlot>
   inline void emulNext(InstDesc *inst, ThreadContext *context){
     if(delaySlot&&(context->getJumpInstDesc()!=NoJumpInstDesc)){
+      I(context->getJumpInstDesc()!=InvalidInstDesc);
       context->setNextInstDesc(context->getJumpInstDesc());
       context->setJumpInstDesc(NoJumpInstDesc);
     }else{
       I(inst->nextInst->addr==inst->addr+(inst->ctlInfo&CtlISize));
       context->setNextInstDesc(inst->nextInst);
     }
+    I(context->getNextInstDesc()!=InvalidInstDesc);
     handleSignals(context);
     I(context->getNextInstDesc()!=InvalidInstDesc);
   }
@@ -310,9 +312,11 @@ namespace Mips {
       switch(op){
       case OpJr: case OpJalr:
 	// Only jr and jalr jump to a register address
+	I(context->virt2inst(getReg<RegUnsT>(context,inst->regSrc1))!=InvalidInstDesc);
 	context->setJumpInstDesc(context->virt2inst(getReg<RegUnsT>(context,inst->regSrc1)));
         break;
       default:
+	I(inst->imm1.i!=InvalidInstDesc);
 	context->setJumpInstDesc(inst->imm1.i); break;
       }
 #if (defined DEBUG_BENCH)

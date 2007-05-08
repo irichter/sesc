@@ -182,6 +182,7 @@ public:
 
   Time_t getClockTicks() const { return clockTicks; }
 
+#if !(defined MIPS_EMUL)
   // Returns the context of thread pid
   // when called, the processor must be running thread pid
   virtual ThreadContext *getThreadContext(Pid_t pid)=0;
@@ -194,7 +195,6 @@ public:
   // When called, the processor must be running thread pid
   virtual void loadThreadContext(Pid_t pid)=0;
 
-#if !(defined MIPS_EMUL)
   // Sets the program counter of the thread to picode
   // When called, the processor must be running the thread
   virtual void setInstructionPointer(Pid_t pid, icode_ptr picode)=0;

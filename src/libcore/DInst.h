@@ -214,6 +214,10 @@ private:
   int ID; // static ID, increased every create (currentID). pointer to the
   // DInst may not be a valid ID because the instruction gets recycled
 #endif
+#if (defined MIPS_EMUL)
+ public:
+  ThreadContext::pointer context;
+#endif
  protected:
  public:
   DInst();
@@ -229,14 +233,18 @@ private:
   void doAtExecuted();
   StaticCallbackMember0<DInst,&DInst::doAtExecuted> doAtExecutedCB;
 
+#if (defined MIPS_EMUL)
+  static DInst *createInst(InstID pc, VAddr va, int cId, ThreadContext *context);
+  static DInst *createDInst(const Instruction *inst, VAddr va, int cId, ThreadContext *context);
+#else
 #if (defined TLS)
   static DInst *createInst(InstID pc, VAddr va, int cId, tls::Epoch *epoch);
   static DInst *createDInst(const Instruction *inst, VAddr va, int cId, tls::Epoch *epoch);
 #else
   static DInst *createInst(InstID pc, VAddr va, int cId);
   static DInst *createDInst(const Instruction *inst, VAddr va, int cId);
-#endif
-
+#endif // Else of (defined TLS)
+#endif // Else of (defined MIPS_EMUL)
   void killSilently();
   void scrap(); // Destroys the instruction without any other effects
   void destroy();

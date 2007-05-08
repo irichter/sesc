@@ -342,7 +342,11 @@ ProcessId *ProcessId::getProcessId(Pid_t pid)
 
 unsigned int ProcessId::getNumThreads()
 { 
+#if (defined MIPS_EMUL)
+  return ThreadContext::getPidUb();
+#else
   return ThreadContext::size();
+#endif
 }
 
 void ProcessId::report(const char *str)

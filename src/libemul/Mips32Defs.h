@@ -139,6 +139,7 @@ enum Mips32_SigMaskHow {
 // Define Number of kernel signals
 enum Mips32_KernelNumSignals {
   Mips32__K_NSIG = 0x80,
+  Mips32__K_NSIG_WORDS = 0x4,
 };
 // Define Pre-defined signal handlers
 enum Mips32_SigHandlers {
@@ -774,7 +775,7 @@ typedef uint32_t Mips32_VSize;
 // Define iovec for readv/writev
 typedef struct Mips32_iovec {
   Mips32_VAddr iov_base;
-  Mips32_VSize iov_len ;
+  Mips32_VSize iov_len;
 } Mips32_iovec;
 #include "sys/resource.h"
 // Define Resource limit size
@@ -789,7 +790,7 @@ typedef struct Mips32_rlimit {
 
 // Define timeval for rusage
 typedef struct Mips32_timeval {
-  int32_t tv_sec ;
+  int32_t tv_sec;
   int32_t tv_usec;
 } Mips32_timeval;
 
@@ -886,26 +887,26 @@ typedef struct Mips32_stat64 {
 
 // Define stat for [fl]stat
 typedef struct Mips32_stat {
-  uint32_t  st_dev;
+  uint32_t st_dev;
   uint32_t st_pad1[3];
-  Mips32_ino_t     st_ino;
-  Mips32_mode_t    st_mode;
-  Mips32_nlink_t   st_nlink;
-  Mips32_uid_t     st_uid;
-  Mips32_gid_t     st_gid;
-  uint32_t  st_rdev;
+  Mips32_ino_t st_ino;
+  Mips32_mode_t st_mode;
+  Mips32_nlink_t st_nlink;
+  Mips32_uid_t st_uid;
+  Mips32_gid_t st_gid;
+  uint32_t st_rdev;
   uint32_t st_pad2[2];
-  Mips32_off_t     st_size;
-  uint32_t  st_pad3;
-  Mips32_time_t    st_atim;
-  int32_t   reserved0;
-  Mips32_time_t    st_mtim;
-  int32_t   reserved1;
-  Mips32_time_t    st_ctim;
-  int32_t   reserved2;
+  Mips32_off_t st_size;
+  uint32_t st_pad3;
+  Mips32_time_t st_atim;
+  int32_t reserved0;
+  Mips32_time_t st_mtim;
+  int32_t reserved1;
+  Mips32_time_t st_ctim;
+  int32_t reserved2;
   Mips32_blksize_t st_blksize;
-  Mips32_blkcnt_t  st_blocks;
-  uint32_t  st_pad5[14];
+  Mips32_blkcnt_t st_blocks;
+  uint32_t st_pad5[14];
 } Mips32_stat;
 #include "dirent.h"
 
@@ -927,42 +928,47 @@ typedef struct Mips32_winsize {
   uint16_t ws_ypixel;
 } Mips32_winsize;
 
+// Define k_sigset_t for signal masks
+typedef struct Mips32_k_sigset_t {
+  uint32_t sig[Mips32__K_NSIG_WORDS];
+} Mips32_k_sigset_t;
+
 // Define kernel sigaction for [rt_]sigaction
 typedef struct Mips32_k_sigaction {
   uint32_t sa_flags;
   Mips32_VAddr k_sa_handler;
-  uint32_t sa_mask[4];
+  Mips32_k_sigset_t sa_mask;
   Mips32_VAddr sa_restorer;
   uint32_t sa_pad;
 } Mips32_k_sigaction;
 
 // Define timespec for nanosleep
 typedef struct Mips32_timespec {
-  Mips32_time_t  tv_sec ;
+  Mips32_time_t tv_sec;
   int32_t tv_nsec;
 } Mips32_timespec;
 
 // Define args for sysctl
 typedef struct Mips32___sysctl_args {
-  Mips32_VAddr    name;
-  int32_t  nlen;
-  Mips32_VAddr    oldval;
-  Mips32_VAddr    oldlenp;
-  Mips32_VAddr    newval;
-  Mips32_VSize    newlen;
+  Mips32_VAddr name;
+  int32_t nlen;
+  Mips32_VAddr oldval;
+  Mips32_VAddr oldlenp;
+  Mips32_VAddr newval;
+  Mips32_VSize newlen;
   uint32_t __unused[4];
 } Mips32___sysctl_args;
 
 // Define Pollfd for poll
 typedef struct Mips32_pollfd {
-  int32_t  fd;
-  int16_t  events;
-  int16_t  revents;
+  int32_t fd;
+  int16_t events;
+  int16_t revents;
 } Mips32_pollfd;
 // Convert endianness of iovec for readv/writev
 void cvtEndianBig(Mips32_iovec &val){
   cvtEndianBig(val.iov_base);
-  cvtEndianBig(val.iov_len );
+  cvtEndianBig(val.iov_len);
 }
 // Convert endianness of rlimit for getrlimit/setrlimit
 void cvtEndianBig(Mips32_rlimit &val){
@@ -971,7 +977,7 @@ void cvtEndianBig(Mips32_rlimit &val){
 }
 // Convert endianness of timeval for rusage
 void cvtEndianBig(Mips32_timeval &val){
-  cvtEndianBig(val.tv_sec );
+  cvtEndianBig(val.tv_sec);
   cvtEndianBig(val.tv_usec);
 }
 // Convert endianness of rusage for getrusage/setrusage
@@ -1056,16 +1062,20 @@ void cvtEndianBig(Mips32_winsize &val){
   cvtEndianBig(val.ws_xpixel);
   cvtEndianBig(val.ws_ypixel);
 }
+// Convert endianness of k_sigset_t for signal masks
+void cvtEndianBig(Mips32_k_sigset_t &val){
+  { for(int i=0;i<Mips32__K_NSIG_WORDS;i++) cvtEndianBig(val.sig[i]); }
+}
 // Convert endianness of kernel sigaction for [rt_]sigaction
 void cvtEndianBig(Mips32_k_sigaction &val){
   cvtEndianBig(val.sa_flags);
   cvtEndianBig(val.k_sa_handler);
-  { for(int i=0;i<4;i++) cvtEndianBig(val.sa_mask[i]); }
+  cvtEndianBig(val.sa_mask);
   cvtEndianBig(val.sa_restorer);
 }
 // Convert endianness of timespec for nanosleep
 void cvtEndianBig(Mips32_timespec &val){
-  cvtEndianBig(val.tv_sec );
+  cvtEndianBig(val.tv_sec);
   cvtEndianBig(val.tv_nsec);
 }
 // Convert endianness of args for sysctl

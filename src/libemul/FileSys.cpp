@@ -3,12 +3,16 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <unistd.h>
+#include <iostream>
 // Needed to get I()
 #include "nanassert.h"
 // Needed just for "fail()"
 #include "EmulInit.h"
 // Needed for thread suspend/resume calls
 #include "OSSim.h"
+
+using std::cout;
+using std::endl;
 
 namespace FileSys {
 
@@ -17,6 +21,35 @@ namespace FileSys {
   }
   BaseStatus::~BaseStatus(void){
     close(fd);
+  }
+  void BaseStatus::save(ChkWriter &out) const{
+    out << "Type " << type;
+    out << " Flags " << flags << " Blocked " << readBlockPids.size();
+    for(PidSet::const_iterator i=readBlockPids.begin();i!=readBlockPids.end();i++)
+      out << " " << *i;
+    out << endl;
+  }
+  BaseStatus *BaseStatus::create(ChkReader &in){
+    size_t _type;
+    in >> "Type " >> _type;
+    switch(static_cast<FileType>(_type)){
+    case Disk:   return new FileStatus(in);
+    case Pipe:   return new PipeStatus(in);
+    case Stream: return new StreamStatus(in);
+    }
+    return 0;
+  }
+  BaseStatus::BaseStatus(FileType type, ChkReader &in)
+    : type(type), fd(-1){
+    size_t _readBlockPids;
+    in >> " Flags " >> flags >> " Blocked " >> _readBlockPids;
+    while(_readBlockPids){
+      int _pid;
+      in >> " " >> _pid;
+      readBlockPids.push_back(_pid);
+      _readBlockPids--;
+    }
+    in >> endl;
   }
   FileStatus::FileStatus(const char *name, int fd, int flags, mode_t mode)
     : BaseStatus(Disk,fd,flags), name(strdup(name)), mode(mode){
@@ -33,6 +66,22 @@ namespace FileSys {
       fail("FileSys::FileStatus::open can not create a new FileStatus\n");
     return retVal;
   }
+  FileStatus::FileStatus(ChkReader &in)
+    : BaseStatus(Disk,in){
+    off_t _pos;
+    size_t _nameLen;
+    in >> "Mode " >> mode >> " Pos " >> _pos >> " NameLen " >> _nameLen;
+    name=static_cast<char *>(malloc(_nameLen+1));
+    in >> name >> endl;
+    int fd=::open(name,flags,mode);
+    I(fd!=-1);
+    ::lseek(fd,_pos,SEEK_SET);
+  }
+  void FileStatus::save(ChkWriter &out) const{
+    BaseStatus::save(out);
+    out << "Mode " << mode << " Pos " << ::lseek(fd,0,SEEK_CUR) << " NameLen " << strlen(name) << " Name " << name << endl;
+  }
+ 
   void PipeStatus::setOtherEnd(PipeStatus *oe){
     I(!otherEnd);
     I((!oe->otherEnd)||(oe->otherEnd==this));
@@ -49,8 +98,8 @@ namespace FileSys {
     fcntl(fdescs[1],F_SETFL,fflags[1]|O_NONBLOCK);
     if((fflags[0]==-1)||(fflags[1]==-1))
       fail("FileSys::PipeStatus::open could not fcntl F_GETFL\n");
-    PipeStatus *rdPipe=new PipeStatus(fdescs[0],fflags[0],false);
-    PipeStatus *wrPipe=new PipeStatus(fdescs[1],fflags[1],true);
+    PipeStatus *rdPipe=new PipeStatus(fdescs[0],fdescs[1],fflags[0],false);
+    PipeStatus *wrPipe=new PipeStatus(fdescs[1],fdescs[0],fflags[1],true);
     if((!rdPipe)||(!wrPipe))
       fail("FileSys::PipeStatus::pipe can not create a new PipeStatus\n");
     wrPipe->setOtherEnd(rdPipe);
@@ -65,14 +114,90 @@ namespace FileSys {
       otherEnd->readBlockPids.pop_back();
       ThreadContext *context=osSim->getContext(pid);
       if(context){
-	SignalState *sigState=context->getSignalState();
 	SigInfo *sigInfo=new SigInfo(SigIO,SigCodeIn);
 	sigInfo->pid=pid;
 	sigInfo->data=fd;
-	sigState->raise(sigInfo);
+	context->signal(sigInfo);
       }
     }
   }
+  void PipeStatus::save(ChkWriter &out) const{
+    BaseStatus::save(out);
+    out << "IsWrite " << (isWrite?'+':'-');
+    out << " OtherEnd " << (out.hasIndex(otherEnd)?'+':'-');
+    if(out.hasIndex(otherEnd))
+      out << out.getIndex(otherEnd);
+    out << endl;
+    if(!isWrite){
+      I(otherEnd);
+      std::vector<unsigned char> cv;
+      while(true){
+	unsigned char c;
+	ssize_t rdRet=::read(fd,&c,sizeof(c));
+	if(rdRet==-1)
+	  break;
+	I(rdRet==1);
+	cv.push_back(c);
+      }
+      out << "Data size " << cv.size();
+      if(cv.size()){
+	out << " Data";
+	for(size_t i=0;i<cv.size();i++){
+	  out << " " << cv[i];
+	  ssize_t wrRet=::write(otherFd,&(cv[i]),sizeof(cv[i]));
+	  I(wrRet==1);
+	}
+      }
+      out << endl;
+    }
+  }
+  PipeStatus::PipeStatus(ChkReader &in)
+    : BaseStatus(Pipe,in){
+    char _isWrite;
+    in >> "IsWrite " >> _isWrite;
+    isWrite=(_isWrite=='+');
+    char _hasIndex;
+    in >> " OtherEnd " >> _hasIndex;
+    if(_hasIndex=='+'){
+      size_t _index;
+      in >> _index;
+      otherEnd=static_cast<PipeStatus *>(in.getObject(_index));
+      if(otherEnd){
+        otherEnd->otherEnd=this;
+        fd=otherEnd->otherFd;
+        otherFd=otherEnd->fd;
+      }
+    }else{
+      int fdescs[2];
+      ::pipe(fdescs);
+      if(isWrite){
+        fd=fdescs[1];
+        otherFd=fdescs[0];
+      }else{
+        fd=fdescs[0];
+        otherFd=fdescs[1];
+      }
+    }
+    I(flags==fcntl(fd,F_GETFL));
+    fcntl(fd,F_SETFL,flags|O_NONBLOCK);
+    in >> endl;
+    if(!isWrite){
+      size_t _dataSize;
+      in >> "Data size " >> _dataSize;
+      if(_dataSize){
+        in >> " Data";
+        while(_dataSize){
+          char _c;
+	  in >> " " >> _c;
+	  ssize_t wrRet=::write(otherFd,&_c,sizeof(_c));
+	  I(wrRet==1);
+          _dataSize--;
+        }
+      }
+      in >> endl;
+    }
+  }
+
   StreamStatus::StreamStatus(int fd, int flags)
     : BaseStatus(Stream,fd,flags){
   }
@@ -95,18 +220,19 @@ namespace FileSys {
     }
     return new StreamStatus(newfd,flags);
   }
+  void StreamStatus::save(ChkWriter &out) const{
+    BaseStatus::save(out);    
+  }
+  StreamStatus::StreamStatus(ChkReader &in)
+    : BaseStatus(Stream,in){
+  }
   FileDesc::FileDesc(void)
     : st(0){
   }
   FileDesc::FileDesc(const FileDesc &src)
     : st(src.st), cloexec(src.cloexec){
-    if(st)
-      st->addRef();
   }
   FileDesc::~FileDesc(void){
-    I((!st)||(st->getRefCount()>0));
-    if(st)
-      st->delRef();
   }
   FileDesc &FileDesc::operator=(const FileDesc &src){
     setStatus(src.st);
@@ -114,16 +240,28 @@ namespace FileSys {
     return *this;
   }
   void FileDesc::setStatus(BaseStatus *newSt){
-    if(newSt)
-      newSt->addRef();
-    if(st){
-      I(st->getRefCount()>0);
-      if(st->getRefCount()==1)
-	st->endReadBlock();
-      st->delRef();
-    }
     st=newSt;
   }
+  void FileDesc::save(ChkWriter &out) const{
+    out << "Cloexec " << (cloexec?'+':'-');
+    bool hasIndex=out.hasIndex(getStatus());
+    out << " Status " << out.getIndex(getStatus()) << endl;
+    if(!hasIndex)
+      st->save(out);
+  }
+  FileDesc::FileDesc(ChkReader &in){
+    char _cloexec;
+    in >> "Cloexec " >> _cloexec;
+    cloexec=(_cloexec=='+');
+    size_t _st;
+    in >> " Status " >> _st >> endl;
+    if(!in.hasObject(_st)){
+      in.newObject(_st);
+      st=BaseStatus::create(in);
+      in.setObject(_st,getStatus());
+    }
+  }
+
   OpenFiles::OpenFiles(void)
     : fds(){ 
   }
@@ -274,6 +412,18 @@ namespace FileSys {
     FileDesc *desc=getDesc(fd);
     BaseStatus *status=desc->getStatus();
     return ::lseek(status->fd,offset,whence);    
+  }
+
+  void OpenFiles::save(ChkWriter &out) const{
+    out << "Descriptors: " << fds.size() << endl;
+    for(size_t f=0;f<fds.size();f++)
+      fds[f].save(out);
+  }
+  OpenFiles::OpenFiles(ChkReader &in){
+    size_t _fds;
+    in >> "Descriptors: " >> _fds >> endl;
+    for(size_t f=0;f<_fds;f++)
+      fds.push_back(FileDesc(in));
   }
 
   FileNames *FileNames::fileNames;

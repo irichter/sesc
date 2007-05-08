@@ -40,6 +40,9 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 ExecutionFlow::ExecutionFlow(int cId, int i, GMemorySystem *gmem)
   : GFlow(i, cId, gmem)
 {
+#if (defined MIPS_EMUL)
+  context=0;
+#else
   picodePC = 0;
   ev = NoEvent;
 
@@ -53,9 +56,8 @@ ExecutionFlow::ExecutionFlow(int cId, int i, GMemorySystem *gmem)
   memcpy(&thread,ThreadContext::getMainThreadContext(),sizeof(ThreadContext));
 
   thread.setPid(-1);
-#if !(defined MIPS_EMUL)
   thread.setPicode(&invalidIcode);
-#endif // !(defined MIPS_EMUL)
+#endif // else of (defined MIPS_EMUL)
 
   pendingDInst = 0;
 }
@@ -184,11 +186,13 @@ void ExecutionFlow::exeInstFast()
   I(goingRabbit);
 #if (defined MIPS_EMUL)
   I(!trainCache); // Not supported yet
-  InstDesc *iDesc=thread.getNextInstDesc();
-  iDesc->emulFunc(iDesc,&thread);
-  VAddr vaddr=thread.getLastDataVAddr();
+  ThreadContext *thread=context;
+  InstDesc *iDesc=thread->getNextInstDesc();
+  //  printf("F @0x%lx\n",iDesc->addr);
+  iDesc->emulFunc(iDesc,thread);
+  VAddr vaddr=thread->getLastDataVAddr();
   if(vaddr)
-    thread.setLastDataVAddr(0);
+    thread->setLastDataVAddr(0);
 #else // For (defined MIPS_EMUL)
   // This exeInstFast can be called when for sure there are no speculative
   // threads (TLS, or TASKSCALAR)
@@ -244,10 +248,16 @@ void ExecutionFlow::exeInstFast()
 
 void ExecutionFlow::switchIn(int i)
 {
-  I(thread.getPid() == -1);
-#if !(defined MIPS_EMUL)
-  I(thread.getPicode()==&invalidIcode);
+#if (defined MIPS_EMUL)
+  I(!context);
+  context=ThreadContext::getContext(i);
+#if (defined DEBUG_SIGNALS)
+  MSG("ExecutionFlow[%d] switchIn pid(%d) 0x%x @%lld", fid, i, context->getNextInstDesc()->addr, globalClock);
 #endif
+  I(context->getPid()==i);
+#else
+  I(thread.getPid() == -1);
+  I(thread.getPicode()==&invalidIcode);
   loadThreadContext(i);
   I(thread.getPid() == i);
 
@@ -259,13 +269,9 @@ void ExecutionFlow::switchIn(int i)
   TraceGen::add(verID,"in=%lld",globalClock);
 #endif
 
-#if !(defined MIPS_EMUL)
   LOG("ExecutionFlow[%d] switchIn pid(%d) 0x%x @%lld", fid, i, picodePC->addr, globalClock);
-#else
-#if (defined DEBUG_SIGNALS)
-  MSG("ExecutionFlow[%d] switchIn pid(%d) 0x%x @%lld", fid, i, thread.getNextInstDesc()->addr, globalClock);
 #endif
-#endif
+
   //I(!pendingDInst);
   if( pendingDInst ) {
 #if (defined TLS)
@@ -285,22 +291,23 @@ void ExecutionFlow::switchOut(int i)
   verID = 0;
 #endif
 
-#if !(defined MIPS_EMUL)
-  LOG("ExecutionFlow[%d] switchOut pid(%d) 0x%x @%lld", fid, i, picodePC->addr, globalClock);
-#else
+#if (defined MIPS_EMUL)
+  I(context);
+  I(context->getPid()==i);
 #if (defined DEBUG_SIGNALS)
-  MSG("ExecutionFlow[%d] switchOut pid(%d) 0x%x @%lld", fid, i, thread.getNextInstDesc()->addr, globalClock);
+  MSG("ExecutionFlow[%d] switchOut pid(%d) 0x%x @%lld", fid, i, context->getNextInstDesc()->addr, globalClock);
 #endif
-#endif
+  context=0;
+#else // (defined MIPS_EMUL)
+  LOG("ExecutionFlow[%d] switchOut pid(%d) 0x%x @%lld", fid, i, picodePC->addr, globalClock);
   // Must be running thread i
   I(thread.getPid() == i);
   // Save the context of the thread
   saveThreadContext(i);
   // Now running no thread at all
   thread.setPid(-1);
-#if !(defined MIPS_EMUL)
   thread.setPicode(&invalidIcode);
-#endif
+#endif // Else of (defined MIPS_EMUL)
 
   //  I(!pendingDInst);
   if( pendingDInst ) {
@@ -338,13 +345,15 @@ DInst *ExecutionFlow::executePC()
     retVal=pendingDInst;
     pendingDInst=0;
   }else{
-    InstDesc *iDesc=thread.getNextInstDesc();
-    iDesc->emulFunc(iDesc,&thread);
-    VAddr vaddr=thread.getLastDataVAddr();
+    ThreadContext *thread=context;
+    InstDesc *iDesc=thread->getNextInstDesc();
+    //    printf("S @0x%lx\n",iDesc->addr);
+    iDesc->emulFunc(iDesc,thread);
+    VAddr vaddr=thread->getLastDataVAddr();
     if(vaddr)
-      thread.setLastDataVAddr(0);
-    DInst *myDInst=DInst::createDInst(iDesc->getSescInst(),vaddr,fid);
-    if(thread.getJumpInstDesc()!=NoJumpInstDesc){
+      thread->setLastDataVAddr(0);
+    DInst *myDInst=DInst::createDInst(iDesc->getSescInst(),vaddr,fid,thread);
+    if(thread->getJumpInstDesc()!=NoJumpInstDesc){
       retVal=executePC();
       pendingDInst=myDInst;
     }else{
@@ -636,7 +645,11 @@ void ExecutionFlow::goRabbitMode(long long n2skip)
     }
 #endif // For else of (defined MIPS_EMUL)
 
+#if (defined MIPS_EMUL)
+    if(!context) {
+#else
     if(thread.getPid() == -1) {
+#endif // For else of (defined MIPS_EMUL)
       ev=NoEvent;
       goingRabbit = false;
       LOG("1.goRabbitMode::Skipped %lld instructions",nExec);
@@ -662,7 +675,11 @@ void ExecutionFlow::goRabbitMode(long long n2skip)
       }
     }
 
+#if (defined MIPS_EMUL)
+    if( osSim->enoughMTMarks1(context->getPid(),true) )
+#else
     if( osSim->enoughMTMarks1(thread.getPid(),true) )
+#endif // For else of (defined MIPS_EMUL)
       break;
     if( n2skip == 0 && goingRabbit && osSim->enoughMarks1() && nFastSims == 0 )
       break;

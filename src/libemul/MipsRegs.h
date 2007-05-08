@@ -95,6 +95,7 @@ namespace Mips {
     RegJunk, // Junk register, stores to RegZero go here
     RegCond, // Condition register for implementing micro-ops
     RegLink, // Link register for implementing LL/SC
+    RegSys,  // Register used in system implementation
     SpcNameUb,
   };
 

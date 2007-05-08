@@ -199,11 +199,16 @@ void DInst::doAtExecuted()
   resource->executed(this);
 }
 
+
+#if (defined MIPS_EMUL)
+DInst *DInst::createDInst(const Instruction *inst, VAddr va, int cId, ThreadContext *context)
+#else
 #if (defined TLS)
 DInst *DInst::createDInst(const Instruction *inst, VAddr va, int cId, tls::Epoch *epoch)
 #else
 DInst *DInst::createDInst(const Instruction *inst, VAddr va, int cId)
-#endif
+#endif // Else of (defined TLS)
+#endif // Else of (defined MIPS_EMUL)
 {
 #ifdef SESC_MISPATH
   if (inst->isType(iOpInvalid))
@@ -211,6 +216,10 @@ DInst *DInst::createDInst(const Instruction *inst, VAddr va, int cId)
 #endif
 
   DInst *i = dInstPool.out();
+
+#if (defined MIPS_EMUL)
+  i->context=context;
+#endif
 
 #ifdef SESC_BAAD
   i->fetch1Time   = 0;
@@ -272,27 +281,39 @@ DInst *DInst::createDInst(const Instruction *inst, VAddr va, int cId)
   return i;
 }
 
+#if (defined MIPS_EMUL)
+DInst *DInst::createInst(InstID pc, VAddr va, int cId, ThreadContext *context)
+#else
 #if (defined TLS)
 DInst *DInst::createInst(InstID pc, VAddr va, int cId, tls::Epoch *epoch)
 #else
 DInst *DInst::createInst(InstID pc, VAddr va, int cId)
-#endif
+#endif // Else of (defined TLS)
+#endif // Else of (defined MIPS_EMUL)
 {
   const Instruction *inst = Instruction::getInst(pc);
+#if (defined MIPS_EMUL)
+  return createDInst(inst, va, cId, context);
+#else
 #if (defined TLS)
   return createDInst(inst, va, cId, epoch);
 #else
   return createDInst(inst, va, cId);
-#endif
+#endif // Else of (defined TLS)
+#endif // Else of (defined MIPS_EMUL)
 }
 
 DInst *DInst::clone() 
 {
+#if (defined MIPS_EMUL)
+  DInst *newDInst = createDInst(inst, vaddr, cId, context);  
+#else
 #if (defined TLS)
   DInst *newDInst = createDInst(inst, vaddr, cId, myEpoch);
 #else
   DInst *newDInst = createDInst(inst, vaddr, cId);
-#endif
+#endif // Else of (defined TLS)
+#endif // Else of (defined MIPS_EMUL)
 
 #ifdef TASKSCALAR
   // setting the LVID for the cloned instruction
@@ -391,6 +412,9 @@ void DInst::killSilently()
 #endif
 
   I(!getFetch());
+#if (defined MIPS_EMUL)
+  context=0;
+#endif
   dInstPool.in(this); 
 }
 
@@ -429,6 +453,9 @@ void DInst::scrap()
 #endif
 
   I(!getFetch());
+#if (defined MIPS_EMUL)
+  context=0;
+#endif
   dInstPool.in(this);
 }
 

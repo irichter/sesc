@@ -185,7 +185,7 @@ public:
     if(idSimMarks.find(id)==idSimMarks.end()) {
       idSimMarks[id].total = 0;
       idSimMarks[id].begin = 0;
-      idSimMarks[id].end = (~0UL)-1;
+      idSimMarks[id].end = (uint)((~0UL)-1);
     }
 
     idSimMarks[id].total++;

@@ -2,6 +2,8 @@
 #define SIGNAL_HANDLING_H
 
 #include "Addressing.h"
+#include "GCObject.h"
+#include "Checkpoint.h"
 #include <bitset>
 #include <vector>
 
@@ -37,152 +39,25 @@ class SigInfo{
   int uid;
 
   int data; // Status for SIGCLD, fd for SIGIO
+  SigInfo(){
+  }
   SigInfo(SignalID signo, SigCode code) : signo(signo), code(code){
   }
+  void save(ChkWriter &out) const;
+  void restore(ChkReader &in);
 };
+inline ChkWriter &operator<< (ChkWriter &out, const SigInfo &si){
+  si.save(out); return out;
+}
+inline ChkReader &operator>> (ChkReader &in, SigInfo &si){
+  si.restore(in); return in;
+}
 
 SignalAction getDflSigAction(SignalID sig);
 
 typedef std::bitset<NumSignals> SignalSet;
 
 typedef std::vector<SigInfo *>  SignalQueue;
-
-typedef std::vector<SignalSet>  SignalSetStack;
-
-typedef void SigCallBackFun(SigInfo *);
-
-class SigCallBack{
- public:
-  virtual void operator()(SigInfo *sigInfo) = 0;
-  virtual ~SigCallBack(){ }
-};
-
-class SignalState{
- public:
-  SignalSetStack masks;
-  SignalQueue    ready;
-  SignalQueue    masked;
-  SigCallBack   *wakeup;
-  SignalState(void)
-    :
-    masks(1,SignalSet()),
-    ready(),
-    masked(),
-    wakeup(0)
-  {
-  }
-  SignalState(const SignalState &src)
-    :
-    masks(src.masks),
-    ready(),
-    masked(),
-    wakeup(0)
-  {
-    I(src.ready.empty());
-    I(src.masked.empty());
-    I(!src.wakeup);
-  }
-  void setWakeup(SigCallBack *newWakeup){
-    I(!wakeup);
-    wakeup=newWakeup;
-    if(!ready.empty()){
-      SigCallBack *func=wakeup;
-      wakeup=0;
-      (*func)(ready.back());
-      delete func;
-    }
-  }
-  void clrWakeup(void){
-    I(wakeup);
-    delete wakeup;
-    wakeup=0;
-  }
-  void raise(SigInfo *sigInfo){
-    SignalID sig=sigInfo->signo;
-    if(masks.back().test(sig)){
-      masked.push_back(sigInfo);
-    }else{
-      ready.push_back(sigInfo);
-      if(wakeup){
-	SigCallBack *func=wakeup;
-	wakeup=0;
-	(*func)(sigInfo);
-	delete func;
-      }
-    }
-  }
-  void pushMask(const SignalSet &newMask){
-#if (defined DEBUG_SIGNALS)
-    if((newMask.test(32))&&(!masks.back().test(32)))
-      printf("Disabling signal 32\n");
-    if((!newMask.test(32))&&(masks.back().test(32)))
-      printf("Enabling signal 32\n");
-#endif
-    masks.push_back(newMask);
-    maskChanged();
-  }
-  void setMask(const SignalSet &newMask){
-#if (defined DEBUG_SIGNALS)
-    if((newMask.test(32))&&(!masks.back().test(32)))
-      printf("Disabling signal 32\n");
-    if((!newMask.test(32))&&(masks.back().test(32)))
-      printf("Enabling signal 32\n");
-#endif
-    masks.back()=newMask;
-    maskChanged();
-  }
-  void popMask(void){
-#if (defined DEBUG_SIGNALS)
-    SignalSet oldMask=masks.back();
-#endif
-    masks.pop_back();
-#if (defined DEBUG_SIGNALS)
-    if((oldMask.test(32))&&(!masks.back().test(32)))
-      printf("Enabling signal 32\n");
-    if((!oldMask.test(32))&&(masks.back().test(32)))
-      printf("Disabling signal 32\n");
-#endif
-    I(!masks.empty());
-    maskChanged();
-  }
-  const SignalSet &getMask(void) const{
-    return masks.back();
-  }
-  void maskChanged(void){
-    SignalSet &mask=masks.back();
-    for(size_t i=0;i<masked.size();i++){
-      SignalID sig=masked[i]->signo;
-      if(!mask.test(sig)){
-	ready.push_back(masked[i]);
-	masked[i]=masked.back();
-	masked.pop_back();
-      }
-    }
-    for(size_t i=0;i<ready.size();i++){
-      SignalID sig=ready[i]->signo;
-      if(mask.test(sig)){
-	masked.push_back(ready[i]);
-	ready[i]=ready.back();
-	ready.pop_back();
-      }
-    }
-    if((!ready.empty())&&wakeup){
-      SigCallBack *func=wakeup;
-      wakeup=0;
-      (*func)(ready.back());
-      delete func;
-    }
-  }
-  bool hasReady(void) const{
-    return !ready.empty();
-  }
-  SigInfo *nextReady(void){
-    I(hasReady());
-    SigInfo *sigInfo=ready.back();
-    ready.pop_back();
-    return sigInfo;
-  }
-};
 
 class SignalDesc{
  public:
@@ -195,23 +70,36 @@ class SignalDesc{
   }
 };
 
-class SignalTable{
+class SignalTable : public GCObject{
  public:
+  typedef SmartPtr<SignalTable> pointer;
+ private:
   SignalDesc table[NumSignals];
-  SignalTable(void){
+ public:
+  SignalTable(void) : GCObject(){
     for(size_t i=0;i<NumSignals;i++){
       table[i].handler=getDflSigAction((SignalID)i);
       table[i].mask.reset();
     }
   }
-  SignalTable(const SignalTable &src){
+  SignalTable(const SignalTable &src) : GCObject(){
     for(size_t i=0;i<NumSignals;i++)
       table[i]=src.table[i];
   }
+  ~SignalTable(void);
   SignalDesc &operator[](size_t sig){
     return table[sig];
   }
+  void save(ChkWriter &out) const;
+  void restore(ChkReader &in);
 };
+inline ChkWriter &operator<< (ChkWriter &out, const SignalTable &st){
+  st.save(out); return out;
+}
+inline ChkReader &operator>> (ChkReader &in, SignalTable &st){
+  st.restore(in); return in;
+}
+
 
 #endif // SIGNAL_HANDLING_H
 

@@ -123,6 +123,9 @@ DInst *TraceFlow::executePC()
   nextPC = te.nextIAddr;
 
   DInst *dinst=DInst::createDInst(inst, te.dAddr ,cpuId
+#if (defined MIPS_EMUL)
+				  ,0 // This will break things (context can't be 0)
+#endif
 #if (defined TLS)
                             ,0 // This will break things (epoch can't be 0)
 #endif

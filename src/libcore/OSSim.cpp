@@ -634,7 +634,9 @@ void OSSim::eventExit(Pid_t cpid, int err)
   if (cpid)
     ThreadContext::getContext(cpid)->free();
 #else
+#if !(defined MIPS_EMUL)
   ThreadContext::getContext(cpid)->free();
+#endif
 #endif
  
 #ifdef SESC_THERM
@@ -661,6 +663,7 @@ void OSSim::eventWait(Pid_t cpid)
   proc->setState(WaitingState);
 }
 
+#if !(defined MIPS_EMUL)
 void OSSim::eventSaveContext(Pid_t pid)
 {
   ProcessId *proc = ProcessId::getProcessId(pid);
@@ -670,15 +673,18 @@ void OSSim::eventSaveContext(Pid_t pid)
     cpus.getProcessor(cpu)->saveThreadContext(pid);
   }
 }
+#endif
 
 ThreadContext *OSSim::getContext(Pid_t pid)
 {
+#if !(defined MIPS_EMUL)
   I(pid!=-1);
   ProcessId *proc = ProcessId::getProcessId(pid);
   if(proc->getState()==RunningState){
     CPU_t cpu=proc->getCPU();
     return cpus.getProcessor(cpu)->getThreadContext(pid);
   }
+#endif
   return ThreadContext::getContext(pid);
 }
 
@@ -726,6 +732,7 @@ icode_ptr OSSim::eventGetInstructionPointer(Pid_t pid)
 #endif
 }
 
+#if !(defined MIPS_EMUL)
 void OSSim::eventLoadContext(Pid_t pid)
 {
   ProcessId *proc = ProcessId::getProcessId(pid);
@@ -734,6 +741,7 @@ void OSSim::eventLoadContext(Pid_t pid)
     cpus.getProcessor(cpu)->loadThreadContext(pid);
   }
 }
+#endif
 
 Pid_t OSSim::eventGetPPid(Pid_t pid)
 {
@@ -957,7 +965,10 @@ void OSSim::preBoot()
   }
 
   gettimeofday(&stTime, 0);
-
+#if (defined MIPS_EMUL)
+  MSG("Begin skipping: requested %lld instructions\n",nInst2Skip);
+  MSG("End skipping: requested %lld skipped %lld\n",nInst2Skip,ThreadContext::skipInsts(nInst2Skip));
+#else
   if( nInst2Skip ) {
     if (nInst2Skip == 1) {
       nInst2Skip = 1024*1024;
@@ -1006,6 +1017,7 @@ void OSSim::preBoot()
     //proc->goRabbitMode(1);
     //MSG("...End Skipping Initialization (Rabbit mode)");
   }
+#endif // Else of (defined MIPS_EMUL)
 }
 
 void OSSim::postBoot()

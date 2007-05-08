@@ -6,6 +6,7 @@
 #include <vector>
 #include <map>
 #include "GCObject.h"
+#include "Checkpoint.h"
 
 namespace FileSys {
 
@@ -17,6 +18,7 @@ namespace FileSys {
   
   class BaseStatus : public GCObject {
   public:
+    typedef SmartPtr<BaseStatus> pointer;
     // Type of this file
     FileType type;
     // Native file descriptor 
@@ -24,7 +26,8 @@ namespace FileSys {
     // Simulated flags
     int      flags;
     // IDs of threads blocked on reads from this file
-    typedef std::vector<int> PidSet;
+    class PidSet : public std::vector<int>{};
+    //    typedef std::vector<int> PidSet;
     PidSet readBlockPids;
   protected:
     BaseStatus(FileType type, int fd, int flags);
@@ -35,7 +38,11 @@ namespace FileSys {
     }
     virtual void endReadBlock(void){
     }
+    virtual void save(ChkWriter &out) const;
+    static BaseStatus *create(ChkReader &in);
+    BaseStatus(FileType type, ChkReader &in);
   };
+
   class FileStatus : public BaseStatus{
   public:
     // Name of the file that was **intended** to be opened
@@ -47,6 +54,8 @@ namespace FileSys {
     virtual ~FileStatus(void);
   public:
     static FileStatus *open(const char *name, int flags, mode_t mode);
+    virtual void save(ChkWriter &out) const;
+    FileStatus(ChkReader &in);
   };
   class PipeStatus : public BaseStatus{
   public:
@@ -54,9 +63,11 @@ namespace FileSys {
     bool        isWrite;
     // The other end of the pipe
     PipeStatus *otherEnd;
+    // Native descriptor of the other end
+    int otherFd;
   protected:
-    PipeStatus(int fd, int flags, bool isWrite)
-      : BaseStatus(Pipe,fd,flags), isWrite(isWrite), otherEnd(0){
+    PipeStatus(int fd, int otherFd, int flags, bool isWrite)
+      : BaseStatus(Pipe,fd,flags), isWrite(isWrite), otherEnd(0), otherFd(otherFd){
     }
     ~PipeStatus(void){
       if(otherEnd)
@@ -66,6 +77,8 @@ namespace FileSys {
     static PipeStatus *pipe(void);
     void setOtherEnd(PipeStatus *oe);
     virtual void endReadBlock(void);
+    virtual void save(ChkWriter &out) const;
+    PipeStatus(ChkReader &in);
   };
   class StreamStatus : public BaseStatus{
   protected:
@@ -73,11 +86,13 @@ namespace FileSys {
     ~StreamStatus(void);
   public:
     static StreamStatus *wrap(int fd);
+    virtual void save(ChkWriter &out) const;
+    StreamStatus(ChkReader &in);
   };
   class FileDesc {
   private:
     // The underlying file status
-    BaseStatus *st;
+    BaseStatus::pointer st;
     // Cloexec flag
     bool cloexec;
   public:
@@ -101,9 +116,14 @@ namespace FileSys {
       if(st&&cloexec)
 	setStatus(0);
     }
+    void save(ChkWriter &out) const;
+    FileDesc(ChkReader &in);
   };
 
   class OpenFiles : public GCObject{
+  public:
+    typedef SmartPtr<OpenFiles> pointer;
+  private:
     typedef std::vector<FileDesc> FdArray;
     FdArray fds;
     static int error(int err);
@@ -150,6 +170,8 @@ namespace FileSys {
     ssize_t write(int fd, const void *buf, size_t count);
     int  popReadBlock(int fd);
     off_t seek(int fd, off_t offset, int whence);
+    void save(ChkWriter &out) const;
+    OpenFiles(ChkReader &in);
   };
   
   class strlt{

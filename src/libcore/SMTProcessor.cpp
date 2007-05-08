@@ -120,6 +120,7 @@ FetchEngine *SMTProcessor::currentFlow()
   return &flow[cFetchId]->IFID;
 }
 
+#if !(defined MIPS_EMUL)
 void SMTProcessor::saveThreadContext(Pid_t pid)
 {
   Fetch *fetch = findFetch(pid);
@@ -144,7 +145,6 @@ ThreadContext *SMTProcessor::getThreadContext(Pid_t pid)
   return fetch->IFID.getThreadContext();
 }
 
-#if !(defined MIPS_EMUL)
 void SMTProcessor::setInstructionPointer(Pid_t pid, icode_ptr picode)
 {
   Fetch *fetch = findFetch(pid);

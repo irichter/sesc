@@ -150,11 +150,11 @@ public:
   void fakeFetch(IBucket *buffer, int fetchMax = -1);
   void realFetch(IBucket *buffer, int fetchMax = -1);
 
+#if !(defined MIPS_EMUL)
   ThreadContext *getThreadContext(void){
     I(flow.currentPid()!=-1);
     return flow.getThreadContext();    
   }
-
   void saveThreadContext(void){
     I(flow.currentPid()!=-1);
     flow.saveThreadContext(flow.currentPid());
@@ -163,7 +163,6 @@ public:
     I(flow.currentPid()!=-1);
     flow.loadThreadContext(flow.currentPid());
   }
-#if !(defined MIPS_EMUL)
   void setInstructionPointer(icode_ptr picode){
     I(flow.currentPid()!=-1);
     flow.setInstructionPointer(picode);

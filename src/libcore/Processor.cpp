@@ -62,6 +62,7 @@ FetchEngine *Processor::currentFlow()
   return &IFID;
 }
 
+#if !(defined MIPS_EMUL)
 void Processor::saveThreadContext(Pid_t pid)
 {
   I(IFID.getPid()==pid);
@@ -80,7 +81,6 @@ ThreadContext *Processor::getThreadContext(Pid_t pid)
   return IFID.getThreadContext();
 }
 
-#if !(defined MIPS_EMUL)
 void Processor::setInstructionPointer(Pid_t pid, icode_ptr picode)
 {
   I(IFID.getPid()==pid);

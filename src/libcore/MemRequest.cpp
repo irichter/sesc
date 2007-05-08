@@ -114,7 +114,12 @@ void DMemRequest::create(DInst *dinst, GMemorySystem *gmem, MemOperation mop)
   int old_addr = dinst->getVaddr();
 
 #ifndef TRACE_DRIVEN
-  if(!ThreadContext::getMainThreadContext()->isValidDataVAddr(old_addr)){
+#if (defined MIPS_EMUL)
+  ThreadContext *context=dinst->context;
+#else
+  ThreadContext *context=ThreadContext::getMainThreadContext();
+#endif
+  if(!context->isValidDataVAddr(old_addr)){
     dinstAck(dinst, mop, 0);
     return;
   }

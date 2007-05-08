@@ -7,6 +7,8 @@
 #include "FileSys.h"
 // To get definition of fail()
 #include "EmulInit.h"
+// To get ChkWriter and ChkReader
+#include "Checkpoint.h"
 
 #include "Mips32Defs.h"
 // For process control calls (spawn/wait/etc)
@@ -257,6 +259,9 @@ namespace Mips {
 void mipsSysCall(InstDesc *inst, ThreadContext *context){
   uint32_t sysCallNum;
   switch(context->getMode()){
+  case NoCpuMode:
+    fail("mipsSysCall: Should never execute in NoCpuMode\n");
+    break;
   case Mips32:
     sysCallNum=Mips::getReg<uint32_t>(context,static_cast<RegName>(Mips::RegV0));
     break;
@@ -529,8 +534,8 @@ class Mips32FuncArgs{
 };
 
 int32_t Mips32FuncArgs::getW(void){
-  int32_t retVal; 
-  I((curPos%sizeof(retVal))==0);
+  int32_t retVal;
+  I((curPos%sizeof(int32_t))==0);
   if(curPos<16){
     retVal=Mips::getReg<int32_t>(myContext,static_cast<RegName>(Mips::RegA0+curPos/sizeof(retVal)));
   }else{
@@ -562,7 +567,7 @@ namespace Mips {
 
   static VAddr  sysCodeAddr=AddrSpacPageSize;
   static size_t sysCodeSize=4*sizeof(uint32_t);
-  
+
   void initSystem(ThreadContext *context){
     AddressSpace *addrSpace=context->getAddressSpace();
     addrSpace->newSegment(sysCodeAddr,sysCodeSize,false,true,false,false,false);
@@ -577,6 +582,9 @@ namespace Mips {
     // Syscall
     context->writeMem<uint32_t>(sysCodeAddr+3*sizeof(uint32_t),0x0000000C);
     addrSpace->protectSegment(sysCodeAddr,sysCodeSize,true,false,true);
+    // Set RegSys to zero. It is used by system call functions to indicate
+    // that a signal mask has been already saved to the stack and needs to be restored
+    setReg<uint32_t>(context,static_cast<RegName>(RegSys),0);    
   }
 
   void createStack(ThreadContext *context){
@@ -676,10 +684,10 @@ namespace Mips {
     return SigNone;
   }
 
-  void sigMaskToLocal(const uint32_t smask[Mips32__K_NSIG/32], SignalSet &lmask){
+  void sigMaskToLocal(const Mips32_k_sigset_t &smask, SignalSet &lmask){
     lmask.reset();
-    for(size_t w=0;w<Mips32__K_NSIG/32;w++){
-      uint32_t word=smask[w];
+    for(size_t w=0;w<Mips32__K_NSIG_WORDS;w++){
+      uint32_t word=smask.sig[w];
       uint32_t mask=1;
       for(size_t b=0;b<32;b++){
 	SignalID lsig=sigToLocal(w*32+b+1);
@@ -690,8 +698,8 @@ namespace Mips {
     }
   }
 
-  void sigMaskFromLocal(uint32_t smask[Mips32__K_NSIG/32], const SignalSet &lmask){
-    for(size_t w=0;w<Mips32__K_NSIG/32;w++){
+  void sigMaskFromLocal(Mips32_k_sigset_t &smask, const SignalSet &lmask){
+    for(size_t w=0;w<Mips32__K_NSIG_WORDS;w++){
       uint32_t word=0;
       uint32_t mask=1;
       for(size_t b=0;b<32;b++){
@@ -700,11 +708,37 @@ namespace Mips {
 	  word|=mask;
 	mask<<=1;
       }
-      smask[w]=word;
+      smask.sig[w]=word;
+    }
+  }
+
+  void pushSignalMask(ThreadContext *context, SignalSet &mask){
+    Mips32_k_sigset_t appmask;
+    sigMaskFromLocal(appmask,mask);
+    VAddr sp=Mips::getReg<uint32_t>(context,static_cast<RegName>(Mips::RegSP))-sizeof(appmask);
+    context->writeMem(sp,appmask);
+    Mips::setReg<uint32_t>(context,static_cast<RegName>(Mips::RegSP),sp);
+    setReg<uint32_t>(context,static_cast<RegName>(RegSys),1);
+  }
+
+  void popSignalMask(ThreadContext *context){
+    uint32_t pop=getReg<uint32_t>(context,static_cast<RegName>(RegSys));
+    if(pop){
+      setReg<uint32_t>(context,static_cast<RegName>(RegSys),0);    
+      Mips32_k_sigset_t appmask;
+      VAddr sp=getReg<uint32_t>(context,static_cast<RegName>(RegSP));
+      context->readMem(sp,appmask);
+      sp+=sizeof(appmask);
+      setReg<uint32_t>(context,static_cast<RegName>(RegSP),sp);    
+      SignalSet simmask;
+      sigMaskToLocal(appmask,simmask);
+      context->setSignalMask(simmask);
     }
   }
 
   bool handleSignal(ThreadContext *context, SigInfo *sigInfo){
+    // Pop signal mask if it's been saved
+    popSignalMask(context);
     SignalDesc &sigDesc=(*(context->getSignalTable()))[sigInfo->signo];
 #if (defined DEBUG_SIGNALS)
     printf("Mips::handleSignal for pid=%d, signal=%d, action=0x%08x\n",context->getPid(),sigInfo->signo,sigDesc.handler);
@@ -720,15 +754,12 @@ namespace Mips {
 #if (defined DEBUG_SIGNALS)
       suspSet.insert(context->getPid());
 #endif
-      osSim->eventSuspend(context->getPid(),-1);
+      context->suspend();
       return true;
     default:
       break;
     }
     I(context->getJumpInstDesc()==NoJumpInstDesc);
-    // Set the sigaction's signal mask
-    SignalState *sstate=context->getSignalState();
-    sstate->pushMask(sigDesc.mask);
     // Save registers and PC
     VAddr pc=context->getNextInstDesc()->addr;
     VAddr sp=Mips::getReg<uint32_t>(context,static_cast<RegName>(Mips::RegSP));
@@ -746,6 +777,13 @@ namespace Mips {
       sp-=4;
       context->writeMem<uint32_t>(sp,wrVal);
     }
+    // Save the current signal mask and use sigaction's signal mask
+    Mips32_k_sigset_t oldMask;
+    sigMaskFromLocal(oldMask,context->getSignalMask());
+    sp-=sizeof(oldMask);
+    context->writeMem(sp,oldMask);
+    context->setSignalMask(sigDesc.mask);
+    // Set registers and PC for execution of the handler
     Mips::setReg<uint32_t>(context,static_cast<RegName>(Mips::RegSP),sp);
     Mips::setReg<uint32_t>(context,static_cast<RegName>(Mips::RegA0),sigFromLocal(sigInfo->signo));
     Mips::setReg<uint32_t>(context,static_cast<RegName>(Mips::RegT9),sigDesc.handler);
@@ -753,9 +791,8 @@ namespace Mips {
     return true;
   }
   bool handleSignals(ThreadContext *context){
-    SignalState *sigState=context->getSignalState();
-    while(sigState->hasReady()){
-      SigInfo *sigInfo=sigState->nextReady();
+    while(context->hasReadySignal()){
+      SigInfo *sigInfo=context->nextReadySignal();
       if(handleSignal(context,sigInfo))
 	return true;
     }
@@ -818,17 +855,36 @@ namespace Mips {
   void sysCall32_exit(InstDesc *inst, ThreadContext *context){
     Mips32FuncArgs myArgs(context);
     int status=myArgs.getW();
-    // Detach open file descriptors
-    context->setOpenFiles(0);
-   // If no parent process ID, just exit
-    if(context->getParentID()==-1)
-      return osSim->eventExit(context->getPid(),status);
-    ThreadContext *pcontext=osSim->getContext(context->getParentID());
-    // If parent process not there any more, just exit
-    if(!pcontext)
-      return osSim->eventExit(context->getPid(),status);
-    // Wait to be harvested by the parent process
-    context->doExit(status);
+    if(context->exit(status))
+      return;
+
+//     static bool didThis=false;
+//     if(!didThis){
+//       std::ofstream os("dump.txt",std::ios::out);
+//       ChkWriter chkWriter(os.rdbuf());
+//       size_t pidCnt=0;
+//       for(int i=0;i<context->getPidUb();i++)
+// 	if(ThreadContext::getContext(i))
+// 	  pidCnt++;
+//       chkWriter << "Pids " << pidCnt << endl;
+//       for(int i=0;i<context->getPidUb();i++){
+// 	ThreadContext *ct=ThreadContext::getContext(i);
+// 	if(ct)
+//  	  ct->save(chkWriter);
+//       }
+//       os.close();
+//       std::ifstream is("dump.txt",std::ios::in);
+//       ChkReader chkReader(is.rdbuf());
+//       size_t _pids;
+//       chkReader >> "Pids " >> _pids >> endl;
+//       while(_pids){
+// 	new ThreadContext(chkReader);
+// 	_pids--;
+//       }
+//       is.close();
+//       didThis=true;
+//     }
+
 #if (defined DEBUG_SIGNALS)
     printf("Suspend %d in sysCall32_exit\n",context->getPid());
     context->dumpCallStack();
@@ -838,20 +894,19 @@ namespace Mips {
     printf("\n");
     suspSet.insert(context->getPid());
 #endif
-    osSim->eventSuspend(context->getPid(),context->getPid());
     // Deliver the exit signal to the parent process if needed
     SignalID exitSig=context->getExitSig();
-    // If no signal to be delivered, just 
+    // If no signal to be delivered, just wait to be reaped
     if(exitSig!=SigNone){
-      SignalState *sigState=pcontext->getSignalState();
       SigInfo *sigInfo=new SigInfo(exitSig,SigCodeChldExit);
       sigInfo->pid=context->getPid();
       sigInfo->data=status;
-      sigState->raise(sigInfo);
+      ThreadContext::getContext(context->getParentID())->signal(sigInfo);
     }
   }
   void sysCall32_fork(InstDesc *inst, ThreadContext *context){
-    ThreadContext *newContext=context->createChild(false,false,false,SigChld);
+    //    ThreadContext *newContext=context->createChild(false,false,false,SigChld);
+    ThreadContext *newContext=new ThreadContext(*context,false,false,false,SigChld);
     I(newContext!=0);
     // Fork returns an error only if there is no memory, which should not happen here
     // Set return values for parent and child
@@ -861,30 +916,28 @@ namespace Mips {
     osSim->eventSpawn(-1,newContext->getPid(),0);
   }
 
-  class SigCallBack_wait4 : public SigCallBack{
-  private:
-    Pid_t pid;
-  public:
-    SigCallBack_wait4(Pid_t pid) : pid(pid){}
-    virtual void operator()(SigInfo *sigInfo){
-#if (defined DEBUG_SIGNALS)
-      printf("Resume %d from SigCallBack_wait4\n",pid);
-      suspSet.erase(pid);
-#endif
-      osSim->eventResume(pid,pid);
-    }
-  };
-
   void sysCall32_wait4(InstDesc *inst, ThreadContext *context){
     Mips32FuncArgs myArgs(context);
     int      pid     = myArgs.getW();
     VAddr    status  = myArgs.getA();
     uint32_t options = myArgs.getW();
     VAddr    rusage  = myArgs.getA();
-    I(pid==-1);
-    if(!context->hasChildren())
-      return sysCall32SetErr(context,Mips32_ECHILD);
-    int cpid=context->findZombieChild();
+    I((pid==-1)||(pid>0));
+    int cpid=pid;
+    ThreadContext *ccontext;
+    if(cpid>0){
+      if(!context->isChildID(cpid))
+	return sysCall32SetErr(context,Mips32_ECHILD);
+      ThreadContext *ccontext=osSim->getContext(cpid);
+      if((!ccontext->isExited())&&(!ccontext->isKilled()))
+	cpid=0;
+    }else if(cpid==-1){
+      if(!context->hasChildren())
+	return sysCall32SetErr(context,Mips32_ECHILD);
+      cpid=context->findZombieChild();
+    }else{
+      fail("sysCall32_wait4 Only supported for pid -1 or >0\n");
+    }
     if(cpid){
       ThreadContext *ccontext=osSim->getContext(cpid);
       if(status){
@@ -902,15 +955,12 @@ namespace Mips {
 #if (defined DEBUG_SIGNALS)
       suspSet.erase(pid);
 #endif
-      osSim->eventResume(pid,cpid);
-      osSim->eventExit(cpid,ccontext->getExitCode());
-      context->doHarvest(cpid);
+      ccontext->reap();
       return sysCall32SetRet(context,cpid);
     }
     if(options&Mips32_WNOHANG)
       return sysCall32SetErr(context,Mips32_ECHILD);
     context->setNextInstDesc(inst);
-    context->getSignalState()->setWakeup(new SigCallBack_wait4(context->getPid()));
 #if (defined DEBUG_SIGNALS)
     printf("Suspend %d in sysCall32_wait4(pid=%d,status=%x,options=%x)\n",context->getPid(),pid,status,options);
     printf("Also suspended:");
@@ -919,9 +969,8 @@ namespace Mips {
     printf("\n");
     suspSet.insert(context->getPid());
 #endif
-    osSim->eventSuspend(context->getPid(),context->getPid());
+    context->suspend();
   }
-
 
   void sysCall32_waitpid(InstDesc *inst, ThreadContext *context){
     fail("sysCall32_waitpid: not implemented at 0x%08x\n",inst->addr);
@@ -1115,7 +1164,8 @@ namespace Mips {
 //     if(flags&Mips32_CLONE_NEWNS)
 //       fail("sysCall32_clone with CLONE_VFORK not supported yet at 0x%08x, flags=0x%08x\n",inst->addr,flags);
     SignalID sig=sigToLocal(flags&Mips32_CSIGNAL);
-    ThreadContext *newContext=context->createChild(flags&Mips32_CLONE_VM,flags&Mips32_CLONE_SIGHAND,flags&Mips32_CLONE_FILES,sig);
+    //    ThreadContext *newContext=context->createChild(flags&Mips32_CLONE_VM,flags&Mips32_CLONE_SIGHAND,flags&Mips32_CLONE_FILES,sig);
+    ThreadContext *newContext=new ThreadContext(*context,flags&Mips32_CLONE_VM,flags&Mips32_CLONE_SIGHAND,flags&Mips32_CLONE_FILES,sig);
     I(newContext!=0);
     // Fork returns an error only if there is no memory, which should not happen here
     // Set return values for parent and child
@@ -1170,7 +1220,7 @@ namespace Mips {
     ThreadContext *kcontext=osSim->getContext(pid);
     SigInfo *sigInfo=new SigInfo(sigToLocal(sig),SigCodeUser);
     sigInfo->pid=context->getPid();
-    kcontext->getSignalState()->raise(sigInfo);
+    kcontext->signal(sigInfo);
 #if (defined DEBUG_SIGNALS)
     printf("sysCall32_kill: signal %d sent from process %d to %d\n",sig,context->getPid(),pid);
 #endif
@@ -1179,15 +1229,17 @@ namespace Mips {
   void sysCall32_sigaction(InstDesc *inst, ThreadContext *context){
     fail("sysCall32_sigaction: not implemented at 0x%08x\n",inst->addr);
   }
-
   void sysCall32_rt_sigreturn(InstDesc *inst, ThreadContext *context){
 #if (defined DEBUG_SIGNALS)
     printf("sysCall32_rt_sigreturn pid %d to ",context->getPid());
 #endif    
     I(context->getJumpInstDesc()==NoJumpInstDesc);
-    SignalState *sstate=context->getSignalState();
-    sstate->popMask();
     VAddr sp=getReg<uint32_t>(context,static_cast<RegName>(RegSP));
+    // Restore old signal mask
+    Mips32_k_sigset_t oldMask;
+    context->readMem(sp,oldMask);
+    sp+=sizeof(oldMask);
+    // Restore registers and PC
     for(size_t i=0;i<32;i++){
       uint32_t rdVal;
       context->readMem<uint32_t>(sp,rdVal);
@@ -1206,6 +1258,9 @@ namespace Mips {
     }
     I(sp==getReg<uint32_t>(context,static_cast<RegName>(RegSP)));
     context->execRet();
+    SignalSet    oldSet;
+    sigMaskToLocal(oldMask,oldSet);
+    context->setSignalMask(oldSet);
   }
   void sysCall32_rt_sigaction(InstDesc *inst, ThreadContext *context){
     Mips32FuncArgs myArgs(context);
@@ -1279,70 +1334,54 @@ namespace Mips {
       return sysCall32SetErr(context,Mips32_EFAULT);
     if((oset)&&(!context->canWrite(oset,size)))
       return sysCall32SetErr(context,Mips32_EFAULT);
-    SignalState *sstate=context->getSignalState();
+    SignalSet oldMask=context->getSignalMask();
     if(oset){
-      uint32_t omask[Mips32__K_NSIG/32];
-      sigMaskFromLocal(omask,sstate->getMask());
-      for(size_t w=0;w<Mips32__K_NSIG/32;w++)
-	context->writeMem(oset+w*4,omask[w]);
+      Mips32_k_sigset_t omask;
+      sigMaskFromLocal(omask,oldMask);
+      context->writeMem(oset,omask);
     }
     if(nset){
-      uint32_t nmask[Mips32__K_NSIG/32];
-      for(size_t w=0;w<Mips32__K_NSIG/32;w++)
-	context->readMem(nset+w*4,nmask[w]);
+      Mips32_k_sigset_t nmask;
+      context->readMem(nset,nmask);
       SignalSet lset;
       sigMaskToLocal(nmask,lset);
       switch(how){
       case Mips32_SIG_BLOCK:
-	sstate->setMask(sstate->getMask()|lset);
+	context->setSignalMask(oldMask|lset);
 	break;
       case Mips32_SIG_UNBLOCK:
-	sstate->setMask((sstate->getMask()|lset)^lset);
+	context->setSignalMask((oldMask|lset)^lset);
 	break;
       case Mips32_SIG_SETMASK:
-	sstate->setMask(lset);
+	context->setSignalMask(lset);
 	break;
       default: fail("Unsupported value of how\n");
       }
     }
     sysCall32SetRet(context,0);
   }
-  class SigCallBack_sigsuspend : public SigCallBack{
-  private:
-    Pid_t pid;
-  public:
-    SigCallBack_sigsuspend(Pid_t pid) : pid(pid){}
-    virtual void operator()(SigInfo *sigInfo){
-      ThreadContext *context=osSim->getContext(pid);
-      context->getSignalState()->popMask();
-      sysCall32SetErr(context,Mips32_EINTR);
-#if (defined DEBUG_SIGNALS)
-      printf("Resume %d from SigCallBack_sigsuspend\n",pid);
-      suspSet.erase(pid);
-#endif
-      osSim->eventResume(pid,pid);
-    }
-  };
   void sysCall32_rt_sigsuspend(InstDesc *inst, ThreadContext *context){
+    // If this is a suspend following a wakeup, we need to pop the already-saved mask
+    popSignalMask(context);
     Mips32FuncArgs myArgs(context);
     VAddr  nset=myArgs.getA();
     size_t size=myArgs.getW();
     if(!context->canRead(nset,size))
       return sysCall32SetErr(context,Mips32_EFAULT);
-    uint32_t nmask[Mips32__K_NSIG/32];
-    for(size_t w=0;w<Mips32__K_NSIG/32;w++)
-      context->readMem(nset+w*4,nmask[w]);
-    SignalSet localNewMask;
-    sigMaskToLocal(nmask,localNewMask);
-    SignalState *sstate=context->getSignalState();
-    sstate->pushMask(localNewMask);
-    Pid_t pid=context->getPid();
-    if(sstate->hasReady()){
+    // Change signal mask while suspended
+    SignalSet oldMask=context->getSignalMask();
+    Mips32_k_sigset_t appmask;
+    context->readMem(nset,appmask);
+    SignalSet newMask;
+    sigMaskToLocal(appmask,newMask);
+    context->setSignalMask(newMask);
+    if(context->hasReadySignal()){
       sysCall32SetErr(context,Mips32_EINTR);
-      SigInfo *sigInfo=sstate->nextReady();
-      sstate->popMask();
+      SigInfo *sigInfo=context->nextReadySignal();
+      context->setSignalMask(oldMask);
       handleSignal(context,sigInfo);
     }else{
+      Pid_t pid=context->getPid();
 #if (defined DEBUG_SIGNALS)
       printf("Suspend %d in sysCall32_rt_sigsuspend\n",pid);
       context->dumpCallStack();
@@ -1352,8 +1391,11 @@ namespace Mips {
       printf("\n");
       suspSet.insert(context->getPid());
 #endif
-      osSim->eventSuspend(pid,pid);
-      sstate->setWakeup(new SigCallBack_sigsuspend(pid));
+      // Save the old signal mask on stack so it can be restored
+      pushSignalMask(context,oldMask);
+      // Suspend and redo this system call when woken up
+      context->setNextInstDesc(inst);
+      context->suspend();
     }
   }
   void sysCall32_rt_sigpending(InstDesc *inst, ThreadContext *context){
@@ -1700,64 +1742,31 @@ namespace Mips {
     }
     sysCall32SetRet(context,0);
   }
-  bool doSysCall32Read(ThreadContext *context, int fd, VAddr buf, size_t count){
-    if(!context->canWrite(buf,count)){
-      sysCall32SetErr(context,Mips32_EFAULT);
-      return true;
-    }
-    ssize_t retVal=context->writeMemFromFile(buf,count,fd,false);
-    if((retVal==-1)&&(errno==EAGAIN)&&!(context->getOpenFiles()->getfl(fd)&O_NONBLOCK))
-      return false;
-#ifdef DEBUG_FILES
-    printf("[%d] read %d wants %ld gets %ld bytes\n",context->getPid(),fd,count,retVal);
-#endif
-    if(retVal==-1){
-      sysCall32SetErr(context,fromNativeErrNums(errno));
-    }else{
-      sysCall32SetRet(context,retVal);
-    }
-    return true;
-  }
-  class SigCallBack_read : public SigCallBack{
-  private:
-    Pid_t  pid;
-    int    fd;
-    VAddr  buf;
-    size_t count;
-  public:
-    SigCallBack_read(Pid_t pid, int fd, VAddr buf, size_t count) : pid(pid), fd(fd), buf(buf), count(count){}
-    virtual void operator()(SigInfo *sigInfo){
-#if (defined DEBUG_SIGNALS)
-      printf("Resume %d from SigCallBack_read\n",pid);
-      suspSet.erase(pid);
-#endif
-      osSim->eventResume(pid,pid);
-      ThreadContext *context=osSim->getContext(pid);
-      context->getSignalState()->popMask();
-      if(sigInfo->signo!=SigIO){
-	sysCall32SetErr(context,Mips32_EINTR);
-      }else{
-	I(sigInfo->data==context->getOpenFiles()->getDesc(fd)->getStatus()->fd);
-	bool res=doSysCall32Read(context,fd,buf,count);
-	I(res);
-      }
-    }
-  };
   void sysCall32_read(InstDesc *inst, ThreadContext *context){
     Mips32FuncArgs myArgs(context);
     int    fd    = myArgs.getW();
     VAddr  buf   = myArgs.getA();
     size_t count = myArgs.getW();
-    bool res=doSysCall32Read(context,fd,buf,count);
-    if(!res){
-      SignalState *sstate=context->getSignalState();
+    if(!context->canWrite(buf,count))
+      return sysCall32SetErr(context,Mips32_EFAULT);
+    ssize_t retVal=context->writeMemFromFile(buf,count,fd,false);
+    if((retVal==-1)&&(errno==EAGAIN)&&!(context->getOpenFiles()->getfl(fd)&O_NONBLOCK)){
       // Enable SigIO
-      SignalSet newMask=sstate->getMask();
-      newMask.reset(SigIO);
-      sstate->pushMask(newMask);
-      // Set up a callback, add a read block on the file, and suspend
-      sstate->setWakeup(new SigCallBack_read(context->getPid(),fd,buf,count));
+      SignalSet newMask=context->getSignalMask();
+      if(newMask.test(SigIO))
+	fail("sysCall32_read: SigIO masked out, not supported\n");
+//       newMask.reset(SigIO);
+//       sstate->pushMask(newMask);
+      if(context->hasReadySignal()){
+	sysCall32SetErr(context,Mips32_EINTR);
+	SigInfo *sigInfo=context->nextReadySignal();
+// 	sstate->popMask();
+	handleSignal(context,sigInfo);
+	return;
+      }
+      context->setNextInstDesc(inst);
       context->getOpenFiles()->addReadBlock(fd,context->getPid());
+//      sstate->setWakeup(new SigCallBack(context->getPid(),true));
 #if (defined DEBUG_SIGNALS)
       printf("Suspend %d in sysCall32_read(fd=%d)\n",context->getPid(),fd);
       context->dumpCallStack();
@@ -1767,8 +1776,15 @@ namespace Mips {
       printf("\n");
       suspSet.insert(context->getPid());
 #endif
-      osSim->eventSuspend(context->getPid(),context->getPid());
+      context->suspend();
+      return;
     }
+#ifdef DEBUG_FILES
+    printf("[%d] read %d wants %ld gets %ld bytes\n",context->getPid(),fd,count,retVal);
+#endif
+    if(retVal==-1)
+      return sysCall32SetErr(context,fromNativeErrNums(errno));
+    return sysCall32SetRet(context,retVal);
   }
   void sysCall32_write(InstDesc *inst, ThreadContext *context){
     Mips32FuncArgs myArgs(context);
@@ -2678,15 +2694,16 @@ namespace Mips {
   void sysCall32_query_module(InstDesc *inst, ThreadContext *context){
     fail("sysCall32_query_module: not implemented at 0x%08x\n",inst->addr); }
 
-  bool doSysCall32Poll(ThreadContext *context, Mips32_VAddr ufds, uint32_t nfds, int32_t timeout){
+  void sysCall32_poll(InstDesc *inst, ThreadContext *context){
+    Mips32FuncArgs myArgs(context);
+    Mips32_VAddr ufds=myArgs.getA();
+    uint32_t     nfds=myArgs.getW();
+    int32_t      timeout=myArgs.getW();
     Mips32_pollfd myUfds[nfds];
-    if((!context->canRead(ufds,sizeof(myUfds)))||(!context->canWrite(ufds,sizeof(myUfds)))){
-      sysCall32SetErr(context,Mips32_EFAULT);
-      return true;
-    }
-    int retCnt=0;
-    for(uint32_t i=0;i<nfds;i++){
-      bool skip=false;
+    if((!context->canRead(ufds,sizeof(myUfds)))||(!context->canWrite(ufds,sizeof(myUfds))))
+      return sysCall32SetErr(context,Mips32_EFAULT);
+    size_t retCnt=0;
+    for(size_t i=0;i<nfds;i++){
       context->readMem(ufds+i*sizeof(Mips32_pollfd),myUfds[i]);
       if(!context->getOpenFiles()->isOpen(myUfds[i].fd)){
         myUfds[i].revents=Mips32_POLLNVAL;
@@ -2697,73 +2714,48 @@ namespace Mips {
       context->writeMem(ufds+i*sizeof(Mips32_pollfd),myUfds[i]);
       retCnt++;
     }
-    if(retCnt==0)
-      return false;
-    sysCall32SetRet(context,retCnt);
-    return true;
-  }
-  class SigCallBack_poll : public SigCallBack{
-  private:
-    Pid_t        pid;
-    Mips32_VAddr ufds;
-    uint32_t     nfds;
-    int32_t      timeout;
-  public:
-    SigCallBack_poll(Pid_t pid, Mips32_VAddr ufds, uint32_t nfds, int32_t timeout) : pid(pid), ufds(ufds), nfds(nfds), timeout(timeout){}
-    virtual void operator()(SigInfo *sigInfo){
-#if (defined DEBUG_SIGNALS)
-      printf("Resume %d from SigCallBack_poll\n",pid);
-      suspSet.erase(pid);
-#endif
-      osSim->eventResume(pid,pid);
-      ThreadContext *context=osSim->getContext(pid);
-      context->getSignalState()->popMask();
-      if(sigInfo->signo!=SigIO){
-	sysCall32SetErr(context,Mips32_EINTR);
-      }else{
-	bool res=doSysCall32Poll(context,ufds,nfds,timeout);
-	I(res);      
-      }
+    // If any of the files could be read withut blocking, we're done
+    if(retCnt!=0)
+      return sysCall32SetRet(context,retCnt);
+    // We need to block and wait
+    // Enable SigIO
+    SignalSet newMask=context->getSignalMask();
+    if(newMask.test(SigIO))
+      fail("sysCall32_read: SigIO masked out, not supported\n");
+//     newMask.reset(SigIO);
+//     sstate->pushMask(newMask);
+    if(context->hasReadySignal()){
+      sysCall32SetErr(context,Mips32_EINTR);
+      SigInfo *sigInfo=context->nextReadySignal();
+//       sstate->popMask();
+      handleSignal(context,sigInfo);
+      return;
     }
-  };
-  void sysCall32_poll(InstDesc *inst, ThreadContext *context){
-    Mips32FuncArgs myArgs(context);
-    Mips32_VAddr ufds=myArgs.getA();
-    uint32_t     nfds=myArgs.getW();
-    int32_t      timeout=myArgs.getW();
-    bool         res=doSysCall32Poll(context,ufds,nfds,timeout);
-    if(!res){
-      SignalState *sstate=context->getSignalState();
-      // Enable SigIO
-      SignalSet newMask=sstate->getMask();
-      newMask.reset(SigIO);
-      sstate->pushMask(newMask);
-      // Set up a callback, add a read block on each file, and suspend
-      sstate->setWakeup(new SigCallBack_poll(context->getPid(),ufds,nfds,timeout));
-      Mips32_pollfd myUfds[nfds];
-      I(context->canRead(ufds,sizeof(myUfds)));
+    // Set up a callback, add a read block on each file, and suspend
+//     sstate->setWakeup(new SigCallBack(context->getPid(),true));
+    I(context->canRead(ufds,sizeof(myUfds)));
 #if (defined DEBUG_SIGNALS)
-      printf("Suspend %d in sysCall32_poll(fds=",context->getPid());
+    printf("Suspend %d in sysCall32_poll(fds=",context->getPid());
 #endif
-      for(uint32_t i=0;i<nfds;i++){
-	context->readMem(ufds+i*sizeof(Mips32_pollfd),myUfds[i]);
+    for(uint32_t i=0;i<nfds;i++){
+      context->readMem(ufds+i*sizeof(Mips32_pollfd),myUfds[i]);
 #if (defined DEBUG_SIGNALS)
-	printf(" %d",myUfds[i].fd);
+      printf(" %d",myUfds[i].fd);
 #endif
-	context->getOpenFiles()->addReadBlock(myUfds[i].fd,context->getPid());
-      }
-#if (defined DEBUG_SIGNALS)
-      printf(")\n");
-      context->dumpCallStack();
-      printf("Also suspended:");
-      for(PidSet::iterator suspIt=suspSet.begin();suspIt!=suspSet.end();suspIt++)
-	printf(" %d",*suspIt);
-      printf("\n");
-      suspSet.insert(context->getPid());
-#endif
-      osSim->eventSuspend(context->getPid(),context->getPid());
+      context->getOpenFiles()->addReadBlock(myUfds[i].fd,context->getPid());
     }
+#if (defined DEBUG_SIGNALS)
+    printf(")\n");
+    context->dumpCallStack();
+    printf("Also suspended:");
+    for(PidSet::iterator suspIt=suspSet.begin();suspIt!=suspSet.end();suspIt++)
+      printf(" %d",*suspIt);
+    printf("\n");
+    suspSet.insert(context->getPid());
+#endif
+    context->suspend();
   }
+
   void sysCall32_nfsservctl(InstDesc *inst, ThreadContext *context){
     fail("sysCall32_nfsservctl: not implemented at 0x%08x\n",inst->addr); }
   void sysCall32_prctl(InstDesc *inst, ThreadContext *context){
