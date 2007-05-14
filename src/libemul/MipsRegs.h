@@ -77,7 +77,7 @@ namespace Mips {
     RegF29,
     RegF30,
     RegF31,
-    RegFpTmp, // Temporary FPR for implementing micro-ops
+    RegFTmp, // Temporary FPR for implementing micro-ops
     FprNameUb,
     // Control registers
     FcrNameLb = RegTypeCtl,

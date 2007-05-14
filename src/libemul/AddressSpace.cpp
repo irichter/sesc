@@ -64,10 +64,7 @@ AddressSpace::PageDesc::PageDesc &AddressSpace::PageDesc::operator=(PageDesc &sr
   canRead =src.canRead;
   canWrite=src.canWrite;
   canExec =src.canExec;
-  insts=src.insts;
-  if(insts){
-    insts->addRef();
-  }
+  insts=0;
   return *this;
 }
 void AddressSpace::PageDesc::save(ChkWriter &out) const{
