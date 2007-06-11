@@ -82,6 +82,38 @@ ChkReader &AddressSpace::PageDesc::operator=(ChkReader &in){
   return in;
 }
 
+void AddressSpace::mapTrace(InstDesc *binst, InstDesc *einst, VAddr baddr, VAddr eaddr){
+  while(true){              
+    TraceMap::iterator cur=traceMap.upper_bound(eaddr);
+    if(cur==traceMap.end())                 
+      break;
+    I(cur->second.baddr!=0);                
+    I(cur->second.eaddr!=0);               
+    if(cur->second.eaddr<=baddr)
+      break;
+    I(cur->second.baddr>=baddr);
+    I(cur->second.eaddr<=eaddr);
+    ID(cur->second.baddr=0);       
+    ID(cur->second.eaddr=0);
+    printf("Deleting a trace to map another!\n");
+    exit(1);
+    delete [] cur->second.binst;       
+    traceMap.erase(cur);
+  }               
+  InstMap::iterator begit=instMap.upper_bound(eaddr);
+  InstMap::iterator endit=instMap.lower_bound(baddr);
+  InstMap::iterator begit1=instMap.begin();
+  InstMap::iterator endit1=instMap.end();
+  for(InstMap::iterator instit=instMap.upper_bound(eaddr);instit!=instMap.upper_bound(baddr);instit++)
+    I((instit->second>=binst)&&(instit->second<einst));
+  TraceDesc &tdesc=traceMap[baddr];
+  tdesc.binst=binst;
+  tdesc.einst=einst;
+  tdesc.baddr=baddr;
+  tdesc.eaddr=eaddr;
+}
+
+
 AddressSpace::AddressSpace(void) :
   GCObject(),
   brkBase(0)
@@ -122,6 +154,11 @@ void AddressSpace::clear(bool isExec){
     free(funcAddrToName.begin()->second);
     funcAddrToName.erase(funcAddrToName.begin());
   }
+  // Clear instruction decodings
+  instMap.clear();
+  for(TraceMap::iterator traceit=traceMap.begin();traceit!=traceMap.end();traceit++)
+    delete [] traceit->second.binst;
+  traceMap.clear();
   // Remove all memory segments
   VAddr lastAddr=segmentMap.begin()->second.addr+segmentMap.begin()->second.len;
   while(!segmentMap.empty()){
@@ -141,7 +178,7 @@ void AddressSpace::clear(bool isExec){
     if(pageMapLeaf){
 #if (defined DEBUG)
       for(size_t leafPageNum=0;leafPageNum<AddrSpacLeafSize;leafPageNum++)
-	I((!pageMapLeaf[leafPageNum].mapCount)&&(!pageMapLeaf[leafPageNum].insts)&&(!pageMapLeaf[leafPageNum].frame));
+	I((!pageMapLeaf[leafPageNum].mapCount)&&(!pageMapLeaf[leafPageNum].frame));
 #endif
       delete [] pageMapLeaf;
     }

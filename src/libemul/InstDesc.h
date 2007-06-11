@@ -3,8 +3,11 @@
 
 #include <stdlib.h>
 #include "common.h"
+#include "nanassert.h"
 #include "Addressing.h"
 #include "Regs.h"
+// To get definition of fail()
+#include "EmulInit.h"
 
 enum{
   OpInvalid = 0,
@@ -13,7 +16,7 @@ typedef uint16_t Opcode;
 
 class ThreadContext;
 class InstDesc;
-typedef void EmulFunc(InstDesc *inst, ThreadContext *context);
+typedef InstDesc *EmulFunc(InstDesc *inst, ThreadContext *context);
 
 enum InstTypInfoEnum{
   // Main instruction opcode
@@ -34,14 +37,19 @@ enum InstTypInfoEnum{
   FpOpMul     = 0x10 + TypFpOp,  // Multiply-like FP op
   FpOpDiv     = 0x20 + TypFpOp,  // Divide-like FP op (also sqrt, recip, etc)
   // Subtypes for Branch opcodes
-  BrOpJump    = 0x00 + TypBrOp,  // Ordinary unconditional branch
-  BrOpCond    = 0x10 + TypBrOp,  // Ordinary conditional branch
+  BrOpJump    = 0x00 + TypBrOp,  // Unconditional branch
+  BrOpCond    = 0x10 + TypBrOp,  // Conditional branch
   BrOpCall    = 0x20 + TypBrOp,  // Function call
-  BrOpRet     = 0x30 + TypBrOp,  // Function return
-  BrOpTrap    = 0x40 + TypBrOp,  // Trap/Syscall
+  BrOpCCall   = 0x30 + TypBrOp,  // Conditional function call
+  BrOpRet     = 0x40 + TypBrOp,  // Function return
+  BrOpCRet    = 0x50 + TypBrOp,  // Conditional function return
+  BrOpTrap    = 0x80 + TypBrOp,  // Trap/syscall
+  BrOpCTrap   = 0x90 + TypBrOp,  // Conditional trap/syscall
   // Subtypes for memory opcodes
   TypMemLd    = 0x00 + TypMemOp, // Load
   TypMemSt    = 0x10 + TypMemOp, // Store
+  TypSynLd    = 0x20 + TypMemOp, // Sync Load
+  TypSynSt    = 0x30 + TypMemOp, // Sync Store
   MemSizeMask = 0xF, // Mask for load/store access size
   MemOpLd1    = TypMemLd+1,
   MemOpLd2    = TypMemLd+2,
@@ -51,90 +59,98 @@ enum InstTypInfoEnum{
   MemOpSt2    = TypMemSt+2,
   MemOpSt4    = TypMemSt+4,
   MemOpSt8    = TypMemSt+8,
+  MemOpLl     = TypSynLd+4,
+  MemOpSc     = TypSynSt+4
 };
 typedef InstTypInfoEnum InstTypInfo;
 
-enum InstCtlInfoEnum{
-  CtlInvalid = 0x0000,   // No instruction should have CtlInfo of zero (should at least nave length)
+inline bool isSync(InstTypInfo typ){
+  return ((typ&0xF20)==(0x20+TypMemOp));
+}
 
-  CtlISize   = 0x003F,   // Mask for instruction size
-  CtlISize4  = 0x0004,   // Instruction is 4 bytes long
-
-  CtlIMask   = 0x0FC0,   // Mask for bits that depend on what the instruction is doing, not its size or location
-  CtlExcept  = 0x0040,   // Instruction may generate exceptions
-  CtlBr      = 0x0080,   // Instruction may jump/branch
-  CtlFix     = 0x0100,   // Branch/jump target is fixed (not register-based)
-  CtlCall    = 0x0200,   // Branch/jump is a function call
-  CtlAnull   = 0x0400,   // Likely (anull) conditional branch/jump
-
-  CtlLMask   = 0xF000,  // Mask for all the bits that are a property of the location where the instruction is, not if instruction itself
-  CtlInDSlot = 0x1000,  // This instruction is in a delay slot of another instruction
-  CtlEndTrac = 0x8000,  // This is the last instruction in a trace
-};
-typedef InstCtlInfoEnum InstCtlInfo;
-
-void instDecode(InstDesc *inst, ThreadContext *context);
-
-class Instruction;
-
-Instruction *createSescInst(const InstDesc *inst);
-
-class InstDesc{
+class InstImm{
  public:
-  EmulFunc *emulFunc;
-  RegName  regDst;
-  RegName  regSrc1;
-  RegName  regSrc2;
-  RegName  regSrc3;
   union{
+    VAddr     a;
     int32_t   s;
     uint32_t  u;
     InstDesc *i;
-  } imm1;
-  union{
-    uint32_t  u;
-  } imm2;
-  VAddr    addr;
-  InstCtlInfo ctlInfo;
-#if (defined DEBUG)
-  Opcode   op;
-#endif
-  InstTypInfo typInfo;
-  InstDesc *nextInst;
-  Instruction *sescInst;
+  };
+  InstImm(void){}
+  InstImm(int32_t   s) : s(s){}
+  InstImm(uint32_t  u) : u(u){}
+  InstImm(InstDesc *i) : i(i){}
+  inline operator int32_t(){
+    return s;
+  }
+  inline operator int64_t(){
+    return int64_t(s);
+  }
+  inline operator uint32_t(){
+    return u;
+  }
+  inline operator uint64_t(){
+    return uint64_t(u);
+  }
+  inline operator float32_t(){
+    fail("InstImm float32_t conversion\n");
+    return float32_t(s);
+  }
+  inline operator float64_t(){
+    fail("InstImm float64_t conversion\n");
+    return float64_t(s);
+  }
+  inline operator bool(){
+    return bool(u);
+  }
+};
+
+class ThreadContext;
+
+void decodeTrace(ThreadContext *context, VAddr iaddr);
+
+class Instruction;
+
+class InstDesc{
  public:
-  InstDesc(void) : emulFunc(instDecode), ctlInfo(CtlInvalid), nextInst(0), sescInst(0){
+  EmulFunc    *emul;
+  Instruction *sescInst;
+  InstImm      imm;
+  RegName      regDst;
+  RegName      regSrc1;
+  RegName      regSrc2;
+  uint8_t      iupdate;
+  uint8_t      aupdate;
 #if (defined DEBUG)
-    op=OpInvalid;
-    typInfo=TypNop;
+  InstTypInfo  typ;
+  VAddr        addr;
+  Opcode       op;
 #endif
-    //    I(!(ctlInfo&CtlInDSlot));
-    regDst=RegNone;
-    regSrc1=regSrc2=regSrc3=RegNone;
-    imm1.i=0;
-    imm2.u=0;
+ public:
+  InstDesc(void) : sescInst(0){
+#if (defined DEBUG)
+//    emul=0;
+//    regDst=RegNone;
+//    regSrc1=RegNone;
+//    regSrc2=RegNone;
+//    imm.i=0;
+//    iupdate=0;
+//    aupdate=0;
+//    typ=TypNop;
+//    addr=0;
+//    op=OpInvalid;
+#endif
   }
-  size_t getInstSize(void){
-    return ctlInfo&CtlISize;
+  ~InstDesc(void);
+  InstDesc *operator()(ThreadContext *context){
+    return emul(this,context);
   }
-  void beInDSlot(void){
-    ctlInfo=(InstCtlInfo)(ctlInfo|CtlInDSlot);
-  }
-  void beNoDSlot(void){
-    ctlInfo=(InstCtlInfo)(ctlInfo&(~CtlInDSlot));
-  }
-  bool isInDSlot(void){
-    return ctlInfo&CtlInDSlot;
-  }
-  Instruction *getSescInst(void){
-    if(!sescInst)
-      sescInst=createSescInst(this);
+  Instruction *getSescInst(void) const{
+    I(sescInst);
     return sescInst;
   }
 };
 
 #define InvalidInstDesc ((InstDesc *)0)
-#define NoJumpInstDesc  ((InstDesc *)-2)
 
 #endif // !(defined INST_DESC_H)
-

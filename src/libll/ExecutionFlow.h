@@ -108,7 +108,7 @@ public:
   InstID getNextID() const {
 #if (defined MIPS_EMUL)
     I(context);
-    return context->getNextInstDesc()->addr;
+    return context->getIAddr();
 #else
     I(picodePC);
     return picodePC->instID;

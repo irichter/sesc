@@ -11,6 +11,6 @@ namespace Mips{
   bool handleSignals(ThreadContext *context);
 }
 
-void mipsSysCall(InstDesc *inst, ThreadContext *context);
+InstDesc *mipsSysCall(InstDesc *inst, ThreadContext *context);
 
 #endif // !(defined SYSCALLS_H)

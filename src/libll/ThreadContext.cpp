@@ -586,7 +586,7 @@ void ThreadContext::save(ChkWriter &out) const{
   out.writeobj(getAddressSpace());
   out << "Parent " << parentID << " exitSig " << exitSig << endl;
   if(exited){
-    I(!nextInstDesc);
+    I(!iDesc);
     I(!getSignalTable());
     out << "Exit " << exitCode << endl;
     return;
@@ -605,7 +605,7 @@ void ThreadContext::save(ChkWriter &out) const{
   for(size_t i=0;i<maskedSig.size();i++)
     out << *(maskedSig[i]) << endl;
   out << "SuspSig " << (suspSig?'+':'-') << endl;  
-  I(nextInstDesc);
+  I(iDesc);
   out << "Children " << childIDs.size() << ":";
   for(IntSet::iterator childIt=childIDs.begin();childIt!=childIDs.end();childIt++)
     out << " " << *childIt;
@@ -620,7 +620,8 @@ void ThreadContext::save(ChkWriter &out) const{
     if(r%4==3)
       out << endl;
   }
-  out << "PC " << nextInstDesc->addr << " / " << (jumpInstDesc==NoJumpInstDesc?0:jumpInstDesc->addr) << dec << endl;
+  I(getAddressSpace()->isMappedInst(getIAddr()));
+  out << "PC " << getIAddr() << " / " << getIDesc()-getAddressSpace()->virtToInst(getIAddr()) << dec << endl;
 }
 
 ThreadContext::ThreadContext(ChkReader &in){
@@ -636,8 +637,7 @@ ThreadContext::ThreadContext(ChkReader &in){
   in >> "Parent " >> parentID >> " exitSig " >> _exitSig >> endl;
   exitSig=static_cast<SignalID>(_exitSig);
   if(exited){
-    setNextInstDesc(0);
-    setJumpInstDesc(NoJumpInstDesc);
+    setIAddr(0);
     in >> "Exit " >> exitCode >> endl;
     return;
   }
@@ -699,10 +699,10 @@ ThreadContext::ThreadContext(ChkReader &in){
     if(r%4==3)
       in >> endl;
   }
-  VAddr pc1, pc2;
-  in >> "PC " >> pc1 >> " / " >> pc2 >> dec >> endl;
-  setNextInstDesc(virt2inst(pc1));
-  setJumpInstDesc(pc2?virt2inst(pc2):NoJumpInstDesc);
+  VAddr pc; ssize_t upc;
+  in >> "PC " >> pc >> " / " >> upc >> dec >> endl;
+  setIAddr(pc);
+  updIDesc(upc);
 }
 
 ThreadContext::ThreadContext(void)
@@ -710,9 +710,9 @@ ThreadContext::ThreadContext(void)
   myStackAddrLb(0),
   myStackAddrUb(0),
   cpuMode(NoCpuMode),
-  nextInstDesc(InvalidInstDesc),
-  jumpInstDesc(NoJumpInstDesc),
-  lastDataVAddr(0),
+  iAddr(0),
+  iDesc(InvalidInstDesc),
+  dAddr(0),
   openFiles(new FileSys::OpenFiles()),
   sigTable(new SignalTable()),
   sigMask(),
@@ -746,8 +746,7 @@ ThreadContext::ThreadContext(ThreadContext &parent, bool shareAddrSpace, bool sh
   myStackAddrLb(parent.myStackAddrLb),
   myStackAddrUb(parent.myStackAddrUb),
   cpuMode(parent.cpuMode),
-  jumpInstDesc(NoJumpInstDesc),
-  lastDataVAddr(0),
+  dAddr(0),
   openFiles(shareOpenFiles?((FileSys::OpenFiles *)(parent.openFiles)):(new FileSys::OpenFiles(*(parent.openFiles)))),
   sigTable(shareSigTable?((SignalTable *)(parent.sigTable)):(new SignalTable(*(parent.sigTable)))),
   sigMask(),
@@ -774,17 +773,16 @@ ThreadContext::ThreadContext(ThreadContext &parent, bool shareAddrSpace, bool sh
 
   parent.childIDs.insert(pid);
   memcpy(regs,parent.regs,sizeof(regs));
-  // Copy address space and signals
+  // Copy address space and instruction pointer
   if(shareAddrSpace){
     setAddressSpace(parent.getAddressSpace());
+    iAddr=parent.iAddr;
+    iDesc=parent.iDesc;
   }else{
     setAddressSpace(new AddressSpace(*(parent.getAddressSpace())));
+    iAddr=parent.iAddr;
+    iDesc=virt2inst(iAddr);
   }
-  // Copy instruction pointer
-  I(parent.jumpInstDesc==NoJumpInstDesc);
-  I(!parent.pendJump);
-  nextInstDesc=virt2inst(parent.nextInstDesc->addr);
-  I(nextInstDesc!=InvalidInstDesc);
 }
 
 ThreadContext::~ThreadContext(void){
@@ -846,8 +844,8 @@ bool ThreadContext::exit(int code){
     if(childContext->exited)
       childContext->reap();
   }
-  setJumpInstDesc(NoJumpInstDesc);
-  setNextInstDesc(InvalidInstDesc);
+  iAddr=0;
+  iDesc=InvalidInstDesc;
   if(parentID==-1){
     reap();
     return true;
@@ -1016,7 +1014,7 @@ void ThreadContext::execInst(VAddr addr, VAddr sp){
     return;
   if(jumpDst==dstFunc){
     // Jump to function entry point, see  where the return address is 
-    VAddr  retAddr=(VAddr)(Mips::getReg<uint32_t>(this,static_cast<RegName>(Mips::RegRA)));
+    VAddr  retAddr=(VAddr)(Mips::getReg<Mips32,uint32_t>(this,static_cast<RegName>(Mips::RegRA)));
     VAddr  retFunc=addressSpace->getFuncAddr(retAddr);
     if((!frameStack.empty())&&(sp==frameStack.back())){
       // Tail function call

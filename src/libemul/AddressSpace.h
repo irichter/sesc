@@ -11,6 +11,7 @@
 #include "common.h"
 #include "nanassert.h"
 #include "GCObject.h"
+#include "DbgObject.h"
 #include "Checkpoint.h"
 
 #define AddrSpacPageOffsBits (12)
@@ -75,6 +76,18 @@ class AddressSpace : public GCObject{
   };
   typedef std::map<VAddr, SegmentDesc, std::greater<VAddr> > SegmentMap;
   SegmentMap segmentMap;
+  // Information about decoded instructions for a page of virtual memory
+  class TraceDesc{
+  public:
+    InstDesc *binst;
+    InstDesc *einst;
+    VAddr     baddr;
+    VAddr     eaddr;
+  };
+  typedef std::map<VAddr, TraceDesc, std::greater<VAddr> > TraceMap;
+  TraceMap traceMap;
+  typedef std::map<VAddr, InstDesc *, std::greater<VAddr> > InstMap;
+  InstMap  instMap;
   // Information about pages of physical memory
   class FrameDesc : public GCObject{
   public:
@@ -104,24 +117,12 @@ class AddressSpace : public GCObject{
     void save(ChkWriter &out) const;
     FrameDesc(ChkReader &in);
   };
-  // Information about decoded instructions for a page of virtual memory
-  class TraceDesc : public GCObject{
-  private:
-    InstDesc inst[AddrSpacPageSize];
-  public:
-    TraceDesc(VAddr addr) : GCObject(){
-      for(size_t pageOffs=0;pageOffs<AddrSpacPageSize;pageOffs++)
-	inst[pageOffs].addr=addr+pageOffs;
-      addRef();
-    }
-    InstDesc *getInst(VAddr addr){
-      size_t offs=(addr&AddrSpacPageOffsMask);
-      I(inst[offs].addr=addr);
-      return &(inst[offs]);
-    }
-  };
   // Information about pages of virtual memory (in each AddressSpace)
-  class PageDesc{
+  class PageDesc
+#if (defined DEBUG_PageDesc)
+ : public DbgObject<PageDesc>
+#endif
+  {
   public:
     FrameDesc::pointer frame;
     TraceDesc *insts;
@@ -157,11 +158,6 @@ class AddressSpace : public GCObject{
 	return;
       // Last mapping removed, free memory
       I((!canRead)&&(!canWrite)&&(!canExec));
-      if(insts){
-	I(insts->getRefCount()>0);
-	insts->delRef();
-	insts=0;
-      }
       if(frame)
 	frame=0;
     }
@@ -329,25 +325,40 @@ class AddressSpace : public GCObject{
       return 0;
     return (RAddr)(frame->getData(addr));
   }
-  inline InstDesc *virtToInst(VAddr addr){
-    size_t pageNum=(addr>>AddrSpacPageOffsBits);
-#if (defined SPLIT_PAGE_TABLE)
-    size_t rootNum=(pageNum>>AddrSpacLeafBits);
-    size_t leafNum=(pageNum&AddrSpacLeafMask);
-    PageMapLeaf leafTable=pageMapRoot[rootNum];
-    if(!leafTable)
+  void createTrace(ThreadContext *context, VAddr addr){
+    I((!isMappedInst(addr))||!instMap[addr]);
+    instMap[addr]=0;
+    TraceMap::iterator cur=traceMap.upper_bound(addr);
+    if((cur!=traceMap.end())&&(cur->second.eaddr>addr))
+      addr=cur->second.baddr;
+    decodeTrace(context,addr);
+  }
+  bool reqMapInst(VAddr addr){
+    if(instMap.find(addr)!=instMap.end())
+      return false;
+    instMap[addr]=0;
+    return true;
+  }
+  void mapInst(VAddr addr,InstDesc *inst){
+    I(inst);
+    I(addr);
+    I(!isMappedInst(addr));
+    instMap[addr]=inst;
+  }
+  bool isMappedInst(VAddr addr) const{
+    InstMap::const_iterator it=instMap.find(addr);
+    return (it!=instMap.end())&&(it->second!=0);
+  }
+  bool needMapInst(VAddr addr) const{
+    InstMap::const_iterator it=instMap.find(addr);
+    return (it!=instMap.end())&&(it->second==0);
+  }
+  void mapTrace(InstDesc *binst, InstDesc *einst, VAddr baddr, VAddr eaddr);
+  inline InstDesc *virtToInst(VAddr addr) const{
+    InstMap::const_iterator it=instMap.find(addr);
+    if(it==instMap.end())
       return 0;
-    PageDesc &page=leafTable[leafNum];
-#else
-    PageDesc &page=pageMap[pageNum];
-#endif
-    if(!page.insts){
-      if(!page.canExec)
-	return 0;
-      page.insts=new TraceDesc(pageNum*AddrSpacPageSize);
-      I(page.insts);
-    }
-    return page.insts->getInst(addr);
+    return it->second;
   }
  public:
   AddressSpace(void);
@@ -358,6 +369,14 @@ class AddressSpace : public GCObject{
   void save(ChkWriter &out) const;
   AddressSpace(ChkReader &in);
 
+  template<class T>
+  inline T readMemRaw(VAddr addr){
+    size_t pageNum=getPageNum(addr);
+    I(addr+sizeof(T)<=(pageNum+1)*AddrSpacPageSize);
+    PageDesc &myPage=getPageDesc(pageNum);
+    I(myPage.canRead);
+    return *(reinterpret_cast<T *>(myPage.frame->getData(addr)));
+  }
   template<class T>
   inline bool readMemRaw(VAddr addr, T &val){
     size_t pageNum=getPageNum(addr);

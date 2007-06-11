@@ -155,7 +155,7 @@ void loadElfObject(const char *fname, ThreadContext *threadContext){
     mipsArch=-1;
     break;
   }
-  //  printf("Executable %s uses mips%d architecture\n",fname,mipsArch);
+  printf("Executable %s uses mips%d architecture\n",fname,mipsArch);
   //  if(myElfHdr.e_flags&(EF_MIPS_PIC|EF_MIPS_CPIC))
   //    printf("Executable %s contains or uses PIC code\n",fname);
   if(myElfHdr.e_phentsize!=sizeof(Elf32_Phdr))
@@ -396,7 +396,7 @@ void loadElfObject(const char *fname, ThreadContext *threadContext){
 	cvtEndianBig(myRegInfo);
 	if(myRegInfo.ri_cprmask[0] || myRegInfo.ri_cprmask[2] || myRegInfo.ri_cprmask[3])
 	  fail("Unsupported coprocessor registers used in ELF file %s",myfname);
-	Mips::setReg<uint32_t>(threadContext,static_cast<RegName>(Mips::RegGP),myRegInfo.ri_gp_value);
+	Mips::setReg<Mips32,uint32_t>(threadContext,static_cast<RegName>(Mips::RegGP),myRegInfo.ri_gp_value);
       } break;
       case SHT_NOBITS: case SHT_PROGBITS: {
 	// Code/data section, need to allocate space for it
@@ -437,6 +437,5 @@ void loadElfObject(const char *fname, ThreadContext *threadContext){
   
   // Set instruction pointer to the program entry point
   VAddr entryIAddr=myElfHdr.e_entry;
-  threadContext->setNextInstDesc(threadContext->virt2inst(entryIAddr));
-  threadContext->setJumpInstDesc(NoJumpInstDesc);
+  threadContext->setIAddr(entryIAddr);
 }

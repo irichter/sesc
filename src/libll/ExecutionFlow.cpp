@@ -187,12 +187,11 @@ void ExecutionFlow::exeInstFast()
 #if (defined MIPS_EMUL)
   I(!trainCache); // Not supported yet
   ThreadContext *thread=context;
-  InstDesc *iDesc=thread->getNextInstDesc();
+  InstDesc *iDesc=thread->getIDesc();
   //  printf("F @0x%lx\n",iDesc->addr);
-  iDesc->emulFunc(iDesc,thread);
-  VAddr vaddr=thread->getLastDataVAddr();
-  if(vaddr)
-    thread->setLastDataVAddr(0);
+  (*iDesc)(thread);
+  VAddr vaddr=thread->getDAddr();
+  thread->setDAddr(0);
 #else // For (defined MIPS_EMUL)
   // This exeInstFast can be called when for sure there are no speculative
   // threads (TLS, or TASKSCALAR)
@@ -340,27 +339,15 @@ void ExecutionFlow::dump(const char *str) const
 DInst *ExecutionFlow::executePC()
 {
 #if (defined MIPS_EMUL)
-  DInst *retVal=0;
-  if(pendingDInst){
-    retVal=pendingDInst;
-    pendingDInst=0;
-  }else{
-    ThreadContext *thread=context;
-    InstDesc *iDesc=thread->getNextInstDesc();
-    //    printf("S @0x%lx\n",iDesc->addr);
-    iDesc->emulFunc(iDesc,thread);
-    VAddr vaddr=thread->getLastDataVAddr();
-    if(vaddr)
-      thread->setLastDataVAddr(0);
-    DInst *myDInst=DInst::createDInst(iDesc->getSescInst(),vaddr,fid,thread);
-    if(thread->getJumpInstDesc()!=NoJumpInstDesc){
-      retVal=executePC();
-      pendingDInst=myDInst;
-    }else{
-      retVal=myDInst;
-    }
-  }
-  return retVal;
+  ThreadContext *thread=context;
+  InstDesc *iDesc=thread->getIDesc();
+  //    printf("S @0x%lx\n",iDesc->addr);
+  iDesc=(*iDesc)(thread);
+  if(!iDesc)
+    return 0;
+  VAddr vaddr=thread->getDAddr();
+  thread->setDAddr(0);
+  return DInst::createDInst(iDesc->getSescInst(),vaddr,fid,thread);
 #else // For (defined MIPS_EMUL)
   // If there is an already executed instruction, just return it
   if(pendingDInst) {

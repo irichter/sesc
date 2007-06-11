@@ -2,6 +2,8 @@
 #include <math.h>
 // We need to control the rounding mode for floating point operations
 #include <fenv.h>
+// We use functionals in our implementation
+#include <functional>
 
 #include "InstDesc.h"
 #include "ThreadContext.h"
@@ -15,208 +17,163 @@
 // (Remove this when ThreadContext stays in one place on thread switching)
 #include "OSSim.h"
 
+namespace fns{
+  template <class _Tp> struct project1st_identity    : public std::binary_function<_Tp, _Tp, _Tp>{ inline _Tp operator()(const _Tp& __x, const _Tp& __y) const{ return __x; } };
+  template <class _Tp> struct project1st_bitwise_not : public std::binary_function<_Tp, _Tp, _Tp>{ inline _Tp operator()(const _Tp& __x, const _Tp& __y) const{ return ~__x; } };
+  template <class _Tp> struct project1st_neg         : public std::binary_function<_Tp, _Tp, _Tp>{ inline _Tp operator()(const _Tp& __x, const _Tp& __y) const{ return -__x; } };
+  template <class _Tp> struct project1st_abs         : public std::binary_function<_Tp, _Tp, _Tp>{ inline _Tp operator()(const _Tp& __x, const _Tp& __y) const{ return (__x>=0)?__x:-__x; } };
+  template <class _Tp> struct project1st_sqrt        : public std::binary_function<_Tp, _Tp, _Tp>{ inline _Tp operator()(const _Tp& __x, const _Tp& __y) const{ return sqrt(__x); } };
+  template <class _Tp> struct project1st_recip       : public std::binary_function<_Tp, _Tp, _Tp>{ inline _Tp operator()(const _Tp& __x, const _Tp& __y) const{ return _Tp(1)/__x; } };
+  template <class _Tp> struct project1st_sqrt_recip  : public std::binary_function<_Tp, _Tp, _Tp>{ inline _Tp operator()(const _Tp& __x, const _Tp& __y) const{ return _Tp(1)/sqrt(__x); } };
+  template <class _Tp>
+  struct shift_left : public std::binary_function<_Tp, uint32_t, _Tp>{
+    inline _Tp operator()(const _Tp& __x, const uint32_t& __y) const{ return (__x<<__y); }
+  };
+  template <class _Tp>
+  struct shift_right : public std::binary_function<_Tp, uint32_t, _Tp>{
+    inline _Tp operator()(const _Tp& __x, const uint32_t& __y) const{ return (__x>>__y); }
+  };
+  template <class _Tp> struct bitwise_and            : public std::binary_function<_Tp, _Tp, _Tp>{ inline _Tp operator()(const _Tp& __x, const _Tp& __y) const{ return (__x&__y); } };
+  template <class _Tp> struct bitwise_or             : public std::binary_function<_Tp, _Tp, _Tp>{ inline _Tp operator()(const _Tp& __x, const _Tp& __y) const{ return (__x|__y); } };
+  template <class _Tp> struct bitwise_xor            : public std::binary_function<_Tp, _Tp, _Tp>{ inline _Tp operator()(const _Tp& __x, const _Tp& __y) const{ return (__x^__y); } };
+  template <class _Tp> struct bitwise_nor            : public std::binary_function<_Tp, _Tp, _Tp>{ inline _Tp operator()(const _Tp& __x, const _Tp& __y) const{ return ~(__x|__y); } };
+  template <class _Tp> struct plus_neg               : public std::binary_function<_Tp, _Tp, _Tp>{ inline _Tp operator()(const _Tp& __x, const _Tp& __y) const{ return -(__x + __y); } };
+  template <class _Tp> struct minus_neg              : public std::binary_function<_Tp, _Tp, _Tp>{ inline _Tp operator()(const _Tp& __x, const _Tp& __y) const{ return -(__x - __y); } };
+  template <class _Tp> struct multiplies_hi          : public std::binary_function<_Tp, _Tp, _Tp>{ inline _Tp operator()(const _Tp& __x, const _Tp& __y) const{ fail("multiplies_hi called for unsupported type\n"); return 0; } };
+  template <> struct multiplies_hi<int32_t>          : public std::binary_function<int32_t,int32_t,int32_t>{
+    inline int32_t operator()(const int32_t& __x, const int32_t& __y) const{
+      int64_t res=int64_t(__x)*int64_t(__y);
+      int32_t *ptr=(int32_t *)(&res);
+      return *(ptr+(__BYTE_ORDER!=__BIG_ENDIAN));
+    }
+  };
+  template <> struct multiplies_hi<uint32_t>          : public std::binary_function<uint32_t,uint32_t,uint32_t>{
+    inline uint32_t operator()(const uint32_t& __x, const uint32_t& __y) const{
+      uint64_t res=uint64_t(__x)*uint64_t(__y);
+      uint32_t *ptr=(uint32_t *)(&res);
+      return *(ptr+(__BYTE_ORDER!=__BIG_ENDIAN));
+    }
+  };
+  template<class _Tp, bool ExcUn, bool UseLt, bool UseEq, bool UseUn>
+  struct float_compare : public std::binary_function<_Tp,_Tp,bool>{
+    inline bool operator()(const _Tp& __x, const _Tp& __y) const{
+      return ((UseLt&&(__x<__y))||(UseEq&&(__x==__y))||(UseUn&&isunordered(__x,__y)));
+    }
+  };
+  template<class _Ts, class _Td, int rm>
+  struct project1st_round : public std::binary_function<_Ts,_Ts,_Td>{
+    inline _Td operator()(const _Ts& __x, const _Ts& __y) const{
+      int saverm=fegetround();
+      fesetround(rm);
+      _Td retVal=_Td(__x);
+      fesetround(saverm);
+      return retVal;
+    }
+  };
+  template<class _Tp> struct tt : public std::binary_function<_Tp,_Tp,bool>{ inline bool operator()(const _Tp& __x, const _Tp& __y) const{ return true; } };
+  template<class _Tp> struct eq : public std::equal_to<_Tp>{};
+  template<class _Tp> struct ne : public std::not_equal_to<_Tp>{};
+  template<class _Tp> struct lt : public std::less<_Tp>{};
+  template<class _Tp> struct gt : public std::greater<_Tp>{};
+  template<class _Tp> struct le : public std::less_equal<_Tp>{};
+  template<class _Tp> struct ge : public std::greater_equal<_Tp>{};
+}
+
+InstDesc::~InstDesc(void){
+  if(sescInst)
+    delete sescInst;
+  ID(sescInst=0);
+}
+
 namespace Mips {
 
-  // This structure defines the various bit-fields in a MIPS instruction
-  typedef struct{
-    // We use a union to allow fields to be read for different instruction types
-    union{
-      
-      // This is the entire 32-bit MIPS instruction
-      uint32_t whole;
-      
-      // Now we define individual bit-fields for op, sa, rd, rs, rt, func, immed, and targ
-      
-      // The R-type funct field is in the lowermost 6 bits
-      // The R-type shift amount (SA) field is in the next five lowermost bits
-      // The R-type RD field is in the next five lowermost bits
-      // The R-type and I-type RT field is in the next five lowermost bits
-      // The opcode filed (all types) is in the uppermost six bits
-      struct{
-	unsigned int func : 6;
-	unsigned int sa : 5;
-	unsigned int rd : 5;
-	unsigned int rt : 5;
-	unsigned int rs : 5;
-	unsigned int op : 6;
-      };
-      // The I-type unsigned immediate field is in the lowermost 16 bits
-      struct{
-	unsigned int uimmed : 16;
-	unsigned int _uimmed_rest : 16;
-      };
-      // The I-type signed immediate field is in the lowermost 16 bits
-      struct{
-	signed int   simmed : 16;
-	unsigned int _simmed_rest : 16;
-      };
-      // The J-type jump target field is in the lowermost 26 bits
-      struct{
-	unsigned int targ : 26;
-	unsigned int _targ_rest : 6;
-      };
-      // The "code" field for the breakpoint and syscall instruction
-      // is in 20 bits between the func and op fields
-      struct{
-	unsigned int _excode_func: 6;
-	unsigned int excode : 20;
-	unsigned int _excode_op: 6;
-      };
-      // The 10-bit "code" field for conditional trap instructions is in bits 6..15
-      struct{
-	unsigned int _trcode_func: 6;
-	unsigned int trcode : 10;
-	unsigned int _trcode_op: 16;
-      };    
-      // Floating point (Cop1 and Cop1x) instructions have a different encoding
-      struct{
-	unsigned int _fd_func : 6;
-	unsigned int fd : 5;
-	unsigned int fs : 5;
-	unsigned int ft : 5;
-	unsigned int fmt : 5;
-	unsigned int _fmt_op : 6;
-      };
-      struct{
-	unsigned int _fccc_rest : 8;
-	unsigned int fccc : 3;
-      unsigned int _ndtf_rest : 5;
-	unsigned int ndtf  : 2;
-      unsigned int fbcc : 3;
-	unsigned int fr   : 5;
-	unsigned int _fr_rest2 : 6;
-      };
-    };
-  } RawInst;
+  typedef uint32_t RawInst;
 
   typedef enum{
     //This is an invalid opcode
     OpInvalid,
-    // Opcodes decoded using the "op" field begin here
-    MOpSpecial, MOpRegimm, OpJ,       OpJal,     OpBeq,     OpBne,    OpBlez,   OpBgtz,
-    OpAddi,     OpAddiu,   OpSlti,    OpSltiu,   OpAndi,    OpOri,    OpXori,   OpLui,
-    MOpCop0,    MOpCop1,   MOpCop2,   MOpCop1x,  OpBeql,    OpBnel,   OpBlezl,  OpBgtzl,
-    OpDaddi,    OpDaddiu,  OpLdl,     OpLdr,     MOpInv1C,  MOpInv1D, MOpInv1E, MOpInv1F,
-    OpLb,       OpLh,      OpLwl,     OpLw,      OpLbu,     OpLhu,    OpLwr,    OpLwu,
-    OpSb,       OpSh,      OpSwl,     OpSw,      OpSdl,     OpSdr,    OpSwr,    MOpInv2F,
-    OpLl,       OpLwc1,    OpLwc2,    OpPref,    OpLld,     OpLdc1,   OpLdc2,   OpLd,
-    OpSc,       OpSwc1,    OpSwc2,    MOpInv3B,  OpScd,     OpSdc1,   OpSdc2,   OpSd,
-    // Opcodes decoded using the "function" field for MOpSpecial begin here
-    OpSll,      SOpMovci,  OpSrl,     OpSra,     OpSllv,    SOpInv05, OpSrlv,   OpSrav,
-    OpJr,       OpJalr,    OpMovz,    OpMovn,    OpSyscall, OpBreak,  SOpInv0E, OpSync,
-    OpMfhi,     OpMthi,    OpMflo,    OpMtlo,    OpDsllv,   SOpInv15, OpDsrlv,  OpDsrav,
-    OpMult,     OpMultu,   OpDiv,     OpDivu,    OpDmult,   OpDmultu, OpDdiv,   OpDdivu,
-    OpAdd,      OpAddu,    OpSub,     OpSubu,    OpAnd,     OpOr,     OpXor,    OpNor,
-    SOpInv28,   SOpInv29,  OpSlt,     OpSltu,    OpDadd,    OpDaddu,  OpDsub,   OpDsubu,
-    OpTge,      OpTgeu,    OpTlt,     OpTltu,    OpTeq,     SOpInv35, OpTne,    SOpInv37,
-    OpDsll,     SOpInv39,  OpDsrl,    OpDsra,    OpDsll32,  SOpInv3D, OpDsrl32, OpDsra32,
-    // Opcodes decoded using the "rt" field for MOpRegimm begin here
-    OpBltz,     OpBgez,    OpBltzl,   OpBgezl,   ROpInv04,  ROpInv05, ROpInv06, ROpInv07,
-    OpTgei,     OpTgeiu,   OpTlti,    OpTltiu,   OpTeqi,    ROpInv0D, OpTnei,   ROpInv0F,
-    OpBltzal,   OpBgezal,  OpBltzall, OpBgezall, ROpInv14,  ROpInv15, ROpInv16, ROpInv17,
-    ROpInv18,   ROpInv19,  ROpInv1A,  ROpInv1B,  ROpInv1C,  ROpInv1D, ROpInv1E, ROpInv1F,
-    // Opcodes decoded using the "fmt" field for MOpCop1
-    OpMfc1,    OpDmfc1,    OpCfc1,    C1OpInv03, OpMtc1,    OpDmtc1,  OpCtc1,   C1OpInv07,
-    C1OpBc,    C1OpInv09,  C1OpInv0A, C1OpInv0B, C1OpInv0C, C1OpInv0D,C1OpInv0E,C1OpInv0F, 
-    C1OpFmts,  C1OpFmtd,   C1OpInv12, C1OpInv13, C1OpFmtw,  C1OpFmtl, C1OpInv16,C1OpInv17,
-    C1OpInv18, C1OpInv19,  C1OpInv1A, C1OpInv1B, C1OpInv1C, C1OpInv1D,C1OpInv1E,C1OpInv1F,
-    // Opcodes decoded using the "func" field for MOpCop1x
-    OpLwxc1,   OpLdxc1,   CXOpInv02, CXOpInv03, CXOpInv04, CXOpInv05, CXOpInv06, CXOpInv07,
-    OpSwxc1,   OpSdxc1,   CXOpInv0A, CXOpInv0B, CXOpInv0C, CXOpInv0D, CXOpInv0E, OpPrefx,
-    CXOpInv10, CXOpInv11, CXOpInv12, CXOpInv13, CXOpInv14, CXOpInv15, CXOpInv16, CXOpInv17,
-    CXOpInv18, CXOpInv19, CXOpInv1A, CXOpInv1B, CXOpInv1C, CXOpInv1D, CXOpInv1E, CXOpInv1F,
-    OpFmadds,  OpFmaddd,  CXOpInv22, CXOpInv23, CXOpInv24, CXOpInv25, CXOpInv26, CXOpInv27,
-    OpFmsubs,  OpFmsubd,  CXOpInv2A, CXOpInv2B, CXOpInv2C, CXOpInv2D, CXOpInv2E, CXOpInv2F,
-    OpFnmadds, OpFnmaddd, CXOpInv32, CXOpInv33, CXOpInv34, CXOpInv35, CXOpInv36, CXOpInv37,
-    OpFnmsubs, OpFnmsubd, CXOpInv3A, CXOpInv3B, CXOpInv3C, CXOpInv3D, CXOpInv3E, CXOpInv3F,
-    // Opcodes decoded using the 2-bit "nd/tf" field for MOpSpecial and SOpMovci
-    OpMovf,    OpMovt,    MVOpInv2,  MVOpInv3,
-    // Opcodes decoded using the 2-bit "nd/tf" field for MOpCop1 and C1OpBc
-    OpFbc1f,   OpFbc1t,   OpFbc1fl,  OpFbc1tl,
-    // Opcodes decoded using the "func" field for MOpCop1 and C1OpFmts
-    OpFadds,   OpFsubs,   OpFmuls,   OpFdivs,   OpFsqrts,  OpFabss,   OpFmovs,  OpFnegs,
-    OpFroundls,OpFtruncls,OpFceills, OpFfloorls,OpFroundws,OpFtruncws,OpFceilws,OpFfloorws,
-    FSOpInv10, FSOpMovcf, OpFmovzs,  OpFmovns,  FSOpInv14, OpFrecips, OpFrsqrts,FSOpInv17,
-    FSOpInv18, FSOpInv19, FSOpInv1A, FSOpInv1B, FSOpInv1C, FSOpInv1D, FSOpInv1E,FSOpInv1F,
-    FSOpInv20, OpFcvtds,  FSOpInv22, FSOpInv23, OpFcvtws,  OpFcvtls,  FSOpInv26,FSOpInv27,
-    FSOpInv28, FSOpInv29, FSOpInv2A, FSOpInv2B, FSOpInv2C, FSOpInv2D, FSOpInv2E,FSOpInv2F,
+    // Branches and jumps
+    OpOB, OpOJ, OpOJal, OpOBal, OpOJr, OpORet, OpOJalr, OpOCallr,
+    OpB,  OpJ,  OpJal,  OpBal,  OpJr,  OpRet,  OpJalr,  OpCallr,  OpCallrS,
+    OpB_, OpJ_, OpJal_, OpBal_, OpJr_, OpRet_, OpJalr_, OpCallr_,
+    OpOBeq,  OpOBne,  OpOBlez,  OpOBgtz,  OpOBltz,  OpOBgez,
+    OpBeq,   OpBne,   OpBlez,   OpBgtz,   OpBltz,   OpBgez,
+    OpBeq_,  OpBne_,  OpBlez_,  OpBgtz_,  OpBltz_,  OpBgez_,
+    OpOBeql, OpOBnel, OpOBlezl, OpOBgtzl, OpOBltzl, OpOBgezl,
+    OpBeql,  OpBnel,  OpBlezl,  OpBgtzl,  OpBltzl,  OpBgezl,
+    OpBeql_, OpBnel_, OpBlezl_, OpBgtzl_, OpBltzl_, OpBgezl_,
+    OpOBltzal, OpOBgezal, OpOBltzall, OpOBgezall,
+    OpBltzal,  OpBgezal,  OpBltzall,  OpBgezall,
+    OpBltzalS, OpBgezalS, OpBltzallS, OpBgezallS,
+    OpBltzal_, OpBgezal_, OpBltzall_, OpBgezall_,
+    OpOBc1f,  OpOBc1t,  OpOBc1fl,  OpOBc1tl,
+    OpBc1f,  OpBc1t,  OpBc1fl,  OpBc1tl,
+    OpBc1f_, OpBc1t_, OpBc1fl_, OpBc1tl_,
+    // Syscalls and traps
+    OpSyscall, OpBreak,
+    // Conditional traps
+    OpTge,  OpTgeu,  OpTlt,  OpTltu,  OpTeq,  OpTne,
+    OpTgei, OpTgeiu, OpTlti, OpTltiu, OpTeqi, OpTnei,
+
+    // GPR load/store
+    OpLb, OpLh, OpLw, OpLd, OpLwl, OpLwr, OpLbu, OpLhu, OpLwu,
+    OpSb, OpSh, OpSw, OpSd, OpSwl, OpSwr,
+    // Coprocessor load/store
+    OpLwc1,  OpLwc2, OpLdc1, OpLdc2,
+    OpSwc1,  OpSwc2, OpSdc1, OpSdc2,
+    OpLwxc1, OpLdxc1,
+    // These are two-part ops: calc addr, then store
+    OpSwxc1,  OpSdxc1,
+    OpSwxc1_, OpSdxc1_,
+    // Load-linked and store-conditional sync ops
+    OpLl, OpSc,
+    // These are not implemented yet
+    OpLdl, OpLdr, OpLld, OpScd,
+    OpSdl, OpSdr,
+    OpPref, OpPrefx, OpSync,
+
+    // Constant transfers
+    OpLui, OpLi, OpLiu,
+    // Shifts
+    OpSll,    OpSrl,    OpSra,    OpSllv,  OpSrlv,  OpSrav,
+    OpDsll,   OpDsrl,   OpDsra,   OpDsllv, OpDsrlv, OpDsrav,
+    OpDsll32, OpDsrl32, OpDsra32,
+    // Logical
+    OpAnd, OpOr, OpXor, OpNor, OpAndi, OpOri, OpXori, OpNot,
+    // Arithmetic
+    OpAdd, OpAddu, OpSub, OpSubu, OpAddi, OpAddiu, OpNeg, OpNegu,
+    OpMult, OpMultu, OpDiv, OpDivu, OpMult_, OpMultu_, OpDiv_, OpDivu_,
+    OpDadd,OpDaddu,OpDsub,OpDsubu,OpDaddi,OpDaddiu,OpDmult,OpDmultu,OpDdiv,OpDdivu,
+    // Moves
+    OpMovw, OpFmovs, OpFmovd,
+    OpMfhi, OpMflo, OpMfc1, OpDmfc1, OpCfc1,
+    OpMthi, OpMtlo, OpMtc1, OpDmtc1, OpCtc1,
+    // Integer comparisons
+    OpSlt, OpSltu, OpSlti, OpSltiu,
+    // Floating-point comparisons
     OpFcfs,    OpFcuns,   OpFceqs,   OpFcueqs,  OpFcolts,  OpFcults,  OpFcoles, OpFcules,
     OpFcsfs,   OpFcngles, OpFcseqs,  OpFcngls,  OpFclts,   OpFcnges,  OpFcles,  OpFcngts,
-    // Opcodes decoded using the "nd/tf" field for MOpCop1, C1OpFmts, and FSOpMovcf
-    OpFmovfs,  OpFmovts,  FSMOpInv2, FSMOpInv3,
-    // Opcodes decoded using the "func" field for MOpCop1 and C1OpFmtd
-    OpFaddd,   OpFsubd,   OpFmuld,   OpFdivd,   OpFsqrtd,  OpFabsd,   OpFmovd,  OpFnegd,
-    OpFroundld,OpFtruncld,OpFceilld, OpFfloorld,OpFroundwd,OpFtruncwd,OpFceilwd,OpFfloorwd,
-    FDOpInv10, FDOpMovcf, OpFmovzd,  OpFmovnd,  FDOpInv14, OpFrecipd, OpFrsqrtd,FDOpInv17,
-    FDOpInv18, FDOpInv19, FDOpInv1A, FDOpInv1B, FDOpInv1C, FDOpInv1D, FDOpInv1E,FDOpInv1F,
-    OpFcvtsd,  FDOpInv21, FDOpInv22, FDOpInv23, OpFcvtwd,  OpFcvtld,  FDOpInv26,FDOpInv27,
-    FDOpInv28, FDOpInv29, FDOpInv2A, FDOpInv2B, FDOpInv2C, FDOpInv2D, FDOpInv2E,FDOpInv2F,
     OpFcfd,    OpFcund,   OpFceqd,   OpFcueqd,  OpFcoltd,  OpFcultd,  OpFcoled, OpFculed,
     OpFcsfd,   OpFcngled, OpFcseqd,  OpFcngld,  OpFcltd,   OpFcnged,  OpFcled,  OpFcngtd,
-    // Opcodes decoded using the "nd/tf" field for MOpCop1, C1OpFmts, and FDOpMovcf
-    OpFmovfd,  OpFmovtd,  FDMOpInv2, FDMOpInv3,
-    // Opcodes decoded using the "func" field for MOpCop1 and C1OpFmtw
-    FWOpInv00, FWOpInv01, FWOpInv02, FWOpInv03, FWOpInv04, FWOpInv05, FWOpInv06,FWOpInv07,
-    FWOpInv08, FWOpInv09, FWOpInv0A, FWOpInv0B, FWOpInv0C, FWOpInv0D, FWOpInv0E,FWOpInv0F,
-    FWOpInv10, FWOpInv11, FWOpInv12, FWOpInv13, FWOpInv14, FWOpInv15, FWOpInv16,FWOpInv17,
-    FWOpInv18, FWOpInv19, FWOpInv1A, FWOpInv1B, FWOpInv1C, FWOpInv1D, FWOpInv1E,FWOpInv1F,
-    OpFcvtsw,  OpFcvtdw,  FWOpInv22, FWOpInv23, FWOpInv24, FWOpInv25, FWOpInv26,FWOpInv27,
-    FWOpInv28, FWOpInv29, FWOpInv2A, FWOpInv2B, FWOpInv2C, FWOpInv2D, FWOpInv2E,FWOpInv2F,
-    FWOpInv30, FWOpInv31, FWOpInv32, FWOpInv33, FWOpInv34, FWOpInv35, FWOpInv36,FWOpInv37,
-    FWOpInv38, FWOpInv39, FWOpInv3A, FWOpInv3B, FWOpInv3C, FWOpInv3D, FWOpInv3E,FWOpInv3F,
-    // Opcodes decoded using the "func" field for MOpCop1 and C1OpFmtl
-    FLOpInv00, FLOpInv01, FLOpInv02, FLOpInv03, FLOpInv04, FLOpInv05, FLOpInv06,FLOpInv07,
-    FLOpInv08, FLOpInv09, FLOpInv0A, FLOpInv0B, FLOpInv0C, FLOpInv0D, FLOpInv0E,FLOpInv0F,
-    FLOpInv10, FLOpInv11, FLOpInv12, FLOpInv13, FLOpInv14, FLOpInv15, FLOpInv16,FLOpInv17,
-    FLOpInv18, FLOpInv19, FLOpInv1A, FLOpInv1B, FLOpInv1C, FLOpInv1D, FLOpInv1E,FLOpInv1F,
-    OpFcvtsl,  OpFcvtdl,  FLOpInv22, FLOpInv23, FLOpInv24, FLOpInv25, FLOpInv26,FLOpInv27,
-    FLOpInv28, FLOpInv29, FLOpInv2A, FLOpInv2B, FLOpInv2C, FLOpInv2D, FLOpInv2E,FLOpInv2F,
-    FLOpInv30, FLOpInv31, FLOpInv32, FLOpInv33, FLOpInv34, FLOpInv35, FLOpInv36,FLOpInv37,
-    FLOpInv38, FLOpInv39, FLOpInv3A, FLOpInv3B, FLOpInv3C, FLOpInv3D, FLOpInv3E,FLOpInv3F,
-    // Derived opcodes (special cases of real opcodes)
-    OpNop,  // Do nothing
-    OpB,    // Unconditional branch (IP-relative)
-    OpBal,  // Unconditional branch and link (IP-relative)
-    OpBeqz, // Branch if equal to zero
-    OpBeqzl,// Branch if equal to zero likely
-    OpBnez, // Branch if not zero
-    OpBnezl,// Branch if not zero likely
-    OpMov,  // GPR-to-GPR move
-    OpLi,   // Put immediate in GPR
-    OpClr,  // Put zero in GPR
-    OpNot,  // Bit-wise not
-    OpNeg,  // Arithmetic negate (unary minus)
-    OpNegu, // Arithmetic negate (unary minus) without overflow detection
-    NumOfOpcodes,
+    // Conditional moves
+    OpMovz,   OpMovn,   OpMovf,   OpMovt,
+    OpFmovzs, OpFmovns, OpFmovfs, OpFmovts,
+    OpFmovzd, OpFmovnd, OpFmovfd, OpFmovtd,
+    // Floating-point arithmetic
+    OpFadds, OpFsubs, OpFmuls, OpFdivs, OpFsqrts, OpFabss, OpFnegs, OpFrecips, OpFrsqrts,
+    OpFaddd, OpFsubd, OpFmuld, OpFdivd, OpFsqrtd, OpFabsd, OpFnegd, OpFrecipd, OpFrsqrtd,
+    // These are two-part ops: multiply, then add/subtract
+    OpFmadds, OpFmsubs, OpFnmadds, OpFnmsubs, OpFmaddd, OpFmsubd, OpFnmaddd, OpFnmsubd,
+    OpFmadds_,OpFmsubs_,OpFnmadds_,OpFnmsubs_,OpFmaddd_,OpFmsubd_,OpFnmaddd_,OpFnmsubd_,
+    // Floating-point format conversion
+    OpFroundls,OpFtruncls,OpFceills,OpFfloorls,OpFroundws,OpFtruncws,OpFceilws,OpFfloorws,
+    OpFroundld,OpFtruncld,OpFceilld,OpFfloorld,OpFroundwd,OpFtruncwd,OpFceilwd,OpFfloorwd,
+    OpFcvtls,OpFcvtws,OpFcvtld,OpFcvtwd,OpFcvtds,OpFcvtsd,OpFcvtsw,OpFcvtdw,OpFcvtsl,OpFcvtdl,
 
-    // These have to be after "NumOfOpcodes", they are not real opcodes
-    
-    // Where the opcodes begin (decodes the op field)
-    OpBase=MOpSpecial,
-    // Where the opcodes for op==MOpSpecial begin
-    SOpBase=OpSll,
-  // Where the opcodes for op==MOpRegimm begin
-    ROpBase=OpBltz,
-    // Where the opcodes for op==MOpCop1 begin
-    C1OpBase=OpMfc1,
-    // where the opcodes for op==MOpCop1x begin
-    CXOpBase=OpLwxc1,
-    // Where the opcodes for op=MOpSpecial and func=SOpMovci begin
-    MVOpBase=OpMovf,
-    // Where the opcodes for op==MOpCop1 and fmt==C1OpBC begin
-    FBOpBase=OpFbc1f,
-    // Where the opcodes for op==MOpCop1 and fmt==C1OpFmts begin
-    FSOpBase=OpFadds,
-    // Where the opcodes for op==MOpCop1, fmt==C1OpFmts, and func==FSOpMovcf begin
-    FSMOpBase=OpFmovfs,
-    // Where the opcodes for op==MOpCop1 and fmt==C1OpFmtd begin
-    FDOpBase=OpFaddd,
-    // Where the opcodes for op==MOpCop1, fmt==C1OpFmtd, and func==FDOpMovcf begin
-    FDMOpBase=OpFmovfd,
-    // Where the opcodes for op==MOpCop1 and fmt==C1OpFmtw begin
-    FWOpBase=FWOpInv00,
-    // Where the opcodes for op==MOpCop1 and fmt==C1OpFmtl begin
-    FLOpBase=FLOpInv00,
+    OpNop, // Do nothing
+    OpCut, // Special opcode for end-of-trace situations (acts as nop or completely omitted)
+
+    NumOfOpcodes,
   } Opcode;
   
   typedef std::set<Pid_t> PidSet;
@@ -224,385 +181,116 @@ namespace Mips {
 
   static inline void preExec(InstDesc *inst, ThreadContext *context){
 #if (defined DEBUG_BENCH)
-    context->execInst(inst->addr,getReg<uint32_t>(context,static_cast<RegName>(RegSP)));
+    context->execInst(inst->addr,getRegAny<mode,uint32_t,RegTypeGpr>(context,static_cast<RegName>(RegSP)));
 #endif
   }
 
-  // Called by non-jump emulX functions to handle transition to the next instruction
-  template<bool delaySlot>
-  inline void emulNext(InstDesc *inst, ThreadContext *context){
-    if(delaySlot&&(context->getJumpInstDesc()!=NoJumpInstDesc)){
-      I(context->getJumpInstDesc()!=InvalidInstDesc);
-      context->setNextInstDesc(context->getJumpInstDesc());
-      context->setJumpInstDesc(NoJumpInstDesc);
-    }else{
-      I(inst->nextInst->addr==inst->addr+(inst->ctlInfo&CtlISize));
-      context->setNextInstDesc(inst->nextInst);
-    }
-    I(context->getNextInstDesc()!=InvalidInstDesc);
-    handleSignals(context);
-    I(context->getNextInstDesc()!=InvalidInstDesc);
+  InstDesc *emulCut(InstDesc *inst, ThreadContext *context){
+    context->setIAddr(context->getIAddr());
+    I(context->getIDesc()!=inst);
+    return (*(context->getIDesc()))(context);
   }
 
-  template<Opcode op, bool delaySlot, CpuMode mode>
-  void emulNop(InstDesc *inst, ThreadContext *context){
-    preExec(inst,context);
-    return emulNext<delaySlot>(inst,context);
+  template<Opcode op, CpuMode mode>
+  InstDesc *emulNop(InstDesc *inst, ThreadContext *context){
+    context->updIAddr(inst->aupdate,1);
+    return (*(inst+1))(context);
   }
 
-  template<Opcode op, typename RegSigT, typename RegUnsT>
-  void calcJump(InstDesc *inst, ThreadContext *context){
+  typedef enum{
+    SrcZZ, SrcIZ, SrcRZ ,
+                  SrcRI ,
+                  SrcRR ,
+  } SrcTyp;
+
+  typedef enum{ DestNone, DestTarg, DestRetA, DestCond } DestTyp;
+
+  typedef enum{
+    NextBReg, // Branch to a register address (if cond) otherwise skip DS
+    NextBImm, // Branch to a constant address (if cond) otherwise skip DS
+    NextCont, // Continue to the next InstDesc
+    NextAnDS  // Skip DS if cond, otherwise continue to next InstDesc
+  } NextTyp;
+
+#define SrcZ RegName(RegTypeDyn+1)
+#define SrcI RegName(RegTypeDyn+2)
+
+  template<Opcode op, CpuMode mode, RegName Src1R, RegName Src2R, RegName DstR, typename Func>
+  InstDesc *emulAlu(InstDesc *inst, ThreadContext *context){
     I(op==inst->op);
+    preExec(inst,context);
+    typedef typename Func::first_argument_type  Src1T;
+    typedef typename Func::second_argument_type Src2T; 
+    typedef typename Func::result_type          DstT;
+    // Get source operands
+    Src1T src1=(Src1R==SrcZ)?0:(Src1R==SrcI)?Src1T(inst->imm):getRegAny<mode,Src1T,Src1R>(context,inst->regSrc1);
+    Src2T src2=(Src2R==SrcZ)?0:(Src2R==SrcI)?Src2T(inst->imm):getRegAny<mode,Src2T,Src2R>(context,inst->regSrc2);
+    // Perform function to get result
+    Func func;
+    DstT dst=func(src1,src2);
+    // Update destination register
+    setRegAny<mode,DstT,DstR>(context,inst->regDst,dst);
+    context->updIAddr(inst->aupdate,1);
+    if(inst->aupdate)
+      handleSignals(context);
+    return inst;
+  }
+
+  template<Opcode op, CpuMode mode, typename AddrT, RegName Cnd1R, RegName Cnd2R, typename CFunc, DestTyp DTyp, NextTyp NTyp>
+  InstDesc *emulJump(InstDesc *inst, ThreadContext *context){
+    I(op==inst->op);
+    I(inst->addr==context->getIAddr());
+    preExec(inst,context);
+    typedef typename CFunc::first_argument_type  Cnd1T;
+    typedef typename CFunc::second_argument_type Cnd2T; 
     // Evaluate the branch/jump condition
-    bool cond;
-    switch(op){
-    case OpJ:  case OpB: case OpJal: case OpJr: case OpJalr: case OpBal:
-      cond=true;
-      break;
-    case OpBeq:  case OpBeql:
-      cond=(getReg<RegSigT>(context,inst->regSrc1)==getReg<RegSigT>(context,inst->regSrc2));
-      break;
-    case OpBeqz:  case OpBeqzl:
-      cond=(getReg<RegSigT>(context,inst->regSrc1)==0);
-      break;
-    case OpBne:  case OpBnel:
-      cond=(getReg<RegSigT>(context,inst->regSrc1)!=getReg<RegSigT>(context,inst->regSrc2));
-      break;
-    case OpBnez:  case OpBnezl:
-      cond=(getReg<RegSigT>(context,inst->regSrc1)!=0);
-      break;
-    case OpBlez: case OpBlezl:
-      cond=(getReg<RegSigT>(context,inst->regSrc1)<=0);
-      break;
-    case OpBgez: case OpBgezl: case OpBgezal: case OpBgezall:
-      cond=(getReg<RegSigT>(context,inst->regSrc1)>=0);
-      break;
-    case OpBgtz: case OpBgtzl:
-      cond=(getReg<RegSigT>(context,inst->regSrc1)>0);
-      break;
-    case OpBltz: case OpBltzl: case OpBltzal: case OpBltzall:
-      cond=(getReg<RegSigT>(context,inst->regSrc1)<0);
-      break;
-    case OpFbc1f: case OpFbc1fl: case OpFbc1t: case OpFbc1tl:
-      {
-	uint32_t ccMask=inst->imm2.u; I(ccMask&0xFE800000);
-	I(static_cast<MipsRegName>(inst->regSrc1)==RegFCSR);
-	uint32_t ccReg=getReg<uint32_t>(context,static_cast<RegName>(RegFCSR));
-	switch(op){
-        case OpFbc1f: case OpFbc1fl:
-	  cond=!(ccReg&ccMask); break;
-        case OpFbc1t: case OpFbc1tl:
-          cond=(ccReg&ccMask); break;
-	}
-      } break;
-    default:
-      fail("emulJump: unsupported instruction at 0x%08x\n",inst->addr); break;
-    }
-    // Link if needed
-    switch(op){
-    case OpJal: case OpJalr: case OpBgezal: case OpBltzal: case OpBgezall: case OpBltzall: case OpBal:
-      setReg<RegUnsT>(context,inst->regDst,inst->addr+2*sizeof(RawInst));
-      break;
-    default:
-      break;
-    }
-    if(cond){
-      // Determine and set the branch target
-      // Only jr and jalr jump to a register address, everything else jumps to pre-computed addresses
-      switch(op){
-      case OpJr: case OpJalr:
-	// Only jr and jalr jump to a register address
-	I(context->virt2inst(getReg<RegUnsT>(context,inst->regSrc1))!=InvalidInstDesc);
-	context->setJumpInstDesc(context->virt2inst(getReg<RegUnsT>(context,inst->regSrc1)));
-        break;
-      default:
-	I(inst->imm1.i!=InvalidInstDesc);
-	context->setJumpInstDesc(inst->imm1.i); break;
+    Cnd1T cnd1=(Cnd1R==SrcZ)?0:(Cnd1R==SrcI)?Cnd1T(inst->imm):getRegAny<mode,Cnd1T,Cnd1R>(context,inst->regSrc1);
+    Cnd2T cnd2=(Cnd2R==SrcZ)?0:(Cnd2R==SrcI)?Cnd2T(inst->imm):getRegAny<mode,Cnd2T,Cnd2R>(context,inst->regSrc2);
+    CFunc func;
+    bool cond=func(cnd1,cnd2);
+    // Set the destination register (if any)
+    if(DTyp==DestTarg)
+      setRegAny<mode,AddrT,RegTypeGpr>(context,inst->regDst,getRegAny<mode,AddrT,RegTypeGpr>(context,inst->regSrc1));
+    else if(DTyp==DestRetA)
+      setRegAny<mode,AddrT,RegTypeGpr>(context,inst->regDst,context->getIAddr()+2*sizeof(RawInst));
+    else if(DTyp==DestCond)
+      setRegAny<mode,bool,RegTypeSpc>(context,inst->regDst,cond?1:0);
+    // Update the PC and next instruction
+    if(NTyp==NextBReg){
+      context->setIAddr(getRegAny<mode,AddrT,RegTypeGpr>(context,inst->regSrc1));
+    }else if(NTyp==NextCont){
+      context->updIDesc(1);
+    }else if(NTyp==NextBImm){
+      if(cond){
+	context->setIAddr(AddrT(inst->imm));
+      }else{
+        context->updIAddr(inst->aupdate,inst->iupdate);
       }
-#if (defined DEBUG_BENCH)
-      context->execJump(inst->addr,context->getJumpInstDesc()->addr);
-#endif
-    }else{
-      switch(op){
-      case OpBeql:   case OpBeqzl: case OpBnel:  case OpBnezl: case OpBlezl:   case OpBgezl: 
-      case OpBgtzl:  case OpBltzl: case OpBgezall: case OpBltzall:
-      case OpFbc1fl: case OpFbc1tl:
-	// Instruction after the delay slot executes next
-	I(context->virt2inst(inst->addr+2*sizeof(RawInst))==inst->nextInst->nextInst);
-	context->setNextInstDesc(inst->nextInst->nextInst);
-	return;
-      default:
-	// All othes simply continue to the delay slot
-	break;
-      }
+    }else if(NTyp==NextAnDS){
+      context->updIDesc(cond?1:inst->iupdate);
     }
-    I(context->virt2inst(inst->nextInst->addr)==inst->nextInst);
-    context->setNextInstDesc(inst->nextInst);
+    if(inst->aupdate)
+      handleSignals(context);
+    return inst;
   }
 
-  template<Opcode op, bool delaySlot, CpuMode mode>
-  void emulJump(InstDesc *inst, ThreadContext *context){
-    I(op==inst->op);
-    I(!delaySlot);
-    preExec(inst,context);
-    switch(mode){
-    case Mips32: calcJump<op,int32_t,uint32_t>(inst,context); break;
-    case Mips64: calcJump<op,int64_t,uint64_t>(inst,context); break;
-    }
-  }
-
-  template<Opcode op, typename RegSigT, typename RegUnsT>
-  inline bool evalTcnd(InstDesc *inst, ThreadContext *context){
-    I(inst->op==op);
-    switch(op){
-    case OpTge:
-      return (getReg<RegSigT>(context,inst->regSrc1)>=getReg<RegSigT>(context,inst->regSrc2));
-    case OpTgei:
-      return (getReg<RegSigT>(context,inst->regSrc1)>=static_cast<RegSigT>(inst->imm1.s));
-    case OpTgeu:
-      return (getReg<RegUnsT>(context,inst->regSrc1)>=getReg<RegUnsT>(context,inst->regSrc2));
-    case OpTgeiu:
-      return (getReg<RegUnsT>(context,inst->regSrc1)>=static_cast<RegUnsT>(static_cast<RegSigT>(inst->imm1.s)));
-    case OpTlt:
-      return (getReg<RegSigT>(context,inst->regSrc1)<getReg<RegSigT>(context,inst->regSrc2));
-    case OpTlti:
-      return (getReg<RegSigT>(context,inst->regSrc1)<static_cast<RegSigT>(inst->imm1.s));
-    case OpTltu:
-      return (getReg<RegUnsT>(context,inst->regSrc1)<getReg<RegUnsT>(context,inst->regSrc2));
-    case OpTltiu:
-      return (getReg<RegUnsT>(context,inst->regSrc1)<static_cast<RegUnsT>(static_cast<RegSigT>(inst->imm1.s)));
-    case OpTeq:
-      return (getReg<RegSigT>(context,inst->regSrc1)==getReg<RegSigT>(context,inst->regSrc2));
-    case OpTeqi:
-      return (getReg<RegSigT>(context,inst->regSrc1)==static_cast<RegSigT>(inst->imm1.s));
-    case OpTne:
-      return (getReg<RegSigT>(context,inst->regSrc1)!=getReg<RegSigT>(context,inst->regSrc2));
-    case OpTnei:
-      return (getReg<RegSigT>(context,inst->regSrc1)!=static_cast<RegSigT>(inst->imm1.s));
-    }
-  }
-  template<Opcode op, bool delaySlot, CpuMode mode>
-  void emulTcnd(InstDesc *inst, ThreadContext *context){
+  template<Opcode op, CpuMode mode, typename SrcT, typename Cmp, bool src2reg>
+  InstDesc *emulTcnd(InstDesc *inst, ThreadContext *context){
     I(inst->op==op);
     preExec(inst,context);
-    bool cond;
-    switch(mode){
-    case Mips32: cond=evalTcnd<op,int32_t,uint32_t>(inst,context); break;
-    case Mips64: cond=evalTcnd<op,int64_t,uint64_t>(inst,context); break;
-    }
+    SrcT src1=getRegAny<mode,SrcT,RegTypeGpr>(context,inst->regSrc1);
+    SrcT src2=src2reg?getRegAny<mode,SrcT,RegTypeGpr>(context,inst->regSrc2):SrcT(inst->imm);
+    Cmp cmp;
+    bool cond=cmp(src1,src2);
     if(cond)
-      fail("emulTcnd: trap caused at 0x%08x, not supported yet\n",inst->addr);
-    return emulNext<delaySlot>(inst,context);
+      fail("emulTcnd: trap caused at 0x%08x, not supported yet\n",context->getIAddr());
+    context->updIAddr(inst->aupdate,1);
+    if(inst->aupdate)
+      handleSignals(context);
+    return inst;
   }
   
-  template<Opcode op, typename RegSigT, typename RegUnsT>
-  inline void calcAlu(InstDesc *inst, ThreadContext *context){
-    I(inst->op==op);
-    switch(op){
-    case OpLui: case OpLi: case OpClr: {
-      setReg<RegSigT>(context,inst->regDst,static_cast<RegSigT>(inst->imm1.s));
-    }  break;
-    case OpAddi: case OpAddiu: {
-      int32_t res=getReg<int32_t>(context,inst->regSrc1)+static_cast<int32_t>(inst->imm1.s);
-      setReg<RegSigT>(context,inst->regDst,static_cast<RegSigT>(res));
-    } break;
-    case OpAdd: case OpAddu: {
-      int32_t res=getReg<int32_t>(context,inst->regSrc1)+getReg<int32_t>(context,inst->regSrc2);
-      setReg<RegSigT>(context,inst->regDst,static_cast<RegSigT>(res));
-    } break;
-    case OpSub: case OpSubu: {
-      int32_t res=getReg<int32_t>(context,inst->regSrc1)-getReg<int32_t>(context,inst->regSrc2);
-      setReg<RegSigT>(context,inst->regDst,static_cast<RegSigT>(res));
-    } break;
-    case OpNeg: case OpNegu: {
-      int32_t res=-getReg<int32_t>(context,inst->regSrc1);
-      setReg<RegSigT>(context,inst->regDst,static_cast<RegSigT>(res));
-    } break;
-    case OpSll: {
-      uint32_t res=(getReg<uint32_t>(context,inst->regSrc1)<<inst->imm1.u);
-      setReg<RegSigT>(context,inst->regDst,static_cast<RegSigT>(static_cast<int32_t>(res)));
-    }  break;
-    case OpSllv: {
-      uint32_t res=(getReg<uint32_t>(context,inst->regSrc1)<<(getReg<uint32_t>(context,inst->regSrc2)&0x1F));
-      setReg<RegSigT>(context,inst->regDst,static_cast<RegSigT>(static_cast<int32_t>(res)));
-    }  break;
-    case OpSrl: {
-      uint32_t res=(getReg<uint32_t>(context,inst->regSrc1)>>inst->imm1.u);
-      setReg<RegSigT>(context,inst->regDst,static_cast<RegSigT>(static_cast<int32_t>(res)));
-    }  break;
-    case OpSrlv: {
-      uint32_t res=(getReg<uint32_t>(context,inst->regSrc1)>>(getReg<uint32_t>(context,inst->regSrc2)&0x1F));
-      setReg<RegSigT>(context,inst->regDst,static_cast<RegSigT>(static_cast<int32_t>(res)));
-    }  break;
-    case OpSra: {
-      int32_t res=(getReg<int32_t>(context,inst->regSrc1)>>inst->imm1.s);
-      setReg<RegSigT>(context,inst->regDst,static_cast<RegSigT>(res));
-    }  break;
-    case OpSrav: {
-      int32_t res=(getReg<int32_t>(context,inst->regSrc1)>>(getReg<int32_t>(context,inst->regSrc2)&0x1F));
-      setReg<RegSigT>(context,inst->regDst,static_cast<RegSigT>(res));
-    }  break;
-    case OpAndi:
-      setReg<RegUnsT>(context,inst->regDst,getReg<RegUnsT>(context,inst->regSrc1)&static_cast<RegUnsT>(inst->imm1.u));
-      break;
-    case OpAnd: {
-      RegUnsT res=(getReg<RegUnsT>(context,inst->regSrc1)&getReg<RegUnsT>(context,inst->regSrc2));
-      setReg<RegUnsT>(context,inst->regDst,res);
-    } break;
-    case OpOri:
-      setReg<RegUnsT>(context,inst->regDst,getReg<RegUnsT>(context,inst->regSrc1)|static_cast<RegUnsT>(inst->imm1.u));
-      break;
-    case OpOr: {
-      RegUnsT res=(getReg<RegUnsT>(context,inst->regSrc1)|getReg<RegUnsT>(context,inst->regSrc2));
-      setReg<RegUnsT>(context,inst->regDst,res);
-    } break;
-    case OpXori:
-      setReg<RegUnsT>(context,inst->regDst,getReg<RegUnsT>(context,inst->regSrc1)^static_cast<RegUnsT>(inst->imm1.u));
-      break;
-    case OpXor: {
-      RegUnsT res=(getReg<RegUnsT>(context,inst->regSrc1)^getReg<RegUnsT>(context,inst->regSrc2));
-      setReg<RegUnsT>(context,inst->regDst,res);
-    } break;
-    case OpNor: {
-      RegUnsT res=~(getReg<RegUnsT>(context,inst->regSrc1)|getReg<RegUnsT>(context,inst->regSrc2));
-      setReg<RegUnsT>(context,inst->regDst,res);
-    } break;
-    case OpNot: {
-      RegUnsT res=~getReg<RegUnsT>(context,inst->regSrc1);
-      setReg<RegUnsT>(context,inst->regDst,res);
-    } break;
-    case OpSlti: {
-      bool cond=(getReg<RegSigT>(context,inst->regSrc1)<static_cast<RegSigT>(inst->imm1.s));
-      setReg<RegSigT>(context,inst->regDst,cond?1:0);
-    }  break;
-    case OpSlt:  {
-#if (defined DEBUG)
-      if(static_cast<MipsRegName>(inst->regSrc1)==RegZero){
-	setReg<RegSigT>(context,inst->regDst,(0<getReg<RegSigT>(context,inst->regSrc2))?1:0);
-	break;
-      }
-#endif
-      bool cond=(getReg<RegSigT>(context,inst->regSrc1)<getReg<RegSigT>(context,inst->regSrc2));
-      setReg<RegSigT>(context,inst->regDst,cond?1:0);
-    }  break;
-    case OpSltiu: {
-      bool cond=(getReg<RegUnsT>(context,inst->regSrc1)<static_cast<RegUnsT>(static_cast<RegSigT>(inst->imm1.s)));
-      setReg<RegSigT>(context,inst->regDst,cond?1:0);
-    }  break;
-    case OpSltu:  {
-#if (defined DEBUG)
-      if(static_cast<MipsRegName>(inst->regSrc1)==RegZero){
-	setReg<RegSigT>(context,inst->regDst,(0<getReg<RegUnsT>(context,inst->regSrc2))?1:0);
-	break;
-      }
-#endif
-      bool cond=(getReg<RegUnsT>(context,inst->regSrc1)<getReg<RegUnsT>(context,inst->regSrc2));
-      setReg<RegSigT>(context,inst->regDst,cond?1:0);
-    }  break;
-    case OpMfhi: case OpMflo: case OpMthi: case OpMtlo: case OpMov:
-      setReg<RegSigT>(context,inst->regDst,getReg<RegSigT>(context,inst->regSrc1));
-      break;
-    case OpMovf:
-      I(inst->imm1.u&0xFE800000); I(static_cast<MipsRegName>(inst->regSrc2)==RegFCSR);
-      if((getReg<uint32_t>(context,static_cast<RegName>(RegFCSR))&static_cast<uint32_t>(inst->imm1.u))==0)
-        setReg<RegSigT>(context,inst->regDst,getReg<RegSigT>(context,inst->regSrc1));
-      break;
-    case OpMovt:
-      I(inst->imm1.u&0xFE800000); I(static_cast<MipsRegName>(inst->regSrc2)==RegFCSR);
-      if((getReg<uint32_t>(context,static_cast<RegName>(RegFCSR))&static_cast<uint32_t>(inst->imm1.u))!=0)
-        setReg<RegSigT>(context,inst->regDst,getReg<RegSigT>(context,inst->regSrc1));
-      break;
-    case OpMovz:
-      if(getReg<RegSigT>(context,inst->regSrc2)==0)
-        setReg<RegSigT>(context,inst->regDst,getReg<RegSigT>(context,inst->regSrc1));
-      break;
-    case OpMovn:
-      if(getReg<RegSigT>(context,inst->regSrc2)!=0)
-        setReg<RegSigT>(context,inst->regDst,getReg<RegSigT>(context,inst->regSrc1));
-      break;
-    case OpMult: {
-      int64_t  res=
-        static_cast<int64_t>(getReg<int32_t>(context,inst->regSrc1))*
-        static_cast<int64_t>(getReg<int32_t>(context,inst->regSrc2));
-      int32_t *ptr=(int32_t *)(&res);
-      setReg<RegSigT>(context,static_cast<RegName>(RegLo),static_cast<RegSigT>(*(ptr+(__BYTE_ORDER==__BIG_ENDIAN))));
-      setReg<RegSigT>(context,static_cast<RegName>(RegHi),static_cast<RegSigT>(*(ptr+(__BYTE_ORDER!=__BIG_ENDIAN))));
-    } break;
-    case OpMultu: {
-      uint64_t  res=
-        static_cast<uint64_t>(getReg<uint32_t>(context,inst->regSrc1))*
-        static_cast<uint64_t>(getReg<uint32_t>(context,inst->regSrc2));
-      int32_t *ptr=(int32_t *)(&res);
-      setReg<RegSigT>(context,static_cast<RegName>(RegLo),static_cast<RegSigT>(*(ptr+(__BYTE_ORDER==__BIG_ENDIAN))));
-      setReg<RegSigT>(context,static_cast<RegName>(RegHi),static_cast<RegSigT>(*(ptr+(__BYTE_ORDER!=__BIG_ENDIAN))));
-    } break;
-    case OpDiv: {
-      int32_t par1=getReg<int32_t>(context,inst->regSrc1);
-      int32_t par2=getReg<int32_t>(context,inst->regSrc2);
-      setReg<RegSigT>(context,static_cast<RegName>(RegLo),static_cast<RegSigT>(par1/par2));
-      setReg<RegSigT>(context,static_cast<RegName>(RegHi),static_cast<RegSigT>(par1%par2));
-    } break;
-    case OpDivu: {
-      uint32_t par1=getReg<uint32_t>(context,inst->regSrc1);
-      uint32_t par2=getReg<uint32_t>(context,inst->regSrc2);
-      setReg<RegSigT>(context,static_cast<RegName>(RegLo),static_cast<RegSigT>(static_cast<RegUnsT>(par1/par2)));
-      setReg<RegSigT>(context,static_cast<RegName>(RegHi),static_cast<RegSigT>(static_cast<RegUnsT>(par1%par2)));
-    } break;
-    default:
-      fail("emulAlu: unsupported instruction at 0x%08x\n",inst->addr); break;
-    }
-  }
-
-  template<Opcode op,bool delaySlot, CpuMode mode>
-  void emulAlu(InstDesc *inst, ThreadContext *context){
-    I(op==inst->op);
-    preExec(inst,context);
-    switch(mode){
-    case Mips32: calcAlu<op,int32_t,uint32_t>(inst,context); break;
-    case Mips64: calcAlu<op,int64_t,uint64_t>(inst,context); break;
-    }
-    return emulNext<delaySlot>(inst,context);
-  }
-
-  static int Mips32_RoundMode[] = {
-    FE_TONEAREST,  /* 00 nearest   */
-    FE_TOWARDZERO, /* 01 zero      */
-    FE_UPWARD,     /* 10 plus inf  */
-    FE_DOWNWARD    /* 11 minus inf */
-  };
-
-  template<Opcode op, typename RegSigT, CpuMode mode>
-  void calcMvcop(InstDesc *inst, ThreadContext *context){
-    I(op==inst->op);
-    switch(op){
-    case OpMfc1:
-      setReg<RegSigT>(context,inst->regDst,static_cast<RegSigT>(getRegFp<int32_t,mode>(context,inst->regSrc1)));
-      break;
-    case OpMtc1:
-      setRegFp<int32_t,mode>(context,inst->regDst,getReg<int32_t>(context,inst->regSrc1));
-      break;
-    case OpCfc1:
-      I(static_cast<MipsRegName>(inst->regSrc1)==RegFCSR);
-      setReg<RegSigT>(context,inst->regDst,static_cast<RegSigT>(getReg<int32_t>(context,inst->regSrc1)));
-      break;
-    case OpCtc1:
-      I(static_cast<MipsRegName>(inst->regDst)==RegFCSR);
-      setReg<uint32_t>(context,inst->regDst,getReg<uint32_t>(context,inst->regSrc1));
-      break;
-    }
-  }
-  template<Opcode op,bool delaySlot, CpuMode mode>
-  void emulMvcop(InstDesc *inst, ThreadContext *context){
-    I(op==inst->op);
-    preExec(inst,context);
-    switch(mode){
-    case Mips32: calcMvcop<op,int32_t,mode>(inst,context); break;
-    case Mips64: calcMvcop<op,int64_t,mode>(inst,context); break;
-    }
-    return emulNext<delaySlot>(inst,context);
-  }
-
-  template<Opcode op, typename RegSigT, typename RegUnsT>
+  template<Opcode op, CpuMode mode, typename RegSigT, typename RegUnsT>
   inline RegUnsT calcAddr(const InstDesc *inst, const ThreadContext *context){
     switch(op){
     case OpLb:    case OpLbu: case OpSb:
@@ -611,23 +299,28 @@ namespace Mips {
     case OpLwl:   case OpLwr: case OpSwl: case OpSwr:
     case OpLl:    case OpSc:
     case OpLd:    case OpSd:
+    case OpLdl:   case OpLdr: case OpSdl: case OpSdr:
     case OpLwc1:  case OpSwc1:
     case OpLdc1:  case OpSdc1:
       I(((MipsRegName)(inst->regSrc1)>=GprNameLb)&&((MipsRegName)(inst->regSrc1)<GprNameUb));
-      return static_cast<RegUnsT>(getReg<RegSigT>(context,inst->regSrc1)+static_cast<RegSigT>(inst->imm1.s));
-    case OpLwxc1: case OpSwxc1:
-    case OpLdxc1: case OpSdxc1:
+      return 
+static_cast<RegUnsT>(getRegAny<mode,RegSigT,RegTypeGpr>(context,inst->regSrc1)+static_cast<RegSigT>(inst->imm.s));
+    case OpLwxc1: case OpLdxc1: 
+    case OpSwxc1: case OpSdxc1:
       I(((MipsRegName)(inst->regSrc1)>=GprNameLb)&&((MipsRegName)(inst->regSrc1)<GprNameUb));
       I(((MipsRegName)(inst->regSrc2)>=GprNameLb)&&((MipsRegName)(inst->regSrc2)<GprNameUb));
-      return static_cast<RegUnsT>(getReg<RegSigT>(context,inst->regSrc1)+getReg<RegSigT>(context,inst->regSrc2));
-    default:
-      fail("calcAddr: unsupported opcode\n");
+      return static_cast<RegUnsT>(getRegAny<mode,RegSigT,RegTypeGpr>(context,inst->regSrc1)+getRegAny<mode,RegSigT,RegTypeGpr>(context,inst->regSrc2));
+    case OpSwxc1_: case OpSdxc1_:
+      I(inst->regSrc1==static_cast<RegName>(RegTmp));
+      return getRegAny<mode,RegUnsT,RegTypeGpr>(context,inst->regSrc1);
+//    default:
+//      fail("calcAddr: unsupported opcode\n");
     }
-    return 0;
+//    return 0;
   }
-  template<typename RegUnsT>
+  template<CpuMode mode, typename RegUnsT>
   void growStack(ThreadContext *context){
-    RegUnsT sp=getReg<RegUnsT>(context,static_cast<RegName>(RegSP));
+    RegUnsT sp=getRegAny<mode,RegUnsT,RegTypeGpr>(context,static_cast<RegName>(RegSP));
     RegUnsT sa=context->getStackAddr();
     size_t  sl=context->getStackSize();
     I(context->getAddressSpace()->isSegment(sa,sl));
@@ -643,19 +336,28 @@ namespace Mips {
       context->setStack(newSa,sa+sl);
     }
   }
-  template<typename T, typename RegUnsT>
+  template<CpuMode mode, typename T, typename AddrT>
+  inline T readMem(ThreadContext *context, AddrT addr){
+    if(!context->canRead(addr,sizeof(T))){
+      growStack<mode,AddrT>(context);
+      if(!context->canRead(addr,sizeof(T)))
+	fail("readMem: segmentation fault\n");
+    }
+    return context->readMem<T>(addr);
+  }
+  template<CpuMode mode, typename T, typename RegUnsT>
   inline bool readMem(ThreadContext *context, RegUnsT addr, T &val){
     if(!context->readMem(addr,val)){
-      growStack<RegUnsT>(context);
+      growStack<mode,RegUnsT>(context);
       if(!context->readMem(addr,val))
 	fail("readMem: segmentation fault\n");
     }
     return true;
   }
-  template<typename T, typename RegUnsT>
+  template<CpuMode mode, typename T, typename RegUnsT>
   inline bool writeMem(ThreadContext *context, RegUnsT addr, const T &val){
     if(!context->writeMem(addr,val)){
-      growStack<RegUnsT>(context);
+      growStack<mode,RegUnsT>(context);
       if(!context->writeMem(addr,val))
 	fail("writeMem: segmentation fault\n");
     }
@@ -663,8 +365,8 @@ namespace Mips {
       PidSet::iterator pidIt=linkset.begin();
       while(pidIt!=linkset.end()){
 	if((*pidIt==context->getPid())||
-	   (getReg<RegUnsT>(osSim->getContext(*pidIt),static_cast<RegName>(RegLink))==(addr-(addr&0x7)))){
-	  setReg<RegUnsT>(osSim->getContext(*pidIt),static_cast<RegName>(RegLink),0);
+	   (getRegAny<mode,RegUnsT,RegTypeSpc>(osSim->getContext(*pidIt),static_cast<RegName>(RegLink))==(addr-(addr&0x7)))){
+	  setRegAny<mode,RegUnsT,RegTypeSpc>(osSim->getContext(*pidIt),static_cast<RegName>(RegLink),0);
 	  linkset.erase(pidIt);
 	  pidIt=linkset.begin();
 	}else{
@@ -674,1352 +376,217 @@ namespace Mips {
     }
     return true;
   }
-  template<Opcode op, typename RegSigT, typename RegUnsT, CpuMode mode>
-  void calcLdSt(InstDesc *inst, ThreadContext *context){
+
+  template<Opcode op, CpuMode mode, typename OffsT, typename AddrT, typename RegT, typename MemT, RegName RTyp>
+  inline InstDesc *emulLd(InstDesc *inst, ThreadContext *context){
     I(op==inst->op);
-    // Compute the effective (virtual) address
-    RegUnsT vaddr=calcAddr<op,RegSigT,RegUnsT>(inst,context);
-    //    I(vaddr!=0x10008edc);
-    context->setLastDataVAddr(vaddr);
-    switch(op){
-    case OpLb:  {
-      int8_t val;
-      readMem(context,vaddr,val);
-      setReg<RegSigT>(context,inst->regDst,static_cast<RegSigT>(val));
-    } break;
-    case OpLbu: {
-      uint8_t  val;
-      readMem(context,vaddr,val);
-      setReg<RegUnsT>(context,inst->regDst,static_cast<RegUnsT>(val));
-    } break;
-    case OpLh:  {
-      int16_t  val;
-      readMem(context,vaddr,val);
-      setReg<RegSigT>(context,inst->regDst,static_cast<RegSigT>(val));
-    } break;
-    case OpLhu: {
-      uint16_t val;
-      readMem(context,vaddr,val);
-      setReg<RegUnsT>(context,inst->regDst,static_cast<RegUnsT>(val));
-    } break;
-    case OpLl:  // TODO: Do the actual link, then same as OpLw
-      setReg<RegSigT>(context,static_cast<RegName>(RegLink),vaddr-(vaddr&0x7));
+    preExec(inst,context);
+    AddrT addr=calcAddr<op,mode,OffsT,AddrT>(inst,context);
+    context->setDAddr(addr);
+    if(op==OpLl){
+      setRegAny<mode,AddrT,RegTypeSpc>(context,static_cast<RegName>(RegLink),addr-(addr&0x7));
       linkset.insert(context->getPid());
-    case OpLw:  {
-      int32_t  val;
-      readMem(context,vaddr,val);
-      setReg<RegSigT>(context,inst->regDst,static_cast<RegSigT>(val));
-    } break;
-    case OpLwu: {
-      uint32_t val;
-      readMem(context,vaddr,val);
-      setReg<RegUnsT>(context,inst->regDst,static_cast<RegUnsT>(val));
-    } break;
-    case OpLd:  {
-      I(sizeof(RegSigT)>=8);
-      uint64_t val;
-      readMem(context,vaddr,val);
-      setReg<RegSigT>(context,inst->regDst,static_cast<RegSigT>(val));
-    } break;
+    }
+    MemT  val=readMem<mode,MemT,AddrT>(context,addr);
+    setRegAny<mode,RegT,RTyp>(context,inst->regDst,static_cast<RegT>(val));
+    I((RTyp!=RegTypeFpr)||(static_cast<RegT>(val)==getRegFp<mode,RegT>(context,inst->regDst)));
+    context->updIAddr(inst->aupdate,1);
+    if(inst->aupdate)
+      handleSignals(context);
+    return inst;
+  }
+  template<Opcode op, CpuMode mode, typename OffsT, typename AddrT, typename RegT, typename MemT, RegName RTyp>
+  inline InstDesc *emulSt(InstDesc *inst, ThreadContext *context){
+    I(op==inst->op);
+    preExec(inst,context);
+    AddrT addr=calcAddr<op,mode,OffsT,AddrT>(inst,context);
+    context->setDAddr(addr);
+    RegT val=getRegAny<mode,RegT,RTyp>(context,inst->regSrc2);
+    I((RTyp!=RegTypeFpr)||(val==getRegFp<mode,RegT>(context,inst->regSrc2)));
+    if(op==OpSwl){
+      cvtEndianBig(val);
+      context->writeMemFromBuf(addr,4-(addr&0x3),&val);
+    }else if(op==OpSwr){
+      cvtEndianBig(val);
+      context->writeMemFromBuf(addr-(addr&0x3),(addr&0x3)+1,((uint8_t *)(&val))+3-(addr&0x3));
+    }else{
+      writeMem<mode,MemT,AddrT>(context,addr,val);
+    }
+    context->updIAddr(inst->aupdate,1);
+    if(inst->aupdate)
+      handleSignals(context);
+    return inst;
+  }
+  template<Opcode op, CpuMode mode, typename RegSigT, typename RegUnsT>
+  InstDesc *emulLdSt(InstDesc *inst, ThreadContext *context){
+    I(op==inst->op);
+    preExec(inst,context);
+    // Compute the effective (virtual) address
+    RegUnsT vaddr=calcAddr<op,mode,RegSigT,RegUnsT>(inst,context);
+    //    I(vaddr!=0x10008edc);
+    context->setDAddr(vaddr);
+    switch(op){
     case OpLwl: case OpLwr: {
-      int32_t val=getReg<int32_t>(context,inst->regDst);
+      size_t   offs=(vaddr%sizeof(int32_t));
+      int32_t mval=readMem<mode,int32_t,VAddr>(context,vaddr-offs);
+      int32_t rval=getRegAny<mode,int32_t,RegTypeGpr>(context,inst->regDst);
+      if(op==OpLwl){
+        rval&=~(-1<<(8*offs)); rval|=(mval<<(8*offs));
+      }else{
+        rval&=(-256<<(8*offs)); rval|=((mval>>(8*(3-offs)))&(~(-256<<(8*offs))));
+      }
+
+      //#if (defined DEBUG)
+      int32_t val=getRegAny<mode,int32_t,RegTypeGpr>(context,inst->regDst);
       cvtEndianBig(val);
       switch(op){
       case OpLwl: context->readMemToBuf(vaddr,4-(vaddr&0x3),&val); break;
       case OpLwr: context->readMemToBuf(vaddr-(vaddr&0x3),(vaddr&0x3)+1,((uint8_t *)(&val))+3-(vaddr&0x3)); break;
       }
       cvtEndianBig(val);
+      if(static_cast<int32_t>(rval)!=val)
+        fail("OpLwl(0)/OpLwr(1) %d old-new mismatch at 0x%08x for addr 0x%08x rval 0x%08x mval 0x%08x ores 0x%08x nres 0x%08x\n",
+             (op==OpLwl)?0:1,context->getIAddr(),vaddr,getRegAny<mode,uint32_t,RegTypeGpr>(context,inst->regDst),mval,val,rval);
+      //#endif
 
-      uint32_t rval=getReg<uint32_t>(context,inst->regDst);
-      size_t   offs=(vaddr%4);
-      VAddr    addr=vaddr-offs;
-      uint32_t mval;
-      readMem(context,addr,mval);
-      switch(op){
-      case OpLwl: 
-	{
-	  uint32_t LoMask32[]={ 0x00000000, 0x000000FF, 0x0000FFFF, 0x00FFFFFF, 0xFFFFFFFF };
-	  size_t  rbits=8*offs;
-	  size_t  mbits=32-rbits;
-	  rval=((rval&LoMask32[offs])|(mval<<rbits));
-	  if(static_cast<int32_t>(rval)!=val) fail("OpLwl old-new mismatch\n");
-	} break;
-      case OpLwr:
-	{
-	  uint32_t HiMask32[]={ 0xFFFFFFFF, 0xFFFFFF00, 0xFFFF0000, 0xFF000000, 0x00000000 };
-	  size_t  mbits=8*(offs+1);
-	  size_t  rbits=32-mbits;
-	  rval=((rval&(0xFFFFFFFFu<<mbits))|(mval>>rbits));
-	  if(static_cast<int32_t>(rval)!=val) fail("OpLwr old-new mismatch\n");
-	} break;
-      }
-     
-      setReg<RegSigT>(context,inst->regDst,static_cast<RegSigT>(val));
+      setRegAny<mode,RegSigT,RegTypeGpr>(context,inst->regDst,static_cast<RegSigT>(rval));
     } break;
-    case OpLwc1: case OpLwxc1: {
-      float32_t val;
-      readMem(context,vaddr,val);
-      I(!isunordered(val,val));
-      setRegFp<float32_t,mode>(context,inst->regDst,val);
-    } break;
-    case OpLdc1: case OpLdxc1: {
-      float64_t val;
-      readMem(context,vaddr,val);
-      I(!isunordered(val,val));
-      setRegFp<float64_t,mode>(context,inst->regDst,val);
-    } break;
-    case OpSb:
-#if (defined DEBUG)
-      if(static_cast<MipsRegName>(inst->regSrc2)==RegZero){
-	writeMem(context,vaddr,static_cast<uint8_t>(0));
-	break;
-      }
-#endif
-      writeMem(context,vaddr,(uint8_t )(getReg<uint32_t>(context,inst->regSrc2)));
-      break;
-    case OpSh:
-#if (defined DEBUG)
-      if(static_cast<MipsRegName>(inst->regSrc2)==RegZero){
-	writeMem(context,vaddr,static_cast<uint16_t>(0));
-	break;
-      }
-#endif
-      writeMem(context,vaddr,(uint16_t)(getReg<uint32_t>(context,inst->regSrc2)));
-      break;
     case OpSc:
-      // If link does not match, regDst becomes zero and there is no write 
-      if(getReg<RegUnsT>(context,static_cast<RegName>(RegLink))!=(vaddr-(vaddr&0x7))){
-	setReg<RegSigT>(context,inst->regDst,0);
+       // If link does not match, regDst becomes zero and there is no write 
+       if(getRegAny<mode,RegUnsT,RegTypeSpc>(context,static_cast<RegName>(RegLink))!=(vaddr-(vaddr&0x7))){
+         setRegAny<mode,RegSigT,RegTypeGpr>(context,inst->regDst,0);
 #if (defined DEBUG_BENCH)
 	printf("OpSc fails inst 0x%08x addr 0x%08lx in %d\n",inst->addr,(long unsigned int)vaddr,context->getPid());
 #endif
       }else{
-#if (defined DEBUG)
-	if(static_cast<MipsRegName>(inst->regSrc2)==RegZero){
-	  writeMem(context,vaddr,static_cast<uint32_t>(0));
-	  break;
-	}
-#endif
-	writeMem(context,vaddr,getReg<uint32_t>(context,inst->regSrc2));
-	setReg<RegSigT>(context,inst->regDst,1);
+	writeMem<mode,uint32_t,VAddr>(context,vaddr,getRegAny<mode,uint32_t,RegTypeGpr>(context,inst->regSrc2));
+	setRegAny<mode,RegSigT,RegTypeGpr>(context,inst->regDst,1);
       }
       break;
-    case OpSw:
-#if (defined DEBUG)
-      if(static_cast<MipsRegName>(inst->regSrc2)==RegZero){
-	writeMem(context,vaddr,static_cast<uint32_t>(0));
-	break;
-      }
-#endif
-      writeMem(context,vaddr,getReg<uint32_t>(context,inst->regSrc2));
-      break;
-    case OpSd:
-      I(sizeof(RegUnsT)>=8);
-      writeMem(context,vaddr,getReg<uint64_t>(context,inst->regSrc2));
-      break;
-    case OpSwl: {
-      int32_t val=getReg<int32_t>(context,inst->regSrc2);
-      cvtEndianBig(val);
-      context->writeMemFromBuf(vaddr,4-(vaddr&0x3),&val);
-    } break;
-    case OpSwr: {
-      int32_t val=getReg<int32_t>(context,inst->regSrc2);
-      cvtEndianBig(val);
-      context->writeMemFromBuf(vaddr-(vaddr&0x3),(vaddr&0x3)+1,((uint8_t *)(&val))+3-(vaddr&0x3));
-    } break;
-    case OpSwc1:
-      writeMem(context,vaddr,getRegFp<uint32_t,mode>(context,inst->regSrc2));
-      break;
-    case OpSwxc1:
-      writeMem(context,vaddr,getRegFp<uint32_t,mode>(context,inst->regSrc3));
-      break;
-    case OpSdc1:
-      writeMem(context,vaddr,getRegFp<uint64_t,mode>(context,inst->regSrc2));
-      break;
-    case OpSdxc1:
-      writeMem(context,vaddr,getRegFp<uint64_t,mode>(context,inst->regSrc3));
-      break;
+//    case OpSwl: {
+//      int32_t val=getReg<mode,int32_t>(context,inst->regSrc2);
+//      cvtEndianBig(val);
+//      context->writeMemFromBuf(vaddr,4-(vaddr&0x3),&val);
+//    } break;
+//    case OpSwr: {
+//      int32_t val=getReg<mode,int32_t>(context,inst->regSrc2);
+//      cvtEndianBig(val);
+//      context->writeMemFromBuf(vaddr-(vaddr&0x3),(vaddr&0x3)+1,((uint8_t *)(&val))+3-(vaddr&0x3));
+//    } break;
     }
+    context->updIAddr(inst->aupdate,1);
+    if(inst->aupdate)
+      handleSignals(context);
+    return inst;
   }
 
-  template<Opcode op, bool delaySlot, CpuMode mode>
-  void emulLdSt(InstDesc *inst, ThreadContext *context){
+  template<class _Ts, class _Tm, class _Td>
+  struct mips_float_convert : public std::binary_function<_Ts,_Tm,_Td>{
+    inline _Td operator()(const _Ts& __x, const _Tm& __y) const{
+      static int Mips32_RoundMode[] = {
+        FE_TONEAREST,  /* 00 nearest   */
+        FE_TOWARDZERO, /* 01 zero      */
+        FE_UPWARD,     /* 10 plus inf  */
+        FE_DOWNWARD    /* 11 minus inf */
+      };
+      int rm=Mips32_RoundMode[__y&3];
+      int saverm=fegetround();
+      fesetround(rm);
+      _Td retVal=_Td(__x);
+      fesetround(saverm);
+      return retVal;
+    }
+  };
+
+//   template<Opcode op, CpuMode mode, typename FpT, bool ExcUn, bool UseLt, bool UseEq, bool UseUn>
+//   InstDesc *emulFcond(InstDesc *inst, ThreadContext *context){
+//     I(op==inst->op);
+//     preExec(inst,context);
+//     I(isFprName(inst->regSrc1));
+//     I(isFprName(inst->regSrc2));
+//     FpT val1=getRegFp<mode,FpT>(context,inst->regSrc1);
+//     FpT val2=getRegFp<mode,FpT>(context,inst->regSrc2);
+//     bool cond=((UseLt&&(val1<val2))||(UseEq&&(val1==val2))||(UseUn&&isunordered(val1,val2)));
+//     if(ExcUn&isunordered(val1,val2)){
+//       // TODO: We need to signal an exception for NaNs here
+//     }
+//     uint32_t ccMask=inst->imm;
+//     I(ccMask&0xFE800000);
+//     I(static_cast<MipsRegName>(inst->regDst)==RegFCSR);
+//     uint32_t fcsrVal=getRegAny<mode,uint32_t,RegName(RegFCSR)>(context,static_cast<RegName>(RegFCSR));
+//     if(cond){
+//       fcsrVal|=ccMask;
+//     }else{
+//       fcsrVal&=(~ccMask);
+//     }
+//     setRegAny<mode,uint32_t,RegTypeCtl>(context,static_cast<RegName>(RegFCSR),fcsrVal);
+//     context->updIAddr(inst->aupdate,1);
+//     if(inst->aupdate)
+//       handleSignals(context);
+//     return inst;
+//   }
+
+  template<Opcode op, CpuMode mode, typename CndT, typename RegT, RegName RTyp>
+  InstDesc *emulMovc(InstDesc *inst, ThreadContext *context){
     I(op==inst->op);
     preExec(inst,context);
-    switch(mode){
-    case Mips32: calcLdSt<op,int32_t,uint32_t,mode>(inst,context); break;
-    case Mips64: calcLdSt<op,int64_t,uint64_t,mode>(inst,context); break;
-    }
-    return emulNext<delaySlot>(inst,context);
-  }
-
-  template<Opcode op,bool delaySlot, CpuMode mode>
-  void emulFcvt(InstDesc *inst, ThreadContext *context){
-    I(op==inst->op);
-    preExec(inst,context);
-    int savedRoundMode=fegetround();
-    switch(op){
-    case OpFroundws: case OpFroundwd: case OpFroundls: case OpFroundld:
-      I(inst->regSrc2==RegNone);
-      fesetround(FE_TONEAREST); break;
-    case OpFtruncws: case OpFtruncwd: case OpFtruncls: case OpFtruncld:
-      I(inst->regSrc2==RegNone);
-      fesetround(FE_TOWARDZERO); break;
-    case OpFceilws: case OpFceilwd: case OpFceills: case OpFceilld:
-      I(inst->regSrc2==RegNone);
-      fesetround(FE_UPWARD); break;
-    case OpFfloorws: case OpFfloorwd: case OpFfloorls: case OpFfloorld:
-      I(inst->regSrc2==RegNone);
-      fesetround(FE_DOWNWARD); break;
-    case OpFcvtsd: case OpFcvtsw: case OpFcvtsl:
-    case OpFcvtds: case OpFcvtdw: case OpFcvtdl:
-    case OpFcvtws: case OpFcvtwd:
-    case OpFcvtls: case OpFcvtld:
-      I((MipsRegName)(inst->regSrc2)==RegFCSR);
-      fesetround(Mips32_RoundMode[getReg<uint32_t>(context,static_cast<RegName>(RegFCSR))&0x3]);
-      break;
-    default:
-      fail("emulFcvt: unsupported opcode\n");
-    }
-    switch(op){
-    case OpFroundws: case OpFtruncws: case OpFceilws: case OpFfloorws: case OpFcvtws:
-      setRegFp<int32_t,mode>(context,inst->regDst,(int32_t)getRegFp<float32_t,mode>(context,inst->regSrc1));
-      break;
-    case OpFroundwd: case OpFtruncwd: case OpFceilwd: case OpFfloorwd: case OpFcvtwd:
-      setRegFp<int32_t,mode>(context,inst->regDst,(int32_t)getRegFp<float64_t,mode>(context,inst->regSrc1));
-      break;
-    case OpFroundls: case OpFtruncls: case OpFceills: case OpFfloorls: case OpFcvtls:
-      setRegFp<int64_t,mode>(context,inst->regDst,(int64_t)getRegFp<float32_t,mode>(context,inst->regSrc1));
-      break;
-    case OpFroundld: case OpFtruncld: case OpFceilld: case OpFfloorld: case OpFcvtld:
-      setRegFp<int64_t,mode>(context,inst->regDst,(int64_t)getRegFp<float64_t,mode>(context,inst->regSrc1));
-      break;
-    case OpFcvtsd:
-      setRegFp<float32_t,mode>(context,inst->regDst,(float32_t)getRegFp<float64_t,mode>(context,inst->regSrc1));
-      break;
-    case OpFcvtsw:
-      setRegFp<float32_t,mode>(context,inst->regDst,(float32_t)getRegFp<int32_t,mode>(context,inst->regSrc1));
-      break;
-    case OpFcvtsl:
-      setRegFp<float32_t,mode>(context,inst->regDst,(float32_t)getRegFp<int64_t,mode>(context,inst->regSrc1));
-      break;
-    case OpFcvtds:
-      setRegFp<float64_t,mode>(context,inst->regDst,(float64_t)getRegFp<float32_t,mode>(context,inst->regSrc1));
-      break;
-    case OpFcvtdw:
-      setRegFp<float64_t,mode>(context,inst->regDst,(float64_t)getRegFp<int32_t,mode>(context,inst->regSrc1));
-      break;
-    case OpFcvtdl:
-      setRegFp<float64_t,mode>(context,inst->regDst,(float64_t)getRegFp<int64_t,mode>(context,inst->regSrc1));
-      break;
-    }
-    fesetround(savedRoundMode);
-    return emulNext<delaySlot>(inst,context);
-  }
-
-  template<Opcode op, typename RegT, CpuMode mode>
-  void calcFcond(InstDesc *inst, ThreadContext *context){
-    I(op==inst->op);
-    I(isFprName(inst->regSrc1));
-    I(isFprName(inst->regSrc2));
-    I(inst->regSrc3==RegNone);
-    RegT val1=getRegFp<RegT,mode>(context,inst->regSrc1);
-    RegT val2=getRegFp<RegT,mode>(context,inst->regSrc2);
     bool cond;
     switch(op){
-    case OpFcsfs:   case OpFcsfd:   case OpFcfs:   case OpFcfd:
-      cond=false;
+    case OpMovf: case OpFmovfs: case OpFmovfd:
+      I(inst->imm.u&0xFE800000); I(static_cast<MipsRegName>(inst->regSrc2)==RegFCSR);
+      cond=((getRegAny<mode,CndT,RegTypeCtl>(context,static_cast<RegName>(RegFCSR))&CndT(inst->imm))==0);
       break;
-    case OpFcngles: case OpFcngled: case OpFcuns:  case OpFcund:
-      cond=isunordered(val1,val2);
+    case OpMovt: case OpFmovts: case OpFmovtd:
+      I(inst->imm.u&0xFE800000); I(static_cast<MipsRegName>(inst->regSrc2)==RegFCSR);
+      cond=((getRegAny<mode,CndT,RegTypeCtl>(context,static_cast<RegName>(RegFCSR))&CndT(inst->imm))!=0);
       break;
-    case OpFceqs:   case OpFceqd:   case OpFcseqs: case OpFcseqd:
-      cond=(val1==val2);
+    case OpMovz: case OpFmovzs: case OpFmovzd:
+      I(isGprName(inst->regSrc2));
+      cond=(getRegAny<mode,CndT,RegTypeGpr>(context,inst->regSrc2)==0);
       break;
-    case OpFcueqs:  case OpFcueqd:  case OpFcngls: case OpFcngld:
-      cond=((val1==val2)||isunordered(val1,val2));
-      break;
-    case OpFcolts:  case OpFcoltd:  case OpFclts:  case OpFcltd:
-      cond=(val1<val2);
-      break;
-    case OpFcults:  case OpFcultd:  case OpFcnges: case OpFcnged:
-      cond=((val1<val2)||isunordered(val1,val2));
-      break;
-    case OpFcoles:  case OpFcoled:  case OpFcles:  case OpFcled:
-      cond=(val1<=val2);
-      break;
-    case OpFcules:  case OpFculed:  case OpFcngts: case OpFcngtd:
-      cond=((val1<=val2)||isunordered(val1,val2));
+    case OpMovn: case OpFmovns: case OpFmovnd:
+      I(isGprName(inst->regSrc2));
+      cond=(getRegAny<mode,CndT,RegTypeGpr>(context,inst->regSrc2)!=0);
       break;
     }
-    switch(op){
-    case OpFcsfs: case OpFcngles: case OpFcseqs: case OpFcngls:
-    case OpFclts: case OpFcnges:  case OpFcles:  case OpFcngts:
-    case OpFcsfd: case OpFcngled: case OpFcseqd: case OpFcngld:
-    case OpFcltd: case OpFcnged:  case OpFcled:  case OpFcngtd:
-      // We need to signal an exception for NaNs here
-      if(isunordered(val1,val2))
-        ; // Do nothing (TODO)
-      break;
-    default:
-      // Other conditionals do not signal exceptions
-      break;
-    }
-    uint32_t ccMask=inst->imm1.u;
-    I(ccMask&0xFE800000);
-    I(static_cast<MipsRegName>(inst->regDst)==RegFCSR);
-    uint32_t fcsrVal=getReg<uint32_t>(context,static_cast<RegName>(RegFCSR));
-    if(cond){
-      fcsrVal|=ccMask;
-    }else{
-      fcsrVal&=(~ccMask);
-    }
-    setReg<uint32_t>(context,static_cast<RegName>(RegFCSR),fcsrVal);
-    I(fcsrVal==getReg<uint32_t>(context,static_cast<RegName>(RegFCSR)));
-  }
-    
-  template<Opcode op,bool delaySlot, CpuMode mode>
-  void emulFcond(InstDesc *inst, ThreadContext *context){
-    I(op==inst->op);
-    preExec(inst,context);
-    switch(op){
-    case OpFcfs:   case OpFcuns:   case OpFceqs:  case OpFcueqs:
-    case OpFcolts: case OpFcults:  case OpFcoles: case OpFcules:
-    case OpFcsfs:  case OpFcngles: case OpFcseqs: case OpFcngls:
-    case OpFclts:  case OpFcnges:  case OpFcles:  case OpFcngts:
-      // Single-precision operation
-      calcFcond<op,float32_t,mode>(inst,context);
-      break;
-    case OpFcfd:   case OpFcund:   case OpFceqd:  case OpFcueqd:
-    case OpFcoltd: case OpFcultd:  case OpFcoled: case OpFculed:
-    case OpFcsfd:  case OpFcngled: case OpFcseqd: case OpFcngld:
-    case OpFcltd:  case OpFcnged:  case OpFcled:  case OpFcngtd:
-      // Double-precision operation
-      calcFcond<op,float64_t,mode>(inst,context);
-      break;
-    }
-    return emulNext<delaySlot>(inst,context);
+    if(cond)
+      setRegAny<mode,RegT,RTyp>(context,inst->regDst,getRegAny<mode,RegT,RTyp>(context,inst->regSrc1));
+    context->updIAddr(inst->aupdate,1);
+    if(inst->aupdate)
+      handleSignals(context);
+    return inst;
   }
 
-  template<Opcode op, typename RegT, CpuMode mode>
-  inline void calcFpu1(InstDesc *inst, ThreadContext *context){
-    RegT arg=getRegFp<RegT,mode>(context,inst->regSrc1);
-    RegT res;
-    switch(op){
-    case OpFsqrts:
-      res=sqrtf(arg); break;
-    case OpFsqrtd:
-      res=sqrt(arg); break;
-    case OpFabss:
-      res=fabsf(arg); break;
-    case OpFabsd:
-      res=fabs(arg); break;
-    case OpFmovs: case OpFmovd:
-      res=arg; break;
-    case OpFnegs:   case OpFnegd:
-      res=-arg; break;
-    case OpFrecips: case OpFrecipd:
-      res=1.0/arg; break;
-    case OpFrsqrts:
-      res=1.0/sqrtf(arg); break;
-    case OpFrsqrtd:
-      res=1.0/sqrt(arg); break;
-    }
-    setRegFp<RegT,mode>(context,inst->regDst,res);
-  }
-  template<Opcode op, typename RegT, CpuMode mode>
-  inline void calcFpu2(InstDesc *inst, ThreadContext *context){
-    RegT arg1=getRegFp<RegT,mode>(context,inst->regSrc1);
-    RegT arg2=getRegFp<RegT,mode>(context,inst->regSrc2);
-    RegT res;
-    switch(op){
-    case OpFadds: case OpFaddd:
-      res=arg1+arg2; break;
-    case OpFsubs: case OpFsubd:
-      res=arg1-arg2; break;
-    case OpFmuls: case OpFmuld:
-      res=arg1*arg2; break;
-    case OpFdivs: case OpFdivd:
-      res=arg1/arg2; break;
-    }
-    setRegFp<RegT,mode>(context,inst->regDst,res);
-  }
-  template<Opcode op, typename RegT, CpuMode mode>
-  inline void calcFpu3(InstDesc *inst, ThreadContext *context){
-    RegT arg1=getRegFp<RegT,mode>(context,inst->regSrc1);
-    RegT arg2=getRegFp<RegT,mode>(context,inst->regSrc2);
-    RegT arg3=getRegFp<RegT,mode>(context,inst->regSrc3);
-    RegT res;
-    switch(op){
-    case OpFmadds:  case OpFmaddd:
-      res=  arg1*arg2+arg3;  break;
-    case OpFnmadds: case OpFnmaddd:
-      res=-(arg1*arg2+arg3); break;
-    case OpFmsubs:  case OpFmsubd:
-      res=  arg1*arg2-arg3;  break;
-    case OpFnmsubs: case OpFnmsubd:
-      res=  -(arg1*arg2-arg3); break;
-    }
-    setRegFp<RegT,mode>(context,inst->regDst,res);
-  }
-  template<Opcode op,bool delaySlot, CpuMode mode>
-  void emulFpu(InstDesc *inst, ThreadContext *context){
-    I(op==inst->op);
-    preExec(inst,context);
-    switch(op){
-    case OpFsqrts: case OpFabss: case OpFmovs:  case OpFnegs:  case OpFrecips: case OpFrsqrts:
-      // Single-precision single-operand ops
-      calcFpu1<op,float32_t,mode>(inst,context);
-      break;
-    case OpFsqrtd: case OpFabsd: case OpFmovd:  case OpFnegd:  case OpFrecipd: case OpFrsqrtd:
-      // Double precision single-operand ops
-      calcFpu1<op,float64_t,mode>(inst,context);
-      break;
-    case OpFadds: case OpFsubs: case OpFmuls: case OpFdivs:
-      // Single-precision two-operand ops
-      calcFpu2<op,float32_t,mode>(inst,context);
-      break;
-    case OpFaddd: case OpFsubd: case OpFmuld: case OpFdivd:
-      // Double precision two-operand ops
-      calcFpu2<op,float64_t,mode>(inst,context);
-      break;
-    case OpFmadds: case OpFnmadds: case OpFmsubs: case OpFnmsubs:
-      // Single-precision three-operand ops
-      calcFpu3<op,float32_t,mode>(inst,context);
-      break;
-    case OpFmaddd: case OpFnmaddd: case OpFmsubd: case OpFnmsubd:
-      // Double precision three-operand ops
-      calcFpu3<op,float64_t,mode>(inst,context);
-      break;
-    case OpFmovfs: case OpFmovfd: OpFmovts: case OpFmovtd:
-      bool zero;
-      switch(op){
-      case OpFmovfs: case OpFmovfd: case OpFmovts: case OpFmovtd:
-	I(static_cast<MipsRegName>(inst->regSrc2)==RegFCSR);
-	I(inst->imm1.u&0xFE800000);
-	zero=((getReg<uint32_t>(context,static_cast<RegName>(RegFCSR))&inst->imm1.u)==0);
-	break;
-      case OpFmovzs: case OpFmovzd: case OpFmovns: case OpFmovnd:
-	I(isGprName(inst->regSrc2));
-	switch(mode){
-	case Mips32: zero=(getReg<int32_t>(context,inst->regSrc2)==0); break;
-	case Mips64: zero=(getReg<int64_t>(context,inst->regSrc2)==0); break;
-	}
-	break;
-      }
-      bool cond;
-      switch(op){
-      case OpFmovzs: case OpFmovzd: case OpFmovfs: case OpFmovfd:
-	cond=zero;  break;
-      case OpFmovns: case OpFmovnd: case OpFmovts: case OpFmovtd:
-	cond=!zero; break;
-      }
-      if(cond){
-	switch(op){
-	case OpFmovzs: case OpFmovns: case OpFmovfs: case OpFmovts:
-	  setRegFp<float32_t,mode>(context,inst->regDst,getRegFp<float32_t,mode>(context,inst->regSrc1));
-	  break;
-	case OpFmovzd: case OpFmovnd: case OpFmovfd: case OpFmovtd:
-	  setRegFp<float64_t,mode>(context,inst->regDst,getRegFp<float64_t,mode>(context,inst->regSrc1));
-	  break;
-	}
-      }
-      break;
-    }
-    return emulNext<delaySlot>(inst,context);
-  }
-
-  template<Opcode op,bool delaySlot, CpuMode mode>
-  void emulBreak(InstDesc *inst, ThreadContext *context){
+  template<Opcode op, CpuMode mode>
+  InstDesc *emulBreak(InstDesc *inst, ThreadContext *context){
     fail("emulBreak: BREAK instruction not supported yet\n");
+    return inst;
   }
 
-  template<Opcode op,bool delaySlot, CpuMode mode>
-  void emulSyscl(InstDesc *inst, ThreadContext *context){
-    I(!delaySlot);
-    preExec(inst,context);
-    // Note the ordering of emulNext and mipsSysCall, which allows
+  template<Opcode op, CpuMode mode>
+  InstDesc *emulSyscl(InstDesc *inst, ThreadContext *context){
+    // Note the ordering of IP update and mipsSysCall, which allows
     // mipsSysCall to change control flow or simply let it continue
-    emulNext<delaySlot>(inst,context);
-    mipsSysCall(inst,context);
-  }
-  
-  // Where does a destination operand of the instruction come from
-  enum InstDstInfo  {DstNo, DstRd, DstFd, DstRt, DstFt, DstFs, DstFCs, DstFCSR, DstRa, DstHi, DstLo, DstHiLo};
-  // Where does a source operand of the instruction come from
-  enum InstSrcInfo  {SrcNo, SrcRt, SrcRs, SrcFt, SrcFs, SrcFr, SrcFCs, SrcFCSR, SrcHi, SrcLo};
-  // What is the format of the immediate (if any)
-  enum InstImmInfo  {
-    ImmNo, ImmJpTg, ImmBrOf,
-    ImmSExt, ImmZExt, ImmLui, ImmZero,
-    ImmSh, ImmExCd, ImmTrCd, ImmFccc, ImmFbcc
-  };
-
-  struct OpcodeInfo{
-    // The opcode, should be either OpInvalid or equal to array index
-    Opcode op;
-    // How does this instruction affect control flow
-    InstCtlInfo ctl;
-    // What kind of operation is it (ALU, Br, ...)
-    InstTypInfo typ;
-    // Destination, source, and immediate operands
-    InstDstInfo dst;
-    InstSrcInfo src1;
-    InstSrcInfo src2;
-    InstSrcInfo src3;
-    InstImmInfo imm1;
-    InstImmInfo imm2;
-    // Functions that emulate this opcode, in a delay slot or not
-    EmulFunc *emulFunc[2][2];
-
-    OpcodeInfo(Opcode op=OpInvalid,
-	       EmulFunc emulFunc32InDSlot=0, EmulFunc emulFunc32NotDSlot=0,
-	       EmulFunc emulFunc64InDSlot=0, EmulFunc emulFunc64NotDSlot=0,
-	       InstCtlInfo ctl=CtlInvalid, InstTypInfo typ=TypNop,
-	       InstDstInfo dst=DstNo, InstSrcInfo src1=SrcNo, InstSrcInfo src2=SrcNo, InstSrcInfo src3=SrcNo,
-	       InstImmInfo imm1=ImmNo, InstImmInfo imm2=ImmNo)
-      : op(op), ctl(ctl), typ(typ), dst(dst), src1(src1), src2(src2), src3(src3), imm1(imm1), imm2(imm2)
-    {
-      emulFunc[true ][Mips32]=emulFunc32InDSlot;
-      emulFunc[false][Mips32]=emulFunc32NotDSlot;
-      emulFunc[true ][Mips64]=emulFunc64InDSlot;
-      emulFunc[false][Mips64]=emulFunc64NotDSlot;
-    }
-  };
-  
-#define OpInfo(op,emul) op,emul<op,true,Mips32>,emul<op,false,Mips32>,emul<op,true,Mips64>,emul<op,false,Mips64>
-#define CtlNon InstCtlInfo(CtlISize4)
-#define CtlExc InstCtlInfo(CtlISize4+CtlExcept)
-#define CtlJr  InstCtlInfo(CtlISize4+CtlBr)
-#define CtlJmp InstCtlInfo(CtlISize4+CtlBr+CtlFix)
-#define CtlJal InstCtlInfo(CtlISize4+CtlBr+CtlFix+CtlCall)
-#define CtlJpL InstCtlInfo(CtlISize4+CtlBr+CtlFix+CtlAnull)
-#define CtlJLL InstCtlInfo(CtlISize4+CtlBr+CtlFix+CtlCall+CtlAnull)
-#define CtlJlr InstCtlInfo(CtlISize4+CtlBr+CtlCall)
-
-  const OpcodeInfo opcodeInfo[NumOfOpcodes]={
-    OpcodeInfo(), // OpInvalid
-    OpcodeInfo(), // MOpSpecial
-    OpcodeInfo(), // MOpRegimm
-    OpcodeInfo(OpInfo(OpJ       ,emulJump ), CtlJmp, BrOpJump, DstNo  , SrcNo  , SrcNo, SrcNo, ImmJpTg),
-    OpcodeInfo(OpInfo(OpJal     ,emulJump ), CtlJal, BrOpCall, DstRa  , SrcNo  , SrcNo, SrcNo, ImmJpTg),
-    OpcodeInfo(OpInfo(OpBeq     ,emulJump ), CtlJmp, BrOpCond, DstNo  , SrcRs  , SrcRt, SrcNo, ImmBrOf),
-    OpcodeInfo(OpInfo(OpBne     ,emulJump ), CtlJmp, BrOpCond, DstNo  , SrcRs  , SrcRt, SrcNo, ImmBrOf),
-    OpcodeInfo(OpInfo(OpBlez    ,emulJump ), CtlJmp, BrOpCond, DstNo  , SrcRs  , SrcNo, SrcNo, ImmBrOf),
-    OpcodeInfo(OpInfo(OpBgtz    ,emulJump ), CtlJmp, BrOpCond, DstNo  , SrcRs  , SrcNo, SrcNo, ImmBrOf),
-    OpcodeInfo(OpInfo(OpAddi    ,emulAlu  ), CtlExc, IntOpALU, DstRt  , SrcRs  , SrcNo, SrcNo, ImmSExt),
-    OpcodeInfo(OpInfo(OpAddiu   ,emulAlu  ), CtlNon, IntOpALU, DstRt  , SrcRs  , SrcNo, SrcNo, ImmSExt),
-    OpcodeInfo(OpInfo(OpSlti    ,emulAlu  ), CtlNon, IntOpALU, DstRt  , SrcRs  , SrcNo, SrcNo, ImmSExt),
-    OpcodeInfo(OpInfo(OpSltiu   ,emulAlu  ), CtlNon, IntOpALU, DstRt  , SrcRs  , SrcNo, SrcNo, ImmSExt),
-    OpcodeInfo(OpInfo(OpAndi    ,emulAlu  ), CtlNon, IntOpALU, DstRt  , SrcRs  , SrcNo, SrcNo, ImmZExt),
-    OpcodeInfo(OpInfo(OpOri     ,emulAlu  ), CtlNon, IntOpALU, DstRt  , SrcRs  , SrcNo, SrcNo, ImmZExt),
-    OpcodeInfo(OpInfo(OpXori    ,emulAlu  ), CtlNon, IntOpALU, DstRt  , SrcRs  , SrcNo, SrcNo, ImmZExt),
-    OpcodeInfo(OpInfo(OpLui     ,emulAlu  ), CtlNon, IntOpALU, DstRt  , SrcNo  , SrcNo, SrcNo, ImmLui ),
-    OpcodeInfo(), // MOpCop0
-    OpcodeInfo(), // MOpCop1
-    OpcodeInfo(), // MOpCop2
-    OpcodeInfo(), // MOpCop1x
-    OpcodeInfo(OpInfo(OpBeql    ,emulJump ), CtlJpL, BrOpCond, DstNo  , SrcRs  , SrcRt, SrcNo, ImmBrOf),
-    OpcodeInfo(OpInfo(OpBnel    ,emulJump ), CtlJpL, BrOpCond, DstNo  , SrcRs  , SrcRt, SrcNo, ImmBrOf),
-    OpcodeInfo(OpInfo(OpBlezl   ,emulJump ), CtlJpL, BrOpCond, DstNo  , SrcRs  , SrcNo, SrcNo, ImmBrOf),
-    OpcodeInfo(OpInfo(OpBgtzl   ,emulJump ), CtlJpL, BrOpCond, DstNo  , SrcRs  , SrcNo, SrcNo, ImmBrOf),
-    OpcodeInfo(), // OpDaddi
-    OpcodeInfo(), // OpDaddiu
-    OpcodeInfo(OpInfo(OpLdl     ,emulLdSt ), CtlExc, MemOpLd8, DstRt  , SrcRs  , SrcNo, SrcNo, ImmSExt),
-    OpcodeInfo(OpInfo(OpLdr     ,emulLdSt ), CtlExc, MemOpLd8, DstRt  , SrcRs  , SrcNo, SrcNo, ImmSExt),
-    OpcodeInfo(), // MOpInv1C
-    OpcodeInfo(), // MOpInv1D
-    OpcodeInfo(), // MOpInv1E
-    OpcodeInfo(), // MOpInv1F
-    OpcodeInfo(OpInfo(OpLb      ,emulLdSt ), CtlExc, MemOpLd1, DstRt  , SrcRs  , SrcNo, SrcNo, ImmSExt),
-    OpcodeInfo(OpInfo(OpLh      ,emulLdSt ), CtlExc, MemOpLd2, DstRt  , SrcRs  , SrcNo, SrcNo, ImmSExt),
-    OpcodeInfo(OpInfo(OpLwl     ,emulLdSt ), CtlExc, MemOpLd4, DstRt  , SrcRs  , SrcNo, SrcNo, ImmSExt),
-    OpcodeInfo(OpInfo(OpLw      ,emulLdSt ), CtlExc, MemOpLd4, DstRt  , SrcRs  , SrcNo, SrcNo, ImmSExt),
-    OpcodeInfo(OpInfo(OpLbu     ,emulLdSt ), CtlExc, MemOpLd1, DstRt  , SrcRs  , SrcNo, SrcNo, ImmSExt),
-    OpcodeInfo(OpInfo(OpLhu     ,emulLdSt ), CtlExc, MemOpLd2, DstRt  , SrcRs  , SrcNo, SrcNo, ImmSExt),
-    OpcodeInfo(OpInfo(OpLwr     ,emulLdSt ), CtlExc, MemOpLd4, DstRt  , SrcRs  , SrcNo, SrcNo, ImmSExt),
-    OpcodeInfo(OpInfo(OpLwu     ,emulLdSt ), CtlExc, MemOpLd4, DstRt  , SrcRs  , SrcNo, SrcNo, ImmSExt),
-    OpcodeInfo(OpInfo(OpSb      ,emulLdSt ), CtlExc, MemOpSt1, DstNo  , SrcRs  , SrcRt, SrcNo, ImmSExt),
-    OpcodeInfo(OpInfo(OpSh      ,emulLdSt ), CtlExc, MemOpSt2, DstNo  , SrcRs  , SrcRt, SrcNo, ImmSExt),
-    OpcodeInfo(OpInfo(OpSwl     ,emulLdSt ), CtlExc, MemOpSt4, DstNo  , SrcRs  , SrcRt, SrcNo, ImmSExt),
-    OpcodeInfo(OpInfo(OpSw      ,emulLdSt ), CtlExc, MemOpSt4, DstNo  , SrcRs  , SrcRt, SrcNo, ImmSExt),
-    OpcodeInfo(OpInfo(OpSdl     ,emulLdSt ), CtlExc, MemOpSt8, DstNo  , SrcRs  , SrcRt, SrcNo, ImmSExt),
-    OpcodeInfo(OpInfo(OpSdr     ,emulLdSt ), CtlExc, MemOpSt8, DstNo  , SrcRs  , SrcRt, SrcNo, ImmSExt),
-    OpcodeInfo(OpInfo(OpSwr     ,emulLdSt ), CtlExc, MemOpSt4, DstNo  , SrcRs  , SrcRt, SrcNo, ImmSExt),
-    OpcodeInfo(), // MOpInv2F
-    OpcodeInfo(OpInfo(OpLl      ,emulLdSt ), CtlExc, MemOpLd4, DstRt  , SrcRs  , SrcNo, SrcNo, ImmSExt),
-    OpcodeInfo(OpInfo(OpLwc1    ,emulLdSt ), CtlExc, MemOpLd4, DstFt  , SrcRs  , SrcNo, SrcNo, ImmSExt),
-    OpcodeInfo(), // OpLwc2
-    OpcodeInfo(), // OpPref
-    OpcodeInfo(), // OpLld
-    OpcodeInfo(OpInfo(OpLdc1    ,emulLdSt ), CtlExc, MemOpLd8, DstFt  , SrcRs  , SrcNo, SrcNo, ImmSExt),
-    OpcodeInfo(), // OpLdc2
-    OpcodeInfo(OpInfo(OpLd      ,emulLdSt ), CtlExc, MemOpLd8, DstRt  , SrcRs  , SrcNo, SrcNo, ImmSExt),
-    OpcodeInfo(OpInfo(OpSc      ,emulLdSt ), CtlExc, MemOpSt4, DstRt  , SrcRs  , SrcRt, SrcNo, ImmSExt),
-    OpcodeInfo(OpInfo(OpSwc1    ,emulLdSt ), CtlExc, MemOpSt4, DstNo  , SrcRs  , SrcFt, SrcNo, ImmSExt),
-    OpcodeInfo(), // OpSwc2
-    OpcodeInfo(), // MOpInv3B
-    OpcodeInfo(), // OpScd
-    OpcodeInfo(OpInfo(OpSdc1    ,emulLdSt ), CtlExc, MemOpSt8, DstNo  , SrcRs  , SrcFt, SrcNo, ImmSExt),
-    OpcodeInfo(), // OpSdc2
-    OpcodeInfo(OpInfo(OpSd      ,emulLdSt ), CtlExc, MemOpSt8, DstNo  , SrcRs  , SrcRt, SrcNo, ImmSExt),
-    // These are the opcodes decoded through the "function" field for MOpSpecial
-    OpcodeInfo(OpInfo(OpSll     ,emulAlu  ), CtlNon, IntOpALU, DstRd  , SrcRt  , SrcNo, SrcNo, ImmSh),
-    OpcodeInfo(), // SOpMovci
-    OpcodeInfo(OpInfo(OpSrl     ,emulAlu  ), CtlNon, IntOpALU, DstRd  , SrcRt  , SrcNo, SrcNo, ImmSh),
-    OpcodeInfo(OpInfo(OpSra     ,emulAlu  ), CtlNon, IntOpALU, DstRd  , SrcRt  , SrcNo, SrcNo, ImmSh),
-    OpcodeInfo(OpInfo(OpSllv    ,emulAlu  ), CtlNon, IntOpALU, DstRd  , SrcRt  , SrcRs, SrcNo, ImmNo),
-    OpcodeInfo(), // SOpInv05
-    OpcodeInfo(OpInfo(OpSrlv    ,emulAlu  ), CtlNon, IntOpALU, DstRd  , SrcRt  , SrcRs, SrcNo, ImmNo),
-    OpcodeInfo(OpInfo(OpSrav    ,emulAlu  ), CtlNon, IntOpALU, DstRd  , SrcRt  , SrcRs, SrcNo, ImmNo),
-    OpcodeInfo(OpInfo(OpJr      ,emulJump ), CtlJr , BrOpJump, DstNo  , SrcRs  , SrcNo, SrcNo, ImmNo),
-    OpcodeInfo(OpInfo(OpJalr    ,emulJump ), CtlJlr, BrOpJump, DstRd  , SrcRs  , SrcNo, SrcNo, ImmNo),
-    OpcodeInfo(OpInfo(OpMovz    ,emulAlu  ), CtlNon, IntOpALU, DstRd  , SrcRs  , SrcRt, SrcNo, ImmNo),
-    OpcodeInfo(OpInfo(OpMovn    ,emulAlu  ), CtlNon, IntOpALU, DstRd  , SrcRs  , SrcRt, SrcNo, ImmNo),
-    OpcodeInfo(OpInfo(OpSyscall ,emulSyscl), CtlExc, BrOpTrap, DstNo  , SrcNo  , SrcNo, SrcNo, ImmExCd),
-    OpcodeInfo(OpInfo(OpBreak   ,emulBreak), CtlExc, BrOpTrap, DstNo  , SrcNo  , SrcNo, SrcNo, ImmExCd),
-    OpcodeInfo(), // SOpInv0E
-    OpcodeInfo(), // OpSync
-    OpcodeInfo(OpInfo(OpMfhi    ,emulAlu  ), CtlNon, IntOpALU, DstRd  , SrcHi  , SrcNo, SrcNo, ImmNo),
-    OpcodeInfo(OpInfo(OpMthi    ,emulAlu  ), CtlNon, IntOpALU, DstHi  , SrcRs  , SrcNo, SrcNo, ImmNo),
-    OpcodeInfo(OpInfo(OpMflo    ,emulAlu  ), CtlNon, IntOpALU, DstRd  , SrcLo  , SrcNo, SrcNo, ImmNo),
-    OpcodeInfo(OpInfo(OpMtlo    ,emulAlu  ), CtlNon, IntOpALU, DstLo  , SrcRs  , SrcNo, SrcNo, ImmNo),
-    OpcodeInfo(), // OpDsllv
-    OpcodeInfo(), // SOpInv15
-    OpcodeInfo(), // OpDsrlv
-    OpcodeInfo(), // OpDsrav
-    OpcodeInfo(OpInfo(OpMult    ,emulAlu  ), CtlNon, IntOpMul, DstHiLo, SrcRs  , SrcRt, SrcNo, ImmNo),
-    OpcodeInfo(OpInfo(OpMultu   ,emulAlu  ), CtlNon, IntOpMul, DstHiLo, SrcRs  , SrcRt, SrcNo, ImmNo),
-    OpcodeInfo(OpInfo(OpDiv     ,emulAlu  ), CtlNon, IntOpDiv, DstHiLo, SrcRs  , SrcRt, SrcNo, ImmNo),
-    OpcodeInfo(OpInfo(OpDivu    ,emulAlu  ), CtlNon, IntOpDiv, DstHiLo, SrcRs  , SrcRt, SrcNo, ImmNo),
-    OpcodeInfo(), // OpDmult
-    OpcodeInfo(), // OpDmultu
-    OpcodeInfo(), // OpDdiv
-    OpcodeInfo(), // OpDdivu
-    OpcodeInfo(OpInfo(OpAdd     ,emulAlu  ), CtlExc, IntOpALU, DstRd  , SrcRs  , SrcRt, SrcNo, ImmNo),
-    OpcodeInfo(OpInfo(OpAddu    ,emulAlu  ), CtlNon, IntOpALU, DstRd  , SrcRs  , SrcRt, SrcNo, ImmNo),
-    OpcodeInfo(OpInfo(OpSub     ,emulAlu  ), CtlExc, IntOpALU, DstRd  , SrcRs  , SrcRt, SrcNo, ImmNo),
-    OpcodeInfo(OpInfo(OpSubu    ,emulAlu  ), CtlNon, IntOpALU, DstRd  , SrcRs  , SrcRt, SrcNo, ImmNo),
-    OpcodeInfo(OpInfo(OpAnd     ,emulAlu  ), CtlNon, IntOpALU, DstRd  , SrcRs  , SrcRt, SrcNo, ImmNo),
-    OpcodeInfo(OpInfo(OpOr      ,emulAlu  ), CtlNon, IntOpALU, DstRd  , SrcRs  , SrcRt, SrcNo, ImmNo),
-    OpcodeInfo(OpInfo(OpXor     ,emulAlu  ), CtlNon, IntOpALU, DstRd  , SrcRs  , SrcRt, SrcNo, ImmNo),
-    OpcodeInfo(OpInfo(OpNor     ,emulAlu  ), CtlNon, IntOpALU, DstRd  , SrcRs  , SrcRt, SrcNo, ImmNo),
-    OpcodeInfo(), // SOpInv28
-    OpcodeInfo(), // SOpInv29
-    OpcodeInfo(OpInfo(OpSlt     ,emulAlu  ), CtlNon, IntOpALU, DstRd  , SrcRs  , SrcRt, SrcNo, ImmNo),
-    OpcodeInfo(OpInfo(OpSltu    ,emulAlu  ), CtlNon, IntOpALU, DstRd  , SrcRs  , SrcRt, SrcNo, ImmNo),
-    OpcodeInfo(), // OpDadd
-    OpcodeInfo(), // OpDaddu
-    OpcodeInfo(), // OpDsub
-    OpcodeInfo(), // OpDsubu
-    OpcodeInfo(OpInfo(OpTge     ,emulTcnd ), CtlExc, BrOpTrap, DstNo  , SrcRs  , SrcRt, SrcNo, ImmTrCd),
-    OpcodeInfo(OpInfo(OpTgeu    ,emulTcnd ), CtlExc, BrOpTrap, DstNo  , SrcRs  , SrcRt, SrcNo, ImmTrCd),
-    OpcodeInfo(OpInfo(OpTlt     ,emulTcnd ), CtlExc, BrOpTrap, DstNo  , SrcRs  , SrcRt, SrcNo, ImmTrCd),
-    OpcodeInfo(OpInfo(OpTltu    ,emulTcnd ), CtlExc, BrOpTrap, DstNo  , SrcRs  , SrcRt, SrcNo, ImmTrCd),
-    OpcodeInfo(OpInfo(OpTeq     ,emulTcnd ), CtlExc, BrOpTrap, DstNo  , SrcRs  , SrcRt, SrcNo, ImmTrCd),
-    OpcodeInfo(), // SOpInv35
-    OpcodeInfo(OpInfo(OpTne     ,emulTcnd ), CtlExc, BrOpTrap, DstNo  , SrcRs  , SrcRt, SrcNo, ImmTrCd),
-    OpcodeInfo(), // SOpInv37
-    OpcodeInfo(), // OpDsll
-    OpcodeInfo(), // SOpInv39
-    OpcodeInfo(), // OpDsrl
-    OpcodeInfo(), // OpDsra
-    OpcodeInfo(), // OpDsll32
-    OpcodeInfo(), // SOpInv3D
-    OpcodeInfo(), // OpDsrl32
-    OpcodeInfo(), // OpDsra32
-    // These are the opcodes decoded using the "rt" field for MOpRegimm
-    OpcodeInfo(OpInfo(OpBltz    ,emulJump ), CtlJmp, BrOpCond, DstNo  , SrcRs  , SrcNo, SrcNo, ImmBrOf),
-    OpcodeInfo(OpInfo(OpBgez    ,emulJump ), CtlJmp, BrOpCond, DstNo  , SrcRs  , SrcNo, SrcNo, ImmBrOf),
-    OpcodeInfo(OpInfo(OpBltzl   ,emulJump ), CtlJpL, BrOpCond, DstNo  , SrcRs  , SrcNo, SrcNo, ImmBrOf),
-    OpcodeInfo(OpInfo(OpBgezl   ,emulJump ), CtlJpL, BrOpCond, DstNo  , SrcRs  , SrcNo, SrcNo, ImmBrOf),
-    OpcodeInfo(), // ROpInv04
-    OpcodeInfo(), // ROpInv05
-    OpcodeInfo(), // ROpInv06
-    OpcodeInfo(), // ROpInv07
-    OpcodeInfo(OpInfo(OpTgei    ,emulTcnd ), CtlExc, BrOpTrap, DstNo  , SrcRs  , SrcNo, SrcNo, ImmSExt),
-    OpcodeInfo(OpInfo(OpTgeiu   ,emulTcnd ), CtlExc, BrOpTrap, DstNo  , SrcRs  , SrcNo, SrcNo, ImmSExt),
-    OpcodeInfo(OpInfo(OpTlti    ,emulTcnd ), CtlExc, BrOpTrap, DstNo  , SrcRs  , SrcNo, SrcNo, ImmSExt),
-    OpcodeInfo(OpInfo(OpTltiu   ,emulTcnd ), CtlExc, BrOpTrap, DstNo  , SrcRs  , SrcNo, SrcNo, ImmSExt),
-    OpcodeInfo(OpInfo(OpTeqi    ,emulTcnd ), CtlExc, BrOpTrap, DstNo  , SrcRs  , SrcNo, SrcNo, ImmSExt),
-    OpcodeInfo(), // ROpInv0D
-    OpcodeInfo(OpInfo(OpTnei    ,emulTcnd ), CtlExc, BrOpTrap, DstNo  , SrcRs  , SrcNo, SrcNo, ImmSExt),
-    OpcodeInfo(), // ROpInv0F
-    OpcodeInfo(OpInfo(OpBltzal  ,emulJump ), CtlJal, BrOpCall, DstRa  , SrcRs  , SrcNo, SrcNo, ImmBrOf),
-    OpcodeInfo(OpInfo(OpBgezal  ,emulJump ), CtlJal, BrOpCall, DstRa  , SrcRs  , SrcNo, SrcNo, ImmBrOf),
-    OpcodeInfo(OpInfo(OpBltzall ,emulJump ), CtlJLL, BrOpCall, DstRa  , SrcRs  , SrcNo, SrcNo, ImmBrOf),
-    OpcodeInfo(OpInfo(OpBgezall ,emulJump ), CtlJLL, BrOpCall, DstRa  , SrcRs  , SrcNo, SrcNo, ImmBrOf),
-    OpcodeInfo(), // ROpInv14
-    OpcodeInfo(), // ROpInv15
-    OpcodeInfo(), // ROpInv16
-    OpcodeInfo(), // ROpInv17
-    OpcodeInfo(), // ROpInv18
-    OpcodeInfo(), // ROpInv19
-    OpcodeInfo(), // ROpInv1A
-    OpcodeInfo(), // ROpInv1B
-    OpcodeInfo(), // ROpInv1C
-    OpcodeInfo(), // ROpInv1D
-    OpcodeInfo(), // ROpInv1E
-    OpcodeInfo(), // ROpInv1F
-    // These are the opcodes decoded using the "fmt" field for MOpCop1
-    OpcodeInfo(OpInfo(OpMfc1    ,emulMvcop), CtlExc, IntOpALU, DstRt  , SrcFs  , SrcNo, SrcNo, ImmNo),
-    OpcodeInfo(), // OpDmfc1
-    OpcodeInfo(OpInfo(OpCfc1    ,emulMvcop), CtlNon, IntOpALU, DstRt  , SrcFCs , SrcNo, SrcNo, ImmNo),
-    OpcodeInfo(), // C1OpInv03
-    OpcodeInfo(OpInfo(OpMtc1    ,emulMvcop), CtlExc, IntOpALU, DstFs  , SrcRt  , SrcNo, SrcNo, ImmNo),
-    OpcodeInfo(), // OpDmtc1
-    OpcodeInfo(OpInfo(OpCtc1    ,emulMvcop), CtlNon, IntOpALU, DstFCs , SrcRt  , SrcNo, SrcNo, ImmNo),
-    OpcodeInfo(), // C1OpInv07
-    OpcodeInfo(), // C1OpBc
-    OpcodeInfo(), // C1OpInv09
-    OpcodeInfo(), // C1OpInv0A
-    OpcodeInfo(), // C1OpInv0B
-    OpcodeInfo(), // C1OpInv0C
-    OpcodeInfo(), // C1OpInv0D
-    OpcodeInfo(), // C1OpInv0E
-    OpcodeInfo(), // C1OpInv0F
-    OpcodeInfo(), // C1OpFmts
-    OpcodeInfo(), // C1OpFmtd
-    OpcodeInfo(), // C1OpInv12
-    OpcodeInfo(), // C1OpInv13
-    OpcodeInfo(), // C1OpFmtw
-    OpcodeInfo(), // C1OpFmtl
-    OpcodeInfo(), // C1OpInv16
-    OpcodeInfo(), // C1OpInv17
-    OpcodeInfo(), // C1OpInv18
-    OpcodeInfo(), // C1OpInv19
-    OpcodeInfo(), // C1OpInv1A
-    OpcodeInfo(), // C1OpInv1B
-    OpcodeInfo(), // C1OpInv1C
-    OpcodeInfo(), // C1OpInv1D
-    OpcodeInfo(), // C1OpInv1E
-    OpcodeInfo(), // C1OpInv1F
-    // These are the opcodes decoded using the "func" field for MOpCop1x
-    OpcodeInfo(OpInfo(OpLwxc1   ,emulLdSt ), CtlExc, MemOpLd4, DstFd  , SrcRs  , SrcRt, SrcNo, ImmNo),
-    OpcodeInfo(OpInfo(OpLdxc1   ,emulLdSt ), CtlExc, MemOpLd8, DstFd  , SrcRs  , SrcRt, SrcNo, ImmNo),
-    OpcodeInfo(),  // CXOpInv02
-    OpcodeInfo(),  // CXOpInv03
-    OpcodeInfo(),  // CXOpInv04
-    OpcodeInfo(),  // CXOpInv05
-    OpcodeInfo(),  // CXOpInv06
-    OpcodeInfo(),  // CXOpInv07
-    OpcodeInfo(OpInfo(OpSwxc1   ,emulLdSt ), CtlExc, MemOpSt4, DstNo  , SrcRs  , SrcRt, SrcFs, ImmNo),
-    OpcodeInfo(OpInfo(OpSdxc1   ,emulLdSt ), CtlExc, MemOpSt8, DstNo  , SrcRs  , SrcRt, SrcFs, ImmNo),
-    OpcodeInfo(),  // CXOpInv0A
-    OpcodeInfo(),  // CXOpInv0B
-    OpcodeInfo(),  // CXOpInv0C
-    OpcodeInfo(),  // CXOpInv0D
-    OpcodeInfo(),  // CXOpInv0E
-    OpcodeInfo(),  // OpPrefx
-    OpcodeInfo(),  // CXOpInv10
-    OpcodeInfo(),  // CXOpInv11
-    OpcodeInfo(),  // CXOpInv12
-    OpcodeInfo(),  // CXOpInv13
-    OpcodeInfo(),  // CXOpInv14
-    OpcodeInfo(),  // CXOpInv15
-    OpcodeInfo(),  // CXOpInv16
-    OpcodeInfo(),  // CXOpInv17
-    OpcodeInfo(),  // CXOpInv18
-    OpcodeInfo(),  // CXOpInv19
-    OpcodeInfo(),  // CXOpInv1A
-    OpcodeInfo(),  // CXOpInv1B
-    OpcodeInfo(),  // CXOpInv1C
-    OpcodeInfo(),  // CXOpInv1D
-    OpcodeInfo(),  // CXOpInv1E
-    OpcodeInfo(),  // CXOpInv1F
-    OpcodeInfo(OpInfo(OpFmadds  ,emulFpu  ), CtlExc, FpOpMul , DstFd  , SrcFs  , SrcFt, SrcFr, ImmNo),
-    OpcodeInfo(OpInfo(OpFmaddd  ,emulFpu  ), CtlExc, FpOpMul , DstFd  , SrcFs  , SrcFt, SrcFr, ImmNo),
-    OpcodeInfo(),  // CXOpInv22
-    OpcodeInfo(),  // CXOpInv23
-    OpcodeInfo(),  // CXOpInv24
-    OpcodeInfo(),  // CXOpInv25
-    OpcodeInfo(),  // CXOpInv26
-    OpcodeInfo(),  // CXOpInv27
-    OpcodeInfo(OpInfo(OpFmsubs  ,emulFpu  ), CtlExc, FpOpMul , DstFd  , SrcFs  , SrcFt, SrcFr, ImmNo),
-    OpcodeInfo(OpInfo(OpFmsubd  ,emulFpu  ), CtlExc, FpOpMul , DstFd  , SrcFs  , SrcFt, SrcFr, ImmNo),
-    OpcodeInfo(),  // CXOpInv2A
-    OpcodeInfo(),  // CXOpInv2B
-    OpcodeInfo(),  // CXOpInv2C
-    OpcodeInfo(),  // CXOpInv2D
-    OpcodeInfo(),  // CXOpInv2E
-    OpcodeInfo(),  // CXOpInv2F
-    OpcodeInfo(OpInfo(OpFnmadds ,emulFpu  ), CtlExc, FpOpMul , DstFd  , SrcFs  , SrcFt, SrcFr, ImmNo),
-    OpcodeInfo(OpInfo(OpFnmaddd ,emulFpu  ), CtlExc, FpOpMul , DstFd  , SrcFs  , SrcFt, SrcFr, ImmNo),
-    OpcodeInfo(),  // CXOpInv32
-    OpcodeInfo(),  // CXOpInv33
-    OpcodeInfo(),  // CXOpInv34
-    OpcodeInfo(),  // CXOpInv35
-    OpcodeInfo(),  // CXOpInv36
-    OpcodeInfo(),  // CXOpInv37
-    OpcodeInfo(OpInfo(OpFnmsubs ,emulFpu  ), CtlExc, FpOpMul , DstFd  , SrcFs  , SrcFt, SrcFr, ImmNo),
-    OpcodeInfo(OpInfo(OpFnmsubd ,emulFpu  ), CtlExc, FpOpMul , DstFd  , SrcFs  , SrcFt, SrcFr, ImmNo),
-    OpcodeInfo(),  // CXOpInv3A
-    OpcodeInfo(),  // CXOpInv3B
-    OpcodeInfo(),  // CXOpInv3C
-    OpcodeInfo(),  // CXOpInv3D
-    OpcodeInfo(),  // CXOpInv3E
-    OpcodeInfo(),  // CXOpInv3F
-    // These are the opcodes decoded using the 2-bit "nd/tf" field for MOpSpecial and SOpMovci
-    OpcodeInfo(OpInfo(OpMovf    ,emulAlu ), CtlNon, IntOpALU , DstRd  , SrcRs  , SrcFCSR, SrcNo, ImmFbcc),
-    OpcodeInfo(OpInfo(OpMovt    ,emulAlu ), CtlNon, IntOpALU , DstRd  , SrcRs  , SrcFCSR, SrcNo, ImmFbcc),
-    OpcodeInfo(),  // MVOpInv2
-    OpcodeInfo(),  // MVOpInv3
-    // These are the opcodes decoded using the 2-bit "nd/tf" field for MOpCop1 and C1OpBC
-    OpcodeInfo(OpInfo(OpFbc1f   ,emulJump ), CtlJmp, BrOpCond, DstNo  , SrcFCSR, SrcNo, SrcNo, ImmBrOf, ImmFbcc),
-    OpcodeInfo(OpInfo(OpFbc1t   ,emulJump ), CtlJmp, BrOpCond, DstNo  , SrcFCSR, SrcNo, SrcNo, ImmBrOf, ImmFbcc),
-    OpcodeInfo(OpInfo(OpFbc1fl  ,emulJump ), CtlJpL, BrOpCond, DstNo  , SrcFCSR, SrcNo, SrcNo, ImmBrOf, ImmFbcc),
-    OpcodeInfo(OpInfo(OpFbc1tl  ,emulJump ), CtlJpL, BrOpCond, DstNo  , SrcFCSR, SrcNo, SrcNo, ImmBrOf, ImmFbcc),
-    // These are the opcodes decoded using the "func" field for MOpCop1 and C1OpFmts
-    OpcodeInfo(OpInfo(OpFadds   ,emulFpu  ), CtlExc, FpOpALU , DstFd  , SrcFs  , SrcFt, SrcNo, ImmNo),
-    OpcodeInfo(OpInfo(OpFsubs   ,emulFpu  ), CtlExc, FpOpALU , DstFd  , SrcFs  , SrcFt, SrcNo, ImmNo),
-    OpcodeInfo(OpInfo(OpFmuls   ,emulFpu  ), CtlExc, FpOpMul , DstFd  , SrcFs  , SrcFt, SrcNo, ImmNo),
-    OpcodeInfo(OpInfo(OpFdivs   ,emulFpu  ), CtlExc, FpOpDiv , DstFd  , SrcFs  , SrcFt, SrcNo, ImmNo),
-    OpcodeInfo(OpInfo(OpFsqrts  ,emulFpu  ), CtlExc, FpOpDiv , DstFd  , SrcFs  , SrcNo, SrcNo, ImmNo),
-    OpcodeInfo(OpInfo(OpFabss   ,emulFpu  ), CtlExc, FpOpALU , DstFd  , SrcFs  , SrcNo, SrcNo, ImmNo),
-    OpcodeInfo(OpInfo(OpFmovs   ,emulFpu  ), CtlExc, FpOpALU , DstFd  , SrcFs  , SrcNo, SrcNo, ImmNo),
-    OpcodeInfo(OpInfo(OpFnegs   ,emulFpu  ), CtlExc, FpOpALU , DstFd  , SrcFs  , SrcNo, SrcNo, ImmNo),
-    OpcodeInfo(OpInfo(OpFroundls,emulFcvt ), CtlExc, FpOpALU , DstFd  , SrcFs  , SrcNo, SrcNo, ImmNo),
-    OpcodeInfo(OpInfo(OpFtruncls,emulFcvt ), CtlExc, FpOpALU , DstFd  , SrcFs  , SrcNo, SrcNo, ImmNo),
-    OpcodeInfo(OpInfo(OpFceills ,emulFcvt ), CtlExc, FpOpALU , DstFd  , SrcFs  , SrcNo, SrcNo, ImmNo),
-    OpcodeInfo(OpInfo(OpFfloorls,emulFcvt ), CtlExc, FpOpALU , DstFd  , SrcFs  , SrcNo, SrcNo, ImmNo),
-    OpcodeInfo(OpInfo(OpFroundws,emulFcvt ), CtlExc, FpOpALU , DstFd  , SrcFs  , SrcNo, SrcNo, ImmNo),
-    OpcodeInfo(OpInfo(OpFtruncws,emulFcvt ), CtlExc, FpOpALU , DstFd  , SrcFs  , SrcNo, SrcNo, ImmNo),
-    OpcodeInfo(OpInfo(OpFceilws ,emulFcvt ), CtlExc, FpOpALU , DstFd  , SrcFs  , SrcNo, SrcNo, ImmNo),
-    OpcodeInfo(OpInfo(OpFfloorws,emulFcvt ), CtlExc, FpOpALU , DstFd  , SrcFs  , SrcNo, SrcNo, ImmNo),
-    OpcodeInfo(), // FSOpInv10
-    OpcodeInfo(), // FSOpMovcf
-    OpcodeInfo(OpInfo(OpFmovzs  ,emulFpu  ), CtlNon, FpOpALU , DstFd  , SrcFs  , SrcRt, SrcNo, ImmNo),
-    OpcodeInfo(OpInfo(OpFmovns  ,emulFpu  ), CtlNon, FpOpALU , DstFd  , SrcFs  , SrcRt, SrcNo, ImmNo),
-    OpcodeInfo(), // FSOpInv14
-    OpcodeInfo(OpInfo(OpFrecips ,emulFpu  ), CtlExc, FpOpDiv , DstFd  , SrcFs  , SrcNo, SrcNo, ImmNo),
-    OpcodeInfo(OpInfo(OpFrsqrts ,emulFpu  ), CtlExc, FpOpDiv , DstFd  , SrcFs  , SrcNo, SrcNo, ImmNo),
-    OpcodeInfo(), // FSOpInv17
-    OpcodeInfo(), // FSOpInv18
-    OpcodeInfo(), // FSOpInv19
-    OpcodeInfo(), // FSOpInv1A
-    OpcodeInfo(), // FSOpInv1B
-    OpcodeInfo(), // FSOpInv1C
-    OpcodeInfo(), // FSOpInv1D
-    OpcodeInfo(), // FSOpInv1E
-    OpcodeInfo(), // FSOpInv1F
-    OpcodeInfo(), // FSOpInv20
-    OpcodeInfo(OpInfo(OpFcvtds  ,emulFcvt ), CtlExc, FpOpALU , DstFd  , SrcFs  , SrcFCSR, SrcNo, ImmNo),
-    OpcodeInfo(), // FSOpInv22
-    OpcodeInfo(), // FSOpInv23
-    OpcodeInfo(OpInfo(OpFcvtws  ,emulFcvt ), CtlExc, FpOpALU , DstFd  , SrcFs  , SrcFCSR, SrcNo, ImmNo),
-    OpcodeInfo(OpInfo(OpFcvtls  ,emulFcvt ), CtlExc, FpOpALU , DstFd  , SrcFs  , SrcFCSR, SrcNo, ImmNo),
-    OpcodeInfo(), // FSOpInv26
-    OpcodeInfo(), // FSOpInv27
-    OpcodeInfo(), // FSOpInv28
-    OpcodeInfo(), // FSOpInv29
-    OpcodeInfo(), // FSOpInv2A
-    OpcodeInfo(), // FSOpInv2B
-    OpcodeInfo(), // FSOpInv2C
-    OpcodeInfo(), // FSOpInv2D
-    OpcodeInfo(), // FSOpInv2E
-    OpcodeInfo(), // FSOpInv2F
-    OpcodeInfo(OpInfo(OpFcfs    ,emulFcond), CtlNon, FpOpALU , DstFCSR, SrcFs  , SrcFt, SrcNo, ImmFccc),
-    OpcodeInfo(OpInfo(OpFcuns   ,emulFcond), CtlNon, FpOpALU , DstFCSR, SrcFs  , SrcFt, SrcNo, ImmFccc),
-    OpcodeInfo(OpInfo(OpFceqs   ,emulFcond), CtlNon, FpOpALU , DstFCSR, SrcFs  , SrcFt, SrcNo, ImmFccc),
-    OpcodeInfo(OpInfo(OpFcueqs  ,emulFcond), CtlNon, FpOpALU , DstFCSR, SrcFs  , SrcFt, SrcNo, ImmFccc),
-    OpcodeInfo(OpInfo(OpFcolts  ,emulFcond), CtlNon, FpOpALU , DstFCSR, SrcFs  , SrcFt, SrcNo, ImmFccc),
-    OpcodeInfo(OpInfo(OpFcults  ,emulFcond), CtlNon, FpOpALU , DstFCSR, SrcFs  , SrcFt, SrcNo, ImmFccc),
-    OpcodeInfo(OpInfo(OpFcoles  ,emulFcond), CtlNon, FpOpALU , DstFCSR, SrcFs  , SrcFt, SrcNo, ImmFccc),
-    OpcodeInfo(OpInfo(OpFcules  ,emulFcond), CtlNon, FpOpALU , DstFCSR, SrcFs  , SrcFt, SrcNo, ImmFccc),
-    OpcodeInfo(OpInfo(OpFcsfs   ,emulFcond), CtlNon, FpOpALU , DstFCSR, SrcFs  , SrcFt, SrcNo, ImmFccc),
-    OpcodeInfo(OpInfo(OpFcngles ,emulFcond), CtlExc, FpOpALU , DstFCSR, SrcFs  , SrcFt, SrcNo, ImmFccc),
-    OpcodeInfo(OpInfo(OpFcseqs  ,emulFcond), CtlExc, FpOpALU , DstFCSR, SrcFs  , SrcFt, SrcNo, ImmFccc),
-    OpcodeInfo(OpInfo(OpFcngls  ,emulFcond), CtlExc, FpOpALU , DstFCSR, SrcFs  , SrcFt, SrcNo, ImmFccc),
-    OpcodeInfo(OpInfo(OpFclts   ,emulFcond), CtlExc, FpOpALU , DstFCSR, SrcFs  , SrcFt, SrcNo, ImmFccc),
-    OpcodeInfo(OpInfo(OpFcnges  ,emulFcond), CtlExc, FpOpALU , DstFCSR, SrcFs  , SrcFt, SrcNo, ImmFccc),
-    OpcodeInfo(OpInfo(OpFcles   ,emulFcond), CtlExc, FpOpALU , DstFCSR, SrcFs  , SrcFt, SrcNo, ImmFccc),
-    OpcodeInfo(OpInfo(OpFcngts  ,emulFcond), CtlExc, FpOpALU , DstFCSR, SrcFs  , SrcFt, SrcNo, ImmFccc),
-    // These are the opcodes decoded using the "nd/tf" field for MOpCop1, C1OpFmts, and FSOpMovcf 
-    OpcodeInfo(OpInfo(OpFmovfs  ,emulFpu  ), CtlNon, FpOpALU , DstFd  , SrcFs  , SrcFCSR, SrcNo, ImmFbcc),
-    OpcodeInfo(OpInfo(OpFmovts  ,emulFpu  ), CtlNon, FpOpALU , DstFd  , SrcFs  , SrcFCSR, SrcNo, ImmFbcc),
-    OpcodeInfo(), // FSMOpInv2,
-    OpcodeInfo(), // FSMOpInv3,
-    // These are the opcodes decoded using the "func" field for MOpCop1 and C1OpFmtd
-    OpcodeInfo(OpInfo(OpFaddd   ,emulFpu  ), CtlExc, FpOpALU , DstFd  , SrcFs  , SrcFt, SrcNo, ImmNo),
-    OpcodeInfo(OpInfo(OpFsubd   ,emulFpu  ), CtlExc, FpOpALU , DstFd  , SrcFs  , SrcFt, SrcNo, ImmNo),
-    OpcodeInfo(OpInfo(OpFmuld   ,emulFpu  ), CtlExc, FpOpMul , DstFd  , SrcFs  , SrcFt, SrcNo, ImmNo),
-    OpcodeInfo(OpInfo(OpFdivd   ,emulFpu  ), CtlExc, FpOpDiv , DstFd  , SrcFs  , SrcFt, SrcNo, ImmNo),
-    OpcodeInfo(OpInfo(OpFsqrtd  ,emulFpu  ), CtlExc, FpOpDiv , DstFd  , SrcFs  , SrcNo, SrcNo, ImmNo),
-    OpcodeInfo(OpInfo(OpFabsd   ,emulFpu  ), CtlExc, FpOpALU , DstFd  , SrcFs  , SrcNo, SrcNo, ImmNo),
-    OpcodeInfo(OpInfo(OpFmovd   ,emulFpu  ), CtlExc, FpOpALU , DstFd  , SrcFs  , SrcNo, SrcNo, ImmNo),
-    OpcodeInfo(OpInfo(OpFnegd   ,emulFpu  ), CtlExc, FpOpALU , DstFd  , SrcFs  , SrcNo, SrcNo, ImmNo),
-    OpcodeInfo(OpInfo(OpFroundld,emulFcvt ), CtlExc, FpOpALU , DstFd  , SrcFs  , SrcNo, SrcNo, ImmNo),
-    OpcodeInfo(OpInfo(OpFtruncld,emulFcvt ), CtlExc, FpOpALU , DstFd  , SrcFs  , SrcNo, SrcNo, ImmNo),
-    OpcodeInfo(OpInfo(OpFceilld ,emulFcvt ), CtlExc, FpOpALU , DstFd  , SrcFs  , SrcNo, SrcNo, ImmNo),
-    OpcodeInfo(OpInfo(OpFfloorld,emulFcvt ), CtlExc, FpOpALU , DstFd  , SrcFs  , SrcNo, SrcNo, ImmNo),
-    OpcodeInfo(OpInfo(OpFroundwd,emulFcvt ), CtlExc, FpOpALU , DstFd  , SrcFs  , SrcNo, SrcNo, ImmNo),
-    OpcodeInfo(OpInfo(OpFtruncwd,emulFcvt ), CtlExc, FpOpALU , DstFd  , SrcFs  , SrcNo, SrcNo, ImmNo),
-    OpcodeInfo(OpInfo(OpFceilwd ,emulFcvt ), CtlExc, FpOpALU , DstFd  , SrcFs  , SrcNo, SrcNo, ImmNo),
-    OpcodeInfo(OpInfo(OpFfloorwd,emulFcvt ), CtlExc, FpOpALU , DstFd  , SrcFs  , SrcNo, SrcNo, ImmNo),
-    OpcodeInfo(), // FDOpInv10
-    OpcodeInfo(), // FDOpMovcf
-    OpcodeInfo(OpInfo(OpFmovzd  ,emulFpu  ), CtlNon, FpOpALU , DstFd  , SrcFs  , SrcRt, SrcNo, ImmNo),
-    OpcodeInfo(OpInfo(OpFmovnd  ,emulFpu  ), CtlNon, FpOpALU , DstFd  , SrcFs  , SrcRt, SrcNo, ImmNo),
-    OpcodeInfo(), // FDOpInv14
-    OpcodeInfo(OpInfo(OpFrecipd ,emulFpu  ), CtlExc, FpOpDiv , DstFd  , SrcFs  , SrcNo, SrcNo, ImmNo),
-    OpcodeInfo(OpInfo(OpFrsqrtd ,emulFpu  ), CtlExc, FpOpDiv , DstFd  , SrcFs  , SrcNo, SrcNo, ImmNo),
-    OpcodeInfo(), // FDOpInv17
-    OpcodeInfo(), // FDOpInv18
-    OpcodeInfo(), // FDOpInv19
-    OpcodeInfo(), // FDOpInv1A
-    OpcodeInfo(), // FDOpInv1B
-    OpcodeInfo(), // FDOpInv1C
-    OpcodeInfo(), // FDOpInv1D
-    OpcodeInfo(), // FDOpInv1E
-    OpcodeInfo(), // FDOpInv1F
-    OpcodeInfo(OpInfo(OpFcvtsd  ,emulFcvt ), CtlExc, FpOpALU , DstFd  , SrcFs  , SrcFCSR, SrcNo, ImmNo),
-    OpcodeInfo(), // FDOpInv21
-    OpcodeInfo(), // FDOpInv22
-    OpcodeInfo(), // FDOpInv23
-    OpcodeInfo(OpInfo(OpFcvtwd  ,emulFcvt ), CtlExc, FpOpALU , DstFd  , SrcFs  , SrcFCSR, SrcNo, ImmNo),
-    OpcodeInfo(OpInfo(OpFcvtld  ,emulFcvt ), CtlExc, FpOpALU , DstFd  , SrcFs  , SrcFCSR, SrcNo, ImmNo),
-    OpcodeInfo(), // FDOpInv26
-    OpcodeInfo(), // FDOpInv27
-    OpcodeInfo(), // FDOpInv28
-    OpcodeInfo(), // FDOpInv29
-    OpcodeInfo(), // FDOpInv2A
-    OpcodeInfo(), // FDOpInv2B
-    OpcodeInfo(), // FDOpInv2C
-    OpcodeInfo(), // FDOpInv2D
-    OpcodeInfo(), // FDOpInv2E
-    OpcodeInfo(), // FDOpInv2F
-    OpcodeInfo(OpInfo(OpFcfd    ,emulFcond), CtlNon, FpOpALU , DstFCSR, SrcFs  , SrcFt, SrcNo, ImmFccc),
-    OpcodeInfo(OpInfo(OpFcund   ,emulFcond), CtlNon, FpOpALU , DstFCSR, SrcFs  , SrcFt, SrcNo, ImmFccc),
-    OpcodeInfo(OpInfo(OpFceqd   ,emulFcond), CtlNon, FpOpALU , DstFCSR, SrcFs  , SrcFt, SrcNo, ImmFccc),
-    OpcodeInfo(OpInfo(OpFcueqd  ,emulFcond), CtlNon, FpOpALU , DstFCSR, SrcFs  , SrcFt, SrcNo, ImmFccc),
-    OpcodeInfo(OpInfo(OpFcoltd  ,emulFcond), CtlNon, FpOpALU , DstFCSR, SrcFs  , SrcFt, SrcNo, ImmFccc),
-    OpcodeInfo(OpInfo(OpFcultd  ,emulFcond), CtlNon, FpOpALU , DstFCSR, SrcFs  , SrcFt, SrcNo, ImmFccc),
-    OpcodeInfo(OpInfo(OpFcoled  ,emulFcond), CtlNon, FpOpALU , DstFCSR, SrcFs  , SrcFt, SrcNo, ImmFccc),
-    OpcodeInfo(OpInfo(OpFculed  ,emulFcond), CtlNon, FpOpALU , DstFCSR, SrcFs  , SrcFt, SrcNo, ImmFccc),
-    OpcodeInfo(OpInfo(OpFcsfd   ,emulFcond), CtlExc, FpOpALU , DstFCSR, SrcFs  , SrcFt, SrcNo, ImmFccc),
-    OpcodeInfo(OpInfo(OpFcngled ,emulFcond), CtlExc, FpOpALU , DstFCSR, SrcFs  , SrcFt, SrcNo, ImmFccc),
-    OpcodeInfo(OpInfo(OpFcseqd  ,emulFcond), CtlExc, FpOpALU , DstFCSR, SrcFs  , SrcFt, SrcNo, ImmFccc),
-    OpcodeInfo(OpInfo(OpFcngld  ,emulFcond), CtlExc, FpOpALU , DstFCSR, SrcFs  , SrcFt, SrcNo, ImmFccc),
-    OpcodeInfo(OpInfo(OpFcltd   ,emulFcond), CtlExc, FpOpALU , DstFCSR, SrcFs  , SrcFt, SrcNo, ImmFccc),
-    OpcodeInfo(OpInfo(OpFcnged  ,emulFcond), CtlExc, FpOpALU , DstFCSR, SrcFs  , SrcFt, SrcNo, ImmFccc),
-    OpcodeInfo(OpInfo(OpFcled   ,emulFcond), CtlExc, FpOpALU , DstFCSR, SrcFs  , SrcFt, SrcNo, ImmFccc),
-    OpcodeInfo(OpInfo(OpFcngtd  ,emulFcond), CtlExc, FpOpALU , DstFCSR, SrcFs  , SrcFt, SrcNo, ImmFccc),
-    // These are the opcodes decoded using the "nd/tf" field for MOpCop1, C1OpFmts, and FDOpMovcf 
-    OpcodeInfo(OpInfo(OpFmovfd  ,emulFpu  ), CtlNon, FpOpALU , DstFd  , SrcFs  , SrcFCSR, SrcNo, ImmFbcc),
-    OpcodeInfo(OpInfo(OpFmovtd  ,emulFpu  ), CtlNon, FpOpALU , DstFd  , SrcFs  , SrcFCSR, SrcNo, ImmFbcc),
-    OpcodeInfo(), // FDMOpInv2
-    OpcodeInfo(), // FDMOpInv3
-    // These are the opcodes decoded using the "func" field for MOpCop1 and C1OpFmtw
-    OpcodeInfo(), // FWOpInv00
-    OpcodeInfo(), // FWOpInv01
-    OpcodeInfo(), // FWOpInv02
-    OpcodeInfo(), // FWOpInv03
-    OpcodeInfo(), // FWOpInv04
-    OpcodeInfo(), // FWOpInv05
-    OpcodeInfo(), // FWOpInv06
-    OpcodeInfo(), // FWOpInv07
-    OpcodeInfo(), // FWOpInv08
-    OpcodeInfo(), // FWOpInv09
-    OpcodeInfo(), // FWOpInv0A
-    OpcodeInfo(), // FWOpInv0B
-    OpcodeInfo(), // FWOpInv0C
-    OpcodeInfo(), // FWOpInv0D
-    OpcodeInfo(), // FWOpInv0E
-    OpcodeInfo(), // FWOpInv0F
-    OpcodeInfo(), // FWOpInv10
-    OpcodeInfo(), // FWOpInv11
-    OpcodeInfo(), // FWOpInv12
-    OpcodeInfo(), // FWOpInv13
-    OpcodeInfo(), // FWOpInv14
-    OpcodeInfo(), // FWOpInv15
-    OpcodeInfo(), // FWOpInv16
-    OpcodeInfo(), // FWOpInv17
-    OpcodeInfo(), // FWOpInv18
-    OpcodeInfo(), // FWOpInv19
-    OpcodeInfo(), // FWOpInv1A
-    OpcodeInfo(), // FWOpInv1B
-    OpcodeInfo(), // FWOpInv1C
-    OpcodeInfo(), // FWOpInv1D
-    OpcodeInfo(), // FWOpInv1E
-    OpcodeInfo(), // FWOpInv1F
-    OpcodeInfo(OpInfo(OpFcvtsw  ,emulFcvt ), CtlExc, FpOpALU , DstFd  , SrcFs  , SrcFCSR, SrcNo, ImmNo),
-    OpcodeInfo(OpInfo(OpFcvtdw  ,emulFcvt ), CtlExc, FpOpALU , DstFd  , SrcFs  , SrcFCSR, SrcNo, ImmNo),
-    OpcodeInfo(), // FWOpInv22
-    OpcodeInfo(), // FWOpInv23
-    OpcodeInfo(), // FWOpInv24
-    OpcodeInfo(), // FWOpInv25
-    OpcodeInfo(), // FWOpInv26
-    OpcodeInfo(), // FWOpInv27
-    OpcodeInfo(), // FWOpInv28
-    OpcodeInfo(), // FWOpInv29
-    OpcodeInfo(), // FWOpInv2A
-    OpcodeInfo(), // FWOpInv2B
-    OpcodeInfo(), // FWOpInv2C
-    OpcodeInfo(), // FWOpInv2D
-    OpcodeInfo(), // FWOpInv2E
-    OpcodeInfo(), // FWOpInv2F
-    OpcodeInfo(), // FWOpInv30
-    OpcodeInfo(), // FWOpInv31
-    OpcodeInfo(), // FWOpInv32
-    OpcodeInfo(), // FWOpInv33
-    OpcodeInfo(), // FWOpInv34
-    OpcodeInfo(), // FWOpInv35
-    OpcodeInfo(), // FWOpInv36
-    OpcodeInfo(), // FWOpInv37
-    OpcodeInfo(), // FWOpInv38
-    OpcodeInfo(), // FWOpInv39
-    OpcodeInfo(), // FWOpInv3A
-    OpcodeInfo(), // FWOpInv3B
-    OpcodeInfo(), // FWOpInv3C
-    OpcodeInfo(), // FWOpInv3D
-    OpcodeInfo(), // FWOpInv3E
-    OpcodeInfo(), // FWOpInv3F
-    // These are the opcodes decoded using the "func" field for MOpCop1 and C1OpFmtl
-    OpcodeInfo(), // FLOpInv00
-    OpcodeInfo(), // FLOpInv01
-    OpcodeInfo(), // FLOpInv02
-    OpcodeInfo(), // FLOpInv03
-    OpcodeInfo(), // FLOpInv04
-    OpcodeInfo(), // FLOpInv05
-    OpcodeInfo(), // FLOpInv06
-    OpcodeInfo(), // FLOpInv07
-    OpcodeInfo(), // FLOpInv08
-    OpcodeInfo(), // FLOpInv09
-    OpcodeInfo(), // FLOpInv0A
-    OpcodeInfo(), // FLOpInv0B
-    OpcodeInfo(), // FLOpInv0C
-    OpcodeInfo(), // FLOpInv0D
-    OpcodeInfo(), // FLOpInv0E
-    OpcodeInfo(), // FLOpInv0F
-    OpcodeInfo(), // FLOpInv10
-    OpcodeInfo(), // FLOpInv11
-    OpcodeInfo(), // FLOpInv12
-    OpcodeInfo(), // FLOpInv13
-    OpcodeInfo(), // FLOpInv14
-    OpcodeInfo(), // FLOpInv15
-    OpcodeInfo(), // FLOpInv16
-    OpcodeInfo(), // FLOpInv17
-    OpcodeInfo(), // FLOpInv18
-    OpcodeInfo(), // FLOpInv19
-    OpcodeInfo(), // FLOpInv1A
-    OpcodeInfo(), // FLOpInv1B
-    OpcodeInfo(), // FLOpInv1C
-    OpcodeInfo(), // FLOpInv1D
-    OpcodeInfo(), // FLOpInv1E
-    OpcodeInfo(), // FLOpInv1F
-    OpcodeInfo(OpInfo(OpFcvtsl  ,emulFcvt ), CtlExc, FpOpALU , DstFd  , SrcFs  , SrcFCSR, SrcNo, ImmNo),
-    OpcodeInfo(OpInfo(OpFcvtdl  ,emulFcvt ), CtlExc, FpOpALU , DstFd  , SrcFs  , SrcFCSR, SrcNo, ImmNo),
-    OpcodeInfo(), // FLOpInv22
-    OpcodeInfo(), // FLOpInv23
-    OpcodeInfo(), // FLOpInv24
-    OpcodeInfo(), // FLOpInv25
-    OpcodeInfo(), // FLOpInv26
-    OpcodeInfo(), // FLOpInv27
-    OpcodeInfo(), // FLOpInv28
-    OpcodeInfo(), // FLOpInv29
-    OpcodeInfo(), // FLOpInv2A
-    OpcodeInfo(), // FLOpInv2B
-    OpcodeInfo(), // FLOpInv2C
-    OpcodeInfo(), // FLOpInv2D
-    OpcodeInfo(), // FLOpInv2E
-    OpcodeInfo(), // FLOpInv2F
-    OpcodeInfo(), // FLOpInv30
-    OpcodeInfo(), // FLOpInv31
-    OpcodeInfo(), // FLOpInv32
-    OpcodeInfo(), // FLOpInv33
-    OpcodeInfo(), // FLOpInv34
-    OpcodeInfo(), // FLOpInv35
-    OpcodeInfo(), // FLOpInv36
-    OpcodeInfo(), // FLOpInv37
-    OpcodeInfo(), // FLOpInv38
-    OpcodeInfo(), // FLOpInv39
-    OpcodeInfo(), // FLOpInv3A
-    OpcodeInfo(), // FLOpInv3B
-    OpcodeInfo(), // FLOpInv3C
-    OpcodeInfo(), // FLOpInv3D
-    OpcodeInfo(), // FLOpInv3E
-    OpcodeInfo(), // FLOpInv3F
-    // Derived opcodes (special cases of real opcodes)
-    OpcodeInfo(OpInfo(OpNop     ,emulNop  ), CtlNon, TypNop  , DstNo  , SrcNo  , SrcNo, SrcNo, ImmNo),
-    OpcodeInfo(OpInfo(OpB       ,emulJump ), CtlJmp, BrOpJump, DstNo  , SrcNo  , SrcNo, SrcNo, ImmBrOf),
-    OpcodeInfo(OpInfo(OpBal     ,emulJump ), CtlJal, BrOpCall, DstRa  , SrcNo  , SrcNo, SrcNo, ImmBrOf),
-    OpcodeInfo(OpInfo(OpBeqz    ,emulJump ), CtlJmp, BrOpCond, DstNo  , SrcRs  , SrcNo, SrcNo, ImmBrOf),
-    OpcodeInfo(OpInfo(OpBeqzl   ,emulJump ), CtlJpL, BrOpCond, DstNo  , SrcRs  , SrcNo, SrcNo, ImmBrOf),
-    OpcodeInfo(OpInfo(OpBnez    ,emulJump )), // Decoded via OpBne, not using this table
-    OpcodeInfo(OpInfo(OpBnezl   ,emulJump )), // Decoded via OpBnel, not using this table
-    OpcodeInfo(OpInfo(OpMov     ,emulAlu  ), CtlNon, IntOpALU, DstRd  , SrcRs  , SrcNo, SrcNo, ImmNo),
-    OpcodeInfo(OpInfo(OpLi      ,emulAlu  )), // Decoded via OpAddiu or OpOri, not using this table
-    OpcodeInfo(OpInfo(OpClr     ,emulAlu  ), CtlNon, IntOpALU, DstRd  , SrcNo  , SrcNo, SrcNo, ImmZero),
-    OpcodeInfo(OpInfo(OpNot     ,emulAlu  )), // Decoded via OpNor, not using this table
-    OpcodeInfo(OpInfo(OpNeg     ,emulAlu  )), // Decoded via OpSub, not using this table
-    OpcodeInfo(OpInfo(OpNegu    ,emulAlu  )), // Decoded via OpSubu, not using this table
-  };
-  
-  Opcode decodeOp(RawInst rawInst){
-    Opcode op=(Opcode)(OpBase+rawInst.op);
-    switch(op){
-    case MOpSpecial:
-      op=(Opcode)(SOpBase+rawInst.func);
-      switch(op){
-      case SOpMovci:
-	op=(Opcode)(MVOpBase+rawInst.ndtf); break;
-      default:
-	break;
-      }
-      break;
-    case MOpRegimm:
-      op=(Opcode)(ROpBase+rawInst.rt);   break;
-    case MOpCop1:
-      op=(Opcode)(C1OpBase+rawInst.fmt);
-      switch(op){
-      case C1OpBc:
-	op=(Opcode)(FBOpBase+rawInst.ndtf); break;
-      case C1OpFmts:
-	op=(Opcode)(FSOpBase+rawInst.func);
-	switch(op){
-	case FSOpMovcf:
-	  op=(Opcode)(FSMOpBase+rawInst.ndtf); break;
-	default:
-	  break;
-	}
-	break;
-      case C1OpFmtd:
-	op=(Opcode)(FDOpBase+rawInst.func);
-	switch(op){
-	case FDOpMovcf:
-	  op=(Opcode)(FDMOpBase+rawInst.ndtf); break;
-	default:
-	  break;
-	}
-	break;
-      case C1OpFmtw:
-	op=(Opcode)(FWOpBase+rawInst.func); break;
-      case C1OpFmtl:
-	op=(Opcode)(FLOpBase+rawInst.func); break;
-      default:
-	break;
-      }
-      break;
-    case MOpCop1x:
-      op=(Opcode)(CXOpBase+rawInst.func); break;
-    default: 
-      break;
-    }
-    return op;
+    return mipsSysCall(inst,context);
   }
 
-  void decodeInst(InstDesc *inst, ThreadContext *context){
-    // Read the raw MIPS instruction
-    I(context->virt2inst(inst->addr)==inst);
-    RawInst rawInst;
-    context->readMem(inst->addr,rawInst.whole);
-    // Remeber if this instruction was classified as a branch before this decoding
-    bool wasBranch=(inst->ctlInfo&CtlBr);
-    // Determine the Opcode for this instruction
-    Opcode op=decodeOp(rawInst);
-    while(true){
-      if(op==OpInvalid){
-	fail("Mips::decodeInst: unsupported instruction at 0x%08x\n",inst->addr);
-      }else if(opcodeInfo[op].op!=op){
-	fail("Mips::decodeInst: opcodeInfo table error for instruction at 0x%08x\n",inst->addr);
-      }
-      // Load the instruction-related part of ctlInfo from the table
-      inst->ctlInfo=(InstCtlInfo)(inst->ctlInfo&CtlLMask);
-      I(!(opcodeInfo[op].ctl&CtlLMask));
-      inst->ctlInfo=(InstCtlInfo)(inst->ctlInfo|opcodeInfo[op].ctl);
-      inst->typInfo=opcodeInfo[op].typ;
-      switch(opcodeInfo[op].dst){
-      case DstNo:   inst->regDst=RegNone; break;
-      case DstRd:   inst->regDst=(RegName)(rawInst.rd); break;
-      case DstFd:   inst->regDst=(RegName)(rawInst.fd+FprNameLb); break;
-      case DstRt:   inst->regDst=(RegName)(rawInst.rt); break;
-      case DstFt:   inst->regDst=(RegName)(rawInst.ft+FprNameLb); break;
-      case DstFs:   inst->regDst=(RegName)(rawInst.fs+FprNameLb); break;
-      case DstFCs:  inst->regDst=(RegName)(rawInst.fs+FcrNameLb); break;
-      case DstFCSR: inst->regDst=static_cast<RegName>(RegFCSR); break;
-      case DstRa:   inst->regDst=static_cast<RegName>(RegRA); break;
-      case DstHi:   inst->regDst=static_cast<RegName>(RegHi); break;
-      case DstLo:   inst->regDst=static_cast<RegName>(RegLo); break;
-      case DstHiLo: inst->regDst=static_cast<RegName>(RegHL); break;
-      default: fail("mipsDecode: invalid regDst for instruction at 0x%08x\n",inst->addr);
-      }
-      if(static_cast<MipsRegName>(inst->regDst)==RegZero){
-	// Change destination register to RegJunk to avoid polluting RegZero
-	inst->regDst=static_cast<RegName>(RegJunk);
-      }
-      switch(opcodeInfo[op].src1){
-      case SrcNo:  inst->regSrc1=RegNone; break;
-      case SrcRt:  inst->regSrc1=(RegName)(rawInst.rt); break;
-      case SrcRs:  inst->regSrc1=(RegName)(rawInst.rs); break;
-      case SrcFs:  inst->regSrc1=(RegName)(rawInst.fs+FprNameLb); break;
-      case SrcFCs: inst->regSrc1=(RegName)(rawInst.fs+FcrNameLb); break;
-      case SrcFCSR:inst->regSrc1=static_cast<RegName>(RegFCSR); break;
-      case SrcHi:  inst->regSrc1=static_cast<RegName>(RegHi); break;
-      case SrcLo:  inst->regSrc1=static_cast<RegName>(RegLo); break;
-      default: fail("mipsDecode: invalid regSrc1 for instruction at 0x%08x\n",inst->addr);
-      }
-      switch(opcodeInfo[op].src2){
-      case SrcNo:   inst->regSrc2=RegNone; break;
-      case SrcRs:   inst->regSrc2=(RegName)(rawInst.rs); break;
-      case SrcRt:   inst->regSrc2=(RegName)(rawInst.rt); break;
-      case SrcFt:   inst->regSrc2=(RegName)(rawInst.ft+FprNameLb); break;
-      case SrcFs:   inst->regSrc2=(RegName)(rawInst.fs+FprNameLb); break;
-      case SrcFCSR: inst->regSrc2=static_cast<RegName>(RegFCSR); break;
-      default: fail("mipsDecode: invalid regSrc2 for instruction at 0x%08x\n",inst->addr);
-      }
-      switch(opcodeInfo[op].src3){
-      case SrcNo: inst->regSrc3=RegNone; break;
-      case SrcFr: inst->regSrc3=(RegName)(rawInst.fr+FprNameLb); break;
-      case SrcFs: inst->regSrc3=(RegName)(rawInst.fs+FprNameLb); break;
-      default: fail("mipsDecode: invalid regSrc3 for instruction at 0x%08x\n",inst->addr);
-      }
-      switch(opcodeInfo[op].imm1){
-      case ImmNo:   inst->imm1.i==0; break;
-      case ImmJpTg:
-      case ImmBrOf:
-	{
-	  VAddr nextIp=inst->addr+sizeof(rawInst);
-	  VAddr targ;
-	  if(opcodeInfo[op].imm1==ImmJpTg){
-	    // The target address takes lowemost 28 (actually 26, shifted by 2) bits from the instruction 
-	    // and takes the remaining (high) bits from the instruction pointer (which is pre-incremented)
-	    targ=(nextIp&(~0x0fffffff))|(rawInst.targ*sizeof(rawInst));
-	  }else{
-	    I(opcodeInfo[op].imm1==ImmBrOf);
-	    // The target address is the 18-bit sign-extended offset (actually 16 bits shifted by 2) 
-	    // added to the (pre-incremented) instruction pointer
-	    targ=nextIp+(rawInst.simmed*sizeof(rawInst));
-	  }
-	  // TODO: This instruction must be re-decoded if the target InstDesc moves after this
-	  inst->imm1.i=context->virt2inst(targ);
-	  I(inst->imm1.i->addr==targ);
-	} break;
-      case ImmSExt: inst->imm1.s=rawInst.simmed; break;
-      case ImmZExt: inst->imm1.u=rawInst.uimmed; break;
-      case ImmLui:  inst->imm1.s=(rawInst.simmed<<16); break;
-      case ImmZero: inst->imm1.s=0; break;
-      case ImmSh:   inst->imm1.u=rawInst.sa; break;
-      case ImmExCd: inst->imm1.u=rawInst.excode; break;
-      case ImmTrCd: inst->imm1.u=rawInst.trcode; break;
-      case ImmFbcc: inst->imm1.u=(1<<(23+rawInst.fbcc+(rawInst.fbcc>0))); break;
-      case ImmFccc: inst->imm1.u=(1<<(23+rawInst.fccc+(rawInst.fccc>0))); break;
-      default: fail("Mips::DecodeInst: invalid imm1 for instruction at 0x%08x\n",inst->addr);
-      }
-      switch(opcodeInfo[op].imm2){
-      case ImmNo:   inst->imm2.u=0; break;
-      case ImmFbcc: inst->imm2.u=(1<<(23+rawInst.fbcc+(rawInst.fbcc>0))); break;
-      default: fail("Mips::DecodeInst: invalid imm2 for instruction at 0x%08x\n",inst->addr);
-      }
-      // Now handle special cases
-      // Only OpNop should have no control flow or memory and no destination register
-      I((op==OpNop)||(inst->ctlInfo&CtlIMask)||((inst->typInfo&TypOpMask)==TypMemOp)||(inst->regDst!=RegNone));
-      // Now see if there is *actually* no effect (write to RegJunk with no side effects)
-      if(((inst->ctlInfo&CtlIMask)==0)&&((inst->typInfo&TypOpMask)!=TypMemOp)&&
-	 (static_cast<MipsRegName>(inst->regDst)==RegJunk)){
-	op=OpNop;
-      }else if((op==OpBgezal)&&(static_cast<MipsRegName>(inst->regSrc1)==RegZero)){
-	op=OpBal;
-      }else if((op==OpBeq)&&(static_cast<MipsRegName>(inst->regSrc2)==RegZero)){
-	if(static_cast<MipsRegName>(inst->regSrc1)==RegZero){
-	  op=OpB;
-	}else{
-	  op=OpBeqz;
-	}
-      }else if((op==OpBeql)&&(static_cast<MipsRegName>(inst->regSrc2)==RegZero)){
-	op=OpBeqzl;
-      }else if((op==OpBne)&&
-	       ((static_cast<MipsRegName>(inst->regSrc1)==RegZero)||
-		(static_cast<MipsRegName>(inst->regSrc2)==RegZero))){
-	op=OpBnez;
-	if(static_cast<MipsRegName>(inst->regSrc1)==RegZero)
-	  inst->regSrc1=inst->regSrc2;
-	inst->regSrc2=RegNone;
-	break;
-      }else if((op==OpBnel)&&
-	       ((static_cast<MipsRegName>(inst->regSrc1)==RegZero)||
-		(static_cast<MipsRegName>(inst->regSrc2)==RegZero))){
-	op=OpBnezl;
-	if(static_cast<MipsRegName>(inst->regSrc1)==RegZero)
-	  inst->regSrc1=inst->regSrc2;
-	inst->regSrc2=RegNone;
-	break;
-      }else if((op==OpAddu)&&(static_cast<MipsRegName>(inst->regSrc2)==RegZero)){
-	if(static_cast<MipsRegName>(inst->regSrc1)==RegZero){
-	  op=OpClr;
-	}else{
- 	  op=OpMov;
-	}
-      }else if(((op==OpAddiu)||(op==OpOri))&&(static_cast<MipsRegName>(inst->regSrc1)==RegZero)){
-	op=OpLi;
-	inst->regSrc1=RegNone;
-	break;
-      }else if((op==OpNor)&&
-	       ((static_cast<MipsRegName>(inst->regSrc1)==RegZero)||
-		(static_cast<MipsRegName>(inst->regSrc2)==RegZero))){
-	op=OpNot;
-	if(static_cast<MipsRegName>(inst->regSrc1)==RegZero)
-	  inst->regSrc1=inst->regSrc2;
-	inst->regSrc2=RegNone;
-	break;
-      }else if((op==OpSub)&&(static_cast<MipsRegName>(inst->regSrc1)==RegZero)){
-	op=OpNeg;
-	inst->regSrc1=inst->regSrc2;
-	inst->regSrc2=RegNone;
-	break;
-      }else if((op==OpSubu)&&(static_cast<MipsRegName>(inst->regSrc1)==RegZero)){
-	op=OpNegu;
-	inst->regSrc1=inst->regSrc2;
-	inst->regSrc2=RegNone;
-	break;
-      }else if((op==OpJr)&&(static_cast<MipsRegName>(inst->regSrc1)==RegRA)){
-	inst->typInfo=BrOpRet;
-	break;
-      }else if((op==OpJalr)&&(static_cast<MipsRegName>(inst->regDst)==RegRA)){
-	inst->typInfo=BrOpCall;
-	break;
-      }else{
-	// The opcode is fully decoded now (no more special cases)
-	break;
-      }
-    }
-    // Function to emulate this opcode
-    inst->emulFunc=opcodeInfo[op].emulFunc[(bool)(inst->ctlInfo&CtlInDSlot)][context->getMode()];
-    // Info for debugging
-    I((rawInst.whole!=0)||(op==OpNop));
-#if (defined DEBUG)
-    inst->op=(Opcode)op;
-#endif
-    VAddr nextAddr=inst->addr+(inst->ctlInfo&CtlISize);
-    I(nextAddr==inst->addr+4);
-    inst->nextInst=context->virt2inst(nextAddr);
-    I(inst->nextInst->addr==inst->addr+4);
-    bool isBranch=(inst->ctlInfo&CtlBr);
-    if(isBranch!=wasBranch){
-      // This instruction changed between non-branch and branch
-      // The next instruction (delay slot) must be re-decoded
-      I(wasBranch==(bool)(inst->nextInst->ctlInfo&CtlInDSlot));
-      inst->nextInst->ctlInfo=(InstCtlInfo)(inst->nextInst->ctlInfo^CtlInDSlot);
-      inst->nextInst->emulFunc=instDecode;
-    }
-    // Decode the delay slot for a branch
-    if(isBranch){
-      decodeInst(inst->nextInst,context);
-    }
-  }
-}; // namespace Mips
+enum InstCtlInfoEnum{
+  CtlInv  = 0x0000,   // No instruction should have CtlInfo of zero (should at least have length)
 
-void instDecode(InstDesc *inst, ThreadContext *context){
-  //  I(inst->addr!=0x4603d4);
-  switch(context->getMode()){
-  case Mips32: case Mips64:
-    Mips::decodeInst(inst,context);
-    break;
-  default:
-    fail("instDecode: Unknown CPU mode\n");
-    break;
-  }
-  inst->emulFunc(inst,context);
-}
+  CtlNorm = 0x0001, // Regular (non-branch) instruction
+  CtlBran = 0x0002, // Branch instruction
+  CtlLkly = 0x0004, // ISA indicates that branch/jump is likely
+  CtlTarg = 0x0008, // Branch/jump has a fixed target
+  CtlAdDS = 0x0010, // Decode the delay slot after this but don't map it
+  CtlMpDS = 0x0020,   // Can map the delay slot after this (decode only if mapping needed)
+
+  CtlBr   = CtlBran + CtlMpDS,
+  CtlBrLk = CtlBran + CtlMpDS + CtlLkly,
+  CtlBrTg = CtlBran + CtlMpDS + CtlTarg,
+  CtlBrTL = CtlBran + CtlMpDS + CtlLkly + CtlTarg,
+  CtlPrBr = CtlNorm + CtlAdDS
+};               
+typedef InstCtlInfoEnum InstCtlInfo;
 
 static inline RegType getSescRegType(RegName reg, bool src){
   if(src){
@@ -2030,31 +597,33 @@ static inline RegType getSescRegType(RegName reg, bool src){
       return InvalidOutput;
   }
   if(isGprName(reg))
-    return static_cast<RegType>(reg&RegNumMask);
+    return static_cast<RegType>(getRegNum(reg));
   if(isFprName(reg))
-    return static_cast<RegType>(IntFPBoundary+(reg&RegNumMask));
+    return static_cast<RegType>(IntFPBoundary+getRegNum(reg));
   if(getRegType(reg)==RegTypeCtl)
     return CoprocStatReg;
   if((static_cast<Mips::MipsRegName>(reg)==Mips::RegHi)||(static_cast<Mips::MipsRegName>(reg)==Mips::RegLo))
     return HiReg;
+  if(static_cast<Mips::MipsRegName>(reg)==Mips::RegCond)
+    return CondReg;
   I(0);
   return NoDependence;
 }
 
 // Create a SESC Instruction for this static instruction
-Instruction *createSescInst(const InstDesc *inst){
+Instruction *createSescInst(const InstDesc *inst, VAddr iaddr, size_t deltaAddr, InstTypInfo typ, Mips::InstCtlInfo ctl){
   Instruction *sescInst=new Instruction();
-  sescInst->addr=inst->addr;
+  sescInst->addr=iaddr;
   InstType    iType    =iOpInvalid;
   InstSubType iSubType =iSubInvalid;
   MemDataSize iDataSize=0;
-  switch(inst->typInfo&TypOpMask){
+  switch(typ&TypOpMask){
   case TypNop:
     sescInst->opcode=iALU;
     sescInst->subCode=iNop;
     break;
   case TypIntOp:
-    switch(inst->typInfo&TypSubMask){
+    switch(typ&TypSubMask){
     case IntOpALU:
       sescInst->opcode=iALU;
       break;
@@ -2070,7 +639,7 @@ Instruction *createSescInst(const InstDesc *inst){
     sescInst->subCode=iSubInvalid;
     break;
   case TypFpOp:
-    switch(inst->typInfo&TypSubMask){
+    switch(typ&TypSubMask){
     case FpOpALU:
       sescInst->opcode=fpALU;
       break;
@@ -2087,20 +656,20 @@ Instruction *createSescInst(const InstDesc *inst){
     break;
   case TypBrOp:
     sescInst->opcode=iBJ;
-    switch(inst->typInfo&TypSubMask){
+    switch(typ&TypSubMask){
     case BrOpJump:
       sescInst->subCode=BJUncond;
       break;
     case BrOpCond:
       sescInst->subCode=BJCond;
       break;
-    case BrOpCall:
+    case BrOpCall: case BrOpCCall:
       sescInst->subCode=BJCall;
       break;
-    case BrOpRet:
+    case BrOpRet: case BrOpCRet:
       sescInst->subCode=BJRet;
       break;
-    case BrOpTrap:
+    case BrOpTrap: case BrOpCTrap:
       sescInst->opcode=iALU;
       sescInst->subCode=iNop;
       break;
@@ -2109,38 +678,38 @@ Instruction *createSescInst(const InstDesc *inst){
     }
     break;
   case TypMemOp:
-    switch(inst->typInfo&TypSubMask){
-    case TypMemLd:
+    switch(typ&TypSubMask){
+    case TypMemLd: case TypSynLd:
       sescInst->opcode=iLoad;
       break;
-    case TypMemSt:
+    case TypMemSt: case TypSynSt:
       sescInst->opcode=iStore;
       break;
     default:
       fail("createSescInst: Unknown subtype for TypMemOp\n");
     }
-    sescInst->dataSize=(inst->typInfo&MemSizeMask);
+    sescInst->dataSize=(typ&MemSizeMask);
     sescInst->subCode=iMemory;
     break;
   default:
     fail("createSescInst: Unknown instruction type\n");
   }
-  sescInst->skipDelay=inst->nextInst->addr-inst->addr;
+  sescInst->skipDelay=deltaAddr;
   sescInst->uEvent=NoEvent;
   sescInst->guessTaken=false;
   sescInst->condLikely=false;
   sescInst->jumpLabel =false;
-  if(inst->ctlInfo&CtlBr){
-    if(inst->ctlInfo&CtlFix){
+  if(sescInst->opcode==iBJ){
+    if(ctl&Mips::CtlTarg){
       sescInst->jumpLabel=true;
-      if(inst->imm1.i->addr<inst->addr)
+      if(inst->imm.a<iaddr)
 	sescInst->guessTaken=true;
     }
-    if(inst->ctlInfo&CtlAnull){
+    if(ctl&Mips::CtlLkly){
       sescInst->condLikely=true;
       sescInst->guessTaken=true;
     }
-    if((inst->typInfo&TypSubMask)!=BrOpCond)
+    if(sescInst->subCode!=BJCond)
       sescInst->guessTaken=true;
   }
   sescInst->src1=getSescRegType(inst->regSrc1,true);
@@ -2150,4 +719,1034 @@ Instruction *createSescInst(const InstDesc *inst){
   sescInst->src2Pool=Instruction::whichPool(sescInst->src2);
   sescInst->dstPool =Instruction::whichPool(sescInst->dest);
   return sescInst;
+}
+
+  // What is the encoding for the instruction's register argument
+  enum InstArgInfo  { ArgNo, ArgRd, ArgRt, ArgRs, ArgFd, ArgFt, ArgFs, ArgFr,
+                      ArgFCs, ArgFCSR, ArgFccc, ArgFbcc,
+                      ArgTmp, ArgBTmp, ArgFTmp, ArgCond, ArgRa, ArgHi, ArgLo, ArgHL, ArgZero };
+  // What is the format of the immediate (if any)
+  enum InstImmInfo  { ImmNo, ImmJpTg, ImmBrOf, ImmSExt, ImmZExt, ImmLui, ImmSh, ImmSh32, ImmExCd, ImmTrCd, ImmFccc, ImmFbcc };
+
+  class DecodeInst{
+    class OpKey{
+      RawInst mask;
+      RawInst val;
+    public:
+      OpKey(RawInst mask, RawInst val)
+	: mask(mask), val(val){
+      }
+      bool operator<(const OpKey &other) const{
+	if(mask==other.mask)
+	  return val<other.val;
+	return mask<other.mask;
+      }
+    };
+    class OpEntry{
+    public:
+      RawInst mask;
+      Opcode     op;
+      OpEntry(void){
+      }
+      OpEntry(RawInst mask, Opcode op=OpInvalid)
+	: mask(mask), op(op){
+      }
+      OpEntry(Opcode op)
+	: mask(0), op(op){
+      }
+    };
+    typedef std::map<OpKey,OpEntry> OpMap;
+    OpMap opMap;
+
+    class OpData{
+    public:
+      EmulFunc   *emul[2];
+      InstCtlInfo ctl;
+      InstTypInfo typ;
+      InstArgInfo dst;
+      InstArgInfo src1;
+      InstArgInfo src2;
+      InstImmInfo imm;
+      Opcode      next;
+      OpData(void){
+      }
+      OpData(EmulFunc emul32, EmulFunc emul64,
+	     InstCtlInfo ctl, InstTypInfo typ,
+	     InstArgInfo dst, InstArgInfo src1, InstArgInfo src2,
+	     InstImmInfo imm, Opcode next=OpInvalid)
+	: ctl(ctl), typ(typ), dst(dst), src1(src1), src2(src2), imm(imm), next(next)
+      {
+	emul[0]=emul32;
+	emul[1]=emul64;
+      }
+      bool addDSlot(void) const{
+	return (ctl&CtlAdDS);
+      }
+      bool mapDSlot(void) const{
+	return (ctl&CtlMpDS);
+      }
+    };
+    typedef std::map<Opcode,OpData> Op2Data;
+    Op2Data op2Data;
+
+    typedef std::map<Opcode,Opcode> Op2Op;
+    Op2Op brNoDSlot;
+
+  public:
+    DecodeInst(void);
+    Opcode decodeOp(RawInst raw){
+      OpKey   curKey(0,0);
+      OpEntry curEntry(0);
+      OpMap::const_iterator it;
+      while((it=opMap.find(curKey))!=opMap.end()){
+	curEntry=it->second;
+	if(!curEntry.mask)
+	  break;
+	curKey=OpKey(curEntry.mask,raw&curEntry.mask);
+      }
+      return curEntry.op;
+    }
+    static RegName decodeArg(InstArgInfo arg, RawInst inst){
+      switch(arg){
+      case ArgNo:   return RegNone;
+      case ArgRd:   return static_cast<RegName>(((inst>>11)&0x1F)+GprNameLb);
+      case ArgRt:   return static_cast<RegName>(((inst>>16)&0x1F)+GprNameLb);
+      case ArgRs:   return static_cast<RegName>(((inst>>21)&0x1F)+GprNameLb);
+      case ArgTmp:  return static_cast<RegName>(RegTmp);
+      case ArgBTmp: return static_cast<RegName>(RegBTmp);
+      case ArgFd:   return static_cast<RegName>(((inst>> 6)&0x1F)+FprNameLb);
+      case ArgFt:   return static_cast<RegName>(((inst>>16)&0x1F)+FprNameLb);
+      case ArgFs:   return static_cast<RegName>(((inst>>11)&0x1F)+FprNameLb);
+      case ArgFr:   return static_cast<RegName>(((inst>>21)&0x1F)+FprNameLb);
+      case ArgFCs:  return static_cast<RegName>(((inst>>11)&0x1F)+FcrNameLb);
+      case ArgFTmp: return static_cast<RegName>(RegFTmp);
+      case ArgFCSR: return static_cast<RegName>(RegFCSR);
+      case ArgFccc: return static_cast<RegName>(FccNameLb+((inst>>8)&0x7));
+      case ArgFbcc: return static_cast<RegName>(FccNameLb+((inst>>18)&0x7));
+      case ArgRa:   return static_cast<RegName>(RegRA);
+      case ArgHi:   return static_cast<RegName>(RegHi);
+      case ArgLo:   return static_cast<RegName>(RegLo);
+      case ArgHL:   return static_cast<RegName>(RegHL);
+      case ArgCond: return static_cast<RegName>(RegCond);
+      default:
+        fail("decodeArg called for invalid register arg %d in raw inst 0x%08x\n",arg,inst);
+      }
+      return RegNone;
+    }
+    static InstImm decodeImm(InstImmInfo imm, RawInst inst, VAddr addr){
+      switch(imm){
+      case ImmNo:   return 0;
+      case ImmJpTg: return static_cast<VAddr>(((addr+sizeof(inst))&(~0x0fffffff))|((inst&0x0fffffff)*sizeof(inst)));
+      case ImmBrOf: return static_cast<VAddr>((addr+sizeof(inst))+((static_cast<int16_t>(inst&0xffff))*sizeof(inst)));
+      case ImmSExt: return static_cast<int32_t>(static_cast<int16_t>(inst&0xffff));
+      case ImmZExt: return static_cast<uint32_t>(static_cast<uint16_t>(inst&0xffff));
+      case ImmLui:  return static_cast<int32_t>((inst<<16)&0xffff0000);
+      case ImmSh:   return static_cast<uint32_t>((inst>>6)&0x1F);
+      case ImmSh32: return static_cast<uint32_t>(32+((inst>>6)&0x1F));
+      case ImmExCd: return static_cast<uint32_t>((inst>>6)&0xFFFFF);
+      case ImmTrCd: return static_cast<uint32_t>((inst>>6)&0x3FF);
+      case ImmFbcc: { unsigned int cc=((inst>>18)&0x7); return static_cast<uint32_t>(1<<(23+cc+(cc>0))); }
+      case ImmFccc: { unsigned int cc=((inst>>8)&0x7); return static_cast<uint32_t>(1<<(23+cc+(cc>0))); }
+      default:
+        fail("decodeImm called for invalid imm %d in raw inst 0x%08x\n",imm,inst);
+      }
+      return 0;
+    }
+    bool isNop(ThreadContext *context, VAddr addr){
+      RawInst raw=0;
+      bool chkrd=context->readMem(addr,raw);
+      I(chkrd);
+      Opcode op=decodeOp(raw);
+      if((op==OpInvalid)||(op>=NumOfOpcodes))
+	fail("Invalid op while decoding raw inst 0x%08x at 0x%08x\n",raw,addr);
+      const OpData &data=op2Data[op];
+      return (data.typ==TypNop)&&(data.next==OpInvalid);
+    }
+    bool decodeInstSize(ThreadContext *context, VAddr &iaddr, size_t &size, bool &redo, bool canmap){
+      VAddr origiaddr=iaddr;
+      RawInst raw=0;
+      bool chkrd=context->readMem(iaddr,raw);
+      I(chkrd);
+      iaddr+=sizeof(RawInst);
+      Opcode op=decodeOp(raw);
+      if((op==OpInvalid)||(op>=NumOfOpcodes))
+	fail("Invalid op while decoding raw inst 0x%08x at 0x%08x\n",raw,iaddr-sizeof(RawInst));
+      I(op2Data.find(op)!=op2Data.end());
+      I(!context->getAddressSpace()->isMappedInst(origiaddr));
+      bool needmap=(context->getAddressSpace()->needMapInst(origiaddr));
+      bool isnop=(op2Data[op].typ==TypNop);
+      I((op2Data[op].next==OpInvalid)||!isnop);
+      bool domap=canmap&&(needmap||!isnop);
+      if(domap&&!needmap)
+	context->getAddressSpace()->reqMapInst(origiaddr);
+      // If this is a nop that deasn't need to be mapped, we're done
+      if(isnop&&!needmap)
+	return false;
+      // If nop in delay slot and optimized no-delay-slot decoding exists, use that decoding
+      if((brNoDSlot.find(op)!=brNoDSlot.end())&&isNop(context,iaddr))
+	op=brNoDSlot[op];
+      while(op!=OpInvalid){
+	I(op2Data.count(op));
+	const OpData &data=op2Data[op];
+	size++;
+	// Request mapping for targets of fixed-target jumps/branches
+	I((data.ctl&CtlTarg)||((data.imm!=ImmJpTg)&&(data.imm!=ImmBrOf)));
+	if(data.ctl&CtlTarg){
+	  I(canmap);
+	  I((data.imm==ImmJpTg)||(data.imm==ImmBrOf));
+	  InstImm targ=decodeImm(data.imm,raw,origiaddr);
+	  VAddr targaddr=targ.a;
+//	  printf("Request targ map of 0x%08x when decoding 0x%08x\n",targaddr,origiaddr);
+	  if(context->getAddressSpace()->reqMapInst(targaddr)){
+	    redo=true;
+	    size_t targsize=0;
+            while(!decodeInstSize(context,targaddr,targsize,redo,canmap));
+	  }
+	}
+	// Decode delay slots
+	if(data.addDSlot()){
+	  I(canmap);
+	  VAddr dsaddr=iaddr;
+	  decodeInstSize(context,dsaddr,size,redo,false);
+	}else if(data.mapDSlot()){
+	  I(canmap);
+          I(!context->getAddressSpace()->isMappedInst(iaddr));
+	  if(context->getAddressSpace()->needMapInst(iaddr))
+	    decodeInstSize(context,iaddr,size,redo,true);
+	  else
+	    iaddr+=sizeof(RawInst);
+	}
+	op=data.next;
+	if((op==OpInvalid)&&canmap){
+          // Request mapping for the continuation of this instruction
+	  switch(data.typ&TypSubMask){
+	  case BrOpJump: case BrOpRet:
+	    // Unconditional branches and returns have no continuation
+            // End of trace if next instruction need not be mapped (yet)
+            return !context->getAddressSpace()->needMapInst(iaddr);
+	    break;
+          case BrOpCall:
+            // Unconditional function calls have a continuation but we don't have to map it
+            // We map it, except if it is a nop or if it is non-executable
+            if(!isNop(context,iaddr))
+              context->getAddressSpace()->reqMapInst(iaddr);
+            // Continuation is found by address and it's OK if the trace ends here
+            return !context->getAddressSpace()->needMapInst(iaddr);
+	  default:
+	    // Everything else has a continuation, and we request its mapping
+//	    printf("Request cont map of 0x%08x when decoding 0x%08x\n",iaddr,origiaddr);
+	    context->getAddressSpace()->reqMapInst(iaddr);
+            if(!context->getAddressSpace()->needMapInst(iaddr)){
+              I(context->getAddressSpace()->isMappedInst(iaddr));
+              size++;
+              return true;              
+            }
+	    return false;
+	  }
+          I(0);
+	}
+      }
+      I(!canmap);
+      return false;
+    }
+    bool decodeInst(ThreadContext *context, VAddr &iaddr, InstDesc *&trace, bool canmap){
+      VAddr origiaddr=iaddr;
+      RawInst raw=0;
+      bool chkrd=context->readMem(iaddr,raw);
+      I(chkrd);
+      iaddr+=sizeof(RawInst);
+      Opcode op=decodeOp(raw);
+      I(op!=OpInvalid);
+      I(op2Data.find(op)!=op2Data.end());
+      I(!context->getAddressSpace()->isMappedInst(origiaddr));
+      bool needmap=(context->getAddressSpace()->needMapInst(origiaddr));
+      I(needmap||!canmap);
+      bool isnop=(op2Data[op].typ==TypNop);
+      I((op2Data[op].next==OpInvalid)||!isnop);
+      bool domap=canmap&&(needmap||!isnop);
+      I((!domap)||needmap);
+      // If this is a nop that deasn't need to be mapped, we're done
+      if(isnop&&!needmap)
+	return false;
+      if(domap)
+	context->getAddressSpace()->mapInst(origiaddr,trace);
+      // If nop in delay slot and optimized no-delay-slot decoding exists, use that decoding
+      if((brNoDSlot.find(op)!=brNoDSlot.end())&&isNop(context,iaddr))
+	op=brNoDSlot[op];
+      while(op!=OpInvalid){
+	I(op2Data.count(op));
+	const OpData &data=op2Data[op];
+	InstDesc *myinst=trace++;
+	switch(context->getMode()){
+	case Mips32: myinst->emul=data.emul[0]; break;
+	case Mips64: myinst->emul=data.emul[1]; break;
+	default: fail("Mips::decodeInst used in non-MIPS CPU mode\n");
+	}
+#if (defined DEBUG)
+	myinst->op=op;
+	if(canmap)
+	  myinst->addr=origiaddr;
+	else
+	  myinst->addr=origiaddr-sizeof(RawInst);
+	myinst->typ=data.typ;
+#endif
+	myinst->regDst=decodeArg(data.dst,raw);
+	if(myinst->regDst==static_cast<RegName>(RegZero))
+	  myinst->regDst=static_cast<RegName>(RegJunk);
+	myinst->regSrc1=decodeArg(data.src1,raw);
+	myinst->regSrc2=decodeArg(data.src2,raw);
+	myinst->imm=decodeImm(data.imm,raw,origiaddr);
+	// Decode delay slots
+	if(data.addDSlot()){
+	  I(canmap);
+	  VAddr dsaddr=iaddr;
+	  decodeInst(context,dsaddr,trace,false);
+	  myinst->iupdate=trace-myinst;
+	}else if(data.mapDSlot()){
+	  I(canmap);
+	  if(context->getAddressSpace()->needMapInst(iaddr))
+	    decodeInst(context,iaddr,trace,true);
+	  else
+	    iaddr+=sizeof(RawInst);
+	  myinst->iupdate=trace-myinst;
+	}else{
+          myinst->iupdate=1;
+        }
+	myinst->sescInst=createSescInst(myinst,origiaddr,iaddr-origiaddr,data.typ,data.ctl);
+	op=data.next;
+	if((op==OpInvalid)&&canmap){
+          myinst->aupdate=iaddr-origiaddr;
+          // Request mapping for the continuation of this instruction
+	  switch(data.typ&TypSubMask){
+	  case BrOpJump: case BrOpRet: case BrOpCall:
+	    // Unconditional branches, calls, and returns allow a clean end of trace
+            return !context->getAddressSpace()->needMapInst(iaddr);
+	  default:
+            if(!context->getAddressSpace()->needMapInst(iaddr)){
+              I(context->getAddressSpace()->isMappedInst(iaddr));
+              InstDesc *ctinst=trace++;
+              ctinst->emul=emulCut;
+              ctinst->regDst=ctinst->regSrc1=ctinst->regSrc2=RegNone;
+              ctinst->imm.a=0;
+              ctinst->iupdate=0;
+              ctinst->aupdate=0;
+#if (defined DEBUG)
+              ctinst->op=OpCut;
+              ctinst->addr=iaddr;
+              ctinst->typ=TypNop;
+#endif
+              ctinst->sescInst=0;
+              return true;              
+            }
+	    return false;
+	  }
+	}else{
+	  myinst->aupdate=0;
+        }
+      }
+      // End of trace if next instruction need not be mapped (yet)
+      return !context->getAddressSpace()->needMapInst(iaddr);      
+    }
+    void decodeTrace(ThreadContext *context, VAddr iaddr){
+      size_t tsize;
+      VAddr sizaddr;
+      bool newmap=true;
+      while(newmap){
+        newmap=false;
+        tsize=0;
+        sizaddr=iaddr;
+        while(!decodeInstSize(context,sizaddr,tsize,newmap,true));
+      }
+      InstDesc *trace=new InstDesc[tsize];
+      InstDesc *curtrace=trace;
+      VAddr trcaddr=iaddr;
+      while(!decodeInst(context,trcaddr,curtrace,true));
+      I((ssize_t)tsize==(curtrace-trace));
+      I(trcaddr==sizaddr);
+      context->getAddressSpace()->mapTrace(trace,curtrace,iaddr,trcaddr);
+    }
+  };
+
+  DecodeInst dcdInst;
+  
+  DecodeInst::DecodeInst(void){
+    // First look at the op field (uppermost six bits)
+    opMap[OpKey(0x00000000,0x00000000)]=OpEntry(0xFC000000);
+
+    // "Main" opcodes begin here (decoded using the op field)
+    opMap[OpKey(0xFC000000,0x00000000)]=OpEntry(0xFC00003F); // SPECIAL (look at func)
+    opMap[OpKey(0xFC000000,0x04000000)]=OpEntry(0xFC1F0000); // REGIMM (look at rt)
+    opMap[OpKey(0xFC000000,0x08000000)]=OpEntry(OpJ);
+    opMap[OpKey(0xFC000000,0x0C000000)]=OpEntry(OpJal);
+    opMap[OpKey(0xFC000000,0x10000000)]=OpEntry(0xFFFF0000,OpBeq);   // OpB? (look at rs & rt)
+    opMap[OpKey(0xFC000000,0x14000000)]=OpEntry(OpBne);
+    opMap[OpKey(0xFC000000,0x18000000)]=OpEntry(OpBlez);
+    opMap[OpKey(0xFC000000,0x1C000000)]=OpEntry(OpBgtz);
+    opMap[OpKey(0xFC000000,0x20000000)]=OpEntry(OpAddi);
+    opMap[OpKey(0xFC000000,0x24000000)]=OpEntry(0xFFE00000,OpAddiu); // OpLi? (look at rs)
+    opMap[OpKey(0xFC000000,0x28000000)]=OpEntry(OpSlti);
+    opMap[OpKey(0xFC000000,0x2C000000)]=OpEntry(OpSltiu);
+    opMap[OpKey(0xFC000000,0x30000000)]=OpEntry(OpAndi);
+    opMap[OpKey(0xFC000000,0x34000000)]=OpEntry(0xFFE00000,OpOri);   // OpLiu? (look at rs)
+    opMap[OpKey(0xFC000000,0x38000000)]=OpEntry(OpXori);
+    opMap[OpKey(0xFC000000,0x3C000000)]=OpEntry(OpLui);
+    opMap[OpKey(0xFC000000,0x40000000)]=OpEntry(0x00000000); // COP0
+    opMap[OpKey(0xFC000000,0x44000000)]=OpEntry(0xFFE00000); // COP1 (look at fmt)
+    opMap[OpKey(0xFC000000,0x48000000)]=OpEntry(0x00000000); // COP2
+    opMap[OpKey(0xFC000000,0x4C000000)]=OpEntry(0xFC00003F); // COP1X (look at func)
+    opMap[OpKey(0xFC000000,0x50000000)]=OpEntry(OpBeql);
+    opMap[OpKey(0xFC000000,0x54000000)]=OpEntry(OpBnel);
+    opMap[OpKey(0xFC000000,0x58000000)]=OpEntry(OpBlezl);
+    opMap[OpKey(0xFC000000,0x5C000000)]=OpEntry(OpBgtzl);
+    opMap[OpKey(0xFC000000,0x60000000)]=OpEntry(OpDaddi);
+    opMap[OpKey(0xFC000000,0x64000000)]=OpEntry(OpDaddiu);
+    opMap[OpKey(0xFC000000,0x68000000)]=OpEntry(OpLdl);
+    opMap[OpKey(0xFC000000,0x6C000000)]=OpEntry(OpLdr);
+    opMap[OpKey(0xFC000000,0x80000000)]=OpEntry(OpLb);
+    opMap[OpKey(0xFC000000,0x84000000)]=OpEntry(OpLh);
+    opMap[OpKey(0xFC000000,0x88000000)]=OpEntry(OpLwl);
+    opMap[OpKey(0xFC000000,0x8C000000)]=OpEntry(OpLw);
+    opMap[OpKey(0xFC000000,0x90000000)]=OpEntry(OpLbu);
+    opMap[OpKey(0xFC000000,0x94000000)]=OpEntry(OpLhu);
+    opMap[OpKey(0xFC000000,0x98000000)]=OpEntry(OpLwr);
+    opMap[OpKey(0xFC000000,0x9C000000)]=OpEntry(OpLwu);
+    opMap[OpKey(0xFC000000,0xA0000000)]=OpEntry(OpSb);
+    opMap[OpKey(0xFC000000,0xA4000000)]=OpEntry(OpSh);
+    opMap[OpKey(0xFC000000,0xA8000000)]=OpEntry(OpSwl);
+    opMap[OpKey(0xFC000000,0xAC000000)]=OpEntry(OpSw);
+    opMap[OpKey(0xFC000000,0xB0000000)]=OpEntry(OpSdl);
+    opMap[OpKey(0xFC000000,0xB4000000)]=OpEntry(OpSdr);
+    opMap[OpKey(0xFC000000,0xB8000000)]=OpEntry(OpSwr);
+    opMap[OpKey(0xFC000000,0xC0000000)]=OpEntry(OpLl);
+    opMap[OpKey(0xFC000000,0xC4000000)]=OpEntry(OpLwc1);
+    opMap[OpKey(0xFC000000,0xC8000000)]=OpEntry(OpLwc2);
+    opMap[OpKey(0xFC000000,0xCC000000)]=OpEntry(OpPref);
+    opMap[OpKey(0xFC000000,0xD0000000)]=OpEntry(OpLld);
+    opMap[OpKey(0xFC000000,0xD4000000)]=OpEntry(OpLdc1);
+    opMap[OpKey(0xFC000000,0xD8000000)]=OpEntry(OpLdc2);
+    opMap[OpKey(0xFC000000,0xDC000000)]=OpEntry(OpLd);
+    opMap[OpKey(0xFC000000,0xE0000000)]=OpEntry(OpSc);
+    opMap[OpKey(0xFC000000,0xE4000000)]=OpEntry(OpSwc1);
+    opMap[OpKey(0xFC000000,0xE8000000)]=OpEntry(OpSwc2);
+    opMap[OpKey(0xFC000000,0xF0000000)]=OpEntry(OpScd);
+    opMap[OpKey(0xFC000000,0xF4000000)]=OpEntry(OpSdc1);
+    opMap[OpKey(0xFC000000,0xF8000000)]=OpEntry(OpSdc2);
+    opMap[OpKey(0xFC000000,0xFC000000)]=OpEntry(OpSd);
+
+    // "Special" opcodes begin here
+    opMap[OpKey(0xFC00003F,0x00000000)]=OpEntry(0xFC00F83F,OpSll); // OpNop? (look at rd)
+    opMap[OpKey(0xFC00003F,0x00000001)]=OpEntry(0xFC01003F);  // MOVCI (look at tf)
+    opMap[OpKey(0xFC00003F,0x00000002)]=OpEntry(OpSrl);
+    opMap[OpKey(0xFC00003F,0x00000003)]=OpEntry(OpSra);
+    opMap[OpKey(0xFC00003F,0x00000004)]=OpEntry(OpSllv);
+    opMap[OpKey(0xFC00003F,0x00000006)]=OpEntry(OpSrlv);
+    opMap[OpKey(0xFC00003F,0x00000007)]=OpEntry(OpSrav);
+    opMap[OpKey(0xFC00003F,0x00000008)]=OpEntry(0xFFE0003F,OpJr); // OpRet? (look at rs)
+    opMap[OpKey(0xFC00003F,0x00000009)]=OpEntry(0xFC00F83F,OpJalr); // OpCallr (look at rd)
+    opMap[OpKey(0xFC00003F,0x0000000A)]=OpEntry(OpMovz);
+    opMap[OpKey(0xFC00003F,0x0000000B)]=OpEntry(OpMovn);
+    opMap[OpKey(0xFC00003F,0x0000000C)]=OpEntry(OpSyscall);
+    opMap[OpKey(0xFC00003F,0x0000000D)]=OpEntry(OpBreak);
+    opMap[OpKey(0xFC00003F,0x0000000F)]=OpEntry(OpSync);
+    opMap[OpKey(0xFC00003F,0x00000010)]=OpEntry(OpMfhi);
+    opMap[OpKey(0xFC00003F,0x00000011)]=OpEntry(OpMthi);
+    opMap[OpKey(0xFC00003F,0x00000012)]=OpEntry(OpMflo);
+    opMap[OpKey(0xFC00003F,0x00000013)]=OpEntry(OpMtlo);
+    opMap[OpKey(0xFC00003F,0x00000014)]=OpEntry(OpDsllv);
+    opMap[OpKey(0xFC00003F,0x00000016)]=OpEntry(OpDsrlv);
+    opMap[OpKey(0xFC00003F,0x00000017)]=OpEntry(OpDsrav);
+    opMap[OpKey(0xFC00003F,0x00000018)]=OpEntry(OpMult);
+    opMap[OpKey(0xFC00003F,0x00000019)]=OpEntry(OpMultu);
+    opMap[OpKey(0xFC00003F,0x0000001A)]=OpEntry(OpDiv);
+    opMap[OpKey(0xFC00003F,0x0000001B)]=OpEntry(OpDivu);
+    opMap[OpKey(0xFC00003F,0x0000001C)]=OpEntry(OpDmult);
+    opMap[OpKey(0xFC00003F,0x0000001D)]=OpEntry(OpDmultu);
+    opMap[OpKey(0xFC00003F,0x0000001E)]=OpEntry(OpDdiv);
+    opMap[OpKey(0xFC00003F,0x0000001F)]=OpEntry(OpDdivu);
+    opMap[OpKey(0xFC00003F,0x00000020)]=OpEntry(OpAdd);
+    // OpAddu must look at the rt field (bits 20:16) to check for OpMov
+    opMap[OpKey(0xFC00003F,0x00000021)]=OpEntry(0xFC1F003F,OpAddu);
+    opMap[OpKey(0xFC00003F,0x00000022)]=OpEntry(OpSub);
+    // OpSubu must look at the rs field (bits 25:21) to check for OpNegu
+    opMap[OpKey(0xFC00003F,0x00000023)]=OpEntry(0xFFE0003F,OpSubu);
+    opMap[OpKey(0xFC00003F,0x00000024)]=OpEntry(OpAnd);
+    opMap[OpKey(0xFC00003F,0x00000025)]=OpEntry(OpOr);
+    opMap[OpKey(0xFC00003F,0x00000026)]=OpEntry(OpXor);
+    // OpNor must look at the rs field (bits 25:21) to check for OpNot
+    opMap[OpKey(0xFC00003F,0x00000027)]=OpEntry(0xFFE0003F,OpNor);
+    opMap[OpKey(0xFC00003F,0x0000002A)]=OpEntry(OpSlt);
+    opMap[OpKey(0xFC00003F,0x0000002B)]=OpEntry(OpSltu);
+    opMap[OpKey(0xFC00003F,0x0000002C)]=OpEntry(OpDadd);
+    opMap[OpKey(0xFC00003F,0x0000002D)]=OpEntry(OpDaddu);
+    opMap[OpKey(0xFC00003F,0x0000002E)]=OpEntry(OpDsub);
+    opMap[OpKey(0xFC00003F,0x0000002F)]=OpEntry(OpDsubu);
+    opMap[OpKey(0xFC00003F,0x00000030)]=OpEntry(OpTge);
+    opMap[OpKey(0xFC00003F,0x00000031)]=OpEntry(OpTgeu);
+    opMap[OpKey(0xFC00003F,0x00000032)]=OpEntry(OpTlt);
+    opMap[OpKey(0xFC00003F,0x00000033)]=OpEntry(OpTltu);
+    opMap[OpKey(0xFC00003F,0x00000034)]=OpEntry(OpTeq);
+    opMap[OpKey(0xFC00003F,0x00000036)]=OpEntry(OpTne);
+    opMap[OpKey(0xFC00003F,0x00000038)]=OpEntry(OpDsll);
+    opMap[OpKey(0xFC00003F,0x0000003A)]=OpEntry(OpDsrl);
+    opMap[OpKey(0xFC00003F,0x0000003B)]=OpEntry(OpDsra);
+    opMap[OpKey(0xFC00003F,0x0000003C)]=OpEntry(OpDsll32);
+    opMap[OpKey(0xFC00003F,0x0000003E)]=OpEntry(OpDsrl32);
+    opMap[OpKey(0xFC00003F,0x0000003F)]=OpEntry(OpDsra32);
+
+    // "Regimm" opcodes begin here
+    opMap[OpKey(0xFC1F0000,0x04000000)]=OpEntry(OpBltz);
+    opMap[OpKey(0xFC1F0000,0x04010000)]=OpEntry(OpBgez);
+    opMap[OpKey(0xFC1F0000,0x04020000)]=OpEntry(OpBltzl);
+    opMap[OpKey(0xFC1F0000,0x04030000)]=OpEntry(OpBgezl);
+    opMap[OpKey(0xFC1F0000,0x04080000)]=OpEntry(OpTgei);
+    opMap[OpKey(0xFC1F0000,0x04090000)]=OpEntry(OpTgeiu);
+    opMap[OpKey(0xFC1F0000,0x040A0000)]=OpEntry(OpTlti);
+    opMap[OpKey(0xFC1F0000,0x040B0000)]=OpEntry(OpTltiu);
+    opMap[OpKey(0xFC1F0000,0x040C0000)]=OpEntry(OpTeqi);
+    opMap[OpKey(0xFC1F0000,0x040E0000)]=OpEntry(OpTnei);
+    opMap[OpKey(0xFC1F0000,0x04100000)]=OpEntry(OpBltzal);
+    // OpBgezal must look at rs (bits 25:21) to check for OpBal
+    opMap[OpKey(0xFC1F0000,0x04110000)]=OpEntry(0xFFFF0000,OpBgezal);
+    opMap[OpKey(0xFC1F0000,0x04120000)]=OpEntry(OpBltzall);
+    opMap[OpKey(0xFC1F0000,0x04130000)]=OpEntry(OpBgezall);
+
+
+    // "COP1" opcodes begin here
+    opMap[OpKey(0xFFE00000,0x44000000)]=OpEntry(OpMfc1);
+    opMap[OpKey(0xFFE00000,0x44200000)]=OpEntry(OpDmfc1);
+    opMap[OpKey(0xFFE00000,0x44400000)]=OpEntry(OpCfc1);
+    opMap[OpKey(0xFFE00000,0x44800000)]=OpEntry(OpMtc1);
+    opMap[OpKey(0xFFE00000,0x44A00000)]=OpEntry(OpDmtc1);
+    opMap[OpKey(0xFFE00000,0x44C00000)]=OpEntry(OpCtc1);
+    // "COP1 fmt=BC" must be decoded using nd/tf (bits 17 and 16)
+    opMap[OpKey(0xFFE00000,0x45000000)]=OpEntry(0xFFE30000);
+    // "COP1 fmt=S" must be decoded using the func field (lowermost six bits)
+    opMap[OpKey(0xFFE00000,0x46000000)]=OpEntry(0xFFE0003F);
+    // "COP1 fmt=D" must be decoded using the func field (lowermost six bits)
+    opMap[OpKey(0xFFE00000,0x46200000)]=OpEntry(0xFFE0003F);
+    // "COP1 fmt=W" must be decoded using the func field (lowermost six bits)
+    opMap[OpKey(0xFFE00000,0x46800000)]=OpEntry(0xFFE0003F);
+    // "COP1 fmt=L" must be decoded using the func field (lowermost six bits)
+    opMap[OpKey(0xFFE00000,0x46A00000)]=OpEntry(0xFFE0003F);
+
+    // "COP1X" Opcodes begin here
+    opMap[OpKey(0xFC00003F,0x4C000000)]=OpEntry(0x0000000,OpLwxc1);
+    opMap[OpKey(0xFC00003F,0x4C000001)]=OpEntry(0x0000000,OpLdxc1);
+    opMap[OpKey(0xFC00003F,0x4C000008)]=OpEntry(0x0000000,OpSwxc1);
+    opMap[OpKey(0xFC00003F,0x4C000009)]=OpEntry(0x0000000,OpSdxc1);
+    opMap[OpKey(0xFC00003F,0x4C00000F)]=OpEntry(0x0000000,OpPrefx);
+    opMap[OpKey(0xFC00003F,0x4C000020)]=OpEntry(0x0000000,OpFmadds);
+    opMap[OpKey(0xFC00003F,0x4C000021)]=OpEntry(0x0000000,OpFmaddd);
+    opMap[OpKey(0xFC00003F,0x4C000028)]=OpEntry(0x0000000,OpFmsubs);
+    opMap[OpKey(0xFC00003F,0x4C000029)]=OpEntry(0x0000000,OpFmsubd);
+    opMap[OpKey(0xFC00003F,0x4C000030)]=OpEntry(0x0000000,OpFnmadds);
+    opMap[OpKey(0xFC00003F,0x4C000031)]=OpEntry(0x0000000,OpFnmaddd);
+    opMap[OpKey(0xFC00003F,0x4C000038)]=OpEntry(0x0000000,OpFnmsubs);
+    opMap[OpKey(0xFC00003F,0x4C000039)]=OpEntry(0x0000000,OpFnmsubd);
+
+    // "Movci" opcodes begin here
+    opMap[OpKey(0xFC01003F,0x00000001)]=OpEntry(OpMovf);
+    opMap[OpKey(0xFC01003F,0x00010001)]=OpEntry(OpMovt);
+
+    // "COP1 fmt=BC" opcodes begin here
+    opMap[OpKey(0xFFE30000,0x45000000)]=OpEntry(OpBc1f);
+    opMap[OpKey(0xFFE30000,0x45010000)]=OpEntry(OpBc1t);
+    opMap[OpKey(0xFFE30000,0x45020000)]=OpEntry(OpBc1fl);
+    opMap[OpKey(0xFFE30000,0x45030000)]=OpEntry(OpBc1tl);
+
+    // "COP1 fmt=S" opcodes begin here
+    opMap[OpKey(0xFFE0003F,0x46000000)]=OpEntry(OpFadds);
+    opMap[OpKey(0xFFE0003F,0x46000001)]=OpEntry(OpFsubs);
+    opMap[OpKey(0xFFE0003F,0x46000002)]=OpEntry(OpFmuls);
+    opMap[OpKey(0xFFE0003F,0x46000003)]=OpEntry(OpFdivs);
+    opMap[OpKey(0xFFE0003F,0x46000004)]=OpEntry(OpFsqrts);
+    opMap[OpKey(0xFFE0003F,0x46000005)]=OpEntry(OpFabss);
+    opMap[OpKey(0xFFE0003F,0x46000006)]=OpEntry(OpFmovs);
+    opMap[OpKey(0xFFE0003F,0x46000007)]=OpEntry(OpFnegs);
+    opMap[OpKey(0xFFE0003F,0x46000008)]=OpEntry(OpFroundls);
+    opMap[OpKey(0xFFE0003F,0x46000009)]=OpEntry(OpFtruncls);
+    opMap[OpKey(0xFFE0003F,0x4600000A)]=OpEntry(OpFceills);
+    opMap[OpKey(0xFFE0003F,0x4600000B)]=OpEntry(OpFfloorls);
+    opMap[OpKey(0xFFE0003F,0x4600000C)]=OpEntry(OpFroundws);
+    opMap[OpKey(0xFFE0003F,0x4600000D)]=OpEntry(OpFtruncws);
+    opMap[OpKey(0xFFE0003F,0x4600000E)]=OpEntry(OpFceilws);
+    opMap[OpKey(0xFFE0003F,0x4600000F)]=OpEntry(OpFfloorws);
+    // "MOVCF.S" must be decoded using the tf bit (bit 16)
+    opMap[OpKey(0xFFE0003F,0x46000011)]=OpEntry(0xFFE1003F);
+    opMap[OpKey(0xFFE0003F,0x46000012)]=OpEntry(OpFmovzs);
+    opMap[OpKey(0xFFE0003F,0x46000013)]=OpEntry(OpFmovns);
+    opMap[OpKey(0xFFE0003F,0x46000015)]=OpEntry(OpFrecips);
+    opMap[OpKey(0xFFE0003F,0x46000016)]=OpEntry(OpFrsqrts);
+    opMap[OpKey(0xFFE0003F,0x46000021)]=OpEntry(OpFcvtds);
+    opMap[OpKey(0xFFE0003F,0x46000024)]=OpEntry(OpFcvtws);
+    opMap[OpKey(0xFFE0003F,0x46000025)]=OpEntry(OpFcvtls);
+    opMap[OpKey(0xFFE0003F,0x46000030)]=OpEntry(OpFcfs);
+    opMap[OpKey(0xFFE0003F,0x46000031)]=OpEntry(OpFcuns);
+    opMap[OpKey(0xFFE0003F,0x46000032)]=OpEntry(OpFceqs);
+    opMap[OpKey(0xFFE0003F,0x46000033)]=OpEntry(OpFcueqs);
+    opMap[OpKey(0xFFE0003F,0x46000034)]=OpEntry(OpFcolts);
+    opMap[OpKey(0xFFE0003F,0x46000035)]=OpEntry(OpFcults);
+    opMap[OpKey(0xFFE0003F,0x46000036)]=OpEntry(OpFcoles);
+    opMap[OpKey(0xFFE0003F,0x46000037)]=OpEntry(OpFcules);
+    opMap[OpKey(0xFFE0003F,0x46000038)]=OpEntry(OpFcsfs);
+    opMap[OpKey(0xFFE0003F,0x46000039)]=OpEntry(OpFcngles);
+    opMap[OpKey(0xFFE0003F,0x4600003A)]=OpEntry(OpFcseqs);
+    opMap[OpKey(0xFFE0003F,0x4600003B)]=OpEntry(OpFcngls);
+    opMap[OpKey(0xFFE0003F,0x4600003C)]=OpEntry(OpFclts);
+    opMap[OpKey(0xFFE0003F,0x4600003D)]=OpEntry(OpFcnges);
+    opMap[OpKey(0xFFE0003F,0x4600003E)]=OpEntry(OpFcles);
+    opMap[OpKey(0xFFE0003F,0x4600003F)]=OpEntry(OpFcngts);
+
+    // "COP1 fmt=D" opcodes begin here
+    opMap[OpKey(0xFFE0003F,0x46200000)]=OpEntry(OpFaddd);
+    opMap[OpKey(0xFFE0003F,0x46200001)]=OpEntry(OpFsubd);
+    opMap[OpKey(0xFFE0003F,0x46200002)]=OpEntry(OpFmuld);
+    opMap[OpKey(0xFFE0003F,0x46200003)]=OpEntry(OpFdivd);
+    opMap[OpKey(0xFFE0003F,0x46200004)]=OpEntry(OpFsqrtd);
+    opMap[OpKey(0xFFE0003F,0x46200005)]=OpEntry(OpFabsd);
+    opMap[OpKey(0xFFE0003F,0x46200006)]=OpEntry(OpFmovd);
+    opMap[OpKey(0xFFE0003F,0x46200007)]=OpEntry(OpFnegd);
+    opMap[OpKey(0xFFE0003F,0x46200008)]=OpEntry(OpFroundld);
+    opMap[OpKey(0xFFE0003F,0x46200009)]=OpEntry(OpFtruncld);
+    opMap[OpKey(0xFFE0003F,0x4620000A)]=OpEntry(OpFceilld);
+    opMap[OpKey(0xFFE0003F,0x4620000B)]=OpEntry(OpFfloorld);
+    opMap[OpKey(0xFFE0003F,0x4620000C)]=OpEntry(OpFroundwd);
+    opMap[OpKey(0xFFE0003F,0x4620000D)]=OpEntry(OpFtruncwd);
+    opMap[OpKey(0xFFE0003F,0x4620000E)]=OpEntry(OpFceilwd);
+    opMap[OpKey(0xFFE0003F,0x4620000F)]=OpEntry(OpFfloorwd);
+    // "MOVCF.D" must be decoded using the tf bit (bit 16)
+    opMap[OpKey(0xFFE0003F,0x46200011)]=OpEntry(0xFFE1003F);
+    opMap[OpKey(0xFFE0003F,0x46200012)]=OpEntry(OpFmovzd);
+    opMap[OpKey(0xFFE0003F,0x46200013)]=OpEntry(OpFmovnd);
+    opMap[OpKey(0xFFE0003F,0x46200015)]=OpEntry(OpFrecipd);
+    opMap[OpKey(0xFFE0003F,0x46200016)]=OpEntry(OpFrsqrtd);
+    opMap[OpKey(0xFFE0003F,0x46200020)]=OpEntry(OpFcvtsd);
+    opMap[OpKey(0xFFE0003F,0x46200024)]=OpEntry(OpFcvtwd);
+    opMap[OpKey(0xFFE0003F,0x46200025)]=OpEntry(OpFcvtld);
+    opMap[OpKey(0xFFE0003F,0x46200030)]=OpEntry(OpFcfd);
+    opMap[OpKey(0xFFE0003F,0x46200031)]=OpEntry(OpFcund);
+    opMap[OpKey(0xFFE0003F,0x46200032)]=OpEntry(OpFceqd);
+    opMap[OpKey(0xFFE0003F,0x46200033)]=OpEntry(OpFcueqd);
+    opMap[OpKey(0xFFE0003F,0x46200034)]=OpEntry(OpFcoltd);
+    opMap[OpKey(0xFFE0003F,0x46200035)]=OpEntry(OpFcultd);
+    opMap[OpKey(0xFFE0003F,0x46200036)]=OpEntry(OpFcoled);
+    opMap[OpKey(0xFFE0003F,0x46200037)]=OpEntry(OpFculed);
+    opMap[OpKey(0xFFE0003F,0x46200038)]=OpEntry(OpFcsfd);
+    opMap[OpKey(0xFFE0003F,0x46200039)]=OpEntry(OpFcngled);
+    opMap[OpKey(0xFFE0003F,0x4620003A)]=OpEntry(OpFcseqd);
+    opMap[OpKey(0xFFE0003F,0x4620003B)]=OpEntry(OpFcngld);
+    opMap[OpKey(0xFFE0003F,0x4620003C)]=OpEntry(OpFcltd);
+    opMap[OpKey(0xFFE0003F,0x4620003D)]=OpEntry(OpFcnged);
+    opMap[OpKey(0xFFE0003F,0x4620003E)]=OpEntry(OpFcled);
+    opMap[OpKey(0xFFE0003F,0x4620003F)]=OpEntry(OpFcngtd);
+
+    // "COP1 fmt=W" opcodes begin here
+    opMap[OpKey(0xFFE0003F,0x46800020)]=OpEntry(OpFcvtsw);
+    opMap[OpKey(0xFFE0003F,0x46800021)]=OpEntry(OpFcvtdw);
+
+    // "COP1 fmt=L" opcodes begin here
+    opMap[OpKey(0xFFE0003F,0x46A00020)]=OpEntry(OpFcvtsl);
+    opMap[OpKey(0xFFE0003F,0x46A00020)]=OpEntry(OpFcvtdl);
+
+    // "MOVCF.S" opcodes begin here
+    opMap[OpKey(0xFFE1003F,0x46000011)]=OpEntry(OpFmovfs);
+    opMap[OpKey(0xFFE1003F,0x46010011)]=OpEntry(OpFmovts);
+
+    // "MOVCF.D" opcodes begin here
+    opMap[OpKey(0xFFE1003F,0x46200011)]=OpEntry(OpFmovfd);
+    opMap[OpKey(0xFFE1003F,0x46210011)]=OpEntry(OpFmovtd);
+
+    // OpSll with rd=zero is really an OpNop
+    opMap[OpKey(0xFC00F83F,0x00000000)]=OpEntry(OpNop);
+    // OpBeq with rs=rt=zero is actually OpB
+    opMap[OpKey(0xFFFF0000,0x10000000)]=OpEntry(OpB);
+    // OpBgezal with rs=zero is actually OpBal
+    opMap[OpKey(0xFFFF0000,0x04110000)]=OpEntry(OpBal);
+    // OpJr with rs=RegRA is actually an OpRet
+    opMap[OpKey(0xFFE0003F,0x03e00008)]=OpEntry(OpRet);
+    // OpJalr with rd=RegRA is actually OpCallr
+    opMap[OpKey(0xFC00F83F,0x0000f809)]=OpEntry(OpCallr);
+    // OpAddiu with rs=zero is actually OpLi
+    opMap[OpKey(0xFFE00000,0x24000000)]=OpEntry(OpLi);
+    // OpOri with rs=zero is actually OpLiu
+    opMap[OpKey(0xFFE00000,0x34000000)]=OpEntry(OpLiu);
+    // OpAddu with rt=zero is actually an OpMovw
+    opMap[OpKey(0xFC1F003F,0x00000021)]=OpEntry(OpMovw);
+    // OpSubu with rs=zero is actually an OpNegu
+    opMap[OpKey(0xFFE0003F,0x00000023)]=OpEntry(OpNegu);
+    // OpNor with rs=zero is actually an OpNot
+    opMap[OpKey(0xFFE0003F,0x00000027)]=OpEntry(OpNot);
+
+#define RegIntS int32_t
+#define RegIntU uint32_t
+    
+#define OpDataC0(op,ctl,typ,dst,src1,src2,imm,next,emul) op2Data[op]=OpData(emul<op,Mips32 >,0,ctl,typ,dst,src1,src2,imm,next)
+#define OpDataC1(op,ctl,typ,dst,src1,src2,imm,next,emul,T1) op2Data[op]=OpData(emul<op,Mips32,T1 >,0,ctl,typ,dst,src1,src2,imm,next)
+#define OpDataC2(op,ctl,typ,dst,src1,src2,imm,next,emul,T1,T2) op2Data[op]=OpData(emul<op,Mips32,T1,T2 >,0,ctl,typ,dst,src1,src2,imm,next)
+#define OpDataC3(op,ctl,typ,dst,src1,src2,imm,next,emul,T1,T2,T3) op2Data[op]=OpData(emul<op,Mips32,T1,T2,T3 >,0,ctl,typ,dst,src1,src2,imm,next)
+#define OpDataC4(op,ctl,typ,dst,src1,src2,imm,next,emul,T1,T2,T3,T4) op2Data[op]=OpData(emul<op,Mips32,T1,T2,T3,T4 >,0,ctl,typ,dst,src1,src2,imm,next)
+#define OpDataC5(op,ctl,typ,dst,src1,src2,imm,next,emul,T1,T2,T3,T4,T5) op2Data[op]=OpData(emul<op,Mips32,T1,T2,T3,T4,T5 >,0,ctl,typ,dst,src1,src2,imm,next)
+#define OpDataC6(op,ctl,typ,dst,src1,src2,imm,next,emul,T1,T2,T3,T4,T5,T6) op2Data[op]=OpData(emul<op,Mips32,T1,T2,T3,T4,T5,T6 >,0,ctl,typ,dst,src1,src2,imm,next)
+#define OpDataC7(op,ctl,typ,dst,src1,src2,imm,next,emul,T1,T2,T3,T4,T5,T6,T7) op2Data[op]=OpData(emul<op,Mips32,T1,T2,T3,T4,T5,T6,T7 >,0,ctl,typ,dst,src1,src2,imm,next)
+#define OpDataC8(op,ctl,typ,dst,src1,src2,imm,next,emul,T1,T2,T3,T4,T5,T6,T7,T8) op2Data[op]=OpData(emul<op,Mips32,T1,T2,T3,T4,T5,T6,T7,T8 >,0,ctl,typ,dst,src1,src2,imm,next)
+
+//     OpDataX(OpJal     ,emulJump , CtlBpr, TypNop  , ArgNo  , ArgNo  , ArgNo  , ImmNo  , OpJal_);
+//     OpDataE(OpJal_    ,emulJump , CtlJal, BrOpCall, ArgRa  , ArgNo  , ArgNo  , ImmJpTg);
+
+//     OpDataX(OpJalr    ,emulJump , CtlBpr, TypNop  , ArgNo  , ArgNo  , ArgNo  , ImmNo  , OpJalr_);
+//     OpDataE(OpJalr_   ,emulJump , CtlJlr, BrOpJump, ArgRd  , ArgRs  , ArgNo  , ImmNo);
+
+    // Branches and jumps
+    brNoDSlot[OpB]=OpOB;
+    OpDataC6(OpOB      , CtlBrTg, BrOpJump , ArgNo  , ArgNo  , ArgNo  , ImmBrOf, OpInvalid , emulJump, RegIntU, SrcZ      , SrcZ      , fns::tt<RegIntS> , DestNone, NextBImm);
+    OpDataC6(OpB       , CtlPrBr, IntOpALU , ArgNo  , ArgNo  , ArgNo  , ImmNo  , OpB_      , emulJump, RegIntU, SrcZ      , SrcZ      , fns::tt<RegIntS> , DestNone, NextCont);
+    OpDataC6(OpB_      , CtlBrTg, BrOpJump , ArgNo  , ArgNo  , ArgNo  , ImmBrOf, OpInvalid , emulJump, RegIntU, SrcZ      , SrcZ      , fns::tt<RegIntS> , DestNone, NextBImm);
+    brNoDSlot[OpJ]=OpOJ;
+    OpDataC6(OpOJ      , CtlBrTg, BrOpJump , ArgNo  , ArgNo  , ArgNo  , ImmJpTg, OpInvalid , emulJump, RegIntU, SrcZ      , SrcZ      , fns::tt<RegIntS> , DestNone, NextBImm);
+    OpDataC6(OpJ       , CtlPrBr, IntOpALU , ArgNo  , ArgNo  , ArgNo  , ImmNo  , OpJ_      , emulJump, RegIntU, SrcZ      , SrcZ      , fns::tt<RegIntS> , DestNone, NextCont);
+    OpDataC6(OpJ_      , CtlBrTg, BrOpJump , ArgNo  , ArgNo  , ArgNo  , ImmJpTg, OpInvalid , emulJump, RegIntU, SrcZ      , SrcZ      , fns::tt<RegIntS> , DestNone, NextBImm);
+    brNoDSlot[OpJr]=OpOJr;
+    OpDataC6(OpOJr     , CtlBr  , BrOpJump , ArgNo  , ArgRs  , ArgNo  , ImmNo  , OpInvalid , emulJump, RegIntU, SrcZ      , SrcZ      , fns::tt<RegIntS> , DestNone, NextBReg);
+    OpDataC6(OpJr      , CtlPrBr, IntOpALU , ArgBTmp, ArgRs  , ArgNo  , ImmNo  , OpJr_     , emulJump, RegIntU, SrcZ      , SrcZ      , fns::tt<RegIntS> , DestTarg, NextCont);
+    OpDataC6(OpJr_     , CtlBr  , BrOpJump , ArgNo  , ArgBTmp, ArgNo  , ImmNo  , OpInvalid , emulJump, RegIntU, SrcZ      , SrcZ      , fns::tt<RegIntS> , DestNone, NextBReg);
+    brNoDSlot[OpCallr]=OpOCallr;
+    OpDataC6(OpOCallr  , CtlBr  , BrOpCall , ArgRa  , ArgRs  , ArgNo  , ImmNo  , OpInvalid , emulJump, RegIntU, SrcZ      , SrcZ      , fns::tt<RegIntS> , DestRetA, NextBReg);
+    OpDataC6(OpCallr   , CtlNorm, IntOpALU , ArgBTmp, ArgRs  , ArgNo  , ImmNo  , OpCallrS  , emulJump, RegIntU, SrcZ      , SrcZ      , fns::tt<RegIntS> , DestTarg, NextCont);
+    OpDataC6(OpCallrS  , CtlPrBr, IntOpALU , ArgRa  , ArgNo  , ArgNo  , ImmNo  , OpCallr_  , emulJump, RegIntU, SrcZ      , SrcZ      , fns::tt<RegIntS> , DestRetA, NextCont);
+    OpDataC6(OpCallr_  , CtlBr  , BrOpCall , ArgNo  , ArgBTmp, ArgNo  , ImmNo  , OpInvalid , emulJump, RegIntU, SrcZ      , SrcZ      , fns::tt<RegIntS> , DestNone, NextBReg);
+    brNoDSlot[OpBal]=OpOBal;
+    OpDataC6(OpOBal    , CtlBrTg, BrOpCall , ArgRa  , ArgNo  , ArgNo  , ImmBrOf, OpInvalid , emulJump, RegIntU, SrcZ      , SrcZ      , fns::tt<RegIntS> , DestRetA, NextBImm);
+    OpDataC6(OpBal     , CtlPrBr, IntOpALU , ArgRa  , ArgNo  , ArgNo  , ImmNo  , OpBal_    , emulJump, RegIntU, SrcZ      , SrcZ      , fns::tt<RegIntS> , DestRetA, NextCont);
+    OpDataC6(OpBal_    , CtlBrTg, BrOpCall , ArgNo  , ArgNo  , ArgNo  , ImmBrOf, OpInvalid , emulJump, RegIntU, SrcZ      , SrcZ      , fns::tt<RegIntS> , DestNone, NextBImm);
+    brNoDSlot[OpRet]=OpORet;
+    OpDataC6(OpORet    , CtlBr  , BrOpRet  , ArgNo  , ArgRa  , ArgNo  , ImmNo  , OpInvalid , emulJump, RegIntU, SrcZ      , SrcZ      , fns::tt<RegIntS> , DestNone, NextBReg);
+    OpDataC6(OpRet     , CtlPrBr, IntOpALU , ArgBTmp, ArgRa  , ArgNo  , ImmNo  , OpRet_    , emulJump, RegIntU, SrcZ      , SrcZ      , fns::tt<RegIntS> , DestTarg, NextCont);
+    OpDataC6(OpRet_    , CtlBr  , BrOpRet  , ArgNo  , ArgBTmp, ArgNo  , ImmNo  , OpInvalid , emulJump, RegIntU, SrcZ      , SrcZ      , fns::tt<RegIntS> , DestNone, NextBReg);
+    brNoDSlot[OpBeq]=OpOBeq;
+    OpDataC6(OpOBeq    , CtlBrTg, BrOpCond , ArgNo  , ArgRs  , ArgRt  , ImmBrOf, OpInvalid , emulJump, RegIntU, RegTypeGpr, RegTypeGpr, fns::eq<RegIntS> , DestNone, NextBImm);
+    OpDataC6(OpBeq     , CtlPrBr, IntOpALU , ArgCond, ArgRs  , ArgRt  , ImmNo  , OpBeq_    , emulJump, RegIntU, RegTypeGpr, RegTypeGpr, fns::eq<RegIntS> , DestCond, NextCont);
+    OpDataC6(OpBeq_    , CtlBrTg, BrOpCond , ArgNo  , ArgCond, ArgNo  , ImmBrOf, OpInvalid , emulJump, RegIntU, RegTypeSpc, SrcZ      , fns::ne<RegIntS> , DestNone, NextBImm);
+    brNoDSlot[OpBeql]=OpOBeql;
+    OpDataC6(OpOBeql   , CtlBrTL, BrOpCond , ArgNo  , ArgRs  , ArgRt  , ImmBrOf, OpInvalid , emulJump, RegIntU, RegTypeGpr, RegTypeGpr, fns::eq<RegIntS> , DestNone, NextBImm);
+    OpDataC6(OpBeql    , CtlPrBr, IntOpALU , ArgCond, ArgRs  , ArgRt  , ImmNo  , OpBeql_   , emulJump, RegIntU, RegTypeGpr, RegTypeGpr, fns::eq<RegIntS> , DestCond, NextAnDS);
+    OpDataC6(OpBeql_   , CtlBrTL, BrOpCond , ArgNo  , ArgCond, ArgNo  , ImmBrOf, OpInvalid , emulJump, RegIntU, RegTypeSpc, SrcZ      , fns::ne<RegIntS> , DestNone, NextBImm);
+    brNoDSlot[OpBne]=OpOBne;
+    OpDataC6(OpOBne    , CtlBrTg, BrOpCond , ArgNo  , ArgRs  , ArgRt  , ImmBrOf, OpInvalid , emulJump, RegIntU, RegTypeGpr, RegTypeGpr, fns::ne<RegIntS> , DestNone, NextBImm);
+    OpDataC6(OpBne     , CtlPrBr, IntOpALU , ArgCond, ArgRs  , ArgRt  , ImmNo  , OpBne_    , emulJump, RegIntU, RegTypeGpr, RegTypeGpr, fns::ne<RegIntS> , DestCond, NextCont);
+    OpDataC6(OpBne_    , CtlBrTg, BrOpCond , ArgNo  , ArgCond, ArgNo  , ImmBrOf, OpInvalid , emulJump, RegIntU, RegTypeSpc, SrcZ      , fns::ne<RegIntS> , DestNone, NextBImm);
+    brNoDSlot[OpBnel]=OpOBnel;
+    OpDataC6(OpOBnel   , CtlBrTL, BrOpCond , ArgNo  , ArgRs  , ArgRt  , ImmBrOf, OpInvalid , emulJump, RegIntU, RegTypeGpr, RegTypeGpr, fns::ne<RegIntS> , DestNone, NextBImm);
+    OpDataC6(OpBnel    , CtlPrBr, IntOpALU , ArgCond, ArgRs  , ArgRt  , ImmNo  , OpBnel_   , emulJump, RegIntU, RegTypeGpr, RegTypeGpr, fns::ne<RegIntS> , DestCond, NextAnDS);
+    OpDataC6(OpBnel_   , CtlBrTL, BrOpCond , ArgNo  , ArgCond, ArgNo  , ImmBrOf, OpInvalid , emulJump, RegIntU, RegTypeSpc, SrcZ      , fns::ne<RegIntS> , DestNone, NextBImm);
+    brNoDSlot[OpBlez]=OpOBlez;
+    OpDataC6(OpOBlez   , CtlBrTg, BrOpCond , ArgNo  , ArgRs  , ArgNo  , ImmBrOf, OpInvalid , emulJump, RegIntU, RegTypeGpr, SrcZ      , fns::le<RegIntS> , DestNone, NextBImm);
+    OpDataC6(OpBlez    , CtlPrBr, IntOpALU , ArgCond, ArgRs  , ArgNo  , ImmNo  , OpBlez_   , emulJump, RegIntU, RegTypeGpr, SrcZ      , fns::le<RegIntS> , DestCond, NextCont);
+    OpDataC6(OpBlez_   , CtlBrTg, BrOpCond , ArgNo  , ArgCond, ArgNo  , ImmBrOf, OpInvalid , emulJump, RegIntU, RegTypeSpc, SrcZ      , fns::ne<RegIntS> , DestNone, NextBImm);
+    brNoDSlot[OpBlezl]=OpOBlezl;
+    OpDataC6(OpOBlezl  , CtlBrTL, BrOpCond , ArgNo  , ArgRs  , ArgNo  , ImmBrOf, OpInvalid , emulJump, RegIntU, RegTypeGpr, SrcZ      , fns::le<RegIntS> , DestNone, NextBImm);
+    OpDataC6(OpBlezl   , CtlPrBr, IntOpALU , ArgCond, ArgRs  , ArgNo  , ImmNo  , OpBlezl_  , emulJump, RegIntU, RegTypeGpr, SrcZ      , fns::le<RegIntS> , DestCond, NextAnDS);
+    OpDataC6(OpBlezl_  , CtlBrTL, BrOpCond , ArgNo  , ArgCond, ArgNo  , ImmBrOf, OpInvalid , emulJump, RegIntU, RegTypeSpc, SrcZ      , fns::ne<RegIntS> , DestNone, NextBImm);
+    brNoDSlot[OpBgtz]=OpOBgtz;
+    OpDataC6(OpOBgtz   , CtlBrTg, BrOpCond , ArgNo  , ArgRs  , ArgNo  , ImmBrOf, OpInvalid , emulJump, RegIntU, RegTypeGpr, SrcZ      , fns::gt<RegIntS> , DestNone, NextBImm);
+    OpDataC6(OpBgtz    , CtlPrBr, IntOpALU , ArgCond, ArgRs  , ArgNo  , ImmNo  , OpBgtz_   , emulJump, RegIntU, RegTypeGpr, SrcZ      , fns::gt<RegIntS> , DestCond, NextCont);
+    OpDataC6(OpBgtz_   , CtlBrTg, BrOpCond , ArgNo  , ArgCond, ArgNo  , ImmBrOf, OpInvalid , emulJump, RegIntU, RegTypeSpc, SrcZ      , fns::ne<RegIntS> , DestNone, NextBImm);
+    brNoDSlot[OpBgtzl]=OpOBgtzl;
+    OpDataC6(OpOBgtzl  , CtlBrTL, BrOpCond , ArgNo  , ArgRs  , ArgNo  , ImmBrOf, OpInvalid , emulJump, RegIntU, RegTypeGpr, SrcZ      , fns::gt<RegIntS> , DestNone, NextBImm);
+    OpDataC6(OpBgtzl   , CtlPrBr, IntOpALU , ArgCond, ArgRs  , ArgNo  , ImmNo  , OpBgtzl_  , emulJump, RegIntU, RegTypeGpr, SrcZ      , fns::gt<RegIntS> , DestCond, NextAnDS);
+    OpDataC6(OpBgtzl_  , CtlBrTL, BrOpCond , ArgNo  , ArgCond, ArgNo  , ImmBrOf, OpInvalid , emulJump, RegIntU, RegTypeSpc, SrcZ      , fns::ne<RegIntS> , DestNone, NextBImm);
+    brNoDSlot[OpBltz]=OpOBltz;
+    OpDataC6(OpOBltz   , CtlBrTg, BrOpCond , ArgNo  , ArgRs  , ArgNo  , ImmBrOf, OpInvalid , emulJump, RegIntU, RegTypeGpr, SrcZ      , fns::lt<RegIntS> , DestNone, NextBImm);
+    OpDataC6(OpBltz    , CtlPrBr, IntOpALU , ArgCond, ArgRs  , ArgNo  , ImmNo  , OpBltz_   , emulJump, RegIntU, RegTypeGpr, SrcZ      , fns::lt<RegIntS> , DestCond, NextCont);
+    OpDataC6(OpBltz_   , CtlBrTg, BrOpCond , ArgNo  , ArgCond, ArgNo  , ImmBrOf, OpInvalid , emulJump, RegIntU, RegTypeSpc, SrcZ      , fns::ne<RegIntS> , DestNone, NextBImm);
+    brNoDSlot[OpBltzl]=OpOBltzl;
+    OpDataC6(OpOBltzl  , CtlBrTL, BrOpCond , ArgNo  , ArgRs  , ArgNo  , ImmBrOf, OpInvalid , emulJump, RegIntU, RegTypeGpr, SrcZ      , fns::lt<RegIntS> , DestNone, NextBImm);
+    OpDataC6(OpBltzl   , CtlPrBr, IntOpALU , ArgCond, ArgRs  , ArgNo  , ImmNo  , OpBltzl_  , emulJump, RegIntU, RegTypeGpr, SrcZ      , fns::lt<RegIntS> , DestCond, NextAnDS);
+    OpDataC6(OpBltzl_  , CtlBrTL, BrOpCond , ArgNo  , ArgCond, ArgNo  , ImmBrOf, OpInvalid , emulJump, RegIntU, RegTypeSpc, SrcZ      , fns::ne<RegIntS> , DestNone, NextBImm);
+    brNoDSlot[OpBgez]=OpOBgez;
+    OpDataC6(OpOBgez   , CtlBrTg, BrOpCond , ArgNo  , ArgRs  , ArgNo  , ImmBrOf, OpInvalid , emulJump, RegIntU, RegTypeGpr, SrcZ      , fns::ge<RegIntS> , DestNone, NextBImm);
+    OpDataC6(OpBgez    , CtlPrBr, IntOpALU , ArgCond, ArgRs  , ArgNo  , ImmNo  , OpBgez_   , emulJump, RegIntU, RegTypeGpr, SrcZ      , fns::ge<RegIntS> , DestCond, NextCont);
+    OpDataC6(OpBgez_   , CtlBrTg, BrOpCond , ArgNo  , ArgCond, ArgNo  , ImmBrOf, OpInvalid , emulJump, RegIntU, RegTypeSpc, SrcZ      , fns::ne<RegIntS> , DestNone, NextBImm);
+    brNoDSlot[OpBgezl]=OpOBgezl;
+    OpDataC6(OpOBgezl  , CtlBrTL, BrOpCond , ArgNo  , ArgRs  , ArgNo  , ImmBrOf, OpInvalid , emulJump, RegIntU, RegTypeGpr, SrcZ      , fns::ge<RegIntS> , DestNone, NextBImm);
+    OpDataC6(OpBgezl   , CtlPrBr, IntOpALU , ArgCond, ArgRs  , ArgNo  , ImmNo  , OpBgezl_  , emulJump, RegIntU, RegTypeGpr, SrcZ      , fns::ge<RegIntS> , DestCond, NextAnDS);
+    OpDataC6(OpBgezl_  , CtlBrTL, BrOpCond , ArgNo  , ArgCond, ArgNo  , ImmBrOf, OpInvalid , emulJump, RegIntU, RegTypeSpc, SrcZ      , fns::ne<RegIntS> , DestNone, NextBImm);
+    brNoDSlot[OpBc1f]=OpOBc1f;
+    OpDataC6(OpOBc1f   , CtlBrTg, IntOpALU , ArgNo  , ArgFbcc, ArgNo  , ImmBrOf, OpInvalid , emulJump, RegIntU, RegTypeCtl, SrcZ      , fns::eq<uint32_t>, DestNone, NextBImm);
+    OpDataC6(OpBc1f    , CtlPrBr, IntOpALU , ArgCond, ArgFbcc, ArgNo  , ImmNo  , OpBc1f_   , emulJump, RegIntU, RegTypeCtl, SrcZ      , fns::eq<uint32_t>, DestCond, NextCont);
+    OpDataC6(OpBc1f_   , CtlBrTg, BrOpCond , ArgNo  , ArgCond, ArgNo  , ImmBrOf, OpInvalid , emulJump, RegIntU, RegTypeSpc, SrcZ      , fns::ne<uint32_t>, DestNone, NextBImm);
+    brNoDSlot[OpBc1fl]=OpOBc1fl;
+    OpDataC6(OpOBc1fl  , CtlBrTg, IntOpALU , ArgNo  , ArgFbcc, ArgNo  , ImmBrOf, OpInvalid , emulJump, RegIntU, RegTypeCtl, SrcZ      , fns::eq<uint32_t>, DestNone, NextBImm);
+    OpDataC6(OpBc1fl   , CtlPrBr, IntOpALU , ArgCond, ArgFbcc, ArgNo  , ImmNo  , OpBc1fl_  , emulJump, RegIntU, RegTypeCtl, SrcZ      , fns::eq<uint32_t>, DestCond, NextAnDS);
+    OpDataC6(OpBc1fl_  , CtlBrTg, BrOpCond , ArgNo  , ArgCond, ArgNo  , ImmBrOf, OpInvalid , emulJump, RegIntU, RegTypeSpc, SrcZ      , fns::ne<uint32_t>, DestNone, NextBImm);
+    brNoDSlot[OpBc1t]=OpOBc1t;
+    OpDataC6(OpOBc1t   , CtlBrTg, IntOpALU , ArgNo  , ArgFbcc, ArgNo  , ImmBrOf, OpInvalid , emulJump, RegIntU, RegTypeCtl, SrcZ      , fns::ne<uint32_t>, DestNone, NextBImm);
+    OpDataC6(OpBc1t    , CtlPrBr, IntOpALU , ArgCond, ArgFbcc, ArgNo  , ImmNo  , OpBc1t_   , emulJump, RegIntU, RegTypeCtl, SrcZ      , fns::ne<uint32_t>, DestCond, NextCont);
+    OpDataC6(OpBc1t_   , CtlBrTg, BrOpCond , ArgNo  , ArgCond, ArgNo  , ImmBrOf, OpInvalid , emulJump, RegIntU, RegTypeSpc, SrcZ      , fns::ne<uint32_t>, DestNone, NextBImm);
+    brNoDSlot[OpBc1tl]=OpOBc1tl;
+    OpDataC6(OpOBc1tl  , CtlBrTg, IntOpALU , ArgNo  , ArgFbcc, ArgNo  , ImmBrOf, OpInvalid , emulJump, RegIntU, RegTypeCtl, SrcZ      , fns::ne<uint32_t>, DestNone, NextBImm);
+    OpDataC6(OpBc1tl   , CtlPrBr, IntOpALU , ArgCond, ArgFbcc, ArgNo  , ImmNo  , OpBc1tl_  , emulJump, RegIntU, RegTypeCtl, SrcZ      , fns::ne<uint32_t>, DestCond, NextAnDS);
+    OpDataC6(OpBc1tl_  , CtlBrTg, BrOpCond , ArgNo  , ArgCond, ArgNo  , ImmBrOf, OpInvalid , emulJump, RegIntU, RegTypeSpc, SrcZ      , fns::ne<uint32_t>, DestNone, NextBImm);
+    brNoDSlot[OpBltzal]=OpOBltzal;
+    OpDataC6(OpOBltzal , CtlBrTg, BrOpCCall, ArgRa  , ArgRs  , ArgNo  , ImmBrOf, OpInvalid , emulJump, RegIntU, RegTypeGpr, SrcZ      , fns::lt<RegIntS> , DestRetA, NextBImm);
+    OpDataC6(OpBltzal  , CtlNorm, IntOpALU , ArgCond, ArgRs  , ArgNo  , ImmNo  , OpBltzalS , emulJump, RegIntU, RegTypeGpr, SrcZ      , fns::lt<RegIntS> , DestCond, NextCont);
+    OpDataC6(OpBltzalS , CtlPrBr, IntOpALU , ArgRa  , ArgNo  , ArgNo  , ImmNo  , OpBltzal_ , emulJump, RegIntU, SrcZ      , SrcZ      , fns::tt<RegIntS> , DestRetA, NextCont);
+    OpDataC6(OpBltzal_ , CtlBrTg, BrOpCCall, ArgNo  , ArgCond, ArgNo  , ImmBrOf, OpInvalid , emulJump, RegIntU, RegTypeSpc, SrcZ      , fns::ne<RegIntS> , DestNone, NextBImm);
+    brNoDSlot[OpBltzall]=OpOBltzall;
+    OpDataC6(OpOBltzall, CtlBrTL, BrOpCCall, ArgRa  , ArgRs  , ArgNo  , ImmBrOf, OpInvalid , emulJump, RegIntU, RegTypeGpr, SrcZ      , fns::lt<RegIntS> , DestRetA, NextBImm);
+    OpDataC6(OpBltzall , CtlNorm, IntOpALU , ArgCond, ArgRs  , ArgNo  , ImmNo  , OpBltzallS, emulJump, RegIntU, RegTypeGpr, SrcZ      , fns::lt<RegIntS> , DestCond, NextCont);
+    OpDataC6(OpBltzallS, CtlPrBr, IntOpALU , ArgRa  , ArgCond, ArgNo  , ImmNo  , OpBltzall_, emulJump, RegIntU, RegTypeSpc, SrcZ      , fns::ne<RegIntS> , DestRetA, NextAnDS);
+    OpDataC6(OpBltzall_, CtlBrTL, BrOpCCall, ArgNo  , ArgCond, ArgNo  , ImmBrOf, OpInvalid , emulJump, RegIntU, RegTypeSpc, SrcZ      , fns::ne<RegIntS> , DestNone, NextBImm);
+    brNoDSlot[OpBgezal]=OpOBgezal;
+    OpDataC6(OpOBgezal , CtlBrTg, BrOpCCall, ArgRa  , ArgRs  , ArgNo  , ImmBrOf, OpInvalid , emulJump, RegIntU, RegTypeGpr, SrcZ      , fns::ge<RegIntS> , DestRetA, NextBImm);
+    OpDataC6(OpBgezal  , CtlNorm, IntOpALU , ArgCond, ArgRs  , ArgNo  , ImmNo  , OpBgezalS , emulJump, RegIntU, RegTypeGpr, SrcZ      , fns::ge<RegIntS> , DestCond, NextCont);
+    OpDataC6(OpBgezalS , CtlPrBr, IntOpALU , ArgRa  , ArgNo  , ArgNo  , ImmNo  , OpBgezal_ , emulJump, RegIntU, SrcZ      , SrcZ      , fns::tt<RegIntS> , DestRetA, NextCont);
+    OpDataC6(OpBgezal_ , CtlBrTg, BrOpCCall, ArgNo  , ArgCond, ArgNo  , ImmBrOf, OpInvalid , emulJump, RegIntU, RegTypeSpc, SrcZ      , fns::ne<RegIntS> , DestNone, NextBImm);
+    brNoDSlot[OpBgezall]=OpOBgezall;
+    OpDataC6(OpOBgezall, CtlBrTL, BrOpCCall, ArgRa  , ArgRs  , ArgNo  , ImmBrOf, OpInvalid , emulJump, RegIntU, RegTypeGpr, SrcZ      , fns::ge<RegIntS> , DestRetA, NextBImm);
+    OpDataC6(OpBgezall , CtlNorm, IntOpALU , ArgCond, ArgRs  , ArgNo  , ImmNo  , OpBgezallS, emulJump, RegIntU, RegTypeGpr, SrcZ      , fns::ge<RegIntS> , DestCond, NextCont);
+    OpDataC6(OpBgezallS, CtlPrBr, IntOpALU , ArgRa  , ArgCond, ArgNo  , ImmNo  , OpBgezall_, emulJump, RegIntU, RegTypeSpc, SrcZ      , fns::ne<RegIntS> , DestRetA, NextAnDS);
+    OpDataC6(OpBgezall_, CtlBrTL, BrOpCCall, ArgNo  , ArgCond, ArgNo  , ImmBrOf, OpInvalid , emulJump, RegIntU, RegTypeSpc, SrcZ      , fns::ne<RegIntS> , DestNone, NextBImm);
+    // Syscalls and traps
+    OpDataC0(OpSyscall , CtlNorm, BrOpTrap , ArgNo  , ArgNo  , ArgNo  , ImmExCd, OpInvalid , emulSyscl);
+    OpDataC0(OpBreak   , CtlNorm, BrOpTrap , ArgNo  , ArgNo  , ArgNo  , ImmExCd, OpInvalid , emulBreak);
+    // Conditional traps
+    OpDataC3(OpTge     , CtlNorm, BrOpCTrap, ArgNo  , ArgRs  , ArgRt  , ImmTrCd, OpInvalid , emulTcnd , RegIntS, fns::ge<RegIntS> , true);
+    OpDataC3(OpTgeu    , CtlNorm, BrOpCTrap, ArgNo  , ArgRs  , ArgRt  , ImmTrCd, OpInvalid , emulTcnd , RegIntU, fns::ge<RegIntU> , true);
+    OpDataC3(OpTlt     , CtlNorm, BrOpCTrap, ArgNo  , ArgRs  , ArgRt  , ImmTrCd, OpInvalid , emulTcnd , RegIntS, fns::lt<RegIntS> , true);
+    OpDataC3(OpTltu    , CtlNorm, BrOpCTrap, ArgNo  , ArgRs  , ArgRt  , ImmTrCd, OpInvalid , emulTcnd , RegIntU, fns::lt<RegIntU> , true);
+    OpDataC3(OpTeq     , CtlNorm, BrOpCTrap, ArgNo  , ArgRs  , ArgRt  , ImmTrCd, OpInvalid , emulTcnd , RegIntS, fns::eq<RegIntS> , true);
+    OpDataC3(OpTne     , CtlNorm, BrOpCTrap, ArgNo  , ArgRs  , ArgRt  , ImmTrCd, OpInvalid , emulTcnd , RegIntS, fns::ne<RegIntS> , true);
+    OpDataC3(OpTgei    , CtlNorm, BrOpCTrap, ArgNo  , ArgRs  , ArgNo  , ImmSExt, OpInvalid , emulTcnd , RegIntS, fns::ge<RegIntS> , false);
+    OpDataC3(OpTgeiu   , CtlNorm, BrOpCTrap, ArgNo  , ArgRs  , ArgNo  , ImmSExt, OpInvalid , emulTcnd , RegIntU, fns::ge<RegIntU> , false);
+    OpDataC3(OpTlti    , CtlNorm, BrOpCTrap, ArgNo  , ArgRs  , ArgNo  , ImmSExt, OpInvalid , emulTcnd , RegIntS, fns::lt<RegIntS> , false);
+    OpDataC3(OpTltiu   , CtlNorm, BrOpCTrap, ArgNo  , ArgRs  , ArgNo  , ImmSExt, OpInvalid , emulTcnd , RegIntU, fns::lt<RegIntU> , false);
+    OpDataC3(OpTeqi    , CtlNorm, BrOpCTrap, ArgNo  , ArgRs  , ArgNo  , ImmSExt, OpInvalid , emulTcnd , RegIntS, fns::eq<RegIntS> , false);
+    OpDataC3(OpTnei    , CtlNorm, BrOpCTrap, ArgNo  , ArgRs  , ArgNo  , ImmSExt, OpInvalid , emulTcnd , RegIntS, fns::ne<RegIntS> , false);
+    // Conditional moves
+    OpDataC3(OpMovz    , CtlNorm, IntOpALU , ArgRd  , ArgRs  , ArgRt  , ImmNo  , OpInvalid , emulMovc , RegIntS  , RegIntS  ,RegTypeGpr);
+    OpDataC3(OpMovn    , CtlNorm, IntOpALU , ArgRd  , ArgRs  , ArgRt  , ImmNo  , OpInvalid , emulMovc , RegIntS  , RegIntS  ,RegTypeGpr);
+    OpDataC3(OpMovf    , CtlNorm, IntOpALU , ArgRd  , ArgRs  , ArgFCSR, ImmFbcc, OpInvalid , emulMovc , uint32_t , RegIntS  ,RegTypeGpr);
+    OpDataC3(OpMovt    , CtlNorm, IntOpALU , ArgRd  , ArgRs  , ArgFCSR, ImmFbcc, OpInvalid , emulMovc , uint32_t , RegIntS  ,RegTypeGpr);
+    OpDataC3(OpFmovzs  , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgRt  , ImmNo  , OpInvalid , emulMovc , RegIntS  , float32_t,RegTypeFpr);
+    OpDataC3(OpFmovns  , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgRt  , ImmNo  , OpInvalid , emulMovc , RegIntS  , float32_t,RegTypeFpr);
+    OpDataC3(OpFmovfs  , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgFCSR, ImmFbcc, OpInvalid , emulMovc , uint32_t , float32_t,RegTypeFpr);
+    OpDataC3(OpFmovts  , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgFCSR, ImmFbcc, OpInvalid , emulMovc , uint32_t , float32_t,RegTypeFpr);
+    OpDataC3(OpFmovzd  , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgRt  , ImmNo  , OpInvalid , emulMovc , RegIntS  , float64_t,RegTypeFpr);
+    OpDataC3(OpFmovnd  , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgRt  , ImmNo  , OpInvalid , emulMovc , RegIntS  , float64_t,RegTypeFpr);
+    OpDataC3(OpFmovfd  , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgFCSR, ImmFbcc, OpInvalid , emulMovc , uint32_t , float64_t,RegTypeFpr);
+    OpDataC3(OpFmovtd  , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgFCSR, ImmFbcc, OpInvalid , emulMovc , uint32_t , float64_t,RegTypeFpr);
+    // Load/Store
+    OpDataC5(OpLb      , CtlNorm, MemOpLd1 , ArgRt  , ArgRs  , ArgNo  , ImmSExt, OpInvalid , emulLd, RegIntS, RegIntU, RegIntS, int8_t  , RegTypeGpr);
+    OpDataC5(OpLbu     , CtlNorm, MemOpLd1 , ArgRt  , ArgRs  , ArgNo  , ImmSExt, OpInvalid , emulLd, RegIntS, RegIntU, RegIntU, uint8_t , RegTypeGpr);
+    OpDataC5(OpLh      , CtlNorm, MemOpLd2 , ArgRt  , ArgRs  , ArgNo  , ImmSExt, OpInvalid , emulLd, RegIntS, RegIntU, RegIntS, int16_t , RegTypeGpr);
+    OpDataC5(OpLhu     , CtlNorm, MemOpLd2 , ArgRt  , ArgRs  , ArgNo  , ImmSExt, OpInvalid , emulLd, RegIntS, RegIntU, RegIntU, uint16_t, RegTypeGpr);
+    OpDataC5(OpLw      , CtlNorm, MemOpLd4 , ArgRt  , ArgRs  , ArgNo  , ImmSExt, OpInvalid , emulLd, RegIntS, RegIntU, RegIntS, int32_t , RegTypeGpr);
+    OpDataC5(OpLwu     , CtlNorm, MemOpLd4 , ArgRt  , ArgRs  , ArgNo  , ImmSExt, OpInvalid , emulLd, RegIntS, RegIntU, RegIntU, uint32_t, RegTypeGpr);
+    OpDataC5(OpLd      , CtlNorm, MemOpLd8 , ArgRt  , ArgRs  , ArgNo  , ImmSExt, OpInvalid , emulLd, RegIntS, RegIntU, RegIntS, int64_t , RegTypeGpr);
+    OpDataC5(OpSb      , CtlNorm, MemOpSt1 , ArgNo  , ArgRs  , ArgRt  , ImmSExt, OpInvalid , emulSt, RegIntS, RegIntU, RegIntU, uint8_t , RegTypeGpr);
+    OpDataC5(OpSh      , CtlNorm, MemOpSt2 , ArgNo  , ArgRs  , ArgRt  , ImmSExt, OpInvalid , emulSt, RegIntS, RegIntU, RegIntU, uint16_t, RegTypeGpr);
+    OpDataC5(OpSw      , CtlNorm, MemOpSt4 , ArgNo  , ArgRs  , ArgRt  , ImmSExt, OpInvalid , emulSt, RegIntS, RegIntU, RegIntU, uint32_t, RegTypeGpr);
+    OpDataC5(OpSd      , CtlNorm, MemOpSt8 , ArgNo  , ArgRs  , ArgRt  , ImmSExt, OpInvalid , emulSt, RegIntS, RegIntU, RegIntU, uint64_t, RegTypeGpr);
+
+    OpDataC2(OpLwl     , CtlNorm, MemOpLd4 , ArgRt  , ArgRs  , ArgNo  , ImmSExt, OpInvalid , emulLdSt , RegIntS, RegIntU);
+    OpDataC2(OpLwr     , CtlNorm, MemOpLd4 , ArgRt  , ArgRs  , ArgNo  , ImmSExt, OpInvalid , emulLdSt , RegIntS, RegIntU);
+    OpDataC2(OpLdl     , CtlNorm, MemOpLd8 , ArgRt  , ArgRs  , ArgNo  , ImmSExt, OpInvalid , emulLdSt , RegIntS, RegIntU);
+    OpDataC2(OpLdr     , CtlNorm, MemOpLd8 , ArgRt  , ArgRs  , ArgNo  , ImmSExt, OpInvalid , emulLdSt , RegIntS, RegIntU);
+    OpDataC5(OpSwl     , CtlNorm, MemOpSt4 , ArgNo  , ArgRs  , ArgRt  , ImmSExt, OpInvalid , emulSt, RegIntS, RegIntU, int32_t, uint32_t, RegTypeGpr);
+    OpDataC5(OpSwr     , CtlNorm, MemOpSt4 , ArgNo  , ArgRs  , ArgRt  , ImmSExt, OpInvalid , emulSt, RegIntS, RegIntU, int32_t, uint32_t, RegTypeGpr);
+    OpDataC5(OpSdl     , CtlNorm, MemOpSt8 , ArgNo  , ArgRs  , ArgRt  , ImmSExt, OpInvalid , emulSt, RegIntS, RegIntU, RegIntU, uint64_t, RegTypeGpr);
+    OpDataC5(OpSdr     , CtlNorm, MemOpSt8 , ArgNo  , ArgRs  , ArgRt  , ImmSExt, OpInvalid , emulSt, RegIntS, RegIntU, RegIntU, uint64_t, RegTypeGpr);
+
+    OpDataC5(OpLwc1    , CtlNorm, MemOpLd4 , ArgFt  , ArgRs  , ArgNo  , ImmSExt, OpInvalid , emulLd, RegIntS, RegIntU, uint32_t, uint32_t, RegTypeFpr);
+    OpDataC5(OpLdc1    , CtlNorm, MemOpLd8 , ArgFt  , ArgRs  , ArgNo  , ImmSExt, OpInvalid , emulLd, RegIntS, RegIntU, uint64_t, uint64_t, RegTypeFpr);
+    OpDataC5(OpLwxc1   , CtlNorm, MemOpLd4 , ArgFd  , ArgRs  , ArgRt  , ImmNo  , OpInvalid , emulLd, RegIntS, RegIntU, uint32_t, uint32_t, RegTypeFpr);
+    OpDataC5(OpLdxc1   , CtlNorm, MemOpLd8 , ArgFd  , ArgRs  , ArgRt  , ImmNo  , OpInvalid , emulLd, RegIntS, RegIntU, uint64_t, uint64_t, RegTypeFpr);
+    OpDataC5(OpSwc1    , CtlNorm, MemOpSt4 , ArgNo  , ArgRs  , ArgFt  , ImmSExt, OpInvalid , emulSt, RegIntS, RegIntU, uint32_t, uint32_t, RegTypeFpr);
+    OpDataC5(OpSdc1    , CtlNorm, MemOpSt8 , ArgNo  , ArgRs  , ArgFt  , ImmSExt, OpInvalid , emulSt, RegIntS, RegIntU, uint64_t, uint64_t, RegTypeFpr);
+    // These are two-part ops: calc addr, then store
+    OpDataC4(OpSwxc1   , CtlNorm, IntOpALU , ArgTmp , ArgRs  , ArgRt  , ImmNo  , OpSwxc1_  , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeGpr, std::plus<RegIntU>);
+    OpDataC5(OpSwxc1_  , CtlNorm, MemOpSt4 , ArgNo  , ArgTmp , ArgFs  , ImmNo  , OpInvalid , emulSt   , RegIntS, RegIntU, uint32_t, uint32_t, RegTypeFpr);
+    OpDataC4(OpSdxc1   , CtlNorm, IntOpALU , ArgTmp , ArgRs  , ArgRt  , ImmNo  , OpSdxc1_  , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeGpr, std::plus<RegIntU>);
+    OpDataC5(OpSdxc1_  , CtlNorm, MemOpSt8 , ArgNo  , ArgTmp , ArgFs  , ImmNo  , OpInvalid , emulSt   , RegIntS, RegIntU, uint64_t, uint64_t, RegTypeFpr);
+    // Load-linked and store-conditional sync ops
+    OpDataC5(OpLl      , CtlNorm, MemOpLl  , ArgRt  , ArgRs  , ArgNo  , ImmSExt, OpInvalid , emulLd, RegIntS, RegIntU, RegIntS , int32_t , RegTypeGpr);
+    OpDataC2(OpSc      , CtlNorm, MemOpSc  , ArgRt  , ArgRs  , ArgRt  , ImmSExt, OpInvalid , emulLdSt , RegIntS, RegIntU);
+
+    // Constant transfers
+    OpDataC4(OpLui     , CtlNorm, IntOpALU , ArgRt  , ArgNo  , ArgNo  , ImmLui , OpInvalid , emulAlu  , SrcI      , SrcZ      , RegTypeGpr, fns::project1st_identity<RegIntS>);
+    OpDataC4(OpLi      , CtlNorm, IntOpALU , ArgRt  , ArgNo  , ArgNo  , ImmSExt, OpInvalid , emulAlu  , SrcI      , SrcZ      , RegTypeGpr, fns::project1st_identity<RegIntS>);
+    OpDataC4(OpLiu     , CtlNorm, IntOpALU , ArgRt  , ArgNo  , ArgNo  , ImmZExt, OpInvalid , emulAlu  , SrcI      , SrcZ      , RegTypeGpr, fns::project1st_identity<RegIntS>);
+    // Shifts
+    OpDataC4(OpSll     , CtlNorm, IntOpALU , ArgRd  , ArgRt  , ArgNo  , ImmSh  , OpInvalid , emulAlu  , RegTypeGpr, SrcI      , RegTypeGpr, fns::shift_left<uint32_t>);
+    OpDataC4(OpSrl     , CtlNorm, IntOpALU , ArgRd  , ArgRt  , ArgNo  , ImmSh  , OpInvalid , emulAlu  , RegTypeGpr, SrcI      , RegTypeGpr, fns::shift_right<uint32_t>);
+    OpDataC4(OpSra     , CtlNorm, IntOpALU , ArgRd  , ArgRt  , ArgNo  , ImmSh  , OpInvalid , emulAlu  , RegTypeGpr, SrcI      , RegTypeGpr, fns::shift_right<int32_t>);
+    OpDataC4(OpSllv    , CtlNorm, IntOpALU , ArgRd  , ArgRt  , ArgRs  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeGpr, fns::shift_left<uint32_t>);
+    OpDataC4(OpSrlv    , CtlNorm, IntOpALU , ArgRd  , ArgRt  , ArgRs  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeGpr, fns::shift_right<uint32_t>);
+    OpDataC4(OpSrav    , CtlNorm, IntOpALU , ArgRd  , ArgRt  , ArgRs  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeGpr, fns::shift_right<int32_t>);
+    OpDataC4(OpDsll    , CtlNorm, IntOpALU , ArgRd  , ArgRt  , ArgNo  , ImmSh  , OpInvalid , emulAlu  , RegTypeGpr, SrcI      , RegTypeGpr, fns::shift_left<uint64_t>);
+    OpDataC4(OpDsrl    , CtlNorm, IntOpALU , ArgRd  , ArgRt  , ArgNo  , ImmSh  , OpInvalid , emulAlu  , RegTypeGpr, SrcI      , RegTypeGpr, fns::shift_right<uint64_t>);
+    OpDataC4(OpDsra    , CtlNorm, IntOpALU , ArgRd  , ArgRt  , ArgNo  , ImmSh  , OpInvalid , emulAlu  , RegTypeGpr, SrcI      , RegTypeGpr, fns::shift_right<int64_t>);
+    OpDataC4(OpDsll32  , CtlNorm, IntOpALU , ArgRd  , ArgRt  , ArgNo  , ImmSh32, OpInvalid , emulAlu  , RegTypeGpr, SrcI      , RegTypeGpr, fns::shift_left<uint64_t>);
+    OpDataC4(OpDsrl32  , CtlNorm, IntOpALU , ArgRd  , ArgRt  , ArgNo  , ImmSh32, OpInvalid , emulAlu  , RegTypeGpr, SrcI      , RegTypeGpr, fns::shift_right<uint64_t>);
+    OpDataC4(OpDsra32  , CtlNorm, IntOpALU , ArgRd  , ArgRt  , ArgNo  , ImmSh32, OpInvalid , emulAlu  , RegTypeGpr, SrcI      , RegTypeGpr, fns::shift_right<int64_t>);
+    OpDataC4(OpDsllv   , CtlNorm, IntOpALU , ArgRd  , ArgRt  , ArgRs  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeGpr, fns::shift_left<uint64_t>);
+    OpDataC4(OpDsrlv   , CtlNorm, IntOpALU , ArgRd  , ArgRt  , ArgRs  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeGpr, fns::shift_right<uint64_t>);
+    OpDataC4(OpDsrav   , CtlNorm, IntOpALU , ArgRd  , ArgRt  , ArgRs  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeGpr, fns::shift_right<int64_t>);
+    // Logical
+    OpDataC4(OpAnd     , CtlNorm, IntOpALU , ArgRd  , ArgRs  , ArgRt  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeGpr, fns::bitwise_and<RegIntU>);
+    OpDataC4(OpOr      , CtlNorm, IntOpALU , ArgRd  , ArgRs  , ArgRt  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeGpr, fns::bitwise_or<RegIntU>);
+    OpDataC4(OpXor     , CtlNorm, IntOpALU , ArgRd  , ArgRs  , ArgRt  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeGpr, fns::bitwise_xor<RegIntU>);
+    OpDataC4(OpNor     , CtlNorm, IntOpALU , ArgRd  , ArgRs  , ArgRt  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeGpr, fns::bitwise_nor<RegIntU>);
+    OpDataC4(OpAndi    , CtlNorm, IntOpALU , ArgRt  , ArgRs  , ArgNo  , ImmZExt, OpInvalid , emulAlu  , RegTypeGpr, SrcI      , RegTypeGpr, fns::bitwise_and<RegIntU>);
+    OpDataC4(OpOri     , CtlNorm, IntOpALU , ArgRt  , ArgRs  , ArgNo  , ImmZExt, OpInvalid , emulAlu  , RegTypeGpr, SrcI      , RegTypeGpr, fns::bitwise_or<RegIntU>);
+    OpDataC4(OpXori    , CtlNorm, IntOpALU , ArgRt  , ArgRs  , ArgNo  , ImmZExt, OpInvalid , emulAlu  , RegTypeGpr, SrcI      , RegTypeGpr, fns::bitwise_xor<RegIntU>);
+    OpDataC4(OpNot     , CtlNorm, IntOpALU , ArgRd  , ArgRt  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, SrcZ      , RegTypeGpr, fns::project1st_bitwise_not<RegIntU>);
+   // Arithmetic
+    OpDataC4(OpAdd     , CtlNorm, IntOpALU , ArgRd  , ArgRs  , ArgRt  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeGpr, std::plus<int32_t>);
+    OpDataC4(OpAddu    , CtlNorm, IntOpALU , ArgRd  , ArgRs  , ArgRt  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeGpr, std::plus<int32_t>);
+    OpDataC4(OpSub     , CtlNorm, IntOpALU , ArgRd  , ArgRs  , ArgRt  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeGpr, std::minus<int32_t>);
+    OpDataC4(OpSubu    , CtlNorm, IntOpALU , ArgRd  , ArgRs  , ArgRt  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeGpr, std::minus<int32_t>);
+    OpDataC4(OpAddi    , CtlNorm, IntOpALU , ArgRt  , ArgRs  , ArgNo  , ImmSExt, OpInvalid , emulAlu  , RegTypeGpr, SrcI      , RegTypeGpr, std::plus<int32_t>);
+    OpDataC4(OpAddiu   , CtlNorm, IntOpALU , ArgRt  , ArgRs  , ArgNo  , ImmSExt, OpInvalid , emulAlu  , RegTypeGpr, SrcI      , RegTypeGpr, std::plus<int32_t>);
+    OpDataC4(OpNegu    , CtlNorm, IntOpALU , ArgRd  , ArgRt  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, SrcZ      , RegTypeGpr, fns::project1st_neg<int32_t>);
+    OpDataC4(OpMult    , CtlNorm, IntOpMul , ArgLo  , ArgRs  , ArgRt  , ImmNo  , OpMult_   , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeSpc, std::multiplies<int32_t>);
+    OpDataC4(OpMult_   , CtlNorm, IntOpALU , ArgHi  , ArgRs  , ArgRt  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeSpc, fns::multiplies_hi<int32_t>);
+    OpDataC4(OpMultu   , CtlNorm, IntOpMul , ArgLo  , ArgRs  , ArgRt  , ImmNo  , OpMultu_  , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeSpc, std::multiplies<uint32_t>);
+    OpDataC4(OpMultu_  , CtlNorm, IntOpALU , ArgHi  , ArgRs  , ArgRt  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeSpc, fns::multiplies_hi<uint32_t>);
+    OpDataC4(OpDiv     , CtlNorm, IntOpDiv , ArgLo  , ArgRs  , ArgRt  , ImmNo  , OpDiv_    , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeSpc, std::divides<int32_t>);
+    OpDataC4(OpDiv_    , CtlNorm, IntOpALU , ArgHi  , ArgRs  , ArgRt  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeSpc, std::modulus<int32_t>);
+    OpDataC4(OpDivu    , CtlNorm, IntOpDiv , ArgLo  , ArgRs  , ArgRt  , ImmNo  , OpDivu_   , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeSpc, std::divides<uint32_t>);
+    OpDataC4(OpDivu_   , CtlNorm, IntOpALU , ArgHi  , ArgRs  , ArgRt  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeSpc, std::modulus<uint32_t>);
+    // Moves
+    OpDataC4(OpMovw    , CtlNorm, IntOpALU , ArgRd  , ArgRs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, SrcZ      , RegTypeGpr, fns::project1st_identity<int32_t>);
+    OpDataC4(OpMfhi    , CtlNorm, IntOpALU , ArgRd  , ArgHi  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeSpc, SrcZ      , RegTypeGpr, fns::project1st_identity<RegIntS>);
+    OpDataC4(OpMflo    , CtlNorm, IntOpALU , ArgRd  , ArgLo  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeSpc, SrcZ      , RegTypeGpr, fns::project1st_identity<RegIntS>);
+    OpDataC4(OpMthi    , CtlNorm, IntOpALU , ArgHi  , ArgRs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, SrcZ      , RegTypeSpc, fns::project1st_identity<RegIntS>);
+    OpDataC4(OpMtlo    , CtlNorm, IntOpALU , ArgLo  , ArgRs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, SrcZ      , RegTypeSpc, fns::project1st_identity<RegIntS>);
+    OpDataC4(OpMfc1    , CtlNorm, IntOpALU , ArgRt  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeGpr, fns::project1st_identity<int32_t>);
+    OpDataC4(OpCfc1    , CtlNorm, IntOpALU , ArgRt  , ArgFCs , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeCtl, SrcZ      , RegTypeGpr, fns::project1st_identity<int32_t>);
+    OpDataC4(OpMtc1    , CtlNorm, IntOpALU , ArgFs  , ArgRt  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, SrcZ      , RegTypeFpr, fns::project1st_identity<int32_t>);
+    OpDataC4(OpCtc1    , CtlNorm, IntOpALU , ArgFCs , ArgRt  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, SrcZ      , RegTypeCtl, fns::project1st_identity<int32_t>);
+    // Integer comparisons
+    OpDataC4(OpSlti    , CtlNorm, IntOpALU , ArgRt  , ArgRs  , ArgNo  , ImmSExt, OpInvalid , emulAlu  , RegTypeGpr, SrcI      , RegTypeGpr, std::less<RegIntS>);
+    OpDataC4(OpSltiu   , CtlNorm, IntOpALU , ArgRt  , ArgRs  , ArgNo  , ImmSExt, OpInvalid , emulAlu  , RegTypeGpr, SrcI      , RegTypeGpr, std::less<RegIntU>);
+    OpDataC4(OpSlt     , CtlNorm, IntOpALU , ArgRd  , ArgRs  , ArgRt  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeGpr, std::less<RegIntS>);
+    OpDataC4(OpSltu    , CtlNorm, IntOpALU , ArgRd  , ArgRs  , ArgRt  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeGpr, std::less<RegIntU>);
+    // Floating-point comparisons
+    OpDataC4(OpFcfs    , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float32_t, false, false, false, false>));
+    OpDataC4(OpFcuns   , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float32_t, false, false, false, true >));
+    OpDataC4(OpFceqs   , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float32_t, false, false, true , false>));
+    OpDataC4(OpFcueqs  , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float32_t, false, false, true , true >));
+    OpDataC4(OpFcolts  , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float32_t, false, true , false, false>));
+    OpDataC4(OpFcults  , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float32_t, false, true , false, true >));
+    OpDataC4(OpFcoles  , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float32_t, false, true , true , false>));
+    OpDataC4(OpFcules  , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float32_t, false, true , true , true >));
+    OpDataC4(OpFcsfs   , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float32_t, true , false, false, false>));
+    OpDataC4(OpFcngles , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float32_t, true , false, false, true >));
+    OpDataC4(OpFcseqs  , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float32_t, true , false, true , false>));
+    OpDataC4(OpFcngls  , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float32_t, true , false, true , true >));
+    OpDataC4(OpFclts   , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float32_t, true , true , false, false>));
+    OpDataC4(OpFcnges  , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float32_t, true , true , false, true >));
+    OpDataC4(OpFcles   , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float32_t, true , true , true , false>));
+    OpDataC4(OpFcngts  , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float32_t, true , true , true , true >));
+    OpDataC4(OpFcfd    , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float64_t, false, false, false, false>));
+    OpDataC4(OpFcund   , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float64_t, false, false, false, true >));
+    OpDataC4(OpFceqd   , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float64_t, false, false, true , false>));
+    OpDataC4(OpFcueqd  , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float64_t, false, false, true , true >));
+    OpDataC4(OpFcoltd  , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float64_t, false, true , false, false>));
+    OpDataC4(OpFcultd  , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float64_t, false, true , false, true >));
+    OpDataC4(OpFcoled  , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float64_t, false, true , true , false>));
+    OpDataC4(OpFculed  , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float64_t, false, true , true , true >));
+    OpDataC4(OpFcsfd   , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float64_t, true , false, false, false>));
+    OpDataC4(OpFcngled , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float64_t, true , false, false, true >));
+    OpDataC4(OpFcseqd  , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float64_t, true , false, true , false>));
+    OpDataC4(OpFcngld  , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float64_t, true , false, true , true >));
+    OpDataC4(OpFcltd   , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float64_t, true , true , false, false>));
+    OpDataC4(OpFcnged  , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float64_t, true , true , false, true >));
+    OpDataC4(OpFcled   , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float64_t, true , true , true , false>));
+    OpDataC4(OpFcngtd  , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float64_t, true , true , true , true >));
+    // Floating-point arithmetic
+    OpDataC4(OpFmovs   , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, fns::project1st_identity<float32_t>);
+    OpDataC4(OpFsqrts  , CtlNorm, FpOpDiv  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, fns::project1st_sqrt<float32_t>);
+    OpDataC4(OpFabss   , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, fns::project1st_abs<float32_t>);
+    OpDataC4(OpFnegs   , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, fns::project1st_neg<float32_t>);
+    OpDataC4(OpFrecips , CtlNorm, FpOpDiv  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, fns::project1st_recip<float32_t>);
+    OpDataC4(OpFrsqrts , CtlNorm, FpOpDiv  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, fns::project1st_sqrt_recip<float32_t>);
+    OpDataC4(OpFmovd   , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, fns::project1st_identity<float64_t>);
+    OpDataC4(OpFsqrtd  , CtlNorm, FpOpDiv  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, fns::project1st_sqrt<float64_t>);
+    OpDataC4(OpFabsd   , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, fns::project1st_abs<float64_t>);
+    OpDataC4(OpFnegd   , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, fns::project1st_neg<float64_t>);
+    OpDataC4(OpFrecipd , CtlNorm, FpOpDiv  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, fns::project1st_recip<float64_t>);
+    OpDataC4(OpFrsqrtd , CtlNorm, FpOpDiv  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, fns::project1st_sqrt_recip<float64_t>);
+    OpDataC4(OpFadds   , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, std::plus<float32_t>);
+    OpDataC4(OpFsubs   , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, std::minus<float32_t>);
+    OpDataC4(OpFmuls   , CtlNorm, FpOpMul  , ArgFd  , ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, std::multiplies<float32_t>);
+    OpDataC4(OpFdivs   , CtlNorm, FpOpDiv  , ArgFd  , ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, std::divides<float32_t>);
+    OpDataC4(OpFaddd   , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, std::plus<float64_t>);
+    OpDataC4(OpFsubd   , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, std::minus<float64_t>);
+    OpDataC4(OpFmuld   , CtlNorm, FpOpMul  , ArgFd  , ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, std::multiplies<float64_t>);
+    OpDataC4(OpFdivd   , CtlNorm, FpOpDiv  , ArgFd  , ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, std::divides<float64_t>);
+    // These are two-part FP arithmetic ops: multiply, then add/subtract
+    OpDataC4(OpFmadds  , CtlNorm, FpOpMul  , ArgFTmp, ArgFs  , ArgFt  , ImmNo  , OpFmadds_ , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, std::multiplies<float32_t>);
+    OpDataC4(OpFmadds_ , CtlNorm, FpOpALU  , ArgFd  , ArgFTmp, ArgFr  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, std::plus<float32_t>);
+    OpDataC4(OpFmaddd  , CtlNorm, FpOpMul  , ArgFTmp, ArgFs  , ArgFt  , ImmNo  , OpFmaddd_ , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, std::multiplies<float64_t>);
+    OpDataC4(OpFmaddd_ , CtlNorm, FpOpALU  , ArgFd  , ArgFTmp, ArgFr  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, std::plus<float64_t>);
+    OpDataC4(OpFmsubs  , CtlNorm, FpOpMul  , ArgFTmp, ArgFs  , ArgFt  , ImmNo  , OpFmsubs_ , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, std::multiplies<float32_t>);
+    OpDataC4(OpFmsubs_ , CtlNorm, FpOpALU  , ArgFd  , ArgFTmp, ArgFr  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, std::minus<float32_t>);
+    OpDataC4(OpFmsubd  , CtlNorm, FpOpMul  , ArgFTmp, ArgFs  , ArgFt  , ImmNo  , OpFmsubd_ , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, std::multiplies<float64_t>);
+    OpDataC4(OpFmsubd_ , CtlNorm, FpOpALU  , ArgFd  , ArgFTmp, ArgFr  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, std::minus<float64_t>);
+    OpDataC4(OpFnmadds , CtlNorm, FpOpMul  , ArgFTmp, ArgFs  , ArgFt  , ImmNo  , OpFnmadds_, emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, std::multiplies<float32_t>);
+    OpDataC4(OpFnmadds_, CtlNorm, FpOpALU  , ArgFd  , ArgFTmp, ArgFr  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, fns::plus_neg<float32_t>);
+    OpDataC4(OpFnmaddd , CtlNorm, FpOpMul  , ArgFTmp, ArgFs  , ArgFt  , ImmNo  , OpFnmaddd_, emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, std::multiplies<float64_t>);
+    OpDataC4(OpFnmaddd_, CtlNorm, FpOpALU  , ArgFd  , ArgFTmp, ArgFr  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, fns::plus_neg<float64_t>);
+    OpDataC4(OpFnmsubs , CtlNorm, FpOpMul  , ArgFTmp, ArgFs  , ArgFt  , ImmNo  , OpFnmsubs_, emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, std::multiplies<float32_t>);
+    OpDataC4(OpFnmsubs_, CtlNorm, FpOpALU  , ArgFd  , ArgFTmp, ArgFr  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, fns::minus_neg<float32_t>);
+    OpDataC4(OpFnmsubd , CtlNorm, FpOpMul  , ArgFTmp, ArgFs  , ArgFt  , ImmNo  , OpFnmsubd_, emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, std::multiplies<float64_t>);
+    OpDataC4(OpFnmsubd_, CtlNorm, FpOpALU  , ArgFd  , ArgFTmp, ArgFr  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, fns::minus_neg<float64_t>);
+    // Floating-point format conversion
+    OpDataC4(OpFroundls, CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float32_t,int64_t,FE_TONEAREST>));
+    OpDataC4(OpFtruncls, CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float32_t,int64_t,FE_TOWARDZERO>));
+    OpDataC4(OpFceills , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float32_t,int64_t,FE_UPWARD>));
+    OpDataC4(OpFfloorls, CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float32_t,int64_t,FE_DOWNWARD>));
+    OpDataC4(OpFroundws, CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float32_t,int32_t,FE_TONEAREST>));
+    OpDataC4(OpFtruncws, CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float32_t,int32_t,FE_TOWARDZERO>));
+    OpDataC4(OpFceilws , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float32_t,int32_t,FE_UPWARD>));
+    OpDataC4(OpFfloorws, CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float32_t,int32_t,FE_DOWNWARD>));
+    OpDataC4(OpFroundld, CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float64_t,int64_t,FE_TONEAREST>));
+    OpDataC4(OpFtruncld, CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float64_t,int64_t,FE_TOWARDZERO>));
+    OpDataC4(OpFceilld , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float64_t,int64_t,FE_UPWARD>));
+    OpDataC4(OpFfloorld, CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float64_t,int64_t,FE_DOWNWARD>));
+    OpDataC4(OpFroundwd, CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float64_t,int32_t,FE_TONEAREST>));
+    OpDataC4(OpFtruncwd, CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float64_t,int32_t,FE_TOWARDZERO>));
+    OpDataC4(OpFceilwd , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float64_t,int32_t,FE_UPWARD>));
+    OpDataC4(OpFfloorwd, CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float64_t,int32_t,FE_DOWNWARD>));
+    OpDataC4(OpFcvtds  , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgFCSR, ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeCtl, RegTypeFpr, typeof(mips_float_convert<float32_t,uint32_t,float64_t>));
+    OpDataC4(OpFcvtws  , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgFCSR, ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeCtl, RegTypeFpr, typeof(mips_float_convert<float32_t,uint32_t,int32_t>));
+    OpDataC4(OpFcvtls  , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgFCSR, ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeCtl, RegTypeFpr, typeof(mips_float_convert<float32_t,uint32_t,int64_t>));
+    OpDataC4(OpFcvtsd  , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgFCSR, ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeCtl, RegTypeFpr, typeof(mips_float_convert<float64_t,uint32_t,float32_t>));
+    OpDataC4(OpFcvtwd  , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgFCSR, ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeCtl, RegTypeFpr, typeof(mips_float_convert<float64_t,uint32_t,int32_t>));
+    OpDataC4(OpFcvtld  , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgFCSR, ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeCtl, RegTypeFpr, typeof(mips_float_convert<float64_t,uint32_t,int64_t>));
+    OpDataC4(OpFcvtsw  , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgFCSR, ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeCtl, RegTypeFpr, typeof(mips_float_convert<int32_t,uint32_t,float32_t>));
+    OpDataC4(OpFcvtdw  , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgFCSR, ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeCtl, RegTypeFpr, typeof(mips_float_convert<int32_t,uint32_t,float64_t>));
+    OpDataC4(OpFcvtsl  , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgFCSR, ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeCtl, RegTypeFpr, typeof(mips_float_convert<int64_t,uint32_t,float32_t>));
+    OpDataC4(OpFcvtdl  , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgFCSR, ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeCtl, RegTypeFpr, typeof(mips_float_convert<int64_t,uint32_t,float64_t>));
+
+    OpDataC0(OpNop     , CtlNorm, TypNop   , ArgNo  , ArgNo  , ArgNo  , ImmNo  , OpInvalid , emulNop  );
+
+#undef OpDataC0
+#undef OpDataC1
+#undef OpDataC2
+#undef OpDataC2
+#undef OpDataC3
+#undef OpDataC4
+#undef OpDataC5
+#undef RegIntS
+#undef RegIntU
+
+  }
+
+} // End of namespace Mips
+
+void decodeTrace(ThreadContext *context, VAddr iaddr){
+  Mips::dcdInst.decodeTrace(context,iaddr);
 }

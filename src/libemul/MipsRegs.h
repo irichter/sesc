@@ -41,7 +41,8 @@ namespace Mips {
     RegS8, // 30
     RegFP     = RegS8,
     RegRA, // 31
-    RegTmp, // Temporary GPR for implementing micro-ops
+    RegTmp,  // Temporary GPR for implementing multi-uop non-branches
+    RegBTmp, // Temporary GPR for implementing multi-uop branches
     GprNameUb,
     // Floating-point registers
     FprNameLb = RegTypeFpr,
@@ -85,6 +86,8 @@ namespace Mips {
     RegFC31   = FcrNameLb+31,
     RegFCSR   = RegFC31, // FPU (COP1) control register 31 is the "FPU Control and Status Register" (FCSR)
     FcrNameUb,
+    FccNameLb = FcrNameUb,
+    FccNameUb = FccNameLb+8,
     // Special registers
     SpcNameLb = RegTypeSpc,
     RegHi     = SpcNameLb,
@@ -99,12 +102,66 @@ namespace Mips {
     SpcNameUb,
   };
 
-  template<typename T>
+  template<CpuMode mode,typename T>
+  inline T getRegCtl(const ThreadContext *context, RegName name){
+    I(isCtlName(name));
+    if(name==static_cast<RegName>(RegFCSR)){
+      I(sizeof(T)==sizeof(uint32_t));
+      const uint32_t *ptr=static_cast<const uint32_t *>(context->getReg(static_cast<RegName>(RegFCSR)));
+      uint32_t retVal=(*ptr)&0x17FFFFFF;
+      for(int fcc=FccNameLb;fcc!=FccNameUb;fcc++)
+        if(*static_cast<const bool *>(context->getReg(static_cast<RegName>(fcc))))
+          retVal|=(1<<(23+(fcc-FccNameLb)+(fcc!=FccNameLb)));
+      if(retVal!=*ptr)
+        fail("FCSR lookup not matching fcc lookups\n");
+      return T(retVal);
+    }
+    I(name>=static_cast<RegName>(FccNameLb));
+    I(name<static_cast<RegName>(FccNameUb));
+    const T *ptr=static_cast<const T *>(context->getReg(name));
+    I((*ptr==0)||(*ptr==1));
+//#if (defined DEBUG)
+      uint32_t mask=(1<<(23+(name-FccNameLb)+(name!=static_cast<RegName>(FccNameLb))));
+      const uint32_t *tst=static_cast<const uint32_t *>(context->getReg(static_cast<RegName>(RegFCSR)));
+      if(bool(*ptr)!=bool((*tst)&mask))
+        fail("Fcc lookup not matching FCSR lookup\n");
+//#endif
+    return *ptr;
+  }
+
+  template<CpuMode mode,typename T>
+  inline void setRegCtl(ThreadContext *context, RegName name, T val){
+    I(isCtlName(name));
+    if(name==static_cast<RegName>(RegFCSR)){
+      I(sizeof(T)==sizeof(uint32_t));
+      uint32_t *ptr=static_cast<uint32_t *>(context->getReg(name));
+      *ptr=uint32_t(val);
+      for(int fcc=FccNameLb;fcc!=FccNameUb;fcc++){
+        bool *fccptr=static_cast<bool *>(context->getReg(static_cast<RegName>(fcc)));
+        *fccptr=(uint32_t(val)&(1<<(23+(fcc-FccNameLb)+(fcc!=FccNameLb))));
+      }
+    }else{
+      I(name>=static_cast<RegName>(FccNameLb));
+      I(name<static_cast<RegName>(FccNameUb));
+      I((val==0)||(val==1));
+      *(static_cast<T *>(context->getReg(name)))=val;
+//#if (defined DEBUG)
+      uint32_t mask=(1<<(23+(name-FccNameLb)+(name!=static_cast<RegName>(FccNameLb))));
+      uint32_t *ptr=static_cast<uint32_t *>(context->getReg(static_cast<RegName>(RegFCSR)));
+      if(val)
+        *ptr|=mask;
+      else
+        *ptr&=~mask;
+//#endif
+    }
+  }
+  
+  template<CpuMode mode,typename T>
   inline T getReg(const ThreadContext *context, RegName name){
     I(!isFprName(name));
     I(static_cast<MipsRegName>(name)!=RegJunk);
     //    I(static_cast<MipsRegName>(name)!=RegZero);
-   const T *ptr=static_cast<const T *>(context->getReg(name));
+    const T *ptr=static_cast<const T *>(context->getReg(name));
     switch(sizeof(T)){
     case 8:
       I(context->getMode()==Mips64);
@@ -114,10 +171,14 @@ namespace Mips {
       I((context->getMode()==Mips64)||!(*(ptr+(__BYTE_ORDER!=__BIG_ENDIAN))));
       return *(ptr+(__BYTE_ORDER==__BIG_ENDIAN));
     } break;
+    default:
+      fail("getReg with type width of %d\n",sizeof(T));
+      break;
     }
+    return 0;
   }
   
-  template<typename T>
+  template<CpuMode mode,typename T>
   inline void setReg(ThreadContext *context, RegName name, T val){
     I(!isFprName(name));
     I(static_cast<MipsRegName>(name)!=RegJunk);
@@ -130,13 +191,23 @@ namespace Mips {
       break;
     case 4: {
       *(ptr+(__BYTE_ORDER==__BIG_ENDIAN))=val;
-      I(getReg<T>(context,name)==val);
+#if (defined DEBUG)
+      T chk=getReg<mode,T>(context,name);
+      I(chk==val);
+#endif
       I(static_cast<uint32_t>(*static_cast<uint64_t *>(context->getReg(name)))==static_cast<uint32_t>(val));
+    } break;
+    case 1: {
+      setReg<mode,int32_t>(context,name,int8_t(val));
+#if (defined DEBUG)
+      T chk=getReg<mode,T>(context,name);
+      I(chk==val);
+#endif
     } break;
     }
   }
   
-  template<typename T, CpuMode M>
+  template<CpuMode mode, typename T>
   inline T getRegFp(const ThreadContext *context, RegName name){
     I(isFprName(name));
     switch(sizeof(T)){
@@ -146,21 +217,21 @@ namespace Mips {
     } break;
     case 4:
       I(__FLOAT_WORD_ORDER==__BYTE_ORDER);
-      switch(M){
+      switch(mode){
+      case Mips64: {
+	const T *ptr=static_cast<const T *>(context->getReg(name));
+        return *(ptr+(__BYTE_ORDER==__BIG_ENDIAN));
+      } break;
       case Mips32: {
         bool isOdd=static_cast<bool>(name&1);
 	const T *ptr=static_cast<const T *>(context->getReg(static_cast<RegName>(name^isOdd)));
         return *(ptr+(isOdd^(__BYTE_ORDER==__BIG_ENDIAN)));
       } break;
-      case Mips64: {
-	const T *ptr=static_cast<const T *>(context->getReg(name));
-        return *(ptr+(__BYTE_ORDER==__BIG_ENDIAN));
-      } break;
       }
     }
   }
   
-  template<typename T, CpuMode M>
+  template<CpuMode mode, typename T>
   inline void setRegFp(ThreadContext *context, RegName name, T val){
     I(isFprName(name));
     switch(sizeof(T)){
@@ -170,20 +241,68 @@ namespace Mips {
     } break;
     case 4:
       I(__FLOAT_WORD_ORDER==__BYTE_ORDER);
-      switch(M){
+      switch(mode){
+      case Mips64: {
+	T *ptr=static_cast<T *>(context->getReg(name));
+        *(ptr+(__BYTE_ORDER==__BIG_ENDIAN))=val;
+      } break;
       case Mips32: {
         bool isOdd=static_cast<bool>(name&1);
 	T *ptr=static_cast<T *>(context->getReg(static_cast<RegName>(name^isOdd)));
         *(ptr+(isOdd^(__BYTE_ORDER==__BIG_ENDIAN)))=val;
       } break;
-      case Mips64: {
-	T *ptr=static_cast<T *>(context->getReg(name));
-        *(ptr+(__BYTE_ORDER==__BIG_ENDIAN))=val;
-      } break;
       }
     }
   }
   
+  template<CpuMode mode, typename T, RegName RTyp>
+  inline void setRegAny(ThreadContext *context, RegName name, T val){
+    if((RTyp!=RegTypeDyn)&&(getRegType(RTyp)!=getRegType(name)))
+      fail("RTyp and name mismatch in getRegAny\n");
+    I((RTyp==RegTypeDyn)||(getRegType(RTyp)==getRegType(name)));
+    if(isGprName(RTyp)||isSpcName(RTyp)){
+      return setReg<mode,T>(context,name,val);
+    }else if(isFprName(RTyp)){
+      return setRegFp<mode,T>(context,name,val);
+    }else if(isCtlName(RTyp)){
+      return setRegCtl<mode,T>(context,name,val);
+    }
+    I(RTyp==RegTypeDyn);
+    if(isGprName(name)||isSpcName(name)){
+      return setReg<mode,T>(context,name,val);
+    }else if(isFprName(name)){
+      return setRegFp<mode,T>(context,name,val);
+    }else if(isCtlName(name)){
+      return setRegCtl<mode,T>(context,name,val);
+    }else{
+      fail("RTyp is Dyn and name is unknown in getRegAny\n");
+    }
+  }
+  template<CpuMode mode, typename T, RegName RTyp>
+  inline T getRegAny(const ThreadContext *context, RegName name){
+    if((RTyp!=RegTypeDyn)&&(getRegType(RTyp)!=getRegType(name)))
+      fail("RTyp (0x%03x) and name (0x%03x) mismatch in getRegAny\n",RTyp,name);
+    I((RTyp==RegTypeDyn)||(getRegType(RTyp)==getRegType(name)));
+    if(isGprName(RTyp)||isSpcName(RTyp)){
+      return getReg<mode,T>(context,name);
+    }else if(isFprName(RTyp)){
+      return getRegFp<mode,T>(context,name);
+    }else if(isCtlName(RTyp)){
+      return getRegCtl<mode,T>(context,name);
+    }
+    I(RTyp==RegTypeDyn);
+    if(isGprName(name)||isSpcName(name)){
+      return getReg<mode,T>(context,name);
+    }else if(isFprName(name)){
+      return getRegFp<mode,T>(context,name);
+    }else if(isCtlName(name)){
+      return getRegCtl<mode,T>(context,name);
+    }else{
+      fail("RTyp is Dyn and name is unknown in getRegAny\n");
+    }
+    return 0;
+  }
+
 }
 
 #endif // !(defined MIPS_REGS__H)

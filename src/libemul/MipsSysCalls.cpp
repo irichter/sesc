@@ -57,7 +57,7 @@ namespace Mips {
   void sysCall32_waitpid(InstDesc *inst, ThreadContext *context);
   void sysCall32_link(InstDesc *inst, ThreadContext *context);
   void sysCall32_unlink(InstDesc *inst, ThreadContext *context);
-  void sysCall32_execve(InstDesc *inst, ThreadContext *context);
+  InstDesc *sysCall32_execve(InstDesc *inst, ThreadContext *context);
   void sysCall32_chdir(InstDesc *inst, ThreadContext *context);
   void sysCall32_time(InstDesc *inst, ThreadContext *context);
   void sysCall32_mknod(InstDesc *inst, ThreadContext *context);
@@ -256,14 +256,15 @@ namespace Mips {
 
 } // namespace Mips
 
-void mipsSysCall(InstDesc *inst, ThreadContext *context){
-  uint32_t sysCallNum;
+InstDesc *mipsSysCall(InstDesc *inst, ThreadContext *context){
+  context->updIAddr(inst->aupdate,1);
+  uint32_t sysCallNum=0;
   switch(context->getMode()){
   case NoCpuMode:
     fail("mipsSysCall: Should never execute in NoCpuMode\n");
     break;
   case Mips32:
-    sysCallNum=Mips::getReg<uint32_t>(context,static_cast<RegName>(Mips::RegV0));
+    sysCallNum=Mips::getReg<Mips32,uint32_t>(context,static_cast<RegName>(Mips::RegV0));
     break;
   case Mips64:
     fail("mipsSysCall: Mips64 system calls not implemented yet\n");
@@ -281,7 +282,7 @@ void mipsSysCall(InstDesc *inst, ThreadContext *context){
   case 4008: Mips::sysCall32_creat(inst,context); break;
   case 4009: Mips::sysCall32_link(inst,context); break;
   case 4010: Mips::sysCall32_unlink(inst,context); break;
-  case 4011: Mips::sysCall32_execve(inst,context); break;
+  case 4011: return Mips::sysCall32_execve(inst,context);
   case 4012: Mips::sysCall32_chdir(inst,context); break;
   case 4013: Mips::sysCall32_time(inst,context); break;
   case 4014: Mips::sysCall32_mknod(inst,context); break;
@@ -492,7 +493,7 @@ void mipsSysCall(InstDesc *inst, ThreadContext *context){
   case 4219: Mips::sysCall32_getdents64(inst,context); break;
   case 4220: Mips::sysCall32_fcntl64(inst,context); break;
   default:
-    fail("Unknown MIPS syscall %d at 0x%08x\n",sysCallNum,inst->addr);
+    fail("Unknown MIPS syscall %d at 0x%08x\n",sysCallNum,context->getIAddr());
   }
 #if (defined DEBUG_SYSCALLS)
   if(Mips::getReg<uint32_t>(context,static_cast<RegName>(Mips::RegA3))){
@@ -507,6 +508,7 @@ void mipsSysCall(InstDesc *inst, ThreadContext *context){
     }
   }
 #endif
+  return inst;
 }
 
 // This class helps extract function parameters for substitutions (e.g. in subs.cpp)
@@ -534,30 +536,30 @@ class Mips32FuncArgs{
 };
 
 int32_t Mips32FuncArgs::getW(void){
-  int32_t retVal;
+  int32_t retVal=0xDEADBEEF;
   I((curPos%sizeof(int32_t))==0);
   if(curPos<16){
-    retVal=Mips::getReg<int32_t>(myContext,static_cast<RegName>(Mips::RegA0+curPos/sizeof(retVal)));
+    retVal=Mips::getReg<Mips32,int32_t>(myContext,static_cast<RegName>(Mips::RegA0+curPos/sizeof(retVal)));
   }else{
-    myContext->readMem(Mips::getReg<uint32_t>(myContext,static_cast<RegName>(Mips::RegSP))+curPos,retVal);
+    myContext->readMem(Mips::getReg<Mips32,uint32_t>(myContext,static_cast<RegName>(Mips::RegSP))+curPos,retVal);
   }
   curPos+=sizeof(retVal);
   return retVal;
 }
 int64_t Mips32FuncArgs::getL(void){
-  int64_t retVal;
+  int64_t retVal=0xDEADBEEF;
   I((curPos%sizeof(int32_t))==0);
   // Align current position                  
   if(curPos%sizeof(retVal)!=0)
     curPos+=sizeof(int32_t);
   I(curPos%sizeof(retVal)==0);
   if(curPos<16){
-    retVal=Mips::getReg<int32_t>(myContext,static_cast<RegName>(Mips::RegA0+curPos/sizeof(int32_t)));
+    retVal=Mips::getReg<Mips32,int32_t>(myContext,static_cast<RegName>(Mips::RegA0+curPos/sizeof(int32_t)));
     retVal=(retVal<<32);
     I(!(retVal&0xffffffff));
-    retVal|=Mips::getReg<int32_t>(myContext,static_cast<RegName>(Mips::RegA0+curPos/sizeof(int32_t)+1));
+    retVal|=Mips::getReg<Mips32,int32_t>(myContext,static_cast<RegName>(Mips::RegA0+curPos/sizeof(int32_t)+1));
   }else{
-    myContext->readMem(Mips::getReg<uint32_t>(myContext,static_cast<RegName>(Mips::RegSP))+curPos,retVal);
+    myContext->readMem(Mips::getReg<Mips32,uint32_t>(myContext,static_cast<RegName>(Mips::RegSP))+curPos,retVal);
   }
   curPos+=sizeof(retVal);
   return retVal;
@@ -566,7 +568,7 @@ int64_t Mips32FuncArgs::getL(void){
 namespace Mips {
 
   static VAddr  sysCodeAddr=AddrSpacPageSize;
-  static size_t sysCodeSize=4*sizeof(uint32_t);
+  static size_t sysCodeSize=6*sizeof(uint32_t);
 
   void initSystem(ThreadContext *context){
     AddressSpace *addrSpace=context->getAddressSpace();
@@ -581,10 +583,14 @@ namespace Mips {
     context->writeMem<uint32_t>(sysCodeAddr+2*sizeof(uint32_t),0x24020000+4193);
     // Syscall
     context->writeMem<uint32_t>(sysCodeAddr+3*sizeof(uint32_t),0x0000000C);
+    // Unconditional branch to itself 
+    context->writeMem<uint32_t>(sysCodeAddr+4*sizeof(uint32_t),0x1000ffff);
+    // Delay slot nop
+    context->writeMem<uint32_t>(sysCodeAddr+5*sizeof(uint32_t),0x00000000);
     addrSpace->protectSegment(sysCodeAddr,sysCodeSize,true,false,true);
     // Set RegSys to zero. It is used by system call functions to indicate
     // that a signal mask has been already saved to the stack and needs to be restored
-    setReg<uint32_t>(context,static_cast<RegName>(RegSys),0);    
+    setReg<Mips32,uint32_t>(context,static_cast<RegName>(RegSys),0);    
   }
 
   void createStack(ThreadContext *context){
@@ -601,7 +607,7 @@ namespace Mips {
     context->setStack(stackStart,stackStart+stackSize);
     switch(context->getMode()){
     case Mips32:
-      setReg<uint32_t>(context,static_cast<RegName>(RegSP),stackStart+stackSize);
+      setReg<Mips32,uint32_t>(context,static_cast<RegName>(RegSP),stackStart+stackSize);
       break;
     default:
       I(0);
@@ -610,7 +616,7 @@ namespace Mips {
 
   void setProgArgs(ThreadContext *context, int argc, char **argv, int envc, char **envp){
     I(context->getMode()==Mips32);
-    uint32_t regSP=getReg<uint32_t>(context,static_cast<RegName>(RegSP));
+    uint32_t regSP=getReg<Mips32,uint32_t>(context,static_cast<RegName>(RegSP));
     // We will push arg and env string pointer arrays later, with nulls at end
     VAddr envVAddrs[envc+1];
     I(sizeof(envVAddrs)==(envc+1)*sizeof(VAddr));
@@ -646,20 +652,20 @@ namespace Mips {
     int32_t argcVal=argc;
     regSP-=sizeof(argcVal);
     context->writeMem(regSP,argcVal);
-    setReg<uint32_t>(context,static_cast<RegName>(RegSP),regSP);
+    setReg<Mips32,uint32_t>(context,static_cast<RegName>(RegSP),regSP);
   }
   void sysCall32SetErr(ThreadContext *context, int32_t err){
-    setReg(context,static_cast<RegName>(RegA3),(int32_t)1);
-    setReg(context,static_cast<RegName>(RegV0),err);
+    setReg<Mips32,int32_t>(context,static_cast<RegName>(RegA3),(int32_t)1);
+    setReg<Mips32,int32_t>(context,static_cast<RegName>(RegV0),err);
   }
   void sysCall32SetRet(ThreadContext *context,int32_t ret){
-    setReg(context,static_cast<RegName>(RegA3),(int32_t)0);
-    setReg(context,static_cast<RegName>(RegV0),ret);
+    setReg<Mips32,int32_t>(context,static_cast<RegName>(RegA3),(int32_t)0);
+    setReg<Mips32,int32_t>(context,static_cast<RegName>(RegV0),ret);
   }
   void sysCall32SetRet2(ThreadContext *context,int32_t ret1, int32_t ret2){
-    setReg(context,static_cast<RegName>(RegA3),(int32_t)0);
-    setReg(context,static_cast<RegName>(RegV0),ret1);
-    setReg(context,static_cast<RegName>(RegV1),ret2);
+    setReg<Mips32,int32_t>(context,static_cast<RegName>(RegA3),(int32_t)0);
+    setReg<Mips32,int32_t>(context,static_cast<RegName>(RegV0),ret1);
+    setReg<Mips32,int32_t>(context,static_cast<RegName>(RegV1),ret2);
   }
 
   int sigFromLocal(SignalID sig){
@@ -715,21 +721,21 @@ namespace Mips {
   void pushSignalMask(ThreadContext *context, SignalSet &mask){
     Mips32_k_sigset_t appmask;
     sigMaskFromLocal(appmask,mask);
-    VAddr sp=Mips::getReg<uint32_t>(context,static_cast<RegName>(Mips::RegSP))-sizeof(appmask);
+    VAddr sp=Mips::getReg<Mips32,uint32_t>(context,static_cast<RegName>(Mips::RegSP))-sizeof(appmask);
     context->writeMem(sp,appmask);
-    Mips::setReg<uint32_t>(context,static_cast<RegName>(Mips::RegSP),sp);
-    setReg<uint32_t>(context,static_cast<RegName>(RegSys),1);
+    setReg<Mips32,uint32_t>(context,static_cast<RegName>(RegSP),sp);
+    setReg<Mips32,uint32_t>(context,static_cast<RegName>(RegSys),1);
   }
 
   void popSignalMask(ThreadContext *context){
-    uint32_t pop=getReg<uint32_t>(context,static_cast<RegName>(RegSys));
+    uint32_t pop=getReg<Mips32,uint32_t>(context,static_cast<RegName>(RegSys));
     if(pop){
-      setReg<uint32_t>(context,static_cast<RegName>(RegSys),0);    
+      setReg<Mips32,uint32_t>(context,static_cast<RegName>(RegSys),0);    
       Mips32_k_sigset_t appmask;
-      VAddr sp=getReg<uint32_t>(context,static_cast<RegName>(RegSP));
+      VAddr sp=getReg<Mips32,uint32_t>(context,static_cast<RegName>(RegSP));
       context->readMem(sp,appmask);
       sp+=sizeof(appmask);
-      setReg<uint32_t>(context,static_cast<RegName>(RegSP),sp);    
+      setReg<Mips32,uint32_t>(context,static_cast<RegName>(RegSP),sp);    
       SignalSet simmask;
       sigMaskToLocal(appmask,simmask);
       context->setSignalMask(simmask);
@@ -759,10 +765,10 @@ namespace Mips {
     default:
       break;
     }
-    I(context->getJumpInstDesc()==NoJumpInstDesc);
     // Save registers and PC
-    VAddr pc=context->getNextInstDesc()->addr;
-    VAddr sp=Mips::getReg<uint32_t>(context,static_cast<RegName>(Mips::RegSP));
+    I(context->getIDesc()==context->virt2inst(context->getIAddr()));
+    VAddr pc=context->getIAddr();
+    VAddr sp=Mips::getReg<Mips32,uint32_t>(context,static_cast<RegName>(Mips::RegSP));
     context->execCall(pc,Mips::sysCodeAddr,sp);
     for(size_t i=0;i<32;i++){
       uint32_t wrVal;
@@ -771,7 +777,7 @@ namespace Mips {
 	wrVal=pc;
 	break;
       default:
-	wrVal=Mips::getReg<uint32_t>(context,static_cast<RegName>(i));
+	wrVal=Mips::getReg<Mips32,uint32_t>(context,static_cast<RegName>(i));
 	break;
       }
       sp-=4;
@@ -784,10 +790,10 @@ namespace Mips {
     context->writeMem(sp,oldMask);
     context->setSignalMask(sigDesc.mask);
     // Set registers and PC for execution of the handler
-    Mips::setReg<uint32_t>(context,static_cast<RegName>(Mips::RegSP),sp);
-    Mips::setReg<uint32_t>(context,static_cast<RegName>(Mips::RegA0),sigFromLocal(sigInfo->signo));
-    Mips::setReg<uint32_t>(context,static_cast<RegName>(Mips::RegT9),sigDesc.handler);
-    context->setNextInstDesc(context->virt2inst(Mips::sysCodeAddr));
+    Mips::setReg<Mips32,uint32_t>(context,static_cast<RegName>(Mips::RegSP),sp);
+    Mips::setReg<Mips32,uint32_t>(context,static_cast<RegName>(Mips::RegA0),sigFromLocal(sigInfo->signo));
+    Mips::setReg<Mips32,uint32_t>(context,static_cast<RegName>(Mips::RegT9),sigDesc.handler);
+    context->setIAddr(Mips::sysCodeAddr);
     return true;
   }
   bool handleSignals(ThreadContext *context){
@@ -824,7 +830,7 @@ namespace Mips {
       res.rlim_cur=res.rlim_max=context->getStackSize();
       break;
     default:
-      fail("sysCall32_getrlimit called for resource %d at 0x%08x\n",resource,context->getNextInstDesc()->addr);
+      fail("sysCall32_getrlimit called for resource %d at 0x%08x\n",resource,context->getIAddr());
     }
     context->writeMem(rlim,res);
     return sysCall32SetRet(context,0);
@@ -843,13 +849,13 @@ namespace Mips {
 	fail("sysCall32_setrlimit tries to change stack size (not supported yet)\n");
       break;
     default:
-      fail("sysCall32_setrlimit called for resource %d at 0x%08x\n",resource,context->getNextInstDesc()->addr);
+      fail("sysCall32_setrlimit called for resource %d at 0x%08x\n",resource,context->getIAddr());
     }
     return sysCall32SetRet(context,0);
   }
 
   void sysCall32_syscall(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_syscall: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_syscall: not implemented at 0x%08x\n",context->getIAddr());
   }
 
   void sysCall32_exit(InstDesc *inst, ThreadContext *context){
@@ -941,7 +947,7 @@ namespace Mips {
     if(cpid){
       ThreadContext *ccontext=osSim->getContext(cpid);
       if(status){
-	uint32_t statVal;
+	uint32_t statVal=0xDEADBEEF;
 	if(ccontext->isExited()){
 	  statVal=(ccontext->getExitCode()<<8);
 	}else{
@@ -960,7 +966,9 @@ namespace Mips {
     }
     if(options&Mips32_WNOHANG)
       return sysCall32SetErr(context,Mips32_ECHILD);
-    context->setNextInstDesc(inst);
+    context->updIAddr(-inst->aupdate,-1);
+    I(inst==context->getIDesc());
+    I(inst==context->virt2inst(context->getIAddr()));
 #if (defined DEBUG_SIGNALS)
     printf("Suspend %d in sysCall32_wait4(pid=%d,status=%x,options=%x)\n",context->getPid(),pid,status,options);
     printf("Also suspended:");
@@ -973,30 +981,39 @@ namespace Mips {
   }
 
   void sysCall32_waitpid(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_waitpid: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_waitpid: not implemented at 0x%08x\n",context->getIAddr());
   }
-  void sysCall32_execve(InstDesc *inst, ThreadContext *context){
+  InstDesc *sysCall32_execve(InstDesc *inst, ThreadContext *context){
     Mips32FuncArgs myArgs(context);
     VAddr fname= myArgs.getA();
     VAddr argv = myArgs.getA();
     VAddr envp = myArgs.getA();
     // Get the filename and check file for errors
     ssize_t fnameLen=context->readMemString(fname,0,0);
-    if(fnameLen<=1)
-      return sysCall32SetErr(context,Mips32_ENOENT);
+    if(fnameLen<=1){
+      sysCall32SetErr(context,Mips32_ENOENT);
+      return inst;
+    }
     char fnameBuf[fnameLen];
     context->readMemString(fname,fnameLen,fnameBuf);
     size_t realNameLen=FileSys::FileNames::getFileNames()->getReal(fnameBuf,0,0);
     char realName[realNameLen];
     FileSys::FileNames::getFileNames()->getReal(fnameBuf,realNameLen,realName);
     int elfErr=checkElfObject(realName);
-    if(elfErr)
-      return Mips::sysCall32SetErr(context,fromNativeErrNums(elfErr));
+    if(elfErr){
+      sysCall32SetErr(context,fromNativeErrNums(elfErr));
+      return inst;
+    }
+    // Pipeline flush to avoid mixing old and new InstDesc's in the pipeline
+    if(context->getRefCount()>1){
+      context->updIAddr(-inst->aupdate,-1);
+      return 0;
+    }
     // Find the length of the argv list
     size_t argvNum=0;
     size_t argvLen=0;
     while(true){
-      VAddr argAddr;
+      VAddr argAddr=0;
       context->readMem(argv+sizeof(VAddr)*argvNum,argAddr);
       if(!argAddr)
 	break;
@@ -1009,7 +1026,7 @@ namespace Mips {
     size_t envpNum=0;
     size_t envpLen=0;
     while(true){
-      VAddr envAddr;
+      VAddr envAddr=0;
       context->readMem(envp+sizeof(VAddr)*envpNum,envAddr);
       if(!envAddr)
 	break;
@@ -1023,7 +1040,7 @@ namespace Mips {
     char argvBuf[argvLen];
     char *argvPtr=argvBuf;
     for(size_t arg=0;arg<argvNum;arg++){
-      VAddr argAddr;
+      VAddr argAddr=0;
       context->readMem(argv+sizeof(VAddr)*arg,argAddr);
       ssize_t argLen=context->readMemString(argAddr,0,0);
       I(argLen>=1);
@@ -1035,7 +1052,7 @@ namespace Mips {
     char envpBuf[envpLen];
     char *envpPtr=envpBuf;
     for(size_t env=0;env<envpNum;env++){
-      VAddr envAddr;
+      VAddr envAddr=0;
       context->readMem(envp+sizeof(VAddr)*env,envAddr);
       ssize_t envLen=context->readMemString(envAddr,0,0);
       I(envLen>=1);
@@ -1059,10 +1076,12 @@ namespace Mips {
     Mips::initSystem(context);
     Mips::createStack(context);
     Mips::setProgArgs(context,argvNum,argvArr,envpNum,envpArr);
+    // The InstDesc is gone now and we can't put it through the pipeline
+    return 0;
   }
 
   void sysCall32_ptrace(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_ptrace: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_ptrace: not implemented at 0x%08x\n",context->getIAddr());
   }
 
   void sysCall32_alarm(InstDesc *inst, ThreadContext *context){
@@ -1072,34 +1091,34 @@ namespace Mips {
     int oseconds=0;
     if(seconds){
       // Set new alarm
-      fail("sysCall32_alarm(%d): not implemented at 0x%08x\n",seconds,inst->addr);
+      fail("sysCall32_alarm(%d): not implemented at 0x%08x\n",seconds,context->getIAddr());
     }
     sysCall32SetRet(context,oseconds);
   }
 
   void sysCall32_pause(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_pause: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_pause: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_nice(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_nice: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_nice: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_signal(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_signal: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_signal: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_acct(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_acct: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_acct: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_sgetmask(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_sgetmask: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_sgetmask: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_ssetmask(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_ssetmask: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_ssetmask: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_sigsuspend(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_sigsuspend: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_sigsuspend: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_sigpending(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_sigpending: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_sigpending: not implemented at 0x%08x\n",context->getIAddr());
   }
   
   bool operator==(const Mips32_timeval &var1, const Mips32_timeval &var2){
@@ -1135,34 +1154,34 @@ namespace Mips {
     return sysCall32SetRet(context,0);
   }
   void sysCall32_getpriority(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_getpriority: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_getpriority: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_setpriority(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_setpriority: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_setpriority: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_setitimer(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_setitimer: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_setitimer: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_getitimer(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_getitimer: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_getitimer: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_sigreturn(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_sigreturn: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_sigreturn: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_clone(InstDesc *inst, ThreadContext *context){
     Mips32FuncArgs myArgs(context);
     int32_t      flags=myArgs.getW();
     Mips32_VAddr child_stack=myArgs.getA();
     if(!(flags&Mips32_CLONE_FS))
-      fail("sysCall32_clone without CLONE_FS not supported yet at 0x%08x, flags=0x%08x\n",inst->addr,flags);
+      fail("sysCall32_clone without CLONE_FS not supported yet at 0x%08x, flags=0x%08x\n",context->getIAddr(),flags);
 //     if(flags&Mips32_CLONE_PARENT)
-//       fail("sysCall32_clone with CLONE_PARENT not supported yet at 0x%08x, flags=0x%08x\n",inst->addr,flags);
+//       fail("sysCall32_clone with CLONE_PARENT not supported yet at 0x%08x, flags=0x%08x\n",context->getIAddr(),flags);
 //     if(flags&Mips32_CLONE_THREAD)
-//       fail("sysCall32_clone with CLONE_PARENT not supported yet at 0x%08x, flags=0x%08x\n",inst->addr,flags);
+//       fail("sysCall32_clone with CLONE_PARENT not supported yet at 0x%08x, flags=0x%08x\n",context->getIAddr(),flags);
     if(flags&Mips32_CLONE_VFORK)
-      fail("sysCall32_clone with CLONE_VFORK not supported yet at 0x%08x, flags=0x%08x\n",inst->addr,flags);
+      fail("sysCall32_clone with CLONE_VFORK not supported yet at 0x%08x, flags=0x%08x\n",context->getIAddr(),flags);
 //     if(flags&Mips32_CLONE_NEWNS)
-//       fail("sysCall32_clone with CLONE_VFORK not supported yet at 0x%08x, flags=0x%08x\n",inst->addr,flags);
+//       fail("sysCall32_clone with CLONE_VFORK not supported yet at 0x%08x, flags=0x%08x\n",context->getIAddr(),flags);
     SignalID sig=sigToLocal(flags&Mips32_CSIGNAL);
     //    ThreadContext *newContext=context->createChild(flags&Mips32_CLONE_VM,flags&Mips32_CLONE_SIGHAND,flags&Mips32_CLONE_FILES,sig);
     ThreadContext *newContext=new ThreadContext(*context,flags&Mips32_CLONE_VM,flags&Mips32_CLONE_SIGHAND,flags&Mips32_CLONE_FILES,sig);
@@ -1175,7 +1194,7 @@ namespace Mips {
       newContext->setStack(newContext->getAddressSpace()->getSegmentAddr(child_stack),child_stack);
       switch(context->getMode()){
       case Mips32:
-	setReg<uint32_t>(newContext,static_cast<RegName>(RegSP),child_stack);
+	setReg<Mips32,uint32_t>(newContext,static_cast<RegName>(RegSP),child_stack);
 	break;
       default:
 	I(0);
@@ -1190,27 +1209,27 @@ namespace Mips {
     osSim->eventSpawn(-1,newContext->getPid(),0);
   }
   void sysCall32_sigprocmask(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_sigprocmask: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_sigprocmask: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_getpid(InstDesc *inst, ThreadContext *context){
     return sysCall32SetRet(context,context->getPid());
   }
   void sysCall32_getpgid(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_getpgid: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_getpgid: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_setpgid(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_setpgid: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_setpgid: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_getppid(InstDesc *inst, ThreadContext *context){
     sysCall32SetRet(context,context->getParentID());
   }
   void sysCall32_getpgrp(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_getpgrp: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_getpgrp: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_getsid(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_getsid: not implemented at 0x%08x\n",inst->addr); }
+    fail("sysCall32_getsid: not implemented at 0x%08x\n",context->getIAddr()); }
   void sysCall32_setsid(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_setsid: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_setsid: not implemented at 0x%08x\n",context->getIAddr());
   }
 
   void sysCall32_kill(InstDesc *inst, ThreadContext *context){
@@ -1227,36 +1246,38 @@ namespace Mips {
     sysCall32SetRet(context,0);
   }
   void sysCall32_sigaction(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_sigaction: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_sigaction: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_rt_sigreturn(InstDesc *inst, ThreadContext *context){
 #if (defined DEBUG_SIGNALS)
     printf("sysCall32_rt_sigreturn pid %d to ",context->getPid());
 #endif    
-    I(context->getJumpInstDesc()==NoJumpInstDesc);
-    VAddr sp=getReg<uint32_t>(context,static_cast<RegName>(RegSP));
+    VAddr sp=getReg<Mips32,uint32_t>(context,static_cast<RegName>(RegSP));
     // Restore old signal mask
     Mips32_k_sigset_t oldMask;
     context->readMem(sp,oldMask);
     sp+=sizeof(oldMask);
     // Restore registers and PC
     for(size_t i=0;i<32;i++){
-      uint32_t rdVal;
+      uint32_t rdVal=0xDEADBEEF;
       context->readMem<uint32_t>(sp,rdVal);
       sp+=4;
       switch(31-i){
       case 0:
 #if (defined DEBUG_SIGNALS)
 	printf("0x%08x\n",rdVal);
-#endif    
-	context->setNextInstDesc(context->virt2inst(rdVal));
+#endif
+	context->setIAddr(rdVal);
 	break;
       default:
-	setReg<uint32_t>(context,static_cast<RegName>(31-i),rdVal);
+	setReg<Mips32,uint32_t>(context,static_cast<RegName>(31-i),rdVal);
 	break;
       }
     }
-    I(sp==getReg<uint32_t>(context,static_cast<RegName>(RegSP)));
+#if (defined DEBUG)
+    uint32_t chk=getReg<Mips32,uint32_t>(context,static_cast<RegName>(RegSP));
+    I(sp==chk);
+#endif
     context->execRet();
     SignalSet    oldSet;
     sigMaskToLocal(oldMask,oldSet);
@@ -1273,7 +1294,6 @@ namespace Mips {
     if((oact)&&!context->canWrite(oact,sizeof(Mips32_k_sigaction)))
       return sysCall32SetErr(context,Mips32_EFAULT);
     Mips32_k_sigaction actBuf;
-    Mips32_k_sigaction oactBuf;
     if(size!=sizeof(actBuf.sa_mask))
       return sysCall32SetErr(context,Mips32_EINVAL);
     SignalID     localSig=sigToLocal(sig);
@@ -1281,6 +1301,7 @@ namespace Mips {
     SignalDesc  &sigDesc=(*sigTable)[localSig];
     // Get the existing signal handler into oactBuf
     if(oact){
+      Mips32_k_sigaction oactBuf;
       VAddr oactHandler=sigDesc.handler;
       if(oactHandler==(VAddr)(getDflSigAction(localSig))){
 	oactHandler=(VAddr)Mips32_SIG_DFL;
@@ -1291,6 +1312,7 @@ namespace Mips {
       oactBuf.sa_flags=0;//fromNativeSigactionFlags(context->getSignalFlags(sig));
       sigMaskFromLocal(oactBuf.sa_mask,sigDesc.mask);
       oactBuf.sa_restorer=0;
+      context->writeMem(oact,oactBuf);
     }
     if(act){
       context->readMem(act,actBuf);
@@ -1319,9 +1341,6 @@ namespace Mips {
       if((localSig==SigChld)&&!(actBuf.sa_flags&Mips32_SA_NOCLDSTOP))
 	printf("Mips::sysCall32_rt_sigaction SIGCHLD without SA_NOCLDSTOP, not supported\n");
     }
-    // Write the old handler info to oact
-    if(oact)
-      context->writeMem(oact,oactBuf);
     sysCall32SetRet(context,0);
   }
   void sysCall32_rt_sigprocmask(InstDesc *inst, ThreadContext *context){
@@ -1394,18 +1413,20 @@ namespace Mips {
       // Save the old signal mask on stack so it can be restored
       pushSignalMask(context,oldMask);
       // Suspend and redo this system call when woken up
-      context->setNextInstDesc(inst);
+      context->updIAddr(-inst->aupdate,-1);
+      I(inst==context->getIDesc());
+      I(inst==context->virt2inst(context->getIAddr()));
       context->suspend();
     }
   }
   void sysCall32_rt_sigpending(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_rt_sigpending: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_rt_sigpending: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_rt_sigtimedwait(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_rt_sigtimedwait: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_rt_sigtimedwait: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_rt_sigqueueinfo(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_rt_sigqueueinfo: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_rt_sigqueueinfo: not implemented at 0x%08x\n",context->getIAddr());
   }
   
   // Process user/group ID management
@@ -1419,16 +1440,16 @@ namespace Mips {
     return sysCall32SetRet(context,geteuid());
   }
   void sysCall32_getresuid(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_getresuid: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_getresuid: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_setuid(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_setuid: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_setuid: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_setreuid(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_setreuid: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_setreuid: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_setresuid(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_setresuid: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_setresuid: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_getgid(InstDesc *inst, ThreadContext *context){
     // TODO: With different users, need to track simulated gid
@@ -1439,16 +1460,16 @@ namespace Mips {
     return sysCall32SetRet(context,getegid());
   }
   void sysCall32_getresgid(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_getresgid: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_getresgid: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_setgid(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_setgid: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_setgid: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_setregid(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_setregid: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_setregid: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_setresgid(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_setresgid: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_setresgid: not implemented at 0x%08x\n",context->getIAddr());
   }
   
   void sysCall32_getgroups(InstDesc *inst, ThreadContext *context){
@@ -1583,25 +1604,25 @@ namespace Mips {
     sysCall32SetRet(context,0);
   }
   void sysCall32_msync(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_msync: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_msync: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_cacheflush(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_cacheflush: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_cacheflush: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_mlock(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_mlock: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_mlock: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_munlock(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_munlock: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_munlock: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_mlockall(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_mlockall: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_mlockall: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_munlockall(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_munlockall: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_munlockall: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_mmap2(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_mmap2: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_mmap2: not implemented at 0x%08x\n",context->getIAddr());
   }
 
   // File system calls
@@ -1630,7 +1651,7 @@ namespace Mips {
     sysCall32SetRet(context,newfd);
   }
   void sysCall32_creat(InstDesc *inst, ThreadContext *context){
-    fail("Mips::sysCall32_creat: not implemented at 0x%08x\n",inst->addr);
+    fail("Mips::sysCall32_creat: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_dup(InstDesc *inst, ThreadContext *context){
     Mips32FuncArgs myArgs(context);
@@ -1764,7 +1785,9 @@ namespace Mips {
 	handleSignal(context,sigInfo);
 	return;
       }
-      context->setNextInstDesc(inst);
+      context->updIAddr(-inst->aupdate,-1);
+      I(inst==context->getIDesc());
+      I(inst==context->virt2inst(context->getIAddr()));
       context->getOpenFiles()->addReadBlock(fd,context->getPid());
 //      sstate->setWakeup(new SigCallBack(context->getPid(),true));
 #if (defined DEBUG_SIGNALS)
@@ -1803,7 +1826,7 @@ namespace Mips {
   }
 
   void sysCall32_readv(InstDesc *inst, ThreadContext *context){
-    fail("Mips::sysCall32_readv: not implemented at 0x%08x\n",inst->addr);
+    fail("Mips::sysCall32_readv: not implemented at 0x%08x\n",context->getIAddr());
   }
 
   void sysCall32_writev(InstDesc *inst, ThreadContext *context){
@@ -1834,10 +1857,10 @@ namespace Mips {
     sysCall32SetRet(context,totBytes);
   }
   void sysCall32_pread(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_pread: not implemented at 0x%08x\n",inst->addr); 
+    fail("sysCall32_pread: not implemented at 0x%08x\n",context->getIAddr()); 
   }
   void sysCall32_pwrite(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_pwrite: not implemented at 0x%08x\n",inst->addr); 
+    fail("sysCall32_pwrite: not implemented at 0x%08x\n",context->getIAddr()); 
   }
   void sysCall32_lseek(InstDesc *inst, ThreadContext *context){
     Mips32FuncArgs myArgs(context);
@@ -1906,7 +1929,7 @@ namespace Mips {
       return sysCall32SetErr(context,Mips32_ENOTTY);      
     default:
       fail("Mips::sysCall32_ioctl called with fd %d and req 0x%x at 0x%08x\n",
-	   fd,request,context->getNextInstDesc()->addr);
+	   fd,request,context->getIAddr());
     }
     sysCall32SetRet(context,0);
   }
@@ -2118,7 +2141,7 @@ namespace Mips {
   void sysCall32_ftruncate64(InstDesc *inst, ThreadContext *context){ sysCall32AnyTrunc<FTrunc64>(context); }
   
   void sysCall32_link(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_link: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_link: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_unlink(InstDesc *inst, ThreadContext *context){
     Mips32FuncArgs myArgs(context);
@@ -2174,16 +2197,16 @@ namespace Mips {
     sysCall32SetRet(context,retVal);
   }
   void sysCall32_mknod(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_mknod: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_mknod: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_chmod(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_chmod: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_chmod: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_lchown(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_lchown: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_lchown: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_utime(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_utime: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_utime: not implemented at 0x%08x\n",context->getIAddr());
   }
 
   void sysCall32_access(InstDesc *inst, ThreadContext *context){
@@ -2204,7 +2227,7 @@ namespace Mips {
   }
 
   void sysCall32_sync(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_sync: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_sync: not implemented at 0x%08x\n",context->getIAddr());
   }
 
   void sysCall32_mkdir(InstDesc *inst, ThreadContext *context){
@@ -2238,7 +2261,7 @@ namespace Mips {
   }
 
   void sysCall32_fcntl(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_fcntl: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_fcntl: not implemented at 0x%08x\n",context->getIAddr());
   }
 
   void sysCall32_umask(InstDesc *inst, ThreadContext *context){
@@ -2249,10 +2272,10 @@ namespace Mips {
   }
   
   void sysCall32_ustat(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_ustat: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_ustat: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_symlink(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_symlink: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_symlink: not implemented at 0x%08x\n",context->getIAddr());
   }
 
   void sysCall32_readlink(InstDesc *inst, ThreadContext *context){
@@ -2279,179 +2302,179 @@ namespace Mips {
   }
 
   void sysCall32_readdir(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_readdir: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_readdir: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_fchmod(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_fchmod: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_fchmod: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_fchown(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_fchown: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_fchown: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_statfs(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_statfs: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_statfs: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_fstatfs(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_fstatfs: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_fstatfs: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_ioperm(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_ioperm: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_ioperm: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_socketcall(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_socketcall: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_socketcall: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_syslog(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_syslog: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_syslog: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_fsync(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_fsync: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_fsync: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_fchdir(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_fchdir: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_fchdir: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_setfsuid(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_setfsuid: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_setfsuid: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_setfsgid(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_setfsgid: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_setfsgid: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_getdents(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_getdents: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_getdents: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32__newselect(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32__newselect: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32__newselect: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_flock(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_flock: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_flock: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_fdatasync(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_fdatasync: not implemented at 0x%08x\n",inst->addr); }
+    fail("sysCall32_fdatasync: not implemented at 0x%08x\n",context->getIAddr()); }
   void sysCall32_chown(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_chown: not implemented at 0x%08x\n",inst->addr); }
+    fail("sysCall32_chown: not implemented at 0x%08x\n",context->getIAddr()); }
   
   // Message-passing (IPC) system calls
   
   void sysCall32_ipc(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_ipc: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_ipc: not implemented at 0x%08x\n",context->getIAddr());
   }
 
   // Obsolete system calls, should not be used
   
   void sysCall32_oldstat(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_oldstat: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_oldstat: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_break(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_break: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_break: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_oldfstat(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_oldfstat: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_oldfstat: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_stty(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_stty: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_stty: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_gtty(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_gtty: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_gtty: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_prof(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_prof: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_prof: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_lock(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_lock: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_lock: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_afs_syscall(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_afs_syscall: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_afs_syscall: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_ftime(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_ftime: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_ftime: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_getpmsg(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_getpmsg: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_getpmsg: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_putpmsg(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_putpmsg: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_putpmsg: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_mpx(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_mpx: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_mpx: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_profil(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_profil: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_profil: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_ulimit(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_ulimit: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_ulimit: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_oldlstat(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_oldlstat: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_oldlstat: not implemented at 0x%08x\n",context->getIAddr());
   }
   
   // Privileged (superuser) system calls, should not be used
   
   void sysCall32_mount(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_mount: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_mount: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_umount(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_umount: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_umount: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_stime(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_stime: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_stime: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_umount2(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_umount2: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_umount2: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_chroot(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_chroot: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_chroot: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_sethostname(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_sethostname: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_sethostname: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_setgroups(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_setgroups: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_setgroups: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_swapon(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_swapon: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_swapon: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_reboot(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_reboot: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_reboot: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_iopl(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_iopl: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_iopl: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_vhangup(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_vhangup: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_vhangup: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_idle(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_idle: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_idle: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_vm86(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_vm86: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_vm86: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_swapoff(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_swapoff: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_swapoff: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_setdomainname(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_setdomainname: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_setdomainname: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_modify_ldt(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_modify_ldt: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_modify_ldt: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_adjtimex(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_adjtimex: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_adjtimex: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_create_module(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_create_module: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_create_module: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_init_module(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_init_module: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_init_module: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_delete_module(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_delete_module: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_delete_module: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_get_kernel_syms(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_get_kernel_syms: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_get_kernel_syms: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_quotactl(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_quotactl: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_quotactl: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_bdflush(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_bdflush: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_bdflush: not implemented at 0x%08x\n",context->getIAddr());
   }
   
   void sysCall32_time(InstDesc *inst, ThreadContext *context){
@@ -2493,16 +2516,16 @@ namespace Mips {
   }
 
   void sysCall32_unused59(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_unused59: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_unused59: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_reserved82(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_reserved82: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_reserved82: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_unused109(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_unused109: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_unused109: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_unused150(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_unused150: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_unused150: not implemented at 0x%08x\n",context->getIAddr());
   }
 
   // Miscaleneous and unsorted
@@ -2522,14 +2545,14 @@ namespace Mips {
     sysCall32SetRet(context,0);
   }
   void sysCall32_settimeofday(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_settimeofday: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_settimeofday: not implemented at 0x%08x\n",context->getIAddr());
   }
   
   void sysCall32_uselib(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_uselib: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_uselib: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_sysinfo(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_sysinfo: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_sysinfo: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_uname(InstDesc *inst, ThreadContext *context){
     Mips32FuncArgs myArgs(context);
@@ -2550,16 +2573,16 @@ namespace Mips {
     return sysCall32SetRet(context,0);
   }
   void sysCall32_sysfs(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_sysfs: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_sysfs: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_personality(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_personality: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_personality: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_cachectl(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_cachectl: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_cachectl: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_sysmips(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_sysmips: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_sysmips: not implemented at 0x%08x\n",context->getIAddr());
   }
 
   void sysCall32__sysctl(InstDesc *inst, ThreadContext *context){
@@ -2584,7 +2607,7 @@ namespace Mips {
 	{
 	  if(mySysctlArgs.newval!=0)
 	    return sysCall32SetErr(context,Mips32_EPERM);
-	  Mips32_VSize oldlen;
+	  Mips32_VSize oldlen=0xDEADBEEF;
 	  if(!context->canRead(mySysctlArgs.oldlenp,sizeof(oldlen)))
 	    return sysCall32SetErr(context,Mips32_EFAULT);
 	  context->readMem(mySysctlArgs.oldlenp,oldlen);
@@ -2613,38 +2636,38 @@ namespace Mips {
   }
 
   void sysCall32_sched_setparam(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_sched_setparam: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_sched_setparam: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_sched_getparam(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_sched_getparam: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_sched_getparam: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_sched_setscheduler(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_sched_setscheduler: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_sched_setscheduler: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_sched_getscheduler(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_sched_getscheduler: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_sched_getscheduler: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_sched_yield(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_sched_yield: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_sched_yield: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_sched_get_priority_max(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_sched_get_priority_max: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_sched_get_priority_max: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_sched_get_priority_min(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_sched_get_priority_min: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_sched_get_priority_min: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_sched_rr_get_interval(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_sched_rr_get_interval: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_sched_rr_get_interval: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_nanosleep(InstDesc *inst, ThreadContext *context){
     Mips32FuncArgs myArgs(context);
     VAddr req=myArgs.getA();
     VAddr rem=myArgs.getA();
+    if(!context->canWrite(req,sizeof(Mips32_timespec)))
+      return sysCall32SetErr(context,Mips32_EFAULT);
+    if(rem&&(!context->canWrite(rem,sizeof(Mips32_timespec))))
+      return sysCall32SetErr(context,Mips32_EFAULT);
     Mips32_timespec tsBuf;
-    if(!context->canWrite(req,sizeof(tsBuf)))
-      return sysCall32SetErr(context,Mips32_EFAULT);
-    if(rem&&(!context->canWrite(rem,sizeof(tsBuf))))
-      return sysCall32SetErr(context,Mips32_EFAULT);
     context->readMem(req,tsBuf);
     // TODO: We need to actually suspend this thread for the specified time
     wallClock+=tsBuf.tv_sec;
@@ -2656,43 +2679,43 @@ namespace Mips {
     sysCall32SetRet(context,0);
   }
   void sysCall32_accept(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_accept: not implemented at 0x%08x\n",inst->addr); }
+    fail("sysCall32_accept: not implemented at 0x%08x\n",context->getIAddr()); }
   void sysCall32_bind(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_bind: not implemented at 0x%08x\n",inst->addr); }
+    fail("sysCall32_bind: not implemented at 0x%08x\n",context->getIAddr()); }
   void sysCall32_connect(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_connect: not implemented at 0x%08x\n",inst->addr); }
+    fail("sysCall32_connect: not implemented at 0x%08x\n",context->getIAddr()); }
   void sysCall32_getpeername(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_getpeername: not implemented at 0x%08x\n",inst->addr); }
+    fail("sysCall32_getpeername: not implemented at 0x%08x\n",context->getIAddr()); }
   void sysCall32_getsockname(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_getsockname: not implemented at 0x%08x\n",inst->addr); }
+    fail("sysCall32_getsockname: not implemented at 0x%08x\n",context->getIAddr()); }
   void sysCall32_getsockopt(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_getsockopt: not implemented at 0x%08x\n",inst->addr); }
+    fail("sysCall32_getsockopt: not implemented at 0x%08x\n",context->getIAddr()); }
   void sysCall32_listen(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_listen: not implemented at 0x%08x\n",inst->addr); }
+    fail("sysCall32_listen: not implemented at 0x%08x\n",context->getIAddr()); }
   void sysCall32_recv(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_recv: not implemented at 0x%08x\n",inst->addr); }
+    fail("sysCall32_recv: not implemented at 0x%08x\n",context->getIAddr()); }
   void sysCall32_recvfrom(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_recvfrom: not implemented at 0x%08x\n",inst->addr); }
+    fail("sysCall32_recvfrom: not implemented at 0x%08x\n",context->getIAddr()); }
   void sysCall32_recvmsg(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_recvmsg: not implemented at 0x%08x\n",inst->addr); }
+    fail("sysCall32_recvmsg: not implemented at 0x%08x\n",context->getIAddr()); }
   void sysCall32_send(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_send: not implemented at 0x%08x\n",inst->addr); }
+    fail("sysCall32_send: not implemented at 0x%08x\n",context->getIAddr()); }
   void sysCall32_sendmsg(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_sendmsg: not implemented at 0x%08x\n",inst->addr); }
+    fail("sysCall32_sendmsg: not implemented at 0x%08x\n",context->getIAddr()); }
   void sysCall32_sendto(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_sendto: not implemented at 0x%08x\n",inst->addr); }
+    fail("sysCall32_sendto: not implemented at 0x%08x\n",context->getIAddr()); }
   void sysCall32_setsockopt(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_setsockopt: not implemented at 0x%08x\n",inst->addr); }
+    fail("sysCall32_setsockopt: not implemented at 0x%08x\n",context->getIAddr()); }
   void sysCall32_shutdown(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_shutdown: not implemented at 0x%08x\n",inst->addr); }
+    fail("sysCall32_shutdown: not implemented at 0x%08x\n",context->getIAddr()); }
   void sysCall32_socket(InstDesc *inst, ThreadContext *context){
-    printf("sysCall32_socket: not implemented at 0x%08x\n",inst->addr);
+    printf("sysCall32_socket: not implemented at 0x%08x\n",context->getIAddr());
     Mips::sysCall32SetErr(context,Mips32_EACCES);
   }
   void sysCall32_socketpair(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_socketpair: not implemented at 0x%08x\n",inst->addr); }
+    fail("sysCall32_socketpair: not implemented at 0x%08x\n",context->getIAddr()); }
   void sysCall32_query_module(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_query_module: not implemented at 0x%08x\n",inst->addr); }
+    fail("sysCall32_query_module: not implemented at 0x%08x\n",context->getIAddr()); }
 
   void sysCall32_poll(InstDesc *inst, ThreadContext *context){
     Mips32FuncArgs myArgs(context);
@@ -2757,9 +2780,9 @@ namespace Mips {
   }
 
   void sysCall32_nfsservctl(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_nfsservctl: not implemented at 0x%08x\n",inst->addr); }
+    fail("sysCall32_nfsservctl: not implemented at 0x%08x\n",context->getIAddr()); }
   void sysCall32_prctl(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_prctl: not implemented at 0x%08x\n",inst->addr); }
+    fail("sysCall32_prctl: not implemented at 0x%08x\n",context->getIAddr()); }
   void sysCall32_getcwd(InstDesc *inst, ThreadContext *context){
     Mips32FuncArgs myArgs(context);
     VAddr  buf  = myArgs.getA();
@@ -2774,25 +2797,25 @@ namespace Mips {
     return sysCall32SetRet(context,retVal);
   }
   void sysCall32_capget(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_capget: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_capget: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_capset(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_capset: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_capset: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_sigaltstack(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_sigaltstack: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_sigaltstack: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_sendfile(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_sendfile: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_sendfile: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_root_pivot(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_root_pivot: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_root_pivot: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_mincore(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_mincore: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_mincore: not implemented at 0x%08x\n",context->getIAddr());
   }
   void sysCall32_madvise(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_madvise: not implemented at 0x%08x\n",inst->addr);
+    fail("sysCall32_madvise: not implemented at 0x%08x\n",context->getIAddr());
   }
 
 } // Namespace Mips

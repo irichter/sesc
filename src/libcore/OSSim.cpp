@@ -192,7 +192,7 @@ void OSSim::processParams(int argc, char **argv, char **envp)
   nInst2Sim=0;
 
   bool useMTMarks = false;
-  int  mtId;
+  int  mtId=0;
 
   simMarks.total = 0;
   simMarks.begin = 0;
