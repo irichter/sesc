@@ -25,10 +25,7 @@ namespace fns{
   template <class _Tp> struct project1st_sqrt        : public std::binary_function<_Tp, _Tp, _Tp>{ inline _Tp operator()(const _Tp& __x, const _Tp& __y) const{ return sqrt(__x); } };
   template <class _Tp> struct project1st_recip       : public std::binary_function<_Tp, _Tp, _Tp>{ inline _Tp operator()(const _Tp& __x, const _Tp& __y) const{ return _Tp(1)/__x; } };
   template <class _Tp> struct project1st_sqrt_recip  : public std::binary_function<_Tp, _Tp, _Tp>{ inline _Tp operator()(const _Tp& __x, const _Tp& __y) const{ return _Tp(1)/sqrt(__x); } };
-  template <class _Tp>
-  struct shift_left : public std::binary_function<_Tp, uint32_t, _Tp>{
-    inline _Tp operator()(const _Tp& __x, const uint32_t& __y) const{ return (__x<<__y); }
-  };
+  template <class _Tp> struct shift_left             : public std::binary_function<_Tp, uint32_t, _Tp>{ inline _Tp operator()(const _Tp& __x, const uint32_t& __y) const{ return (__x<<__y); } };
   template <class _Tp>
   struct shift_right : public std::binary_function<_Tp, uint32_t, _Tp>{
     inline _Tp operator()(const _Tp& __x, const uint32_t& __y) const{ return (__x>>__y); }
@@ -39,8 +36,10 @@ namespace fns{
   template <class _Tp> struct bitwise_nor            : public std::binary_function<_Tp, _Tp, _Tp>{ inline _Tp operator()(const _Tp& __x, const _Tp& __y) const{ return ~(__x|__y); } };
   template <class _Tp> struct plus_neg               : public std::binary_function<_Tp, _Tp, _Tp>{ inline _Tp operator()(const _Tp& __x, const _Tp& __y) const{ return -(__x + __y); } };
   template <class _Tp> struct minus_neg              : public std::binary_function<_Tp, _Tp, _Tp>{ inline _Tp operator()(const _Tp& __x, const _Tp& __y) const{ return -(__x - __y); } };
-  template <class _Tp> struct multiplies_hi          : public std::binary_function<_Tp, _Tp, _Tp>{ inline _Tp operator()(const _Tp& __x, const _Tp& __y) const{ fail("multiplies_hi called for unsupported type\n"); return 0; } };
-  template <> struct multiplies_hi<int32_t>          : public std::binary_function<int32_t,int32_t,int32_t>{
+  template <class _Tp> struct multiplies_hi          : public std::binary_function<_Tp, _Tp, _Tp>{
+    inline _Tp operator()(const _Tp& __x, const _Tp& __y) const{ fail("%s called, unsupported type\n",__PRETTY_FUNCTION__); return 0; }
+  };
+   template <> struct multiplies_hi<int32_t>          : public std::binary_function<int32_t,int32_t,int32_t>{
     inline int32_t operator()(const int32_t& __x, const int32_t& __y) const{
       int64_t res=int64_t(__x)*int64_t(__y);
       int32_t *ptr=(int32_t *)(&res);
@@ -197,25 +196,21 @@ namespace Mips {
     return (*(inst+1))(context);
   }
 
-  typedef enum{
-    SrcZZ, SrcIZ, SrcRZ ,
-                  SrcRI ,
-                  SrcRR ,
-  } SrcTyp;
-
   typedef enum{ DestNone, DestTarg, DestRetA, DestCond } DestTyp;
 
   typedef enum{
+    NextCont, // Continue to the next InstDesc (uop) within the same architectural instruction
+    NextInst, // Continue to the next InstDesc (uop) and update the PC (move to the next architectural instruction)
+    NextNext, // Continue to the next InstDesc (uop), check if PC update is needed
     NextBReg, // Branch to a register address (if cond) otherwise skip DS
     NextBImm, // Branch to a constant address (if cond) otherwise skip DS
-    NextCont, // Continue to the next InstDesc
     NextAnDS  // Skip DS if cond, otherwise continue to next InstDesc
   } NextTyp;
 
 #define SrcZ RegName(RegTypeDyn+1)
 #define SrcI RegName(RegTypeDyn+2)
 
-  template<Opcode op, CpuMode mode, RegName Src1R, RegName Src2R, RegName DstR, typename Func>
+  template<Opcode op, CpuMode mode, NextTyp NTyp, RegName Src1R, RegName Src2R, RegName DstR, typename Func>
   InstDesc *emulAlu(InstDesc *inst, ThreadContext *context){
     I(op==inst->op);
     preExec(inst,context);
@@ -230,9 +225,18 @@ namespace Mips {
     DstT dst=func(src1,src2);
     // Update destination register
     setRegAny<mode,DstT,DstR>(context,inst->regDst,dst);
-    context->updIAddr(inst->aupdate,1);
-    if(inst->aupdate)
-      handleSignals(context);
+    if((NTyp==NextCont)||((NTyp==NextNext)&&!inst->aupdate)){
+      if(NTyp==NextNext)
+	inst->emul=emulAlu<op,mode,NextCont,Src1R,Src2R,DstR,Func>;
+      context->updIDesc(1);
+    }else{
+      I((NTyp==NextInst)||((NTyp==NextNext)&&inst->aupdate));
+      if(NTyp==NextNext)
+	inst->emul=emulAlu<op,mode,NextInst,Src1R,Src2R,DstR,Func>;
+      context->updIAddr(inst->aupdate,1);
+      if(inst->aupdate)
+	handleSignals(context);
+    }
     return inst;
   }
 
@@ -303,8 +307,7 @@ namespace Mips {
     case OpLwc1:  case OpSwc1:
     case OpLdc1:  case OpSdc1:
       I(((MipsRegName)(inst->regSrc1)>=GprNameLb)&&((MipsRegName)(inst->regSrc1)<GprNameUb));
-      return 
-static_cast<RegUnsT>(getRegAny<mode,RegSigT,RegTypeGpr>(context,inst->regSrc1)+static_cast<RegSigT>(inst->imm.s));
+      return static_cast<RegUnsT>(getRegAny<mode,RegSigT,RegTypeGpr>(context,inst->regSrc1)+static_cast<RegSigT>(inst->imm.s));
     case OpLwxc1: case OpLdxc1: 
     case OpSwxc1: case OpSdxc1:
       I(((MipsRegName)(inst->regSrc1)>=GprNameLb)&&((MipsRegName)(inst->regSrc1)<GprNameUb));
@@ -497,34 +500,6 @@ static_cast<RegUnsT>(getRegAny<mode,RegSigT,RegTypeGpr>(context,inst->regSrc1)+s
       return retVal;
     }
   };
-
-//   template<Opcode op, CpuMode mode, typename FpT, bool ExcUn, bool UseLt, bool UseEq, bool UseUn>
-//   InstDesc *emulFcond(InstDesc *inst, ThreadContext *context){
-//     I(op==inst->op);
-//     preExec(inst,context);
-//     I(isFprName(inst->regSrc1));
-//     I(isFprName(inst->regSrc2));
-//     FpT val1=getRegFp<mode,FpT>(context,inst->regSrc1);
-//     FpT val2=getRegFp<mode,FpT>(context,inst->regSrc2);
-//     bool cond=((UseLt&&(val1<val2))||(UseEq&&(val1==val2))||(UseUn&&isunordered(val1,val2)));
-//     if(ExcUn&isunordered(val1,val2)){
-//       // TODO: We need to signal an exception for NaNs here
-//     }
-//     uint32_t ccMask=inst->imm;
-//     I(ccMask&0xFE800000);
-//     I(static_cast<MipsRegName>(inst->regDst)==RegFCSR);
-//     uint32_t fcsrVal=getRegAny<mode,uint32_t,RegName(RegFCSR)>(context,static_cast<RegName>(RegFCSR));
-//     if(cond){
-//       fcsrVal|=ccMask;
-//     }else{
-//       fcsrVal&=(~ccMask);
-//     }
-//     setRegAny<mode,uint32_t,RegTypeCtl>(context,static_cast<RegName>(RegFCSR),fcsrVal);
-//     context->updIAddr(inst->aupdate,1);
-//     if(inst->aupdate)
-//       handleSignals(context);
-//     return inst;
-//   }
 
   template<Opcode op, CpuMode mode, typename CndT, typename RegT, RegName RTyp>
   InstDesc *emulMovc(InstDesc *inst, ThreadContext *context){
@@ -853,129 +828,106 @@ Instruction *createSescInst(const InstDesc *inst, VAddr iaddr, size_t deltaAddr,
       return 0;
     }
     bool isNop(ThreadContext *context, VAddr addr){
-      RawInst raw=0;
-      bool chkrd=context->readMem(addr,raw);
-      I(chkrd);
+      RawInst raw=context->readMem<RawInst>(addr);
       Opcode op=decodeOp(raw);
       if((op==OpInvalid)||(op>=NumOfOpcodes))
 	fail("Invalid op while decoding raw inst 0x%08x at 0x%08x\n",raw,addr);
       const OpData &data=op2Data[op];
       return (data.typ==TypNop)&&(data.next==OpInvalid);
     }
-    bool decodeInstSize(ThreadContext *context, VAddr &iaddr, size_t &size, bool &redo, bool canmap){
-      VAddr origiaddr=iaddr;
-      RawInst raw=0;
-      bool chkrd=context->readMem(iaddr,raw);
-      I(chkrd);
-      iaddr+=sizeof(RawInst);
+    void decodeInstSize(ThreadContext *context, VAddr funcAddr, VAddr &curAddr, VAddr endAddr, size_t &tsize, bool domap){
+      // Function entry point may need to call a handler
+      if((curAddr==funcAddr)&&context->getAddressSpace()->hasCallHandler(funcAddr)){
+        I(domap);
+        AddressSpace::HandlerSet hset;
+        context->getAddressSpace()->getCallHandlers(funcAddr,hset);
+        tsize+=hset.size();
+      }
+      I(!context->getAddressSpace()->isMappedInst(curAddr));
+      RawInst raw=context->readMem<RawInst>(curAddr);
+      curAddr+=sizeof(RawInst);
       Opcode op=decodeOp(raw);
       if((op==OpInvalid)||(op>=NumOfOpcodes))
-	fail("Invalid op while decoding raw inst 0x%08x at 0x%08x\n",raw,iaddr-sizeof(RawInst));
-      I(op2Data.find(op)!=op2Data.end());
-      I(!context->getAddressSpace()->isMappedInst(origiaddr));
-      bool needmap=(context->getAddressSpace()->needMapInst(origiaddr));
-      bool isnop=(op2Data[op].typ==TypNop);
-      I((op2Data[op].next==OpInvalid)||!isnop);
-      bool domap=canmap&&(needmap||!isnop);
-      if(domap&&!needmap)
-	context->getAddressSpace()->reqMapInst(origiaddr);
-      // If this is a nop that deasn't need to be mapped, we're done
-      if(isnop&&!needmap)
-	return false;
+	fail("Invalid op while decoding raw inst 0x%08x at 0x%08x\n",raw,curAddr-sizeof(RawInst));
       // If nop in delay slot and optimized no-delay-slot decoding exists, use that decoding
-      if((brNoDSlot.find(op)!=brNoDSlot.end())&&isNop(context,iaddr))
+      if((brNoDSlot.find(op)!=brNoDSlot.end())&&isNop(context,curAddr))
 	op=brNoDSlot[op];
-      while(op!=OpInvalid){
-	I(op2Data.count(op));
+      while(true){
+	if(!op2Data.count(op))
+	  fail("No decoding available for raw inst 0x%08x at 0x%08x\n",raw,curAddr-sizeof(RawInst));
 	const OpData &data=op2Data[op];
-	size++;
-	// Request mapping for targets of fixed-target jumps/branches
-	I((data.ctl&CtlTarg)||((data.imm!=ImmJpTg)&&(data.imm!=ImmBrOf)));
-	if(data.ctl&CtlTarg){
-	  I(canmap);
-	  I((data.imm==ImmJpTg)||(data.imm==ImmBrOf));
-	  InstImm targ=decodeImm(data.imm,raw,origiaddr);
-	  VAddr targaddr=targ.a;
-//	  printf("Request targ map of 0x%08x when decoding 0x%08x\n",targaddr,origiaddr);
-	  if(context->getAddressSpace()->reqMapInst(targaddr)){
-	    redo=true;
-	    size_t targsize=0;
-            while(!decodeInstSize(context,targaddr,targsize,redo,canmap));
-	  }
-	}
+	InstTypInfo typ=static_cast<InstTypInfo>(data.typ&TypSubMask);
+        // Function return may need to call a handler
+        if((typ==BrOpRet)&&context->getAddressSpace()->hasRetHandler(funcAddr)){
+          I(domap);
+          AddressSpace::HandlerSet hset;
+          context->getAddressSpace()->getRetHandlers(funcAddr,hset);
+          tsize+=hset.size();
+        }
+	tsize++;
 	// Decode delay slots
 	if(data.addDSlot()){
-	  I(canmap);
-	  VAddr dsaddr=iaddr;
-	  decodeInstSize(context,dsaddr,size,redo,false);
+	  I(domap);
+	  VAddr dsaddr=curAddr;
+	  decodeInstSize(context,funcAddr,dsaddr,endAddr,tsize,false);
 	}else if(data.mapDSlot()){
-	  I(canmap);
-          I(!context->getAddressSpace()->isMappedInst(iaddr));
-	  if(context->getAddressSpace()->needMapInst(iaddr))
-	    decodeInstSize(context,iaddr,size,redo,true);
-	  else
-	    iaddr+=sizeof(RawInst);
+	  I(domap);
+	  decodeInstSize(context,funcAddr,curAddr,endAddr,tsize,true);
 	}
 	op=data.next;
-	if((op==OpInvalid)&&canmap){
-          // Request mapping for the continuation of this instruction
-	  switch(data.typ&TypSubMask){
-	  case BrOpJump: case BrOpRet:
-	    // Unconditional branches and returns have no continuation
-            // End of trace if next instruction need not be mapped (yet)
-            return !context->getAddressSpace()->needMapInst(iaddr);
-	    break;
-          case BrOpCall:
-            // Unconditional function calls have a continuation but we don't have to map it
-            // We map it, except if it is a nop or if it is non-executable
-            if(!isNop(context,iaddr))
-              context->getAddressSpace()->reqMapInst(iaddr);
-            // Continuation is found by address and it's OK if the trace ends here
-            return !context->getAddressSpace()->needMapInst(iaddr);
-	  default:
-	    // Everything else has a continuation, and we request its mapping
-//	    printf("Request cont map of 0x%08x when decoding 0x%08x\n",iaddr,origiaddr);
-	    context->getAddressSpace()->reqMapInst(iaddr);
-            if(!context->getAddressSpace()->needMapInst(iaddr)){
-              I(context->getAddressSpace()->isMappedInst(iaddr));
-              size++;
-              return true;              
-            }
-	    return false;
+	if(op==OpInvalid){
+	  // Is this the end of this trace?
+	  if(domap&&(curAddr==endAddr)){
+	    // Unconditional jumps, calls, and returns don't continue directly to next instruction
+	    // Everything else needs an OpCut to link to the continuation in another trace
+	    if((typ!=BrOpJump)&&(typ!=BrOpCall)&&(typ!=BrOpRet))
+	      tsize++;
 	  }
-          I(0);
+	  // Exit the decoding loop
+	  break;
 	}
       }
-      I(!canmap);
-      return false;
     }
-    bool decodeInst(ThreadContext *context, VAddr &iaddr, InstDesc *&trace, bool canmap){
-      VAddr origiaddr=iaddr;
-      RawInst raw=0;
-      bool chkrd=context->readMem(iaddr,raw);
-      I(chkrd);
-      iaddr+=sizeof(RawInst);
+    void decodeInst(ThreadContext *context, VAddr funcAddr, VAddr &curAddr, VAddr endAddr, InstDesc *&trace, bool domap){
+      I(!context->getAddressSpace()->isMappedInst(curAddr));
+      if(domap)
+	context->getAddressSpace()->mapInst(curAddr,trace);
+      // Add function entry handlers if this is a function entry point
+      if((curAddr==funcAddr)&&context->getAddressSpace()->hasCallHandler(funcAddr)){
+        I(domap);
+        AddressSpace::HandlerSet hset;
+        context->getAddressSpace()->getCallHandlers(funcAddr,hset);
+        while(!hset.empty()){
+          AddressSpace::HandlerSet::iterator it=hset.begin();
+          trace->emul=*it;
+          trace++;
+          hset.erase(it);
+        }
+      }
+      VAddr origiaddr=curAddr;
+      RawInst raw=context->readMem<RawInst>(curAddr);
+      curAddr+=sizeof(RawInst);
       Opcode op=decodeOp(raw);
       I(op!=OpInvalid);
-      I(op2Data.find(op)!=op2Data.end());
-      I(!context->getAddressSpace()->isMappedInst(origiaddr));
-      bool needmap=(context->getAddressSpace()->needMapInst(origiaddr));
-      I(needmap||!canmap);
-      bool isnop=(op2Data[op].typ==TypNop);
-      I((op2Data[op].next==OpInvalid)||!isnop);
-      bool domap=canmap&&(needmap||!isnop);
-      I((!domap)||needmap);
-      // If this is a nop that deasn't need to be mapped, we're done
-      if(isnop&&!needmap)
-	return false;
-      if(domap)
-	context->getAddressSpace()->mapInst(origiaddr,trace);
       // If nop in delay slot and optimized no-delay-slot decoding exists, use that decoding
-      if((brNoDSlot.find(op)!=brNoDSlot.end())&&isNop(context,iaddr))
+      if((brNoDSlot.find(op)!=brNoDSlot.end())&&isNop(context,curAddr))
 	op=brNoDSlot[op];
-      while(op!=OpInvalid){
+      while(true){
 	I(op2Data.count(op));
 	const OpData &data=op2Data[op];
+	InstTypInfo typ=static_cast<InstTypInfo>(data.typ&TypSubMask);
+        // Function return may need to call a handler
+        if((typ==BrOpRet)&&context->getAddressSpace()->hasRetHandler(funcAddr)){
+          I(domap);
+          AddressSpace::HandlerSet hset;
+          context->getAddressSpace()->getRetHandlers(funcAddr,hset);
+          while(!hset.empty()){
+            AddressSpace::HandlerSet::iterator it=hset.begin();
+            trace->emul=*it;
+            trace++;
+            hset.erase(it);
+          }
+        }
 	InstDesc *myinst=trace++;
 	switch(context->getMode()){
 	case Mips32: myinst->emul=data.emul[0]; break;
@@ -984,7 +936,7 @@ Instruction *createSescInst(const InstDesc *inst, VAddr iaddr, size_t deltaAddr,
 	}
 #if (defined DEBUG)
 	myinst->op=op;
-	if(canmap)
+	if(domap)
 	  myinst->addr=origiaddr;
 	else
 	  myinst->addr=origiaddr-sizeof(RawInst);
@@ -998,32 +950,27 @@ Instruction *createSescInst(const InstDesc *inst, VAddr iaddr, size_t deltaAddr,
 	myinst->imm=decodeImm(data.imm,raw,origiaddr);
 	// Decode delay slots
 	if(data.addDSlot()){
-	  I(canmap);
-	  VAddr dsaddr=iaddr;
-	  decodeInst(context,dsaddr,trace,false);
+	  I(domap);
+	  VAddr dsaddr=curAddr;
+	  decodeInst(context,funcAddr,dsaddr,endAddr,trace,false);
 	  myinst->iupdate=trace-myinst;
 	}else if(data.mapDSlot()){
-	  I(canmap);
-	  if(context->getAddressSpace()->needMapInst(iaddr))
-	    decodeInst(context,iaddr,trace,true);
-	  else
-	    iaddr+=sizeof(RawInst);
+ 	  I(domap);
+	  decodeInst(context,funcAddr,curAddr,endAddr,trace,true);
 	  myinst->iupdate=trace-myinst;
 	}else{
           myinst->iupdate=1;
         }
-	myinst->sescInst=createSescInst(myinst,origiaddr,iaddr-origiaddr,data.typ,data.ctl);
+	myinst->sescInst=createSescInst(myinst,origiaddr,curAddr-origiaddr,data.typ,data.ctl);
 	op=data.next;
-	if((op==OpInvalid)&&canmap){
-          myinst->aupdate=iaddr-origiaddr;
-          // Request mapping for the continuation of this instruction
-	  switch(data.typ&TypSubMask){
-	  case BrOpJump: case BrOpRet: case BrOpCall:
-	    // Unconditional branches, calls, and returns allow a clean end of trace
-            return !context->getAddressSpace()->needMapInst(iaddr);
-	  default:
-            if(!context->getAddressSpace()->needMapInst(iaddr)){
-              I(context->getAddressSpace()->isMappedInst(iaddr));
+	if(op==OpInvalid){
+          myinst->aupdate=domap?(curAddr-origiaddr):0;
+	  // Is this the end of this trace?
+          if(domap&&(curAddr==endAddr)){
+	    InstTypInfo typ=static_cast<InstTypInfo>(data.typ&TypSubMask);
+	    // Unconditional jumps, calls, and returns don't continue directly to next instruction
+	    // Everything else needs an OpCut to link to the continuation in another trace
+	    if((typ!=BrOpJump)&&(typ!=BrOpCall)&&(typ!=BrOpRet)){
               InstDesc *ctinst=trace++;
               ctinst->emul=emulCut;
               ctinst->regDst=ctinst->regSrc1=ctinst->regSrc2=RegNone;
@@ -1032,38 +979,33 @@ Instruction *createSescInst(const InstDesc *inst, VAddr iaddr, size_t deltaAddr,
               ctinst->aupdate=0;
 #if (defined DEBUG)
               ctinst->op=OpCut;
-              ctinst->addr=iaddr;
+              ctinst->addr=curAddr;
               ctinst->typ=TypNop;
 #endif
               ctinst->sescInst=0;
-              return true;              
             }
-	    return false;
 	  }
-	}else{
-	  myinst->aupdate=0;
-        }
+          break;
+	}
+	myinst->aupdate=0;
       }
-      // End of trace if next instruction need not be mapped (yet)
-      return !context->getAddressSpace()->needMapInst(iaddr);      
     }
-    void decodeTrace(ThreadContext *context, VAddr iaddr){
-      size_t tsize;
-      VAddr sizaddr;
-      bool newmap=true;
-      while(newmap){
-        newmap=false;
-        tsize=0;
-        sizaddr=iaddr;
-        while(!decodeInstSize(context,sizaddr,tsize,newmap,true));
-      }
+    void decodeTrace(ThreadContext *context, VAddr addr,size_t len){
+      VAddr funcAddr=context->getAddressSpace()->getFuncAddr(addr);
+      I(addr+len<=funcAddr+context->getAddressSpace()->getFuncSize(funcAddr));
+      VAddr endAddr=addr+len;
+      size_t tsize=0;
+      VAddr sizaddr=addr;
+      while(sizaddr!=endAddr)
+        decodeInstSize(context,funcAddr,sizaddr,endAddr,tsize,true);
       InstDesc *trace=new InstDesc[tsize];
       InstDesc *curtrace=trace;
-      VAddr trcaddr=iaddr;
-      while(!decodeInst(context,trcaddr,curtrace,true));
+      VAddr trcaddr=addr;
+      while(trcaddr!=endAddr)
+        decodeInst(context,funcAddr,trcaddr,endAddr,curtrace,true);
       I((ssize_t)tsize==(curtrace-trace));
       I(trcaddr==sizaddr);
-      context->getAddressSpace()->mapTrace(trace,curtrace,iaddr,trcaddr);
+      context->getAddressSpace()->mapTrace(trace,curtrace,addr,trcaddr);
     }
   };
 
@@ -1390,6 +1332,8 @@ Instruction *createSescInst(const InstDesc *inst, VAddr iaddr, size_t deltaAddr,
 #define OpDataC7(op,ctl,typ,dst,src1,src2,imm,next,emul,T1,T2,T3,T4,T5,T6,T7) op2Data[op]=OpData(emul<op,Mips32,T1,T2,T3,T4,T5,T6,T7 >,0,ctl,typ,dst,src1,src2,imm,next)
 #define OpDataC8(op,ctl,typ,dst,src1,src2,imm,next,emul,T1,T2,T3,T4,T5,T6,T7,T8) op2Data[op]=OpData(emul<op,Mips32,T1,T2,T3,T4,T5,T6,T7,T8 >,0,ctl,typ,dst,src1,src2,imm,next)
 
+#define OpDataI4(op,ctl,typ,dst,src1,src2,imm,next,emul,...) op2Data[op]=OpData(emul<op,Mips32,NextNext,__VA_ARGS__ >,0,ctl,typ,dst,src1,src2,imm,next)
+
 //     OpDataX(OpJal     ,emulJump , CtlBpr, TypNop  , ArgNo  , ArgNo  , ArgNo  , ImmNo  , OpJal_);
 //     OpDataE(OpJal_    ,emulJump , CtlJal, BrOpCall, ArgRa  , ArgNo  , ArgNo  , ImmJpTg);
 
@@ -1564,172 +1508,172 @@ Instruction *createSescInst(const InstDesc *inst, VAddr iaddr, size_t deltaAddr,
     OpDataC5(OpSwc1    , CtlNorm, MemOpSt4 , ArgNo  , ArgRs  , ArgFt  , ImmSExt, OpInvalid , emulSt, RegIntS, RegIntU, uint32_t, uint32_t, RegTypeFpr);
     OpDataC5(OpSdc1    , CtlNorm, MemOpSt8 , ArgNo  , ArgRs  , ArgFt  , ImmSExt, OpInvalid , emulSt, RegIntS, RegIntU, uint64_t, uint64_t, RegTypeFpr);
     // These are two-part ops: calc addr, then store
-    OpDataC4(OpSwxc1   , CtlNorm, IntOpALU , ArgTmp , ArgRs  , ArgRt  , ImmNo  , OpSwxc1_  , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeGpr, std::plus<RegIntU>);
+    OpDataI4(OpSwxc1   , CtlNorm, IntOpALU , ArgTmp , ArgRs  , ArgRt  , ImmNo  , OpSwxc1_  , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeGpr, std::plus<RegIntU>);
     OpDataC5(OpSwxc1_  , CtlNorm, MemOpSt4 , ArgNo  , ArgTmp , ArgFs  , ImmNo  , OpInvalid , emulSt   , RegIntS, RegIntU, uint32_t, uint32_t, RegTypeFpr);
-    OpDataC4(OpSdxc1   , CtlNorm, IntOpALU , ArgTmp , ArgRs  , ArgRt  , ImmNo  , OpSdxc1_  , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeGpr, std::plus<RegIntU>);
+    OpDataI4(OpSdxc1   , CtlNorm, IntOpALU , ArgTmp , ArgRs  , ArgRt  , ImmNo  , OpSdxc1_  , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeGpr, std::plus<RegIntU>);
     OpDataC5(OpSdxc1_  , CtlNorm, MemOpSt8 , ArgNo  , ArgTmp , ArgFs  , ImmNo  , OpInvalid , emulSt   , RegIntS, RegIntU, uint64_t, uint64_t, RegTypeFpr);
     // Load-linked and store-conditional sync ops
     OpDataC5(OpLl      , CtlNorm, MemOpLl  , ArgRt  , ArgRs  , ArgNo  , ImmSExt, OpInvalid , emulLd, RegIntS, RegIntU, RegIntS , int32_t , RegTypeGpr);
     OpDataC2(OpSc      , CtlNorm, MemOpSc  , ArgRt  , ArgRs  , ArgRt  , ImmSExt, OpInvalid , emulLdSt , RegIntS, RegIntU);
 
     // Constant transfers
-    OpDataC4(OpLui     , CtlNorm, IntOpALU , ArgRt  , ArgNo  , ArgNo  , ImmLui , OpInvalid , emulAlu  , SrcI      , SrcZ      , RegTypeGpr, fns::project1st_identity<RegIntS>);
-    OpDataC4(OpLi      , CtlNorm, IntOpALU , ArgRt  , ArgNo  , ArgNo  , ImmSExt, OpInvalid , emulAlu  , SrcI      , SrcZ      , RegTypeGpr, fns::project1st_identity<RegIntS>);
-    OpDataC4(OpLiu     , CtlNorm, IntOpALU , ArgRt  , ArgNo  , ArgNo  , ImmZExt, OpInvalid , emulAlu  , SrcI      , SrcZ      , RegTypeGpr, fns::project1st_identity<RegIntS>);
+    OpDataI4(OpLui     , CtlNorm, IntOpALU , ArgRt  , ArgNo  , ArgNo  , ImmLui , OpInvalid , emulAlu  , SrcI      , SrcZ      , RegTypeGpr, fns::project1st_identity<RegIntS>);
+    OpDataI4(OpLi      , CtlNorm, IntOpALU , ArgRt  , ArgNo  , ArgNo  , ImmSExt, OpInvalid , emulAlu  , SrcI      , SrcZ      , RegTypeGpr, fns::project1st_identity<RegIntS>);
+    OpDataI4(OpLiu     , CtlNorm, IntOpALU , ArgRt  , ArgNo  , ArgNo  , ImmZExt, OpInvalid , emulAlu  , SrcI      , SrcZ      , RegTypeGpr, fns::project1st_identity<RegIntS>);
     // Shifts
-    OpDataC4(OpSll     , CtlNorm, IntOpALU , ArgRd  , ArgRt  , ArgNo  , ImmSh  , OpInvalid , emulAlu  , RegTypeGpr, SrcI      , RegTypeGpr, fns::shift_left<uint32_t>);
-    OpDataC4(OpSrl     , CtlNorm, IntOpALU , ArgRd  , ArgRt  , ArgNo  , ImmSh  , OpInvalid , emulAlu  , RegTypeGpr, SrcI      , RegTypeGpr, fns::shift_right<uint32_t>);
-    OpDataC4(OpSra     , CtlNorm, IntOpALU , ArgRd  , ArgRt  , ArgNo  , ImmSh  , OpInvalid , emulAlu  , RegTypeGpr, SrcI      , RegTypeGpr, fns::shift_right<int32_t>);
-    OpDataC4(OpSllv    , CtlNorm, IntOpALU , ArgRd  , ArgRt  , ArgRs  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeGpr, fns::shift_left<uint32_t>);
-    OpDataC4(OpSrlv    , CtlNorm, IntOpALU , ArgRd  , ArgRt  , ArgRs  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeGpr, fns::shift_right<uint32_t>);
-    OpDataC4(OpSrav    , CtlNorm, IntOpALU , ArgRd  , ArgRt  , ArgRs  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeGpr, fns::shift_right<int32_t>);
-    OpDataC4(OpDsll    , CtlNorm, IntOpALU , ArgRd  , ArgRt  , ArgNo  , ImmSh  , OpInvalid , emulAlu  , RegTypeGpr, SrcI      , RegTypeGpr, fns::shift_left<uint64_t>);
-    OpDataC4(OpDsrl    , CtlNorm, IntOpALU , ArgRd  , ArgRt  , ArgNo  , ImmSh  , OpInvalid , emulAlu  , RegTypeGpr, SrcI      , RegTypeGpr, fns::shift_right<uint64_t>);
-    OpDataC4(OpDsra    , CtlNorm, IntOpALU , ArgRd  , ArgRt  , ArgNo  , ImmSh  , OpInvalid , emulAlu  , RegTypeGpr, SrcI      , RegTypeGpr, fns::shift_right<int64_t>);
-    OpDataC4(OpDsll32  , CtlNorm, IntOpALU , ArgRd  , ArgRt  , ArgNo  , ImmSh32, OpInvalid , emulAlu  , RegTypeGpr, SrcI      , RegTypeGpr, fns::shift_left<uint64_t>);
-    OpDataC4(OpDsrl32  , CtlNorm, IntOpALU , ArgRd  , ArgRt  , ArgNo  , ImmSh32, OpInvalid , emulAlu  , RegTypeGpr, SrcI      , RegTypeGpr, fns::shift_right<uint64_t>);
-    OpDataC4(OpDsra32  , CtlNorm, IntOpALU , ArgRd  , ArgRt  , ArgNo  , ImmSh32, OpInvalid , emulAlu  , RegTypeGpr, SrcI      , RegTypeGpr, fns::shift_right<int64_t>);
-    OpDataC4(OpDsllv   , CtlNorm, IntOpALU , ArgRd  , ArgRt  , ArgRs  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeGpr, fns::shift_left<uint64_t>);
-    OpDataC4(OpDsrlv   , CtlNorm, IntOpALU , ArgRd  , ArgRt  , ArgRs  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeGpr, fns::shift_right<uint64_t>);
-    OpDataC4(OpDsrav   , CtlNorm, IntOpALU , ArgRd  , ArgRt  , ArgRs  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeGpr, fns::shift_right<int64_t>);
+    OpDataI4(OpSll     , CtlNorm, IntOpALU , ArgRd  , ArgRt  , ArgNo  , ImmSh  , OpInvalid , emulAlu  , RegTypeGpr, SrcI      , RegTypeGpr, fns::shift_left<uint32_t>);
+    OpDataI4(OpSrl     , CtlNorm, IntOpALU , ArgRd  , ArgRt  , ArgNo  , ImmSh  , OpInvalid , emulAlu  , RegTypeGpr, SrcI      , RegTypeGpr, fns::shift_right<uint32_t>);
+    OpDataI4(OpSra     , CtlNorm, IntOpALU , ArgRd  , ArgRt  , ArgNo  , ImmSh  , OpInvalid , emulAlu  , RegTypeGpr, SrcI      , RegTypeGpr, fns::shift_right<int32_t>);
+    OpDataI4(OpSllv    , CtlNorm, IntOpALU , ArgRd  , ArgRt  , ArgRs  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeGpr, fns::shift_left<uint32_t>);
+    OpDataI4(OpSrlv    , CtlNorm, IntOpALU , ArgRd  , ArgRt  , ArgRs  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeGpr, fns::shift_right<uint32_t>);
+    OpDataI4(OpSrav    , CtlNorm, IntOpALU , ArgRd  , ArgRt  , ArgRs  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeGpr, fns::shift_right<int32_t>);
+    OpDataI4(OpDsll    , CtlNorm, IntOpALU , ArgRd  , ArgRt  , ArgNo  , ImmSh  , OpInvalid , emulAlu  , RegTypeGpr, SrcI      , RegTypeGpr, fns::shift_left<uint64_t>);
+    OpDataI4(OpDsrl    , CtlNorm, IntOpALU , ArgRd  , ArgRt  , ArgNo  , ImmSh  , OpInvalid , emulAlu  , RegTypeGpr, SrcI      , RegTypeGpr, fns::shift_right<uint64_t>);
+    OpDataI4(OpDsra    , CtlNorm, IntOpALU , ArgRd  , ArgRt  , ArgNo  , ImmSh  , OpInvalid , emulAlu  , RegTypeGpr, SrcI      , RegTypeGpr, fns::shift_right<int64_t>);
+    OpDataI4(OpDsll32  , CtlNorm, IntOpALU , ArgRd  , ArgRt  , ArgNo  , ImmSh32, OpInvalid , emulAlu  , RegTypeGpr, SrcI      , RegTypeGpr, fns::shift_left<uint64_t>);
+    OpDataI4(OpDsrl32  , CtlNorm, IntOpALU , ArgRd  , ArgRt  , ArgNo  , ImmSh32, OpInvalid , emulAlu  , RegTypeGpr, SrcI      , RegTypeGpr, fns::shift_right<uint64_t>);
+    OpDataI4(OpDsra32  , CtlNorm, IntOpALU , ArgRd  , ArgRt  , ArgNo  , ImmSh32, OpInvalid , emulAlu  , RegTypeGpr, SrcI      , RegTypeGpr, fns::shift_right<int64_t>);
+    OpDataI4(OpDsllv   , CtlNorm, IntOpALU , ArgRd  , ArgRt  , ArgRs  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeGpr, fns::shift_left<uint64_t>);
+    OpDataI4(OpDsrlv   , CtlNorm, IntOpALU , ArgRd  , ArgRt  , ArgRs  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeGpr, fns::shift_right<uint64_t>);
+    OpDataI4(OpDsrav   , CtlNorm, IntOpALU , ArgRd  , ArgRt  , ArgRs  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeGpr, fns::shift_right<int64_t>);
     // Logical
-    OpDataC4(OpAnd     , CtlNorm, IntOpALU , ArgRd  , ArgRs  , ArgRt  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeGpr, fns::bitwise_and<RegIntU>);
-    OpDataC4(OpOr      , CtlNorm, IntOpALU , ArgRd  , ArgRs  , ArgRt  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeGpr, fns::bitwise_or<RegIntU>);
-    OpDataC4(OpXor     , CtlNorm, IntOpALU , ArgRd  , ArgRs  , ArgRt  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeGpr, fns::bitwise_xor<RegIntU>);
-    OpDataC4(OpNor     , CtlNorm, IntOpALU , ArgRd  , ArgRs  , ArgRt  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeGpr, fns::bitwise_nor<RegIntU>);
-    OpDataC4(OpAndi    , CtlNorm, IntOpALU , ArgRt  , ArgRs  , ArgNo  , ImmZExt, OpInvalid , emulAlu  , RegTypeGpr, SrcI      , RegTypeGpr, fns::bitwise_and<RegIntU>);
-    OpDataC4(OpOri     , CtlNorm, IntOpALU , ArgRt  , ArgRs  , ArgNo  , ImmZExt, OpInvalid , emulAlu  , RegTypeGpr, SrcI      , RegTypeGpr, fns::bitwise_or<RegIntU>);
-    OpDataC4(OpXori    , CtlNorm, IntOpALU , ArgRt  , ArgRs  , ArgNo  , ImmZExt, OpInvalid , emulAlu  , RegTypeGpr, SrcI      , RegTypeGpr, fns::bitwise_xor<RegIntU>);
-    OpDataC4(OpNot     , CtlNorm, IntOpALU , ArgRd  , ArgRt  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, SrcZ      , RegTypeGpr, fns::project1st_bitwise_not<RegIntU>);
+    OpDataI4(OpAnd     , CtlNorm, IntOpALU , ArgRd  , ArgRs  , ArgRt  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeGpr, fns::bitwise_and<RegIntU>);
+    OpDataI4(OpOr      , CtlNorm, IntOpALU , ArgRd  , ArgRs  , ArgRt  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeGpr, fns::bitwise_or<RegIntU>);
+    OpDataI4(OpXor     , CtlNorm, IntOpALU , ArgRd  , ArgRs  , ArgRt  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeGpr, fns::bitwise_xor<RegIntU>);
+    OpDataI4(OpNor     , CtlNorm, IntOpALU , ArgRd  , ArgRs  , ArgRt  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeGpr, fns::bitwise_nor<RegIntU>);
+    OpDataI4(OpAndi    , CtlNorm, IntOpALU , ArgRt  , ArgRs  , ArgNo  , ImmZExt, OpInvalid , emulAlu  , RegTypeGpr, SrcI      , RegTypeGpr, fns::bitwise_and<RegIntU>);
+    OpDataI4(OpOri     , CtlNorm, IntOpALU , ArgRt  , ArgRs  , ArgNo  , ImmZExt, OpInvalid , emulAlu  , RegTypeGpr, SrcI      , RegTypeGpr, fns::bitwise_or<RegIntU>);
+    OpDataI4(OpXori    , CtlNorm, IntOpALU , ArgRt  , ArgRs  , ArgNo  , ImmZExt, OpInvalid , emulAlu  , RegTypeGpr, SrcI      , RegTypeGpr, fns::bitwise_xor<RegIntU>);
+    OpDataI4(OpNot     , CtlNorm, IntOpALU , ArgRd  , ArgRt  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, SrcZ      , RegTypeGpr, fns::project1st_bitwise_not<RegIntU>);
    // Arithmetic
-    OpDataC4(OpAdd     , CtlNorm, IntOpALU , ArgRd  , ArgRs  , ArgRt  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeGpr, std::plus<int32_t>);
-    OpDataC4(OpAddu    , CtlNorm, IntOpALU , ArgRd  , ArgRs  , ArgRt  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeGpr, std::plus<int32_t>);
-    OpDataC4(OpSub     , CtlNorm, IntOpALU , ArgRd  , ArgRs  , ArgRt  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeGpr, std::minus<int32_t>);
-    OpDataC4(OpSubu    , CtlNorm, IntOpALU , ArgRd  , ArgRs  , ArgRt  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeGpr, std::minus<int32_t>);
-    OpDataC4(OpAddi    , CtlNorm, IntOpALU , ArgRt  , ArgRs  , ArgNo  , ImmSExt, OpInvalid , emulAlu  , RegTypeGpr, SrcI      , RegTypeGpr, std::plus<int32_t>);
-    OpDataC4(OpAddiu   , CtlNorm, IntOpALU , ArgRt  , ArgRs  , ArgNo  , ImmSExt, OpInvalid , emulAlu  , RegTypeGpr, SrcI      , RegTypeGpr, std::plus<int32_t>);
-    OpDataC4(OpNegu    , CtlNorm, IntOpALU , ArgRd  , ArgRt  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, SrcZ      , RegTypeGpr, fns::project1st_neg<int32_t>);
-    OpDataC4(OpMult    , CtlNorm, IntOpMul , ArgLo  , ArgRs  , ArgRt  , ImmNo  , OpMult_   , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeSpc, std::multiplies<int32_t>);
-    OpDataC4(OpMult_   , CtlNorm, IntOpALU , ArgHi  , ArgRs  , ArgRt  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeSpc, fns::multiplies_hi<int32_t>);
-    OpDataC4(OpMultu   , CtlNorm, IntOpMul , ArgLo  , ArgRs  , ArgRt  , ImmNo  , OpMultu_  , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeSpc, std::multiplies<uint32_t>);
-    OpDataC4(OpMultu_  , CtlNorm, IntOpALU , ArgHi  , ArgRs  , ArgRt  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeSpc, fns::multiplies_hi<uint32_t>);
-    OpDataC4(OpDiv     , CtlNorm, IntOpDiv , ArgLo  , ArgRs  , ArgRt  , ImmNo  , OpDiv_    , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeSpc, std::divides<int32_t>);
-    OpDataC4(OpDiv_    , CtlNorm, IntOpALU , ArgHi  , ArgRs  , ArgRt  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeSpc, std::modulus<int32_t>);
-    OpDataC4(OpDivu    , CtlNorm, IntOpDiv , ArgLo  , ArgRs  , ArgRt  , ImmNo  , OpDivu_   , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeSpc, std::divides<uint32_t>);
-    OpDataC4(OpDivu_   , CtlNorm, IntOpALU , ArgHi  , ArgRs  , ArgRt  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeSpc, std::modulus<uint32_t>);
+    OpDataI4(OpAdd     , CtlNorm, IntOpALU , ArgRd  , ArgRs  , ArgRt  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeGpr, std::plus<int32_t>);
+    OpDataI4(OpAddu    , CtlNorm, IntOpALU , ArgRd  , ArgRs  , ArgRt  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeGpr, std::plus<int32_t>);
+    OpDataI4(OpSub     , CtlNorm, IntOpALU , ArgRd  , ArgRs  , ArgRt  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeGpr, std::minus<int32_t>);
+    OpDataI4(OpSubu    , CtlNorm, IntOpALU , ArgRd  , ArgRs  , ArgRt  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeGpr, std::minus<int32_t>);
+    OpDataI4(OpAddi    , CtlNorm, IntOpALU , ArgRt  , ArgRs  , ArgNo  , ImmSExt, OpInvalid , emulAlu  , RegTypeGpr, SrcI      , RegTypeGpr, std::plus<int32_t>);
+    OpDataI4(OpAddiu   , CtlNorm, IntOpALU , ArgRt  , ArgRs  , ArgNo  , ImmSExt, OpInvalid , emulAlu  , RegTypeGpr, SrcI      , RegTypeGpr, std::plus<int32_t>);
+    OpDataI4(OpNegu    , CtlNorm, IntOpALU , ArgRd  , ArgRt  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, SrcZ      , RegTypeGpr, fns::project1st_neg<int32_t>);
+    OpDataI4(OpMult    , CtlNorm, IntOpMul , ArgLo  , ArgRs  , ArgRt  , ImmNo  , OpMult_   , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeSpc, std::multiplies<int32_t>);
+    OpDataI4(OpMult_   , CtlNorm, IntOpALU , ArgHi  , ArgRs  , ArgRt  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeSpc, fns::multiplies_hi<int32_t>);
+    OpDataI4(OpMultu   , CtlNorm, IntOpMul , ArgLo  , ArgRs  , ArgRt  , ImmNo  , OpMultu_  , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeSpc, std::multiplies<uint32_t>);
+    OpDataI4(OpMultu_  , CtlNorm, IntOpALU , ArgHi  , ArgRs  , ArgRt  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeSpc, fns::multiplies_hi<uint32_t>);
+    OpDataI4(OpDiv     , CtlNorm, IntOpDiv , ArgLo  , ArgRs  , ArgRt  , ImmNo  , OpDiv_    , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeSpc, std::divides<int32_t>);
+    OpDataI4(OpDiv_    , CtlNorm, IntOpALU , ArgHi  , ArgRs  , ArgRt  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeSpc, std::modulus<int32_t>);
+    OpDataI4(OpDivu    , CtlNorm, IntOpDiv , ArgLo  , ArgRs  , ArgRt  , ImmNo  , OpDivu_   , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeSpc, std::divides<uint32_t>);
+    OpDataI4(OpDivu_   , CtlNorm, IntOpALU , ArgHi  , ArgRs  , ArgRt  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeSpc, std::modulus<uint32_t>);
     // Moves
-    OpDataC4(OpMovw    , CtlNorm, IntOpALU , ArgRd  , ArgRs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, SrcZ      , RegTypeGpr, fns::project1st_identity<int32_t>);
-    OpDataC4(OpMfhi    , CtlNorm, IntOpALU , ArgRd  , ArgHi  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeSpc, SrcZ      , RegTypeGpr, fns::project1st_identity<RegIntS>);
-    OpDataC4(OpMflo    , CtlNorm, IntOpALU , ArgRd  , ArgLo  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeSpc, SrcZ      , RegTypeGpr, fns::project1st_identity<RegIntS>);
-    OpDataC4(OpMthi    , CtlNorm, IntOpALU , ArgHi  , ArgRs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, SrcZ      , RegTypeSpc, fns::project1st_identity<RegIntS>);
-    OpDataC4(OpMtlo    , CtlNorm, IntOpALU , ArgLo  , ArgRs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, SrcZ      , RegTypeSpc, fns::project1st_identity<RegIntS>);
-    OpDataC4(OpMfc1    , CtlNorm, IntOpALU , ArgRt  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeGpr, fns::project1st_identity<int32_t>);
-    OpDataC4(OpCfc1    , CtlNorm, IntOpALU , ArgRt  , ArgFCs , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeCtl, SrcZ      , RegTypeGpr, fns::project1st_identity<int32_t>);
-    OpDataC4(OpMtc1    , CtlNorm, IntOpALU , ArgFs  , ArgRt  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, SrcZ      , RegTypeFpr, fns::project1st_identity<int32_t>);
-    OpDataC4(OpCtc1    , CtlNorm, IntOpALU , ArgFCs , ArgRt  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, SrcZ      , RegTypeCtl, fns::project1st_identity<int32_t>);
+    OpDataI4(OpMovw    , CtlNorm, IntOpALU , ArgRd  , ArgRs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, SrcZ      , RegTypeGpr, fns::project1st_identity<int32_t>);
+    OpDataI4(OpMfhi    , CtlNorm, IntOpALU , ArgRd  , ArgHi  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeSpc, SrcZ      , RegTypeGpr, fns::project1st_identity<RegIntS>);
+    OpDataI4(OpMflo    , CtlNorm, IntOpALU , ArgRd  , ArgLo  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeSpc, SrcZ      , RegTypeGpr, fns::project1st_identity<RegIntS>);
+    OpDataI4(OpMthi    , CtlNorm, IntOpALU , ArgHi  , ArgRs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, SrcZ      , RegTypeSpc, fns::project1st_identity<RegIntS>);
+    OpDataI4(OpMtlo    , CtlNorm, IntOpALU , ArgLo  , ArgRs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, SrcZ      , RegTypeSpc, fns::project1st_identity<RegIntS>);
+    OpDataI4(OpMfc1    , CtlNorm, IntOpALU , ArgRt  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeGpr, fns::project1st_identity<int32_t>);
+    OpDataI4(OpCfc1    , CtlNorm, IntOpALU , ArgRt  , ArgFCs , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeCtl, SrcZ      , RegTypeGpr, fns::project1st_identity<int32_t>);
+    OpDataI4(OpMtc1    , CtlNorm, IntOpALU , ArgFs  , ArgRt  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, SrcZ      , RegTypeFpr, fns::project1st_identity<int32_t>);
+    OpDataI4(OpCtc1    , CtlNorm, IntOpALU , ArgFCs , ArgRt  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, SrcZ      , RegTypeCtl, fns::project1st_identity<int32_t>);
     // Integer comparisons
-    OpDataC4(OpSlti    , CtlNorm, IntOpALU , ArgRt  , ArgRs  , ArgNo  , ImmSExt, OpInvalid , emulAlu  , RegTypeGpr, SrcI      , RegTypeGpr, std::less<RegIntS>);
-    OpDataC4(OpSltiu   , CtlNorm, IntOpALU , ArgRt  , ArgRs  , ArgNo  , ImmSExt, OpInvalid , emulAlu  , RegTypeGpr, SrcI      , RegTypeGpr, std::less<RegIntU>);
-    OpDataC4(OpSlt     , CtlNorm, IntOpALU , ArgRd  , ArgRs  , ArgRt  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeGpr, std::less<RegIntS>);
-    OpDataC4(OpSltu    , CtlNorm, IntOpALU , ArgRd  , ArgRs  , ArgRt  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeGpr, std::less<RegIntU>);
+    OpDataI4(OpSlti    , CtlNorm, IntOpALU , ArgRt  , ArgRs  , ArgNo  , ImmSExt, OpInvalid , emulAlu  , RegTypeGpr, SrcI      , RegTypeGpr, std::less<RegIntS>);
+    OpDataI4(OpSltiu   , CtlNorm, IntOpALU , ArgRt  , ArgRs  , ArgNo  , ImmSExt, OpInvalid , emulAlu  , RegTypeGpr, SrcI      , RegTypeGpr, std::less<RegIntU>);
+    OpDataI4(OpSlt     , CtlNorm, IntOpALU , ArgRd  , ArgRs  , ArgRt  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeGpr, std::less<RegIntS>);
+    OpDataI4(OpSltu    , CtlNorm, IntOpALU , ArgRd  , ArgRs  , ArgRt  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeGpr, std::less<RegIntU>);
     // Floating-point comparisons
-    OpDataC4(OpFcfs    , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float32_t, false, false, false, false>));
-    OpDataC4(OpFcuns   , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float32_t, false, false, false, true >));
-    OpDataC4(OpFceqs   , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float32_t, false, false, true , false>));
-    OpDataC4(OpFcueqs  , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float32_t, false, false, true , true >));
-    OpDataC4(OpFcolts  , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float32_t, false, true , false, false>));
-    OpDataC4(OpFcults  , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float32_t, false, true , false, true >));
-    OpDataC4(OpFcoles  , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float32_t, false, true , true , false>));
-    OpDataC4(OpFcules  , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float32_t, false, true , true , true >));
-    OpDataC4(OpFcsfs   , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float32_t, true , false, false, false>));
-    OpDataC4(OpFcngles , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float32_t, true , false, false, true >));
-    OpDataC4(OpFcseqs  , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float32_t, true , false, true , false>));
-    OpDataC4(OpFcngls  , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float32_t, true , false, true , true >));
-    OpDataC4(OpFclts   , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float32_t, true , true , false, false>));
-    OpDataC4(OpFcnges  , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float32_t, true , true , false, true >));
-    OpDataC4(OpFcles   , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float32_t, true , true , true , false>));
-    OpDataC4(OpFcngts  , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float32_t, true , true , true , true >));
-    OpDataC4(OpFcfd    , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float64_t, false, false, false, false>));
-    OpDataC4(OpFcund   , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float64_t, false, false, false, true >));
-    OpDataC4(OpFceqd   , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float64_t, false, false, true , false>));
-    OpDataC4(OpFcueqd  , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float64_t, false, false, true , true >));
-    OpDataC4(OpFcoltd  , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float64_t, false, true , false, false>));
-    OpDataC4(OpFcultd  , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float64_t, false, true , false, true >));
-    OpDataC4(OpFcoled  , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float64_t, false, true , true , false>));
-    OpDataC4(OpFculed  , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float64_t, false, true , true , true >));
-    OpDataC4(OpFcsfd   , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float64_t, true , false, false, false>));
-    OpDataC4(OpFcngled , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float64_t, true , false, false, true >));
-    OpDataC4(OpFcseqd  , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float64_t, true , false, true , false>));
-    OpDataC4(OpFcngld  , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float64_t, true , false, true , true >));
-    OpDataC4(OpFcltd   , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float64_t, true , true , false, false>));
-    OpDataC4(OpFcnged  , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float64_t, true , true , false, true >));
-    OpDataC4(OpFcled   , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float64_t, true , true , true , false>));
-    OpDataC4(OpFcngtd  , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float64_t, true , true , true , true >));
+    OpDataI4(OpFcfs    , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float32_t, false, false, false, false>));
+    OpDataI4(OpFcuns   , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float32_t, false, false, false, true >));
+    OpDataI4(OpFceqs   , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float32_t, false, false, true , false>));
+    OpDataI4(OpFcueqs  , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float32_t, false, false, true , true >));
+    OpDataI4(OpFcolts  , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float32_t, false, true , false, false>));
+    OpDataI4(OpFcults  , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float32_t, false, true , false, true >));
+    OpDataI4(OpFcoles  , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float32_t, false, true , true , false>));
+    OpDataI4(OpFcules  , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float32_t, false, true , true , true >));
+    OpDataI4(OpFcsfs   , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float32_t, true , false, false, false>));
+    OpDataI4(OpFcngles , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float32_t, true , false, false, true >));
+    OpDataI4(OpFcseqs  , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float32_t, true , false, true , false>));
+    OpDataI4(OpFcngls  , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float32_t, true , false, true , true >));
+    OpDataI4(OpFclts   , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float32_t, true , true , false, false>));
+    OpDataI4(OpFcnges  , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float32_t, true , true , false, true >));
+    OpDataI4(OpFcles   , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float32_t, true , true , true , false>));
+    OpDataI4(OpFcngts  , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float32_t, true , true , true , true >));
+    OpDataI4(OpFcfd    , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float64_t, false, false, false, false>));
+    OpDataI4(OpFcund   , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float64_t, false, false, false, true >));
+    OpDataI4(OpFceqd   , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float64_t, false, false, true , false>));
+    OpDataI4(OpFcueqd  , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float64_t, false, false, true , true >));
+    OpDataI4(OpFcoltd  , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float64_t, false, true , false, false>));
+    OpDataI4(OpFcultd  , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float64_t, false, true , false, true >));
+    OpDataI4(OpFcoled  , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float64_t, false, true , true , false>));
+    OpDataI4(OpFculed  , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float64_t, false, true , true , true >));
+    OpDataI4(OpFcsfd   , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float64_t, true , false, false, false>));
+    OpDataI4(OpFcngled , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float64_t, true , false, false, true >));
+    OpDataI4(OpFcseqd  , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float64_t, true , false, true , false>));
+    OpDataI4(OpFcngld  , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float64_t, true , false, true , true >));
+    OpDataI4(OpFcltd   , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float64_t, true , true , false, false>));
+    OpDataI4(OpFcnged  , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float64_t, true , true , false, true >));
+    OpDataI4(OpFcled   , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float64_t, true , true , true , false>));
+    OpDataI4(OpFcngtd  , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float64_t, true , true , true , true >));
     // Floating-point arithmetic
-    OpDataC4(OpFmovs   , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, fns::project1st_identity<float32_t>);
-    OpDataC4(OpFsqrts  , CtlNorm, FpOpDiv  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, fns::project1st_sqrt<float32_t>);
-    OpDataC4(OpFabss   , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, fns::project1st_abs<float32_t>);
-    OpDataC4(OpFnegs   , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, fns::project1st_neg<float32_t>);
-    OpDataC4(OpFrecips , CtlNorm, FpOpDiv  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, fns::project1st_recip<float32_t>);
-    OpDataC4(OpFrsqrts , CtlNorm, FpOpDiv  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, fns::project1st_sqrt_recip<float32_t>);
-    OpDataC4(OpFmovd   , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, fns::project1st_identity<float64_t>);
-    OpDataC4(OpFsqrtd  , CtlNorm, FpOpDiv  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, fns::project1st_sqrt<float64_t>);
-    OpDataC4(OpFabsd   , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, fns::project1st_abs<float64_t>);
-    OpDataC4(OpFnegd   , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, fns::project1st_neg<float64_t>);
-    OpDataC4(OpFrecipd , CtlNorm, FpOpDiv  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, fns::project1st_recip<float64_t>);
-    OpDataC4(OpFrsqrtd , CtlNorm, FpOpDiv  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, fns::project1st_sqrt_recip<float64_t>);
-    OpDataC4(OpFadds   , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, std::plus<float32_t>);
-    OpDataC4(OpFsubs   , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, std::minus<float32_t>);
-    OpDataC4(OpFmuls   , CtlNorm, FpOpMul  , ArgFd  , ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, std::multiplies<float32_t>);
-    OpDataC4(OpFdivs   , CtlNorm, FpOpDiv  , ArgFd  , ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, std::divides<float32_t>);
-    OpDataC4(OpFaddd   , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, std::plus<float64_t>);
-    OpDataC4(OpFsubd   , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, std::minus<float64_t>);
-    OpDataC4(OpFmuld   , CtlNorm, FpOpMul  , ArgFd  , ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, std::multiplies<float64_t>);
-    OpDataC4(OpFdivd   , CtlNorm, FpOpDiv  , ArgFd  , ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, std::divides<float64_t>);
+    OpDataI4(OpFmovs   , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, fns::project1st_identity<float32_t>);
+    OpDataI4(OpFsqrts  , CtlNorm, FpOpDiv  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, fns::project1st_sqrt<float32_t>);
+    OpDataI4(OpFabss   , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, fns::project1st_abs<float32_t>);
+    OpDataI4(OpFnegs   , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, fns::project1st_neg<float32_t>);
+    OpDataI4(OpFrecips , CtlNorm, FpOpDiv  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, fns::project1st_recip<float32_t>);
+    OpDataI4(OpFrsqrts , CtlNorm, FpOpDiv  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, fns::project1st_sqrt_recip<float32_t>);
+    OpDataI4(OpFmovd   , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, fns::project1st_identity<float64_t>);
+    OpDataI4(OpFsqrtd  , CtlNorm, FpOpDiv  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, fns::project1st_sqrt<float64_t>);
+    OpDataI4(OpFabsd   , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, fns::project1st_abs<float64_t>);
+    OpDataI4(OpFnegd   , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, fns::project1st_neg<float64_t>);
+    OpDataI4(OpFrecipd , CtlNorm, FpOpDiv  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, fns::project1st_recip<float64_t>);
+    OpDataI4(OpFrsqrtd , CtlNorm, FpOpDiv  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, fns::project1st_sqrt_recip<float64_t>);
+    OpDataI4(OpFadds   , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, std::plus<float32_t>);
+    OpDataI4(OpFsubs   , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, std::minus<float32_t>);
+    OpDataI4(OpFmuls   , CtlNorm, FpOpMul  , ArgFd  , ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, std::multiplies<float32_t>);
+    OpDataI4(OpFdivs   , CtlNorm, FpOpDiv  , ArgFd  , ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, std::divides<float32_t>);
+    OpDataI4(OpFaddd   , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, std::plus<float64_t>);
+    OpDataI4(OpFsubd   , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, std::minus<float64_t>);
+    OpDataI4(OpFmuld   , CtlNorm, FpOpMul  , ArgFd  , ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, std::multiplies<float64_t>);
+    OpDataI4(OpFdivd   , CtlNorm, FpOpDiv  , ArgFd  , ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, std::divides<float64_t>);
     // These are two-part FP arithmetic ops: multiply, then add/subtract
-    OpDataC4(OpFmadds  , CtlNorm, FpOpMul  , ArgFTmp, ArgFs  , ArgFt  , ImmNo  , OpFmadds_ , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, std::multiplies<float32_t>);
-    OpDataC4(OpFmadds_ , CtlNorm, FpOpALU  , ArgFd  , ArgFTmp, ArgFr  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, std::plus<float32_t>);
-    OpDataC4(OpFmaddd  , CtlNorm, FpOpMul  , ArgFTmp, ArgFs  , ArgFt  , ImmNo  , OpFmaddd_ , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, std::multiplies<float64_t>);
-    OpDataC4(OpFmaddd_ , CtlNorm, FpOpALU  , ArgFd  , ArgFTmp, ArgFr  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, std::plus<float64_t>);
-    OpDataC4(OpFmsubs  , CtlNorm, FpOpMul  , ArgFTmp, ArgFs  , ArgFt  , ImmNo  , OpFmsubs_ , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, std::multiplies<float32_t>);
-    OpDataC4(OpFmsubs_ , CtlNorm, FpOpALU  , ArgFd  , ArgFTmp, ArgFr  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, std::minus<float32_t>);
-    OpDataC4(OpFmsubd  , CtlNorm, FpOpMul  , ArgFTmp, ArgFs  , ArgFt  , ImmNo  , OpFmsubd_ , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, std::multiplies<float64_t>);
-    OpDataC4(OpFmsubd_ , CtlNorm, FpOpALU  , ArgFd  , ArgFTmp, ArgFr  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, std::minus<float64_t>);
-    OpDataC4(OpFnmadds , CtlNorm, FpOpMul  , ArgFTmp, ArgFs  , ArgFt  , ImmNo  , OpFnmadds_, emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, std::multiplies<float32_t>);
-    OpDataC4(OpFnmadds_, CtlNorm, FpOpALU  , ArgFd  , ArgFTmp, ArgFr  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, fns::plus_neg<float32_t>);
-    OpDataC4(OpFnmaddd , CtlNorm, FpOpMul  , ArgFTmp, ArgFs  , ArgFt  , ImmNo  , OpFnmaddd_, emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, std::multiplies<float64_t>);
-    OpDataC4(OpFnmaddd_, CtlNorm, FpOpALU  , ArgFd  , ArgFTmp, ArgFr  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, fns::plus_neg<float64_t>);
-    OpDataC4(OpFnmsubs , CtlNorm, FpOpMul  , ArgFTmp, ArgFs  , ArgFt  , ImmNo  , OpFnmsubs_, emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, std::multiplies<float32_t>);
-    OpDataC4(OpFnmsubs_, CtlNorm, FpOpALU  , ArgFd  , ArgFTmp, ArgFr  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, fns::minus_neg<float32_t>);
-    OpDataC4(OpFnmsubd , CtlNorm, FpOpMul  , ArgFTmp, ArgFs  , ArgFt  , ImmNo  , OpFnmsubd_, emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, std::multiplies<float64_t>);
-    OpDataC4(OpFnmsubd_, CtlNorm, FpOpALU  , ArgFd  , ArgFTmp, ArgFr  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, fns::minus_neg<float64_t>);
+    OpDataI4(OpFmadds  , CtlNorm, FpOpMul  , ArgFTmp, ArgFs  , ArgFt  , ImmNo  , OpFmadds_ , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, std::multiplies<float32_t>);
+    OpDataI4(OpFmadds_ , CtlNorm, FpOpALU  , ArgFd  , ArgFTmp, ArgFr  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, std::plus<float32_t>);
+    OpDataI4(OpFmaddd  , CtlNorm, FpOpMul  , ArgFTmp, ArgFs  , ArgFt  , ImmNo  , OpFmaddd_ , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, std::multiplies<float64_t>);
+    OpDataI4(OpFmaddd_ , CtlNorm, FpOpALU  , ArgFd  , ArgFTmp, ArgFr  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, std::plus<float64_t>);
+    OpDataI4(OpFmsubs  , CtlNorm, FpOpMul  , ArgFTmp, ArgFs  , ArgFt  , ImmNo  , OpFmsubs_ , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, std::multiplies<float32_t>);
+    OpDataI4(OpFmsubs_ , CtlNorm, FpOpALU  , ArgFd  , ArgFTmp, ArgFr  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, std::minus<float32_t>);
+    OpDataI4(OpFmsubd  , CtlNorm, FpOpMul  , ArgFTmp, ArgFs  , ArgFt  , ImmNo  , OpFmsubd_ , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, std::multiplies<float64_t>);
+    OpDataI4(OpFmsubd_ , CtlNorm, FpOpALU  , ArgFd  , ArgFTmp, ArgFr  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, std::minus<float64_t>);
+    OpDataI4(OpFnmadds , CtlNorm, FpOpMul  , ArgFTmp, ArgFs  , ArgFt  , ImmNo  , OpFnmadds_, emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, std::multiplies<float32_t>);
+    OpDataI4(OpFnmadds_, CtlNorm, FpOpALU  , ArgFd  , ArgFTmp, ArgFr  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, fns::plus_neg<float32_t>);
+    OpDataI4(OpFnmaddd , CtlNorm, FpOpMul  , ArgFTmp, ArgFs  , ArgFt  , ImmNo  , OpFnmaddd_, emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, std::multiplies<float64_t>);
+    OpDataI4(OpFnmaddd_, CtlNorm, FpOpALU  , ArgFd  , ArgFTmp, ArgFr  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, fns::plus_neg<float64_t>);
+    OpDataI4(OpFnmsubs , CtlNorm, FpOpMul  , ArgFTmp, ArgFs  , ArgFt  , ImmNo  , OpFnmsubs_, emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, std::multiplies<float32_t>);
+    OpDataI4(OpFnmsubs_, CtlNorm, FpOpALU  , ArgFd  , ArgFTmp, ArgFr  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, fns::minus_neg<float32_t>);
+    OpDataI4(OpFnmsubd , CtlNorm, FpOpMul  , ArgFTmp, ArgFs  , ArgFt  , ImmNo  , OpFnmsubd_, emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, std::multiplies<float64_t>);
+    OpDataI4(OpFnmsubd_, CtlNorm, FpOpALU  , ArgFd  , ArgFTmp, ArgFr  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, fns::minus_neg<float64_t>);
     // Floating-point format conversion
-    OpDataC4(OpFroundls, CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float32_t,int64_t,FE_TONEAREST>));
-    OpDataC4(OpFtruncls, CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float32_t,int64_t,FE_TOWARDZERO>));
-    OpDataC4(OpFceills , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float32_t,int64_t,FE_UPWARD>));
-    OpDataC4(OpFfloorls, CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float32_t,int64_t,FE_DOWNWARD>));
-    OpDataC4(OpFroundws, CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float32_t,int32_t,FE_TONEAREST>));
-    OpDataC4(OpFtruncws, CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float32_t,int32_t,FE_TOWARDZERO>));
-    OpDataC4(OpFceilws , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float32_t,int32_t,FE_UPWARD>));
-    OpDataC4(OpFfloorws, CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float32_t,int32_t,FE_DOWNWARD>));
-    OpDataC4(OpFroundld, CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float64_t,int64_t,FE_TONEAREST>));
-    OpDataC4(OpFtruncld, CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float64_t,int64_t,FE_TOWARDZERO>));
-    OpDataC4(OpFceilld , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float64_t,int64_t,FE_UPWARD>));
-    OpDataC4(OpFfloorld, CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float64_t,int64_t,FE_DOWNWARD>));
-    OpDataC4(OpFroundwd, CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float64_t,int32_t,FE_TONEAREST>));
-    OpDataC4(OpFtruncwd, CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float64_t,int32_t,FE_TOWARDZERO>));
-    OpDataC4(OpFceilwd , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float64_t,int32_t,FE_UPWARD>));
-    OpDataC4(OpFfloorwd, CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float64_t,int32_t,FE_DOWNWARD>));
-    OpDataC4(OpFcvtds  , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgFCSR, ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeCtl, RegTypeFpr, typeof(mips_float_convert<float32_t,uint32_t,float64_t>));
-    OpDataC4(OpFcvtws  , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgFCSR, ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeCtl, RegTypeFpr, typeof(mips_float_convert<float32_t,uint32_t,int32_t>));
-    OpDataC4(OpFcvtls  , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgFCSR, ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeCtl, RegTypeFpr, typeof(mips_float_convert<float32_t,uint32_t,int64_t>));
-    OpDataC4(OpFcvtsd  , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgFCSR, ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeCtl, RegTypeFpr, typeof(mips_float_convert<float64_t,uint32_t,float32_t>));
-    OpDataC4(OpFcvtwd  , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgFCSR, ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeCtl, RegTypeFpr, typeof(mips_float_convert<float64_t,uint32_t,int32_t>));
-    OpDataC4(OpFcvtld  , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgFCSR, ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeCtl, RegTypeFpr, typeof(mips_float_convert<float64_t,uint32_t,int64_t>));
-    OpDataC4(OpFcvtsw  , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgFCSR, ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeCtl, RegTypeFpr, typeof(mips_float_convert<int32_t,uint32_t,float32_t>));
-    OpDataC4(OpFcvtdw  , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgFCSR, ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeCtl, RegTypeFpr, typeof(mips_float_convert<int32_t,uint32_t,float64_t>));
-    OpDataC4(OpFcvtsl  , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgFCSR, ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeCtl, RegTypeFpr, typeof(mips_float_convert<int64_t,uint32_t,float32_t>));
-    OpDataC4(OpFcvtdl  , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgFCSR, ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeCtl, RegTypeFpr, typeof(mips_float_convert<int64_t,uint32_t,float64_t>));
+    OpDataI4(OpFroundls, CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float32_t,int64_t,FE_TONEAREST>));
+    OpDataI4(OpFtruncls, CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float32_t,int64_t,FE_TOWARDZERO>));
+    OpDataI4(OpFceills , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float32_t,int64_t,FE_UPWARD>));
+    OpDataI4(OpFfloorls, CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float32_t,int64_t,FE_DOWNWARD>));
+    OpDataI4(OpFroundws, CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float32_t,int32_t,FE_TONEAREST>));
+    OpDataI4(OpFtruncws, CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float32_t,int32_t,FE_TOWARDZERO>));
+    OpDataI4(OpFceilws , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float32_t,int32_t,FE_UPWARD>));
+    OpDataI4(OpFfloorws, CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float32_t,int32_t,FE_DOWNWARD>));
+    OpDataI4(OpFroundld, CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float64_t,int64_t,FE_TONEAREST>));
+    OpDataI4(OpFtruncld, CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float64_t,int64_t,FE_TOWARDZERO>));
+    OpDataI4(OpFceilld , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float64_t,int64_t,FE_UPWARD>));
+    OpDataI4(OpFfloorld, CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float64_t,int64_t,FE_DOWNWARD>));
+    OpDataI4(OpFroundwd, CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float64_t,int32_t,FE_TONEAREST>));
+    OpDataI4(OpFtruncwd, CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float64_t,int32_t,FE_TOWARDZERO>));
+    OpDataI4(OpFceilwd , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float64_t,int32_t,FE_UPWARD>));
+    OpDataI4(OpFfloorwd, CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float64_t,int32_t,FE_DOWNWARD>));
+    OpDataI4(OpFcvtds  , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgFCSR, ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeCtl, RegTypeFpr, typeof(mips_float_convert<float32_t,uint32_t,float64_t>));
+    OpDataI4(OpFcvtws  , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgFCSR, ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeCtl, RegTypeFpr, typeof(mips_float_convert<float32_t,uint32_t,int32_t>));
+    OpDataI4(OpFcvtls  , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgFCSR, ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeCtl, RegTypeFpr, typeof(mips_float_convert<float32_t,uint32_t,int64_t>));
+    OpDataI4(OpFcvtsd  , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgFCSR, ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeCtl, RegTypeFpr, typeof(mips_float_convert<float64_t,uint32_t,float32_t>));
+    OpDataI4(OpFcvtwd  , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgFCSR, ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeCtl, RegTypeFpr, typeof(mips_float_convert<float64_t,uint32_t,int32_t>));
+    OpDataI4(OpFcvtld  , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgFCSR, ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeCtl, RegTypeFpr, typeof(mips_float_convert<float64_t,uint32_t,int64_t>));
+    OpDataI4(OpFcvtsw  , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgFCSR, ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeCtl, RegTypeFpr, typeof(mips_float_convert<int32_t,uint32_t,float32_t>));
+    OpDataI4(OpFcvtdw  , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgFCSR, ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeCtl, RegTypeFpr, typeof(mips_float_convert<int32_t,uint32_t,float64_t>));
+    OpDataI4(OpFcvtsl  , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgFCSR, ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeCtl, RegTypeFpr, typeof(mips_float_convert<int64_t,uint32_t,float32_t>));
+    OpDataI4(OpFcvtdl  , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgFCSR, ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeCtl, RegTypeFpr, typeof(mips_float_convert<int64_t,uint32_t,float64_t>));
 
     OpDataC0(OpNop     , CtlNorm, TypNop   , ArgNo  , ArgNo  , ArgNo  , ImmNo  , OpInvalid , emulNop  );
 
@@ -1747,6 +1691,67 @@ Instruction *createSescInst(const InstDesc *inst, VAddr iaddr, size_t deltaAddr,
 
 } // End of namespace Mips
 
-void decodeTrace(ThreadContext *context, VAddr iaddr){
-  Mips::dcdInst.decodeTrace(context,iaddr);
+#if (defined INTERCEPT_HEAP_CALLS)
+InstDesc *handleMallocCall(InstDesc *inst, ThreadContext *context){
+  uint32_t siz=Mips::getRegAny<Mips32,uint32_t,RegTypeGpr>(context,static_cast<RegName>(Mips::RegA0));
+  printf("Malloc call with size=0x%08x\n",siz);
+  context->updIDesc(1);
+  return (*(inst+1))(context);
+}
+InstDesc *handleMallocRet(InstDesc *inst, ThreadContext *context){
+  uint32_t addr=Mips::getRegAny<Mips32,uint32_t,RegTypeGpr>(context,static_cast<RegName>(Mips::RegV0));
+  printf("Malloc ret  with addr=0x%08x\n",addr);
+  context->updIDesc(1);
+  return (*(inst+1))(context);
+}
+InstDesc *handleCallocCall(InstDesc *inst, ThreadContext *context){
+  uint32_t nmemb=Mips::getRegAny<Mips32,uint32_t,RegTypeGpr>(context,static_cast<RegName>(Mips::RegA0));
+  uint32_t siz  =Mips::getRegAny<Mips32,uint32_t,RegTypeGpr>(context,static_cast<RegName>(Mips::RegA1));
+  printf("Calloc call with nmemb=0x%08x size=0x%08x\n",nmemb,siz);
+  context->updIDesc(1);
+  return (*(inst+1))(context);
+}
+InstDesc *handleCallocRet(InstDesc *inst, ThreadContext *context){
+  uint32_t addr=Mips::getRegAny<Mips32,uint32_t,RegTypeGpr>(context,static_cast<RegName>(Mips::RegV0));
+  printf("Calloc ret  with addr=0x%08x\n",addr);
+  context->updIDesc(1);
+  return (*(inst+1))(context);
+}
+InstDesc *handleReallocCall(InstDesc *inst, ThreadContext *context){
+  uint32_t addr=Mips::getRegAny<Mips32,uint32_t,RegTypeGpr>(context,static_cast<RegName>(Mips::RegA0));
+  uint32_t siz =Mips::getRegAny<Mips32,uint32_t,RegTypeGpr>(context,static_cast<RegName>(Mips::RegA1));
+  printf("Realloc call with addr=0x%08x size=0x%08x\n",addr,siz);
+  context->updIDesc(1);
+  return (*(inst+1))(context);
+}
+InstDesc *handleReallocRet(InstDesc *inst, ThreadContext *context){
+  uint32_t addr=Mips::getRegAny<Mips32,uint32_t,RegTypeGpr>(context,static_cast<RegName>(Mips::RegV0));
+  printf("Realloc ret  with addr=0x%08x\n",addr);
+  context->updIDesc(1);
+  return (*(inst+1))(context);
+}
+InstDesc *handleFreeCall(InstDesc *inst, ThreadContext *context){
+  uint32_t addr=Mips::getRegAny<Mips32,uint32_t,RegTypeGpr>(context,static_cast<RegName>(Mips::RegA0));
+  printf("Free call with addr=0x%08x\n",addr);
+  context->updIDesc(1);
+  return (*(inst+1))(context);
+}
+#endif
+
+void decodeTrace(ThreadContext *context, VAddr addr, size_t len){
+#if (defined INTERCEPT_HEAP_CALLS)
+  static bool didThis=false;
+  if(!didThis){
+    // This should not be here, but it's added for testing
+    AddressSpace::addCallHandler("malloc",handleMallocCall);
+    AddressSpace::addRetHandler("malloc",handleMallocRet);
+    AddressSpace::addCallHandler("calloc",handleCallocCall);
+    AddressSpace::addRetHandler("calloc",handleCallocRet);
+    AddressSpace::addCallHandler("realloc",handleReallocCall);
+    AddressSpace::addRetHandler("realloc",handleReallocRet);
+    AddressSpace::addCallHandler("free",handleFreeCall);
+    didThis=true;
+  }
+#endif
+  Mips::dcdInst.decodeTrace(context,addr,len);
 }

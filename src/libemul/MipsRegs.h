@@ -158,24 +158,29 @@ namespace Mips {
   
   template<CpuMode mode,typename T>
   inline T getReg(const ThreadContext *context, RegName name){
-    I(!isFprName(name));
-    I(static_cast<MipsRegName>(name)!=RegJunk);
-    //    I(static_cast<MipsRegName>(name)!=RegZero);
     const T *ptr=static_cast<const T *>(context->getReg(name));
-    switch(sizeof(T)){
-    case 8:
-      I(context->getMode()==Mips64);
-      return *ptr;
-      break;
-    case 4: {
-      I((context->getMode()==Mips64)||!(*(ptr+(__BYTE_ORDER!=__BIG_ENDIAN))));
-      return *(ptr+(__BYTE_ORDER==__BIG_ENDIAN));
-    } break;
-    default:
-      fail("getReg with type width of %d\n",sizeof(T));
-      break;
-    }
-    return 0;
+    return *(ptr+(sizeof(RegVal)/sizeof(T)-1)*(__BYTE_ORDER==__BIG_ENDIAN));
+//    I(!isFprName(name));
+//    I(static_cast<MipsRegName>(name)!=RegJunk);
+//    //    I(static_cast<MipsRegName>(name)!=RegZero);
+//    const T *ptr=static_cast<const T *>(context->getReg(name));
+//    switch(sizeof(T)){
+//    case 8:
+//      I(context->getMode()==Mips64);
+//      return *ptr;
+//      break;
+//    case 4: {
+//      I((context->getMode()==Mips64)||!(*(ptr+(__BYTE_ORDER!=__BIG_ENDIAN))));
+//      return *(ptr+(__BYTE_ORDER==__BIG_ENDIAN));
+//    } break;
+//    case 1:
+//      return *(ptr+(sizeof(RegVal)/sizeof(T)-1)*(__BYTE_ORDER==__BIG_ENDIAN));
+//      break;
+//    default:
+//      fail("getReg with type width of %d\n",sizeof(T));
+//      break;
+//    }
+//    return 0;
   }
   
   template<CpuMode mode,typename T>

@@ -107,7 +107,7 @@ class InstImm{
 
 class ThreadContext;
 
-void decodeTrace(ThreadContext *context, VAddr iaddr);
+void decodeTrace(ThreadContext *context, VAddr addr, size_t len);
 
 class Instruction;
 

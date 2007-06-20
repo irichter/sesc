@@ -31,21 +31,32 @@ AddressSpace::FrameDesc::FrameDesc() : GCObject(){
 }
 AddressSpace::FrameDesc::FrameDesc(FrameDesc &src) : GCObject(){
   memcpy(data,src.data,AddrSpacPageSize);
+#if (defined HAS_MEM_STATE)
+  for(size_t s=0;s<AddrSpacPageSize/MemState::Granularity;s++)
+    state[s]=src.state[s];
+#endif
 }
 AddressSpace::FrameDesc::~FrameDesc(){
   memset(data,0xCC,AddrSpacPageSize);
 }
 void AddressSpace::FrameDesc::save(ChkWriter &out) const{
   out.write(reinterpret_cast<const char *>(data),AddrSpacPageSize);
-  out <<endl;
+#if (defined HAS_MEM_STATE)
+  for(size_t s=0;s<AddrSpacPageSize/MemState::Granularity;s++)
+    state[s].save(out);
+#endif
+  out<<endl;
 }
 AddressSpace::FrameDesc::FrameDesc(ChkReader &in){
   in.read(reinterpret_cast<char *>(data),AddrSpacPageSize);
-  in >> endl;
+#if (defined HAS_MEM_STATE)
+  for(size_t s=0;s<AddrSpacPageSize/MemState::Granularity;s++)
+    state[s]=MemState(in);
+#endif
+  in>>endl;
 }
 AddressSpace::PageDesc::PageDesc(void)
   : frame(0),
-    insts(0),
     mapCount(0),
     canRead(0),
     canWrite(0),
@@ -64,7 +75,7 @@ AddressSpace::PageDesc::PageDesc &AddressSpace::PageDesc::operator=(PageDesc &sr
   canRead =src.canRead;
   canWrite=src.canWrite;
   canExec =src.canExec;
-  insts=0;
+//  insts=0;
   return *this;
 }
 void AddressSpace::PageDesc::save(ChkWriter &out) const{
@@ -72,7 +83,7 @@ void AddressSpace::PageDesc::save(ChkWriter &out) const{
   out.writeobj(getFrame());
 }
 ChkReader &AddressSpace::PageDesc::operator=(ChkReader &in){
-  insts=0;
+//  insts=0;
   mapCount=0;
   canRead=0;
   canWrite=0;
@@ -151,7 +162,7 @@ AddressSpace::AddressSpace(AddressSpace &src) :
 void AddressSpace::clear(bool isExec){
   // Clear function name mappings
   while(!funcAddrToName.empty()){
-    free(funcAddrToName.begin()->second);
+    free(const_cast<char *>(funcAddrToName.begin()->second));
     funcAddrToName.erase(funcAddrToName.begin());
   }
   // Clear instruction decodings
@@ -186,7 +197,7 @@ void AddressSpace::clear(bool isExec){
 #else
 #if (defined DEBUG)
   for(size_t pageNum=0;pageNum<AddrSpacPageNumCount;pageNum++)
-    I((!pageMap[pageNum].mapCount)&&(!pageMap[pageNum].insts)&&(!pageMap[pageNum].frame));
+    I((!pageMap[pageNum].mapCount)&&(!pageMap[pageNum].frame));
 #endif
 #endif
 }
@@ -262,29 +273,42 @@ void AddressSpace::addFuncName(const char *name, VAddr addr){
   char *myName=strdup(name);
   I(myName);
   funcAddrToName.insert(AddrToNameMap::value_type(addr,myName));
+  funcNameToAddr.insert(NameToAddrMap::value_type(myName,addr));
 }
 
 // Return name of the function with given entry point
 const char *AddressSpace::getFuncName(VAddr addr) const{
-  AddrToNameMap::const_iterator nameIt=funcAddrToName.find(addr);
-  if(nameIt->first!=addr)
+  AddrToNameMap::const_iterator it=funcAddrToName.lower_bound(addr);
+  if(it==funcAddrToName.end())
     return 0;
-  return nameIt->second;
+  if(it->first!=addr)
+    return 0;
+  return it->second;
 }
-
 
 // Given a code address, return where the function begins (best guess)
 VAddr AddressSpace::getFuncAddr(VAddr addr) const{
-  AddrToNameMap::const_iterator nameIt=funcAddrToName.upper_bound(addr);
-  if(nameIt==funcAddrToName.begin())
+  AddrToNameMap::const_iterator it=funcAddrToName.lower_bound(addr);
+  I(it!=funcAddrToName.end());
+  I((it->second[0]!=' ')||(funcAddrToName.count(it->first)==1));
+  if(it->second[0]==' ')
     return 0;
-  nameIt--;
-  return nameIt->first;
+  I(it!=funcAddrToName.begin());
+  return it->first;
 }
 
 // Given a code address, return the function size (best guess)
 size_t AddressSpace::getFuncSize(VAddr addr) const{
-  return 0;
+  AddrToNameMap::const_iterator it=funcAddrToName.lower_bound(addr);
+  I(it!=funcAddrToName.end());
+  I((it->second[0]!=' ')||(funcAddrToName.count(it->first)==1));
+  if(it->second[0]==' ')
+    return 0;
+  I(it!=funcAddrToName.begin());
+  VAddr fbeg=it->first;
+  it--;
+  VAddr fend=it->first;
+  return fend-fbeg;
 }
 
 // Print name(s) of function(s) with given entry point
@@ -297,6 +321,63 @@ void AddressSpace::printFuncName(VAddr addr){
     if(nameBegIt!=nameEndIt)
       printf(", ");
   }
+}
+
+AddressSpace::NameToFuncMap AddressSpace::nameToCallHandler;
+AddressSpace::NameToFuncMap AddressSpace::nameToRetHandler;
+void AddressSpace::addCallHandler(const char *name,EmulFunc *func){
+  nameToCallHandler.insert(NameToFuncMap::value_type(name,func));
+}
+void AddressSpace::addRetHandler(const char *name,EmulFunc *func){
+  nameToRetHandler.insert(NameToFuncMap::value_type(name,func));
+}
+void AddressSpace::delCallHandler(const char *name,EmulFunc *func){
+  NameToFuncMap::iterator begIt=nameToCallHandler.lower_bound(name);
+  NameToFuncMap::iterator endIt=nameToCallHandler.upper_bound(name);
+  NameToFuncMap::iterator curIt=begIt;
+  while((curIt!=endIt)&&(curIt->second!=func))
+    curIt++;
+  if(curIt==endIt)
+    return;
+  nameToCallHandler.erase(curIt);
+}
+void AddressSpace::delRetHandler(const char *name,EmulFunc *func){
+  NameToFuncMap::iterator begIt=nameToRetHandler.lower_bound(name);
+  NameToFuncMap::iterator endIt=nameToRetHandler.upper_bound(name);
+  NameToFuncMap::iterator curIt=begIt;
+  while((curIt!=endIt)&&(curIt->second!=func))
+    curIt++;
+  if(curIt==endIt)
+    return;
+  nameToRetHandler.erase(curIt);
+}
+void AddressSpace::getCallHandlers(VAddr addr, HandlerSet &set) const{
+  I(set.empty());
+  AddrToNameMap::const_iterator nameBeg=funcAddrToName.lower_bound(addr);
+  AddrToNameMap::const_iterator nameEnd=funcAddrToName.upper_bound(addr);
+  for(AddrToNameMap::const_iterator nameCur=nameBeg;nameCur!=nameEnd;nameCur++){
+    const char *name=nameCur->second;
+    I(name);
+    NameToFuncMap::const_iterator handBeg=nameToCallHandler.lower_bound(name);
+    NameToFuncMap::const_iterator handEnd=nameToCallHandler.upper_bound(name);
+    for(NameToFuncMap::const_iterator handCur=handBeg;handCur!=handEnd;handCur++)
+      set.insert(handCur->second);
+  }
+  I(!set.empty());
+}
+void AddressSpace::getRetHandlers(VAddr addr, HandlerSet &set) const{
+  I(set.empty());
+  AddrToNameMap::const_iterator nameBeg=funcAddrToName.lower_bound(addr);
+  AddrToNameMap::const_iterator nameEnd=funcAddrToName.upper_bound(addr);
+  for(AddrToNameMap::const_iterator nameCur=nameBeg;nameCur!=nameEnd;nameCur++){
+    const char *name=nameCur->second;
+    I(name);
+    NameToFuncMap::const_iterator handBeg=nameToRetHandler.lower_bound(name);
+    NameToFuncMap::const_iterator handEnd=nameToRetHandler.upper_bound(name);
+    for(NameToFuncMap::const_iterator handCur=handBeg;handCur!=handEnd;handCur++)
+      set.insert(handCur->second);
+  }
+  I(!set.empty());
 }
 
 VAddr AddressSpace::newSegmentAddr(size_t len){
@@ -390,7 +471,7 @@ void AddressSpace::moveSegment(VAddr oldaddr, VAddr newaddr){
     I(oldPageDesc.canWrite==(oldSeg.canWrite?1:0));
     newPageDesc.canWrite=oldPageDesc.canWrite;
     oldPageDesc.canWrite=0;
-    I(!oldPageDesc.insts);
+//    I(!oldPageDesc.insts);
     I(oldPageDesc.canExec==0);
     I(newPageDesc.canExec==0);
     I(oldPageDesc.canExec==(oldSeg.canExec?1:0));

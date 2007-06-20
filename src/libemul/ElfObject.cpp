@@ -344,8 +344,8 @@ void loadElfObject(const char *fname, ThreadContext *threadContext){
 	    break;
 	  case STT_FUNC:   // Function entry point
 	    {
-	      char *funcName=strTab+mySym.st_name;
-	      VAddr funcAddr=mySym.st_value;
+	      char  *funcName=strTab+mySym.st_name;
+	      VAddr  funcAddr=mySym.st_value;
 	      if(funcAddr)
 		addrSpace->addFuncName(funcName,funcAddr);
 	    } break;
@@ -411,7 +411,19 @@ void loadElfObject(const char *fname, ThreadContext *threadContext){
 	  }else{
 	    threadContext->writeMemWithByte(mySecHdr.sh_addr,mySecHdr.sh_size,0);
 	  }
-	  addrSpace->protectSegment(mySecHdr.sh_addr,mySecHdr.sh_size,true,mySecHdr.sh_flags&SHF_WRITE,mySecHdr.sh_flags&SHF_EXECINSTR);
+          bool canWr=(mySecHdr.sh_flags&SHF_WRITE);
+          bool canEx=(mySecHdr.sh_flags&SHF_EXECINSTR);
+	  addrSpace->protectSegment(mySecHdr.sh_addr,mySecHdr.sh_size,true,canWr,canEx);
+          if(canEx&&(addrSpace->getFuncName(mySecHdr.sh_addr+mySecHdr.sh_size)==0)){
+            char  *secNam=secNamTab+mySecHdr.sh_name;
+            size_t secNamLen=strlen(secNam);
+            char  *endNam=" End ";
+            size_t endNamLen=strlen(endNam);
+            char symNam[secNamLen+endNamLen+1];
+            strcpy(symNam,endNam);
+            strcpy(symNam+endNamLen,secNam);
+            addrSpace->addFuncName(symNam,mySecHdr.sh_addr+mySecHdr.sh_size);
+          }
 	  if(mySecHdr.sh_addr+mySecHdr.sh_size>brkPos)
 	    brkPos=mySecHdr.sh_addr+mySecHdr.sh_size;
 	}

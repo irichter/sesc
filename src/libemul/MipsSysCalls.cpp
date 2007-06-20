@@ -541,7 +541,7 @@ int32_t Mips32FuncArgs::getW(void){
   if(curPos<16){
     retVal=Mips::getReg<Mips32,int32_t>(myContext,static_cast<RegName>(Mips::RegA0+curPos/sizeof(retVal)));
   }else{
-    myContext->readMem(Mips::getReg<Mips32,uint32_t>(myContext,static_cast<RegName>(Mips::RegSP))+curPos,retVal);
+    retVal=myContext->readMem<int32_t>(Mips::getReg<Mips32,uint32_t>(myContext,static_cast<RegName>(Mips::RegSP))+curPos);
   }
   curPos+=sizeof(retVal);
   return retVal;
@@ -559,7 +559,7 @@ int64_t Mips32FuncArgs::getL(void){
     I(!(retVal&0xffffffff));
     retVal|=Mips::getReg<Mips32,int32_t>(myContext,static_cast<RegName>(Mips::RegA0+curPos/sizeof(int32_t)+1));
   }else{
-    myContext->readMem(Mips::getReg<Mips32,uint32_t>(myContext,static_cast<RegName>(Mips::RegSP))+curPos,retVal);
+    retVal=myContext->readMem<int64_t>(Mips::getReg<Mips32,uint32_t>(myContext,static_cast<RegName>(Mips::RegSP))+curPos);
   }
   curPos+=sizeof(retVal);
   return retVal;
@@ -574,7 +574,7 @@ namespace Mips {
     AddressSpace *addrSpace=context->getAddressSpace();
     addrSpace->newSegment(sysCodeAddr,sysCodeSize,false,true,false,false,false);
     addrSpace->addFuncName("sysCode",sysCodeAddr);
-    addrSpace->addFuncName("invalid",sysCodeAddr+sysCodeSize);
+    addrSpace->addFuncName("End of sysCode",sysCodeAddr+sysCodeSize);
     // jalr t9
     context->writeMem<uint32_t>(sysCodeAddr+0*sizeof(uint32_t),0x0320f809);
     // nop
@@ -731,9 +731,8 @@ namespace Mips {
     uint32_t pop=getReg<Mips32,uint32_t>(context,static_cast<RegName>(RegSys));
     if(pop){
       setReg<Mips32,uint32_t>(context,static_cast<RegName>(RegSys),0);    
-      Mips32_k_sigset_t appmask;
       VAddr sp=getReg<Mips32,uint32_t>(context,static_cast<RegName>(RegSP));
-      context->readMem(sp,appmask);
+      Mips32_k_sigset_t appmask=context->readMem<Mips32_k_sigset_t>(sp);
       sp+=sizeof(appmask);
       setReg<Mips32,uint32_t>(context,static_cast<RegName>(RegSP),sp);    
       SignalSet simmask;
@@ -830,6 +829,7 @@ namespace Mips {
       res.rlim_cur=res.rlim_max=context->getStackSize();
       break;
     default:
+      res.rlim_cur=res.rlim_max=0;
       fail("sysCall32_getrlimit called for resource %d at 0x%08x\n",resource,context->getIAddr());
     }
     context->writeMem(rlim,res);
@@ -839,10 +839,9 @@ namespace Mips {
     Mips32FuncArgs myArgs(context);
     int resource=myArgs.getW();
     VAddr rlim=myArgs.getA();
-    Mips32_rlimit res;
-    if(!context->canRead(rlim,sizeof(res)))
+    if(!context->canRead(rlim,sizeof(Mips32_rlimit)))
       return sysCall32SetErr(context,Mips32_EFAULT);
-    context->readMem(rlim,res);
+    Mips32_rlimit res=context->readMem<Mips32_rlimit>(rlim);
     switch(resource){
     case Mips32_RLIMIT_STACK:
       if((res.rlim_cur>context->getStackSize())||(res.rlim_max>context->getStackSize()))
@@ -1013,8 +1012,7 @@ namespace Mips {
     size_t argvNum=0;
     size_t argvLen=0;
     while(true){
-      VAddr argAddr=0;
-      context->readMem(argv+sizeof(VAddr)*argvNum,argAddr);
+      VAddr argAddr=context->readMem<VAddr>(argv+sizeof(VAddr)*argvNum);
       if(!argAddr)
 	break;
       ssize_t argLen=context->readMemString(argAddr,0,0);
@@ -1026,8 +1024,7 @@ namespace Mips {
     size_t envpNum=0;
     size_t envpLen=0;
     while(true){
-      VAddr envAddr=0;
-      context->readMem(envp+sizeof(VAddr)*envpNum,envAddr);
+      VAddr envAddr=context->readMem<VAddr>(envp+sizeof(VAddr)*envpNum);
       if(!envAddr)
 	break;
       ssize_t envLen=context->readMemString(envAddr,0,0);
@@ -1040,8 +1037,7 @@ namespace Mips {
     char argvBuf[argvLen];
     char *argvPtr=argvBuf;
     for(size_t arg=0;arg<argvNum;arg++){
-      VAddr argAddr=0;
-      context->readMem(argv+sizeof(VAddr)*arg,argAddr);
+      VAddr argAddr=context->readMem<VAddr>(argv+sizeof(VAddr)*arg);
       ssize_t argLen=context->readMemString(argAddr,0,0);
       I(argLen>=1);
       context->readMemString(argAddr,argLen,argvPtr);
@@ -1052,8 +1048,7 @@ namespace Mips {
     char envpBuf[envpLen];
     char *envpPtr=envpBuf;
     for(size_t env=0;env<envpNum;env++){
-      VAddr envAddr=0;
-      context->readMem(envp+sizeof(VAddr)*env,envAddr);
+      VAddr envAddr=context->readMem<VAddr>(envp+sizeof(VAddr)*env);
       ssize_t envLen=context->readMemString(envAddr,0,0);
       I(envLen>=1);
       context->readMemString(envAddr,envLen,envpPtr);
@@ -1254,13 +1249,11 @@ namespace Mips {
 #endif    
     VAddr sp=getReg<Mips32,uint32_t>(context,static_cast<RegName>(RegSP));
     // Restore old signal mask
-    Mips32_k_sigset_t oldMask;
-    context->readMem(sp,oldMask);
+    Mips32_k_sigset_t oldMask=context->readMem<Mips32_k_sigset_t>(sp);
     sp+=sizeof(oldMask);
     // Restore registers and PC
     for(size_t i=0;i<32;i++){
-      uint32_t rdVal=0xDEADBEEF;
-      context->readMem<uint32_t>(sp,rdVal);
+      uint32_t rdVal=context->readMem<uint32_t>(sp);
       sp+=4;
       switch(31-i){
       case 0:
@@ -1315,7 +1308,7 @@ namespace Mips {
       context->writeMem(oact,oactBuf);
     }
     if(act){
-      context->readMem(act,actBuf);
+      actBuf=context->readMem<Mips32_k_sigaction>(act);
       if(actBuf.sa_restorer)
 	printf("Mips::sysCall32_rt_sigaction specifies restorer, not supported\n");
       // Set the new signal handler
@@ -1360,8 +1353,7 @@ namespace Mips {
       context->writeMem(oset,omask);
     }
     if(nset){
-      Mips32_k_sigset_t nmask;
-      context->readMem(nset,nmask);
+      Mips32_k_sigset_t nmask=context->readMem<Mips32_k_sigset_t>(nset);
       SignalSet lset;
       sigMaskToLocal(nmask,lset);
       switch(how){
@@ -1389,8 +1381,7 @@ namespace Mips {
       return sysCall32SetErr(context,Mips32_EFAULT);
     // Change signal mask while suspended
     SignalSet oldMask=context->getSignalMask();
-    Mips32_k_sigset_t appmask;
-    context->readMem(nset,appmask);
+    Mips32_k_sigset_t appmask=context->readMem<Mips32_k_sigset_t>(nset);
     SignalSet newMask;
     sigMaskToLocal(appmask,newMask);
     context->setSignalMask(newMask);
@@ -1498,7 +1489,7 @@ namespace Mips {
     }
     if(context->getAddressSpace()->isNoSegment(brkBase+brkSize,brkPos-(brkBase+brkSize))){
       context->getAddressSpace()->resizeSegment(brkBase,brkPos-brkBase);
-      context->writeMemWithByte(brkBase+brkSize,brkPos-(brkBase+brkSize),0);
+      //      context->writeMemWithByte(brkBase+brkSize,brkPos-(brkBase+brkSize),0);
       return sysCall32SetRet(context,brkPos);
     }
     return sysCall32SetErr(context,Mips32_ENOMEM);
@@ -2588,16 +2579,15 @@ namespace Mips {
   void sysCall32__sysctl(InstDesc *inst, ThreadContext *context){
     Mips32FuncArgs myArgs(context);
     VAddr args = myArgs.getA();
-    Mips32___sysctl_args mySysctlArgs;
-    if(!context->canRead(args,sizeof(mySysctlArgs)))
+    if(!context->canRead(args,sizeof(Mips32___sysctl_args)))
       return sysCall32SetErr(context,Mips32_EFAULT);
-    context->readMem(args,mySysctlArgs);
+    Mips32___sysctl_args mySysctlArgs=context->readMem<Mips32___sysctl_args>(args);
     int32_t name[mySysctlArgs.nlen];
     I(sizeof(name)==mySysctlArgs.nlen*sizeof(int32_t));
     if(!context->canRead(mySysctlArgs.name,sizeof(name)))
       return sysCall32SetErr(context,Mips32_EFAULT);
     for(int i=0;i<mySysctlArgs.nlen;i++)
-      context->readMem(mySysctlArgs.name+i*sizeof(int32_t),name[i]);
+      name[i]=context->readMem<int32_t>(mySysctlArgs.name+i*sizeof(int32_t));
     switch(name[0]){
     case Mips32_CTL_KERN:
       if(mySysctlArgs.nlen<=1)
@@ -2607,10 +2597,9 @@ namespace Mips {
 	{
 	  if(mySysctlArgs.newval!=0)
 	    return sysCall32SetErr(context,Mips32_EPERM);
-	  Mips32_VSize oldlen=0xDEADBEEF;
-	  if(!context->canRead(mySysctlArgs.oldlenp,sizeof(oldlen)))
+	  if(!context->canRead(mySysctlArgs.oldlenp,sizeof(Mips32_VSize)))
 	    return sysCall32SetErr(context,Mips32_EFAULT);
-	  context->readMem(mySysctlArgs.oldlenp,oldlen);
+	  Mips32_VSize oldlen=context->readMem<Mips32_VSize>(mySysctlArgs.oldlenp);
 	  char ver[]="#1 SMP Tue Jun 4 16:05:29 CDT 2002";
 	  size_t verlen=strlen(ver)+1;
 	  if(oldlen<verlen)
@@ -2667,8 +2656,7 @@ namespace Mips {
       return sysCall32SetErr(context,Mips32_EFAULT);
     if(rem&&(!context->canWrite(rem,sizeof(Mips32_timespec))))
       return sysCall32SetErr(context,Mips32_EFAULT);
-    Mips32_timespec tsBuf;
-    context->readMem(req,tsBuf);
+    Mips32_timespec tsBuf=context->readMem<Mips32_timespec>(req);
     // TODO: We need to actually suspend this thread for the specified time
     wallClock+=tsBuf.tv_sec;
     if(rem){
@@ -2722,12 +2710,13 @@ namespace Mips {
     Mips32_VAddr ufds=myArgs.getA();
     uint32_t     nfds=myArgs.getW();
     int32_t      timeout=myArgs.getW();
-    Mips32_pollfd myUfds[nfds];
-    if((!context->canRead(ufds,sizeof(myUfds)))||(!context->canWrite(ufds,sizeof(myUfds))))
+    if((!context->canRead(ufds,nfds*sizeof(Mips32_pollfd)))||
+       (!context->canWrite(ufds,nfds*sizeof(Mips32_pollfd))))
       return sysCall32SetErr(context,Mips32_EFAULT);
+    Mips32_pollfd myUfds[nfds];
     size_t retCnt=0;
     for(size_t i=0;i<nfds;i++){
-      context->readMem(ufds+i*sizeof(Mips32_pollfd),myUfds[i]);
+      myUfds[i]=context->readMem<Mips32_pollfd>(ufds+i*sizeof(Mips32_pollfd));
       if(!context->getOpenFiles()->isOpen(myUfds[i].fd)){
         myUfds[i].revents=Mips32_POLLNVAL;
       }else if((myUfds[i].events&Mips32_POLLIN)&&(!context->getOpenFiles()->willReadBlock(myUfds[i].fd))){
@@ -2761,7 +2750,7 @@ namespace Mips {
     printf("Suspend %d in sysCall32_poll(fds=",context->getPid());
 #endif
     for(uint32_t i=0;i<nfds;i++){
-      context->readMem(ufds+i*sizeof(Mips32_pollfd),myUfds[i]);
+      myUfds[i]=context->readMem<Mips32_pollfd>(ufds+i*sizeof(Mips32_pollfd));
 #if (defined DEBUG_SIGNALS)
       printf(" %d",myUfds[i].fd);
 #endif

@@ -618,6 +618,14 @@ public:
     (*iDesc)(this);
     return true;
   }
+#if (defined HAS_MEM_STATE)
+  inline const MemState &getState(VAddr addr) const{
+    return addressSpace->getState(addr);
+  }
+  inline MemState &getState(VAddr addr){
+    return addressSpace->getState(addr);
+  }
+#endif
   inline bool canRead(VAddr addr, size_t len) const{
     return addressSpace->canRead(addr,len);
   }
@@ -638,17 +646,10 @@ public:
       readMemToBuf(addr,sizeof(T),&tmp);
       return tmp;
     }
+//    for(size_t i=0;i<(sizeof(T)+MemState::Granularity-1)/MemState::Granularity;i++)
+//      if(getState(addr+i*MemState::Granularity).st==0)
+//        fail("Uninitialized read found\n");
     return addressSpace->readMemRaw<T>(addr);
-  }
-  template<class T>
-  inline bool readMemRaw(VAddr addr, T &val){
-    if(sizeof(T)>sizeof(MemAlignType)){
-      if(!canRead(addr,sizeof(val)))
-	return false;
-      readMemToBuf(addr,sizeof(val),&val);
-      return true;
-    }
-    return addressSpace->readMemRaw<T>(addr,val);
   }
   template<class T>
   inline bool writeMemRaw(VAddr addr, const T &val){
@@ -658,6 +659,8 @@ public:
       writeMemFromBuf(addr,sizeof(val),&val);
       return true;
     }
+//    for(size_t i=0;i<(sizeof(T)+MemState::Granularity-1)/MemState::Granularity;i++)
+//      getState(addr+i*MemState::Granularity).st=1;
     return addressSpace->writeMemRaw<T>(addr,val);
   }
   template<class T>
@@ -668,18 +671,12 @@ public:
     return tmp;
   }
   template<class T>
-  inline bool readMem(VAddr addr, T &val){
-    bool retVal=readMemRaw<T>(addr,val);
-    if(retVal) cvtEndianBig(val);
-    return retVal;
-  }
-  template<class T>
   inline bool writeMem(VAddr addr, const T &val){
     T tmp=val;
     cvtEndianBig(tmp);    
     return writeMemRaw<T>(addr,tmp);
   }
-  
+
   //
   // File system
   //

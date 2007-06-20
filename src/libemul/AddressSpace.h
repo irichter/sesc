@@ -14,6 +14,8 @@
 #include "DbgObject.h"
 #include "Checkpoint.h"
 
+#include "MemState.h"
+
 #define AddrSpacPageOffsBits (12)
 #define AddrSpacPageSize     (1<<AddrSpacPageOffsBits)
 #define AddrSpacPageOffsMask (AddrSpacPageSize-1)
@@ -94,6 +96,9 @@ class AddressSpace : public GCObject{
     typedef SmartPtr<FrameDesc> pointer;
   private:
     MemAlignType data[AddrSpacPageSize/sizeof(MemAlignType)];
+#if (defined HAS_MEM_STATE)
+    MemState state[AddrSpacPageSize/MemState::Granularity];
+#endif
   public:
     FrameDesc();
     FrameDesc(FrameDesc &src);
@@ -114,6 +119,18 @@ class AddressSpace : public GCObject{
       I(reinterpret_cast<unsigned long int>(retVal)<reinterpret_cast<unsigned long int>(data)+AddrSpacPageSize);
       return retVal;
     }
+#if (defined HAS_MEM_STATE)
+    MemState &getState(VAddr addr){
+      size_t offs=(addr&AddrSpacPageOffsMask)/MemState::Granularity;
+      I(offs*sizeof(MemState)<sizeof(state));
+      return state[offs];
+    }
+    const MemState &getState(VAddr addr) const{
+      size_t offs=(addr&AddrSpacPageOffsMask)/MemState::Granularity;
+      I(offs*sizeof(MemState)<sizeof(state));
+      return state[offs];
+    }
+#endif
     void save(ChkWriter &out) const;
     FrameDesc(ChkReader &in);
   };
@@ -125,7 +142,7 @@ class AddressSpace : public GCObject{
   {
   public:
     FrameDesc::pointer frame;
-    TraceDesc *insts;
+//    TraceDesc *insts;
     // Number of mapped segments that overlap with this page
     size_t     mapCount;
     // Number of can-read segments that overlap with this page
@@ -183,11 +200,20 @@ class AddressSpace : public GCObject{
 #else
   PageDesc pageMap[AddrSpacPageNumCount];
 #endif
-  inline size_t getPageNum(VAddr addr){
+  static inline size_t getPageNum(VAddr addr){
     return (addr>>AddrSpacPageOffsBits);
   }
-  inline size_t getPageOff(VAddr addr){
+  static inline size_t getPageOff(VAddr addr){
     return (addr&AddrSpacPageOffsMask);
+  }
+  inline const PageDesc &getPageDesc(size_t pageNum) const{
+#if (defined SPLIT_PAGE_TABLE)
+    size_t rootNum=(pageNum>>AddrSpacLeafBits);
+    PageMapLeaf pageMap=pageMapRoot[rootNum];
+    I(pageMap);
+    pageNum=(pageNum&AddrSpacLeafMask);
+#endif
+    return pageMap[pageNum];
   }
   inline PageDesc &getPageDesc(size_t pageNum){
 #if (defined SPLIT_PAGE_TABLE)
@@ -328,10 +354,20 @@ class AddressSpace : public GCObject{
   void createTrace(ThreadContext *context, VAddr addr){
     I((!isMappedInst(addr))||!instMap[addr]);
     instMap[addr]=0;
-    TraceMap::iterator cur=traceMap.upper_bound(addr);
-    if((cur!=traceMap.end())&&(cur->second.eaddr>addr))
-      addr=cur->second.baddr;
-    decodeTrace(context,addr);
+    //    TraceMap::iterator cur=traceMap.upper_bound(addr);
+    //    if((cur!=traceMap.end())&&(cur->second.eaddr>addr))
+    //      addr=cur->second.baddr;
+    VAddr segBegAddr=getSegmentAddr(addr);
+    VAddr segEndAddr=segBegAddr+getSegmentSize(segBegAddr);
+    VAddr funcBegAddr=getFuncAddr(addr);
+    VAddr funcEndAddr=funcBegAddr+getFuncSize(funcBegAddr);
+    if((addr<segBegAddr)||(addr>=segEndAddr))
+      fail("createTrace: addr not within its segment\n");
+    if((addr<funcBegAddr)||(addr>=funcEndAddr))
+      fail("createTrace: addr not within its function\n");
+    if((segBegAddr>funcBegAddr)||(segEndAddr<funcEndAddr))
+      fail("createTrace: func not within its segment\n");
+    decodeTrace(context,getFuncAddr(addr),getFuncSize(addr));
   }
   bool reqMapInst(VAddr addr){
     if(instMap.find(addr)!=instMap.end())
@@ -402,23 +438,91 @@ class AddressSpace : public GCObject{
     *(reinterpret_cast<T *>(myPage.frame->getData(addr)))=val;
     return true;
   }
-
+#if (defined HAS_MEM_STATE)
+  inline const MemState &getState(VAddr addr) const{
+    size_t pageNum=getPageNum(addr);
+    I(addr<(pageNum+1)*AddrSpacPageSize);
+    const PageDesc &myPage=getPageDesc(pageNum);
+    return myPage.frame->getState(addr);
+  }
+  inline MemState &getState(VAddr addr){
+    size_t pageNum=getPageNum(addr);             
+    I(addr<(pageNum+1)*AddrSpacPageSize);                         
+    PageDesc &myPage=getPageDesc(pageNum);
+    if(myPage.copyOnWrite){
+      myPage.copyOnWrite=false;
+      if(myPage.frame->getRefCount()>1)
+	myPage.frame=new FrameDesc(*myPage.frame);
+    }
+    return myPage.frame->getState(addr);
+  }
+#endif
   //
   // Mapping of function names to code addresses
   //
  private:
-  typedef std::multimap<VAddr,char *> AddrToNameMap;
+  struct ltstr{
+    bool operator()(const char *s1, const char *s2) const{
+      return (strcmp(s1,s2)<0);
+    }
+  };
+  typedef std::multimap<VAddr,const char *,std::greater<VAddr> > AddrToNameMap;
   AddrToNameMap funcAddrToName;
+  typedef std::multimap<const char *,VAddr,ltstr> NameToAddrMap;
+  NameToAddrMap funcNameToAddr;
  public:
   // Add a new function name-address mapping
   void addFuncName(const char *name, VAddr addr);
   // Return name of the function with given entry point
   const char *getFuncName(VAddr addr) const;
+  // Given the name, return where the function begins
+  VAddr getFuncAddr(const char *name) const;
   // Given a code address, return where the function begins (best guess)
   VAddr getFuncAddr(VAddr addr) const;
   // Given a code address, return the function size (best guess)
   size_t getFuncSize(VAddr addr) const;
   // Print name(s) of function(s) with given entry point
   void printFuncName(VAddr addr);
+  //
+  // Interception of function calls
+  //
+ private:
+  typedef std::multimap<const char *,EmulFunc *,ltstr> NameToFuncMap;
+  static NameToFuncMap nameToCallHandler;
+  static NameToFuncMap nameToRetHandler;
+ public:
+  static void addCallHandler(const char *name,EmulFunc *func);
+  static void addRetHandler(const char *name,EmulFunc *func);
+  static void delCallHandler(const char *name,EmulFunc *func);
+  static void delRetHandler(const char *name,EmulFunc *func);
+  bool hasCallHandler(VAddr addr) const{
+    AddrToNameMap::const_iterator nameBeg=funcAddrToName.lower_bound(addr);
+    AddrToNameMap::const_iterator nameEnd=funcAddrToName.upper_bound(addr);
+    for(AddrToNameMap::const_iterator nameCur=nameBeg;nameCur!=nameEnd;nameCur++){
+      const char *name=nameCur->second;
+      I(name);
+      NameToFuncMap::const_iterator handBeg=nameToCallHandler.lower_bound(name);
+      NameToFuncMap::const_iterator handEnd=nameToCallHandler.upper_bound(name);
+      if(handBeg!=handEnd)
+        return true;
+    }
+    return false;
+  }
+  bool hasRetHandler(VAddr addr) const{
+    AddrToNameMap::const_iterator nameBeg=funcAddrToName.lower_bound(addr);
+    AddrToNameMap::const_iterator nameEnd=funcAddrToName.upper_bound(addr);
+    for(AddrToNameMap::const_iterator nameCur=nameBeg;nameCur!=nameEnd;nameCur++){
+      const char *name=nameCur->second;
+      I(name);
+      NameToFuncMap::const_iterator handBeg=nameToRetHandler.lower_bound(name);
+      NameToFuncMap::const_iterator handEnd=nameToRetHandler.upper_bound(name);
+      if(handBeg!=handEnd)
+        return true;
+    }
+    return false;
+  }
+  typedef std::set<EmulFunc *> HandlerSet;
+  void getCallHandlers(VAddr addr, HandlerSet &set) const;
+  void getRetHandlers(VAddr addr, HandlerSet &set) const;
 };
 #endif

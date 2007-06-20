@@ -933,24 +933,24 @@ void ThreadContext::readMemToBuf(VAddr addr, size_t len, void *buf){
   uint8_t *byteBuf=(uint8_t *)buf;
   while(len){
     if((addr&sizeof(uint8_t))||(len<sizeof(uint16_t))){
-      readMemRaw(addr,*((uint8_t *)byteBuf));
+      *((uint8_t *)byteBuf)=readMemRaw<uint8_t>(addr);
       addr+=sizeof(uint8_t);
       byteBuf+=sizeof(uint8_t);
       len-=sizeof(uint8_t);
     }else if((addr&sizeof(uint16_t))||(len<sizeof(uint32_t))){
-      readMemRaw(addr,*((uint16_t *)byteBuf));
+      *((uint16_t *)byteBuf)=readMemRaw<uint16_t>(addr);
       addr+=sizeof(uint16_t);
       byteBuf+=sizeof(uint16_t);
       len-=sizeof(uint16_t);
     }else if((addr&sizeof(uint32_t))||(len<sizeof(uint64_t))){
-      readMemRaw(addr,*((uint32_t *)byteBuf));
+      *((uint32_t *)byteBuf)=readMemRaw<uint32_t>(addr);
       addr+=sizeof(uint32_t);
       byteBuf+=sizeof(uint32_t);
       len-=sizeof(uint32_t);
     }else{
       I(!(addr%sizeof(uint64_t)));
       I(len>=sizeof(uint64_t));
-      readMemRaw(addr,*((uint64_t *)byteBuf));
+      *((uint64_t *)byteBuf)=readMemRaw<uint64_t>(addr);
       addr+=sizeof(uint64_t);
       byteBuf+=sizeof(uint64_t);
       len-=sizeof(uint64_t);
@@ -979,9 +979,9 @@ ssize_t ThreadContext::readMemToFile(VAddr addr, size_t len, int fd, bool natFil
 ssize_t ThreadContext::readMemString(VAddr stringVAddr, size_t maxSize, char *dstStr){
   size_t i=0;
   while(true){
-    char c;
-    if(!readMem(stringVAddr+i,c))
+    if(!canRead(stringVAddr+i,sizeof(char)))
       return -1;
+    char c=readMem<char>(stringVAddr+i);
     if(i<maxSize)
       dstStr[i]=c;
     i++;
