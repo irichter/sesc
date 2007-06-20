@@ -39,6 +39,7 @@ SUBDIRS+=libsescspot
 endif
 ifdef SESC_SESCTHERM
 SUBDIRS+=libsesctherm
+SUBDIRS+=libsuperlu
 endif
 ifdef SESC_GATHERM
 SUBDIRS+=libgatherm
@@ -213,8 +214,8 @@ sescspot.flp: $(TOPSRC_DIR)/confs/ev6.flp
 endif
 
 ifdef SESC_SESCTHERM
-sesctherm: $(OBJ)/libsesctherm.a $(OBJ)/libsuc.a 
-	$(CXX) $(CFLAGS) -o $@ $(OBJ)/sesctherm.o $(OBJ)/libsesctherm.a $(OBJ)/libsuc.a $(STDLIBS)  
+sesctherm: $(OBJ)/libsesctherm.a $(OBJ)/libsuc.a $(OBJ)/libsuperlu.a
+	$(CXX) $(CFLAGS) -o $@ $(OBJ)/sesctherm.o $(OBJ)/libsesctherm.a $(OBJ)/libsuc.a $(OBJ)/libsuperlu.a $(STDLIBS)
 endif
 
 ifdef SESC_GATHERM

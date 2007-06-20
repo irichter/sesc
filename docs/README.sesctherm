@@ -1,122 +1,106 @@
-# Sesc-Therm 3D Model /w Micro-cooler implementation
-# Written by: Joseph Nayfach - Battilana
-# jnayfach@soe.ucsc.edu
+SESCTHERM INTERFACE
 
-[Introduction]
+Constructor:
+When calling the sesctherm3Dmodel constructor, you pass the following:
+string flp_filename 				->filename of the chip floorplan file (optional)
+string ucool_flp_filename			->filename of the ucooler floorplan file (optional)
+string outfile_filename 			->filename of the output file (required)
+bool get_chipflp_from_sescconf		->whether to get the chip floorplan from sescconf (required)
+bool get_ucoolflp_from_sescconf		->whether to get the ucool floorplan from sescconf (required)
 
-This package implementats a detailed modeling infrastructure to model the
-effect of placing micro-coolers on various locations on a chip die for cooling 
-purposes. Using the discretization of the heat equations governing heat flow,and 
-applying the implicit method of solving the linear equations, we solve a three-dimensional
-matrix for the temperatures in each of the discreet cross-sectional areas of the model
-after each of the discreet time intervals. 
+Example:
+// ucoolers are not used
+// no chip floorplan/ucooler floorplan file is used
+// chip floorplan is read from sescconf
+  sesctherm3Dmodel temp_model(NULL,NULL,output_file,true,false);
+  
+Accessors/Manipulators:
+*GET TEMPERATURE MAP OF LAYER
+	*This will return the floorplan's temperatures map for a given layer 
+	
+	*The format of the map is map<int, double>
+	
+	*The flp layer is the layer with the floorplan we wish to use, the source layer is the one with the temperatures
+	we wish to read
 
-The equations are solved for transient temperatures. Thus, an average of a temperatures over
-time leads to a steady-state solution. 
+	*In the general case, we are going to use layer 6 (silicon substrate) as the layer to obtain the temperature data, and
+	layer 5 (transistor layer) as the one with the floorplan we wish to read
+		
+	map<int, double>& temp_model.get_temperature_layer(int flp_layer, int source_layer);
+	
+	gatherm example:
+	
+	temp_model.get_temperature_layer(5,6);
 
-Once a given solution is found for a given time interval, the data is dumped to a trace file.
-Further, the data can be output in the form of a 3-dimensional graph (.png file). Lastly, 
-a steady-state analysis of the thermal data can be output as well (as a trace file
-or image file). 
+*GET TEMPERATURE VALUE OF FLP UNIT
 
-A warmup-option is also given. In this case, two passes are make to the circuit solver.
-A running average is generated for each of the functional units. This is used to "warm up"
-the chip for the next solver pass. Thus, the initial temperature value is not used 
-on the second pass. 
-
-[Used Packages]
-This toolkit makes use of the "Matrix Template Library" or "MTL" and "QwtPlot3D". 
-No changes were made to the original source. As per the terms of the artistic license,
-this toolkit is permitted to distribute the respective libraries. 
-See below for complete terms and conditions of source licenses.
-
-
-
-[Description of Files]
-
-The chip floorplan ex: "chip.flp" will contain the locations for the various
-functional units within the microprocessor being modeled. 
-
-The location of the micro-coolers is determined by the micro-cooler floorplan file "ucool.flp"
-This file contains the dimensions of each of the micro-coolers along with their respective
-locations on the die.
-
-The thermal properties of the chip/heatsink/heatspreader materials are governed by the "materials"
-section of the configuration file "sesctherm.cfg". These materials tare then assigned to each of 
-the respective layers within the model. This allows the the flexibility of changing the materials
-easily and effectively to accomodate different models. 
-
-The fan speed can be changed dynamicaly, by the initial fan speed is determined within 
-the configuration file.
-
-The properties of the micro-coolers is likewise determined within the configuration file. 
+	double temp_model.get_temperature_flp(int flp_pos, int flp_layer, int source_layer);
+	
 
 
+*STORE SINGLE TEMPERATURE TO FLOORPLAN UNIT
+
+	*This will store a temperature value to all the model units on the destination layer that correspond 
+	to a given floorplan unit on the flp_layer. 
+	
+	*For example, if the source layer was 5, this means that we wish to select the chip on layer 5 (this allows multiple transistor layers
+	in the model). If the destination layer is interconnect layer 4, then we store the temperature values to the model units 
+	on the interconnect layer that are directly above (or below) the corresponding floorplan unit on layer 5. This allows us to
+	set an AVERAGE temperature across several layers
+	
+temp_model.set_temperature_flp(int flp_pos, int flp_layer, int source_layer, double temperature);
 
 
-[License Agreements]
+*STORE TEMPERATURE MAP TO ENTIRE FLOORPLAN 
+
+	*This will store a temperatures map to all the model units that correspond to a floorplan, but on 
+	the specified layer. 
+	
+	*For example, if the flp layer was 5, this means that we wish to select the chip on layer 5. If the source layer
+	is interconnect layer 4, then we store the temperature values to the model units on the interconnect layer that are directly
+	above (or below) the corresponding floorplan unit on layer 5. This allows us to set an AVERAGE temperature across several layers
+	
+temp_model.set_temperature_layer(int flp_layer, int source_layer, vector<double>& temperature_map);
 
 
-Matrix Template Library License Agreement
+*STORE SINGLE TEMPERATURE TO ENTIRE FLOORPLAN 
+
+	*This will set the entire layer to one temperature
+
+temp_model.set_temperature_layer(int source_layer, double temperature);
 
 
-Copyright ©1997-2005 , University of Notre Dame.
-
-Authors: Andrew Lumsdaine, Jeremy G. Siek, Lie-Quan Lee. 
-
-
-#  You may make and give away verbatim copies of the source form of the Standard Version 
-of this Package without restriction, provided that you duplicate all of the original copyright 
-notices and associated disclaimers.
-# You may apply bug fixes, portability fixes and other modifications derived from the
-Public Domain or from the Copyright Holder. A Package modified in such a way shall still
-be considered the Standard Version.
-# You may otherwise modify your copy of this Package in any way, provided that you insert
-a prominent notice in each changed file stating how and when you changed that file, and
-provided that you do at least ONE of the following:
-
-   1. place your modifications in the Public Domain or otherwise make them Freely Available,
-   such as by posting said modifications to Usenet or an equivalent medium, or placing the 
-   modifications on a major archive site such as uunet.uu.net, or by allowing the Copyright
-   Holder to include your modifications in the Standard Version of the Package.
-   2. use the modified Package only within your corporation or organization.
-   3. rename any non-standard types and functions so the names do not conflict with Standard 
-   Version, which must also be provided, and provide a separate documentation for each 
-   non-standard type of function that clearly documents how it differs from the Standard Version.
-   4. make other distribution arrangements with the Copyright Holder. 
-
-# You may charge a reasonable copying fee for any distribution of this Package. You may
-charge any fee you choose for support of this Package. You may not charge a fee for this 
-Package itself. However, you may distribute this Package in aggregate with other (possibly
-commercial) programs as part of a larger (possibly commercial) software distribution provided
-that you do not advertise this Package as a product of your own.
-# The name of the Copyright Holder may not be used to endorse or promote products derived from 
-this software without specific prior written permission.
+!!NOTE: THESE FUNCTIONS CURRENTLY ONLY ALLOW POWER DATA TO BE STORED ON TRANSISTOR-TYPE LAYERS 
+!!      THIS MEANS THAT SELF_HEATING OF WIRES ETC IS NOT CURRENTLY POSSIBLE, 
+!!		TO FIX THIS, WE NEED TO SPECIFY AN flp_layer AND ASSOCIATED source_layer
+*STORE SINGLE POWER VALUE TO FLOORPLAN UNIT
+	*This will store the power value to a floorplan unit at location flp_pos on a specified layer 
+		
+	*Pass in the number of the floorplan unit to update, the layer in which that floorplan resides, and the   
+	 power data (in watts) for the particular floorplan unit (in the general case the layer will be 5)
+	
+	*(note that the order of the floorplan units is the same as the order in which they appear
+	 in the sesc configuration file, starting with 0 as the lowest index)
+		
+	temp_model.set_power_flp(int flp_pos,  int layer, double power_data);
 
 
+*STORE POWER MAP TO ENTIRE FLOORPLAN
+	*This will store all the power values to a floorplan on a specified layer
+
+	*Pass in a vector<double> where the value at index i corresponds to the power value for floorplan unit i
+	
+	*(note that the order of the floorplan units is the same as the order in which they appear
+	 in the sesc configuration file, starting with 0 as the lowest index)
+		
+	
+	temp_model.set_power_layer(int layer, vector<double>& power_map);
 
 
+*GET POWER DATA FROM A FLOORPLAN
+	
+	vector<double>& get_power_layer(int flp_layer);
 
-QWTPLOT3D License Agreement
+*GET POWER VALUE FROM A FLOORPLAN UNIT
 
-
-  QwtPlot3D license -- January 5th, 2005
-
-  Copyright (C) 2003-2005 Michael Bieber
-
-  This software is provided 'as-is', without any express or implied
-  warranty.  In no event will the author be held liable for any damages
-  arising from the use of this software.
-
-  Permission is granted to anyone to use this software for any purpose,
-  including commercial applications, and to alter it and redistribute it
-  freely, subject to the following restrictions:
-
-  1. The origin of this software must not be misrepresented; you must not
-     claim that you wrote the original software. If you use this software
-     in a product, an acknowledgment in the product documentation would be
-     appreciated but is not required.
-  2. Altered source versions must be plainly marked as such, and must not be
-     misrepresented as being the original software.
-  3. This notice may not be removed or altered from any source distribution.
-
+	double get_power_flp(int flp_layer, int flp_pos);

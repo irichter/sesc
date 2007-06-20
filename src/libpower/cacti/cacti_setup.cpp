@@ -244,7 +244,6 @@ static void update_sublayout(const char *blockName, xcacti_flp *xflp, const Ther
     I(0); // In
   }
 }
-#endif
 
 void update_layout(const char *blockName, xcacti_flp *xflp) {
 
@@ -258,6 +257,7 @@ void update_layout(const char *blockName, xcacti_flp *xflp) {
   
   update_sublayout(blockName, xflp, flp, xflp->NSubbanks*xflp->assoc);
 }
+#endif
 
 void iterate()
 {

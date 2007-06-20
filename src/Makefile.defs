@@ -146,20 +146,22 @@ ifdef XCC_MIPSEB
 CFLAGS +=-DXCC_MIPSEB
 XLIBS   = -L$(OBJ) -lapp
 else
-XLIBS   = -lpthread -L$(OBJ) -lapp
+XLIBS   = -L$(OBJ) -lapp
 endif
 endif
 
 ifdef SESC_SESCTHERM
-#CFLAGS	+=-I$(SRC_DIR)/libsesctherm/SuperLU_MT/SRC -D_PTHREAD -DAdd_
-CFLAGS	+=-I$(SRC_DIR)/libsesctherm/superlu
-CFLAGS  +=-I$(SRC_DIR)/libsesctherm/levmar-2.1.3/
+CFLAGS  +=-DAdd_ -DUSE_VENDOR_BLAS=1
+CFLAGS	+=-I$(SRC_DIR)/libsuperlu
+
 CFLAGS	+=-I$(SRC_DIR)/libsesctherm/
+
+CFLAGS  +=-I$(SRC_DIR)/libsesctherm/levmar-2.1.3/
 CFLAGS  +=-L$(SRC_DIR)/libsesctherm/levmar-2.1.3/
-CFLAGS  +=-L$(SRC_DIR)/libsesctherm/CLAPACK -L$(SRC_DIR)/libsesctherm/CLAPACK/F2CLIBS
-#STDLIBS +=$(SRC_DIR)/libsesctherm/SuperLU_MT/superlu_mt_PTHREAD.a
-STDLIBS +=$(SRC_DIR)/libsesctherm/superlu/libsuperlu.a
 STDLIBS +=$(SRC_DIR)/libsesctherm/levmar-2.1.3/liblevmar.a
+
+CFLAGS  +=-L$(SRC_DIR)/libsesctherm/CLAPACK -L$(SRC_DIR)/libsesctherm/CLAPACK/F2CLIBS
+
 STDLIBS +=-lpthread -lblas 
 endif
 
