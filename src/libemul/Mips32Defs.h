@@ -53,8 +53,8 @@ enum Mips32_OpenFlags {
   Mips32_O_NONBLOCK  = 0x80, // Flag
   Mips32_O_SYNC      = 0x10, // Flag
   Mips32_O_NOFOLLOW  = 0x20000, // Flag
-  Mips32_O_DIRECTORY = 0x10000, // Flag
   Mips32_O_DIRECT    = 0x8000, // Flag
+  Mips32_O_DIRECTORY = 0x10000, // Flag
   Mips32_O_ASYNC     = 0x1000, // Flag
   Mips32_O_LARGEFILE = 0x2000, // Flag
 };
@@ -239,16 +239,6 @@ int toNativeMmapFlags(int val){
   I(val==0);
   return retVal;
 }
-// Convert Mremap flags to native
-int toNativeMremapFlags(int val){
-  int retVal=0;
-  if(val&Mips32_MREMAP_MAYMOVE){
-    retVal|=MREMAP_MAYMOVE;
-    val^=Mips32_MREMAP_MAYMOVE;
-  }
-  I(val==0);
-  return retVal;
-}
 // Convert File open flags to native
 int toNativeOpenFlags(int val){
   int retVal=0;
@@ -291,14 +281,16 @@ int toNativeOpenFlags(int val){
     retVal|=O_NOFOLLOW ;
     val^=Mips32_O_NOFOLLOW ;
   }
-  if(val&Mips32_O_DIRECTORY){
-    retVal|=O_DIRECTORY;
-    val^=Mips32_O_DIRECTORY;
-  }
   if(val&Mips32_O_DIRECT   ){
     retVal|=O_DIRECT   ;
     val^=Mips32_O_DIRECT   ;
   }
+#ifndef O_DIRECTORY
+  if(val&Mips32_O_DIRECTORY){
+    retVal|=O_DIRECTORY;
+    val^=Mips32_O_DIRECTORY;
+  }
+#endif
   if(val&Mips32_O_ASYNC    ){
     retVal|=O_ASYNC    ;
     val^=Mips32_O_ASYNC    ;
@@ -470,13 +462,6 @@ int fromNativeMmapFlags(int val){
   I(val==0);
   return retVal;
 }
-// Convert Mremap flags from native
-int fromNativeMremapFlags(int val){
-  int retVal=0;
-  if(val&MREMAP_MAYMOVE){ retVal|=Mips32_MREMAP_MAYMOVE; val^=MREMAP_MAYMOVE; }
-  I(val==0);
-  return retVal;
-}
 // Convert File open flags from native
 int fromNativeOpenFlags(int val){
   int retVal=0;
@@ -495,8 +480,10 @@ int fromNativeOpenFlags(int val){
   if(val&O_NONBLOCK ){ retVal|=Mips32_O_NONBLOCK ; val^=O_NONBLOCK ; }
   if(val&O_SYNC     ){ retVal|=Mips32_O_SYNC     ; val^=O_SYNC     ; }
   if(val&O_NOFOLLOW ){ retVal|=Mips32_O_NOFOLLOW ; val^=O_NOFOLLOW ; }
-  if(val&O_DIRECTORY){ retVal|=Mips32_O_DIRECTORY; val^=O_DIRECTORY; }
   if(val&O_DIRECT   ){ retVal|=Mips32_O_DIRECT   ; val^=O_DIRECT   ; }
+#ifndef O_DIRECTORY
+  if(val&O_DIRECTORY){ retVal|=Mips32_O_DIRECTORY; val^=O_DIRECTORY; }
+#endif
   if(val&O_ASYNC    ){ retVal|=Mips32_O_ASYNC    ; val^=O_ASYNC    ; }
   if(val&O_LARGEFILE){ retVal|=Mips32_O_LARGEFILE; val^=O_LARGEFILE; }
   I(val==0);
