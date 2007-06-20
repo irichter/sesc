@@ -285,20 +285,24 @@ int toNativeOpenFlags(int val){
     retVal|=O_DIRECT   ;
     val^=Mips32_O_DIRECT   ;
   }
-#ifndef O_DIRECTORY
+#ifdef O_DIRECTORY
   if(val&Mips32_O_DIRECTORY){
     retVal|=O_DIRECTORY;
     val^=Mips32_O_DIRECTORY;
   }
 #endif
+#ifdef O_ASYNC
   if(val&Mips32_O_ASYNC    ){
     retVal|=O_ASYNC    ;
     val^=Mips32_O_ASYNC    ;
   }
+#endif
+#ifdef O_LARGEFILE
   if(val&Mips32_O_LARGEFILE){
     retVal|=O_LARGEFILE;
     val^=Mips32_O_LARGEFILE;
   }
+#endif
   I(val==0);
   return retVal;
 }
@@ -481,11 +485,15 @@ int fromNativeOpenFlags(int val){
   if(val&O_SYNC     ){ retVal|=Mips32_O_SYNC     ; val^=O_SYNC     ; }
   if(val&O_NOFOLLOW ){ retVal|=Mips32_O_NOFOLLOW ; val^=O_NOFOLLOW ; }
   if(val&O_DIRECT   ){ retVal|=Mips32_O_DIRECT   ; val^=O_DIRECT   ; }
-#ifndef O_DIRECTORY
+#ifdef O_DIRECTORY
   if(val&O_DIRECTORY){ retVal|=Mips32_O_DIRECTORY; val^=O_DIRECTORY; }
 #endif
+#ifdef O_ASYNC
   if(val&O_ASYNC    ){ retVal|=Mips32_O_ASYNC    ; val^=O_ASYNC    ; }
+#endif
+#ifdef O_LARGEFILE
   if(val&O_LARGEFILE){ retVal|=Mips32_O_LARGEFILE; val^=O_LARGEFILE; }
+#endif
   I(val==0);
   return retVal;
 }
