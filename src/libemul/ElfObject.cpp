@@ -292,7 +292,7 @@ void loadElfObject(const char *fname, ThreadContext *threadContext){
     if(lseek(fd,mySecHdr.sh_offset,SEEK_SET)!=mySecHdr.sh_offset)
       fail("Could not seek to section name string table in ELF file %s",myfname);
     secNamTab=(char *)malloc(mySecHdr.sh_size);
-    if(read(fd,secNamTab,mySecHdr.sh_size)!=mySecHdr.sh_size)
+    if(read(fd,secNamTab,mySecHdr.sh_size)!=ssize_t(mySecHdr.sh_size))
       fail("Could not read the section name string table in ELF file %s",myfname);
   }
     
@@ -312,9 +312,9 @@ void loadElfObject(const char *fname, ThreadContext *threadContext){
 	if(mySymSecHdr.sh_entsize!=sizeof(Elf32_Sym))
 	  fail("Symbol table has entries of wrong size in ELF file %s",myfname);
 	Elf32_Shdr myStrSecHdr;
-	uint64_t  symTabSize=mySymSecHdr.sh_size;
-	Elf32_Off symTabOffs=mySymSecHdr.sh_offset;
-	Elf32_Section strTabSec=mySymSecHdr.sh_link;
+	uint64_t   symTabSize=mySymSecHdr.sh_size;
+	Elf32_Off  symTabOffs=mySymSecHdr.sh_offset;
+	Elf32_Word strTabSec=mySymSecHdr.sh_link;
 	if(lseek(fd,(off_t)(myElfHdr.e_shoff+strTabSec*sizeof(myStrSecHdr)),SEEK_SET)!=
 	   (off_t)(myElfHdr.e_shoff+strTabSec*sizeof(myStrSecHdr)))
 	  fail("Couldn't seek to string table section %d for symbol table section %d in ELF file %s",
@@ -327,7 +327,7 @@ void loadElfObject(const char *fname, ThreadContext *threadContext){
 	if(lseek(fd,myStrSecHdr.sh_offset,SEEK_SET)!=myStrSecHdr.sh_offset)
 	  fail("Could not seek to string table for SYMTAB section %d in ELF file %s",secTabIdx,myfname);
 	char *strTab=(char *)malloc(myStrSecHdr.sh_size);
-	if(read(fd,strTab,myStrSecHdr.sh_size)!=myStrSecHdr.sh_size)
+	if(read(fd,strTab,myStrSecHdr.sh_size)!=ssize_t(myStrSecHdr.sh_size))
 	  fail("Could not read string table for SYMTAB section %d in ELF file %s",secTabIdx,myfname);
 	if(lseek(fd,symTabOffs,SEEK_SET)!=symTabOffs)
 	  fail("Could not seek to symbol table for section %d in ELF file %s",secTabIdx,myfname);
@@ -406,7 +406,7 @@ void loadElfObject(const char *fname, ThreadContext *threadContext){
 	  if(mySecHdr.sh_type==SHT_PROGBITS){
 	    if(lseek(fd,mySecHdr.sh_offset,SEEK_SET)!=mySecHdr.sh_offset)
 	      fail("Couldn't seek to a SHT_PROGBITS section in ELF file %s",myfname);
-	    if(threadContext->writeMemFromFile(mySecHdr.sh_addr,mySecHdr.sh_size,fd,true)!=mySecHdr.sh_size)
+	    if(threadContext->writeMemFromFile(mySecHdr.sh_addr,mySecHdr.sh_size,fd,true)!=ssize_t(mySecHdr.sh_size))
 	      fail("Could not read a SHT_PROGBITS section from ELF file %s",myfname);
 	  }else{
 	    threadContext->writeMemWithByte(mySecHdr.sh_addr,mySecHdr.sh_size,0);

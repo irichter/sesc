@@ -2,7 +2,12 @@
 #define CVTENDIAN_H
 
 #include <errno.h>
+#include <endian.h>
 #include "SizedTypes.h"
+
+#if !(defined __FLOAT_WORD_ORDER)
+#define __FLOAT_WORD_ORDER __BYTE_ORDER
+#endif
 
 template<typename T, int __SRC_BYTE_ORDER, int __DST_BYTE_ORDER>
 inline void cvtEndian(T &val){

@@ -1,7 +1,9 @@
 // We need to emulate all sorts of floating point operations
 #include <math.h>
 // We need to control the rounding mode for floating point operations
+#if !(defined NO_FENV_H) 
 #include <fenv.h>
+#endif
 // We use functionals in our implementation
 #include <functional>
 
@@ -18,28 +20,56 @@
 #include "OSSim.h"
 
 namespace fns{
-  template <class _Tp> struct project1st_identity    : public std::binary_function<_Tp, _Tp, _Tp>{ inline _Tp operator()(const _Tp& __x, const _Tp& __y) const{ return __x; } };
-  template <class _Tp> struct project1st_bitwise_not : public std::binary_function<_Tp, _Tp, _Tp>{ inline _Tp operator()(const _Tp& __x, const _Tp& __y) const{ return ~__x; } };
-  template <class _Tp> struct project1st_neg         : public std::binary_function<_Tp, _Tp, _Tp>{ inline _Tp operator()(const _Tp& __x, const _Tp& __y) const{ return -__x; } };
-  template <class _Tp> struct project1st_abs         : public std::binary_function<_Tp, _Tp, _Tp>{ inline _Tp operator()(const _Tp& __x, const _Tp& __y) const{ return (__x>=0)?__x:-__x; } };
-  template <class _Tp> struct project1st_sqrt        : public std::binary_function<_Tp, _Tp, _Tp>{ inline _Tp operator()(const _Tp& __x, const _Tp& __y) const{ return sqrt(__x); } };
-  template <class _Tp> struct project1st_recip       : public std::binary_function<_Tp, _Tp, _Tp>{ inline _Tp operator()(const _Tp& __x, const _Tp& __y) const{ return _Tp(1)/__x; } };
-  template <class _Tp> struct project1st_sqrt_recip  : public std::binary_function<_Tp, _Tp, _Tp>{ inline _Tp operator()(const _Tp& __x, const _Tp& __y) const{ return _Tp(1)/sqrt(__x); } };
-  template <class _Tp> struct shift_left             : public std::binary_function<_Tp, uint32_t, _Tp>{ inline _Tp operator()(const _Tp& __x, const uint32_t& __y) const{ return (__x<<__y); } };
+  template <class _Tp> struct project1st_identity    : public std::binary_function<_Tp, _Tp, _Tp>{
+    inline _Tp operator()(const _Tp& __x, const _Tp& __y) const{ return __x; }
+  };
+  template <class _Tp> struct project1st_bitwise_not : public std::binary_function<_Tp, _Tp, _Tp>{
+    inline _Tp operator()(const _Tp& __x, const _Tp& __y) const{ return ~__x; }
+  };
+  template <class _Tp> struct project1st_neg         : public std::binary_function<_Tp, _Tp, _Tp>{
+    inline _Tp operator()(const _Tp& __x, const _Tp& __y) const{ return -__x; }
+  };
+  template <class _Tp> struct project1st_abs         : public std::binary_function<_Tp, _Tp, _Tp>{
+    inline _Tp operator()(const _Tp& __x, const _Tp& __y) const{ return (__x>=0)?__x:-__x; }
+  };
+  template <class _Tp> struct project1st_sqrt        : public std::binary_function<_Tp, _Tp, _Tp>{
+    inline _Tp operator()(const _Tp& __x, const _Tp& __y) const{ return sqrt(__x); }
+  };
+  template <class _Tp> struct project1st_recip       : public std::binary_function<_Tp, _Tp, _Tp>{
+    inline _Tp operator()(const _Tp& __x, const _Tp& __y) const{ return _Tp(1)/__x; }
+  };
+  template <class _Tp> struct project1st_sqrt_recip  : public std::binary_function<_Tp, _Tp, _Tp>{
+    inline _Tp operator()(const _Tp& __x, const _Tp& __y) const{ return _Tp(1)/sqrt(__x); }
+  };
+  template <class _Tp> struct shift_left             : public std::binary_function<_Tp, uint32_t, _Tp>{
+    inline _Tp operator()(const _Tp& __x, const uint32_t& __y) const{ return (__x<<__y); }
+  };
   template <class _Tp>
   struct shift_right : public std::binary_function<_Tp, uint32_t, _Tp>{
     inline _Tp operator()(const _Tp& __x, const uint32_t& __y) const{ return (__x>>__y); }
   };
-  template <class _Tp> struct bitwise_and            : public std::binary_function<_Tp, _Tp, _Tp>{ inline _Tp operator()(const _Tp& __x, const _Tp& __y) const{ return (__x&__y); } };
-  template <class _Tp> struct bitwise_or             : public std::binary_function<_Tp, _Tp, _Tp>{ inline _Tp operator()(const _Tp& __x, const _Tp& __y) const{ return (__x|__y); } };
-  template <class _Tp> struct bitwise_xor            : public std::binary_function<_Tp, _Tp, _Tp>{ inline _Tp operator()(const _Tp& __x, const _Tp& __y) const{ return (__x^__y); } };
-  template <class _Tp> struct bitwise_nor            : public std::binary_function<_Tp, _Tp, _Tp>{ inline _Tp operator()(const _Tp& __x, const _Tp& __y) const{ return ~(__x|__y); } };
-  template <class _Tp> struct plus_neg               : public std::binary_function<_Tp, _Tp, _Tp>{ inline _Tp operator()(const _Tp& __x, const _Tp& __y) const{ return -(__x + __y); } };
-  template <class _Tp> struct minus_neg              : public std::binary_function<_Tp, _Tp, _Tp>{ inline _Tp operator()(const _Tp& __x, const _Tp& __y) const{ return -(__x - __y); } };
+  template <class _Tp> struct bitwise_and            : public std::binary_function<_Tp, _Tp, _Tp>{
+    inline _Tp operator()(const _Tp& __x, const _Tp& __y) const{ return (__x&__y); }
+  };
+  template <class _Tp> struct bitwise_or             : public std::binary_function<_Tp, _Tp, _Tp>{
+    inline _Tp operator()(const _Tp& __x, const _Tp& __y) const{ return (__x|__y); }
+  };
+  template <class _Tp> struct bitwise_xor            : public std::binary_function<_Tp, _Tp, _Tp>{
+    inline _Tp operator()(const _Tp& __x, const _Tp& __y) const{ return (__x^__y); }
+  };
+  template <class _Tp> struct bitwise_nor            : public std::binary_function<_Tp, _Tp, _Tp>{
+    inline _Tp operator()(const _Tp& __x, const _Tp& __y) const{ return ~(__x|__y); }
+  };
+  template <class _Tp> struct plus_neg               : public std::binary_function<_Tp, _Tp, _Tp>{
+    inline _Tp operator()(const _Tp& __x, const _Tp& __y) const{ return -(__x + __y); }
+  };
+  template <class _Tp> struct minus_neg              : public std::binary_function<_Tp, _Tp, _Tp>{
+    inline _Tp operator()(const _Tp& __x, const _Tp& __y) const{ return -(__x - __y); }
+  };
   template <class _Tp> struct multiplies_hi          : public std::binary_function<_Tp, _Tp, _Tp>{
     inline _Tp operator()(const _Tp& __x, const _Tp& __y) const{ fail("%s called, unsupported type\n",__PRETTY_FUNCTION__); return 0; }
   };
-   template <> struct multiplies_hi<int32_t>          : public std::binary_function<int32_t,int32_t,int32_t>{
+  template <> struct multiplies_hi<int32_t>          : public std::binary_function<int32_t,int32_t,int32_t>{
     inline int32_t operator()(const int32_t& __x, const int32_t& __y) const{
       int64_t res=int64_t(__x)*int64_t(__y);
       int32_t *ptr=(int32_t *)(&res);
@@ -59,17 +89,25 @@ namespace fns{
       return ((UseLt&&(__x<__y))||(UseEq&&(__x==__y))||(UseUn&&isunordered(__x,__y)));
     }
   };
-  template<class _Ts, class _Td, int rm>
+  template<class _Ts, class _Td>
   struct project1st_round : public std::binary_function<_Ts,_Ts,_Td>{
-    inline _Td operator()(const _Ts& __x, const _Ts& __y) const{
-      int saverm=fegetround();
-      fesetround(rm);
-      _Td retVal=_Td(__x);
-      fesetround(saverm);
-      return retVal;
-    }
+    inline _Td operator()(const _Ts& __x, const _Ts& __y) const{ return _Td(round(__x)); }
   };
-  template<class _Tp> struct tt : public std::binary_function<_Tp,_Tp,bool>{ inline bool operator()(const _Tp& __x, const _Tp& __y) const{ return true; } };
+  template<class _Ts, class _Td>
+  struct project1st_trunc : public std::binary_function<_Ts,_Ts,_Td>{
+    inline _Td operator()(const _Ts& __x, const _Ts& __y) const{ return _Td(trunc(__x)); }
+  };
+  template<class _Ts, class _Td>
+  struct project1st_ceil : public std::binary_function<_Ts,_Ts,_Td>{
+    inline _Td operator()(const _Ts& __x, const _Ts& __y) const{ return _Td(ceil(__x)); }
+  };
+  template<class _Ts, class _Td>
+  struct project1st_floor : public std::binary_function<_Ts,_Ts,_Td>{
+    inline _Td operator()(const _Ts& __x, const _Ts& __y) const{ return _Td(floor(__x)); }
+  };
+  template<class _Tp> struct tt : public std::binary_function<_Tp,_Tp,bool>{
+    inline bool operator()(const _Tp& __x, const _Tp& __y) const{ return true; }
+  };
   template<class _Tp> struct eq : public std::equal_to<_Tp>{};
   template<class _Tp> struct ne : public std::not_equal_to<_Tp>{};
   template<class _Tp> struct lt : public std::less<_Tp>{};
@@ -486,6 +524,7 @@ namespace Mips {
   template<class _Ts, class _Tm, class _Td>
   struct mips_float_convert : public std::binary_function<_Ts,_Tm,_Td>{
     inline _Td operator()(const _Ts& __x, const _Tm& __y) const{
+#if !(defined NO_FENV_H)
       static int Mips32_RoundMode[] = {
         FE_TONEAREST,  /* 00 nearest   */
         FE_TOWARDZERO, /* 01 zero      */
@@ -498,6 +537,9 @@ namespace Mips {
       _Td retVal=_Td(__x);
       fesetround(saverm);
       return retVal;
+#else
+      return _Td(__x);
+#endif
     }
   };
 
@@ -810,7 +852,7 @@ Instruction *createSescInst(const InstDesc *inst, VAddr iaddr, size_t deltaAddr,
     }
     static InstImm decodeImm(InstImmInfo imm, RawInst inst, VAddr addr){
       switch(imm){
-      case ImmNo:   return 0;
+      case ImmNo:   return uint32_t(0);
       case ImmJpTg: return static_cast<VAddr>(((addr+sizeof(inst))&(~0x0fffffff))|((inst&0x0fffffff)*sizeof(inst)));
       case ImmBrOf: return static_cast<VAddr>((addr+sizeof(inst))+((static_cast<int16_t>(inst&0xffff))*sizeof(inst)));
       case ImmSExt: return static_cast<int32_t>(static_cast<int16_t>(inst&0xffff));
@@ -825,7 +867,7 @@ Instruction *createSescInst(const InstDesc *inst, VAddr iaddr, size_t deltaAddr,
       default:
         fail("decodeImm called for invalid imm %d in raw inst 0x%08x\n",imm,inst);
       }
-      return 0;
+      return uint32_t(0);
     }
     bool isNop(ThreadContext *context, VAddr addr){
       RawInst raw=context->readMem<RawInst>(addr);
@@ -1648,22 +1690,22 @@ Instruction *createSescInst(const InstDesc *inst, VAddr iaddr, size_t deltaAddr,
     OpDataI4(OpFnmsubd , CtlNorm, FpOpMul  , ArgFTmp, ArgFs  , ArgFt  , ImmNo  , OpFnmsubd_, emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, std::multiplies<float64_t>);
     OpDataI4(OpFnmsubd_, CtlNorm, FpOpALU  , ArgFd  , ArgFTmp, ArgFr  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, fns::minus_neg<float64_t>);
     // Floating-point format conversion
-    OpDataI4(OpFroundls, CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float32_t,int64_t,FE_TONEAREST>));
-    OpDataI4(OpFtruncls, CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float32_t,int64_t,FE_TOWARDZERO>));
-    OpDataI4(OpFceills , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float32_t,int64_t,FE_UPWARD>));
-    OpDataI4(OpFfloorls, CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float32_t,int64_t,FE_DOWNWARD>));
-    OpDataI4(OpFroundws, CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float32_t,int32_t,FE_TONEAREST>));
-    OpDataI4(OpFtruncws, CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float32_t,int32_t,FE_TOWARDZERO>));
-    OpDataI4(OpFceilws , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float32_t,int32_t,FE_UPWARD>));
-    OpDataI4(OpFfloorws, CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float32_t,int32_t,FE_DOWNWARD>));
-    OpDataI4(OpFroundld, CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float64_t,int64_t,FE_TONEAREST>));
-    OpDataI4(OpFtruncld, CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float64_t,int64_t,FE_TOWARDZERO>));
-    OpDataI4(OpFceilld , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float64_t,int64_t,FE_UPWARD>));
-    OpDataI4(OpFfloorld, CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float64_t,int64_t,FE_DOWNWARD>));
-    OpDataI4(OpFroundwd, CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float64_t,int32_t,FE_TONEAREST>));
-    OpDataI4(OpFtruncwd, CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float64_t,int32_t,FE_TOWARDZERO>));
-    OpDataI4(OpFceilwd , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float64_t,int32_t,FE_UPWARD>));
-    OpDataI4(OpFfloorwd, CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float64_t,int32_t,FE_DOWNWARD>));
+    OpDataI4(OpFroundls, CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float32_t,int64_t>));
+    OpDataI4(OpFtruncls, CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_trunc<float32_t,int64_t>));
+    OpDataI4(OpFceills , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_ceil<float32_t,int64_t>));
+    OpDataI4(OpFfloorls, CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_floor<float32_t,int64_t>));
+    OpDataI4(OpFroundws, CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float32_t,int32_t>));
+    OpDataI4(OpFtruncws, CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_trunc<float32_t,int32_t>));
+    OpDataI4(OpFceilws , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_ceil<float32_t,int32_t>));
+    OpDataI4(OpFfloorws, CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_floor<float32_t,int32_t>));
+    OpDataI4(OpFroundld, CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float64_t,int64_t>));
+    OpDataI4(OpFtruncld, CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_trunc<float64_t,int64_t>));
+    OpDataI4(OpFceilld , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_ceil<float64_t,int64_t>));
+    OpDataI4(OpFfloorld, CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_floor<float64_t,int64_t>));
+    OpDataI4(OpFroundwd, CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float64_t,int32_t>));
+    OpDataI4(OpFtruncwd, CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_trunc<float64_t,int32_t>));
+    OpDataI4(OpFceilwd , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_ceil<float64_t,int32_t>));
+    OpDataI4(OpFfloorwd, CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_floor<float64_t,int32_t>));
     OpDataI4(OpFcvtds  , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgFCSR, ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeCtl, RegTypeFpr, typeof(mips_float_convert<float32_t,uint32_t,float64_t>));
     OpDataI4(OpFcvtws  , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgFCSR, ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeCtl, RegTypeFpr, typeof(mips_float_convert<float32_t,uint32_t,int32_t>));
     OpDataI4(OpFcvtls  , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgFCSR, ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeCtl, RegTypeFpr, typeof(mips_float_convert<float32_t,uint32_t,int64_t>));

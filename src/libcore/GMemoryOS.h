@@ -43,8 +43,8 @@ public:
   }
   virtual ~GMemoryOS() {
   }
-  virtual int TLBTranslate(unsigned int vAddr) = 0;
-  virtual int ITLBTranslate(unsigned int iAddr) = 0 ;
+  virtual int TLBTranslate(VAddr vAddr) = 0;
+  virtual int ITLBTranslate(VAddr iAddr) = 0 ;
   virtual void solveRequest(MemRequest *r) = 0;
   virtual void boot() = 0;
   virtual void report(const char *str) = 0;
@@ -71,8 +71,8 @@ public:
   DummyMemoryOS(int i);
   virtual ~DummyMemoryOS();
 
-  int ITLBTranslate(unsigned int iAddr);
-  int TLBTranslate(unsigned int vAddr);
+  int ITLBTranslate(VAddr iAddr);
+  int TLBTranslate(VAddr vAddr);
 
   void solveRequest(MemRequest *r);
 

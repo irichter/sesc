@@ -1872,7 +1872,7 @@ namespace Mips {
     int      whence = myArgs.getW();
     if(!context->canWrite(res,sizeof(uint64_t)))
       return sysCall32SetErr(context,Mips32_EFAULT);
-    off64_t offs = (int64_t)((((uint64_t)hi)<<32)|((uint64_t)lo));
+    off_t offs = (off_t)((((uint64_t)hi)<<32)|((uint64_t)lo));
     off_t resVal=context->getOpenFiles()->seek(fd,offs,toNativeWhenceFlags(whence));
     if(resVal==(off_t)-1)
       return sysCall32SetErr(context,fromNativeErrNums(errno));
