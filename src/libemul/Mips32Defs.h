@@ -59,7 +59,6 @@ enum Mips32_OpenFlags {
   Mips32_O_ASYNC     = 0x1000, // Flag
   Mips32_O_LARGEFILE = 0x2000, // Flag
 };
-#include <sys/ioctl.h>
 // Define ioctl requests
 enum Mips32_IoctlReq {
   Mips32_TCGETS = 0x540d,
@@ -334,25 +333,6 @@ int toNativeOpenFlags(int val){
   I(val==0);
   return retVal;
 }
-// Convert ioctl requests to native
-int toNativeIoctlReq(int val){
-  int retVal=0;
-  switch(val){
-    case Mips32_TCGETS: retVal+=TCGETS; break;
-    case Mips32_TCSETS: retVal+=TCSETS; break;
-    case Mips32_TCSETSW: retVal+=TCSETSW; break;
-    case Mips32_TCSETSF: retVal+=TCSETSF; break;
-    case Mips32_TCGETA: retVal+=TCGETA; break;
-    case Mips32_TCSETA: retVal+=TCSETA; break;
-    case Mips32_TCSETAW: retVal+=TCSETAW; break;
-    case Mips32_TCSETAF: retVal+=TCSETAF; break;
-    case Mips32_TIOCGWINSZ: retVal+=TIOCGWINSZ; break;
-    default: fail("Unknown value %d (0x%x)\n",val,val);
-  }
-  val=0;
-  I(val==0);
-  return retVal;
-}
 // Convert fcntl commands to native
 int toNativeFcntlCmd(int val){
   int retVal=0;
@@ -601,25 +581,6 @@ int fromNativeOpenFlags(int val){
   if(val&O_DIRECT   ){ retVal|=Mips32_O_DIRECT   ; val^=O_DIRECT   ; }
   if(val&O_ASYNC    ){ retVal|=Mips32_O_ASYNC    ; val^=O_ASYNC    ; }
   if(val&O_LARGEFILE){ retVal|=Mips32_O_LARGEFILE; val^=O_LARGEFILE; }
-  I(val==0);
-  return retVal;
-}
-// Convert ioctl requests from native
-int fromNativeIoctlReq(int val){
-  int retVal=0;
-  switch(val){
-    case TCGETS: retVal+=Mips32_TCGETS; break;
-    case TCSETS: retVal+=Mips32_TCSETS; break;
-    case TCSETSW: retVal+=Mips32_TCSETSW; break;
-    case TCSETSF: retVal+=Mips32_TCSETSF; break;
-    case TCGETA: retVal+=Mips32_TCGETA; break;
-    case TCSETA: retVal+=Mips32_TCSETA; break;
-    case TCSETAW: retVal+=Mips32_TCSETAW; break;
-    case TCSETAF: retVal+=Mips32_TCSETAF; break;
-    case TIOCGWINSZ: retVal+=Mips32_TIOCGWINSZ; break;
-    default: fail("Unknown value %d (0x%x)\n",val,val);
-  }
-  val=0;
   I(val==0);
   return retVal;
 }
