@@ -68,9 +68,6 @@ FetchEngine::FetchEngine(int cId
   ,szFS("FetchEngine(%d):szFS", i)
   ,unBlockFetchCB(this)
 {
-  bbSize=0;
-  fbSize=0;
-  
   // Constraints
   SescConf->isInt("cpucore", "fetchWidth",cId);
   SescConf->isBetween("cpucore", "fetchWidth", 1, 1024, cId);
@@ -125,8 +122,10 @@ FetchEngine::FetchEngine(int cId
   pid = cId;
 #endif  
 
+  bbSize=0;
+  fbSize=0;
+  fbSizeBB = BB4Cycle;
 }
-
 
 FetchEngine::~FetchEngine()
 {
@@ -185,22 +184,29 @@ bool FetchEngine::processBranch(DInst *dinst, ushort n2Fetched)
 #endif
 
   if( oracleID != inst->calcNextInstID() ) {
-    szFB.sample(fbSize);
-    fbSize=0;
+    fbSizeBB--;
+    if( fbSizeBB == 0 ) {
+      szFB.sample(fbSize); 
+      fbSize=0;
+      fbSizeBB = BB4Cycle;
+    }
   }
+
   if(prediction == CorrectPrediction) {
-    if( oracleID != inst->calcNextInstID() ) {
+    if( oracleID != inst->calcNextInstID() ) { //Taken
       // Only when the branch is taken check maxBB
       maxBB--;
       if( maxBB == 0 ) {
         // No instructions fetched (stall)
         if (missInstID==0)
           nDelayInst2.add(n2Fetched);
+
         return false;
       }
     }
     return true;
   }
+
 
 #ifdef SESC_MISPATH
   if (missInstID==0 && !dinst->isFake()) { // Only first mispredicted instruction

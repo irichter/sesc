@@ -1,439 +1,428 @@
-#include "RC.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <strings.h>
+
+#include "temperature.h"
+#include "temperature_block.h"
+#include "temperature_grid.h"
 #include "flp.h"
 #include "util.h"
 
-#include <stdio.h>
-#include <math.h>
-#include <strings.h>
-
-/* model specific globals	*/
-static double factor_pack = C_FACTOR;	/* thermal capacitance fitting factor for package 	*/
-static double factor_chip;				/* thermal capacitance fitting factor for silicon	*/
-static double factor_int;				/* thermal capacitance fitting factor for interface	*/
-
-/* maximum power density possible (say 150W for a 10mm x 10mm chip)	*/
-#define MAX_PD	(1.5e6)
-
-static double **b, **c, **inva, **invb, max_slope;
-
-/* creates 3 matrices: invA, B, C: dT + A^-1*BT = A^-1*Power, 
- * C = A^-1 * B. note that A is a diagonal matrix (no lateral
- * capacitances. all capacitances are to ground). so, inva[i][i]
- * (= 1/a[i][i]) is just enough.
- *
- * NOTE: EXTRA nodes: 1 interface bottom, 5 spreader and 5 heat sink nodes
- * (north, south, east, west and bottom).
- */
-
-void create_RC_matrices(flp_t *flp, int omit_lateral)
+/* default thermal configuration parameters	*/
+thermal_config_t default_thermal_config(void)
 {
-	int i, j, k = 0, n = flp->n_units;
-	int **border;
-	double **len, *gx, *gy, **g, *c_ver, **t, *gx_sp, *gy_sp;
-	double r_sp1, r_sp2, r_hs;	/* lateral resistances to spreader and heatsink	*/
+	thermal_config_t config;
 
-	/* NOTE: *_mid - the vertical R/C from CENTER nodes of spreader 
-	 * and heatsink. *_per - the vertical R/C from PERIPHERAL (n,s,e,w) nodes
+	/* chip specs	*/
+	config.t_chip = 0.5e-3;				/* chip thickness in meters	*/
+	/* temperature threshold for DTM (Kelvin)*/
+	config.thermal_threshold = 111.8 + 273.15;
+
+	/* heat sink specs	*/
+	config.c_convec = 140.4;			/* convection capacitance in J/K */
+	config.r_convec = 0.1;				/* convection resistance in K/W	*/
+	config.s_sink = 60e-3;				/* heatsink side in m	*/
+	config.t_sink = 6.9e-3; 			/* heatsink thickness  in m	*/
+
+	/* heat spreader specs	*/
+	config.s_spreader = 30e-3;			/* spreader side in m	*/
+	config.t_spreader = 1e-3;			/* spreader thickness in m	*/
+
+	/* interface material specs	*/
+	config.t_interface = 75e-6;			/* interface material thickness in m */
+
+	/* others	*/
+	config.ambient = 40 + 273.15;		/* in kelvin	*/
+	/* initial temperatures	from file	*/
+	strcpy(config.init_file, NULLFILE);	
+	config.init_temp = 60 + 273.15;		/* in Kelvin	*/
+	/* steady state temperatures to file	*/
+	strcpy(config.steady_file, NULLFILE);
+ 	/* 3.33 us sampling interval = 10K cycles at 3GHz	*/
+	config.sampling_intvl = 3.333e-6;
+	config.base_proc_freq = 3e9;		/* base processor frequency in Hz	*/
+	config.dtm_used = FALSE;			/* set accordingly	*/
+	/* set block model as default	*/
+	strcpy(config.model_type, BLOCK_MODEL_STR);
+
+	/* block model specific parameters	*/
+	config.block_omit_lateral = FALSE;	/* omit lateral chip resistances?	*/
+
+	/* grid model specific parameters	*/
+	config.grid_rows = 50;				/* grid resolution - no. of rows	*/
+	config.grid_cols = 50;				/* grid resolution - no. of cols	*/
+	/* layer configuration from	file */
+	strcpy(config.grid_layer_file, "layer.lcf");
+	/* output steady state grid temperatures apart from block temperatures */
+	strcpy(config.grid_steady_file, NULLFILE);
+	/* 
+	 * mapping mode between block and grid models.
+	 * default: use the average temperature of the 
+	 * grid cells as that of the entire block
 	 */
-	double r_sp_per, r_hs_mid, r_hs_per, c_sp_per, c_hs_mid, c_hs_per;
-	double gn_sp=0, gs_sp=0, ge_sp=0, gw_sp=0;
+	strcpy(config.grid_map_mode, GRID_AVG_STR);
 
-	double w_chip = get_total_width (flp);	/* x-axis	*/
-	double l_chip = get_total_height (flp);	/* y-axis	*/
-
-	border = imatrix(n, 4);
-	len = matrix(n, n);		/* len[i][j] = length of shared edge bet. i & j	*/
-	gx = vector(n);			/* lumped conductances in x direction	*/
-	gy = vector(n);			/* lumped conductances in y direction	*/
-	gx_sp = vector(n);		/* lateral conductances in the spreader	layer */
-	gy_sp = vector(n);
-	g = matrix(NL*n+EXTRA, NL*n+EXTRA);	/* g[i][j] = conductance bet. nodes i & j */
-	c_ver = vector(NL*n+EXTRA);	/* vertical capacitance	*/
-
-	b = matrix(NL*n+EXTRA, NL*n+EXTRA);	/* B, C, INVA  and INVB are (NL*n+EXTRA)x(NL*n+EXTRA) matrices	*/
-	c = matrix(NL*n+EXTRA, NL*n+EXTRA);
-	inva = matrix(NL*n+EXTRA, NL*n+EXTRA);
-	invb = matrix(NL*n+EXTRA, NL*n+EXTRA);
-	t = matrix (NL*n+EXTRA, NL*n+EXTRA);	/* copy of B	*/
-
-	/* compute the silicon fitting factor - see pg 10 of the UVA CS tech report - CS-TR-2003-08	*/
-	factor_chip = C_FACTOR * ((SPEC_HEAT_INT / SPEC_HEAT_SI) * (w_chip + 0.88 * t_interface) \
-				* (l_chip + 0.88 * t_interface) * t_interface / ( w_chip * l_chip * t_chip) + 1);
-
-	/* fitting factor for interface	 - same rationale as above */
-	factor_int = C_FACTOR * ((SPEC_HEAT_CU / SPEC_HEAT_INT) * (w_chip + 0.88 * t_spreader) \
-				* (l_chip + 0.88 * t_spreader) * t_spreader / ( w_chip * l_chip * t_interface) + 1);
-
-	/*printf("fitting factors : %lf, %lf\n", factor_chip, factor_int);	*/
-
-	/* gx's and gy's of blocks	*/
-	for (i = 0; i < n; i++) {
-		/* at the silicon layer	*/
-		if (omit_lateral) {
-			gx[i] = gy[i] = 0;
-		}
-		else {
-			gx[i] = 1.0/getr(K_SI, flp->units[i].height, flp->units[i].width, l_chip, t_chip);
-			gy[i] = 1.0/getr(K_SI, flp->units[i].width, flp->units[i].height, w_chip, t_chip);
-		}
-
-		/* at the spreader layer	*/
-		gx_sp[i] = 1.0/getr(K_CU, flp->units[i].height, flp->units[i].width, l_chip, t_spreader);
-		gy_sp[i] = 1.0/getr(K_CU, flp->units[i].width, flp->units[i].height, w_chip, t_spreader);
-	}
-
-	/* shared lengths between blocks	*/
-	for (i = 0; i < n; i++) 
-		for (j = i; j < n; j++) 
-			len[i][j] = len[j][i] = get_shared_len(flp, i, j);
-
-	/* lateral R's of spreader and sink */
-	r_sp1 = getr(K_CU, (s_spreader+3*w_chip)/4.0, (s_spreader-w_chip)/4.0, w_chip, t_spreader);
-	r_sp2 = getr(K_CU, (3*s_spreader+w_chip)/4.0, (s_spreader-w_chip)/4.0, (s_spreader+3*w_chip)/4.0, t_spreader);
-	r_hs = getr(K_CU, (s_sink+3*s_spreader)/4.0, (s_sink-s_spreader)/4.0, s_spreader, t_sink);
-
-	/* vertical R's and C's of spreader and sink */
-	r_sp_per = RHO_CU * t_spreader * 4.0 / (s_spreader * s_spreader - w_chip*l_chip);
-	c_sp_per = factor_pack * SPEC_HEAT_CU * t_spreader * (s_spreader * s_spreader - w_chip*l_chip) / 4.0;
-	r_hs_mid = RHO_CU * t_sink / (s_spreader*s_spreader);
-	c_hs_mid = factor_pack * SPEC_HEAT_CU * t_sink * (s_spreader * s_spreader);
-	r_hs_per = RHO_CU * t_sink * 4.0 / (s_sink * s_sink - s_spreader*s_spreader);
-	c_hs_per = factor_pack * SPEC_HEAT_CU * t_sink * (s_sink * s_sink - s_spreader*s_spreader) / 4.0;
-
-	/* short the R's from block centers to a particular chip edge	*/
-	for (i = 0; i < n; i++) {
-		if (eq(flp->units[i].bottomy + flp->units[i].height, l_chip)) {
-			gn_sp += gy_sp[i];
-			border[i][2] = 1;	/* block is on northern border 	*/
-		}	
-		if (eq(flp->units[i].bottomy, 0)) {
-			gs_sp += gy_sp[i];
-			border[i][3] = 1;	/* block is on southern border	*/
-		}	
-		if (eq(flp->units[i].leftx + flp->units[i].width, w_chip)) {
-			ge_sp += gx_sp[i];
-			border[i][1] = 1;	/* block is on eastern border	*/
-		}	
-		if (eq(flp->units[i].leftx, 0)) {
-			gw_sp += gx_sp[i];
-			border[i][0] = 1;	/* block is on western border	*/
-		}	
-	}
-
-	/* overall R and C between nodes */
-	for (i = 0; i < n; i++) {
-		double area = (flp->units[i].height * flp->units[i].width);
-		/* 
-		 * amongst functional units	in the various layers
-		 * resistances in the interface layer are assumed 
-		 * to be infinite
-		 */
-		for (j = 0; j < n; j++) {
-			double part = 0, part_sp = 0;
-			if (is_horiz_adj(flp, i, j)) {
-				part = gx[i] / flp->units[i].height;
-				part_sp = gx_sp[i] / flp->units[i].height;
-			}
-			else if (is_vert_adj(flp, i,j))  {
-				part = gy[i] / flp->units[i].width;
-				part_sp = gy_sp[i] / flp->units[i].width;
-			}
-			g[i][j] = part * len[i][j];
-			g[HSP*n+i][HSP*n+j] = part_sp * len[i][j];
-		}
-
- 		/* vertical g's in the silicon layer	*/
-		g[i][IFACE*n+i]=g[IFACE*n+i][i]=2.0/(RHO_SI * t_chip / area);
- 		/* vertical g's in the interface layer	*/
-		g[IFACE*n+i][HSP*n+i]=g[HSP*n+i][IFACE*n+i]=2.0/(RHO_INT * t_interface / area);
-		/* vertical g's in the spreader layer	*/
-		g[HSP*n+i][NL*n+SP_B]=g[NL*n+SP_B][HSP*n+i]=2.0/(RHO_CU * t_spreader / area);
-
-		/* C's from functional units to ground	*/
-		c_ver[i] = factor_chip * SPEC_HEAT_SI * t_chip * area;
-		/* C's from interface portion of the functional units to ground	*/
-		c_ver[IFACE*n+i] = factor_int * SPEC_HEAT_INT * t_interface * area;
-		/* C's from spreader portion of the functional units to ground	*/
-		c_ver[HSP*n+i] = factor_pack * SPEC_HEAT_CU * t_spreader * area;
-
-		/* lateral g's from block center (spreader layer) to peripheral (n,s,e,w) spreader nodes	*/
-		g[HSP*n+i][NL*n+SP_N]=g[NL*n+SP_N][HSP*n+i]=2.0*border[i][2]/((1.0/gy_sp[i])+r_sp1*gn_sp/gy_sp[i]);
-		g[HSP*n+i][NL*n+SP_S]=g[NL*n+SP_S][HSP*n+i]=2.0*border[i][3]/((1.0/gy_sp[i])+r_sp1*gs_sp/gy_sp[i]);
-		g[HSP*n+i][NL*n+SP_E]=g[NL*n+SP_E][HSP*n+i]=2.0*border[i][1]/((1.0/gx_sp[i])+r_sp1*ge_sp/gx_sp[i]);
-		g[HSP*n+i][NL*n+SP_W]=g[NL*n+SP_W][HSP*n+i]=2.0*border[i][0]/((1.0/gx_sp[i])+r_sp1*gw_sp/gx_sp[i]);
-	}
-
-	/* max slope (max_power * max_vertical_R / vertical RC time constant) for silicon	*/
-	max_slope = MAX_PD / (factor_chip * t_chip * SPEC_HEAT_SI);
-
-	/* vertical g's and C's between central nodes	*/
- 	/* between spreader bottom and sink bottom	*/
-	g[NL*n+SINK_B][NL*n+SP_B]=g[NL*n+SP_B][NL*n+SINK_B]=2.0/r_hs_mid;
- 	/* from spreader bottom to ground	*/
-	c_ver[NL*n+SP_B]=c_hs_mid;
- 	/* from sink bottom to ground	*/
-	c_ver[NL*n+SINK_B] = factor_pack * c_convec;
-
-	/* g's and C's from peripheral(n,s,e,w) nodes	*/
-	for (i = 1; i <= 4; i++) {
- 		/* vertical g's between peripheral spreader nodes and spreader bottom */
-		g[NL*n+SP_B-i][NL*n+SP_B]=g[NL*n+SP_B][NL*n+SP_B-i]=2.0/r_sp_per;
- 		/* lateral g's between peripheral spreader nodes and peripheral sink nodes	*/
-		g[NL*n+SP_B-i][NL*n+SINK_B-i]=g[NL*n+SINK_B-i][NL*n+SP_B-i]=2.0/(r_hs + r_sp2);
- 		/* vertical g's between peripheral sink nodes and sink bottom	*/
-		g[NL*n+SINK_B-i][NL*n+SINK_B]=g[NL*n+SINK_B][NL*n+SINK_B-i]=2.0/r_hs_per;
- 		/* from peripheral spreader nodes to ground	*/
-		c_ver[NL*n+SP_B-i]=c_sp_per;
- 		/* from peripheral sink nodes to ground	*/
-		c_ver[NL*n+SINK_B-i]=c_hs_per;
-	}
-
-	/* calculate matrices A, B such that A(dT) + BT = POWER */
-
-	for (i = 0; i < NL*n+EXTRA; i++) {
-		for (j = 0; j < NL*n+EXTRA; j++) {
-			if (i==j) {
-				inva[i][j] = 1.0/c_ver[i];
-				if (i == NL*n+SINK_B)	/* sink bottom */
-					b[i][j] += 1.0 / r_convec;
-				for (k = 0; k < NL*n+EXTRA; k++) {
-					if ((g[i][k]==0.0)||(g[k][i])==0.0) 
-						continue;
-					else 
-					/* here is why the 2.0 factor comes when calculating g[][]	*/
-						b[i][j] += 1.0/((1.0/g[i][k])+(1.0/g[k][i]));
-				}
-			} else {
-				inva[i][j]=0.0;
-				if ((g[i][j]==0.0)||(g[j][i])==0.0)
-					b[i][j]=0.0;
-				else
-					b[i][j]=-1.0/((1.0/g[i][j])+(1.0/g[j][i]));
-			}
-		}
-	}
-
-	/* we are always going to use the eqn dT + A^-1 * B T = A^-1 * POWER. so, store  C = A^-1 * B	*/
-	matmult(c, inva, b, NL*n+EXTRA);
-	/* we will also be needing INVB so store it too	*/
-	copy_matrix(t, b, NL*n+EXTRA, NL*n+EXTRA);
-	matinv(invb, t, NL*n+EXTRA);
-/*	dump_vector(c_ver, NL*n+EXTRA);	*/
-/*	dump_matrix(g, NL*n+EXTRA, NL*n+EXTRA);	*/
-/*	dump_matrix(c, NL*n+EXTRA, NL*n+EXTRA);	*/
-
-	/* cleanup */
-	free_matrix(t, NL*n+EXTRA);
-	free_matrix(g, NL*n+EXTRA);
-	free_matrix(len, n);
-	free_imatrix(border, n);
-	free_vector(c_ver);
-	free_vector(gx);
-	free_vector(gy);
-	free_vector(gx_sp);
-	free_vector(gy_sp);
+	return config;
 }
 
-/* setting internal node power numbers	*/
-void set_internal_power (double *pow, int n_units)
-{
-	int i;
-	for (i=n_units; i < NL*n_units+SINK_B; i++)
-		pow[i] = 0;
-	pow[NL*n_units+SINK_B] = ambient / r_convec;
-}
-
-/* power and temp should both be alloced using hotspot_vector. 
- * 'b' is the 'thermal conductance' matrix. i.e, b * temp = power
- *  => temp = invb * power
+/* 
+ * parse a table of name-value string pairs and add the configuration
+ * parameters to 'config'
  */
-void steady_state_temp(double *power, double *temp, int n_units) 
+void thermal_config_add_from_strs(thermal_config_t *config, str_pair *table, int size)
 {
-	/* set power numbers for the virtual nodes */
-	set_internal_power(power, n_units);
-
-	/* find temperatures	*/
-	matvectmult(temp, invb, power, NL*n_units+EXTRA);
+	int idx;
+	if ((idx = get_str_index(table, size, "t_chip")) >= 0)
+		if(sscanf(table[idx].value, "%lf", &config->t_chip) != 1)
+			fatal("invalid format for configuration  parameter t_chip");
+	if ((idx = get_str_index(table, size, "thermal_threshold")) >= 0)
+		if(sscanf(table[idx].value, "%lf", &config->thermal_threshold) != 1)
+			fatal("invalid format for configuration  parameter thermal_threshold");
+	if ((idx = get_str_index(table, size, "c_convec")) >= 0)
+		if(sscanf(table[idx].value, "%lf", &config->c_convec) != 1)
+			fatal("invalid format for configuration  parameter c_convec");
+	if ((idx = get_str_index(table, size, "r_convec")) >= 0)
+		if(sscanf(table[idx].value, "%lf", &config->r_convec) != 1)
+			fatal("invalid format for configuration  parameter r_convec");
+	if ((idx = get_str_index(table, size, "s_sink")) >= 0)
+		if(sscanf(table[idx].value, "%lf", &config->s_sink) != 1)
+			fatal("invalid format for configuration  parameter s_sink");
+	if ((idx = get_str_index(table, size, "t_sink")) >= 0)
+		if(sscanf(table[idx].value, "%lf", &config->t_sink) != 1)
+			fatal("invalid format for configuration  parameter t_sink");
+	if ((idx = get_str_index(table, size, "s_spreader")) >= 0)
+		if(sscanf(table[idx].value, "%lf", &config->s_spreader) != 1)
+			fatal("invalid format for configuration  parameter s_spreader");
+	if ((idx = get_str_index(table, size, "t_spreader")) >= 0)
+		if(sscanf(table[idx].value, "%lf", &config->t_spreader) != 1)
+			fatal("invalid format for configuration  parameter t_spreader");
+	if ((idx = get_str_index(table, size, "t_interface")) >= 0)
+		if(sscanf(table[idx].value, "%lf", &config->t_interface) != 1)
+			fatal("invalid format for configuration  parameter t_interface");
+	if ((idx = get_str_index(table, size, "ambient")) >= 0)
+		if(sscanf(table[idx].value, "%lf", &config->ambient) != 1)
+			fatal("invalid format for configuration  parameter ambient");
+	if ((idx = get_str_index(table, size, "init_file")) >= 0)
+		if(sscanf(table[idx].value, "%s", config->init_file) != 1)
+			fatal("invalid format for configuration  parameter init_file");
+	if ((idx = get_str_index(table, size, "init_temp")) >= 0)
+		if(sscanf(table[idx].value, "%lf", &config->init_temp) != 1)
+			fatal("invalid format for configuration  parameter init_temp");
+	if ((idx = get_str_index(table, size, "steady_file")) >= 0)
+		if(sscanf(table[idx].value, "%s", config->steady_file) != 1)
+			fatal("invalid format for configuration  parameter steady_file");
+	if ((idx = get_str_index(table, size, "sampling_intvl")) >= 0)
+		if(sscanf(table[idx].value, "%lf", &config->sampling_intvl) != 1)
+			fatal("invalid format for configuration  parameter sampling_intvl");
+	if ((idx = get_str_index(table, size, "base_proc_freq")) >= 0)
+		if(sscanf(table[idx].value, "%lf", &config->base_proc_freq) != 1)
+			fatal("invalid format for configuration  parameter base_proc_freq");
+	if ((idx = get_str_index(table, size, "dtm_used")) >= 0)
+		if(sscanf(table[idx].value, "%d", &config->dtm_used) != 1)
+			fatal("invalid format for configuration  parameter dtm_used");
+	if ((idx = get_str_index(table, size, "model_type")) >= 0)
+		if(sscanf(table[idx].value, "%s", config->model_type) != 1)
+			fatal("invalid format for configuration  parameter model_type");
+	if ((idx = get_str_index(table, size, "block_omit_lateral")) >= 0)
+		if(sscanf(table[idx].value, "%d", &config->block_omit_lateral) != 1)
+			fatal("invalid format for configuration  parameter block_omit_lateral");
+	if ((idx = get_str_index(table, size, "grid_rows")) >= 0)
+		if(sscanf(table[idx].value, "%d", &config->grid_rows) != 1)
+			fatal("invalid format for configuration  parameter grid_rows");
+	if ((idx = get_str_index(table, size, "grid_cols")) >= 0)
+		if(sscanf(table[idx].value, "%d", &config->grid_cols) != 1)
+			fatal("invalid format for configuration  parameter grid_cols");
+	if ((idx = get_str_index(table, size, "grid_layer_file")) >= 0)
+		if(sscanf(table[idx].value, "%s", config->grid_layer_file) != 1)
+			fatal("invalid format for configuration  parameter grid_layer_file");
+	if ((idx = get_str_index(table, size, "grid_steady_file")) >= 0)
+		if(sscanf(table[idx].value, "%s", config->grid_steady_file) != 1)
+			fatal("invalid format for configuration  parameter grid_steady_file");
+	if ((idx = get_str_index(table, size, "grid_map_mode")) >= 0)
+		if(sscanf(table[idx].value, "%s", config->grid_map_mode) != 1)
+			fatal("invalid format for configuration  parameter grid_map_mode");
+	
+	if ((config->t_chip <= 0) || (config->s_sink <= 0) || (config->t_sink <= 0) || 
+		(config->s_spreader <= 0) || (config->t_spreader <= 0) || 
+		(config->t_interface <= 0))
+		fatal("chip and package dimensions should be greater than zero\n");
+	if ((config->thermal_threshold < 0) || (config->c_convec < 0) || 
+		(config->r_convec < 0) || (config->ambient < 0) || 
+		(config->base_proc_freq <= 0) || (config->sampling_intvl <= 0))
+		fatal("invalid thermal simulation parameters\n");
+	if (strcasecmp(config->model_type, BLOCK_MODEL_STR) &&
+		strcasecmp(config->model_type, GRID_MODEL_STR))
+		fatal("invalid model type. use 'block' or 'grid'\n");
+	if(config->grid_rows <=1 || config->grid_cols <= 1)
+		fatal("grid rows and columns should both be greater than 1\n");
+	if (strcasecmp(config->grid_map_mode, GRID_AVG_STR) &&
+		strcasecmp(config->grid_map_mode, GRID_MIN_STR) &&
+		strcasecmp(config->grid_map_mode, GRID_MAX_STR) &&
+		strcasecmp(config->grid_map_mode, GRID_CENTER_STR))
+		fatal("invalid mapping mode. use 'avg', 'min', 'max' or 'center'\n");
 }
 
-/* required precision in degrees	*/
-#define PRECISION	0.001
-#define TOO_LONG	100000
-#define MIN_ITER	1
+/* 
+ * convert config into a table of name-value pairs. returns the no.
+ * of parameters converted
+ */
+int thermal_config_to_strs(thermal_config_t *config, str_pair *table, int max_entries)
+{
+	if (max_entries < 23)
+		fatal("not enough entries in table\n");
 
-/* compute_temp: solve for temperature from the equation dT + CT = inv_A * Power 
- * Given the temperature (temp) at time t, the power dissipation per cycle during the 
- * last interval (time_elapsed), find the new temperature at time t+time_elapsed.
- * power and temp should both be alloced using hotspot_vector
+	sprintf(table[0].name, "t_chip");
+	sprintf(table[1].name, "thermal_threshold");
+	sprintf(table[2].name, "c_convec");
+	sprintf(table[3].name, "r_convec");
+	sprintf(table[4].name, "s_sink");
+	sprintf(table[5].name, "t_sink");
+	sprintf(table[6].name, "s_spreader");
+	sprintf(table[7].name, "t_spreader");
+	sprintf(table[8].name, "t_interface");
+	sprintf(table[9].name, "ambient");
+	sprintf(table[10].name, "init_file");
+	sprintf(table[11].name, "init_temp");
+	sprintf(table[12].name, "steady_file");
+	sprintf(table[13].name, "sampling_intvl");
+	sprintf(table[14].name, "base_proc_freq");
+	sprintf(table[15].name, "dtm_used");
+	sprintf(table[16].name, "model_type");
+	sprintf(table[17].name, "block_omit_lateral");
+	sprintf(table[18].name, "grid_rows");
+	sprintf(table[19].name, "grid_cols");
+	sprintf(table[20].name, "grid_layer_file");
+	sprintf(table[21].name, "grid_steady_file");
+	sprintf(table[22].name, "grid_map_mode");
+
+	sprintf(table[0].value, "%lg", config->t_chip);
+	sprintf(table[1].value, "%lg", config->thermal_threshold);
+	sprintf(table[2].value, "%lg", config->c_convec);
+	sprintf(table[3].value, "%lg", config->r_convec);
+	sprintf(table[4].value, "%lg", config->s_sink);
+	sprintf(table[5].value, "%lg", config->t_sink);
+	sprintf(table[6].value, "%lg", config->s_spreader);
+	sprintf(table[7].value, "%lg", config->t_spreader);
+	sprintf(table[8].value, "%lg", config->t_interface);
+	sprintf(table[9].value, "%lg", config->ambient);
+	sprintf(table[10].value, "%s", config->init_file);
+	sprintf(table[11].value, "%lg", config->init_temp);
+	sprintf(table[12].value, "%s", config->steady_file);
+	sprintf(table[13].value, "%lg", config->sampling_intvl);
+	sprintf(table[14].value, "%lg", config->base_proc_freq);
+	sprintf(table[15].value, "%d", config->dtm_used);
+	sprintf(table[16].value, "%s", config->model_type);
+	sprintf(table[17].value, "%d", config->block_omit_lateral);
+	sprintf(table[18].value, "%d", config->grid_rows);
+	sprintf(table[19].value, "%d", config->grid_cols);
+	sprintf(table[20].value, "%s", config->grid_layer_file);
+	sprintf(table[21].value, "%s", config->grid_steady_file);
+	sprintf(table[22].value, "%s", config->grid_map_mode);
+
+	return 23;
+}
+
+/* 
+ * wrapper routines interfacing with those of the corresponding 
+ * thermal model (block or grid)
  */
 
-void compute_temp(double *power, double *temp, int n_units, double time_elapsed)
+/* 
+ * allocate memory for the matrices. for the block model, placeholder 
+ * can be an empty floorplan frame with only the names of the functional 
+ * units. for the grid model, it is the default floorplan
+ */
+RC_model_t *alloc_RC_model(thermal_config_t *config, flp_t *placeholder)
 {
-	int i;
-	double *pow, h, n_iter;
-	pow = vector(NL*n_units+EXTRA);
-	
-	/* set power numbers for the virtual nodes */
-	set_internal_power(power, n_units);
+	RC_model_t *model= (RC_model_t *) calloc (1, sizeof(RC_model_t));
+	if (!model)
+		fatal("memory allocation error\n");
+	if(!(strcasecmp(config->model_type, BLOCK_MODEL_STR))) {
+		model->type = BLOCK_MODEL;
+		model->block = alloc_block_model(config, placeholder);
+		model->config = &model->block->config;
+	} else if(!(strcasecmp(config->model_type, GRID_MODEL_STR))) {
+		model->type = GRID_MODEL;
+		model->grid = alloc_grid_model(config, placeholder);
+		model->config = &model->grid->config;
+	} else 
+		fatal("unknown model type\n");
+	return model;	
+}
 
-	/* find (inv_A)*POWER */
-	matvectmult(pow, inva, power, NL*n_units+EXTRA);
-
- 	/* step size for 4th-order Runge-Kutta  - assume worst case	*/
-	h = PRECISION / max_slope;
-	n_iter = time_elapsed / h;
-	n_iter = (n_iter > MIN_ITER) ? n_iter : MIN_ITER;	/* do at least MIN_ITER iterations	*/
-	h = time_elapsed / n_iter;
-	
-	if (n_iter >= TOO_LONG)
-		fprintf(stderr, "warning: calling interval too large, performing %.0f iterations - it may take REALLY long\n", n_iter);
-	
-	/* Obtain temp at time (t+h). 
-	 * Instead of getting the temperature at t+h directly, we do it 
-	 * in n_iter steps to reduce the error due to rk4
+/* populate the thermal restistance values */
+void populate_R_model(RC_model_t *model, flp_t *flp)
+{
+	if (model->type == BLOCK_MODEL)
+		populate_R_model_block(model->block, flp);
+	else if (model->type == GRID_MODEL)	
+	/* ignore the flp parameter as it is not needed
+	 * by the grid model which models a 3-d chip and
+	 * takes its floorplan inputs from a layer 
+	 * configuration file
 	 */
-	for (i = 0; i < n_iter; i++) 	
-		rk4(c, temp, pow, NL*n_units+EXTRA, h, temp);
-
-	free_vector(pow);
+		populate_R_model_grid(model->grid);
+	else fatal("unknown model type\n");	
 }
 
-/* differs from 'vector()' in that memory for internal nodes is also allocated	*/
-double *hotspot_vector(int n_units)
+/* populate the thermal capacitance values */
+void populate_C_model(RC_model_t *model, flp_t *flp)
 {
-	return vector(NL*n_units+EXTRA);
+	if (model->type == BLOCK_MODEL)
+		populate_C_model_block(model->block, flp);
+	else if (model->type == GRID_MODEL)	
+	/* ignore the flp parameter as it is not needed
+	 * by the grid model which models a 3-d chip and
+	 * takes its floorplan inputs from a layer 
+	 * configuration file
+	 */
+		populate_C_model_grid(model->grid);
+	else fatal("unknown model type\n");	
+}
+
+/* steady state temperature	*/
+void steady_state_temp(RC_model_t *model, double *power, double *temp) 
+{
+	if (model->type == BLOCK_MODEL)
+		steady_state_temp_block(model->block, power, temp);
+	else if (model->type == GRID_MODEL)	
+		steady_state_temp_grid(model->grid, power, temp);
+	else fatal("unknown model type\n");	
+}
+
+/* transient (instantaneous) temperature	*/
+void compute_temp(RC_model_t *model, double *power, double *temp, double time_elapsed)
+{
+	if (model->type == BLOCK_MODEL)
+		compute_temp_block(model->block, power, temp, time_elapsed);
+	else if (model->type == GRID_MODEL)	
+		compute_temp_grid(model->grid, power, temp, time_elapsed);
+	else fatal("unknown model type\n");	
+}
+
+/* differs from 'dvector()' in that memory for internal nodes is also allocated	*/
+double *hotspot_vector(RC_model_t *model)
+{
+	if (model->type == BLOCK_MODEL)
+		return hotspot_vector_block(model->block);
+	else if (model->type == GRID_MODEL)	
+		return hotspot_vector_grid(model->grid);
+	else fatal("unknown model type\n");	
+	return NULL;
+}
+
+/* copy 'src' to 'dst' except for a window of 'size'
+ * elements starting at 'at'. useful in floorplan
+ * compaction
+ */
+void trim_hotspot_vector(RC_model_t *model, double *dst, double *src, 
+						 int at, int size)
+{
+	if (model->type == BLOCK_MODEL)
+		trim_hotspot_vector_block(model->block, dst, src, at, size);
+	else if (model->type == GRID_MODEL)	
+		trim_hotspot_vector_grid(model->grid, dst, src, at, size);
+	else fatal("unknown model type\n");	
+}
+
+/* update the model's node count	*/						 
+void resize_thermal_model(RC_model_t *model, int n_units)
+{
+	if (model->type == BLOCK_MODEL)
+		resize_thermal_model_block(model->block, n_units);
+	else if (model->type == GRID_MODEL)	
+		/* will be implemented only when grid model and HotFloorplan are integrated	*/
+		fatal("function not implemented yet\n");
+	else fatal("unknown model type\n");	
 }
 
 /* sets the temperature of a vector 'temp' allocated using 'hotspot_vector'	*/
-void set_temp(double *temp, int n_units, double val)
+void set_temp(RC_model_t *model, double *temp, double val)
 {
-  int i;
-  for(i=0; i < NL*n_units + EXTRA; i++)
-    temp[i] = val;
+	if (model->type == BLOCK_MODEL)
+		set_temp_block(model->block, temp, val);
+	else if (model->type == GRID_MODEL)	
+		set_temp_grid(model->grid, temp, val);
+	else fatal("unknown model type\n");	
 }
 
 /* dump temperature vector alloced using 'hotspot_vector' to 'file' */ 
-void dump_temp(flp_t *flp, double *temp, char *file)
+void dump_temp(RC_model_t *model, double *temp, char *file)
 {
-	int i;
-	char str[STR_SIZE];
-	FILE *fp = fopen (file, "w");
-	if (!fp) {
-		sprintf (str,"error: %s could not be opened for writing\n", file);
-		fatal(str);
-	}
-	/* on chip temperatures	*/
-	for (i=0; i < flp->n_units; i++)
-		fprintf(fp, "%s\t%.1f\n", flp->units[i].name, temp[i]);
-
-	/* interface temperatures	*/
-	for (i=0; i < flp->n_units; i++)
-		fprintf(fp, "iface_%s\t%.1f\n", flp->units[i].name, temp[IFACE*flp->n_units+i]);
-
-	/* spreader temperatures	*/
-	for (i=0; i < flp->n_units; i++)
-		fprintf(fp, "hsp_%s\t%.1f\n", flp->units[i].name, temp[HSP*flp->n_units+i]);
-
-	/* internal node temperatures	*/
-	for (i=0; i < EXTRA; i++) {
-		sprintf(str, "inode_%d", i);
-		fprintf(fp, "%s\t%.1f\n", str, temp[i+NL*flp->n_units]);
-	}
-	fclose(fp);	
+	if (model->type == BLOCK_MODEL)
+		dump_temp_block(model->block, temp, file);
+	else if (model->type == GRID_MODEL)	
+		dump_temp_grid(model->grid, temp, file);
+	else fatal("unknown model type\n");	
 }
 
 /* 
  * read temperature vector alloced using 'hotspot_vector' from 'file'
- * which was dumped using 'dump_vector'. values are clipped to thermal
+ * which was dumped using 'dump_temp'. values are clipped to thermal
  * threshold based on 'clip'
  */ 
-void read_temp(flp_t *flp, double *temp, char *file, int clip)
+void read_temp(RC_model_t *model, double *temp, char *file, int clip)
 {
-	int i, idx;
-	double max=0, val;
-	char str[STR_SIZE], name[STR_SIZE];
-	FILE *fp = fopen (file, "r");
-	if (!fp) {
-		sprintf (str,"error: %s could not be opened for reading\n", file);
-		fatal(str);
-	}	
-
-	/* find max temp on the chip	*/
-	for (i=0; i < flp->n_units; i++) {
-		fgets(str, STR_SIZE, fp);
-		if (feof(fp))
-			fatal("not enough lines in temperature file\n");
-		if (sscanf(str, "%s%lf", name, &val) != 2)
-			fatal("invalid temperature file format\n");
-		idx = get_blk_index(flp, name);
-		if (idx >= 0)
-			temp[idx] = val;
-		else	/* since get_blk_index calls fatal, the line below cannot be reached	*/
-			fatal ("unit in temperature file not found in floorplan\n");
-		if (temp[idx] > max)
-			max = temp[idx];
-	}
-
-	/* interface material temperatures	*/
-	for (i=0; i < flp->n_units; i++) {
-		fgets(str, STR_SIZE, fp);
-		if (feof(fp))
-			fatal("not enough lines in temperature file\n");
-		if (sscanf(str, "iface_%s%lf", name, &val) != 2)
-			fatal("invalid temperature file format\n");
-		idx = get_blk_index(flp, name);
-		if (idx >= 0)
-			temp[idx+IFACE*flp->n_units] = val;
-		else	/* since get_blk_index calls fatal, the line below cannot be reached	*/
-			fatal ("unit in temperature file not found in floorplan\n");
-	}
-
-	/* heat spreader temperatures	*/
-	for (i=0; i < flp->n_units; i++) {
-		fgets(str, STR_SIZE, fp);
-		if (feof(fp))
-			fatal("not enough lines in temperature file\n");
-		if (sscanf(str, "hsp_%s%lf", name, &val) != 2)
-			fatal("invalid temperature file format\n");
-		idx = get_blk_index(flp, name);
-		if (idx >= 0)
-			temp[idx+HSP*flp->n_units] = val;
-		else	/* since get_blk_index calls fatal, the line below cannot be reached	*/
-			fatal ("unit in temperature file not found in floorplan\n");
-	}
-
-	/* internal node temperatures	*/	
-	for (i=0; i < EXTRA; i++) {
-		fgets(str, STR_SIZE, fp);
-		if (feof(fp))
-			fatal("not enough lines in temperature file\n");
-		if (sscanf(str, "%s%lf", name, &val) != 2)
-			fatal("invalid temperature file format\n");
-		sprintf(str, "inode_%d", i);
-		if (strcasecmp(str, name))
-			fatal("invalid temperature file format\n");
-		temp[i+NL*flp->n_units] = val;	
-	}
-
-	fclose(fp);	
-
-	/* clipping	*/
-	if (clip && (max > thermal_threshold)) {
-		/* if max has to be brought down to thermal_threshold, 
-		 * (w.r.t the ambient) what is the scale down factor?
-		 */
-		double factor = (thermal_threshold - ambient) / (max - ambient);
-	
-		/* scale down all temperature differences (from ambient) by the same factor	*/
-		for (i=0; i < NL*flp->n_units + EXTRA; i++)
-			temp[i] = (temp[i]-ambient)*factor + ambient;
-	}
+	if (model->type == BLOCK_MODEL)
+		read_temp_block(model->block, temp, file, clip);
+	else if (model->type == GRID_MODEL)	
+		read_temp_grid(model->grid, temp, file, clip);
+	else fatal("unknown model type\n");	
 }
 
-void cleanup_hotspot(int n_units)
+/* dump power numbers to file	*/
+void dump_power(RC_model_t *model, double *power, char *file)
 {
-	free_matrix(inva, NL*n_units+EXTRA);
-	free_matrix(b, NL*n_units+EXTRA);
-	free_matrix(invb, NL*n_units+EXTRA);
-	free_matrix(c, NL*n_units+EXTRA);
+	if (model->type == BLOCK_MODEL)
+		dump_power_block(model->block, power, file);
+	else if (model->type == GRID_MODEL)	
+		dump_power_grid(model->grid, power, file);
+	else fatal("unknown model type\n");	
+}
+
+/* 
+ * read power vector alloced using 'hotspot_vector' from 'file'
+ * which was dumped using 'dump_power'. 
+ */ 
+void read_power (RC_model_t *model, double *power, char *file)
+{
+	if (model->type == BLOCK_MODEL)
+		read_power_block(model->block, power, file);
+	else if (model->type == GRID_MODEL)	
+		read_power_grid(model->grid, power, file);
+	else fatal("unknown model type\n");	
+}
+
+/* peak temperature on chip	*/
+double find_max_temp(RC_model_t *model, double *temp)
+{
+	if (model->type == BLOCK_MODEL)
+		return find_max_temp_block(model->block, temp);
+	else if (model->type == GRID_MODEL)	
+		return find_max_temp_grid(model->grid, temp);
+	else fatal("unknown model type\n");	
+	return 0.0;
+}
+
+/* average temperature on chip	*/
+double find_avg_temp(RC_model_t *model, double *temp)
+{
+	if (model->type == BLOCK_MODEL)
+		return find_avg_temp_block(model->block, temp);
+	else if (model->type == GRID_MODEL)	
+		return find_avg_temp_grid(model->grid, temp);
+	else fatal("unknown model type\n");	
+	return 0.0;
+}
+
+/* destructor	*/
+void delete_RC_model(RC_model_t *model)
+{
+	if (model->type == BLOCK_MODEL)
+		delete_block_model(model->block);
+	else if (model->type == GRID_MODEL)	
+		delete_grid_model(model->grid);
+	else fatal("unknown model type\n");	
+	free(model);
 }

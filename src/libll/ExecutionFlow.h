@@ -55,6 +55,10 @@ private:
   ThreadContext thread;
 #endif
 
+#ifdef SESC_SIMPOINT
+  HASH_MAP<InstID,int> bb;
+#endif
+
 #ifdef TS_TIMELINE
   int verID;
 #endif

@@ -68,7 +68,6 @@ private:
   char *reportFile;
   char *traceFile;
 
-  // added 11/19/04 DVDB
   char *thermFile;
 
   timeval stTime;

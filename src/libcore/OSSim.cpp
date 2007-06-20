@@ -328,7 +328,6 @@ void OSSim::processParams(int argc, char **argv, char **envp)
           benchSection = argv[i];
         }
       }
-      
       else if( argv[i][1] == 'c' ) {
         if( argv[i][2] != 0 )
           confName = &argv[i][2];

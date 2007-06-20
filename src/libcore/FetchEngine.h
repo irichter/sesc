@@ -81,6 +81,7 @@ private:
   ushort FetchWidth;
   ushort bbSize;
   ushort fbSize;
+  ushort fbSizeBB;
   
   ushort BB4Cycle;
   ushort maxBB;

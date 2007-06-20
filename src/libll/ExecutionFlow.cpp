@@ -632,6 +632,25 @@ void ExecutionFlow::goRabbitMode(long long n2skip)
     }
 #endif // For else of (defined MIPS_EMUL)
 
+#ifdef SESC_SIMPOINT
+    const Instruction *inst = Instruction::getInst(picodePC->instID);
+    if (inst->isBranch())
+      bb[picodePC->instID]++;
+    static int conta = 10000000; // 10M
+    conta--;
+    if (conta<=0) { // Every 2**26 instructions
+      fprintf(stderr,"\nT");
+      for( HASH_MAP<InstID,int>::iterator it=bb.begin();
+	   it != bb.end();
+	   it++) {
+	fprintf(stderr, ":%d:%d ", it->first, it->second);
+      }
+      fprintf(stderr, "\n");
+      bb.clear();
+      conta = 10000000; // 10M
+    }
+#endif
+
 #if (defined MIPS_EMUL)
     if(!context) {
 #else

@@ -28,13 +28,17 @@ my $op_data="ref";
 my $op_numprocs=1;
 my $op_rabbit;
 my $op_saveoutput;
-my $op_kinst;
+my $op_ninst;
+my $op_spoint;
+my $op_spointsize=100000000; # 100M by default
 my $op_native;
 my $op_bindir="$ENV{'BENCHDIR'}/bin";
 my $op_yes;
+my $op_qsub;
 my $op_condor;
 my $op_condorstd;
 my $op_trace;
+my $op_email;
 my $op_help=0;
 
 my $result = GetOptions("test",\$op_test,
@@ -46,6 +50,7 @@ my $result = GetOptions("test",\$op_test,
                         "load=i",\$op_load,
                         "mload=i",\$op_mload,
                         "bhome=s",\$op_bhome,
+                        "email=s",\$op_email,
                         "fast",\$op_fast,
                         "vprof",\$op_vprof,
                         "prof=i",\$op_prof,
@@ -58,8 +63,11 @@ my $result = GetOptions("test",\$op_test,
 			"saveoutput",\$op_saveoutput,
 			"bindir=s",\$op_bindir,
 			"native",\$op_native,
-			"kinst=i",\$op_kinst,
+			"ninst=i",\$op_ninst,
+                        "spoint=i",\$op_spoint,
+                        "spointsize=i",\$op_spointsize,
 			"yes",\$op_yes,
+			"qsub",\$op_qsub,
 			"condor",\$op_condor,
 			"condorstd",\$op_condorstd,
 			"trace",\$op_trace,
@@ -131,6 +139,10 @@ sub getMarks {
 
   $marks = $fastMarks if ($op_fast or defined($op_prof));
 
+  if (defined($op_spoint)) {
+    $marks = "-w" . ($op_spoint*$op_spointsize) . " -y$op_spointsize"
+  }
+
   if ($op_native ) {
       if ( $marks =~ /-1([[:digit:]]+) -2([[:digit:]]+)/ ) {
           $ENV{"SESC_1"} = $1;
@@ -156,9 +168,54 @@ sub runItLowLevel {
     }
 }
 
+my $jobID=0;
+sub newQSub {
+  my $sprg = shift;
+  my $aprg = shift;
+
+  my $fileid;
+  if ( defined($op_key) ) {
+    if (defined($op_key2) ) {
+      $fileid = "${op_key}_${op_key2}";
+    } else {
+      $fileid = "${op_key}";
+    }
+  } else {
+    if (defined($op_key2) ) {
+      $fileid = "${op_ext}_${op_key2}";
+    } else {
+      $fileid = "${op_ext}";
+    }
+  }
+
+  $jobID = $jobID + 1;
+  open(JOB, ">run_qsub_${fileid}_${jobID}.sh");
+
+  print JOB "#!/bin/sh\n";
+  print JOB "#\$ -S /bin/sh\n";
+  print JOB "#\$ -m es\n";
+  print JOB "#\$ -M ${op_email}\n";
+  print JOB "#\$ -cwd\n";
+  print JOB "#\$ -o run_job${jobID}.log\n";
+  print JOB "#\$ -e run_job${jobID}.err\n";
+  print JOB "#\$ -N \"sesc ${jobID}\"\n";
+
+  foreach my $key (sort keys(%ENV)) {
+    if ($key =~ /SESC/) {
+      print JOB "export $key=$ENV{$key}\n";
+    }
+  }
+
+  print JOB "\n${sprg} ${aprg}\n\n";
+
+  print JOB "exit 0";
+
+  close(JOB);
+}
+
 
 sub runIt {
-  my $sesc_param = shift;  
+  my $sesc_param = shift;
   my $app_param  = shift;
   my $inp  = shift;
   my $outp = shift;
@@ -167,7 +224,7 @@ sub runIt {
       newJob("${sesc_param} ${app_param}", $inp, $outp);
       return;
   }
-  
+
   if($op_saveoutput) {
       $outp = "&> ${outp}.out"; 
   } else {
@@ -177,10 +234,15 @@ sub runIt {
   $inp  = "\< ${inp}" if($inp);
   my $sprg = "${op_sesc} ${sesc_param} ";
   my $aprg = "${app_param} ${inp} ${outp}";
-  
+
   print RUNLOG "Launching: ";
   print RUNLOG "(Testing) " if( $op_test);
   print RUNLOG $sprg . $aprg . "\n";
+
+  if($op_qsub && !$op_test) {
+      newQSub($sprg, $aprg);
+      return;
+  }
 
   waitUntilLoad($op_mload);
 
@@ -228,7 +290,7 @@ sub runTrace {
   $sesc_parms .= " -w1" if ($op_rabbit or $op_vprof);
   $sesc_parms .= " -r" . $op_prof if (defined $op_prof);
   $sesc_parms .= " -S" . $op_profsec if (defined $op_profsec);
-  $sesc_parms .= " -y" . $op_kinst if(defined $op_kinst);
+  $sesc_parms .= " -y" . $op_ninst if(defined $op_ninst);
 
   my $baseoutput;
 
@@ -269,23 +331,14 @@ sub runBench {
   $sesc_parms .= " -w1" if ($op_rabbit or $op_vprof);
   $sesc_parms .= " -r" . $op_prof if (defined $op_prof);
   $sesc_parms .= " -S" . $op_profsec if (defined $op_profsec);
-  $sesc_parms .= " -y" . $op_kinst if(defined $op_kinst);
+  $sesc_parms .= " -y" . $op_ninst if(defined $op_ninst);
 
-  my $baseoutput;
-  if ( defined($op_key) ) {
-      if (defined($op_key2) ) {
-	  $baseoutput = "${param{bench}}${op_ext}.${op_key}.${op_key2}";
-      } else {
-	  $baseoutput = "${param{bench}}${op_ext}.${op_key}";
-      }
-  } else {
-      if (defined($op_key2) ) {
-	  $baseoutput = "${param{bench}}${op_ext}.${op_key2}";
-      } else {
-	  $baseoutput = "${param{bench}}${op_ext}";
-      }
-  }
-  
+  my $baseoutput = "${param{bench}}${op_ext}";
+  $baseoutput .= ".${op_key}"  if ( defined($op_key)  );
+  $baseoutput .= ".${op_key2}" if ( defined($op_key2) );
+
+  $baseoutput .= ".SP${op_spoint}" if ( defined($op_spoint) );
+
   my $executable = getExec($param{bench});
 
   ############################################################
@@ -1065,6 +1118,16 @@ sub processParams {
     $badparams =1;
   }
 
+  if (defined $ENV{'email'}) {
+    $op_email = $ENV{'email'};
+  }else{
+    $op_email = $ENV{'USER'};
+    my $ldap_txt = `ldapsearch -x -LLL -u -t \"(uid=\${USER})\" mail | grep ^mail`;
+    if ( $ldap_txt =~ /mail:\ (.+)/ ) {
+      $op_email = $1;
+    }
+  }
+
   if( $badparams or $op_help ){
     print "usage:\n\trun.pl <options> <benchs>*\n";
     print "CINT2000: crafty mcf parser gzip vpr bzip2 gcc gap twolf vortex perlbmk eon\n";
@@ -1087,13 +1150,16 @@ sub processParams {
     print "\t-profsec=s       ; Profiling section\n";
     print "\t-fast            ; Shorter marks for fast test\n";
     print "\t-procs=i         ; Number of threads in a splash application\n";
-    print "\t-kinst=i         ; Thousands of instructions to simulate at most\n";
+    print "\t-ninst=i         ; Maximum number of instructions to simulate\n";
+    print "\t-spoint=i        ; Simulation point start (10M inst)\n";
     print "\t-rabbit          ; Run in Rabbit mode the whole program\n";
     print "\t-saveoutput      ; Save output to a .out file\n";
     print "\t-clean           ; DELETE all the outputs from previous runs\n";
     print "\t-condor          ; Submit jobs using condor.\n";
     print "\t-native          ; native execution.\n";
     print "\t-condorstd       ; Use condor standard universe.\n";
+    print "\t-qsub            ; Use SUN Grid queue system.\n";
+    print "\t-email=s         ; SUN Grid job termination/cancellation email.\n";
     print "\t-yes             ; Do not ask for questions. Say all yes\n";
     print "\t-trace           ; Interpret benchmarks as trace files\n";
     print "\t-help            ; Show this help\n";

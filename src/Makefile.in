@@ -27,7 +27,7 @@ ifdef TS_VMEM
 SUBDIRS+=libvmem
 endif
 ifdef SESC_ENERGY
-SUBDIRS+=libpv
+#SUBDIRS+=libpv
 SUBDIRS+=libpower
 VPATH += $(SRC_DIR)/libpower/cacti $(SRC_DIR)/libpower/wattch $(SRC_DIR)/libpower/panalyzer
 endif

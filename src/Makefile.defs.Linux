@@ -85,6 +85,13 @@ endif
 COPTS +=-funroll-loops -fsched-interblock #-fomit-frame-pointer
 COPTS +=-ffast-math -fno-strict-aliasing -freg-struct-return 
 endif # icc Compiler 
+ifdef SESC_SESCTHERM
+# sesctherm options
+XSTDLIBS +=/usr/lib64/liblapack.so.3
+# sescspot options
+DEFS+=-DMATHACCEL=2 -I/mada/software/amd/acml/gfortran64/include
+XSTDLIBS +=/mada/software/amd/acml/gfortran64/lib/libacml_mv.a /mada/software/amd/acml/gfortran64/lib/libacml.a -lgfortran -lm
+endif
 ##############################################################################
 
 ##############################################################################

@@ -18,42 +18,22 @@
 #include <ctype.h>
 #include <unistd.h>
 #include <getopt.h>
+#include <math.h>
 
 #include "SescConf.h"
 #include "ThermTrace.h"
 
-#include "RC.h"
 #include "flp.h"
+#include "temperature.h"
+#include "temperature_block.h"
+#include "temperature_grid.h"
 #include "util.h"
 using namespace std;
 
 
 // simulator options
 static char *flp_cfg = "amd.flp";		/* has the floorplan configuration	*/
-static int omit_lateral = 0;			/* omit lateral chip resistances?	*/
-static double init_temp = 60 + 273.15;		/* 60 degree C converted to Kelvin	*/
-static int dtm_used = 0;			/* set accordingly	*/
-
-/* chip specs	*/
-double t_chip = 0.0005;	/* chip thickness in meters	*/
-double thermal_threshold = 111.8 + 273.15;	/* temperature threshold for DTM (Kelvin)*/
-
-/* heat sink specs	*/
-double c_convec = 140.4;/* convection capacitance - 140.4 J/K */
-double r_convec = 0.1;	/* convection resistance - 0.2 K/W	*/
-double s_sink = 0.06;	/* heatsink side - 60 mm	*/
-double t_sink = 0.0069;	/* heatsink thickness  - 6.9 mm	*/
-
-/* heat spreader specs	*/
-double s_spreader = 0.03;	/* spreader side - 30 mm	*/
-double t_spreader = 0.001;	/* spreader thickness - 1 mm */
-
-/* interface material specs	*/
-double t_interface = 0.000075;	/* interface material thickness  - 0.075mm	*/
-
-/* ambient temp in kelvin	*/
-double ambient = 45 + 273.15;	/* 45 C in kelvin	*/
-
+RC_model_t *model = 0;
 static double *temp;
 static double *power;
 static flp_t *flp;
@@ -114,60 +94,159 @@ void dump_tempTitles(flp_t *flp, char *file) {
 
 
 //Parser the configuration file
+static thermal_config_t thermal_config;
 void parseConfigFile() {
 
   // Read initialization parameters
-  frequency = SescConf->getDouble("technology","Frequency");
-
-  cycles    = SescConf->getInt("thermal","CyclesPerSample");
-  init_temp = SescConf->getDouble("thermal","InitialTemp") + 273.15;
-  ambient   = SescConf->getDouble("thermal","ambientTemp") + 273.15;
+  const char *modelSec = SescConf->getCharPtr("thermal","model");
 
   // SESCSpot specific parameters
-  dtm_used  = SescConf->getBool("thermSpot","DTMUsed");
+  thermal_config = default_thermal_config();
 
-  t_chip    = SescConf->getDouble("thermSpot","ChipThickness");
+  thermal_config.thermal_threshold = 111.8 + 273.15;	/* temperature threshold for DTM (Kelvin)*/
 
-  c_convec  = SescConf->getDouble("thermSpot","ConvectionCapacitance");
-  r_convec  = SescConf->getDouble("thermSpot","ConvectionResistance");
+  thermal_config.init_temp = SescConf->getDouble(modelSec,"InitialTemp") + 273.15;
+  thermal_config.ambient   = SescConf->getDouble(modelSec,"ambientTemp") + 273.15;
 
-  s_sink    = SescConf->getDouble("thermSpot","HeatsinkLength");
-  t_sink    = SescConf->getDouble("thermSpot","HeatsinkThinkness");
+  thermal_config.t_chip    = SescConf->getDouble("thermSpot","ChipThickness");
 
-  s_spreader= SescConf->getDouble("thermSpot","SpreaderLength");
-  t_spreader= SescConf->getDouble("thermSpot","SpreaderThickness");
+  thermal_config.c_convec  = SescConf->getDouble("thermSpot","ConvectionCapacitance");
+  thermal_config.r_convec  = SescConf->getDouble("thermSpot","ConvectionResistance");
 
-  t_interface = SescConf->getDouble("thermSpot","InterfaceMaterialThickness");
+  thermal_config.s_sink    = SescConf->getDouble("thermSpot","HeatsinkLength");
+  thermal_config.t_sink    = SescConf->getDouble("thermSpot","HeatsinkThinkness");
 
-  thermal_threshold = SescConf->getDouble("thermSpot","DTMTempThreshhold") + 273.15;
+  thermal_config.s_spreader= SescConf->getDouble("thermSpot","SpreaderLength");
+  thermal_config.t_spreader= SescConf->getDouble("thermSpot","SpreaderThickness");
+
+  thermal_config.t_interface = SescConf->getDouble("thermSpot","InterfaceMaterialThickness");
+
+  thermal_config.block_omit_lateral = 0;			/* omit lateral chip resistances?	*/
+  
+#if 0
+  /* set grid model as default	*/
+  thermal_config.grid_rows = 160;				/* grid resolution - no. of rows	*/
+  thermal_config.grid_cols = 160;				/* grid resolution - no. of cols	*/
+  strcpy(thermal_config.model_type, GRID_MODEL_STR);
+#endif
+
+  SescConf->lock();
+}
+
+int process_trace(const char *input_file
+		  ,double power_timestep
+		  ,int power_samples_per_therm_sample
+		  ,bool rabbit
+		  ,int cyclesPerSample
+		  ) {
+
+  int num_computations = 0;
+  // ----------------------------------------------------------------
+  // READ trace
+  ThermTrace trace(input_file);
+  
+  static int pending_power_samples_from_prev_trace = 0;
+  static int samples=0;
+
+  while(trace.read_energy()) {
+    //-------------------------------------
+    // Advance Power
+    if (pending_power_samples_from_prev_trace<=0) {
+      for(size_t j=0;j<trace.get_energy_size();j++) {
+	power[j] = trace.get_energy(j);
+      }
+      
+      samples = 1;
+      pending_power_samples_from_prev_trace = power_samples_per_therm_sample-1;
+    }
+    
+    while(pending_power_samples_from_prev_trace > 0 || rabbit) {
+      if (!trace.read_energy())
+	break;
+      
+      for(size_t j=0;j<trace.get_energy_size();j++) {
+	power[j] += trace.get_energy(j);
+      }
+      
+      samples++;
+      pending_power_samples_from_prev_trace--;
+      
+      if (rabbit && samples > 20*power_samples_per_therm_sample) {
+	pending_power_samples_from_prev_trace = 0;
+	break;
+      }
+    }
+    
+    for(size_t j=0;j<trace.get_energy_size();j++) {
+      power[j] = power[j]/samples;
+    }
+    
+    //-------------------------------------
+    // Advance Thermal
+    
+    static double cur_time = 0;
+    double ts = power_timestep*samples;
+    compute_temp(model, power, temp, ts);
+    cur_time += ts;
+    
+    num_computations++;
+    
+    for(size_t j=0;j<trace.get_energy_size();j++) {
+      power[j] = 0;
+    }
+    samples = 0;
+    
+    //-------------
+    static double print_at = 0;
+    if (cur_time > print_at ) {
+      print_at = cur_time + 0.001; // every 1ms
+      
+      if (rabbit)
+	cout << "R " << cur_time << " ";
+      else
+	cout << "T " << cur_time << " ";
+      
+      for (int i=0; i < flp->n_units; i++)
+	cout << temp[i] - 273.15 << "\t";
+    
+      cout << endl;
+    }
+  }
+    
+  return num_computations;
 }
 
 //----------------------------------------------------------------------------
 // sim_init : Initialise temperature/power statistics
 //    
 
-void sim_init() {
 
+void sim_init() {
   parseConfigFile();
 
-  flp = read_flp(flp_cfg);
+  flp = read_flp(flp_cfg, 0);
+  I(model==0);
 
-  create_RC_matrices(flp, omit_lateral);
+  model = alloc_RC_model(&thermal_config, flp);
+  populate_R_model(model, flp);
+  populate_C_model(model, flp);
 
   // allocate the temp and power arrays	
-  temp  = hotspot_vector(flp->n_units);
-  power = hotspot_vector(flp->n_units);
+  temp  = hotspot_vector(model);
+  power = hotspot_vector(model);
+
+  set_temp(model, temp, thermal_config.init_temp);
 }
 
 void showUsage() 
 {
-	printf("SESCSpot 1.0 Usage Summary:\n");
-	printf("Arguments:\n");
-	printf("\t-h <--hotfile>   HotSpot Temp Trace  - file that can be used by HotSpot3\n");
-	printf("\t-i <--infile>    Input file          - The therm file for which you want temperature data\n");
-	printf("\t-o <--outfile>   Output file         - Output file name for either steady state or transient temperature\n");
-	printf("\t-c <--conffile>  Configuration file) - This is the mappings from floorplan variables to sesc variables\n");
-	printf("\t-f <--floorplan> Floorplan file      - Set to the floorplan you wish to use.  Default is 'ev6.flp'\n");
+  printf("SESCSpot 3.1 Usage Summary:\n");
+  printf("Arguments:\n");
+  printf("\t-h <--hotfile>   HotSpot Temp Trace  - file that can be used by HotSpot3\n");
+  printf("\t-i <--infile>    Input file          - The therm file for which you want temperature data\n");
+  printf("\t-o <--outfile>   Output file         - Output file name for either steady state or transient temperature\n");
+  printf("\t-c <--conffile>  Configuration file) - This is the mappings from floorplan variables to sesc variables\n");
+  printf("\t-f <--floorplan> Floorplan file      - Set to the floorplan you wish to use.  Default is 'ev6.flp'\n");
 }
 
 int main(int argc, char **argv)
@@ -218,7 +297,9 @@ int main(int argc, char **argv)
     }
   }
 
-  if (infile == NULL || (outfile == NULL && hotfile==NULL)) {
+  cerr << "1.Booting sescspot" << endl;
+
+  if ((conffile==NULL || infile=="")) {
     showUsage();
     exit(1);
   }
@@ -227,21 +308,36 @@ int main(int argc, char **argv)
     if (!(p_outfile = fopen(outfile, "w")))
       fatal("Unable to open output file\n");
 
+  cerr << "1.Booting sescspot" << endl;
+
   SescConf = new SConfig(conffile);
+
+  const char *modelSec= SescConf->getCharPtr("thermal","model");
+
+  int cyclesPerSample = SescConf->getInt(modelSec,"CyclesPerSample");
+  double frequency    = SescConf->getDouble("technology","Frequency");
+
+  int power_samples_per_therm_sample = SescConf->getInt(modelSec,"PowerSamplesPerThermSample");
+  double power_timestep = cyclesPerSample/frequency;
+  double time_step = power_timestep * power_samples_per_therm_sample;
+
+  cout << "USED MODEL TIMESTEP: " << time_step << endl;
+
+  clock_t start, end;
 	
+  cout << "STARTING SESCSPOT" << endl;
+  start = clock();
   sim_init();
 
-  set_temp(temp, flp->n_units, init_temp);
-
   printf("Chip area %gx%gmm^2\n", 1e3*get_total_width(flp), 1e3*get_total_height(flp));
-  printf("AmbientTemp %gC\n",ambient-273.15);
+  printf("AmbientTemp %gC\n",thermal_config.ambient-273.15);
 
+#if 0
   printf("%-20s\t%-15s\n","Unit","Steady-State Temperatures Without Warmup");
 
   for (int i=0; i < flp->n_units; i++)
     printf("%-20s\t%.2f\n", flp->units[i].name, temp[i]-273.15);
-
-  ThermTrace trace(infile);
+#endif
 
   FILE *p_hotfile=0;
   if (hotfile) {
@@ -251,34 +347,42 @@ int main(int argc, char **argv)
     for (int i=0; i < flp->n_units; i++)
       fprintf(p_hotfile,"%-20s ", flp->units[i].name);
     fprintf(p_hotfile,"\n");
+    // FIXME: read hot file
   }else{
     dump_tempTitles(flp, outfile);
   }
 
-  I(flp->n_units == (int)trace.get_energy_size());
+  end = clock();
+
+  cout << "MODEL INITIALIZED" << endl;
+  double elapsed = ((double) (end - start)) / CLOCKS_PER_SEC;
+  cout << "MODEL INITIALIZATION TIME IS " << elapsed << "SECONDS" << endl;
 
   double total;
-  while(trace.read_energy()) {
-    total = 0;
-    for(size_t i=0;i<trace.get_energy_size();i++) {
-      power[i] = trace.get_energy(i); // TODO: adjust energy -> power?
-      total += power[i];
-    }
+  int num_computations = 0;
 
-    if (p_hotfile) {
-      for (int i=0; i < flp->n_units; i++)
-	fprintf(p_hotfile,"%g ", power[i]);
-      fprintf(p_hotfile,"\n");
-    }else{
-      // Compute Temperatures
-      compute_temp(power, temp, flp->n_units, (cycles/frequency));
+  if (argc>7) {
+    num_computations = 0;
+    
+    for(int i=7;i<argc;i++) {
+      cout << "Processing trace " << argv[i] << endl;
+      start = clock();
       
-      dump_tempAppend1(flp, temp, outfile);
+      num_computations += process_trace(argv[i]
+					,power_timestep
+					,power_samples_per_therm_sample
+					,false
+					,cyclesPerSample
+					);
+      
+      end = clock();
+      elapsed+= ((double) (end - start)) / CLOCKS_PER_SEC;
     }
-      
-    curcycle += (float)cycles;
   }
 
+  elapsed = ((double) (end - start)) / CLOCKS_PER_SEC;
+  cout << "COMPUTATION TIME FOR " << num_computations << " ITERATIONS IS " << elapsed << "  (" << elapsed/num_computations << "SECONDS PER ITERATION )" << endl;
+  
   return 0;
 }
 

@@ -166,8 +166,10 @@ void ThermTrace::read_floorplan_mapping() {
       for(size_t j=0; j<mapping.size(); j++) {
 	if (grep(mapping[j].name, flp[id]->match[i])) {
 
+#ifdef DEBUG
 	  MSG("mapping[%d].map[%d]=%d (%s -> %s)", 
 	      j, mapping[j].map.size(), id, flp[id]->match[i], mapping[j].name);
+#endif
 
 	  I(id < flp.size());
 	  flp[id]->units++;
@@ -202,8 +204,6 @@ ThermTrace::ThermTrace(const char *input_file)
       read_sesc_variable(input_file);
     
     read_floorplan_mapping();
-    
-    dump();
 }
 
 void ThermTrace::dump() const {
