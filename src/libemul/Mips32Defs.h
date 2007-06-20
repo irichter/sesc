@@ -3,7 +3,6 @@
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif
-#include <sys/resource.h>
 // Define Rlimit resource numbers
 enum Mips32_RlimitNums {
   Mips32_RLIMIT_AS      = 0x6,
@@ -145,7 +144,6 @@ enum Mips32_SigHandlers {
   Mips32_SIG_DFL = 0x0,
   Mips32_SIG_IGN = 0x1,
 };
-#include <signal.h>
 // Define Sigaction flags
 enum Mips32_SigactionFlags {
   Mips32_SA_NOCLDSTOP = 0x1, // Flag
@@ -205,27 +203,6 @@ enum Mips32_PollFlags {
   Mips32_POLLHUP = 0x10, // Flag
   Mips32_POLLNVAL = 0x20, // Flag
 };
-// Convert Rlimit resource numbers to native
-int toNativeRlimitNums(int val){
-  int retVal=0;
-  switch(val){
-    case Mips32_RLIMIT_AS     : retVal+=RLIMIT_AS     ; break;
-    case Mips32_RLIMIT_CORE   : retVal+=RLIMIT_CORE   ; break;
-    case Mips32_RLIMIT_CPU    : retVal+=RLIMIT_CPU    ; break;
-    case Mips32_RLIMIT_DATA   : retVal+=RLIMIT_DATA   ; break;
-    case Mips32_RLIMIT_FSIZE  : retVal+=RLIMIT_FSIZE  ; break;
-    case Mips32_RLIMIT_LOCKS  : retVal+=RLIMIT_LOCKS  ; break;
-    case Mips32_RLIMIT_MEMLOCK: retVal+=RLIMIT_MEMLOCK; break;
-    case Mips32_RLIMIT_NOFILE : retVal+=RLIMIT_NOFILE ; break;
-    case Mips32_RLIMIT_NPROC  : retVal+=RLIMIT_NPROC  ; break;
-    case Mips32_RLIMIT_RSS    : retVal+=RLIMIT_RSS    ; break;
-    case Mips32_RLIMIT_STACK  : retVal+=RLIMIT_STACK  ; break;
-    default: fail("Unknown value %d (0x%x)\n",val,val);
-  }
-  val=0;
-  I(val==0);
-  return retVal;
-}
 // Convert Protection flags (mmap) to native
 int toNativeMmapProts(int val){
   int retVal=0;
@@ -429,44 +406,6 @@ int toNativeSigMaskHow(int val){
   I(val==0);
   return retVal;
 }
-// Convert Sigaction flags to native
-int toNativeSigactionFlags(int val){
-  int retVal=0;
-  if(val&Mips32_SA_NOCLDSTOP){
-    retVal|=SA_NOCLDSTOP;
-    val^=Mips32_SA_NOCLDSTOP;
-  }
-  if(val&Mips32_SA_NOCLDWAIT){
-    retVal|=SA_NOCLDWAIT;
-    val^=Mips32_SA_NOCLDWAIT;
-  }
-  if(val&Mips32_SA_RESETHAND){
-    retVal|=SA_RESETHAND;
-    val^=Mips32_SA_RESETHAND;
-  }
-  if(val&Mips32_SA_ONSTACK  ){
-    retVal|=SA_ONSTACK  ;
-    val^=Mips32_SA_ONSTACK  ;
-  }
-  if(val&Mips32_SA_RESTART  ){
-    retVal|=SA_RESTART  ;
-    val^=Mips32_SA_RESTART  ;
-  }
-  if(val&Mips32_SA_NODEFER  ){
-    retVal|=SA_NODEFER  ;
-    val^=Mips32_SA_NODEFER  ;
-  }
-  if(val&Mips32_SA_SIGINFO  ){
-    retVal|=SA_SIGINFO  ;
-    val^=Mips32_SA_SIGINFO  ;
-  }
-  if(val&Mips32_SA_INTERRUPT){
-    retVal|=SA_INTERRUPT;
-    val^=Mips32_SA_INTERRUPT;
-  }
-  I(val==0);
-  return retVal;
-}
 // Convert wait3/wait4 options to native
 int toNativeWaitOptions(int val){
   int retVal=0;
@@ -501,27 +440,6 @@ int toNativeWhenceFlags(int val){
     case Mips32_SEEK_SET: retVal+=SEEK_SET; break;
     case Mips32_SEEK_END: retVal+=SEEK_END; break;
     case Mips32_SEEK_CUR: retVal+=SEEK_CUR; break;
-    default: fail("Unknown value %d (0x%x)\n",val,val);
-  }
-  val=0;
-  I(val==0);
-  return retVal;
-}
-// Convert Rlimit resource numbers from native
-int fromNativeRlimitNums(int val){
-  int retVal=0;
-  switch(val){
-    case RLIMIT_AS     : retVal+=Mips32_RLIMIT_AS     ; break;
-    case RLIMIT_CORE   : retVal+=Mips32_RLIMIT_CORE   ; break;
-    case RLIMIT_CPU    : retVal+=Mips32_RLIMIT_CPU    ; break;
-    case RLIMIT_DATA   : retVal+=Mips32_RLIMIT_DATA   ; break;
-    case RLIMIT_FSIZE  : retVal+=Mips32_RLIMIT_FSIZE  ; break;
-    case RLIMIT_LOCKS  : retVal+=Mips32_RLIMIT_LOCKS  ; break;
-    case RLIMIT_MEMLOCK: retVal+=Mips32_RLIMIT_MEMLOCK; break;
-    case RLIMIT_NOFILE : retVal+=Mips32_RLIMIT_NOFILE ; break;
-    case RLIMIT_NPROC  : retVal+=Mips32_RLIMIT_NPROC  ; break;
-    case RLIMIT_RSS    : retVal+=Mips32_RLIMIT_RSS    ; break;
-    case RLIMIT_STACK  : retVal+=Mips32_RLIMIT_STACK  ; break;
     default: fail("Unknown value %d (0x%x)\n",val,val);
   }
   val=0;
@@ -674,20 +592,6 @@ int fromNativeSigMaskHow(int val){
     default: fail("Unknown value %d (0x%x)\n",val,val);
   }
   val=0;
-  I(val==0);
-  return retVal;
-}
-// Convert Sigaction flags from native
-int fromNativeSigactionFlags(int val){
-  int retVal=0;
-  if(val&SA_NOCLDSTOP){ retVal|=Mips32_SA_NOCLDSTOP; val^=SA_NOCLDSTOP; }
-  if(val&SA_NOCLDWAIT){ retVal|=Mips32_SA_NOCLDWAIT; val^=SA_NOCLDWAIT; }
-  if(val&SA_RESETHAND){ retVal|=Mips32_SA_RESETHAND; val^=SA_RESETHAND; }
-  if(val&SA_ONSTACK  ){ retVal|=Mips32_SA_ONSTACK  ; val^=SA_ONSTACK  ; }
-  if(val&SA_RESTART  ){ retVal|=Mips32_SA_RESTART  ; val^=SA_RESTART  ; }
-  if(val&SA_NODEFER  ){ retVal|=Mips32_SA_NODEFER  ; val^=SA_NODEFER  ; }
-  if(val&SA_SIGINFO  ){ retVal|=Mips32_SA_SIGINFO  ; val^=SA_SIGINFO  ; }
-  if(val&SA_INTERRUPT){ retVal|=Mips32_SA_INTERRUPT; val^=SA_INTERRUPT; }
   I(val==0);
   return retVal;
 }
