@@ -215,7 +215,17 @@ namespace FileSys {
       return 0;
     }
     int rest=flags^(flags&(O_ACCMODE|O_CREAT|O_EXCL|O_NOCTTY|O_TRUNC|O_APPEND|
-			   O_NONBLOCK|O_SYNC|O_NOFOLLOW|O_DIRECTORY|O_DIRECT|O_ASYNC|O_LARGEFILE));
+			   O_NONBLOCK|O_SYNC|O_NOFOLLOW|O_DIRECT
+#ifdef O_DIRECTORY
+			   |O_DIRECTORY
+#endif
+#ifdef O_ASYNC
+			   |O_ASYNC
+#endif
+#ifdef O_LARGEFILE
+			   |O_LARGEFILE
+#endif
+			   ));
     if(rest){
       printf("StreamStatus::wrap of fd %d removed extra file flags 0x%08x\n",fd,rest);
       flags-=rest;
@@ -428,7 +438,7 @@ namespace FileSys {
       fds.push_back(FileDesc(in));
   }
 
-  FileNames *FileNames::fileNames;
+  FileNames *FileNames::fileNames=0;
 
   FileNames* FileNames::getFileNames(void){
     if(!fileNames){
