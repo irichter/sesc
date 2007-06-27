@@ -10,6 +10,8 @@
 #include "EmulInit.h"
 // Needed for thread suspend/resume calls
 #include "OSSim.h"
+// Need to access config info for mount points
+#include "SescConf.h"
 
 using std::cout;
 using std::endl;
@@ -433,7 +435,22 @@ namespace FileSys {
       fileNames=new FileNames();
       fileNames->cwd=getcwd(0,0);
       I(fileNames->getCwd());
-      fileNames->mount("/bin","/net/hc291/milos/sim/apps/system/bin");
+      const char *mnts=SescConf->getCharPtr("FileSys","mount");
+      if(*mnts==0)
+	fail("Error: Section FileSys entry mounts is empty\n");
+      do{
+	const char *mend=strchr(mnts,':');
+	size_t mlen=(mend?(mend-mnts):strlen(mnts));
+	char buf[mlen+1];
+	strncpy(buf,mnts,mlen);
+	buf[mlen]=0;
+	char *beql=strchr(buf,'=');
+	if(!beql)
+	  fail("No '=' in section FileSys entry mount for %s\n",buf);
+	*beql++=0;
+	fileNames->mount(buf,beql);
+	mnts+=mlen;
+      }while(*mnts++!=0);
     }
     return fileNames;
   }
