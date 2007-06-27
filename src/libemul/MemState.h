@@ -2,7 +2,7 @@
 #define _MemState_h_
 
 // Comment this out to disable all MemState code
-#define HAS_MEM_STATE
+//#define HAS_MEM_STATE
 
 #if (defined HAS_MEM_STATE)
 
