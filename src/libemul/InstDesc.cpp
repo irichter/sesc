@@ -250,6 +250,20 @@ namespace Mips {
 
   template<Opcode op, CpuMode mode, NextTyp NTyp, RegName Src1R, RegName Src2R, RegName DstR, typename Func>
   InstDesc *emulAlu(InstDesc *inst, ThreadContext *context){
+    if(NTyp==NextNext){
+      if(inst->aupdate)
+	inst->emul=emulAlu<op,mode,NextInst,Src1R,Src2R,DstR,Func>;
+      else
+	inst->emul=emulAlu<op,mode,NextCont,Src1R,Src2R,DstR,Func>;
+      return inst->emul(inst,context);
+    }
+    if(DstR==RegTypeGpr){
+      if(inst->regDst==RegSP)
+	inst->emul=emulAlu<op,mode,NTyp,Src1R,Src2R,RegSP,Func>;
+      else
+	inst->emul=emulAlu<op,mode,NTyp,Src1R,Src2R,RegV0,Func>;
+      return inst->emul(inst,context);
+    }
     I(op==inst->op);
     preExec(inst,context);
     typedef typename Func::first_argument_type  Src1T;
@@ -261,19 +275,43 @@ namespace Mips {
     // Perform function to get result
     Func func;
     DstT dst=func(src1,src2);
+    // Catch stack pointer updates to track alloc/dealloc and stack growth
+    if(DstR==RegSP){
+      VAddr newsp=VAddr(dst);
+      VAddr oldsp=getRegAny<mode,VAddr,RegSP>(context,RegSP);
+      if(newsp>oldsp){
+ 	// Stack deallocation
+
+      }else if(newsp<oldsp){
+ 	// Stack allocation
+
+      }
+      // Grow stack if needed
+      VAddr  sa=context->getStackAddr();
+      if(newsp<sa){
+ 	size_t sl=context->getStackSize();
+ 	I(context->getAddressSpace()->isSegment(sa,sl));
+ 	I(newsp<sa);
+ 	I(context->getAddressSpace()->isNoSegment(newsp,sa-newsp));
+	// If there is room to grow stack, do it
+ 	if((newsp<sa)&&(context->getAddressSpace()->isNoSegment(newsp,sa-newsp))){
+ 	  // Try to grow it to a 16KB boundary, but if we can't then grow only to cover sp
+ 	  VAddr newSa=newsp-(newsp&0x3FFF);
+ 	  if(!context->getAddressSpace()->isNoSegment(newSa,sa-newSa))
+ 	    newSa=newsp;
+ 	  context->getAddressSpace()->growSegmentDown(sa,newSa);
+ 	  context->setStack(newSa,sa+sl);
+ 	}
+      }
+    }
     // Update destination register
     setRegAny<mode,DstT,DstR>(context,inst->regDst,dst);
-    if((NTyp==NextCont)||((NTyp==NextNext)&&!inst->aupdate)){
-      if(NTyp==NextNext)
-	inst->emul=emulAlu<op,mode,NextCont,Src1R,Src2R,DstR,Func>;
+    if(NTyp==NextCont){
       context->updIDesc(1);
     }else{
-      I((NTyp==NextInst)||((NTyp==NextNext)&&inst->aupdate));
-      if(NTyp==NextNext)
-	inst->emul=emulAlu<op,mode,NextInst,Src1R,Src2R,DstR,Func>;
       context->updIAddr(inst->aupdate,1);
-      if(inst->aupdate)
-	handleSignals(context);
+      I(inst->aupdate);
+      handleSignals(context);
     }
     return inst;
   }
@@ -344,7 +382,7 @@ namespace Mips {
     case OpLdl:   case OpLdr: case OpSdl: case OpSdr:
     case OpLwc1:  case OpSwc1:
     case OpLdc1:  case OpSdc1:
-      I(((MipsRegName)(inst->regSrc1)>=GprNameLb)&&((MipsRegName)(inst->regSrc1)<GprNameUb));
+      I((inst->regSrc1>=GprNameLb)&&(inst->regSrc1<GprNameUb));
       return static_cast<RegUnsT>(getRegAny<mode,RegSigT,RegTypeGpr>(context,inst->regSrc1)+static_cast<RegSigT>(inst->imm.s));
     case OpLwxc1: case OpLdxc1: 
     case OpSwxc1: case OpSdxc1:
@@ -430,7 +468,7 @@ namespace Mips {
     }
     MemT  val=readMem<mode,MemT,AddrT>(context,addr);
     setRegAny<mode,RegT,RTyp>(context,inst->regDst,static_cast<RegT>(val));
-    I((RTyp!=RegTypeFpr)||(static_cast<RegT>(val)==getRegFp<mode,RegT>(context,inst->regDst)));
+    I((RTyp!=RegTypeFpr)||(static_cast<RegT>(val)==getRegFpr<mode,RegT>(context,inst->regDst)));
     context->updIAddr(inst->aupdate,1);
     if(inst->aupdate)
       handleSignals(context);
@@ -443,7 +481,7 @@ namespace Mips {
     AddrT addr=calcAddr<op,mode,OffsT,AddrT>(inst,context);
     context->setDAddr(addr);
     RegT val=getRegAny<mode,RegT,RTyp>(context,inst->regSrc2);
-    I((RTyp!=RegTypeFpr)||(val==getRegFp<mode,RegT>(context,inst->regSrc2)));
+    I((RTyp!=RegTypeFpr)||(val==getRegFpr<mode,RegT>(context,inst->regSrc2)));
     if(op==OpSwl){
       cvtEndianBig(val);
       context->writeMemFromBuf(addr,4-(addr&0x3),&val);

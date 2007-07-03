@@ -1014,7 +1014,7 @@ void ThreadContext::execInst(VAddr addr, VAddr sp){
     return;
   if(jumpDst==dstFunc){
     // Jump to function entry point, see  where the return address is 
-    VAddr  retAddr=(VAddr)(Mips::getReg<Mips32,uint32_t>(this,static_cast<RegName>(Mips::RegRA)));
+    VAddr  retAddr=(VAddr)(Mips::getRegGpr<Mips32,uint32_t>(this,static_cast<RegName>(Mips::RegRA)));
     VAddr  retFunc=addressSpace->getFuncAddr(retAddr);
     if((!frameStack.empty())&&(sp==frameStack.back())){
       // Tail function call

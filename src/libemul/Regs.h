@@ -20,7 +20,7 @@ enum RegNameEnum{
   // Note that there are no actual registers of this type
   RegTypeDyn  = 0x400,
 };
-typedef RegNameEnum RegName;
+typedef uint16_t RegName;
 
 inline bool isGprName(RegName reg){ return (reg&RegTypeMask)==RegTypeGpr; }
 inline bool isFprName(RegName reg){ return (reg&RegTypeMask)==RegTypeFpr; }

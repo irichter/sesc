@@ -41,6 +41,7 @@ namespace Mips {
     RegS8, // 30
     RegFP     = RegS8,
     RegRA, // 31
+    RegJunk, // Junk register, stores to RegZero go here
     RegTmp,  // Temporary GPR for implementing multi-uop non-branches
     RegBTmp, // Temporary GPR for implementing multi-uop branches
     GprNameUb,
@@ -95,7 +96,6 @@ namespace Mips {
     // Some instructions modify both Reghi and RegLo
     // We use RegLo as a target to create a dependence
     RegHL=RegLo,
-    RegJunk, // Junk register, stores to RegZero go here
     RegCond, // Condition register for implementing micro-ops
     RegLink, // Link register for implementing LL/SC
     RegSys,  // Register used in system implementation
@@ -157,34 +157,13 @@ namespace Mips {
   }
   
   template<CpuMode mode,typename T>
-  inline T getReg(const ThreadContext *context, RegName name){
+  inline T getRegGpr(const ThreadContext *context, RegName name){
     const T *ptr=static_cast<const T *>(context->getReg(name));
     return *(ptr+(sizeof(RegVal)/sizeof(T)-1)*(__BYTE_ORDER==__BIG_ENDIAN));
-//    I(!isFprName(name));
-//    I(static_cast<MipsRegName>(name)!=RegJunk);
-//    //    I(static_cast<MipsRegName>(name)!=RegZero);
-//    const T *ptr=static_cast<const T *>(context->getReg(name));
-//    switch(sizeof(T)){
-//    case 8:
-//      I(context->getMode()==Mips64);
-//      return *ptr;
-//      break;
-//    case 4: {
-//      I((context->getMode()==Mips64)||!(*(ptr+(__BYTE_ORDER!=__BIG_ENDIAN))));
-//      return *(ptr+(__BYTE_ORDER==__BIG_ENDIAN));
-//    } break;
-//    case 1:
-//      return *(ptr+(sizeof(RegVal)/sizeof(T)-1)*(__BYTE_ORDER==__BIG_ENDIAN));
-//      break;
-//    default:
-//      fail("getReg with type width of %d\n",sizeof(T));
-//      break;
-//    }
-//    return 0;
   }
   
   template<CpuMode mode,typename T>
-  inline void setReg(ThreadContext *context, RegName name, T val){
+  inline void setRegGpr(ThreadContext *context, RegName name, T val){
     I(!isFprName(name));
     I(static_cast<MipsRegName>(name)!=RegJunk);
     I(static_cast<MipsRegName>(name)!=RegZero);
@@ -197,15 +176,15 @@ namespace Mips {
     case 4: {
       *(ptr+(__BYTE_ORDER==__BIG_ENDIAN))=val;
 #if (defined DEBUG)
-      T chk=getReg<mode,T>(context,name);
+      T chk=getRegGpr<mode,T>(context,name);
       I(chk==val);
 #endif
       I(static_cast<uint32_t>(*static_cast<uint64_t *>(context->getReg(name)))==static_cast<uint32_t>(val));
     } break;
     case 1: {
-      setReg<mode,int32_t>(context,name,int8_t(val));
+      setRegGpr<mode,int32_t>(context,name,int8_t(val));
 #if (defined DEBUG)
-      T chk=getReg<mode,T>(context,name);
+      T chk=getRegGpr<mode,T>(context,name);
       I(chk==val);
 #endif
     } break;
@@ -213,7 +192,7 @@ namespace Mips {
   }
   
   template<CpuMode mode, typename T>
-  inline T getRegFp(const ThreadContext *context, RegName name){
+  inline T getRegFpr(const ThreadContext *context, RegName name){
     I(isFprName(name));
     switch(sizeof(T)){
     case 8: {
@@ -237,7 +216,7 @@ namespace Mips {
   }
   
   template<CpuMode mode, typename T>
-  inline void setRegFp(ThreadContext *context, RegName name, T val){
+  inline void setRegFpr(ThreadContext *context, RegName name, T val){
     I(isFprName(name));
     switch(sizeof(T)){
     case 8: {
@@ -266,17 +245,17 @@ namespace Mips {
       fail("RTyp and name mismatch in getRegAny\n");
     I((RTyp==RegTypeDyn)||(getRegType(RTyp)==getRegType(name)));
     if(isGprName(RTyp)||isSpcName(RTyp)){
-      return setReg<mode,T>(context,name,val);
+      return setRegGpr<mode,T>(context,name,val);
     }else if(isFprName(RTyp)){
-      return setRegFp<mode,T>(context,name,val);
+      return setRegFpr<mode,T>(context,name,val);
     }else if(isCtlName(RTyp)){
       return setRegCtl<mode,T>(context,name,val);
     }
     I(RTyp==RegTypeDyn);
     if(isGprName(name)||isSpcName(name)){
-      return setReg<mode,T>(context,name,val);
+      return setRegGpr<mode,T>(context,name,val);
     }else if(isFprName(name)){
-      return setRegFp<mode,T>(context,name,val);
+      return setRegFpr<mode,T>(context,name,val);
     }else if(isCtlName(name)){
       return setRegCtl<mode,T>(context,name,val);
     }else{
@@ -289,17 +268,17 @@ namespace Mips {
       fail("RTyp (0x%03x) and name (0x%03x) mismatch in getRegAny\n",RTyp,name);
     I((RTyp==RegTypeDyn)||(getRegType(RTyp)==getRegType(name)));
     if(isGprName(RTyp)||isSpcName(RTyp)){
-      return getReg<mode,T>(context,name);
+      return getRegGpr<mode,T>(context,name);
     }else if(isFprName(RTyp)){
-      return getRegFp<mode,T>(context,name);
+      return getRegFpr<mode,T>(context,name);
     }else if(isCtlName(RTyp)){
       return getRegCtl<mode,T>(context,name);
     }
     I(RTyp==RegTypeDyn);
     if(isGprName(name)||isSpcName(name)){
-      return getReg<mode,T>(context,name);
+      return getRegGpr<mode,T>(context,name);
     }else if(isFprName(name)){
-      return getRegFp<mode,T>(context,name);
+      return getRegFpr<mode,T>(context,name);
     }else if(isCtlName(name)){
       return getRegCtl<mode,T>(context,name);
     }else{

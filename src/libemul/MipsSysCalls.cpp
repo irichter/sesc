@@ -264,7 +264,7 @@ InstDesc *mipsSysCall(InstDesc *inst, ThreadContext *context){
     fail("mipsSysCall: Should never execute in NoCpuMode\n");
     break;
   case Mips32:
-    sysCallNum=Mips::getReg<Mips32,uint32_t>(context,static_cast<RegName>(Mips::RegV0));
+    sysCallNum=Mips::getRegAny<Mips32,uint32_t,Mips::RegV0>(context,Mips::RegV0);
     break;
   case Mips64:
     fail("mipsSysCall: Mips64 system calls not implemented yet\n");
@@ -496,13 +496,13 @@ InstDesc *mipsSysCall(InstDesc *inst, ThreadContext *context){
     fail("Unknown MIPS syscall %d at 0x%08x\n",sysCallNum,context->getIAddr());
   }
 #if (defined DEBUG_SYSCALLS)
-  if(Mips::getReg<uint32_t>(context,static_cast<RegName>(Mips::RegA3))){
+  if(Mips::getRegAny<Mips32,uint32_t,RegTypeGpr>(context,Mips::RegA3)){
     switch(sysCallNum){
     case 4193: // rt_sigreturn (does not return from the call)
       break;
     default:
       printf("sysCall %d returns with error %d\n",sysCallNum,
-	     Mips::getReg<uint32_t>(context,static_cast<RegName>(Mips::RegA3))
+	     Mips::getRegAny<Mips32,uint32_t,RegTypeGpr>(context,Mips::RegA3)
 	     );
       break;
     }
@@ -539,9 +539,9 @@ int32_t Mips32FuncArgs::getW(void){
   int32_t retVal=0xDEADBEEF;
   I((curPos%sizeof(int32_t))==0);
   if(curPos<16){
-    retVal=Mips::getReg<Mips32,int32_t>(myContext,static_cast<RegName>(Mips::RegA0+curPos/sizeof(retVal)));
+    retVal=Mips::getRegAny<Mips32,int32_t,RegTypeGpr>(myContext,Mips::RegA0+curPos/sizeof(retVal));
   }else{
-    retVal=myContext->readMem<int32_t>(Mips::getReg<Mips32,uint32_t>(myContext,static_cast<RegName>(Mips::RegSP))+curPos);
+    retVal=myContext->readMem<int32_t>(Mips::getRegAny<Mips32,uint32_t,Mips::RegSP>(myContext,Mips::RegSP)+curPos);
   }
   curPos+=sizeof(retVal);
   return retVal;
@@ -554,12 +554,12 @@ int64_t Mips32FuncArgs::getL(void){
     curPos+=sizeof(int32_t);
   I(curPos%sizeof(retVal)==0);
   if(curPos<16){
-    retVal=Mips::getReg<Mips32,int32_t>(myContext,static_cast<RegName>(Mips::RegA0+curPos/sizeof(int32_t)));
+    retVal=Mips::getRegAny<Mips32,int32_t,RegTypeGpr>(myContext,Mips::RegA0+curPos/sizeof(int32_t));
     retVal=(retVal<<32);
     I(!(retVal&0xffffffff));
-    retVal|=Mips::getReg<Mips32,int32_t>(myContext,static_cast<RegName>(Mips::RegA0+curPos/sizeof(int32_t)+1));
+    retVal|=Mips::getRegAny<Mips32,int32_t,RegTypeGpr>(myContext,Mips::RegA0+curPos/sizeof(int32_t)+1);
   }else{
-    retVal=myContext->readMem<int64_t>(Mips::getReg<Mips32,uint32_t>(myContext,static_cast<RegName>(Mips::RegSP))+curPos);
+    retVal=myContext->readMem<int64_t>(Mips::getRegAny<Mips32,uint32_t,Mips::RegSP>(myContext,Mips::RegSP)+curPos);
   }
   curPos+=sizeof(retVal);
   return retVal;
@@ -590,7 +590,7 @@ namespace Mips {
     addrSpace->protectSegment(sysCodeAddr,sysCodeSize,true,false,true);
     // Set RegSys to zero. It is used by system call functions to indicate
     // that a signal mask has been already saved to the stack and needs to be restored
-    setReg<Mips32,uint32_t>(context,static_cast<RegName>(RegSys),0);    
+    setRegAny<Mips32,uint32_t,RegSys>(context,RegSys,0);
   }
 
   void createStack(ThreadContext *context){
@@ -607,16 +607,30 @@ namespace Mips {
     context->setStack(stackStart,stackStart+stackSize);
     switch(context->getMode()){
     case Mips32:
-      setReg<Mips32,uint32_t>(context,static_cast<RegName>(RegSP),stackStart+stackSize);
+      setRegAny<Mips32,uint32_t,RegSP>(context,RegSP,stackStart+stackSize);
       break;
     default:
       I(0);
     }
   }
 
+  template<typename T>
+  void push(ThreadContext *context, const T &val){
+    VAddr sp=getRegAny<Mips32,VAddr,RegSP>(context,RegSP);
+    sp-=sizeof(T);
+    context->writeMem<T>(sp,val);
+    setRegAny<Mips32,VAddr,RegSP>(context,RegSP,sp);
+  }
+  template<typename T>
+  T pop(ThreadContext *context){
+    VAddr sp=getRegAny<Mips32,VAddr,RegSP>(context,RegSP);
+    setRegAny<Mips32,VAddr,RegSP>(context,RegSP,sp+sizeof(T));
+    return context->readMem<T>(sp);
+  }
+
   void setProgArgs(ThreadContext *context, int argc, char **argv, int envc, char **envp){
     I(context->getMode()==Mips32);
-    uint32_t regSP=getReg<Mips32,uint32_t>(context,static_cast<RegName>(RegSP));
+    uint32_t regSP=getRegAny<Mips32,uint32_t,RegSP>(context,RegSP);
     // We will push arg and env string pointer arrays later, with nulls at end
     VAddr envVAddrs[envc+1];
     I(sizeof(envVAddrs)==(envc+1)*sizeof(VAddr));
@@ -652,20 +666,20 @@ namespace Mips {
     int32_t argcVal=argc;
     regSP-=sizeof(argcVal);
     context->writeMem(regSP,argcVal);
-    setReg<Mips32,uint32_t>(context,static_cast<RegName>(RegSP),regSP);
+    setRegAny<Mips32,uint32_t,RegSP>(context,RegSP,regSP);
   }
   void sysCall32SetErr(ThreadContext *context, int32_t err){
-    setReg<Mips32,int32_t>(context,static_cast<RegName>(RegA3),(int32_t)1);
-    setReg<Mips32,int32_t>(context,static_cast<RegName>(RegV0),err);
+    setRegAny<Mips32,int32_t,RegTypeGpr>(context,RegA3,(int32_t)1);
+    setRegAny<Mips32,int32_t,RegTypeGpr>(context,RegV0,err);
   }
   void sysCall32SetRet(ThreadContext *context,int32_t ret){
-    setReg<Mips32,int32_t>(context,static_cast<RegName>(RegA3),(int32_t)0);
-    setReg<Mips32,int32_t>(context,static_cast<RegName>(RegV0),ret);
+    setRegAny<Mips32,int32_t,RegTypeGpr>(context,RegA3,(int32_t)0);
+    setRegAny<Mips32,int32_t,RegTypeGpr>(context,RegV0,ret);
   }
   void sysCall32SetRet2(ThreadContext *context,int32_t ret1, int32_t ret2){
-    setReg<Mips32,int32_t>(context,static_cast<RegName>(RegA3),(int32_t)0);
-    setReg<Mips32,int32_t>(context,static_cast<RegName>(RegV0),ret1);
-    setReg<Mips32,int32_t>(context,static_cast<RegName>(RegV1),ret2);
+    setRegAny<Mips32,int32_t,RegTypeGpr>(context,RegA3,(int32_t)0);
+    setRegAny<Mips32,int32_t,RegTypeGpr>(context,RegV0,ret1);
+    setRegAny<Mips32,int32_t,RegTypeGpr>(context,RegV1,ret2);
   }
 
   int sigFromLocal(SignalID sig){
@@ -721,20 +735,15 @@ namespace Mips {
   void pushSignalMask(ThreadContext *context, SignalSet &mask){
     Mips32_k_sigset_t appmask;
     sigMaskFromLocal(appmask,mask);
-    VAddr sp=Mips::getReg<Mips32,uint32_t>(context,static_cast<RegName>(Mips::RegSP))-sizeof(appmask);
-    context->writeMem(sp,appmask);
-    setReg<Mips32,uint32_t>(context,static_cast<RegName>(RegSP),sp);
-    setReg<Mips32,uint32_t>(context,static_cast<RegName>(RegSys),1);
+    push(context,appmask);
+    setRegAny<Mips32,uint32_t,RegSys>(context,RegSys,1);
   }
 
   void popSignalMask(ThreadContext *context){
-    uint32_t pop=getReg<Mips32,uint32_t>(context,static_cast<RegName>(RegSys));
-    if(pop){
-      setReg<Mips32,uint32_t>(context,static_cast<RegName>(RegSys),0);    
-      VAddr sp=getReg<Mips32,uint32_t>(context,static_cast<RegName>(RegSP));
-      Mips32_k_sigset_t appmask=context->readMem<Mips32_k_sigset_t>(sp);
-      sp+=sizeof(appmask);
-      setReg<Mips32,uint32_t>(context,static_cast<RegName>(RegSP),sp);    
+    uint32_t dopop=getRegAny<Mips32,uint32_t,RegSys>(context,RegSys);
+    if(dopop){
+      setRegAny<Mips32,uint32_t,RegSys>(context,RegSys,0);    
+      Mips32_k_sigset_t appmask=pop<Mips32_k_sigset_t>(context);
       SignalSet simmask;
       sigMaskToLocal(appmask,simmask);
       context->setSignalMask(simmask);
@@ -764,34 +773,24 @@ namespace Mips {
     default:
       break;
     }
-    // Save registers and PC
+    // Save PC, then registers
+    VAddr sp=Mips::getRegAny<Mips32,uint32_t,RegSP>(context,RegSP);
     I(context->getIDesc()==context->virt2inst(context->getIAddr()));
     VAddr pc=context->getIAddr();
-    VAddr sp=Mips::getReg<Mips32,uint32_t>(context,static_cast<RegName>(Mips::RegSP));
     context->execCall(pc,Mips::sysCodeAddr,sp);
-    for(size_t i=0;i<32;i++){
-      uint32_t wrVal;
-      switch(i){
-      case 0:
-	wrVal=pc;
-	break;
-      default:
-	wrVal=Mips::getReg<Mips32,uint32_t>(context,static_cast<RegName>(i));
-	break;
-      }
-      sp-=4;
-      context->writeMem<uint32_t>(sp,wrVal);
+    push(context,pc);
+    for(RegName r=RegZero+1;r<=RegRA;r++){
+      uint32_t wrVal=getRegAny<Mips32,uint32_t,RegTypeGpr>(context,r);
+      push(context,wrVal);
     }
     // Save the current signal mask and use sigaction's signal mask
     Mips32_k_sigset_t oldMask;
     sigMaskFromLocal(oldMask,context->getSignalMask());
-    sp-=sizeof(oldMask);
-    context->writeMem(sp,oldMask);
+    push(context,oldMask);
     context->setSignalMask(sigDesc.mask);
     // Set registers and PC for execution of the handler
-    Mips::setReg<Mips32,uint32_t>(context,static_cast<RegName>(Mips::RegSP),sp);
-    Mips::setReg<Mips32,uint32_t>(context,static_cast<RegName>(Mips::RegA0),sigFromLocal(sigInfo->signo));
-    Mips::setReg<Mips32,uint32_t>(context,static_cast<RegName>(Mips::RegT9),sigDesc.handler);
+    Mips::setRegAny<Mips32,uint32_t,RegTypeGpr>(context,RegA0,sigFromLocal(sigInfo->signo));
+    Mips::setRegAny<Mips32,uint32_t,RegTypeGpr>(context,RegT9,sigDesc.handler);
     context->setIAddr(Mips::sysCodeAddr);
     return true;
   }
@@ -1189,7 +1188,7 @@ namespace Mips {
       newContext->setStack(newContext->getAddressSpace()->getSegmentAddr(child_stack),child_stack);
       switch(context->getMode()){
       case Mips32:
-	setReg<Mips32,uint32_t>(newContext,static_cast<RegName>(RegSP),child_stack);
+	setRegAny<Mips32,uint32_t,RegSP>(newContext,RegSP,child_stack);
 	break;
       default:
 	I(0);
@@ -1247,30 +1246,14 @@ namespace Mips {
 #if (defined DEBUG_SIGNALS)
     printf("sysCall32_rt_sigreturn pid %d to ",context->getPid());
 #endif    
-    VAddr sp=getReg<Mips32,uint32_t>(context,static_cast<RegName>(RegSP));
     // Restore old signal mask
-    Mips32_k_sigset_t oldMask=context->readMem<Mips32_k_sigset_t>(sp);
-    sp+=sizeof(oldMask);
-    // Restore registers and PC
-    for(size_t i=0;i<32;i++){
-      uint32_t rdVal=context->readMem<uint32_t>(sp);
-      sp+=4;
-      switch(31-i){
-      case 0:
-#if (defined DEBUG_SIGNALS)
-	printf("0x%08x\n",rdVal);
-#endif
-	context->setIAddr(rdVal);
-	break;
-      default:
-	setReg<Mips32,uint32_t>(context,static_cast<RegName>(31-i),rdVal);
-	break;
-      }
+    Mips32_k_sigset_t oldMask=pop<Mips32_k_sigset_t>(context);
+    // Restore registers, then PC
+    for(RegName r=RegRA;r>RegZero;r--){
+      uint32_t rdVal=pop<uint32_t>(context);
+      setRegAny<Mips32,uint32_t,RegTypeGpr>(context,r,rdVal);
     }
-#if (defined DEBUG)
-    uint32_t chk=getReg<Mips32,uint32_t>(context,static_cast<RegName>(RegSP));
-    I(sp==chk);
-#endif
+    context->setIAddr(pop<VAddr>(context));
     context->execRet();
     SignalSet    oldSet;
     sigMaskToLocal(oldMask,oldSet);
