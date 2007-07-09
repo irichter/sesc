@@ -980,6 +980,9 @@ Instruction *createSescInst(const InstDesc *inst, VAddr iaddr, size_t deltaAddr,
         while(!hset.empty()){
           AddressSpace::HandlerSet::iterator it=hset.begin();
           trace->emul=*it;
+#if (defined DEBUG)
+	  trace->addr=curAddr;
+#endif
           trace++;
           hset.erase(it);
         }
