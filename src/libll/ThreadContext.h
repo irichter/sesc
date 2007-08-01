@@ -61,6 +61,7 @@ enum CpuMode{
   NoCpuMode,
   Mips32,
   Mips64,
+  x86_32
 };
 
 #if (defined MIPS_EMUL)

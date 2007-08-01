@@ -8,54 +8,56 @@
 // To get definition of fail()
 #include "EmulInit.h"
 
-void cvtEndianBig(Elf32_Ehdr &ehdr){
+template<>
+void cvtEndian(Elf32_Ehdr &ehdr, int byteOrder){
   // Array e_ident is all chars and need no endian conversion
-  cvtEndianBig(ehdr.e_type);
-  cvtEndianBig(ehdr.e_machine);
-  cvtEndianBig(ehdr.e_version);
-  cvtEndianBig(ehdr.e_entry);
-  cvtEndianBig(ehdr.e_phoff);
-  cvtEndianBig(ehdr.e_shoff);
-  cvtEndianBig(ehdr.e_flags);
-  cvtEndianBig(ehdr.e_ehsize);
-  cvtEndianBig(ehdr.e_phentsize);
-  cvtEndianBig(ehdr.e_phnum);
-  cvtEndianBig(ehdr.e_shentsize);
-  cvtEndianBig(ehdr.e_shnum);
-  cvtEndianBig(ehdr.e_shstrndx);
+  cvtEndian(ehdr.e_type,byteOrder);
+  cvtEndian(ehdr.e_machine,byteOrder);
+  cvtEndian(ehdr.e_version,byteOrder);
+  cvtEndian(ehdr.e_entry,byteOrder);
+  cvtEndian(ehdr.e_phoff,byteOrder);
+  cvtEndian(ehdr.e_shoff,byteOrder);
+  cvtEndian(ehdr.e_flags,byteOrder);
+  cvtEndian(ehdr.e_ehsize,byteOrder);
+  cvtEndian(ehdr.e_phentsize,byteOrder);
+  cvtEndian(ehdr.e_phnum,byteOrder);
+  cvtEndian(ehdr.e_shentsize,byteOrder);
+  cvtEndian(ehdr.e_shnum,byteOrder);
+  cvtEndian(ehdr.e_shstrndx,byteOrder);
 }
 
-void cvtEndianBig(Elf32_Phdr &phdr){
-  cvtEndianBig(phdr.p_type);
-  cvtEndianBig(phdr.p_offset);
-  cvtEndianBig(phdr.p_vaddr);
-  cvtEndianBig(phdr.p_paddr);
-  cvtEndianBig(phdr.p_filesz);
-  cvtEndianBig(phdr.p_memsz);
-  cvtEndianBig(phdr.p_flags);
-  cvtEndianBig(phdr.p_align);
+template<>
+void cvtEndian(Elf32_Phdr &phdr, int byteOrder){
+  cvtEndian(phdr.p_type,byteOrder);
+  cvtEndian(phdr.p_offset,byteOrder);
+  cvtEndian(phdr.p_vaddr,byteOrder);
+  cvtEndian(phdr.p_paddr,byteOrder);
+  cvtEndian(phdr.p_filesz,byteOrder);
+  cvtEndian(phdr.p_memsz,byteOrder);
+  cvtEndian(phdr.p_flags,byteOrder);
+  cvtEndian(phdr.p_align,byteOrder);
 }
 
-void cvtEndianBig(Elf32_Shdr &shdr){
-  cvtEndianBig(shdr.sh_name);
-  cvtEndianBig(shdr.sh_type);
-  cvtEndianBig(shdr.sh_flags);
-  cvtEndianBig(shdr.sh_addr);
-  cvtEndianBig(shdr.sh_offset);
-  cvtEndianBig(shdr.sh_size);
-  cvtEndianBig(shdr.sh_link);
-  cvtEndianBig(shdr.sh_info);
-  cvtEndianBig(shdr.sh_addralign);
-  cvtEndianBig(shdr.sh_entsize);
+void cvtEndian(Elf32_Shdr &shdr, int byteOrder){
+  cvtEndian(shdr.sh_name,byteOrder);
+  cvtEndian(shdr.sh_type,byteOrder);
+  cvtEndian(shdr.sh_flags,byteOrder);
+  cvtEndian(shdr.sh_addr,byteOrder);
+  cvtEndian(shdr.sh_offset,byteOrder);
+  cvtEndian(shdr.sh_size,byteOrder);
+  cvtEndian(shdr.sh_link,byteOrder);
+  cvtEndian(shdr.sh_info,byteOrder);
+  cvtEndian(shdr.sh_addralign,byteOrder);
+  cvtEndian(shdr.sh_entsize,byteOrder);
 }
 
-void cvtEndianBig(Elf32_Sym &sym){
-  cvtEndianBig(sym.st_name);
-  cvtEndianBig(sym.st_value);
-  cvtEndianBig(sym.st_size);
-  cvtEndianBig(sym.st_info);
-  cvtEndianBig(sym.st_other);
-  cvtEndianBig(sym.st_shndx);
+void cvtEndian(Elf32_Sym &sym, int byteOrder){
+  cvtEndian(sym.st_name,byteOrder);
+  cvtEndian(sym.st_value,byteOrder);
+  cvtEndian(sym.st_size,byteOrder);
+  cvtEndian(sym.st_info,byteOrder);
+  cvtEndian(sym.st_other,byteOrder);
+  cvtEndian(sym.st_shndx,byteOrder);
 }
 
 void cvtEndianBig(Elf32_RegInfo &info){
@@ -82,18 +84,26 @@ int  checkElfObject(const char *fname){
   char elfMag[]= {ELFMAG0, ELFMAG1, ELFMAG2, ELFMAG3 };
   if(memcmp(myElfHdr.e_ident,elfMag,sizeof(elfMag)))
     return ENOEXEC;
-  if(myElfHdr.e_ident[EI_DATA]!=ELFDATA2MSB)
-    return ENOEXEC;
+  int byteOrder=0;
+  if(myElfHdr.e_ident[EI_DATA]==ELFDATA2MSB)
+    byteOrder=__BIG_ENDIAN;
+  else if(myElfHdr.e_ident[EI_DATA]==ELFDATA2LSB)
+    byteOrder=__LITTLE_ENDIAN;
   if(myElfHdr.e_ident[EI_CLASS]!=ELFCLASS32)
     return ENOEXEC;
-  cvtEndianBig(myElfHdr);
+  cvtEndian(myElfHdr,byteOrder);
   if((myElfHdr.e_ident[EI_VERSION]!=EV_CURRENT) ||
      (myElfHdr.e_version!=EV_CURRENT))
     return ENOEXEC;
   if(myElfHdr.e_ehsize!=sizeof(myElfHdr))
     return ENOEXEC;
-  if(myElfHdr.e_machine!=EM_MIPS)
-    return ENOEXEC;
+  switch(myElfHdr.e_machine){
+    case EM_MIPS:
+    case EM_386:
+      break;
+    default:
+      return ENOEXEC;
+  }
   if(myElfHdr.e_type!=ET_EXEC)
     return ENOEXEC;
   int mipsArch;
@@ -130,41 +140,48 @@ void loadElfObject(const char *fname, ThreadContext *threadContext){
   char elfMag[]= {ELFMAG0, ELFMAG1, ELFMAG2, ELFMAG3 };
   if(memcmp(myElfHdr.e_ident,elfMag,sizeof(elfMag)))
     fail("Not an ELF file: %s",myfname);
-  if(myElfHdr.e_ident[EI_DATA]!=ELFDATA2MSB)
-    fail("Not a big-endian ELF file: %s",myfname);
+  int byteOrder=0;
+  if(myElfHdr.e_ident[EI_DATA]==ELFDATA2MSB)
+    byteOrder=__BIG_ENDIAN;
+  else if(myElfHdr.e_ident[EI_DATA]==ELFDATA2LSB)
+    byteOrder=__LITTLE_ENDIAN;
   if(myElfHdr.e_ident[EI_CLASS]!=ELFCLASS32)
     fail("Not a 32-bit ELF file: %s",myfname);
-  cvtEndianBig(myElfHdr);
+  cvtEndian(myElfHdr,byteOrder);
   if((myElfHdr.e_ident[EI_VERSION]!=EV_CURRENT) ||
      (myElfHdr.e_version!=EV_CURRENT))
     fail("Wrong ELF version in file %s",myfname);
   if(myElfHdr.e_ehsize!=sizeof(myElfHdr))
     fail("Wrong ELF header size in file %s\n",myfname);
-  if(myElfHdr.e_machine!=EM_MIPS)
-    fail("Not a MIPS ELF file %s",myfname);
   if(myElfHdr.e_type!=ET_EXEC)
     fail("Not an executable file %s",myfname);
-  int mipsArch;
-  switch(myElfHdr.e_flags&EF_MIPS_ARCH){
-  case EF_MIPS_ARCH_1: mipsArch=1; break;    
-  case EF_MIPS_ARCH_2: mipsArch=2; break;
-  case EF_MIPS_ARCH_3: mipsArch=3; break;
-  case EF_MIPS_ARCH_4: mipsArch=4; break;
-  default:
-    fail("Using architecture above MIPS4 in ELF file %s",myfname);
-    mipsArch=-1;
-    break;
+  if(myElfHdr.e_machine==EM_MIPS){
+    int mipsArch;
+    switch(myElfHdr.e_flags&EF_MIPS_ARCH){
+    case EF_MIPS_ARCH_1: mipsArch=1; break;    
+    case EF_MIPS_ARCH_2: mipsArch=2; break;
+    case EF_MIPS_ARCH_3: mipsArch=3; break;
+    case EF_MIPS_ARCH_4: mipsArch=4; break;
+    default:
+      fail("Using architecture above MIPS4 in ELF file %s",myfname);
+      mipsArch=-1;
+      break;
+    }
+    printf("Executable %s uses mips%d architecture\n",fname,mipsArch);
+    // It's a 32-bit MIPS file, but which ABI?
+    threadContext->setMode((myElfHdr.e_flags&EF_MIPS_ABI2)?Mips64:Mips32);
+  }else if(myElfHdr.e_machine==EM_386){
+    printf("Executable %s uses the x86 architecture\n",fname);
+    threadContext->setMode(x86_32);
+  }else{
+    fail("Unknown e_machine in ELF file %s",myfname);
   }
-  printf("Executable %s uses mips%d architecture\n",fname,mipsArch);
   //  if(myElfHdr.e_flags&(EF_MIPS_PIC|EF_MIPS_CPIC))
   //    printf("Executable %s contains or uses PIC code\n",fname);
   if(myElfHdr.e_phentsize!=sizeof(Elf32_Phdr))
     fail("Wrong ELF program table entry size in %s",myfname);
   if(myElfHdr.e_shentsize!=sizeof(Elf32_Shdr))
     fail("Wrong ELF section table entry size in %s",myfname);
-
-  // It's a 32-bit file, but which ABI?
-  threadContext->setMode((myElfHdr.e_flags&EF_MIPS_ABI2)?Mips64:Mips32);
 
   // Clear all the registers (this is actually needed for correct operation)
   threadContext->clearRegs();
@@ -179,102 +196,6 @@ void loadElfObject(const char *fname, ThreadContext *threadContext){
   // Number of program (segment) table entries
   uint16_t prgTabCnt=myElfHdr.e_phnum;
   
-/*   // Parse program (segment) headers first to find out where and how much */
-/*   // memory to allocate for static and bss data */
-  
-/*   VAddr allocBegAddr=0; */
-/*   VAddr allocEndAddr=0; */
-/*   if(lseek(fd,prgTabOff,SEEK_SET)!=prgTabOff) */
-/*     fail("Couldn't seek to ELF program table in %s",fname); */
-/*   else{ */
-/*     for(uint16_t prgTabIdx=0;prgTabIdx<prgTabCnt;prgTabIdx++){ */
-/*       Elf32_Phdr myPrgHdr; */
-/*       if(read(fd,&myPrgHdr,sizeof(myPrgHdr))!=sizeof(myPrgHdr)) */
-/* 	fail("Could not read ELF program table entry in %s",fname); */
-/*       fixEndian(&myPrgHdr); */
-/*       if(myPrgHdr.p_type==PT_LOAD){ */
-/* 	VAddr secBegAddr=myPrgHdr.p_vaddr; */
-/* 	VAddr secEndAddr=secBegAddr+myPrgHdr.p_memsz; */
-/* 	if((!allocBegAddr)||(secBegAddr<allocBegAddr)) */
-/* 	  allocBegAddr=secBegAddr; */
-/* 	if((!allocEndAddr)||(secEndAddr>allocEndAddr)) */
-/* 	  allocEndAddr=secEndAddr; */
-/*       } */
-/*     } */
-/*   } */
-  
-/*   // Create real memory for loadable segments in the thread's address space */
-/*   if(!addrSpace->mapMemory(allocBegAddr,allocEndAddr-allocBegAddr)){ */
-/*     fprintf(stderr,"loadElfObject: Loadable segments overlap with existing simulated memory\n"); */
-/*     exit(1); */
-/*   } */
-/*   addrSpace->initDataSegment(allocEndAddr); */
-
-/*   // Now make another pass through the program (segment) table. This time: */
-/*   // 1) Load and initialize the actual data for PT_LOAD segments */
-/*   // 2) Find the initial value of the global pointer (GP) from the PT_MIPS_REGINFO segment */
-/*   // 3) Check if unsupported segment types are used */
-
-/*   { */
-/*     off_t currFilePtr=prgTabOff; */
-/*     for(uint16_t prgTabIdx=0;prgTabIdx<prgTabCnt;prgTabIdx++){ */
-/*       if(lseek(fd,currFilePtr,SEEK_SET)!=currFilePtr) */
-/* 	fail("Couldn't seek to current ELF program table position in %s",fname); */
-/*       Elf32_Phdr myPrgHdr; */
-/*       if(read(fd,&myPrgHdr,sizeof(myPrgHdr))!=sizeof(myPrgHdr)) */
-/* 	fail("Could not read ELF program table entry in %s",fname); */
-/*       fixEndian(&myPrgHdr); */
-/*       if((currFilePtr=lseek(fd,0,SEEK_CUR))==(off_t)-1) */
-/* 	fail("Could not get current file position in %s",fname); */
-/*       switch(myPrgHdr.p_type){ */
-/*       case PT_LOAD: */
-/* 	if(myPrgHdr.p_filesz){ */
-/* 	  if(lseek(fd,myPrgHdr.p_offset,SEEK_SET)!=myPrgHdr.p_offset) */
-/* 	    fail("Couldn't seek to a PT_LOAD segment in ELF file %s",fname); */
-/* 	  if(read(fd,(void *)(addrSpace->virtToReal(myPrgHdr.p_vaddr)),myPrgHdr.p_filesz)!=myPrgHdr.p_filesz) */
-/* 	    fail("Could not read a PT_LOAD segment in ELF file %s",fname); */
-/* 	} */
-/* 	if(myPrgHdr.p_memsz>myPrgHdr.p_filesz){ */
-/* 	  memset((void *)(addrSpace->virtToReal(myPrgHdr.p_vaddr+myPrgHdr.p_filesz)),0,myPrgHdr.p_memsz-myPrgHdr.p_filesz); */
-/* 	} */
-/* 	break; */
-/*       case PT_MIPS_REGINFO: */
-/* 	{ */
-/* 	  if(myPrgHdr.p_filesz!=sizeof(Elf32_RegInfo)) */
-/* 	    fail("PT_MIPS_REGINFO section size mismatch in ELF file %s",fname); */
-/* 	  Elf32_RegInfo myRegInfo; */
-/* 	  off_t regInfoOff=myPrgHdr.p_offset; */
-/* 	  if(lseek(fd,regInfoOff,SEEK_SET)!=regInfoOff) */
-/* 	    fail("Couldn't seek to ELF RegInfo segment in %s",fname); */
-/* 	  if(read(fd,&myRegInfo,sizeof(myRegInfo))!=sizeof(myRegInfo)) */
-/* 	    fail("Could not read ELF RegInfo segment in %s",fname); */
-/* 	  fixEndian(&myRegInfo); */
-/* 	  if(myRegInfo.ri_cprmask[0] || myRegInfo.ri_cprmask[2] || myRegInfo.ri_cprmask[3]) */
-/* 	    fail("Unsupported coprocessor registers used in ELF file %s",fname); */
-/* 	  threadContext->setGlobPtr(myRegInfo.ri_gp_value); */
-/* 	} */
-/* 	break; */
-/*       case PT_NULL: // This type of segment is ignored by definition */
-/*       case PT_NOTE: // Auxiliary info that is not needed for execution */
-/* 	break; */
-/*       default: */
-/* 	printf("Unsupported segment type 0x%lx ",(unsigned long)myPrgHdr.p_type); */
-/* 	printf("FOffs 0x%lx, VAddr 0x%lx, PAddr 0x%lx, FSize 0x%lx, MSize 0x%lx, Align 0x%lx, Flags %c%c%c + 0x%lx\n", */
-/* 	       (unsigned long)myPrgHdr.p_offset, */
-/* 	       (unsigned long)myPrgHdr.p_vaddr, */
-/* 	       (unsigned long)myPrgHdr.p_paddr, */
-/* 	       (unsigned long)myPrgHdr.p_filesz, */
-/* 	       (unsigned long)myPrgHdr.p_memsz, */
-/* 	       (unsigned long)myPrgHdr.p_align, */
-/* 	       (myPrgHdr.p_flags&PF_R)?'R':' ', */
-/* 	       (myPrgHdr.p_flags&PF_W)?'W':' ', */
-/* 	       (myPrgHdr.p_flags&PF_X)?'X':' ', */
-/* 	       (unsigned long)(myPrgHdr.p_flags^(myPrgHdr.p_flags&(PF_R|PF_W|PF_X))) */
-/* 	       ); */
-/*       } */
-/*     } */
-/*   } */
-  
   // Get the section name string table
   char *secNamTab=0;
   if(myElfHdr.e_shstrndx==SHN_UNDEF)
@@ -286,7 +207,7 @@ void loadElfObject(const char *fname, ThreadContext *threadContext){
     Elf32_Shdr mySecHdr;
     if(read(fd,&mySecHdr,sizeof(mySecHdr))!=sizeof(mySecHdr))
       fail("Could not read ELF section table entry %d in %s",myElfHdr.e_shstrndx,myfname);
-    cvtEndianBig(mySecHdr);
+    cvtEndian(mySecHdr,byteOrder);
     if(mySecHdr.sh_type!=SHT_STRTAB)
       fail("Section table entry for section name string table is not of SHT_STRTAB type in ELF file %s",myfname);
     if(lseek(fd,mySecHdr.sh_offset,SEEK_SET)!=mySecHdr.sh_offset)
@@ -305,7 +226,7 @@ void loadElfObject(const char *fname, ThreadContext *threadContext){
 	fail("Couldn't seek to current ELF section table position in %s",myfname);
       if(read(fd,&mySymSecHdr,sizeof(mySymSecHdr))!=sizeof(mySymSecHdr))
 	fail("Could not read ELF section table entry in %s",myfname);
-      cvtEndianBig(mySymSecHdr);
+      cvtEndian(mySymSecHdr,byteOrder);
       if((secTabPos=lseek(fd,0,SEEK_CUR))==(off_t)-1)
 	fail("Could not get current file position in %s",myfname);
       if(mySymSecHdr.sh_type==SHT_SYMTAB){
@@ -321,7 +242,7 @@ void loadElfObject(const char *fname, ThreadContext *threadContext){
 		secTabIdx,strTabSec,myfname);
 	if(read(fd,&myStrSecHdr,sizeof(myStrSecHdr))!=sizeof(myStrSecHdr))
 	  fail("Could not read ELF section table entry %d in %s",myfname,secTabIdx);
-	cvtEndianBig(myStrSecHdr);
+	cvtEndian(myStrSecHdr,byteOrder);
 	if(myStrSecHdr.sh_type!=SHT_STRTAB)
 	  fail("SYMTAB section %d links to non-STRTAB section %d in ELF file %s",secTabIdx,strTabSec,myfname);
 	if(lseek(fd,myStrSecHdr.sh_offset,SEEK_SET)!=myStrSecHdr.sh_offset)
@@ -335,7 +256,7 @@ void loadElfObject(const char *fname, ThreadContext *threadContext){
 	  Elf32_Sym mySym;
 	  if(read(fd,&mySym,sizeof(mySym))!=sizeof(mySym))
 	    fail("Could not read symbol in ELF file %s",myfname);
-	  cvtEndianBig(mySym);
+	  cvtEndian(mySym,byteOrder);
 	  switch(ELF32_ST_TYPE(mySym.st_info)){
 	  case STT_FILE:   // Ignore file name symbols
 	  case STT_OBJECT: // Ignore data symbols
@@ -373,7 +294,7 @@ void loadElfObject(const char *fname, ThreadContext *threadContext){
 	fail("Couldn't seek to current ELF section table position in %s",myfname);
       if(read(fd,&mySecHdr,sizeof(mySecHdr))!=sizeof(mySecHdr))
 	fail("Could not read ELF section table entry in %s",myfname);
-      cvtEndianBig(mySecHdr);
+      cvtEndian(mySecHdr,byteOrder);
       if((secTabPos=lseek(fd,0,SEEK_CUR))==(off_t)-1)
 	fail("Could not get current file position in %s",myfname);
       switch(mySecHdr.sh_type){

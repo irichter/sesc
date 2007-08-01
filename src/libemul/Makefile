@@ -10,7 +10,8 @@ all	: $(OBJ)/libemul.a
 #                Objects
 ##############################################################################
 OBJS	:= AddressSpace.o EmulInit.o ElfObject.o \
-           InstDesc.o MipsSysCalls.o SignalHandling.o FileSys.o
+           InstDesc.o MipsSysCalls.o SignalHandling.o FileSys.o \
+           X86InstDesc.o
 ##############################################################################
 #                             Change Rules                                   # 
 ##############################################################################

@@ -651,10 +651,20 @@ static inline RegType getSescRegType(RegName reg, bool src){
     if((reg==RegNone)||(static_cast<Mips::MipsRegName>(reg)==Mips::RegJunk))
       return InvalidOutput;
   }
-  if(isGprName(reg))
+  if((static_cast<Mips::MipsRegName>(reg)==RegTmp)||(static_cast<Mips::MipsRegName>(reg)==RegBTmp))
+    return InternalReg;
+  if(isGprName(reg)){
+    I(static_cast<Mips::MipsRegName>(reg)>Mips::RegAT);
+    I(static_cast<Mips::MipsRegName>(reg)<=Mips::RegRA);
     return static_cast<RegType>(getRegNum(reg));
-  if(isFprName(reg))
+  }
+  if(static_cast<Mips::MipsRegName>(reg)==RegFTmp)
+    return IntFPBoundary;
+  if(isFprName(reg)){
+    I(static_cast<Mips::MipsRegName>(reg)>=Mips::RegF0);
+    I(static_cast<Mips::MipsRegName>(reg)<=Mips::RegF31);
     return static_cast<RegType>(IntFPBoundary+getRegNum(reg));
+  }
   if(getRegType(reg)==RegTypeCtl)
     return CoprocStatReg;
   if((static_cast<Mips::MipsRegName>(reg)==Mips::RegHi)||(static_cast<Mips::MipsRegName>(reg)==Mips::RegLo))
@@ -1073,23 +1083,6 @@ Instruction *createSescInst(const InstDesc *inst, VAddr iaddr, size_t deltaAddr,
 	myinst->aupdate=0;
       }
     }
-    void decodeTrace(ThreadContext *context, VAddr addr,size_t len){
-      VAddr funcAddr=context->getAddressSpace()->getFuncAddr(addr);
-      I(addr+len<=funcAddr+context->getAddressSpace()->getFuncSize(funcAddr));
-      VAddr endAddr=addr+len;
-      size_t tsize=0;
-      VAddr sizaddr=addr;
-      while(sizaddr!=endAddr)
-        decodeInstSize(context,funcAddr,sizaddr,endAddr,tsize,true);
-      InstDesc *trace=new InstDesc[tsize];
-      InstDesc *curtrace=trace;
-      VAddr trcaddr=addr;
-      while(trcaddr!=endAddr)
-        decodeInst(context,funcAddr,trcaddr,endAddr,curtrace,true);
-      I((ssize_t)tsize==(curtrace-trace));
-      I(trcaddr==sizaddr);
-      context->getAddressSpace()->mapTrace(trace,curtrace,addr,trcaddr);
-    }
   };
 
   DecodeInst dcdInst;
@@ -1414,7 +1407,6 @@ Instruction *createSescInst(const InstDesc *inst, VAddr iaddr, size_t deltaAddr,
 #define OpDataC6(op,ctl,typ,dst,src1,src2,imm,next,emul,T1,T2,T3,T4,T5,T6) op2Data[op]=OpData(emul<op,Mips32,T1,T2,T3,T4,T5,T6 >,0,ctl,typ,dst,src1,src2,imm,next)
 #define OpDataC7(op,ctl,typ,dst,src1,src2,imm,next,emul,T1,T2,T3,T4,T5,T6,T7) op2Data[op]=OpData(emul<op,Mips32,T1,T2,T3,T4,T5,T6,T7 >,0,ctl,typ,dst,src1,src2,imm,next)
 #define OpDataC8(op,ctl,typ,dst,src1,src2,imm,next,emul,T1,T2,T3,T4,T5,T6,T7,T8) op2Data[op]=OpData(emul<op,Mips32,T1,T2,T3,T4,T5,T6,T7,T8 >,0,ctl,typ,dst,src1,src2,imm,next)
-
 #define OpDataI4(op,ctl,typ,dst,src1,src2,imm,next,emul,...) op2Data[op]=OpData(emul<op,Mips32,NextNext,__VA_ARGS__ >,0,ctl,typ,dst,src1,src2,imm,next)
 
 //     OpDataX(OpJal     ,emulJump , CtlBpr, TypNop  , ArgNo  , ArgNo  , ArgNo  , ImmNo  , OpJal_);
@@ -1821,6 +1813,8 @@ InstDesc *handleFreeCall(InstDesc *inst, ThreadContext *context){
 }
 #endif
 
+#include "X86InstDesc.h"
+
 void decodeTrace(ThreadContext *context, VAddr addr, size_t len){
 #if (defined INTERCEPT_HEAP_CALLS)
   static bool didThis=false;
@@ -1836,5 +1830,40 @@ void decodeTrace(ThreadContext *context, VAddr addr, size_t len){
     didThis=true;
   }
 #endif
-  Mips::dcdInst.decodeTrace(context,addr,len);
+
+  VAddr funcAddr=context->getAddressSpace()->getFuncAddr(addr);
+  I(addr+len<=funcAddr+context->getAddressSpace()->getFuncSize(funcAddr));
+  VAddr endAddr=addr+len;
+  size_t tsize=0;
+  VAddr sizaddr=addr;
+  switch(context->getMode()){
+    case Mips32: case Mips64:
+      while(sizaddr!=endAddr)
+        Mips::dcdInst.decodeInstSize(context,funcAddr,sizaddr,endAddr,tsize,true);
+      break;
+    case x86_32:
+//       while(sizaddr!=endAddr)
+//         X86::decodeInstSize(context,funcAddr,sizaddr,endAddr,tsize,true);
+      break;
+    default:
+      fail("decodeTrace called in unsupported CPU mode\n");
+  }
+  InstDesc *trace=new InstDesc[tsize];
+  InstDesc *curtrace=trace;
+  VAddr trcaddr=addr;
+  switch(context->getMode()){
+    case Mips32: case Mips64:
+      while(trcaddr!=endAddr)
+        Mips::dcdInst.decodeInst(context,funcAddr,trcaddr,endAddr,curtrace,true);
+      break;
+    case x86_32:
+//       while(sizaddr!=endAddr)
+//         X86::decodeInst(context,funcAddr,trcaddr,endAddr,curtrace,true);
+      break;
+    default:
+      fail("decodeTrace called in unsupported CPU mode\n");
+  }
+  I((ssize_t)tsize==(curtrace-trace));
+  I(trcaddr==sizaddr);
+  context->getAddressSpace()->mapTrace(trace,curtrace,addr,trcaddr);
 }

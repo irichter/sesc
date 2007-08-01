@@ -56,6 +56,19 @@ inline void cvtEndian(T &val){
 }
 
 template<typename T>
+inline void cvtEndian(T &val, int byteOrder){
+  if(byteOrder==__BIG_ENDIAN)
+    cvtEndian<T,__BIG_ENDIAN,__BYTE_ORDER>(val);
+  else if(byteOrder==__LITTLE_ENDIAN)
+    cvtEndian<T,__LITTLE_ENDIAN,__BYTE_ORDER>(val);
+  else{
+    errno=EINVAL;
+    perror("cvtEndian with invalid byteOrder");
+    exit(1);
+  }
+}
+
+template<typename T>
 inline void cvtEndianBig(T &val){
   cvtEndian<T,__BIG_ENDIAN,__BYTE_ORDER>(val);
 }
