@@ -26,8 +26,10 @@ namespace FileSys {
   }
   void BaseStatus::save(ChkWriter &out) const{
     out << "Type " << type;
-    out << " Flags " << flags << " Blocked " << readBlockPids.size();
+    out << " Flags " << flags << " RdBlocked " << readBlockPids.size() << " WrBlocked " << writeBlockPids.size();
     for(PidSet::const_iterator i=readBlockPids.begin();i!=readBlockPids.end();i++)
+      out << " " << *i;
+    for(PidSet::const_iterator i=writeBlockPids.begin();i!=writeBlockPids.end();i++)
       out << " " << *i;
     out << endl;
   }
@@ -43,13 +45,19 @@ namespace FileSys {
   }
   BaseStatus::BaseStatus(FileType type, ChkReader &in)
     : type(type), fd(-1){
-    size_t _readBlockPids;
-    in >> " Flags " >> flags >> " Blocked " >> _readBlockPids;
+    size_t _readBlockPids, _writeBlockPids;
+    in >> " Flags " >> flags >> " Rd Blocked " >> _readBlockPids >> " WrBlocked " >> _writeBlockPids;
     while(_readBlockPids){
       int _pid;
       in >> " " >> _pid;
       readBlockPids.push_back(_pid);
       _readBlockPids--;
+    }
+    while(_writeBlockPids){
+      int _pid;
+      in >> " " >> _pid;
+      writeBlockPids.push_back(_pid);
+      _writeBlockPids--;
     }
     in >> endl;
   }
@@ -114,6 +122,21 @@ namespace FileSys {
     while(!otherEnd->readBlockPids.empty()){
       int pid=otherEnd->readBlockPids.back();
       otherEnd->readBlockPids.pop_back();
+      ThreadContext *context=osSim->getContext(pid);
+      if(context){
+	SigInfo *sigInfo=new SigInfo(SigIO,SigCodeIn);
+	sigInfo->pid=pid;
+	sigInfo->data=fd;
+	context->signal(sigInfo);
+      }
+    }
+  }
+  void PipeStatus::endWriteBlock(void){
+    if(!otherEnd)
+      return;
+    while(!otherEnd->writeBlockPids.empty()){
+      int pid=otherEnd->writeBlockPids.back();
+      otherEnd->writeBlockPids.pop_back();
       ThreadContext *context=osSim->getContext(pid);
       if(context){
 	SigInfo *sigInfo=new SigInfo(SigIO,SigCodeIn);
@@ -390,6 +413,20 @@ namespace FileSys {
     ID(bool rdBlock=willReadBlock(fd));
     ssize_t retVal=::read(status->fd,buf,count);
     I(rdBlock==((retVal==-1)&&(errno==EAGAIN)));
+    if(retVal>0)
+      status->endWriteBlock();
+    return retVal;
+  }
+  ssize_t OpenFiles::write(int fd, const void *buf, size_t count){
+    if(!isOpen(fd))
+      return error(EBADF);
+    FileDesc *desc=getDesc(fd);
+    BaseStatus *status=desc->getStatus();
+    ID(bool wrBlock=willWriteBlock(fd));
+    ssize_t retVal=::write(status->fd,buf,count);
+    I(wrBlock==((retVal==-1)&&(errno==EAGAIN)));
+    if(retVal>0)
+      status->endReadBlock();
     return retVal;
   }
   bool OpenFiles::willReadBlock(int fd){
@@ -402,21 +439,27 @@ namespace FileSys {
     }
     return false;
   }
+  bool OpenFiles::willWriteBlock(int fd){
+    I(isOpen(fd));
+    FileDesc *desc=getDesc(fd);
+    BaseStatus *status=desc->getStatus();
+    if((::write(status->fd,0,1)==-1)&&(errno==EAGAIN)){
+      I((::write(status->fd,&fd,1)==-1)&&(errno==EAGAIN));
+      return true;
+    }
+    return false;
+  }
   void OpenFiles::addReadBlock(int fd, int pid){
     I(isOpen(fd));
     FileDesc *desc=getDesc(fd);
     BaseStatus *status=desc->getStatus();
     status->addReadBlock(pid);
   }
-  ssize_t OpenFiles::write(int fd, const void *buf, size_t count){
-    if(!isOpen(fd))
-      return error(EBADF);
+  void OpenFiles::addWriteBlock(int fd, int pid){
+    I(isOpen(fd));
     FileDesc *desc=getDesc(fd);
     BaseStatus *status=desc->getStatus();
-    ssize_t retVal=::write(status->fd,buf,count);
-    if(retVal>0)
-      status->endReadBlock();
-    return retVal;
+    status->addWriteBlock(pid);
   }
   off_t OpenFiles::seek(int fd, off_t offset, int whence){
     if(!isOpen(fd))

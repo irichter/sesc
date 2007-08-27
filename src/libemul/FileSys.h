@@ -29,6 +29,7 @@ namespace FileSys {
     class PidSet : public std::vector<int>{};
     //    typedef std::vector<int> PidSet;
     PidSet readBlockPids;
+    PidSet writeBlockPids;
   protected:
     BaseStatus(FileType type, int fd, int flags);
     virtual ~BaseStatus(void);
@@ -36,11 +37,17 @@ namespace FileSys {
     virtual void addReadBlock(int pid){
       readBlockPids.push_back(pid);
     }
+    virtual void addWriteBlock(int pid){
+      writeBlockPids.push_back(pid);
+    }
     virtual void endReadBlock(void){
+    }
+    virtual void endWriteBlock(void){
     }
     virtual void save(ChkWriter &out) const;
     static BaseStatus *create(ChkReader &in);
     BaseStatus(FileType type, ChkReader &in);
+    FileType getType(void) const{ return type; }
   };
 
   class FileStatus : public BaseStatus{
@@ -77,6 +84,7 @@ namespace FileSys {
     static PipeStatus *pipe(void);
     void setOtherEnd(PipeStatus *oe);
     virtual void endReadBlock(void);
+    virtual void endWriteBlock(void);
     virtual void save(ChkWriter &out) const;
     PipeStatus(ChkReader &in);
   };
@@ -165,10 +173,13 @@ namespace FileSys {
     int setfd(int fd, int cloex);
     int getfl(int fd);
     ssize_t read(int fd, void *buf, size_t count);
-    bool willReadBlock(int fd);
-    void addReadBlock(int fd, int pid);
     ssize_t write(int fd, const void *buf, size_t count);
-    int  popReadBlock(int fd);
+    bool willReadBlock(int fd);
+    bool willWriteBlock(int fd);
+    void addReadBlock(int fd, int pid);
+    void addWriteBlock(int fd, int pid);
+    //    int  popReadBlock(int fd);
+    //    int  popWriteBlock(int fd);
     off_t seek(int fd, off_t offset, int whence);
     void save(ChkWriter &out) const;
     OpenFiles(ChkReader &in);

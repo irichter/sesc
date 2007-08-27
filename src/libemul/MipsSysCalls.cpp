@@ -1791,6 +1791,33 @@ namespace Mips {
     if(!context->canRead(buf,count))
       return sysCall32SetErr(context,Mips32_EFAULT);
     ssize_t retVal=context->readMemToFile(buf,count,fd,false);
+    if((retVal==-1)&&(errno==EAGAIN)&&!(context->getOpenFiles()->getfl(fd)&O_NONBLOCK)){
+      // Enable SigIO
+      SignalSet newMask=context->getSignalMask();
+      if(newMask.test(SigIO))
+	fail("sysCall32_write: SigIO masked out, not supported\n");
+      if(context->hasReadySignal()){
+	sysCall32SetErr(context,Mips32_EINTR);
+	SigInfo *sigInfo=context->nextReadySignal();
+	handleSignal(context,sigInfo);
+	return;
+      }
+      context->updIAddr(-inst->aupdate,-1);
+      I(inst==context->getIDesc());
+      I(inst==context->virt2inst(context->getIAddr()));
+      context->getOpenFiles()->addWriteBlock(fd,context->getPid());
+#if (defined DEBUG_SIGNALS)
+      printf("Suspend %d in sysCall32_write(fd=%d)\n",context->getPid(),fd);
+      context->dumpCallStack();
+      printf("Also suspended:");
+      for(PidSet::iterator suspIt=suspSet.begin();suspIt!=suspSet.end();suspIt++)
+	printf(" %d",*suspIt);
+      printf("\n");
+      suspSet.insert(context->getPid());
+#endif
+      context->suspend();
+      return;
+    }
 #ifdef DEBUG_FILES
     printf("[%d] write %d wants %ld gets %ld bytes\n",context->getPid(),fd,count,retVal);
 #endif

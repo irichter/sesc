@@ -85,11 +85,15 @@ enum Mips32_FcntlFlag {
 #include <errno.h>
 // Define Error numbers
 enum Mips32_ErrNums {
-  Mips32_ENOMEM    = 0xc,
   Mips32_EPERM     = 0x1,
-  Mips32_EBADF     = 0x9,
-  Mips32_EFAULT    = 0xe,
   Mips32_ENOENT    = 0x2,
+  Mips32_EINTR     = 0x4,
+  Mips32_ENOEXEC   = 0x8,
+  Mips32_EBADF     = 0x9,
+  Mips32_ECHILD    = 0xa,
+  Mips32_EAGAIN    = 0xb,
+  Mips32_ENOMEM    = 0xc,
+  Mips32_EFAULT    = 0xe,
   Mips32_EEXIST    = 0x11,
   Mips32_EISDIR    = 0x15,
   Mips32_ESPIPE    = 0x1d,
@@ -98,11 +102,8 @@ enum Mips32_ErrNums {
   Mips32_EOVERFLOW = 0x4f,
   Mips32_ENOTTY    = 0x19,
   Mips32_ERANGE    = 0x22,
-  Mips32_EINTR     = 0x4,
   Mips32_ENFILE    = 0x17,
   Mips32_EMFILE    = 0x18,
-  Mips32_ENOEXEC   = 0x8,
-  Mips32_ECHILD    = 0xa,
   Mips32_ENOTDIR   = 0x14,
 };
 #include <signal.h>
@@ -211,7 +212,7 @@ int toNativeMmapProts(int val){
     case Mips32_PROT_READ : retVal+=PROT_READ ; break;
     case Mips32_PROT_WRITE: retVal+=PROT_WRITE; break;
     case Mips32_PROT_EXEC : retVal+=PROT_EXEC ; break;
-    default: fail("Unknown value %d (0x%x)\n",val,val);
+    default: fail("Unknown value %d (0x%x) in file %s line %d\n",val,val,__FILE__,__LINE__);
   }
   val=0;
   I(val==0);
@@ -246,7 +247,7 @@ int toNativeOpenFlags(int val){
     case Mips32_O_RDONLY   : retVal|=O_RDONLY   ; break;
     case Mips32_O_WRONLY   : retVal|=O_WRONLY   ; break;
     case Mips32_O_RDWR     : retVal|=O_RDWR     ; break;
-    default: fail("Unknown value %d (0x%x) for mask Mips32_O_ACCMODE  \n",val,val);
+    default: fail("Unknown value %d (0x%x) for mask Mips32_O_ACCMODE   in file %s line %d\n",val,val,__FILE__,__LINE__);
   }
   val^=(val&Mips32_O_ACCMODE  );
   if(val&Mips32_O_CREAT    ){
@@ -315,7 +316,7 @@ int toNativeFcntlCmd(int val){
     case Mips32_F_SETFD: retVal+=F_SETFD; break;
     case Mips32_F_GETFL: retVal+=F_GETFL; break;
     case Mips32_F_SETFL: retVal+=F_SETFL; break;
-    default: fail("Unknown value %d (0x%x)\n",val,val);
+    default: fail("Unknown value %d (0x%x) in file %s line %d\n",val,val,__FILE__,__LINE__);
   }
   val=0;
   I(val==0);
@@ -335,11 +336,15 @@ int toNativeFcntlFlag(int val){
 int toNativeErrNums(int val){
   int retVal=0;
   switch(val){
-    case Mips32_ENOMEM   : retVal+=ENOMEM   ; break;
     case Mips32_EPERM    : retVal+=EPERM    ; break;
-    case Mips32_EBADF    : retVal+=EBADF    ; break;
-    case Mips32_EFAULT   : retVal+=EFAULT   ; break;
     case Mips32_ENOENT   : retVal+=ENOENT   ; break;
+    case Mips32_EINTR    : retVal+=EINTR    ; break;
+    case Mips32_ENOEXEC  : retVal+=ENOEXEC  ; break;
+    case Mips32_EBADF    : retVal+=EBADF    ; break;
+    case Mips32_ECHILD   : retVal+=ECHILD   ; break;
+    case Mips32_EAGAIN   : retVal+=EAGAIN   ; break;
+    case Mips32_ENOMEM   : retVal+=ENOMEM   ; break;
+    case Mips32_EFAULT   : retVal+=EFAULT   ; break;
     case Mips32_EEXIST   : retVal+=EEXIST   ; break;
     case Mips32_EISDIR   : retVal+=EISDIR   ; break;
     case Mips32_ESPIPE   : retVal+=ESPIPE   ; break;
@@ -348,13 +353,10 @@ int toNativeErrNums(int val){
     case Mips32_EOVERFLOW: retVal+=EOVERFLOW; break;
     case Mips32_ENOTTY   : retVal+=ENOTTY   ; break;
     case Mips32_ERANGE   : retVal+=ERANGE   ; break;
-    case Mips32_EINTR    : retVal+=EINTR    ; break;
     case Mips32_ENFILE   : retVal+=ENFILE   ; break;
     case Mips32_EMFILE   : retVal+=EMFILE   ; break;
-    case Mips32_ENOEXEC  : retVal+=ENOEXEC  ; break;
-    case Mips32_ECHILD   : retVal+=ECHILD   ; break;
     case Mips32_ENOTDIR  : retVal+=ENOTDIR  ; break;
-    default: fail("Unknown value %d (0x%x)\n",val,val);
+    default: fail("Unknown value %d (0x%x) in file %s line %d\n",val,val,__FILE__,__LINE__);
   }
   val=0;
   I(val==0);
@@ -383,7 +385,7 @@ int toNativeSigNums(int val){
     case Mips32_SIGCONT: retVal+=SIGCONT; break;
     case Mips32_SIGSTOP: retVal+=SIGSTOP; break;
     case Mips32_SIGTSTP: retVal+=SIGTSTP; break;
-    default: fail("Unknown value %d (0x%x)\n",val,val);
+    default: fail("Unknown value %d (0x%x) in file %s line %d\n",val,val,__FILE__,__LINE__);
   }
   val=0;
   I(val==0);
@@ -396,7 +398,7 @@ int toNativeSigMaskHow(int val){
     case Mips32_SIG_BLOCK: retVal+=SIG_BLOCK; break;
     case Mips32_SIG_UNBLOCK: retVal+=SIG_UNBLOCK; break;
     case Mips32_SIG_SETMASK: retVal+=SIG_SETMASK; break;
-    default: fail("Unknown value %d (0x%x)\n",val,val);
+    default: fail("Unknown value %d (0x%x) in file %s line %d\n",val,val,__FILE__,__LINE__);
   }
   val=0;
   I(val==0);
@@ -423,7 +425,7 @@ int toNativeStdFileNums(int val){
     case Mips32_STDIN_FILENO : retVal+=STDIN_FILENO ; break;
     case Mips32_STDOUT_FILENO: retVal+=STDOUT_FILENO; break;
     case Mips32_STDERR_FILENO: retVal+=STDERR_FILENO; break;
-    default: fail("Unknown value %d (0x%x)\n",val,val);
+    default: fail("Unknown value %d (0x%x) in file %s line %d\n",val,val,__FILE__,__LINE__);
   }
   val=0;
   I(val==0);
@@ -436,7 +438,7 @@ int toNativeWhenceFlags(int val){
     case Mips32_SEEK_SET: retVal+=SEEK_SET; break;
     case Mips32_SEEK_END: retVal+=SEEK_END; break;
     case Mips32_SEEK_CUR: retVal+=SEEK_CUR; break;
-    default: fail("Unknown value %d (0x%x)\n",val,val);
+    default: fail("Unknown value %d (0x%x) in file %s line %d\n",val,val,__FILE__,__LINE__);
   }
   val=0;
   I(val==0);
@@ -450,7 +452,7 @@ int fromNativeMmapProts(int val){
     case PROT_READ : retVal+=Mips32_PROT_READ ; break;
     case PROT_WRITE: retVal+=Mips32_PROT_WRITE; break;
     case PROT_EXEC : retVal+=Mips32_PROT_EXEC ; break;
-    default: fail("Unknown value %d (0x%x)\n",val,val);
+    default: fail("Unknown value %d (0x%x) in file %s line %d\n",val,val,__FILE__,__LINE__);
   }
   val=0;
   I(val==0);
@@ -473,7 +475,7 @@ int fromNativeOpenFlags(int val){
     case O_RDONLY   : retVal|=Mips32_O_RDONLY   ; break;
     case O_WRONLY   : retVal|=Mips32_O_WRONLY   ; break;
     case O_RDWR     : retVal|=Mips32_O_RDWR     ; break;
-    default: fail("Unknown value %d (0x%x) for mask O_ACCMODE  \n",val,val);
+    default: fail("Unknown value %d (0x%x) for mask O_ACCMODE   in file %s line %d\n",val,val,__FILE__,__LINE__);
   }
   val^=(val&O_ACCMODE  );
   if(val&O_CREAT    ){ retVal|=Mips32_O_CREAT    ; val^=O_CREAT    ; }
@@ -506,7 +508,7 @@ int fromNativeFcntlCmd(int val){
     case F_SETFD: retVal+=Mips32_F_SETFD; break;
     case F_GETFL: retVal+=Mips32_F_GETFL; break;
     case F_SETFL: retVal+=Mips32_F_SETFL; break;
-    default: fail("Unknown value %d (0x%x)\n",val,val);
+    default: fail("Unknown value %d (0x%x) in file %s line %d\n",val,val,__FILE__,__LINE__);
   }
   val=0;
   I(val==0);
@@ -523,11 +525,15 @@ int fromNativeFcntlFlag(int val){
 int fromNativeErrNums(int val){
   int retVal=0;
   switch(val){
-    case ENOMEM   : retVal+=Mips32_ENOMEM   ; break;
     case EPERM    : retVal+=Mips32_EPERM    ; break;
-    case EBADF    : retVal+=Mips32_EBADF    ; break;
-    case EFAULT   : retVal+=Mips32_EFAULT   ; break;
     case ENOENT   : retVal+=Mips32_ENOENT   ; break;
+    case EINTR    : retVal+=Mips32_EINTR    ; break;
+    case ENOEXEC  : retVal+=Mips32_ENOEXEC  ; break;
+    case EBADF    : retVal+=Mips32_EBADF    ; break;
+    case ECHILD   : retVal+=Mips32_ECHILD   ; break;
+    case EAGAIN   : retVal+=Mips32_EAGAIN   ; break;
+    case ENOMEM   : retVal+=Mips32_ENOMEM   ; break;
+    case EFAULT   : retVal+=Mips32_EFAULT   ; break;
     case EEXIST   : retVal+=Mips32_EEXIST   ; break;
     case EISDIR   : retVal+=Mips32_EISDIR   ; break;
     case ESPIPE   : retVal+=Mips32_ESPIPE   ; break;
@@ -536,13 +542,10 @@ int fromNativeErrNums(int val){
     case EOVERFLOW: retVal+=Mips32_EOVERFLOW; break;
     case ENOTTY   : retVal+=Mips32_ENOTTY   ; break;
     case ERANGE   : retVal+=Mips32_ERANGE   ; break;
-    case EINTR    : retVal+=Mips32_EINTR    ; break;
     case ENFILE   : retVal+=Mips32_ENFILE   ; break;
     case EMFILE   : retVal+=Mips32_EMFILE   ; break;
-    case ENOEXEC  : retVal+=Mips32_ENOEXEC  ; break;
-    case ECHILD   : retVal+=Mips32_ECHILD   ; break;
     case ENOTDIR  : retVal+=Mips32_ENOTDIR  ; break;
-    default: fail("Unknown value %d (0x%x)\n",val,val);
+    default: fail("Unknown value %d (0x%x) in file %s line %d\n",val,val,__FILE__,__LINE__);
   }
   val=0;
   I(val==0);
@@ -571,7 +574,7 @@ int fromNativeSigNums(int val){
     case SIGCONT: retVal+=Mips32_SIGCONT; break;
     case SIGSTOP: retVal+=Mips32_SIGSTOP; break;
     case SIGTSTP: retVal+=Mips32_SIGTSTP; break;
-    default: fail("Unknown value %d (0x%x)\n",val,val);
+    default: fail("Unknown value %d (0x%x) in file %s line %d\n",val,val,__FILE__,__LINE__);
   }
   val=0;
   I(val==0);
@@ -584,7 +587,7 @@ int fromNativeSigMaskHow(int val){
     case SIG_BLOCK: retVal+=Mips32_SIG_BLOCK; break;
     case SIG_UNBLOCK: retVal+=Mips32_SIG_UNBLOCK; break;
     case SIG_SETMASK: retVal+=Mips32_SIG_SETMASK; break;
-    default: fail("Unknown value %d (0x%x)\n",val,val);
+    default: fail("Unknown value %d (0x%x) in file %s line %d\n",val,val,__FILE__,__LINE__);
   }
   val=0;
   I(val==0);
@@ -605,7 +608,7 @@ int fromNativeStdFileNums(int val){
     case STDIN_FILENO : retVal+=Mips32_STDIN_FILENO ; break;
     case STDOUT_FILENO: retVal+=Mips32_STDOUT_FILENO; break;
     case STDERR_FILENO: retVal+=Mips32_STDERR_FILENO; break;
-    default: fail("Unknown value %d (0x%x)\n",val,val);
+    default: fail("Unknown value %d (0x%x) in file %s line %d\n",val,val,__FILE__,__LINE__);
   }
   val=0;
   I(val==0);
@@ -618,7 +621,7 @@ int fromNativeWhenceFlags(int val){
     case SEEK_SET: retVal+=Mips32_SEEK_SET; break;
     case SEEK_END: retVal+=Mips32_SEEK_END; break;
     case SEEK_CUR: retVal+=Mips32_SEEK_CUR; break;
-    default: fail("Unknown value %d (0x%x)\n",val,val);
+    default: fail("Unknown value %d (0x%x) in file %s line %d\n",val,val,__FILE__,__LINE__);
   }
   val=0;
   I(val==0);
