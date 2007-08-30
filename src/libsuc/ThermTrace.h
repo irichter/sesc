@@ -72,6 +72,8 @@ class ThermTrace {
  public:
   ThermTrace(const char *input_file);
 
+  bool is_ready() const { return input_fd_>=0; }
+
   bool read_energy();
   
   float get_energy(size_t pos) const {

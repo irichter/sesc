@@ -32,7 +32,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "Epoch.h"
 #endif
 
-pool<DInst> DInst::dInstPool(512, "DInst");
+pool<DInst> DInst::dInstPool(256, "DInst");
 
 #ifdef DEBUG
 int DInst::currentID=0;
@@ -93,7 +93,12 @@ DInst::DInst()
   pend[1].init(this);
   I(MAX_PENDING_SOURCES==2);
   nDeps = 0;
-
+#ifdef DINST_TRACK_PHYS
+  static ushort max_preg = 1;
+  preg = max_preg++;
+  GMSG(max_preg>1024,"WARNING: Too many physical register created [%d]",max_preg);
+#endif
+  
 #ifdef SESC_BAAD
   if (avgFetch1QTime == 0) {
     int maxType = static_cast<int>(MaxInstType);
@@ -277,6 +282,10 @@ DInst *DInst::createDInst(const Instruction *inst, VAddr va, int cId)
 
   i->pend[0].isUsed = false;
   i->pend[1].isUsed = false;
+#ifdef DINST_TRACK_PHYS
+  i->pend[0].preg = 0;
+  i->pend[1].preg = 0;
+#endif
     
   return i;
 }
@@ -665,6 +674,7 @@ void DInst::setRetireTime()
 #if 0
   int pc = inst->getAddr();
   if (pc) {
+#ifdef BAAD
     printf("BAAD: fetch1T=%lld fetch2T=%lld renameT=%lld exeT=%lld retireT=%lld wp=%d pc=0x%x op=%d src1=%d src2=%d dest=%u "
            ,fetch1Time
            ,fetch2Time
@@ -682,6 +692,30 @@ void DInst::setRetireTime()
       printf(" missBr");
     else
       printf(" noMiss");
+#else
+    printf("TR: %lld dest=%3d src1=%3d src2=%3d lat=%3d "
+	   ,renameTime
+           ,preg, pend[0].preg, pend[1].preg
+           ,(int)(exeTime-schedTime));
+
+    if (inst->getOpcode() == iALU)
+      printf(" unit=0");
+    else if (inst->getOpcode() == iMult)
+      printf(" unit=1");
+    else if (inst->getOpcode() == iDiv)
+      printf(" unit=1");
+    else if (inst->getOpcode() == iBJ)
+      printf(" unit=2");
+    else if (inst->getOpcode() == iLoad)
+      printf(" unit=3");
+    else if (inst->getOpcode() == iStore)
+      printf(" unit=3");
+    else
+      printf(" unit=1");
+
+    if (getFetch())
+      printf(" FLUSH");
+#endif
 
     printf("\n");
   }

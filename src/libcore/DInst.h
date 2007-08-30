@@ -50,6 +50,8 @@ class FetchEngine;
 class FReg;
 class BPredictor;
 
+#define DINST_TRACK_PHYS 1
+
 // FIXME: do a nice class. Not so public
 class DInstNext {
  private:
@@ -64,6 +66,10 @@ class DInstNext {
 
   DInstNext *nextDep;
   bool       isUsed; // true while non-satisfied RAW dependence
+#ifdef DINST_TRACK_PHYS
+  ushort preg;
+#endif
+
   const DInstNext *getNext() const { return nextDep; }
   DInstNext *getNext() { return nextDep; }
   void setNextDep(DInstNext *n) {
@@ -125,6 +131,9 @@ private:
   Time_t wakeUpTime;
   // END Time counters
 
+#ifdef DINST_TRACK_PHYS
+  ushort preg;
+#endif
 #ifdef SESC_BAAD
   static int fetch1QSize;
   static int fetch2QSize;
@@ -362,6 +371,9 @@ private:
     DInstNext *n = &d->pend[0];
     I(!n->isUsed);
     n->isUsed = true;
+#ifdef DINST_TRACK_PHYS
+    n->preg = preg;
+#endif
     n->setParentDInst(this);
 
     I(n->getDInst() == d);
@@ -383,6 +395,9 @@ private:
     DInstNext *n = &d->pend[1];
     I(!n->isUsed);
     n->isUsed = true;
+#ifdef DINST_TRACK_PHYS
+    n->preg = preg;
+#endif
     n->setParentDInst(this);
 
     I(n->getDInst() == d);
@@ -405,6 +420,9 @@ private:
     DInstNext *n = &d->pend[1];
     I(!n->isUsed);
     n->isUsed = true;
+#ifdef DINST_TRACK_PHYS
+    n->preg = preg;
+#endif
     n->setParentDInst(this);
 
     I(n->getDInst() == d);

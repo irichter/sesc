@@ -123,10 +123,10 @@ void parseConfigFile() {
 
   thermal_config.block_omit_lateral = 0;			/* omit lateral chip resistances?	*/
   
-#if 0
+#if 1
   /* set grid model as default	*/
-  thermal_config.grid_rows = 160;				/* grid resolution - no. of rows	*/
-  thermal_config.grid_cols = 160;				/* grid resolution - no. of cols	*/
+  thermal_config.grid_rows = 20;				/* grid resolution - no. of rows	*/
+  thermal_config.grid_cols = 20;				/* grid resolution - no. of cols	*/
   strcpy(thermal_config.model_type, GRID_MODEL_STR);
 #endif
 

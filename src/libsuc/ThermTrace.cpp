@@ -62,8 +62,8 @@ void ThermTrace::read_sesc_variable(const char *input_file) {
 
   input_fd_ = open(input_file, O_RDONLY, S_IRUSR);
   if (input_fd_ <0 ) {
-    MSG("Error: Impossible to open input file %s",input_file);
-    exit(2);
+    MSG("Warning: Impossible to open input file %s",input_file);
+    return;
   }
 
   char buffer=0;
@@ -88,12 +88,9 @@ void ThermTrace::read_sesc_variable(const char *input_file) {
     exit(2);
   }
 
-  for(size_t j=0; j<sesc_variable.size(); j++) {
-    LOG("variable[%d]=[%s] ",j, sesc_variable[j]);
-  }
-
   mapping.resize(sesc_variable.size());
   for(size_t j=0; j<sesc_variable.size(); j++) {
+    LOG("variable[%d]=[%s] ",j, sesc_variable[j]);
     mapping[j].name = strdup(sesc_variable[j]);
   }
 }
@@ -200,10 +197,11 @@ void ThermTrace::read_floorplan_mapping() {
 ThermTrace::ThermTrace(const char *input_file)
   : input_file_(strdup(input_file?input_file:"")) {
 	
-    if( input_file)
-      read_sesc_variable(input_file);
+  if( input_file) {
+    read_sesc_variable(input_file);
+  }
     
-    read_floorplan_mapping();
+  read_floorplan_mapping();
 }
 
 void ThermTrace::dump() const {
@@ -221,6 +219,8 @@ void ThermTrace::dump() const {
 bool ThermTrace::read_energy() {
 
   float buffer[mapping.size()];
+
+  I(input_fd_>=0);
 
   int s = read(input_fd_, 
 	       buffer, 

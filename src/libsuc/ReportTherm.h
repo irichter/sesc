@@ -50,7 +50,7 @@ public:
   static void flush();
   static void stopCB();
   static void report();
-  static StaticCallbackFunction0<report> reportCB;
+  static StaticCallbackFunction0<ReportTherm::report> reportCB;
 };
 
 // Report::field("bla bla bla:",a);
