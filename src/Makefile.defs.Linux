@@ -72,9 +72,10 @@ VendorId:=$(word $(words $(VendorId)),$(VendorId))
 ifeq ($(VendorId),GenuineIntel)
   # Intel's only x86-64 option is nocona
   ifeq ($(shell uname -p),x86_64)
-    OptArch := -march=nocona
     ifdef SESC_32BIT
-      OptArch += -m32
+      OptArch += -m32 -march=i386
+    else
+      OptArch := -march=nocona
     endif
   endif
 endif

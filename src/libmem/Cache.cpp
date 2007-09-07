@@ -5,6 +5,7 @@
    Contributed by Luis Ceze
                   Jose Renau
                   Karin Strauss
+		  Milos Prvulovic
 
 This file is part of SESC.
 
@@ -88,9 +89,9 @@ Cache::Cache(MemorySystem *gms, const char *section, const char *name)
   if(SescConf->checkInt(section, "nMSHRsharers"))
     nMSHRsharers = SescConf->getInt(section, "nMSHRsharers");
 
-  nAccesses = (GStatsCntr **) malloc(nBanks * sizeof(GStatsCntr *));
-  cacheBanks = (CacheType **) malloc(nBanks * sizeof(CacheType*));
-  bankMSHRs  = (MSHR<PAddr,Cache> **) malloc(nBanks * sizeof(MSHR<PAddr,Cache>*));
+  nAccesses = new GStatsCntr *[nBanks];
+  cacheBanks = new CacheType *[nBanks];
+  bankMSHRs  = new MSHR<PAddr,Cache> *[nBanks];
 
   const char* mshrSection = SescConf->getCharPtr(section,"MSHR");
 
@@ -149,8 +150,8 @@ Cache::Cache(MemorySystem *gms, const char *section, const char *name)
   }
 
   cachePort = PortGeneric::create(name, cacheNumPorts, cachePortOccp);
-  bankPorts = (PortGeneric **) malloc(nBanks * sizeof(PortGeneric*));
-  mshrPorts = (PortGeneric **) malloc(nBanks * sizeof(PortGeneric*));
+  bankPorts = new PortGeneric *[nBanks];
+  mshrPorts = new PortGeneric *[nBanks];
 
   for(int b = 0; b < nBanks; b++) {
     sprintf(tmpName, "%s_B%d", name, b);
@@ -202,7 +203,13 @@ Cache::Cache(MemorySystem *gms, const char *section, const char *name)
 
 Cache::~Cache()
 {
-  // nothing to do
+  delete [] nAccesses;
+  for(int b = 0; b < nBanks; b++)
+    cacheBanks[b]->destroy();
+  delete [] cacheBanks;
+  delete [] bankMSHRs;
+  delete [] bankPorts;
+  delete [] mshrPorts;
 }
 
 void Cache::access(MemRequest *mreq) 

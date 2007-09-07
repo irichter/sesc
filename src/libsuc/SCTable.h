@@ -4,6 +4,7 @@
 
    Contributed by Jose Renau
                   Luis Ceze
+		  Milos Prvulovic
 
 This file is part of SESC.
 
@@ -36,7 +37,7 @@ private:
  protected:
  public:
   SCTable(int id, const char *str, size_t size, uchar bits=2);
-
+  ~SCTable(void);
   void clear(ulong cid); // Bias to not-taken
   void reset(ulong cid, bool taken);
   bool predict(ulong cid, bool taken); // predict and update

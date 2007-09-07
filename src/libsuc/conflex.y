@@ -10,10 +10,13 @@
 #else
 #include "Config.h"
 #endif
+#include <string>
+  using std::string;
 
   extern int CFlineno; /* Defined in conflex.l */
 
-  const char *blockName=""; /* No name by default */
+  string blockName("");
+  //  const char *blockName=""; /* No name by default */
 
   Config *configptr;
   bool errorFound = false;
@@ -29,7 +32,7 @@
   bool Bool;
   int  Int;
   double Double;
-  const char *CharPtr;
+  char *CharPtr;
 }
 
 %type <Bool>    CFBOOL
@@ -69,43 +72,43 @@ initial: /* empty */
 
 
 rules:
- CFOB CFNAME CFCB  { blockName=$2; }
+CFOB CFNAME CFCB  { blockName=$2; free($2); }
 |
-CFNAME CFEQUAL texp    { configptr->addRecord(blockName,$1,$3); }
+ CFNAME CFEQUAL texp    { configptr->addRecord(blockName.c_str(),$1,$3); free($1); free($3); }
 |
- CFNAME CFEQUAL CFQSTRING { configptr->addRecord(blockName,$1,$3); }
+ CFNAME CFEQUAL CFQSTRING { configptr->addRecord(blockName.c_str(),$1,$3); free($1); free($3); }
 |
- CFNAME CFEQUAL CFNAME    { configptr->addRecord(blockName,$1,$3); }
+ CFNAME CFEQUAL CFNAME    { configptr->addRecord(blockName.c_str(),$1,$3); free($1); free($3); }
 |
- CFNAME CFEQUAL CFBOOL    { configptr->addRecord(blockName,$1,$3); }
+ CFNAME CFEQUAL CFBOOL    { configptr->addRecord(blockName.c_str(),$1,$3); free($1); }
 |
- CFNAME CFEQUAL lexp      { configptr->addRecord(blockName,$1,$3); }
+ CFNAME CFEQUAL lexp      { configptr->addRecord(blockName.c_str(),$1,$3); free($1); }
 |
- CFNAME CFEQUAL dexp      { configptr->addRecord(blockName,$1,$3); }
+ CFNAME CFEQUAL dexp      { configptr->addRecord(blockName.c_str(),$1,$3); free($1); }
 |
- CFNAME CFOB lexp CFCB CFEQUAL CFQSTRING { configptr->addVRecord(blockName,$1,$6,$3,$3); }
+ CFNAME CFOB lexp CFCB CFEQUAL CFQSTRING { configptr->addVRecord(blockName.c_str(),$1,$6,$3,$3); free($1); free($6); }
 |
- CFNAME CFOB lexp CFCB CFEQUAL lexp      { configptr->addVRecord(blockName,$1,$6,$3,$3); }
+ CFNAME CFOB lexp CFCB CFEQUAL lexp      { configptr->addVRecord(blockName.c_str(),$1,$6,$3,$3); free($1); }
 |
- CFNAME CFOB lexp CFCB CFEQUAL dexp      { configptr->addVRecord(blockName,$1,$6,$3,$3); }
+ CFNAME CFOB lexp CFCB CFEQUAL dexp      { configptr->addVRecord(blockName.c_str(),$1,$6,$3,$3); free($1); }
 |
- CFNAME CFOB lexp CFCB CFEQUAL CFBOOL      { configptr->addVRecord(blockName,$1,$6,$3,$3); }
+ CFNAME CFOB lexp CFCB CFEQUAL CFBOOL      { configptr->addVRecord(blockName.c_str(),$1,$6,$3,$3); free($1); }
 |
- CFNAME CFOB lexp CFDDOT lexp CFCB CFEQUAL CFQSTRING { configptr->addVRecord(blockName,$1,$8,$3,$5); }
+ CFNAME CFOB lexp CFDDOT lexp CFCB CFEQUAL CFQSTRING { configptr->addVRecord(blockName.c_str(),$1,$8,$3,$5); free($1); free($8); }
 |
- CFNAME CFOB lexp CFDDOT lexp CFCB CFEQUAL lexp { configptr->addVRecord(blockName,$1,$8,$3,$5); }
+ CFNAME CFOB lexp CFDDOT lexp CFCB CFEQUAL lexp { configptr->addVRecord(blockName.c_str(),$1,$8,$3,$5); free($1); }
 |
- CFNAME CFOB lexp CFDDOT lexp CFCB CFEQUAL dexp { configptr->addVRecord(blockName,$1,$8,$3,$5); }
+ CFNAME CFOB lexp CFDDOT lexp CFCB CFEQUAL dexp { configptr->addVRecord(blockName.c_str(),$1,$8,$3,$5); free($1); }
 |
- CFNAME CFOB lexp CFDDOT lexp CFCB CFEQUAL CFBOOL { configptr->addVRecord(blockName,$1,$8,$3,$5); }
+CFNAME CFOB lexp CFDDOT lexp CFCB CFEQUAL CFBOOL { configptr->addVRecord(blockName.c_str(),$1,$8,$3,$5); free($1); }
 ;
 
 
-texp:  CFSTRNAMEREF            { $$ = configptr->getCharPtr("",$1); configptr->isCharPtr("",$1); }
+texp:  CFSTRNAMEREF            { $$ = strdup(configptr->getCharPtr("",$1)); configptr->isCharPtr("",$1); free($1); }
 ;
 
 lexp:     CFLONG               { $$ = $1; }
-        | CFNAMEREF            { $$ = configptr->getInt("",$1); configptr->isInt("",$1); }
+        | CFNAMEREF            { $$ = configptr->getInt("",$1); configptr->isInt("",$1); free($1) }
         | lexp CFPLUS  lexp    { $$ = $1 + $3;    }
         | lexp CFMINUS lexp    { $$ = $1 - $3;    }
         | lexp CFMULT  lexp    { $$ = $1 * $3;    }

@@ -5,6 +5,7 @@
    Contributed by Jose Renau
                   Luis Ceze
                   Karin Strauss
+		  Milos Prvulovic
 
 This file is part of SESC.
 
@@ -54,6 +55,9 @@ GProcessor::GProcessor(GMemorySystem *gm, CPU_t i, size_t numFlows)
   ,lsq(this, i)
   ,clusterManager(gm, this)
   ,robUsed("Proc(%d)_robUsed", i)
+#if (defined DEBUG)
+  ,prevDInstID(0)
+#endif
   ,noFetch("Processor(%d)_noFetch", i)
   ,noFetch2("Processor(%d)_noFetch2", i)
   ,retired("ExeEngine(%d)_retired", i)
@@ -222,6 +226,14 @@ GProcessor::GProcessor(GMemorySystem *gm, CPU_t i, size_t numFlows)
 
 GProcessor::~GProcessor()
 {
+  delete renameEnergy;
+  delete robEnergy;
+  delete wrRegEnergy[0];
+  delete wrRegEnergy[1];
+  delete wrRegEnergy[2];
+  delete rdRegEnergy[0];
+  delete rdRegEnergy[1];
+  delete rdRegEnergy[2];
 }
 
 

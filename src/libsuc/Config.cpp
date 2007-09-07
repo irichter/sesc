@@ -5,6 +5,7 @@
    Contributed by Jose Renau
                   Basilio Fraguela
                   Smruti Sarangi
+		  Milos Prvulovic
 
 This file is part of SESC.
 
@@ -31,6 +32,10 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "Config.h"
 #include "ReportGen.h"
 
+Config::Record::~Record(void){
+  if(type==RCCharPtr)
+    free(v.CharPtr);
+}
 Config::Record::Record(bool val)
   : env(false)
     ,used(false)
@@ -70,7 +75,7 @@ Config::Record::Record(const char *val)
    ,printed(false)
 {
   type = RCCharPtr;
-  v.CharPtr = val;
+  v.CharPtr = strdup(val);
   X=0;
   Y=0;
 }
@@ -114,7 +119,7 @@ Config::Record::Record(const char *val, int x, int y)
    ,printed(false)
 {
   type = RCCharPtr;
-  v.CharPtr = val;
+  v.CharPtr = strdup(val);
   X=x;
   Y=y;
 }
@@ -191,8 +196,9 @@ Config::~Config(void)
 {
   hashRecord_t::iterator hiter = hashRecord.begin();
 
-  for(; hiter != hashRecord.end(); hiter++)
+  for(; hiter != hashRecord.end(); hiter++){
     delete hiter->second;   // Record *
+  }
 
   free((void *)fpname);
   free((void *)envstart);
@@ -200,10 +206,7 @@ Config::~Config(void)
 
 ssize_t Config::getRecordMin(const char *block, const char *name) const
 {
-  KeyIndex key;
-
-  key.s1 = block;
-  key.s2 = name;
+  KeyIndex key(block,name);
 
   ssize_t min=LONG_MAX;
   typedef hashRecord_t::const_iterator I;
@@ -220,10 +223,7 @@ ssize_t Config::getRecordMin(const char *block, const char *name) const
 
 ssize_t Config::getRecordMax(const char *block, const char *name) const
 {
-  KeyIndex key;
-
-  key.s1 = block;
-  key.s2 = name;
+  KeyIndex key(block,name);
 
   ssize_t min=0;
   typedef hashRecord_t::const_iterator I;
@@ -240,10 +240,7 @@ const Config::Record * Config::getRecord(const char *block,
                                          const char *name,
 													  int vectorPos)
 {
-  KeyIndex key;
-
-  key.s1 = block;
-  key.s2 = name;
+  KeyIndex key(block,name);
 
   typedef hashRecord_t::const_iterator I;
   std::pair<I,I> b = hashRecord.equal_range(key);
@@ -269,10 +266,7 @@ void Config::addRecord(const char *block,
                        const char *name,
                        Config::Record * rec)
 {
-  KeyIndex key;
-
-  key.s1 = strdup(block);
-  key.s2 = strdup(name);
+  KeyIndex key(block,name);
 
   std::pair< const KeyIndex, Config::Record * >entry(key, rec);
 
@@ -297,7 +291,7 @@ void Config::addRecord(const char *block,
           && rec->getVectorFirst() <= pos->second->getVectorLast() )
       ) {
       MSG("Config:: overlap between %s[%d:%d] and %s[%d:%d] in section %s"
-          ,pos->first.s2,pos->second->getVectorFirst(),pos->second->getVectorLast()
+          ,pos->first.s2.c_str(),pos->second->getVectorFirst(),pos->second->getVectorLast()
           ,name,rec->getVectorFirst(),rec->getVectorLast()
           ,block);
       errorReading = true;
@@ -677,15 +671,15 @@ void Config::dump(bool showAll)
       if(hiter->second->isPrinted())  // Already printed
         continue;
 
-      if(strcmp(hiter->first.s1, ""))
+      if(hiter->first.s1.empty())
         continue;
 
       hiter->second->setPrinted();
 
       if(hiter->second->isEnv())
-        hiter->second->dump(hiter->first.s2, " # Environment Variable");
+        hiter->second->dump(hiter->first.s2.c_str(), " # Environment Variable");
       else
-        hiter->second->dump(hiter->first.s2, "");
+        hiter->second->dump(hiter->first.s2.c_str(), "");
 
     }
 
@@ -699,19 +693,19 @@ void Config::dump(bool showAll)
         continue;
 
       if(block == 0) {
-        block = hiter->first.s1;
+        block = hiter->first.s1.c_str();
         Report::field("[%s]", block);
       }
 
-      if(strcmp(hiter->first.s1, block))
+      if(strcmp(hiter->first.s1.c_str(), block))
         continue;
 
       hiter->second->setPrinted();
 
       if(hiter->second->isEnv())
-        hiter->second->dump(hiter->first.s2, " # Environment Variable\n");
+        hiter->second->dump(hiter->first.s2.c_str(), " # Environment Variable\n");
       else
-        hiter->second->dump(hiter->first.s2, "");
+        hiter->second->dump(hiter->first.s2.c_str(), "");
     }
   } while (block);
 
@@ -1047,10 +1041,8 @@ bool Config::isInList(const char *block,
 
 void Config::updateRecord(const char *block, const char *name, double v,int vectorPos)
 {
-  KeyIndex key;
+  KeyIndex key(block,name);
 
-  key.s1 = block;
-  key.s2 = name;
   Record *rec = NULL ;
 
   typedef hashRecord_t::const_iterator I;
@@ -1072,10 +1064,8 @@ void Config::updateRecord(const char *block, const char *name, double v,int vect
 
 void Config::updateRecord(const char *block, const char *name, const char *val, int vectorPos)
 {
-  KeyIndex key;
+  KeyIndex key(block,name);
 
-  key.s1 = block;
-  key.s2 = name;
   Record *rec = NULL ;
 
   typedef hashRecord_t::const_iterator I;
@@ -1104,7 +1094,7 @@ void Config::getAllSections(std::vector<char *>& sections)
     std::pair<KeyIndex,Record *> t = *u;
     KeyIndex k = t.first;
     
-    const char *block = k.s1;
+    const char *block = k.s1.c_str();
 
     // check if it is there
     bool exists = false;

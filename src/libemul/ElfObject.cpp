@@ -1,3 +1,24 @@
+/* 
+   SESC: Super ESCalar simulator
+   Copyright (C) 2003 University of Illinois.
+
+   Contributed by Milos Prvulovic
+
+This file is part of SESC.
+
+SESC is free software; you can redistribute it and/or modify it under the terms
+of the GNU General Public License as published by the Free Software Foundation;
+either version 2, or (at your option) any later version.
+
+SESC is    distributed in the  hope that  it will  be  useful, but  WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+
+You should  have received a copy of  the GNU General  Public License along with
+SESC; see the file COPYING.  If not, write to the  Free Software Foundation, 59
+Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+*/
+
 #include "ElfObject.h"
 
 #include <elf.h>
@@ -210,9 +231,9 @@ void loadElfObject(const char *fname, ThreadContext *threadContext){
     cvtEndian(mySecHdr,byteOrder);
     if(mySecHdr.sh_type!=SHT_STRTAB)
       fail("Section table entry for section name string table is not of SHT_STRTAB type in ELF file %s",myfname);
-    if(lseek(fd,mySecHdr.sh_offset,SEEK_SET)!=mySecHdr.sh_offset)
+    if(lseek(fd,mySecHdr.sh_offset,SEEK_SET)==(off_t)-1)
       fail("Could not seek to section name string table in ELF file %s",myfname);
-    secNamTab=(char *)malloc(mySecHdr.sh_size);
+    secNamTab= new char[mySecHdr.sh_size];
     if(read(fd,secNamTab,mySecHdr.sh_size)!=ssize_t(mySecHdr.sh_size))
       fail("Could not read the section name string table in ELF file %s",myfname);
   }
@@ -245,12 +266,12 @@ void loadElfObject(const char *fname, ThreadContext *threadContext){
 	cvtEndian(myStrSecHdr,byteOrder);
 	if(myStrSecHdr.sh_type!=SHT_STRTAB)
 	  fail("SYMTAB section %d links to non-STRTAB section %d in ELF file %s",secTabIdx,strTabSec,myfname);
-	if(lseek(fd,myStrSecHdr.sh_offset,SEEK_SET)!=myStrSecHdr.sh_offset)
+	if(lseek(fd,myStrSecHdr.sh_offset,SEEK_SET)==(off_t)-1)
 	  fail("Could not seek to string table for SYMTAB section %d in ELF file %s",secTabIdx,myfname);
 	char *strTab=(char *)malloc(myStrSecHdr.sh_size);
 	if(read(fd,strTab,myStrSecHdr.sh_size)!=ssize_t(myStrSecHdr.sh_size))
 	  fail("Could not read string table for SYMTAB section %d in ELF file %s",secTabIdx,myfname);
-	if(lseek(fd,symTabOffs,SEEK_SET)!=symTabOffs)
+	if(lseek(fd,symTabOffs,SEEK_SET)==(off_t)-1)
 	  fail("Could not seek to symbol table for section %d in ELF file %s",secTabIdx,myfname);
 	for(uint64_t symTabIdx=0;symTabIdx<symTabSize/sizeof(Elf32_Sym);symTabIdx++){
 	  Elf32_Sym mySym;
@@ -325,7 +346,7 @@ void loadElfObject(const char *fname, ThreadContext *threadContext){
 	  I(addrSpace->isNoSegment(mySecHdr.sh_addr,mySecHdr.sh_size));
 	  addrSpace->newSegment(mySecHdr.sh_addr,mySecHdr.sh_size,false,true,false);
 	  if(mySecHdr.sh_type==SHT_PROGBITS){
-	    if(lseek(fd,mySecHdr.sh_offset,SEEK_SET)!=mySecHdr.sh_offset)
+	    if(lseek(fd,mySecHdr.sh_offset,SEEK_SET)==(off_t)-1)
 	      fail("Couldn't seek to a SHT_PROGBITS section in ELF file %s",myfname);
 	    if(threadContext->writeMemFromFile(mySecHdr.sh_addr,mySecHdr.sh_size,fd,true)!=ssize_t(mySecHdr.sh_size))
 	      fail("Could not read a SHT_PROGBITS section from ELF file %s",myfname);
@@ -366,6 +387,7 @@ void loadElfObject(const char *fname, ThreadContext *threadContext){
     }
     addrSpace->setBrkBase(brkPos);
   }
+  delete [] secNamTab;
   close(fd);
   
   // Set instruction pointer to the program entry point

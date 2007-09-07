@@ -1,3 +1,24 @@
+/* 
+   SESC: Super ESCalar simulator
+   Copyright (C) 2003 University of Illinois.
+
+   Contributed by Milos Prvulovic
+
+This file is part of SESC.
+
+SESC is free software; you can redistribute it and/or modify it under the terms
+of the GNU General Public License as published by the Free Software Foundation;
+either version 2, or (at your option) any later version.
+
+SESC is    distributed in the  hope that  it will  be  useful, but  WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+
+You should  have received a copy of  the GNU General  Public License along with
+SESC; see the file COPYING.  If not, write to the  Free Software Foundation, 59
+Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+*/
+
 #include "X86InstDesc.h"
 #include "ThreadContext.h"
 
@@ -122,17 +143,17 @@ namespace X86{
     curAddr+=sizeof(uint8_t);
     switch(opbyte){
     case 0x26: // Prefix SEG=ES
-      I(segReg==DegDf); return decodeInstSize1<SegES>(context,funcAddr,curAddr,endAddr,tsize,false);
+      I(segReg==SegDf); return decodeInstSize1<SegES>(context,funcAddr,curAddr,endAddr,tsize,false);
     case 0x2E: // Prefix SEG=CS
-      I(segReg==DegDf); return decodeInstSize1<SegCS>(context,funcAddr,curAddr,endAddr,tsize,false);
+      I(segReg==SegDf); return decodeInstSize1<SegCS>(context,funcAddr,curAddr,endAddr,tsize,false);
     case 0x36: // Prefix SEG=SS
-      I(segReg==DegDf); return decodeInstSize1<SegSS>(context,funcAddr,curAddr,endAddr,tsize,false);
+      I(segReg==SegDf); return decodeInstSize1<SegSS>(context,funcAddr,curAddr,endAddr,tsize,false);
     case 0x3E: // Prefix SEG=DS
-      I(segReg==DegDf); return decodeInstSize1<SegDS>(context,funcAddr,curAddr,endAddr,tsize,false);
+      I(segReg==SegDf); return decodeInstSize1<SegDS>(context,funcAddr,curAddr,endAddr,tsize,false);
     case 0x64: // Prefix SEG=FS
-      I(segReg==DegDf); return decodeInstSize1<SegFS>(context,funcAddr,curAddr,endAddr,tsize,false);
+      I(segReg==SegDf); return decodeInstSize1<SegFS>(context,funcAddr,curAddr,endAddr,tsize,false);
     case 0x65: // Prefix SEG=GS
-      I(segReg==DegDf); return decodeInstSize1<SegGS>(context,funcAddr,curAddr,endAddr,tsize,false);
+      I(segReg==SegDf); return decodeInstSize1<SegGS>(context,funcAddr,curAddr,endAddr,tsize,false);
     case 0x66: // Prefix OpSize
     case 0x67: // Prefix AddrSize
     case 0xF0: // Prefix LOCK

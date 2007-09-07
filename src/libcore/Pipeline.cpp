@@ -4,6 +4,7 @@
 
    Contributed by Jose Renau
                   Basilio Fraguela
+		  Milos Prvulovic
 
 This file is part of SESC.
 
@@ -81,6 +82,10 @@ Pipeline::~Pipeline()
   while(!bucketPool.empty()) {
     delete bucketPool.back();
     bucketPool.pop_back();
+  }
+  while(!cleanBucketPool.empty()){
+    delete cleanBucketPool.back();
+    cleanBucketPool.pop_back();
   }
   while(!buffer.empty()) {
     delete buffer.top();

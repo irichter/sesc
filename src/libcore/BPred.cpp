@@ -4,6 +4,7 @@
 
    Contributed by Jose Renau
                   Smruti Sarangi
+		  Milos Prvulovic
 
 This file is part of SESC.
 
@@ -63,12 +64,15 @@ BPred::BPred(int i, int fetchWidth, const char *sec, const char *name)
     
     sprintf(cadena, "BPred(%d)_%s",i,name);
     bpredEnergy = new GStatsEnergy("bpredEnergy", cadena, i, FetchPower, EnergyMgr::get("bpredEnergy",i));
+  }else{
+    bpredEnergy = 0;
   }
-
 }
 
 BPred::~BPred()
 {
+  if(bpredEnergy)
+    delete bpredEnergy;
 }
 
 /*****************************************
@@ -100,6 +104,7 @@ BPRas::BPRas(int i, int fetchWidth, const char *section)
 
 BPRas::~BPRas()
 {
+  delete rasEnergy;
   delete stack;
 }
 
@@ -175,6 +180,7 @@ BPBTB::BPBTB(int i, int fetchWidth,const char *section, const char *name)
 
 BPBTB::~BPBTB()
 {
+  delete btbEnergy;
   if( data )
     data->destroy();
 }
@@ -522,6 +528,7 @@ BPHybrid::BPHybrid(int i, int fetchWidth, const char *section)
    ,globalTable(i,section
                 ,SescConf->getInt(section,"l2Size")
                 ,SescConf->getInt(section,"l2Bits"))
+   ,ghr(0)
    ,localTable(i,section
                ,SescConf->getInt(section,"localSize")
                ,SescConf->getInt(section,"localBits"))

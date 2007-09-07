@@ -1,3 +1,23 @@
+/* 
+   SESC: Super ESCalar simulator
+   Copyright (C) 2003 University of Illinois.
+
+   Contributed by Milos Prvulovic
+
+This file is part of SESC.
+
+SESC is free software; you can redistribute it and/or modify it under the terms
+of the GNU General Public License as published by the Free Software Foundation;
+either version 2, or (at your option) any later version.
+
+SESC is    distributed in the  hope that  it will  be  useful, but  WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+
+You should  have received a copy of  the GNU General  Public License along with
+SESC; see the file COPYING.  If not, write to the  Free Software Foundation, 59
+Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+*/
 
 #if !(defined MIPS_EMUL)
 
@@ -786,8 +806,17 @@ ThreadContext::ThreadContext(ThreadContext &parent, bool shareAddrSpace, bool sh
 }
 
 ThreadContext::~ThreadContext(void){
+  while(!maskedSig.empty()){
+    delete maskedSig.back();
+    maskedSig.pop_back();
+  }
+  while(!readySig.empty()){
+    delete readySig.back();
+    readySig.pop_back();
+  }
   if(getAddressSpace())
     setAddressSpace(0);
+  
 }
 
 #include "OSSim.h"
@@ -965,7 +994,11 @@ ssize_t ThreadContext::readMemToFile(VAddr addr, size_t len, int fd, bool natFil
     size_t ioSiz=AddressSpace::getPageSize()-(addr&(AddressSpace::getPageSize()-1));
     if(ioSiz>len) ioSiz=len;
     readMemToBuf(addr,ioSiz,buf);
-    ssize_t nowRet=(natFile?(write(fd,buf,ioSiz)):(openFiles->write(fd,buf,ioSiz)));
+    ssize_t nowRet=-1;
+    if(natFile)
+      nowRet=write(fd,buf,ioSiz);
+    else
+      nowRet=openFiles->write(fd,buf,ioSiz);
     if(nowRet==-1)
       return nowRet;
     retVal+=nowRet;

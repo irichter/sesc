@@ -108,6 +108,7 @@ template<class State, class Addr_t = uint, bool Energy=true>
   static CacheGeneric<State, Addr_t, Energy> *create(int size, int assoc, int blksize, int addrUnit, const char *pStr, bool skew);
   static CacheGeneric<State, Addr_t, Energy> *create(const char *section, const char *append, const char *format, ...);
   void destroy() {
+    delete this;
   }
 
   // If there are not free lines, it would return an existing cache line unless
@@ -256,8 +257,8 @@ protected:
   Line *findLinePrivate(Addr_t addr);
 public:
   virtual ~CacheAssoc() {
-    delete content;
-    delete mem;
+    delete [] content;
+    delete [] mem;
   }
 
   // TODO: do an iterator. not this junk!!
@@ -294,8 +295,8 @@ protected:
   Line *findLinePrivate(Addr_t addr);
 public:
   virtual ~CacheDM() {
-    delete content;
-    delete mem;
+    delete [] content;
+    delete [] mem;
   };
 
   // TODO: do an iterator. not this junk!!
@@ -332,8 +333,8 @@ protected:
   Line *findLinePrivate(Addr_t addr);
 public:
   virtual ~CacheDMSkew() {
-    delete content;
-    delete mem;
+    delete [] content;
+    delete [] mem;
   };
 
   // TODO: do an iterator. not this junk!!

@@ -1,3 +1,24 @@
+/* 
+   SESC: Super ESCalar simulator
+   Copyright (C) 2003 University of Illinois.
+
+   Contributed by Milos Prvulovic
+
+This file is part of SESC.
+
+SESC is free software; you can redistribute it and/or modify it under the terms
+of the GNU General Public License as published by the Free Software Foundation;
+either version 2, or (at your option) any later version.
+
+SESC is    distributed in the  hope that  it will  be  useful, but  WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+
+You should  have received a copy of  the GNU General  Public License along with
+SESC; see the file COPYING.  If not, write to the  Free Software Foundation, 59
+Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+*/
+
 #include <sys/stat.h>
 #include <fcntl.h>
 #include "MipsSysCalls.h"
@@ -268,6 +289,9 @@ InstDesc *mipsSysCall(InstDesc *inst, ThreadContext *context){
     break;
   case Mips64:
     fail("mipsSysCall: Mips64 system calls not implemented yet\n");
+    break;
+  case x86_32:
+    fail("mipsSysCall: x86_32 system calls not implemented yet\n");
     break;
   }
   switch(sysCallNum){
@@ -797,7 +821,9 @@ namespace Mips {
   bool handleSignals(ThreadContext *context){
     while(context->hasReadySignal()){
       SigInfo *sigInfo=context->nextReadySignal();
-      if(handleSignal(context,sigInfo))
+      bool gotTrue=handleSignal(context,sigInfo);
+      delete sigInfo;
+      if(gotTrue)
 	return true;
     }
     return false;
@@ -1056,10 +1082,10 @@ namespace Mips {
     }
     printf("execve fname is %s\n",realName);
     for(size_t arg=0;arg<argvNum;arg++){
-      printf("execve argv[%ld] is %s\n",arg,argvArr[arg]);
+      printf("execve argv[%ld] is %s\n",(long int)arg,argvArr[arg]);
     }
     for(size_t env=0;env<envpNum;env++){
-      printf("execve envp[%ld] is %s\n",env,envpArr[env]);
+      printf("execve envp[%ld] is %s\n",(long int)env,envpArr[env]);
     }
     // Close files that are still open and are cloexec
     context->getOpenFiles()->exec();
@@ -1373,6 +1399,7 @@ namespace Mips {
       SigInfo *sigInfo=context->nextReadySignal();
       context->setSignalMask(oldMask);
       handleSignal(context,sigInfo);
+      delete sigInfo;
     }else{
       Pid_t pid=context->getPid();
 #if (defined DEBUG_SIGNALS)
@@ -1450,7 +1477,7 @@ namespace Mips {
     Mips32FuncArgs myArgs(context);
     size_t size=myArgs.getW();
     VAddr  list=myArgs.getA();
-    printf("sysCall32_getgroups(%ld,0x%08x)called\n",size,list);
+    printf("sysCall32_getgroups(%ld,0x%08x)called\n",(long)size,list);
     sysCall32SetRet(context,0);
   }
   
@@ -1757,6 +1784,7 @@ namespace Mips {
 	SigInfo *sigInfo=context->nextReadySignal();
 // 	sstate->popMask();
 	handleSignal(context,sigInfo);
+	delete sigInfo;
 	return;
       }
       context->updIAddr(-inst->aupdate,-1);
@@ -1800,6 +1828,7 @@ namespace Mips {
 	sysCall32SetErr(context,Mips32_EINTR);
 	SigInfo *sigInfo=context->nextReadySignal();
 	handleSignal(context,sigInfo);
+	delete sigInfo;
 	return;
       }
       context->updIAddr(-inst->aupdate,-1);
@@ -2751,6 +2780,7 @@ namespace Mips {
       SigInfo *sigInfo=context->nextReadySignal();
 //       sstate->popMask();
       handleSignal(context,sigInfo);
+      delete sigInfo;
       return;
     }
     // Set up a callback, add a read block on each file, and suspend

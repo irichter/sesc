@@ -90,6 +90,7 @@ FetchEngine::FetchEngine(int cId
   BTACDelay = SescConf->getInt(bpredSection, "BTACDelay");
 
   missInstID = 0;
+  missFetchTime = 0;
 #ifdef SESC_MISPATH
   issueWrongPath = SescConf->getBool("cpucore","issueWrongPath",cId);
 #endif

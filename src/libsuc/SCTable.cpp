@@ -4,6 +4,7 @@
 
    Contributed by Jose Renau
                   Luis Ceze
+		  Milos Prvulovic
 
 This file is part of SESC.
 
@@ -45,6 +46,10 @@ SCTable::SCTable(int id, const char *str, size_t size, uchar bits)
     table[cnt] = flipflop;
     flipflop = Saturate - flipflop;
   }
+}
+
+SCTable::~SCTable(void){
+  delete [] table;
 }
 
 void SCTable::reset(ulong cid, bool taken)

@@ -3,6 +3,7 @@
    Copyright (C) 2004 University of Illinois.
 
    Contributed by Jose Renau
+   Updated by     Milos Prvulovic
 
 This file is part of SESC.
 
@@ -133,6 +134,7 @@ void Cluster::buildUnit(const char *clusterName
 			    ,ExecPower
 			    ,EnergyMgr::get("iALUEnergy",gproc->getId())
 			    ,ecgbase);
+   free(strtmp);
 
    r = new FUGeneric(cluster, gen, lat, eng);
    break;
@@ -142,13 +144,14 @@ void Cluster::buildUnit(const char *clusterName
    if(!strtmp) strtmp=strdup("fpMultEnergy");
   case fpDiv:
    if(!strtmp) strtmp=strdup("fpDivEnergy");
-  eng = new GStatsEnergyCG(static_cast<const char*>(strtmp)
-			   ,name
-			   ,gproc->getId()
-			   ,ExecPower
-			   ,EnergyMgr::get("fpALUEnergy", gproc->getId())
-			   ,ecgbase);
- 
+   eng = new GStatsEnergyCG(static_cast<const char*>(strtmp)
+			    ,name
+			    ,gproc->getId()
+			    ,ExecPower
+			    ,EnergyMgr::get("fpALUEnergy", gproc->getId())
+			    ,ecgbase);
+   free(strtmp);
+
   r = new FUGeneric(cluster, gen, lat, eng);
   break ;
   case iBJ:

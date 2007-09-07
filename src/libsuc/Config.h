@@ -5,6 +5,7 @@
    Contributed by Jose Renau
                   Basilio Fraguela
                   Smruti Sarangi
+		  Milos Prvulovic
 
 This file is part of SESC.
 
@@ -29,22 +30,28 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include <ctype.h>
 #include <stdio.h>
 #include <vector>
-
+#include <string>
+using std::string;
 #include "nanassert.h"
 #include "estl.h"
+
+using std::string;
 
 class Config {
 protected:
 
   class KeyIndex {
   public:
-    const char *s1;
-    const char *s2;
+    string s1;
+    string s2;
+    KeyIndex(void) : s1(), s2(){
+    }
+    KeyIndex(const char *cstr1, const char *cstr2) : s1(cstr1), s2(cstr2){
+    }
     bool operator==(const KeyIndex &a) const {
-      if(strcasecmp(a.s1, s1))
+      if(strcasecmp(a.s1.c_str(),s1.c_str()))
         return false;
-      
-      return (strcasecmp(a.s2, s2) == 0);
+      return (strcasecmp(a.s2.c_str(),s2.c_str()) == 0);
     }
   };
 
@@ -68,9 +75,11 @@ protected:
       bool Bool;
       int Int;
       double Double;
-      const char *CharPtr;
+      char *CharPtr;
     } v;
     Record & operator = (const Record & rec) {
+      I(type!=RCCharPtr);
+      I(rec.type!=RCCharPtr);
       type = rec.type;
       used = rec.used;
       printed = rec.printed;
@@ -85,6 +94,8 @@ protected:
 
   public:
     Record(const Record & rec) {
+      I(type!=RCCharPtr);
+      I(rec.type!=RCCharPtr);
       type = rec.type;
       used = rec.used;
       printed = rec.printed;
@@ -92,7 +103,7 @@ protected:
       X = 0;
       Y = 0;
     }
-
+    ~Record(void);
     Record(bool val);
     Record(int val);
     Record(double val);
@@ -173,6 +184,7 @@ protected:
       return v.CharPtr;
     }
     void setCharPtr(const char *val) {
+      free(v.CharPtr);
       v.CharPtr = strdup(val);
     }
 
@@ -203,7 +215,7 @@ protected:
 
   public:
     size_t operator()(const KeyIndex & k)const {
-      return hash(k.s2,hash(k.s1,0));
+      return hash(k.s2.c_str(),hash(k.s1.c_str(),0));
     }
   };
 

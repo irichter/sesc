@@ -1,3 +1,24 @@
+/* 
+   SESC: Super ESCalar simulator
+   Copyright (C) 2003 University of Illinois.
+
+   Contributed by Milos Prvulovic
+
+This file is part of SESC.
+
+SESC is free software; you can redistribute it and/or modify it under the terms
+of the GNU General Public License as published by the Free Software Foundation;
+either version 2, or (at your option) any later version.
+
+SESC is    distributed in the  hope that  it will  be  useful, but  WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+
+You should  have received a copy of  the GNU General  Public License along with
+SESC; see the file COPYING.  If not, write to the  Free Software Foundation, 59
+Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+*/
+
 #include "FileSys.h"
 
 #include <fcntl.h>
@@ -410,9 +431,7 @@ namespace FileSys {
       return error(EBADF);
     FileDesc *desc=getDesc(fd);
     BaseStatus *status=desc->getStatus();
-    ID(bool rdBlock=willReadBlock(fd));
     ssize_t retVal=::read(status->fd,buf,count);
-    I(rdBlock==((retVal==-1)&&(errno==EAGAIN)));
     if(retVal>0)
       status->endWriteBlock();
     return retVal;
@@ -422,9 +441,7 @@ namespace FileSys {
       return error(EBADF);
     FileDesc *desc=getDesc(fd);
     BaseStatus *status=desc->getStatus();
-    ID(bool wrBlock=willWriteBlock(fd));
     ssize_t retVal=::write(status->fd,buf,count);
-    I(wrBlock==((retVal==-1)&&(errno==EAGAIN)));
     if(retVal>0)
       status->endReadBlock();
     return retVal;

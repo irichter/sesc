@@ -4,6 +4,7 @@
 
    Contributed by Jose Renau
                   Basilio Fraguela
+		  Milos Prvulovic
 
 This file is part of SESC.
 
@@ -58,9 +59,9 @@ MemObj::MemObj(const char *section, const char *sName)
 MemObj::~MemObj() 
 {
   if(descrSection != 0) 
-    delete descrSection;
+    delete [] descrSection;
   if(symbolicName != 0) 
-    delete symbolicName;
+    delete [] symbolicName;
 }
 
 void MemObj::computenUpperCaches() 

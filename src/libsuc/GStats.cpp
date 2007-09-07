@@ -6,6 +6,7 @@
                   Basilio Fraguela
                   Smruti Sarangi
 		  Luis Ceze
+		  Milos Prvulovic
 
 This file is part of SESC.
 
@@ -331,7 +332,7 @@ void GStatsMax::reportValue() const
 
 /*********************** GStatsHist */
 
-GStatsHist::GStatsHist(const char *format,...)
+GStatsHist::GStatsHist(const char *format,...) : numSample(0), cumulative(0)
 {
   char *str;
   va_list ap;

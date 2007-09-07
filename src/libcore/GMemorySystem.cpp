@@ -109,6 +109,7 @@ GMemorySystem::~GMemorySystem()
     delete dataSource;
   if (instrSource && dataSource != instrSource)
     delete instrSource;
+  delete localMemoryObjContainer;
 }
 
 GMemoryOS *GMemorySystem::buildMemoryOS(const char *section)
@@ -182,7 +183,7 @@ char *GMemorySystem::buildUniqueName(const char *device_type)
 
 char *GMemorySystem::privatizeDeviceName(char *given_name, int num)
 { 
-  char *ret=(char*)malloc(strlen(given_name) + 8 + (int)log10((float)num+10));
+  char *ret=new char[strlen(given_name) + 8 + (int)log10((float)num+10)];
 
   sprintf(ret,"P(%i)_%s", num, given_name);
 

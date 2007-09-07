@@ -1,3 +1,24 @@
+/* 
+   SESC: Super ESCalar simulator
+   Copyright (C) 2003 University of Illinois.
+
+   Contributed by Milos Prvulovic
+
+This file is part of SESC.
+
+SESC is free software; you can redistribute it and/or modify it under the terms
+of the GNU General Public License as published by the Free Software Foundation;
+either version 2, or (at your option) any later version.
+
+SESC is    distributed in the  hope that  it will  be  useful, but  WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+
+You should  have received a copy of  the GNU General  Public License along with
+SESC; see the file COPYING.  If not, write to the  Free Software Foundation, 59
+Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+*/
+
 // We need to emulate all sorts of floating point operations
 #include <math.h>
 // We need to control the rounding mode for floating point operations
@@ -382,15 +403,11 @@ namespace Mips {
     case OpLdl:   case OpLdr: case OpSdl: case OpSdr:
     case OpLwc1:  case OpSwc1:
     case OpLdc1:  case OpSdc1:
-      I((inst->regSrc1>=GprNameLb)&&(inst->regSrc1<GprNameUb));
       return static_cast<RegUnsT>(getRegAny<mode,RegSigT,RegTypeGpr>(context,inst->regSrc1)+static_cast<RegSigT>(inst->imm.s));
     case OpLwxc1: case OpLdxc1: 
     case OpSwxc1: case OpSdxc1:
-      I(((MipsRegName)(inst->regSrc1)>=GprNameLb)&&((MipsRegName)(inst->regSrc1)<GprNameUb));
-      I(((MipsRegName)(inst->regSrc2)>=GprNameLb)&&((MipsRegName)(inst->regSrc2)<GprNameUb));
       return static_cast<RegUnsT>(getRegAny<mode,RegSigT,RegTypeGpr>(context,inst->regSrc1)+getRegAny<mode,RegSigT,RegTypeGpr>(context,inst->regSrc2));
     case OpSwxc1_: case OpSdxc1_:
-      I(inst->regSrc1==static_cast<RegName>(RegTmp));
       return getRegAny<mode,RegUnsT,RegTypeGpr>(context,inst->regSrc1);
 //    default:
 //      fail("calcAddr: unsupported opcode\n");
@@ -654,7 +671,7 @@ static inline RegType getSescRegType(RegName reg, bool src){
   if((static_cast<Mips::MipsRegName>(reg)==RegTmp)||(static_cast<Mips::MipsRegName>(reg)==RegBTmp))
     return InternalReg;
   if(isGprName(reg)){
-    I(static_cast<Mips::MipsRegName>(reg)>Mips::RegAT);
+    I(static_cast<Mips::MipsRegName>(reg)>=Mips::RegAT);
     I(static_cast<Mips::MipsRegName>(reg)<=Mips::RegRA);
     return static_cast<RegType>(getRegNum(reg));
   }
