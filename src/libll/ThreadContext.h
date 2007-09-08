@@ -595,7 +595,7 @@ public:
       nowPid=nextReady(nowPid);
       if(nowPid==-1)
         return skipped;
-      ThreadContext *context=pid2context[nowPid];
+      ThreadContext::pointer context=pid2context[nowPid];
       I(context);
       I(!context->isWaiting());
       I(!context->isExited());
