@@ -24,6 +24,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include <fcntl.h>
 #include <errno.h>
 #include <unistd.h>
+#include <poll.h>
 #include <iostream>
 // Needed to get I()
 #include "nanassert.h"
@@ -450,11 +451,17 @@ namespace FileSys {
     I(isOpen(fd));
     FileDesc *desc=getDesc(fd);
     BaseStatus *status=desc->getStatus();
-    if((::read(status->fd,0,1)==-1)&&(errno==EAGAIN)){
-      I((::read(status->fd,&fd,1)==-1)&&(errno==EAGAIN));
-      return true;
-    }
-    return false;
+    struct pollfd pollFd;
+    pollFd.fd=status->fd;
+    pollFd.events=POLLIN;
+    int res=poll(&pollFd,1,0);
+//    I((res<=0)==((::read(status->fd,0,1)==-1)&&(errno==EAGAIN)));
+    return (res<=0);
+//    if((::read(status->fd,0,1)==-1)&&(errno==EAGAIN)){
+//      I((::read(status->fd,&fd,1)==-1)&&(errno==EAGAIN));
+//      return true;
+//    }
+//    return false;
   }
   bool OpenFiles::willWriteBlock(int fd){
     I(isOpen(fd));

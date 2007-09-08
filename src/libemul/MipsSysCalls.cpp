@@ -47,7 +47,7 @@ namespace Mips {
 #endif
 
   void sysCall32_syscall(InstDesc *inst, ThreadContext *context);
-  void sysCall32_exit(InstDesc *inst, ThreadContext *context);
+  InstDesc *sysCall32_exit(InstDesc *inst, ThreadContext *context);
   void sysCall32_fork(InstDesc *inst, ThreadContext *context);
   void sysCall32_open(InstDesc *inst, ThreadContext *context);
   void sysCall32_creat(InstDesc *inst, ThreadContext *context);
@@ -296,7 +296,7 @@ InstDesc *mipsSysCall(InstDesc *inst, ThreadContext *context){
   }
   switch(sysCallNum){
   case 4000: Mips::sysCall32_syscall(inst,context); break;
-  case 4001: Mips::sysCall32_exit(inst,context); break;
+  case 4001: return Mips::sysCall32_exit(inst,context);
   case 4002: Mips::sysCall32_fork(inst,context); break;
   case 4003: Mips::sysCall32_read(inst,context); break;
   case 4004: Mips::sysCall32_write(inst,context); break;
@@ -882,11 +882,11 @@ namespace Mips {
     fail("sysCall32_syscall: not implemented at 0x%08x\n",context->getIAddr());
   }
 
-  void sysCall32_exit(InstDesc *inst, ThreadContext *context){
+  InstDesc *sysCall32_exit(InstDesc *inst, ThreadContext *context){
     Mips32FuncArgs myArgs(context);
     int status=myArgs.getW();
     if(context->exit(status))
-      return;
+      return 0;
 
 //     static bool didThis=false;
 //     if(!didThis){
@@ -933,6 +933,7 @@ namespace Mips {
       sigInfo->data=status;
       ThreadContext::getContext(context->getParentID())->signal(sigInfo);
     }
+    return inst;
   }
   void sysCall32_fork(InstDesc *inst, ThreadContext *context){
     //    ThreadContext *newContext=context->createChild(false,false,false,SigChld);
