@@ -948,7 +948,6 @@ ssize_t ThreadContext::writeMemFromFile(VAddr addr, size_t len, int fd, bool nat
 void ThreadContext::writeMemWithByte(VAddr addr, size_t len, uint8_t c){
   I(canWrite(addr,len));
   uint8_t buf[AddressSpace::getPageSize()];
-  memset(buf,c,AddressSpace::getPageSize());
   while(len){
     size_t wrSiz=AddressSpace::getPageSize()-(addr&(AddressSpace::getPageSize()-1));
     if(wrSiz>len) wrSiz=len;
