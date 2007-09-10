@@ -1030,7 +1030,7 @@ namespace Mips {
       return inst;
     }
     // Pipeline flush to avoid mixing old and new InstDesc's in the pipeline
-    if(context->getRefCount()>1){
+    if(context->getNDInsts()){
       context->updIAddr(-inst->aupdate,-1);
       return 0;
     }

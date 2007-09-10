@@ -224,6 +224,7 @@ DInst *DInst::createDInst(const Instruction *inst, VAddr va, int cId)
 
 #if (defined MIPS_EMUL)
   i->context=context;
+  context->addDInst();
 #endif
 
 #ifdef SESC_BAAD
@@ -422,6 +423,7 @@ void DInst::killSilently()
 
   I(!getFetch());
 #if (defined MIPS_EMUL)
+  context->delDInst();
   context=0;
 #endif
   dInstPool.in(this); 
@@ -463,6 +465,7 @@ void DInst::scrap()
 
   I(!getFetch());
 #if (defined MIPS_EMUL)
+  context->delDInst();
   context=0;
 #endif
   dInstPool.in(this);

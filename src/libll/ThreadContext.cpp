@@ -644,7 +644,7 @@ void ThreadContext::save(ChkWriter &out) const{
   out << "PC " << getIAddr() << " / " << getIDesc()-getAddressSpace()->virtToInst(getIAddr()) << dec << endl;
 }
 
-ThreadContext::ThreadContext(ChkReader &in){
+ThreadContext::ThreadContext(ChkReader &in) : nDInsts(0) {
   in >> "ThreadContext pid " >> pid;
   pid2context[pid]=this;
   size_t _cpuMode;
@@ -733,6 +733,7 @@ ThreadContext::ThreadContext(void)
   iAddr(0),
   iDesc(InvalidInstDesc),
   dAddr(0),
+  nDInsts(0),
   openFiles(new FileSys::OpenFiles()),
   sigTable(new SignalTable()),
   sigMask(),
@@ -767,6 +768,7 @@ ThreadContext::ThreadContext(ThreadContext &parent, bool shareAddrSpace, bool sh
   myStackAddrUb(parent.myStackAddrUb),
   cpuMode(parent.cpuMode),
   dAddr(0),
+  nDInsts(0),
   openFiles(shareOpenFiles?((FileSys::OpenFiles *)(parent.openFiles)):(new FileSys::OpenFiles(*(parent.openFiles)))),
   sigTable(shareSigTable?((SignalTable *)(parent.sigTable)):(new SignalTable(*(parent.sigTable)))),
   sigMask(),
@@ -806,6 +808,7 @@ ThreadContext::ThreadContext(ThreadContext &parent, bool shareAddrSpace, bool sh
 }
 
 ThreadContext::~ThreadContext(void){
+  I(!nDInsts);
   while(!maskedSig.empty()){
     delete maskedSig.back();
     maskedSig.pop_back();
@@ -816,7 +819,6 @@ ThreadContext::~ThreadContext(void){
   }
   if(getAddressSpace())
     setAddressSpace(0);
-  
 }
 
 #include "OSSim.h"
