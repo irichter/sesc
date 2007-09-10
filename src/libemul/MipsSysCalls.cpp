@@ -2016,6 +2016,8 @@ namespace Mips {
   }
   template<class StatStruct>
   void fromNativeStat(StatStruct &mipsStat, const struct stat &natStat){
+    // Avoid uninitialized values in simulated memory
+    memset(&mipsStat,0,sizeof(mipsStat));
     mipsStat.st_dev     = natStat.st_dev;
     mipsStat.st_ino     = natStat.st_ino;
     mipsStat.st_mode    = natStat.st_mode;

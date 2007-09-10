@@ -982,7 +982,7 @@ void ThreadContext::readMemToBuf(VAddr addr, size_t len, void *buf){
       *((uint64_t *)byteBuf)=readMemRaw<uint64_t>(addr);
       addr+=sizeof(uint64_t);
       byteBuf+=sizeof(uint64_t);
-      len-=sizeof(uint64_t);
+       len-=sizeof(uint64_t);
     }
   }
 }
