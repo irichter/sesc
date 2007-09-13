@@ -95,10 +95,28 @@ class AddressSpace : public GCObject{
   public:
     typedef SmartPtr<FrameDesc> pointer;
   private:
+    typedef std::set<PAddr> PAddrSet;
+    static PAddr      nextPAddr;
+    static PAddrSet freePAddrs;
+    static inline PAddr newPAddr(void){
+      PAddr retVal;
+      if(nextPAddr){
+	retVal=nextPAddr;
+	nextPAddr+=AddrSpacPageSize;
+      }else{
+	PAddrSet::iterator it=freePAddrs.begin();
+	if(it==freePAddrs.end())
+	  fail("AddressSpace::FrameDesc::newPAddr ran out of physical address space\n");
+	retVal=*it;
+	freePAddrs.erase(it);
+      }
+      return nextPAddr;
+    }
     MemAlignType data[AddrSpacPageSize/sizeof(MemAlignType)];
 #if (defined HAS_MEM_STATE)
     MemState state[AddrSpacPageSize/MemState::Granularity];
 #endif
+    PAddr basePAddr;
   public:
     FrameDesc();
     FrameDesc(FrameDesc &src);
@@ -118,6 +136,9 @@ class AddressSpace : public GCObject{
       I(AddrSpacPageSize==sizeof(data));
       I(reinterpret_cast<unsigned long int>(retVal)<reinterpret_cast<unsigned long int>(data)+AddrSpacPageSize);
       return retVal;
+    }
+    PAddr getPAddr(VAddr addr) const{
+      return basePAddr+(addr&AddrSpacPageOffsMask);
     }
 #if (defined HAS_MEM_STATE)
     MemState &getState(VAddr addr){
@@ -350,6 +371,24 @@ class AddressSpace : public GCObject{
     if(!frame)
       return 0;
     return (RAddr)(frame->getData(addr));
+  }
+  inline PAddr virtToPhys(VAddr addr) const{
+    size_t pageOffs=(addr&AddrSpacPageOffsMask);
+    size_t pageNum=(addr>>AddrSpacPageOffsBits);
+    //    I(addr==pageNum*PageSize+pageOffs);
+#if (defined SPLIT_PAGE_TABLE)
+    size_t rootNum=(pageNum>>AddrSpacLeafBits);
+    size_t leafNum=(pageNum&AddrSpacLeafMask);
+    PageMapLeaf leafTable=pageMapRoot[rootNum];
+    if(!leafTable)
+      return 0;
+    FrameDesc *frame=leafTable[leafNum].frame;
+#else
+    FrameDesc *frame=pageMap[pageNum].frame;
+#endif
+    if(!frame)
+      return 0;
+    return frame->getPAddr(addr);
   }
   void createTrace(ThreadContext *context, VAddr addr){
     I((!isMappedInst(addr))||!instMap[addr]);

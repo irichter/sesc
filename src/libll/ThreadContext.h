@@ -525,6 +525,9 @@ public:
     }
     return inst;
   }
+  inline PAddr virt2phys(VAddr vaddr) const{
+    return addressSpace->virtToPhys(vaddr);
+  }
 #else // For (defined MIPS_EMUL)
   bool isHeapData(VAddr addr) const{
     I(heapManager);

@@ -26,10 +26,13 @@ ChkReader &AddressSpace::SegmentDesc::operator=(ChkReader &in){
   return in;
 }
 
-AddressSpace::FrameDesc::FrameDesc() : GCObject(){
+PAddr AddressSpace::FrameDesc::nextPAddr=AddrSpacPageSize;
+AddressSpace::FrameDesc::PAddrSet AddressSpace::FrameDesc::freePAddrs;
+
+AddressSpace::FrameDesc::FrameDesc() : GCObject(), basePAddr(newPAddr()){
   memset(data,0,AddrSpacPageSize);
 }
-AddressSpace::FrameDesc::FrameDesc(FrameDesc &src) : GCObject(){
+AddressSpace::FrameDesc::FrameDesc(FrameDesc &src) : GCObject(), basePAddr(newPAddr()){
   memcpy(data,src.data,AddrSpacPageSize);
 #if (defined HAS_MEM_STATE)
   for(size_t s=0;s<AddrSpacPageSize/MemState::Granularity;s++)
@@ -37,6 +40,8 @@ AddressSpace::FrameDesc::FrameDesc(FrameDesc &src) : GCObject(){
 #endif
 }
 AddressSpace::FrameDesc::~FrameDesc(){
+  I(freePAddrs.find(basePAddr)==freePAddrs.end());
+  freePAddrs.insert(basePAddr);
   memset(data,0xCC,AddrSpacPageSize);
 }
 void AddressSpace::FrameDesc::save(ChkWriter &out) const{
