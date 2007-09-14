@@ -96,7 +96,7 @@ class AddressSpace : public GCObject{
     typedef SmartPtr<FrameDesc> pointer;
   private:
     typedef std::set<PAddr> PAddrSet;
-    static PAddr      nextPAddr;
+    static PAddr    nextPAddr;
     static PAddrSet freePAddrs;
     static inline PAddr newPAddr(void){
       PAddr retVal;
@@ -110,7 +110,7 @@ class AddressSpace : public GCObject{
 	retVal=*it;
 	freePAddrs.erase(it);
       }
-      return nextPAddr;
+      return retVal;
     }
     MemAlignType data[AddrSpacPageSize/sizeof(MemAlignType)];
 #if (defined HAS_MEM_STATE)

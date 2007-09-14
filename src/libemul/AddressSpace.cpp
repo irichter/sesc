@@ -27,6 +27,7 @@ ChkReader &AddressSpace::SegmentDesc::operator=(ChkReader &in){
 }
 
 PAddr AddressSpace::FrameDesc::nextPAddr=AddrSpacPageSize;
+
 AddressSpace::FrameDesc::PAddrSet AddressSpace::FrameDesc::freePAddrs;
 
 AddressSpace::FrameDesc::FrameDesc() : GCObject(), basePAddr(newPAddr()){
