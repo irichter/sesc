@@ -41,7 +41,8 @@ AC_SUBST(CONDOR_LINK_OPT)
 AC_SUBST(TRACE_DRIVEN_OPT)
 AC_SUBST(SESC_RSTTRACE_OPT)
 AC_SUBST(QEMU_DRIVEN_OPT)
-
+AC_SUBST(MIPS_EMUL_OPT)
+AC_SUBST(SESC_32BIT_OPT)
 
 #we are not defining compiler options yet, but we should
 #AC_PROG_CC
@@ -253,5 +254,22 @@ AC_HELP_STRING([--enable-qemu],
 [if test "$enableval" = "yes"; then AC_COMPOPT(QEMU_DRIVEN) fi],
 )
 
+### New MIPS emulation (libemul)
+
+AC_NOCOMPOPT(MIPS_EMUL)
+AC_ARG_ENABLE(mipsemul,
+AC_HELP_STRING([--enable-mipsemul],
+	       [Use new MIPs emulation in libemul (default is no)]),
+[if test "$enableval" = "yes"; then AC_COMPOPT(MIPS_EMUL) fi],
+)
+
+### Build a 32-bit simulator
+
+AC_NOCOMPOPT(SESC_32BIT)
+AC_ARG_ENABLE(32bit,
+AC_HELP_STRING([--enable-32bit],
+	       [Build 32-bit simulator even on 64-bit host (default is no)]),
+[if test "$enableval" = "yes"; then AC_COMPOPT(SESC_32BIT) fi],
+)
 
 AC_OUTPUT
