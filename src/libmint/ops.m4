@@ -840,9 +840,11 @@ M4_IN1(syscall_op,
 #ifdef TASKSCALAR
   fprintf(stderr,"syscall to hell 0x%x (sysnum %d) from 0x%x\n",picode->addr, sysnum, addr);
   rsesc_exception(pthread->getPid());
-#else    
-  fatal("syscall %d at 0x%x, called from 0x%x, not supported yet.\n",
-        sysnum, picode->addr, addr);
+#else
+  if (sysnum=0x4001) /* syscall_exit */
+    mint_exit(picode, pthread);
+  else
+    fatal("syscall %d at 0x%x, called from 0x%x, not supported yet.\n", sysnum, picode->addr, addr);
 #endif
 })
 

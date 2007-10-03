@@ -185,6 +185,7 @@ typedef enum ud_class_e {
   OP(mint_sesc_memfence);
   OP(mint_sesc_acquire);
   OP(mint_sesc_release);
+  OP(mint_exit);
 #ifdef TASKSCALAR
   OP(mint_sesc_commit);
   OP(mint_sesc_fork_successor);

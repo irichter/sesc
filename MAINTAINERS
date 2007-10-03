@@ -82,4 +82,11 @@ M:Hou Rui <hourui@ict.ac.cn>
 W:http://www.soe.ucsc.edu/~renau
 S:
 ---------------------------------------
+D:Contributions & Patches
+F:libmint/*
+P:Daniel Grund
+M:grund@cs.uni-sb.de
+W:
+S:
+---------------------------------------
 

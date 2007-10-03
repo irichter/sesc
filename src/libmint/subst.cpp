@@ -430,7 +430,7 @@ func_desc_t Func_subst[] = {
   {"exit",                    mint_rexit,                      1, OpExposed},
 #else
   {"abort",                   mint_exit,                       1, OpExposed},
-  {"exit",                    mint_exit,                       1, OpClass(OpUndoable,OpAtStart)},
+/* {"exit",                    mint_exit,                       1, OpClass(OpUndoable,OpAtStart)}, */
 #endif
   {"sesc_fetch_op",           mint_sesc_fetch_op,              1, OpExposed},
   {"sesc_unlock_op",          mint_sesc_unlock_op,             1, OpExposed},
