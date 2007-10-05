@@ -671,7 +671,7 @@ void Config::dump(bool showAll)
       if(hiter->second->isPrinted())  // Already printed
         continue;
 
-      if(hiter->first.s1.empty())
+      if(!hiter->first.s1.empty())
         continue;
 
       hiter->second->setPrinted();
