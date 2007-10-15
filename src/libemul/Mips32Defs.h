@@ -17,6 +17,10 @@ enum Mips32_RlimitNums {
   Mips32_RLIMIT_RSS     = 0x7,
   Mips32_RLIMIT_STACK   = 0x3,
 };
+// Define Rlimit infinity number
+enum Mips32_RlimitInf {
+  Mips32_RLIM_INFINITY = 0x7fffffff,
+};
 #include <sys/mman.h>
 // Define Protection flags (mmap)
 enum Mips32_MmapProts {
@@ -85,26 +89,28 @@ enum Mips32_FcntlFlag {
 #include <errno.h>
 // Define Error numbers
 enum Mips32_ErrNums {
-  Mips32_EPERM     = 0x1,
-  Mips32_ENOENT    = 0x2,
-  Mips32_EINTR     = 0x4,
-  Mips32_ENOEXEC   = 0x8,
-  Mips32_EBADF     = 0x9,
-  Mips32_ECHILD    = 0xa,
-  Mips32_EAGAIN    = 0xb,
-  Mips32_ENOMEM    = 0xc,
-  Mips32_EFAULT    = 0xe,
-  Mips32_EEXIST    = 0x11,
-  Mips32_EISDIR    = 0x15,
-  Mips32_ESPIPE    = 0x1d,
-  Mips32_EACCES    = 0xd,
-  Mips32_EINVAL    = 0x16,
-  Mips32_EOVERFLOW = 0x4f,
-  Mips32_ENOTTY    = 0x19,
-  Mips32_ERANGE    = 0x22,
-  Mips32_ENFILE    = 0x17,
-  Mips32_EMFILE    = 0x18,
-  Mips32_ENOTDIR   = 0x14,
+  Mips32_EPERM        = 0x1,
+  Mips32_ENOENT       = 0x2,
+  Mips32_EINTR        = 0x4,
+  Mips32_ENOEXEC      = 0x8,
+  Mips32_EBADF        = 0x9,
+  Mips32_ECHILD       = 0xa,
+  Mips32_EAGAIN       = 0xb,
+  Mips32_ENOMEM       = 0xc,
+  Mips32_EFAULT       = 0xe,
+  Mips32_EEXIST       = 0x11,
+  Mips32_EISDIR       = 0x15,
+  Mips32_ESPIPE       = 0x1d,
+  Mips32_EACCES       = 0xd,
+  Mips32_EINVAL       = 0x16,
+  Mips32_EOVERFLOW    = 0x4f,
+  Mips32_ENOTTY       = 0x19,
+  Mips32_ERANGE       = 0x22,
+  Mips32_ENFILE       = 0x17,
+  Mips32_EMFILE       = 0x18,
+  Mips32_ENOTDIR      = 0x14,
+  Mips32_EAFNOSUPPORT = 0x7c,
+  Mips32_EWOULDBLOCK  = 0xb,
 };
 #include <signal.h>
 // Define Signal numbers
@@ -186,14 +192,25 @@ enum Mips32_SysCtlKern {
 };
 // Define Flags for clone
 enum Mips32_CloneFlags {
-  Mips32_CSIGNAL       = 0xff, // Mask
-  // These choices are masked with CSIGNAL      
-  // End of choices masked with CSIGNAL      
-  Mips32_CLONE_VM      = 0x100, // Flag
-  Mips32_CLONE_FS      = 0x200, // Flag
-  Mips32_CLONE_FILES   = 0x400, // Flag
-  Mips32_CLONE_SIGHAND = 0x800, // Flag
-  Mips32_CLONE_VFORK   = 0x4000, // Flag
+  Mips32_CSIGNAL              = 0xff, // Mask
+  // These choices are masked with CSIGNAL             
+  // End of choices masked with CSIGNAL             
+  Mips32_CLONE_VM             = 0x100, // Flag
+  Mips32_CLONE_FS             = 0x200, // Flag
+  Mips32_CLONE_FILES          = 0x400, // Flag
+  Mips32_CLONE_SIGHAND        = 0x800, // Flag
+  Mips32_CLONE_VFORK          = 0x4000, // Flag
+  Mips32_CLONE_PARENT         = 0x8000, // Flag
+  Mips32_CLONE_THREAD         = 0x10000, // Flag
+  Mips32_CLONE_NEWNS          = 0x20000, // Flag
+  Mips32_CLONE_SYSVSEM        = 0x40000, // Flag
+  Mips32_CLONE_SETTLS         = 0x80000, // Flag
+  Mips32_CLONE_PARENT_SETTID  = 0x100000, // Flag
+  Mips32_CLONE_CHILD_CLEARTID = 0x200000, // Flag
+  Mips32_CLONE_DETACHED       = 0x400000, // Flag
+  Mips32_CLONE_UNTRACED       = 0x800000, // Flag
+  Mips32_CLONE_CHILD_SETTID   = 0x1000000, // Flag
+  Mips32_CLONE_STOPPED        = 0x2000000, // Flag
 };
 // Define Flags for poll
 enum Mips32_PollFlags {
@@ -205,7 +222,7 @@ enum Mips32_PollFlags {
   Mips32_POLLNVAL = 0x20, // Flag
 };
 // Convert Protection flags (mmap) to native
-int toNativeMmapProts(int val){
+inline int toNativeMmapProts(int val){
   int retVal=0;
   switch(val){
     case Mips32_PROT_NONE : retVal+=PROT_NONE ; break;
@@ -219,7 +236,7 @@ int toNativeMmapProts(int val){
   return retVal;
 }
 // Convert Mmap flags to native
-int toNativeMmapFlags(int val){
+inline int toNativeMmapFlags(int val){
   int retVal=0;
   if(val&Mips32_MAP_FIXED    ){
     retVal|=MAP_FIXED    ;
@@ -241,7 +258,7 @@ int toNativeMmapFlags(int val){
   return retVal;
 }
 // Convert File open flags to native
-int toNativeOpenFlags(int val){
+inline int toNativeOpenFlags(int val){
   int retVal=0;
   switch(val&Mips32_O_ACCMODE  ){
     case Mips32_O_RDONLY   : retVal|=O_RDONLY   ; break;
@@ -308,7 +325,7 @@ int toNativeOpenFlags(int val){
   return retVal;
 }
 // Convert fcntl commands to native
-int toNativeFcntlCmd(int val){
+inline int toNativeFcntlCmd(int val){
   int retVal=0;
   switch(val){
     case Mips32_F_DUPFD: retVal+=F_DUPFD; break;
@@ -323,7 +340,7 @@ int toNativeFcntlCmd(int val){
   return retVal;
 }
 // Convert fcntl flags to native
-int toNativeFcntlFlag(int val){
+inline int toNativeFcntlFlag(int val){
   int retVal=0;
   if(val&Mips32_FD_CLOEXEC){
     retVal|=FD_CLOEXEC;
@@ -333,29 +350,30 @@ int toNativeFcntlFlag(int val){
   return retVal;
 }
 // Convert Error numbers to native
-int toNativeErrNums(int val){
+inline int toNativeErrNums(int val){
   int retVal=0;
   switch(val){
-    case Mips32_EPERM    : retVal+=EPERM    ; break;
-    case Mips32_ENOENT   : retVal+=ENOENT   ; break;
-    case Mips32_EINTR    : retVal+=EINTR    ; break;
-    case Mips32_ENOEXEC  : retVal+=ENOEXEC  ; break;
-    case Mips32_EBADF    : retVal+=EBADF    ; break;
-    case Mips32_ECHILD   : retVal+=ECHILD   ; break;
-    case Mips32_EAGAIN   : retVal+=EAGAIN   ; break;
-    case Mips32_ENOMEM   : retVal+=ENOMEM   ; break;
-    case Mips32_EFAULT   : retVal+=EFAULT   ; break;
-    case Mips32_EEXIST   : retVal+=EEXIST   ; break;
-    case Mips32_EISDIR   : retVal+=EISDIR   ; break;
-    case Mips32_ESPIPE   : retVal+=ESPIPE   ; break;
-    case Mips32_EACCES   : retVal+=EACCES   ; break;
-    case Mips32_EINVAL   : retVal+=EINVAL   ; break;
-    case Mips32_EOVERFLOW: retVal+=EOVERFLOW; break;
-    case Mips32_ENOTTY   : retVal+=ENOTTY   ; break;
-    case Mips32_ERANGE   : retVal+=ERANGE   ; break;
-    case Mips32_ENFILE   : retVal+=ENFILE   ; break;
-    case Mips32_EMFILE   : retVal+=EMFILE   ; break;
-    case Mips32_ENOTDIR  : retVal+=ENOTDIR  ; break;
+    case Mips32_EPERM       : retVal+=EPERM       ; break;
+    case Mips32_ENOENT      : retVal+=ENOENT      ; break;
+    case Mips32_EINTR       : retVal+=EINTR       ; break;
+    case Mips32_ENOEXEC     : retVal+=ENOEXEC     ; break;
+    case Mips32_EBADF       : retVal+=EBADF       ; break;
+    case Mips32_ECHILD      : retVal+=ECHILD      ; break;
+    case Mips32_EAGAIN      : retVal+=EAGAIN      ; break;
+    case Mips32_ENOMEM      : retVal+=ENOMEM      ; break;
+    case Mips32_EFAULT      : retVal+=EFAULT      ; break;
+    case Mips32_EEXIST      : retVal+=EEXIST      ; break;
+    case Mips32_EISDIR      : retVal+=EISDIR      ; break;
+    case Mips32_ESPIPE      : retVal+=ESPIPE      ; break;
+    case Mips32_EACCES      : retVal+=EACCES      ; break;
+    case Mips32_EINVAL      : retVal+=EINVAL      ; break;
+    case Mips32_EOVERFLOW   : retVal+=EOVERFLOW   ; break;
+    case Mips32_ENOTTY      : retVal+=ENOTTY      ; break;
+    case Mips32_ERANGE      : retVal+=ERANGE      ; break;
+    case Mips32_ENFILE      : retVal+=ENFILE      ; break;
+    case Mips32_EMFILE      : retVal+=EMFILE      ; break;
+    case Mips32_ENOTDIR     : retVal+=ENOTDIR     ; break;
+    case Mips32_EAFNOSUPPORT: retVal+=EAFNOSUPPORT; break;
     default: fail("Unknown value %d (0x%x) in file %s line %d\n",val,val,__FILE__,__LINE__);
   }
   val=0;
@@ -363,7 +381,7 @@ int toNativeErrNums(int val){
   return retVal;
 }
 // Convert Signal numbers to native
-int toNativeSigNums(int val){
+inline int toNativeSigNums(int val){
   int retVal=0;
   switch(val){
     case Mips32_SIGHUP: retVal+=SIGHUP; break;
@@ -392,7 +410,7 @@ int toNativeSigNums(int val){
   return retVal;
 }
 // Convert Sigprocmask 'how' values to native
-int toNativeSigMaskHow(int val){
+inline int toNativeSigMaskHow(int val){
   int retVal=0;
   switch(val){
     case Mips32_SIG_BLOCK: retVal+=SIG_BLOCK; break;
@@ -405,7 +423,7 @@ int toNativeSigMaskHow(int val){
   return retVal;
 }
 // Convert wait3/wait4 options to native
-int toNativeWaitOptions(int val){
+inline int toNativeWaitOptions(int val){
   int retVal=0;
   if(val&Mips32_WNOHANG  ){
     retVal|=WNOHANG  ;
@@ -419,7 +437,7 @@ int toNativeWaitOptions(int val){
   return retVal;
 }
 // Convert Standard file ids to native
-int toNativeStdFileNums(int val){
+inline int toNativeStdFileNums(int val){
   int retVal=0;
   switch(val){
     case Mips32_STDIN_FILENO : retVal+=STDIN_FILENO ; break;
@@ -432,7 +450,7 @@ int toNativeStdFileNums(int val){
   return retVal;
 }
 // Convert Whence for lseek to native
-int toNativeWhenceFlags(int val){
+inline int toNativeWhenceFlags(int val){
   int retVal=0;
   switch(val){
     case Mips32_SEEK_SET: retVal+=SEEK_SET; break;
@@ -445,7 +463,7 @@ int toNativeWhenceFlags(int val){
   return retVal;
 }
 // Convert Protection flags (mmap) from native
-int fromNativeMmapProts(int val){
+inline int fromNativeMmapProts(int val){
   int retVal=0;
   switch(val){
     case PROT_NONE : retVal+=Mips32_PROT_NONE ; break;
@@ -459,7 +477,7 @@ int fromNativeMmapProts(int val){
   return retVal;
 }
 // Convert Mmap flags from native
-int fromNativeMmapFlags(int val){
+inline int fromNativeMmapFlags(int val){
   int retVal=0;
   if(val&MAP_FIXED    ){ retVal|=Mips32_MAP_FIXED    ; val^=MAP_FIXED    ; }
   if(val&MAP_SHARED   ){ retVal|=Mips32_MAP_SHARED   ; val^=MAP_SHARED   ; }
@@ -469,7 +487,7 @@ int fromNativeMmapFlags(int val){
   return retVal;
 }
 // Convert File open flags from native
-int fromNativeOpenFlags(int val){
+inline int fromNativeOpenFlags(int val){
   int retVal=0;
   switch(val&O_ACCMODE  ){
     case O_RDONLY   : retVal|=Mips32_O_RDONLY   ; break;
@@ -500,7 +518,7 @@ int fromNativeOpenFlags(int val){
   return retVal;
 }
 // Convert fcntl commands from native
-int fromNativeFcntlCmd(int val){
+inline int fromNativeFcntlCmd(int val){
   int retVal=0;
   switch(val){
     case F_DUPFD: retVal+=Mips32_F_DUPFD; break;
@@ -515,36 +533,37 @@ int fromNativeFcntlCmd(int val){
   return retVal;
 }
 // Convert fcntl flags from native
-int fromNativeFcntlFlag(int val){
+inline int fromNativeFcntlFlag(int val){
   int retVal=0;
   if(val&FD_CLOEXEC){ retVal|=Mips32_FD_CLOEXEC; val^=FD_CLOEXEC; }
   I(val==0);
   return retVal;
 }
 // Convert Error numbers from native
-int fromNativeErrNums(int val){
+inline int fromNativeErrNums(int val){
   int retVal=0;
   switch(val){
-    case EPERM    : retVal+=Mips32_EPERM    ; break;
-    case ENOENT   : retVal+=Mips32_ENOENT   ; break;
-    case EINTR    : retVal+=Mips32_EINTR    ; break;
-    case ENOEXEC  : retVal+=Mips32_ENOEXEC  ; break;
-    case EBADF    : retVal+=Mips32_EBADF    ; break;
-    case ECHILD   : retVal+=Mips32_ECHILD   ; break;
-    case EAGAIN   : retVal+=Mips32_EAGAIN   ; break;
-    case ENOMEM   : retVal+=Mips32_ENOMEM   ; break;
-    case EFAULT   : retVal+=Mips32_EFAULT   ; break;
-    case EEXIST   : retVal+=Mips32_EEXIST   ; break;
-    case EISDIR   : retVal+=Mips32_EISDIR   ; break;
-    case ESPIPE   : retVal+=Mips32_ESPIPE   ; break;
-    case EACCES   : retVal+=Mips32_EACCES   ; break;
-    case EINVAL   : retVal+=Mips32_EINVAL   ; break;
-    case EOVERFLOW: retVal+=Mips32_EOVERFLOW; break;
-    case ENOTTY   : retVal+=Mips32_ENOTTY   ; break;
-    case ERANGE   : retVal+=Mips32_ERANGE   ; break;
-    case ENFILE   : retVal+=Mips32_ENFILE   ; break;
-    case EMFILE   : retVal+=Mips32_EMFILE   ; break;
-    case ENOTDIR  : retVal+=Mips32_ENOTDIR  ; break;
+    case EPERM       : retVal+=Mips32_EPERM       ; break;
+    case ENOENT      : retVal+=Mips32_ENOENT      ; break;
+    case EINTR       : retVal+=Mips32_EINTR       ; break;
+    case ENOEXEC     : retVal+=Mips32_ENOEXEC     ; break;
+    case EBADF       : retVal+=Mips32_EBADF       ; break;
+    case ECHILD      : retVal+=Mips32_ECHILD      ; break;
+    case EAGAIN      : retVal+=Mips32_EAGAIN      ; break;
+    case ENOMEM      : retVal+=Mips32_ENOMEM      ; break;
+    case EFAULT      : retVal+=Mips32_EFAULT      ; break;
+    case EEXIST      : retVal+=Mips32_EEXIST      ; break;
+    case EISDIR      : retVal+=Mips32_EISDIR      ; break;
+    case ESPIPE      : retVal+=Mips32_ESPIPE      ; break;
+    case EACCES      : retVal+=Mips32_EACCES      ; break;
+    case EINVAL      : retVal+=Mips32_EINVAL      ; break;
+    case EOVERFLOW   : retVal+=Mips32_EOVERFLOW   ; break;
+    case ENOTTY      : retVal+=Mips32_ENOTTY      ; break;
+    case ERANGE      : retVal+=Mips32_ERANGE      ; break;
+    case ENFILE      : retVal+=Mips32_ENFILE      ; break;
+    case EMFILE      : retVal+=Mips32_EMFILE      ; break;
+    case ENOTDIR     : retVal+=Mips32_ENOTDIR     ; break;
+    case EAFNOSUPPORT: retVal+=Mips32_EAFNOSUPPORT; break;
     default: fail("Unknown value %d (0x%x) in file %s line %d\n",val,val,__FILE__,__LINE__);
   }
   val=0;
@@ -552,7 +571,7 @@ int fromNativeErrNums(int val){
   return retVal;
 }
 // Convert Signal numbers from native
-int fromNativeSigNums(int val){
+inline int fromNativeSigNums(int val){
   int retVal=0;
   switch(val){
     case SIGHUP: retVal+=Mips32_SIGHUP; break;
@@ -581,7 +600,7 @@ int fromNativeSigNums(int val){
   return retVal;
 }
 // Convert Sigprocmask 'how' values from native
-int fromNativeSigMaskHow(int val){
+inline int fromNativeSigMaskHow(int val){
   int retVal=0;
   switch(val){
     case SIG_BLOCK: retVal+=Mips32_SIG_BLOCK; break;
@@ -594,7 +613,7 @@ int fromNativeSigMaskHow(int val){
   return retVal;
 }
 // Convert wait3/wait4 options from native
-int fromNativeWaitOptions(int val){
+inline int fromNativeWaitOptions(int val){
   int retVal=0;
   if(val&WNOHANG  ){ retVal|=Mips32_WNOHANG  ; val^=WNOHANG  ; }
   if(val&WUNTRACED){ retVal|=Mips32_WUNTRACED; val^=WUNTRACED; }
@@ -602,7 +621,7 @@ int fromNativeWaitOptions(int val){
   return retVal;
 }
 // Convert Standard file ids from native
-int fromNativeStdFileNums(int val){
+inline int fromNativeStdFileNums(int val){
   int retVal=0;
   switch(val){
     case STDIN_FILENO : retVal+=Mips32_STDIN_FILENO ; break;
@@ -615,7 +634,7 @@ int fromNativeStdFileNums(int val){
   return retVal;
 }
 // Convert Whence for lseek from native
-int fromNativeWhenceFlags(int val){
+inline int fromNativeWhenceFlags(int val){
   int retVal=0;
   switch(val){
     case SEEK_SET: retVal+=Mips32_SEEK_SET; break;
@@ -829,22 +848,22 @@ typedef struct Mips32_pollfd {
   int16_t revents;
 } Mips32_pollfd;
 // Convert endianness of iovec for readv/writev
-void cvtEndianBig(Mips32_iovec &val){
+inline void cvtEndianBig(Mips32_iovec &val){
   cvtEndianBig(val.iov_base);
   cvtEndianBig(val.iov_len);
 }
 // Convert endianness of rlimit for getrlimit/setrlimit
-void cvtEndianBig(Mips32_rlimit &val){
+inline void cvtEndianBig(Mips32_rlimit &val){
   cvtEndianBig(val.rlim_cur);
   cvtEndianBig(val.rlim_max);
 }
 // Convert endianness of timeval for rusage
-void cvtEndianBig(Mips32_timeval &val){
+inline void cvtEndianBig(Mips32_timeval &val){
   cvtEndianBig(val.tv_sec);
   cvtEndianBig(val.tv_usec);
 }
 // Convert endianness of rusage for getrusage/setrusage
-void cvtEndianBig(Mips32_rusage &val){
+inline void cvtEndianBig(Mips32_rusage &val){
   cvtEndianBig(val.ru_utime);
   cvtEndianBig(val.ru_stime);
   cvtEndianBig(val.ru_maxrss);
@@ -863,14 +882,14 @@ void cvtEndianBig(Mips32_rusage &val){
   cvtEndianBig(val.ru_nivcsw);
 }
 // Convert endianness of tms structure for times
-void cvtEndianBig(Mips32_tms &val){
+inline void cvtEndianBig(Mips32_tms &val){
   cvtEndianBig(val.tms_utime);
   cvtEndianBig(val.tms_stime);
   cvtEndianBig(val.tms_cutime);
   cvtEndianBig(val.tms_cstime);
 }
 // Convert endianness of utsname for uname
-void cvtEndianBig(Mips32_utsname &val){
+inline void cvtEndianBig(Mips32_utsname &val){
   { for(int i=0;i<65;i++) cvtEndianBig(val.sysname[i]); }
   { for(int i=0;i<65;i++) cvtEndianBig(val.nodename[i]); }
   { for(int i=0;i<65;i++) cvtEndianBig(val.release[i]); }
@@ -879,7 +898,7 @@ void cvtEndianBig(Mips32_utsname &val){
   { for(int i=0;i<65;i++) cvtEndianBig(val.domainname[i]); }
 }
 // Convert endianness of stat64 for [fl]stat64
-void cvtEndianBig(Mips32_stat64 &val){
+inline void cvtEndianBig(Mips32_stat64 &val){
   cvtEndianBig(val.st_dev);
   cvtEndianBig(val.st_ino);
   cvtEndianBig(val.st_mode);
@@ -895,7 +914,7 @@ void cvtEndianBig(Mips32_stat64 &val){
   cvtEndianBig(val.st_blocks);
 }
 // Convert endianness of stat for [fl]stat
-void cvtEndianBig(Mips32_stat &val){
+inline void cvtEndianBig(Mips32_stat &val){
   cvtEndianBig(val.st_dev);
   cvtEndianBig(val.st_ino);
   cvtEndianBig(val.st_mode);
@@ -911,7 +930,7 @@ void cvtEndianBig(Mips32_stat &val){
   cvtEndianBig(val.st_blocks);
 }
 // Convert endianness of dirent64 for getdents
-void cvtEndianBig(Mips32_dirent64 &val){
+inline void cvtEndianBig(Mips32_dirent64 &val){
   cvtEndianBig(val.d_ino);
   cvtEndianBig(val.d_off);
   cvtEndianBig(val.d_reclen);
@@ -919,30 +938,30 @@ void cvtEndianBig(Mips32_dirent64 &val){
   { for(int i=0;i<256;i++) cvtEndianBig(val.d_name[i]); }
 }
 // Convert endianness of winsize for WINSZ ioctls
-void cvtEndianBig(Mips32_winsize &val){
+inline void cvtEndianBig(Mips32_winsize &val){
   cvtEndianBig(val.ws_row);
   cvtEndianBig(val.ws_col);
   cvtEndianBig(val.ws_xpixel);
   cvtEndianBig(val.ws_ypixel);
 }
 // Convert endianness of k_sigset_t for signal masks
-void cvtEndianBig(Mips32_k_sigset_t &val){
+inline void cvtEndianBig(Mips32_k_sigset_t &val){
   { for(int i=0;i<Mips32__K_NSIG_WORDS;i++) cvtEndianBig(val.sig[i]); }
 }
 // Convert endianness of kernel sigaction for [rt_]sigaction
-void cvtEndianBig(Mips32_k_sigaction &val){
+inline void cvtEndianBig(Mips32_k_sigaction &val){
   cvtEndianBig(val.sa_flags);
   cvtEndianBig(val.k_sa_handler);
   cvtEndianBig(val.sa_mask);
   cvtEndianBig(val.sa_restorer);
 }
 // Convert endianness of timespec for nanosleep
-void cvtEndianBig(Mips32_timespec &val){
+inline void cvtEndianBig(Mips32_timespec &val){
   cvtEndianBig(val.tv_sec);
   cvtEndianBig(val.tv_nsec);
 }
 // Convert endianness of args for sysctl
-void cvtEndianBig(Mips32___sysctl_args &val){
+inline void cvtEndianBig(Mips32___sysctl_args &val){
   cvtEndianBig(val.name);
   cvtEndianBig(val.nlen);
   cvtEndianBig(val.oldval);
@@ -951,7 +970,7 @@ void cvtEndianBig(Mips32___sysctl_args &val){
   cvtEndianBig(val.newlen);
 }
 // Convert endianness of Pollfd for poll
-void cvtEndianBig(Mips32_pollfd &val){
+inline void cvtEndianBig(Mips32_pollfd &val){
   cvtEndianBig(val.fd);
   cvtEndianBig(val.events);
   cvtEndianBig(val.revents);

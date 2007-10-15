@@ -2,6 +2,7 @@
 #define MIPS_REGS_H
 
 #include "Regs.h"
+#include "ThreadContext.h"
 
 namespace Mips {
   
@@ -100,6 +101,9 @@ namespace Mips {
     RegLink, // Link register for implementing LL/SC
     RegSys,  // Register used in system implementation
     SpcNameUb,
+    HwrNameLb = SpcNameUb,
+    RegTPtr   = HwrNameLb+29,
+    HwrNameUb = HwrNameLb+32,
   };
 
   template<CpuMode mode,typename T>
@@ -165,7 +169,6 @@ namespace Mips {
   template<CpuMode mode,typename T>
   inline void setRegGpr(ThreadContext *context, RegName name, T val){
     I(!isFprName(name));
-    I(static_cast<MipsRegName>(name)!=RegJunk);
     I(static_cast<MipsRegName>(name)!=RegZero);
     T *ptr=static_cast<T *>(context->getReg(name));
     switch(sizeof(T)){

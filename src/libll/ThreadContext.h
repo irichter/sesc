@@ -11,7 +11,7 @@
 #include "SignalHandling.h"
 #include "FileSys.h"
 #include "InstDesc.h"
-
+#include "LinuxSys.h"
 
 // Use this define to debug the simulated application
 // It enables call stack tracking
@@ -56,13 +56,6 @@ enum IntRegName{
   RetAddrReg  = 31
 };
 #endif // Else of (defined MIPS_EMUL)
-
-enum CpuMode{
-  NoCpuMode,
-  Mips32,
-  Mips64,
-  x86_32
-};
 
 #if (defined MIPS_EMUL)
 class ThreadContext : public GCObject{
@@ -184,9 +177,7 @@ public:
   static inline int getPidUb(void){
     return pid2context.size();
   }
-  inline void setMode(CpuMode newMode){
-    cpuMode=newMode;
-  }
+  void setMode(CpuMode newMode);
   inline CpuMode getMode(void) const{
     return cpuMode;
   }
@@ -453,14 +444,12 @@ public:
 
 #if (defined MIPS_EMUL)
   ThreadContext(void);
-  ThreadContext(ThreadContext &parent, bool shareAddrSpace, bool shareSigTable, bool shareOpenFiles, SignalID sig);
+  ThreadContext(ThreadContext &parent, bool cloneParent, bool cloneFiles, bool cloneSighand, bool cloneVm, bool cloneThread, SignalID sig, VAddr clearChildTid);
   ThreadContext(ChkReader &in);
   ~ThreadContext();
 
   ThreadContext *createChild(bool shareAddrSpace, bool shareSigTable, bool shareOpenFiles, SignalID sig);
-  void setAddressSpace(AddressSpace *newAddressSpace){
-    addressSpace=newAddressSpace;
-  }
+  void setAddressSpace(AddressSpace *newAddressSpace);
   AddressSpace *getAddressSpace(void) const{
     I(addressSpace);
     return addressSpace;
@@ -601,37 +590,8 @@ public:
     }while(foundPid!=startPid);
     return -1;      
   }
-  static inline long long int skipInsts(long long int skipCount){
-    long long int skipped=0;
-    int nowPid=0;
-    while(skipped<skipCount){
-      nowPid=nextReady(nowPid);
-      if(nowPid==-1)
-        return skipped;
-      ThreadContext::pointer context=pid2context[nowPid];
-      I(context);
-      I(!context->isWaiting());
-      I(!context->isExited());
-      int nowSkip=(skipCount-skipped<100)?(skipCount-skipped):100;
-      while(nowSkip&&context->skipInst()){
-        nowSkip--;
-        skipped++;
-      }
-      nowPid++;
-    }
-    return skipped;
-  }
-  inline bool skipInst(void){
-    if(isWaiting())
-      return false;
-    if(isExited())
-      return false;
-#if (defined DEBUG_InstDesc)
-    iDesc->debug();
-#endif
-    (*iDesc)(this);
-    return true;
-  }
+  inline bool skipInst(void);
+  static long long int skipInsts(long long int skipCount);
 #if (defined HAS_MEM_STATE)
   inline const MemState &getState(VAddr addr) const{
     return addressSpace->getState(addr);
@@ -647,7 +607,7 @@ public:
     return addressSpace->canWrite(addr,len);
   }
   void    writeMemFromBuf(VAddr addr, size_t len, const void *buf);
-  ssize_t writeMemFromFile(VAddr addr, size_t len, int fd, bool natFile);
+  ssize_t writeMemFromFile(VAddr addr, size_t len, int fd, bool natFile, bool usePread=false, off_t offs=0);
   void    writeMemWithByte(VAddr addr, size_t len, uint8_t c);  
   void    readMemToBuf(VAddr addr, size_t len, void *buf);
   ssize_t readMemToFile(VAddr addr, size_t len, int fd, bool natFile);
@@ -757,16 +717,31 @@ public:
     return sigInfo;
   }
 
-  // Process/Thread state
+  // System state
+
+  LinuxSys *mySystem;
+  LinuxSys *getSystem(void) const{
+    return mySystem;
+  }
 
   // Parent/Child relationships
  private:
-  int    parentID;
+  // Thread group ID (pid of the thread group leader)
+  int tgid;
+  int parentID;
   typedef std::set<int> IntSet;
   IntSet childIDs;
   // Signal sent to parent when this thread dies/exits
   SignalID  exitSig;
+  // Futex to clear when this thread dies/exits
+  VAddr clear_child_tid;
  public:
+  int gettgid(void) const{
+    return tgid;
+  }
+  void set_tid_address(VAddr tidptr){
+    clear_child_tid=tidptr;
+  }
   int  getParentID(void) const{
     return parentID;
   }
@@ -814,28 +789,21 @@ public:
 
   // Debugging
 
-  typedef std::vector<VAddr> AddrVector;
-  AddrVector entryStack;
-  AddrVector raddrStack;
-  AddrVector frameStack;
-  bool  pendJump;
-  VAddr jumpSrc;
-  VAddr jumpDst;
+  class CallStackEntry{
+  public:
+    VAddr entry;
+    VAddr ra;
+    VAddr sp;
+    bool  tailr;
+    CallStackEntry(VAddr entry, VAddr  ra, VAddr sp, bool tailr)
+      : entry(entry), ra(ra), sp(sp), tailr(tailr){
+    }
+  };
+  typedef std::vector<CallStackEntry> CallStack;
+  CallStack callStack;
 
-  void execCall(VAddr  retAddr, VAddr dstFunc, VAddr sp){
-    I(!pendJump);
-    entryStack.push_back(dstFunc);
-    raddrStack.push_back(retAddr);
-    frameStack.push_back(sp);
-  }
-  void execRet(void){
-    I(!pendJump);
-    entryStack.pop_back();
-    raddrStack.pop_back();
-    frameStack.pop_back();
-  }
-  void execJump(VAddr src, VAddr dst);
-  void execInst(VAddr addr, VAddr sp);
+  void execCall(VAddr entry, VAddr  ra, VAddr sp);
+  void execRet(VAddr entry, VAddr ra, VAddr sp);
   void dumpCallStack(void);
   void clearCallStack(void);
 

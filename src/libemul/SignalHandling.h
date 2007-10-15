@@ -26,6 +26,7 @@ typedef enum{
   SigAlrm,
   SigIO,
   NumSignals,
+  SigDetached,
 } SignalID;
 
 typedef enum {SigCodeIn, SigCodeChldExit, SigCodeUser} SigCode;
@@ -59,13 +60,21 @@ typedef std::bitset<NumSignals> SignalSet;
 
 typedef std::vector<SigInfo *>  SignalQueue;
 
+typedef enum{
+  SaNoDefer=1,
+  SaSigInfo=2,
+  SaRestart=4,
+} SaSigFlags;
+
 class SignalDesc{
  public:
-  VAddr     handler;
-  SignalSet mask;
+  VAddr         handler;
+  SignalSet     mask;
+  SaSigFlags flags;
   SignalDesc &operator=(const SignalDesc &src){
     handler=src.handler;
     mask=src.mask;
+    flags=src.flags;
     return *this;
   }
 };

@@ -599,12 +599,18 @@ long long int MintFuncArgs::getInt64(void){
 
 #if (defined MIPS_EMUL)
 
+void ThreadContext::setMode(CpuMode newMode){
+  cpuMode=newMode;
+  mySystem=LinuxSys::create(cpuMode);
+}
+
+
 void ThreadContext::save(ChkWriter &out) const{
   out << "ThreadContext pid " << pid;
   out << "Mode " << cpuMode << " exited " << exited << endl;
   out << "AddressSpace ";
   out.writeobj(getAddressSpace());
-  out << "Parent " << parentID << " exitSig " << exitSig << endl;
+  out << "Parent " << parentID << " exitSig " << exitSig << " clear_child_tid " << clear_child_tid << endl;
   if(exited){
     I(!iDesc);
     I(!getSignalTable());
@@ -649,12 +655,12 @@ ThreadContext::ThreadContext(ChkReader &in) : nDInsts(0) {
   pid2context[pid]=this;
   size_t _cpuMode;
   in >> "Mode " >> _cpuMode >> " exited " >> exited >> endl;
-  cpuMode=static_cast<CpuMode>(_cpuMode);
+  setMode(static_cast<CpuMode>(_cpuMode));
   size_t _addressSpace;
   in >> "AddressSpace ";
   setAddressSpace(in.readobj<AddressSpace>());
   size_t _exitSig;
-  in >> "Parent " >> parentID >> " exitSig " >> _exitSig >> endl;
+  in >> "Parent " >> parentID >> " exitSig " >> _exitSig >> " clear_child_tid " >> clear_child_tid >> endl;
   exitSig=static_cast<SignalID>(_exitSig);
   if(exited){
     setIAddr(0);
@@ -740,16 +746,15 @@ ThreadContext::ThreadContext(void)
   maskedSig(),
   readySig(),
   suspSig(false),
+  mySystem(0),
   parentID(-1),
   childIDs(),
   exitSig(SigNone),
+  clear_child_tid(0),
   exited(false),
   exitCode(0),
   killSignal(SigNone),
-  entryStack(),
-  raddrStack(),
-  frameStack(),
-  pendJump(false)
+  callStack()
 {
   size_t id;
   for(id=0;(id<pid2context.size())&&pid2context[id];id++);
@@ -757,46 +762,49 @@ ThreadContext::ThreadContext(void)
     pid2context.resize(pid2context.size()+1);
   pid2context[id]=this;
   pid=id;
+  tgid=id;
 
   memset(regs,0,sizeof(regs));
   setAddressSpace(new AddressSpace());
 }
 
-ThreadContext::ThreadContext(ThreadContext &parent, bool shareAddrSpace, bool shareSigTable, bool shareOpenFiles, SignalID sig)
+ThreadContext::ThreadContext(ThreadContext &parent,
+                              bool cloneParent, bool cloneFiles, bool cloneSighand,
+                              bool cloneVm, bool cloneThread,
+                              SignalID sig, VAddr clearChildTid)
   :
   myStackAddrLb(parent.myStackAddrLb),
   myStackAddrUb(parent.myStackAddrUb),
-  cpuMode(parent.cpuMode),
   dAddr(0),
   nDInsts(0),
-  openFiles(shareOpenFiles?((FileSys::OpenFiles *)(parent.openFiles)):(new FileSys::OpenFiles(*(parent.openFiles)))),
-  sigTable(shareSigTable?((SignalTable *)(parent.sigTable)):(new SignalTable(*(parent.sigTable)))),
+  openFiles(cloneFiles?((FileSys::OpenFiles *)(parent.openFiles)):(new FileSys::OpenFiles(*(parent.openFiles)))),
+  sigTable(cloneSighand?((SignalTable *)(parent.sigTable)):(new SignalTable(*(parent.sigTable)))),
   sigMask(),
   maskedSig(),
   readySig(),
   suspSig(false),
-  parentID(parent.pid),
+  parentID(cloneParent?parent.parentID:parent.pid),
   childIDs(),
   exitSig(sig),
+  clear_child_tid(0),
   exited(false),
   exitCode(0),
   killSignal(SigNone),
-  entryStack(parent.entryStack),
-  raddrStack(parent.raddrStack),
-  frameStack(parent.frameStack),
-  pendJump(false)
+  callStack(parent.callStack)
 {
+  setMode(parent.cpuMode);
   size_t id;
   for(id=0;(id<pid2context.size())&&pid2context[id];id++);
   if(id==pid2context.size())
     pid2context.resize(pid2context.size()+1);
   pid2context[id]=this;
   pid=id;
-
-  parent.childIDs.insert(pid);
+  tgid=cloneThread?parent.tgid:pid;
+  if(parentID!=-1)
+    pid2context[parentID]->childIDs.insert(pid);
   memcpy(regs,parent.regs,sizeof(regs));
   // Copy address space and instruction pointer
-  if(shareAddrSpace){
+  if(cloneVm){
     setAddressSpace(parent.getAddressSpace());
     iAddr=parent.iAddr;
     iDesc=parent.iDesc;
@@ -805,6 +813,8 @@ ThreadContext::ThreadContext(ThreadContext &parent, bool shareAddrSpace, bool sh
     iAddr=parent.iAddr;
     iDesc=virt2inst(iAddr);
   }
+  // This must be after setAddressSpace (it resets clear_child_tid)
+  clear_child_tid=clearChildTid;
 }
 
 ThreadContext::~ThreadContext(void){
@@ -819,6 +829,21 @@ ThreadContext::~ThreadContext(void){
   }
   if(getAddressSpace())
     setAddressSpace(0);
+}
+
+void ThreadContext::setAddressSpace(AddressSpace *newAddressSpace){
+  if(clear_child_tid){
+    switch(cpuMode){
+    case Mips32:
+      writeMem<uint32_t>(clear_child_tid,0);
+      break;
+    default:
+      fail("setAddressSpace: clear_child_tid unsupported for cpuMode %d",cpuMode);
+    }
+    getSystem()->futexWake(this,clear_child_tid,1);
+    clear_child_tid=0;
+  }
+  addressSpace=newAddressSpace;
 }
 
 #include "OSSim.h"
@@ -898,6 +923,39 @@ void ThreadContext::reap(){
   pid2context[pid]=0;
 }
 
+inline bool ThreadContext::skipInst(void){
+  if(isWaiting())
+    return false;
+  if(isExited())
+    return false;
+#if (defined DEBUG_InstDesc)
+  iDesc->debug();
+#endif
+  (*iDesc)(this);
+  return true;
+}
+
+long long int ThreadContext::skipInsts(long long int skipCount){
+    long long int skipped=0;
+    int nowPid=0;
+    while(skipped<skipCount){
+      nowPid=nextReady(nowPid);
+      if(nowPid==-1)
+        return skipped;
+      ThreadContext::pointer context=pid2context[nowPid];
+      I(context);
+      I(!context->isWaiting());
+      I(!context->isExited());
+      int nowSkip=(skipCount-skipped<100)?(skipCount-skipped):100;
+      while(nowSkip&&context->skipInst()){
+        nowSkip--;
+        skipped++;
+      }
+      nowPid++;
+    }
+    return skipped;
+  }
+
 void ThreadContext::writeMemFromBuf(VAddr addr, size_t len, const void *buf){
   I(canWrite(addr,len));
   const uint8_t *byteBuf=(uint8_t *)buf;
@@ -927,7 +985,7 @@ void ThreadContext::writeMemFromBuf(VAddr addr, size_t len, const void *buf){
     }
   }
 }
-ssize_t ThreadContext::writeMemFromFile(VAddr addr, size_t len, int fd, bool natFile){
+ssize_t ThreadContext::writeMemFromFile(VAddr addr, size_t len, int fd, bool natFile, bool usePread, off_t offs){
   I(canWrite(addr,len));
   ssize_t retVal=0;
   uint8_t buf[AddressSpace::getPageSize()];
@@ -935,7 +993,12 @@ ssize_t ThreadContext::writeMemFromFile(VAddr addr, size_t len, int fd, bool nat
     size_t ioSiz=AddressSpace::getPageSize()-(addr&(AddressSpace::getPageSize()-1));
     if(ioSiz>len)
       ioSiz=len;
-    ssize_t nowRet=(natFile?(read(fd,buf,ioSiz)):(openFiles->read(fd,buf,ioSiz)));
+    ssize_t nowRet;
+    if(usePread){
+      nowRet=(natFile?(pread(fd,buf,ioSiz,offs)):(openFiles->pread(fd,buf,ioSiz,offs)));
+    }else{
+      nowRet=(natFile?(read(fd,buf,ioSiz)):(openFiles->read(fd,buf,ioSiz)));
+    }
     if(nowRet==-1)
       return nowRet;
     retVal+=nowRet;
@@ -1026,88 +1089,47 @@ ssize_t ThreadContext::readMemString(VAddr stringVAddr, size_t maxSize, char *ds
   return i;
 }
 
-#include "MipsRegs.h"
-
-void ThreadContext::execJump(VAddr src, VAddr dst){
-  I(!pendJump);
-  pendJump=true;
-  jumpSrc=src;
-  jumpDst=dst;
+void ThreadContext::execCall(VAddr entry, VAddr  ra, VAddr sp){
+  I(entry!=0x418968);
+  bool tailr=(!callStack.empty())&&(sp==callStack.back().sp)&&(ra==callStack.back().ra);
+  callStack.push_back(CallStackEntry(entry,ra,sp,tailr));
+#ifdef DEBUG
+  if(!callStack.empty()){
+    CallStack::reverse_iterator it=callStack.rbegin();
+    while(it->tailr){
+      I(it!=callStack.rend());
+      it++;
+    }
+    it++;
+    I((it==callStack.rend())||(it->entry==addressSpace->getFuncAddr(ra))||(it->entry==addressSpace->getFuncAddr(ra-1)));
+  }
+#endif
 }
-void ThreadContext::execInst(VAddr addr, VAddr sp){
-  if(!pendJump){
-    return;
+void ThreadContext::execRet(VAddr entry, VAddr ra, VAddr sp){
+  while(callStack.back().sp!=sp){
+    I(callStack.back().sp<sp);
+    callStack.pop_back();
   }
-  if(addr!=jumpDst){
-    I(addr==jumpSrc+4);
-    return;
+  while(callStack.back().tailr){
+    I(sp==callStack.back().sp);
+    I(ra==callStack.back().ra);
+    callStack.pop_back();
   }
-  pendJump=false;
-  VAddr srcFunc=addressSpace->getFuncAddr(jumpSrc);
-  VAddr dstFunc=addressSpace->getFuncAddr(jumpDst);
-  if((!srcFunc)||(!dstFunc))
-    return;
-  if(jumpDst==dstFunc){
-    // Jump to function entry point, see  where the return address is 
-    VAddr  retAddr=(VAddr)(Mips::getRegGpr<Mips32,uint32_t>(this,static_cast<RegName>(Mips::RegRA)));
-    VAddr  retFunc=addressSpace->getFuncAddr(retAddr);
-    if((!frameStack.empty())&&(sp==frameStack.back())){
-      // Tail function call
-      I(retAddr==raddrStack.back());
-      entryStack.pop_back();
-      raddrStack.pop_back();
-      frameStack.pop_back();
-      I(entryStack.empty()||(retFunc==entryStack.back()));
-    }else{
-      // Normal function call
-      I(retFunc==srcFunc);
-    }
-    execCall(retAddr,dstFunc,sp);
-//     printf("Call from %s to %s\n",
-// 	   addressSpace->getFuncName(srcFunc),
-// 	   addressSpace->getFuncName(dstFunc));
-  }else if(!raddrStack.empty()&&(jumpDst==raddrStack.back())&&(sp==frameStack.back())){
-    // Normal function return
-    execRet();
-//     printf("Return from %s to %s\n",
-// 	   addressSpace->getFuncName(srcFunc),
-// 	   addressSpace->getFuncName(dstFunc));
-  }else if((!frameStack.empty())&&(sp<=frameStack.back())){
-    I(srcFunc==dstFunc);
-  }else if(!frameStack.empty()){
-    printf("Weird jump from %s to %s, unwinding stack\n",
-	   addressSpace->getFuncName(srcFunc),
-	   addressSpace->getFuncName(dstFunc));
-    while((!frameStack.empty())&&(sp>frameStack.back())){
-      printf("Popping entry for %s from call stack\n",addressSpace->getFuncName(entryStack.back()));
-      entryStack.pop_back();
-      raddrStack.pop_back();
-      frameStack.pop_back();
-    }
-    if((!entryStack.empty())&&(entryStack.back()!=dstFunc)){
-      printf("Stack frame is for %s, but we are in %s. Clearing call-stack.\n",
-	     addressSpace->getFuncName(entryStack.back()),
-	     addressSpace->getFuncName(dstFunc));
-      entryStack.clear();
-      raddrStack.clear();
-      frameStack.clear();
-    }
-  }
+  I(sp==callStack.back().sp);
+  I(ra==callStack.back().ra);
+  callStack.pop_back();
 }
-
 void ThreadContext::dumpCallStack(void){
-  I(entryStack.size()==frameStack.size());
   printf("Call stack dump for thread %d begins\n",pid);
-  for(size_t i=0;i<entryStack.size();i++){
-    printf("  Entry 0x%08x from 0x%08x, stack 0x%08x Name %s\n",entryStack[i],raddrStack[i],frameStack[i],addressSpace->getFuncName(entryStack[i]));
-  }
+  for(size_t i=0;i<callStack.size();i++)
+    printf("  Entry 0x%08x from 0x%08x with sp 0x%08x tail %d Name %s\n",
+	   callStack[i].entry,callStack[i].ra,callStack[i].sp,callStack[i].tailr,
+	   addressSpace->getFuncName(callStack[i].entry));
   printf("Call stack dump for thread %d ends\n",pid);
 }
 
 void ThreadContext::clearCallStack(void){
   printf("Clearing call stack for %d\n",pid);
-  entryStack.clear();
-  raddrStack.clear();
-  frameStack.clear();
+  callStack.clear();
 }
 #endif // (define MIPS_EMUL)

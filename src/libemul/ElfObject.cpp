@@ -145,15 +145,19 @@ int  checkElfObject(const char *fname){
 }
 
 void loadElfObject(const char *fname, ThreadContext *threadContext){
-  char *myfname=(char *)(alloca(strlen(fname)+strlen(".Sesc")+1));
-  strcpy(myfname,fname);
+  size_t realNameLen=FileSys::FileNames::getFileNames()->getReal(fname,0,0);
+  char realName[realNameLen];
+  FileSys::FileNames::getFileNames()->getReal(fname,realNameLen,realName);
+  char *myfname=realName;
+  //  char *myfname=(char *)(alloca(strlen(fname)+strlen(".Sesc")+1));
+  //  strcpy(myfname,fname);
   int fd=open(myfname,O_RDONLY);
-  if(fd==-1){
-    strcpy(myfname+strlen(fname),".Sesc");
-    fd==open(myfname,O_RDONLY);
-    if(fd==-1)
-      fail("Could not open ELF file %s (nor %s)",fname,myfname);
-  }
+  //  if(fd==-1){
+  //    strcpy(myfname+strlen(fname),".Sesc");
+  //    fd==open(myfname,O_RDONLY);
+  //    if(fd==-1)
+  //      fail("Could not open ELF file %s (nor %s)",fname,myfname);
+  //  }
   // Read the ELF header
   Elf32_Ehdr myElfHdr;
   if(read(fd,&myElfHdr,sizeof(myElfHdr))!=sizeof(myElfHdr))
@@ -188,7 +192,7 @@ void loadElfObject(const char *fname, ThreadContext *threadContext){
       mipsArch=-1;
       break;
     }
-    printf("Executable %s uses mips%d architecture\n",fname,mipsArch);
+//     printf("Executable %s uses mips%d architecture\n",fname,mipsArch);
     // It's a 32-bit MIPS file, but which ABI?
     threadContext->setMode((myElfHdr.e_flags&EF_MIPS_ABI2)?Mips64:Mips32);
   }else if(myElfHdr.e_machine==EM_386){
@@ -212,11 +216,6 @@ void loadElfObject(const char *fname, ThreadContext *threadContext){
   if(!addrSpace)
     fail("loadElfObject: thread has no address space\n");
 
-  // File offset to the program (segment table)
-  off_t prgTabOff=myElfHdr.e_phoff;
-  // Number of program (segment) table entries
-  uint16_t prgTabCnt=myElfHdr.e_phnum;
-  
   // Get the section name string table
   char *secNamTab=0;
   if(myElfHdr.e_shstrndx==SHN_UNDEF)
@@ -280,7 +279,9 @@ void loadElfObject(const char *fname, ThreadContext *threadContext){
 	  cvtEndian(mySym,byteOrder);
 	  switch(ELF32_ST_TYPE(mySym.st_info)){
 	  case STT_FILE:   // Ignore file name symbols
-	  case STT_OBJECT: // Ignore data symbols
+          case STT_COMMON: // Ignore common data objects
+	  case STT_OBJECT: // Ignore data objects
+          case STT_TLS:    // Ignore thread-local data objects
 	  case STT_SECTION:// Ignore section symbols
 	  case STT_NOTYPE: // Ignore miscelaneous (no-type) symbols
 	    break;
@@ -304,10 +305,90 @@ void loadElfObject(const char *fname, ThreadContext *threadContext){
     }
   }
   
+  // File offset to the program (segment table)
+  off_t prgTabOff=myElfHdr.e_phoff;
+  // Number of program (segment) table entries
+  uint16_t prgTabCnt=myElfHdr.e_phnum;
+  
+  // Read the program table and map loadable segments
+  off_t prgTabPos=myElfHdr.e_phoff;
+  VAddr brkPos=0;
+  for(uint16_t prgTabIdx=0;prgTabIdx<prgTabCnt;prgTabIdx++){
+    Elf32_Phdr myPrgHdr;
+    if(lseek(fd,prgTabPos,SEEK_SET)!=prgTabPos)
+      fail("Couldn't seek to current ELF program table position in %s",myfname);
+    if(read(fd,&myPrgHdr,sizeof(myPrgHdr))!=sizeof(myPrgHdr))
+      fail("Could not read ELF program table entry in %s",myfname);
+    cvtEndian(myPrgHdr,byteOrder);
+    if((prgTabPos=lseek(fd,0,SEEK_CUR))==(off_t)-1)
+      fail("Could not get current file position in %s",myfname);
+    switch(myPrgHdr.p_type){
+    case PT_NULL: break;
+    case PT_LOAD:
+      // Loadable program segment
+      I(addrSpace->isNoSegment(myPrgHdr.p_vaddr,myPrgHdr.p_memsz));
+      addrSpace->newSegment(myPrgHdr.p_vaddr,myPrgHdr.p_memsz,false,true,false);
+      if(myPrgHdr.p_filesz){
+	if(lseek(fd,myPrgHdr.p_offset,SEEK_SET)==(off_t)-1)
+	  fail("Couldn't seek to a PT_LOAD segment in ELF file %s",myfname);
+	if(threadContext->writeMemFromFile(myPrgHdr.p_vaddr,myPrgHdr.p_filesz,fd,true)!=ssize_t(myPrgHdr.p_filesz))
+	  fail("Could not read a PT_LOAD segment from ELF file %s",myfname);
+      }
+      if(myPrgHdr.p_memsz>myPrgHdr.p_filesz){
+	threadContext->writeMemWithByte(myPrgHdr.p_vaddr+myPrgHdr.p_filesz,myPrgHdr.p_memsz-myPrgHdr.p_filesz,0);
+      }
+      addrSpace->protectSegment(myPrgHdr.p_vaddr,myPrgHdr.p_memsz,
+				myPrgHdr.p_flags&PF_R,
+				myPrgHdr.p_flags&PF_W,
+				myPrgHdr.p_flags&PF_X);      
+      if(myPrgHdr.p_vaddr+myPrgHdr.p_memsz>brkPos)
+	brkPos=myPrgHdr.p_vaddr+myPrgHdr.p_memsz;
+      if((myPrgHdr.p_offset<=myElfHdr.e_phoff)&&(myPrgHdr.p_offset+myPrgHdr.p_filesz>=myElfHdr.e_phoff+myElfHdr.e_phnum*myElfHdr.e_phentsize)){
+	addrSpace->addFuncName("PrgHdrAddr",myPrgHdr.p_vaddr+myElfHdr.e_phoff-myPrgHdr.p_offset);
+	addrSpace->addFuncName("PrgHdrNum" ,myElfHdr.e_phnum);
+      }
+      break;
+    case PT_MIPS_REGINFO:
+      // MIPS Register usage information
+      break;
+    case PT_NOTE: {
+      // Auxiliary information
+//       char buf[myPrgHdr.p_filesz];
+//       lseek(fd,myPrgHdr.p_offset,SEEK_SET);
+//       read(fd,&buf,myPrgHdr.p_filesz);
+//       printf("PT_NOTE information:\n");
+//       for(size_t i=0;i<myPrgHdr.p_filesz;i++)
+// 	printf(" %02x",buf[i]);
+//       printf("\n");
+    } break;
+    case PT_TLS:
+      // Thread-local storage segment
+      break;
+    case PT_PHDR:
+      // Location of the program header table
+      break;
+    case PT_INTERP: {
+      // Interpreter information
+      char buf[myPrgHdr.p_filesz];
+      lseek(fd,myPrgHdr.p_offset,SEEK_SET);
+      read(fd,&buf,myPrgHdr.p_filesz);
+      printf("PT_INTERP information:\n");
+      for(size_t i=0;i<myPrgHdr.p_filesz;i++)
+        printf(" %02x",buf[i]);
+      printf("\n");
+      printf("As a string %s\n",buf);
+    }  break;
+    default:
+      fail("Unknown program table entry type %d (0x%08x) for entry %d %s",
+	   myPrgHdr.p_type,myPrgHdr.p_type,prgTabIdx,myfname);
+    }
+  }
+  addrSpace->setBrkBase(brkPos);
+
   // Decode instructions in executable sections
   // also, check for unsupported section types
   {
-    VAddr brkPos=0;
+//     VAddr brkPos=0;
     off_t secTabPos=myElfHdr.e_shoff;
     for(uint16_t secTabIdx=0;secTabIdx<myElfHdr.e_shnum;secTabIdx++){
       Elf32_Shdr mySecHdr;
@@ -340,22 +421,28 @@ void loadElfObject(const char *fname, ThreadContext *threadContext){
 	  fail("Unsupported coprocessor registers used in ELF file %s",myfname);
 	Mips::setRegAny<Mips32,uint32_t,Mips::RegGP>(threadContext,static_cast<RegName>(Mips::RegGP),myRegInfo.ri_gp_value);
       } break;
-      case SHT_NOBITS: case SHT_PROGBITS: {
+      case SHT_NOBITS:
+	// For a NOBITS section with SHF_ALLOC and SHF_TLS, we don't really allocate memory
+	if((mySecHdr.sh_flags&SHF_ALLOC)&&(mySecHdr.sh_flags&SHF_TLS))
+	  break;
+	// Other NOBITS sections get actual memory allocated for them
+      case SHT_PROGBITS: {
 	// Code/data section, need to allocate space for it
 	if(mySecHdr.sh_flags&SHF_ALLOC){
-	  I(addrSpace->isNoSegment(mySecHdr.sh_addr,mySecHdr.sh_size));
-	  addrSpace->newSegment(mySecHdr.sh_addr,mySecHdr.sh_size,false,true,false);
-	  if(mySecHdr.sh_type==SHT_PROGBITS){
-	    if(lseek(fd,mySecHdr.sh_offset,SEEK_SET)==(off_t)-1)
-	      fail("Couldn't seek to a SHT_PROGBITS section in ELF file %s",myfname);
-	    if(threadContext->writeMemFromFile(mySecHdr.sh_addr,mySecHdr.sh_size,fd,true)!=ssize_t(mySecHdr.sh_size))
-	      fail("Could not read a SHT_PROGBITS section from ELF file %s",myfname);
-	  }else{
-	    threadContext->writeMemWithByte(mySecHdr.sh_addr,mySecHdr.sh_size,0);
-	  }
+	  I(addrSpace->isInSegment(mySecHdr.sh_addr,mySecHdr.sh_size));
+// 	  I(addrSpace->isNoSegment(mySecHdr.sh_addr,mySecHdr.sh_size));
+// 	  addrSpace->newSegment(mySecHdr.sh_addr,mySecHdr.sh_size,false,true,false);
+// 	  if(mySecHdr.sh_type==SHT_PROGBITS){
+// 	    if(lseek(fd,mySecHdr.sh_offset,SEEK_SET)==(off_t)-1)
+// 	      fail("Couldn't seek to a SHT_PROGBITS section in ELF file %s",myfname);
+// 	    if(threadContext->writeMemFromFile(mySecHdr.sh_addr,mySecHdr.sh_size,fd,true)!=ssize_t(mySecHdr.sh_size))
+// 	      fail("Could not read a SHT_PROGBITS section from ELF file %s",myfname);
+// 	  }else{
+// 	    threadContext->writeMemWithByte(mySecHdr.sh_addr,mySecHdr.sh_size,0);
+// 	  }
           bool canWr=(mySecHdr.sh_flags&SHF_WRITE);
           bool canEx=(mySecHdr.sh_flags&SHF_EXECINSTR);
-	  addrSpace->protectSegment(mySecHdr.sh_addr,mySecHdr.sh_size,true,canWr,canEx);
+// 	  addrSpace->protectSegment(mySecHdr.sh_addr,mySecHdr.sh_size,true,canWr,canEx);
           if(canEx&&(addrSpace->getFuncName(mySecHdr.sh_addr+mySecHdr.sh_size)==0)){
             char  *secNam=secNamTab+mySecHdr.sh_name;
             size_t secNamLen=strlen(secNam);
@@ -366,8 +453,8 @@ void loadElfObject(const char *fname, ThreadContext *threadContext){
             strcpy(symNam+endNamLen,secNam);
             addrSpace->addFuncName(symNam,mySecHdr.sh_addr+mySecHdr.sh_size);
           }
-	  if(mySecHdr.sh_addr+mySecHdr.sh_size>brkPos)
-	    brkPos=mySecHdr.sh_addr+mySecHdr.sh_size;
+// 	  if(mySecHdr.sh_addr+mySecHdr.sh_size>brkPos)
+// 	    brkPos=mySecHdr.sh_addr+mySecHdr.sh_size;
 	}
       } break;
       default:
@@ -385,7 +472,7 @@ void loadElfObject(const char *fname, ThreadContext *threadContext){
 	printf("\n");
       }
     }
-    addrSpace->setBrkBase(brkPos);
+//    addrSpace->setBrkBase(brkPos);
   }
   delete [] secNamTab;
   close(fd);

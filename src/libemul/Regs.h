@@ -2,6 +2,7 @@
 #define REGS_H
 
 #include <stdint.h>
+#include <stddef.h>
 
 enum RegNameEnum{
   RegNumMask  = 0x0FF, // Mask for register number

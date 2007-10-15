@@ -2,6 +2,66 @@
 #include "AddressSpace.h"
 #include "nanassert.h"
 
+namespace MemSys{
+
+  PAddr FrameDesc::nextPAddr=AddrSpacPageSize;
+
+  FrameDesc::PAddrSet FrameDesc::freePAddrs;
+
+  FrameDesc::FrameDesc() : GCObject(), basePAddr(newPAddr()), memFlags(MemPrivate){
+    memset(data,0,AddrSpacPageSize);
+  }
+  FrameDesc::FrameDesc(FileSys::FileStatus *fst, off_t ofs)
+    : GCObject()
+    , basePAddr(newPAddr())
+    , memFlags(MemShared)
+    , filePtr(fst)
+    , fileOff(ofs){
+    filePtr->mmap(this,data,AddrSpacPageSize,fileOff);
+#if (defined HAS_MEM_STATE)
+    for(size_t s=0;s<AddrSpacPageSize/MemState::Granularity;s++)
+      state[s]=src.state[s];
+#endif
+  }
+  FrameDesc::FrameDesc(FrameDesc &src)
+    : GCObject()
+    ,basePAddr(newPAddr())
+    ,memFlags(MemPrivate)
+  {
+    memcpy(data,src.data,AddrSpacPageSize);
+#if (defined HAS_MEM_STATE)
+    for(size_t s=0;s<AddrSpacPageSize/MemState::Granularity;s++)
+      state[s]=src.state[s];
+#endif
+  }
+  FrameDesc::~FrameDesc(){
+    if(filePtr){
+      if((memFlags&MemDirty)&&(memFlags&MemShared))
+	filePtr->msync(this,data,AddrSpacPageSize,fileOff);
+      filePtr->munmap(this,data,AddrSpacPageSize,fileOff);
+      filePtr=0;
+    }
+    I(freePAddrs.find(basePAddr)==freePAddrs.end());
+    freePAddrs.insert(basePAddr);
+    memset(data,0xCC,AddrSpacPageSize);
+  }
+  void FrameDesc::save(ChkWriter &out) const{
+    out.write(reinterpret_cast<const char *>(data),AddrSpacPageSize);
+#if (defined HAS_MEM_STATE)
+    for(size_t s=0;s<AddrSpacPageSize/MemState::Granularity;s++)
+      state[s].save(out);
+#endif
+    out<<endl;
+  }
+  FrameDesc::FrameDesc(ChkReader &in){
+    in.read(reinterpret_cast<char *>(data),AddrSpacPageSize);
+#if (defined HAS_MEM_STATE)
+    for(size_t s=0;s<AddrSpacPageSize/MemState::Granularity;s++)
+      state[s]=MemState(in);
+#endif
+    in>>endl;
+  }
+}
 void AddressSpace::SegmentDesc::save(ChkWriter &out) const{
   out << "Addr " << addr << " Len " << len;
   out << "R" << canRead;
@@ -26,41 +86,6 @@ ChkReader &AddressSpace::SegmentDesc::operator=(ChkReader &in){
   return in;
 }
 
-PAddr AddressSpace::FrameDesc::nextPAddr=AddrSpacPageSize;
-
-AddressSpace::FrameDesc::PAddrSet AddressSpace::FrameDesc::freePAddrs;
-
-AddressSpace::FrameDesc::FrameDesc() : GCObject(), basePAddr(newPAddr()){
-  memset(data,0,AddrSpacPageSize);
-}
-AddressSpace::FrameDesc::FrameDesc(FrameDesc &src) : GCObject(), basePAddr(newPAddr()){
-  memcpy(data,src.data,AddrSpacPageSize);
-#if (defined HAS_MEM_STATE)
-  for(size_t s=0;s<AddrSpacPageSize/MemState::Granularity;s++)
-    state[s]=src.state[s];
-#endif
-}
-AddressSpace::FrameDesc::~FrameDesc(){
-  I(freePAddrs.find(basePAddr)==freePAddrs.end());
-  freePAddrs.insert(basePAddr);
-  memset(data,0xCC,AddrSpacPageSize);
-}
-void AddressSpace::FrameDesc::save(ChkWriter &out) const{
-  out.write(reinterpret_cast<const char *>(data),AddrSpacPageSize);
-#if (defined HAS_MEM_STATE)
-  for(size_t s=0;s<AddrSpacPageSize/MemState::Granularity;s++)
-    state[s].save(out);
-#endif
-  out<<endl;
-}
-AddressSpace::FrameDesc::FrameDesc(ChkReader &in){
-  in.read(reinterpret_cast<char *>(data),AddrSpacPageSize);
-#if (defined HAS_MEM_STATE)
-  for(size_t s=0;s<AddrSpacPageSize/MemState::Granularity;s++)
-    state[s]=MemState(in);
-#endif
-  in>>endl;
-}
 AddressSpace::PageDesc::PageDesc(void)
   : frame(0),
     mapCount(0),
@@ -95,7 +120,7 @@ ChkReader &AddressSpace::PageDesc::operator=(ChkReader &in){
   canWrite=0;
   canExec=0;
   in >> "S" >> shared >> " C" >> copyOnWrite >> " ";
-  frame=in.readobj<FrameDesc>();
+  frame=in.readobj<MemSys::FrameDesc>();
   return in;
 }
 
@@ -209,7 +234,7 @@ void AddressSpace::clear(bool isExec){
 }
 
 AddressSpace::~AddressSpace(void){
-  printf("Destroying an address space\n");
+//  printf("Destroying an address space\n");
   clear(false);
 }
 
@@ -292,6 +317,15 @@ const char *AddressSpace::getFuncName(VAddr addr) const{
   return it->second;
 }
 
+// Given the name, return where the function begins
+VAddr AddressSpace::getFuncAddr(const char *name) const{
+  NameToAddrMap::const_iterator it=funcNameToAddr.find(name);
+  if(it==funcNameToAddr.end())
+    return 0;
+  return it->second;
+}
+
+
 // Given a code address, return where the function begins (best guess)
 VAddr AddressSpace::getFuncAddr(VAddr addr) const{
   AddrToNameMap::const_iterator it=funcAddrToName.lower_bound(addr);
@@ -357,8 +391,7 @@ void AddressSpace::delRetHandler(const char *name,EmulFunc *func){
     return;
   nameToRetHandler.erase(curIt);
 }
-void AddressSpace::getCallHandlers(VAddr addr, HandlerSet &set) const{
-  I(set.empty());
+bool AddressSpace::getCallHandlers(VAddr addr, HandlerSet &set) const{
   AddrToNameMap::const_iterator nameBeg=funcAddrToName.lower_bound(addr);
   AddrToNameMap::const_iterator nameEnd=funcAddrToName.upper_bound(addr);
   for(AddrToNameMap::const_iterator nameCur=nameBeg;nameCur!=nameEnd;nameCur++){
@@ -369,10 +402,15 @@ void AddressSpace::getCallHandlers(VAddr addr, HandlerSet &set) const{
     for(NameToFuncMap::const_iterator handCur=handBeg;handCur!=handEnd;handCur++)
       set.insert(handCur->second);
   }
-  I(!set.empty());
+  {
+    NameToFuncMap::const_iterator handBeg=nameToCallHandler.lower_bound("");
+    NameToFuncMap::const_iterator handEnd=nameToCallHandler.upper_bound("");
+    for(NameToFuncMap::const_iterator handCur=handBeg;handCur!=handEnd;handCur++)
+      set.insert(handCur->second);
+  }
+  return !set.empty();
 }
-void AddressSpace::getRetHandlers(VAddr addr, HandlerSet &set) const{
-  I(set.empty());
+bool AddressSpace::getRetHandlers(VAddr addr, HandlerSet &set) const{
   AddrToNameMap::const_iterator nameBeg=funcAddrToName.lower_bound(addr);
   AddrToNameMap::const_iterator nameEnd=funcAddrToName.upper_bound(addr);
   for(AddrToNameMap::const_iterator nameCur=nameBeg;nameCur!=nameEnd;nameCur++){
@@ -383,7 +421,13 @@ void AddressSpace::getRetHandlers(VAddr addr, HandlerSet &set) const{
     for(NameToFuncMap::const_iterator handCur=handBeg;handCur!=handEnd;handCur++)
       set.insert(handCur->second);
   }
-  I(!set.empty());
+  {
+    NameToFuncMap::const_iterator handBeg=nameToRetHandler.lower_bound("");
+    NameToFuncMap::const_iterator handEnd=nameToRetHandler.upper_bound("");
+    for(NameToFuncMap::const_iterator handCur=handBeg;handCur!=handEnd;handCur++)
+      set.insert(handCur->second);
+  }
+  return !set.empty();
 }
 
 VAddr AddressSpace::newSegmentAddr(size_t len){

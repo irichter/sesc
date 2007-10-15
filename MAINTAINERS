@@ -26,8 +26,8 @@ S: Status, one of the following:
                         role as you write your new code].
 
 ---------------------------------------
-D:TLS
-F:*/*
+D:New ISA emulation
+F:libemul/*, */*
 P:Milos Prvulovic
 M:milos@cc.gatech.edu
 W:http://www.cc.gatech.edu/~milos

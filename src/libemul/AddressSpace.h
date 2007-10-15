@@ -13,7 +13,7 @@
 #include "GCObject.h"
 #include "DbgObject.h"
 #include "Checkpoint.h"
-
+#include "FileSys.h"
 #include "MemState.h"
 
 #define AddrSpacPageOffsBits (12)
@@ -31,6 +31,86 @@
 #endif
 
 typedef uint64_t MemAlignType;
+
+namespace MemSys{
+
+  typedef enum{
+    MemPrivate = 0,
+    MemShared  = 1,
+    MemDirty   = 2
+  } MemFlags;
+  
+  // Information about pages of physical memory
+  class FrameDesc : public GCObject{
+  public:
+    typedef SmartPtr<FrameDesc> pointer;
+  private:
+    typedef std::set<PAddr> PAddrSet;
+    static PAddr    nextPAddr;
+    static PAddrSet freePAddrs;
+    static inline PAddr newPAddr(void){
+      PAddr retVal;
+      if(nextPAddr){
+	retVal=nextPAddr;
+	nextPAddr+=AddrSpacPageSize;
+      }else{
+	PAddrSet::iterator it=freePAddrs.begin();
+	if(it==freePAddrs.end())
+	  fail("FrameDesc::newPAddr ran out of physical address space\n");
+	retVal=*it;
+	freePAddrs.erase(it);
+      }
+      return retVal;
+    }
+    PAddr    basePAddr;
+    MemFlags memFlags;
+    FileSys::FileStatus::pointer filePtr;
+    off_t               fileOff;
+    MemAlignType data[AddrSpacPageSize/sizeof(MemAlignType)];
+#if (defined HAS_MEM_STATE)
+    MemState state[AddrSpacPageSize/MemState::Granularity];
+#endif
+  public:
+    FrameDesc();
+    FrameDesc(FileSys::FileStatus *fst, off_t ofs);
+    FrameDesc(FrameDesc &src);
+    ~FrameDesc();
+    int8_t *getData(VAddr addr){
+      size_t offs=(addr&AddrSpacPageOffsMask);
+      int8_t *retVal=&(reinterpret_cast<int8_t *>(data)[offs]);
+      I(reinterpret_cast<unsigned long int>(retVal)>=reinterpret_cast<unsigned long int>(data));
+      I(AddrSpacPageSize==sizeof(data));
+      I(reinterpret_cast<unsigned long int>(retVal)<reinterpret_cast<unsigned long int>(data)+AddrSpacPageSize);
+      return retVal;
+    }
+    const int8_t *getData(VAddr addr) const{
+      size_t offs=(addr&AddrSpacPageOffsMask);
+      const int8_t *retVal=&(reinterpret_cast<const int8_t *>(data)[offs]);
+      I(reinterpret_cast<unsigned long int>(retVal)>=reinterpret_cast<unsigned long int>(data));
+      I(AddrSpacPageSize==sizeof(data));
+      I(reinterpret_cast<unsigned long int>(retVal)<reinterpret_cast<unsigned long int>(data)+AddrSpacPageSize);
+      return retVal;
+    }
+    PAddr getPAddr(VAddr addr) const{
+      return basePAddr+(addr&AddrSpacPageOffsMask);
+    }
+#if (defined HAS_MEM_STATE)
+    MemState &getState(VAddr addr){
+      size_t offs=(addr&AddrSpacPageOffsMask)/MemState::Granularity;
+      I(offs*sizeof(MemState)<sizeof(state));
+      return state[offs];
+    }
+    const MemState &getState(VAddr addr) const{
+      size_t offs=(addr&AddrSpacPageOffsMask)/MemState::Granularity;
+      I(offs*sizeof(MemState)<sizeof(state));
+      return state[offs];
+    }
+#endif
+    void save(ChkWriter &out) const;
+    FrameDesc(ChkReader &in);
+  };
+
+}
 
 class AddressSpace : public GCObject{
  public:
@@ -90,71 +170,6 @@ class AddressSpace : public GCObject{
   TraceMap traceMap;
   typedef std::map<VAddr, InstDesc *, std::greater<VAddr> > InstMap;
   InstMap  instMap;
-  // Information about pages of physical memory
-  class FrameDesc : public GCObject{
-  public:
-    typedef SmartPtr<FrameDesc> pointer;
-  private:
-    typedef std::set<PAddr> PAddrSet;
-    static PAddr    nextPAddr;
-    static PAddrSet freePAddrs;
-    static inline PAddr newPAddr(void){
-      PAddr retVal;
-      if(nextPAddr){
-	retVal=nextPAddr;
-	nextPAddr+=AddrSpacPageSize;
-      }else{
-	PAddrSet::iterator it=freePAddrs.begin();
-	if(it==freePAddrs.end())
-	  fail("AddressSpace::FrameDesc::newPAddr ran out of physical address space\n");
-	retVal=*it;
-	freePAddrs.erase(it);
-      }
-      return retVal;
-    }
-    MemAlignType data[AddrSpacPageSize/sizeof(MemAlignType)];
-#if (defined HAS_MEM_STATE)
-    MemState state[AddrSpacPageSize/MemState::Granularity];
-#endif
-    PAddr basePAddr;
-  public:
-    FrameDesc();
-    FrameDesc(FrameDesc &src);
-    ~FrameDesc();
-    int8_t *getData(VAddr addr){
-      size_t offs=(addr&AddrSpacPageOffsMask);
-      int8_t *retVal=&(reinterpret_cast<int8_t *>(data)[offs]);
-      I(reinterpret_cast<unsigned long int>(retVal)>=reinterpret_cast<unsigned long int>(data));
-      I(AddrSpacPageSize==sizeof(data));
-      I(reinterpret_cast<unsigned long int>(retVal)<reinterpret_cast<unsigned long int>(data)+AddrSpacPageSize);
-      return retVal;
-    }
-    const int8_t *getData(VAddr addr) const{
-      size_t offs=(addr&AddrSpacPageOffsMask);
-      const int8_t *retVal=&(reinterpret_cast<const int8_t *>(data)[offs]);
-      I(reinterpret_cast<unsigned long int>(retVal)>=reinterpret_cast<unsigned long int>(data));
-      I(AddrSpacPageSize==sizeof(data));
-      I(reinterpret_cast<unsigned long int>(retVal)<reinterpret_cast<unsigned long int>(data)+AddrSpacPageSize);
-      return retVal;
-    }
-    PAddr getPAddr(VAddr addr) const{
-      return basePAddr+(addr&AddrSpacPageOffsMask);
-    }
-#if (defined HAS_MEM_STATE)
-    MemState &getState(VAddr addr){
-      size_t offs=(addr&AddrSpacPageOffsMask)/MemState::Granularity;
-      I(offs*sizeof(MemState)<sizeof(state));
-      return state[offs];
-    }
-    const MemState &getState(VAddr addr) const{
-      size_t offs=(addr&AddrSpacPageOffsMask)/MemState::Granularity;
-      I(offs*sizeof(MemState)<sizeof(state));
-      return state[offs];
-    }
-#endif
-    void save(ChkWriter &out) const;
-    FrameDesc(ChkReader &in);
-  };
   // Information about pages of virtual memory (in each AddressSpace)
   class PageDesc
 #if (defined DEBUG_PageDesc)
@@ -162,7 +177,7 @@ class AddressSpace : public GCObject{
 #endif
   {
   public:
-    FrameDesc::pointer frame;
+    MemSys::FrameDesc::pointer frame;
 //    TraceDesc *insts;
     // Number of mapped segments that overlap with this page
     size_t     mapCount;
@@ -180,7 +195,7 @@ class AddressSpace : public GCObject{
     PageDesc &operator=(PageDesc &src);
     void map(bool r, bool w, bool x){
       if(!mapCount){
-	frame=new FrameDesc();
+	frame=new MemSys::FrameDesc();
       }
       mapCount++;
       canRead+=r;
@@ -209,7 +224,7 @@ class AddressSpace : public GCObject{
       canWrite-=w;
       canExec-=x;
     }      
-    FrameDesc *getFrame(void) const{
+    MemSys::FrameDesc *getFrame(void) const{
       return frame;
     }
     void save(ChkWriter &out) const;
@@ -364,9 +379,9 @@ class AddressSpace : public GCObject{
     PageMapLeaf leafTable=pageMapRoot[rootNum];
     if(!leafTable)
       return 0;
-    FrameDesc *frame=leafTable[leafNum].frame;
+    MemSys::FrameDesc *frame=leafTable[leafNum].frame;
 #else
-    FrameDesc *frame=pageMap[pageNum].frame;
+    MemSys::FrameDesc *frame=pageMap[pageNum].frame;
 #endif
     if(!frame)
       return 0;
@@ -382,9 +397,9 @@ class AddressSpace : public GCObject{
     PageMapLeaf leafTable=pageMapRoot[rootNum];
     if(!leafTable)
       return 0;
-    FrameDesc *frame=leafTable[leafNum].frame;
+    MemSys::FrameDesc *frame=leafTable[leafNum].frame;
 #else
-    FrameDesc *frame=pageMap[pageNum].frame;
+    MemSys::FrameDesc *frame=pageMap[pageNum].frame;
 #endif
     if(!frame)
       return 0;
@@ -472,7 +487,7 @@ class AddressSpace : public GCObject{
     if(myPage.copyOnWrite){
       myPage.copyOnWrite=false;
       if(myPage.frame->getRefCount()>1)
-	myPage.frame=new FrameDesc(*myPage.frame);
+	myPage.frame=new MemSys::FrameDesc(*myPage.frame);
     }
     *(reinterpret_cast<T *>(myPage.frame->getData(addr)))=val;
     return true;
@@ -491,7 +506,7 @@ class AddressSpace : public GCObject{
     if(myPage.copyOnWrite){
       myPage.copyOnWrite=false;
       if(myPage.frame->getRefCount()>1)
-	myPage.frame=new FrameDesc(*myPage.frame);
+	myPage.frame=new MemSys::FrameDesc(*myPage.frame);
     }
     return myPage.frame->getState(addr);
   }
@@ -534,34 +549,8 @@ class AddressSpace : public GCObject{
   static void addRetHandler(const char *name,EmulFunc *func);
   static void delCallHandler(const char *name,EmulFunc *func);
   static void delRetHandler(const char *name,EmulFunc *func);
-  bool hasCallHandler(VAddr addr) const{
-    AddrToNameMap::const_iterator nameBeg=funcAddrToName.lower_bound(addr);
-    AddrToNameMap::const_iterator nameEnd=funcAddrToName.upper_bound(addr);
-    for(AddrToNameMap::const_iterator nameCur=nameBeg;nameCur!=nameEnd;nameCur++){
-      const char *name=nameCur->second;
-      I(name);
-      NameToFuncMap::const_iterator handBeg=nameToCallHandler.lower_bound(name);
-      NameToFuncMap::const_iterator handEnd=nameToCallHandler.upper_bound(name);
-      if(handBeg!=handEnd)
-        return true;
-    }
-    return false;
-  }
-  bool hasRetHandler(VAddr addr) const{
-    AddrToNameMap::const_iterator nameBeg=funcAddrToName.lower_bound(addr);
-    AddrToNameMap::const_iterator nameEnd=funcAddrToName.upper_bound(addr);
-    for(AddrToNameMap::const_iterator nameCur=nameBeg;nameCur!=nameEnd;nameCur++){
-      const char *name=nameCur->second;
-      I(name);
-      NameToFuncMap::const_iterator handBeg=nameToRetHandler.lower_bound(name);
-      NameToFuncMap::const_iterator handEnd=nameToRetHandler.upper_bound(name);
-      if(handBeg!=handEnd)
-        return true;
-    }
-    return false;
-  }
   typedef std::set<EmulFunc *> HandlerSet;
-  void getCallHandlers(VAddr addr, HandlerSet &set) const;
-  void getRetHandlers(VAddr addr, HandlerSet &set) const;
+  bool getCallHandlers(VAddr addr, HandlerSet &set) const;
+  bool getRetHandlers(VAddr addr, HandlerSet &set) const;
 };
 #endif

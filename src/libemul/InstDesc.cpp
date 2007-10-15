@@ -206,6 +206,7 @@ namespace Mips {
     OpMovw, OpFmovs, OpFmovd,
     OpMfhi, OpMflo, OpMfc1, OpDmfc1, OpCfc1,
     OpMthi, OpMtlo, OpMtc1, OpDmtc1, OpCtc1,
+    OpRdhwr,
     // Integer comparisons
     OpSlt, OpSltu, OpSlti, OpSltiu,
     // Floating-point comparisons
@@ -239,7 +240,7 @@ namespace Mips {
 
   static inline void preExec(InstDesc *inst, ThreadContext *context){
 #if (defined DEBUG_BENCH)
-    context->execInst(inst->addr,getRegAny<mode,uint32_t,RegTypeGpr>(context,static_cast<RegName>(RegSP)));
+    //    context->execInst(inst->addr,getRegAny<mode,uint32_t,RegTypeGpr>(context,static_cast<RegName>(RegSP)));
 #endif
   }
 
@@ -552,7 +553,7 @@ namespace Mips {
        if(getRegAny<mode,RegUnsT,RegTypeSpc>(context,static_cast<RegName>(RegLink))!=(vaddr-(vaddr&0x7))){
          setRegAny<mode,RegSigT,RegTypeGpr>(context,inst->regDst,0);
 #if (defined DEBUG_BENCH)
-	printf("OpSc fails inst 0x%08x addr 0x%08lx in %d\n",inst->addr,(long unsigned int)vaddr,context->getPid());
+	 //	printf("OpSc fails inst 0x%08x addr 0x%08lx in %d\n",inst->addr,(long unsigned int)vaddr,context->getPid());
 #endif
       }else{
 	writeMem<mode,uint32_t,VAddr>(context,vaddr,getRegAny<mode,uint32_t,RegTypeGpr>(context,inst->regSrc2));
@@ -688,6 +689,8 @@ static inline RegType getSescRegType(RegName reg, bool src){
     return HiReg;
   if(static_cast<Mips::MipsRegName>(reg)==Mips::RegCond)
     return CondReg;
+  if(static_cast<Mips::MipsRegName>(reg)==Mips::RegTPtr)
+    return InternalReg;
   I(0);
   return NoDependence;
 }
@@ -804,7 +807,7 @@ Instruction *createSescInst(const InstDesc *inst, VAddr iaddr, size_t deltaAddr,
 }
 
   // What is the encoding for the instruction's register argument
-  enum InstArgInfo  { ArgNo, ArgRd, ArgRt, ArgRs, ArgFd, ArgFt, ArgFs, ArgFr,
+  enum InstArgInfo  { ArgNo, ArgRd, ArgRt, ArgRs, ArgFd, ArgFt, ArgFs, ArgFr, ArgHs,
                       ArgFCs, ArgFCSR, ArgFccc, ArgFbcc,
                       ArgTmp, ArgBTmp, ArgFTmp, ArgCond, ArgRa, ArgHi, ArgLo, ArgHL, ArgZero };
   // What is the format of the immediate (if any)
@@ -901,6 +904,7 @@ Instruction *createSescInst(const InstDesc *inst, VAddr iaddr, size_t deltaAddr,
       case ArgFs:   return static_cast<RegName>(((inst>>11)&0x1F)+FprNameLb);
       case ArgFr:   return static_cast<RegName>(((inst>>21)&0x1F)+FprNameLb);
       case ArgFCs:  return static_cast<RegName>(((inst>>11)&0x1F)+FcrNameLb);
+      case ArgHs:   return static_cast<RegName>(((inst>>11)&0x1F)+HwrNameLb);
       case ArgFTmp: return static_cast<RegName>(RegFTmp);
       case ArgFCSR: return static_cast<RegName>(RegFCSR);
       case ArgFccc: return static_cast<RegName>(FccNameLb+((inst>>8)&0x7));
@@ -943,12 +947,13 @@ Instruction *createSescInst(const InstDesc *inst, VAddr iaddr, size_t deltaAddr,
       return (data.typ==TypNop)&&(data.next==OpInvalid);
     }
     void decodeInstSize(ThreadContext *context, VAddr funcAddr, VAddr &curAddr, VAddr endAddr, size_t &tsize, bool domap){
+      // This is a handler set for calls/returns 
+      AddressSpace::HandlerSet hset;
       // Function entry point may need to call a handler
-      if((curAddr==funcAddr)&&context->getAddressSpace()->hasCallHandler(funcAddr)){
+      if((curAddr==funcAddr)&&context->getAddressSpace()->getCallHandlers(funcAddr,hset)){
         I(domap);
-        AddressSpace::HandlerSet hset;
-        context->getAddressSpace()->getCallHandlers(funcAddr,hset);
         tsize+=hset.size();
+	hset.clear();
       }
       I(!context->getAddressSpace()->isMappedInst(curAddr));
       RawInst raw=context->readMem<RawInst>(curAddr);
@@ -965,11 +970,10 @@ Instruction *createSescInst(const InstDesc *inst, VAddr iaddr, size_t deltaAddr,
 	const OpData &data=op2Data[op];
 	InstTypInfo typ=static_cast<InstTypInfo>(data.typ&TypSubMask);
         // Function return may need to call a handler
-        if((typ==BrOpRet)&&context->getAddressSpace()->hasRetHandler(funcAddr)){
+        if((typ==BrOpRet)&&context->getAddressSpace()->getRetHandlers(funcAddr,hset)){
           I(domap);
-          AddressSpace::HandlerSet hset;
-          context->getAddressSpace()->getRetHandlers(funcAddr,hset);
           tsize+=hset.size();
+	  hset.clear();
         }
 	tsize++;
 	// Decode delay slots
@@ -996,14 +1000,14 @@ Instruction *createSescInst(const InstDesc *inst, VAddr iaddr, size_t deltaAddr,
       }
     }
     void decodeInst(ThreadContext *context, VAddr funcAddr, VAddr &curAddr, VAddr endAddr, InstDesc *&trace, bool domap){
+      // This is a handler set for calls/returns 
+      AddressSpace::HandlerSet hset;
       I(!context->getAddressSpace()->isMappedInst(curAddr));
       if(domap)
 	context->getAddressSpace()->mapInst(curAddr,trace);
       // Add function entry handlers if this is a function entry point
-      if((curAddr==funcAddr)&&context->getAddressSpace()->hasCallHandler(funcAddr)){
+      if((curAddr==funcAddr)&&context->getAddressSpace()->getCallHandlers(funcAddr,hset)){
         I(domap);
-        AddressSpace::HandlerSet hset;
-        context->getAddressSpace()->getCallHandlers(funcAddr,hset);
         while(!hset.empty()){
           AddressSpace::HandlerSet::iterator it=hset.begin();
           trace->emul=*it;
@@ -1027,13 +1031,14 @@ Instruction *createSescInst(const InstDesc *inst, VAddr iaddr, size_t deltaAddr,
 	const OpData &data=op2Data[op];
 	InstTypInfo typ=static_cast<InstTypInfo>(data.typ&TypSubMask);
         // Function return may need to call a handler
-        if((typ==BrOpRet)&&context->getAddressSpace()->hasRetHandler(funcAddr)){
+        if((typ==BrOpRet)&&context->getAddressSpace()->getRetHandlers(funcAddr,hset)){
           I(domap);
-          AddressSpace::HandlerSet hset;
-          context->getAddressSpace()->getRetHandlers(funcAddr,hset);
           while(!hset.empty()){
             AddressSpace::HandlerSet::iterator it=hset.begin();
             trace->emul=*it;
+#if (defined DEBUG)
+	    trace->addr=curAddr;
+#endif
             trace++;
             hset.erase(it);
           }
@@ -1137,6 +1142,7 @@ Instruction *createSescInst(const InstDesc *inst, VAddr iaddr, size_t deltaAddr,
     opMap[OpKey(0xFC000000,0x64000000)]=OpEntry(OpDaddiu);
     opMap[OpKey(0xFC000000,0x68000000)]=OpEntry(OpLdl);
     opMap[OpKey(0xFC000000,0x6C000000)]=OpEntry(OpLdr);
+    opMap[OpKey(0xFC000000,0x7C000000)]=OpEntry(0xFC00003F); // SPEC3
     opMap[OpKey(0xFC000000,0x80000000)]=OpEntry(OpLb);
     opMap[OpKey(0xFC000000,0x84000000)]=OpEntry(OpLh);
     opMap[OpKey(0xFC000000,0x88000000)]=OpEntry(OpLwl);
@@ -1391,6 +1397,9 @@ Instruction *createSescInst(const InstDesc *inst, VAddr iaddr, size_t deltaAddr,
     opMap[OpKey(0xFFE1003F,0x46200011)]=OpEntry(OpFmovfd);
     opMap[OpKey(0xFFE1003F,0x46210011)]=OpEntry(OpFmovtd);
 
+    // SPEC3 opcodes begin here
+    opMap[OpKey(0xFC00003F,0x7C00003B)]=OpEntry(OpRdhwr);
+
     // OpSll with rd=zero is really an OpNop
     opMap[OpKey(0xFC00F83F,0x00000000)]=OpEntry(OpNop);
     // OpBeq with rs=rt=zero is actually OpB
@@ -1607,7 +1616,8 @@ Instruction *createSescInst(const InstDesc *inst, VAddr iaddr, size_t deltaAddr,
     // Load-linked and store-conditional sync ops
     OpDataC5(OpLl      , CtlNorm, MemOpLl  , ArgRt  , ArgRs  , ArgNo  , ImmSExt, OpInvalid , emulLd, RegIntS, RegIntU, RegIntS , int32_t , RegTypeGpr);
     OpDataC2(OpSc      , CtlNorm, MemOpSc  , ArgRt  , ArgRs  , ArgRt  , ImmSExt, OpInvalid , emulLdSt , RegIntS, RegIntU);
-
+    OpDataC0(OpSync    , CtlNorm, TypNop   , ArgNo  , ArgNo  , ArgNo  , ImmNo  , OpInvalid , emulNop  );
+    
     // Constant transfers
     OpDataI4(OpLui     , CtlNorm, IntOpALU , ArgRt  , ArgNo  , ArgNo  , ImmLui , OpInvalid , emulAlu  , SrcI      , SrcZ      , RegTypeGpr, fns::project1st_identity<RegIntS>);
     OpDataI4(OpLi      , CtlNorm, IntOpALU , ArgRt  , ArgNo  , ArgNo  , ImmSExt, OpInvalid , emulAlu  , SrcI      , SrcZ      , RegTypeGpr, fns::project1st_identity<RegIntS>);
@@ -1663,6 +1673,7 @@ Instruction *createSescInst(const InstDesc *inst, VAddr iaddr, size_t deltaAddr,
     OpDataI4(OpCfc1    , CtlNorm, IntOpALU , ArgRt  , ArgFCs , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeCtl, SrcZ      , RegTypeGpr, fns::project1st_identity<int32_t>);
     OpDataI4(OpMtc1    , CtlNorm, IntOpALU , ArgFs  , ArgRt  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, SrcZ      , RegTypeFpr, fns::project1st_identity<int32_t>);
     OpDataI4(OpCtc1    , CtlNorm, IntOpALU , ArgFCs , ArgRt  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, SrcZ      , RegTypeCtl, fns::project1st_identity<int32_t>);
+    OpDataI4(OpRdhwr   , CtlNorm, IntOpALU , ArgRt  , ArgHs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeSpc, SrcZ      , RegTypeGpr, fns::project1st_identity<int32_t>);
     // Integer comparisons
     OpDataI4(OpSlti    , CtlNorm, IntOpALU , ArgRt  , ArgRs  , ArgNo  , ImmSExt, OpInvalid , emulAlu  , RegTypeGpr, SrcI      , RegTypeGpr, std::less<RegIntS>);
     OpDataI4(OpSltiu   , CtlNorm, IntOpALU , ArgRt  , ArgRs  , ArgNo  , ImmSExt, OpInvalid , emulAlu  , RegTypeGpr, SrcI      , RegTypeGpr, std::less<RegIntU>);
@@ -1830,12 +1841,33 @@ InstDesc *handleFreeCall(InstDesc *inst, ThreadContext *context){
 }
 #endif
 
+#if (defined DEBUG_BENCH)
+InstDesc *handleEveryCall(InstDesc *inst, ThreadContext *context){
+  I(context->getIAddr()==context->getAddressSpace()->getFuncAddr(context->getIAddr()));
+  context->execCall(context->getIAddr(),
+		    Mips::getRegAny<Mips32,VAddr,RegTypeGpr>(context,static_cast<RegName>(Mips::RegRA)),
+		    Mips::getRegAny<Mips32,uint32_t,RegTypeGpr>(context,static_cast<RegName>(Mips::RegSP))
+		    );
+  context->updIDesc(1);
+  return (*(inst+1))(context);
+}
+InstDesc *handleEveryRet(InstDesc *inst, ThreadContext *context){
+  context->execRet(context->getAddressSpace()->getFuncAddr(context->getIAddr()),
+		   Mips::getRegAny<Mips32,VAddr,RegTypeGpr>(context,static_cast<RegName>(Mips::RegRA)),
+		   Mips::getRegAny<Mips32,uint32_t,RegTypeGpr>(context,static_cast<RegName>(Mips::RegSP))
+		   );
+  context->updIDesc(1);
+  return (*(inst+1))(context);
+}
+
+#endif
+
 #include "X86InstDesc.h"
 
 void decodeTrace(ThreadContext *context, VAddr addr, size_t len){
-#if (defined INTERCEPT_HEAP_CALLS)
   static bool didThis=false;
   if(!didThis){
+#if (defined INTERCEPT_HEAP_CALLS)
     // This should not be here, but it's added for testing
     AddressSpace::addCallHandler("malloc",handleMallocCall);
     AddressSpace::addRetHandler("malloc",handleMallocRet);
@@ -1844,10 +1876,13 @@ void decodeTrace(ThreadContext *context, VAddr addr, size_t len){
     AddressSpace::addCallHandler("realloc",handleReallocCall);
     AddressSpace::addRetHandler("realloc",handleReallocRet);
     AddressSpace::addCallHandler("free",handleFreeCall);
+#endif
+#if (defined DEBUG_BENCH)
+    AddressSpace::addCallHandler("",handleEveryCall);
+    AddressSpace::addRetHandler("",handleEveryRet);
+#endif
     didThis=true;
   }
-#endif
-
   VAddr funcAddr=context->getAddressSpace()->getFuncAddr(addr);
   I(addr+len<=funcAddr+context->getAddressSpace()->getFuncSize(funcAddr));
   VAddr endAddr=addr+len;

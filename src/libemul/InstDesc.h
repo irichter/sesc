@@ -143,6 +143,8 @@ class InstDesc{
   }
   ~InstDesc(void);
   InstDesc *operator()(ThreadContext *context){
+    // Use this as a breakpoint
+    I(addr!=0x0);
     return emul(this,context);
   }
   Instruction *getSescInst(void) const{

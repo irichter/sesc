@@ -8,6 +8,10 @@
 #include "GCObject.h"
 #include "Checkpoint.h"
 
+namespace MemSys{
+  class FrameDesc;
+}
+
 namespace FileSys {
 
   typedef enum {
@@ -48,6 +52,15 @@ namespace FileSys {
     static BaseStatus *create(ChkReader &in);
     BaseStatus(FileType type, ChkReader &in);
     FileType getType(void) const{ return type; }
+    virtual void mmap(MemSys::FrameDesc *frame, void *data, size_t size, off_t offs){
+      printf("BaseStatus::mmap should never be called"); exit(1);
+    }
+    virtual void munmap(MemSys::FrameDesc *frame, void *data, size_t size, off_t offs){
+      printf("BaseStatus::munmap should never be called"); exit(1);
+    }
+    virtual void msync(MemSys::FrameDesc *frame, void *data, size_t size, off_t offs){
+      printf("BaseStatus::msync should never be called"); exit(1);
+    }
   };
 
   class FileStatus : public BaseStatus{
@@ -63,6 +76,9 @@ namespace FileSys {
     static FileStatus *open(const char *name, int flags, mode_t mode);
     virtual void save(ChkWriter &out) const;
     FileStatus(ChkReader &in);
+    virtual void mmap(MemSys::FrameDesc *frame, void *data, size_t size, off_t offs);
+    virtual void munmap(MemSys::FrameDesc *frame, void *data, size_t size, off_t offs);
+    virtual void msync(MemSys::FrameDesc *frame, void *data, size_t size, off_t offs);
   };
   class PipeStatus : public BaseStatus{
   public:
@@ -173,7 +189,9 @@ namespace FileSys {
     int setfd(int fd, int cloex);
     int getfl(int fd);
     ssize_t read(int fd, void *buf, size_t count);
+    ssize_t pread(int fd, void *buf, size_t count, off_t offs);
     ssize_t write(int fd, const void *buf, size_t count);
+    ssize_t pwrite(int fd, void *buf, size_t count, off_t offs);
     bool willReadBlock(int fd);
     bool willWriteBlock(int fd);
     void addReadBlock(int fd, int pid);

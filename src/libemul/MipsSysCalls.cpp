@@ -26,6 +26,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "MipsRegs.h"
 #include "ElfObject.h"
 #include "FileSys.h"
+#include "LinuxSys.h"
 // To get definition of fail()
 #include "EmulInit.h"
 // To get ChkWriter and ChkReader
@@ -48,6 +49,7 @@ namespace Mips {
 
   void sysCall32_syscall(InstDesc *inst, ThreadContext *context);
   InstDesc *sysCall32_exit(InstDesc *inst, ThreadContext *context);
+  InstDesc *sysCall32_exit_group(InstDesc *inst, ThreadContext *context);
   void sysCall32_fork(InstDesc *inst, ThreadContext *context);
   void sysCall32_open(InstDesc *inst, ThreadContext *context);
   void sysCall32_creat(InstDesc *inst, ThreadContext *context);
@@ -56,8 +58,8 @@ namespace Mips {
   void sysCall32_write(InstDesc *inst, ThreadContext *context);
   void sysCall32_readv(InstDesc *inst, ThreadContext *context);
   void sysCall32_writev(InstDesc *inst, ThreadContext *context);
-  void sysCall32_pread(InstDesc *inst, ThreadContext *context);
-  void sysCall32_pwrite(InstDesc *inst, ThreadContext *context);
+  void sysCall32_pread64(InstDesc *inst, ThreadContext *context);
+  void sysCall32_pwrite64(InstDesc *inst, ThreadContext *context);
   void sysCall32_lseek(InstDesc *inst, ThreadContext *context);
   void sysCall32__llseek(InstDesc *inst, ThreadContext *context);
 
@@ -274,7 +276,11 @@ namespace Mips {
   void sysCall32_madvise(InstDesc *inst, ThreadContext *context);
   void sysCall32_getdents64(InstDesc *inst, ThreadContext *context);
   void sysCall32_fcntl64(InstDesc *inst, ThreadContext *context);
-
+  void sysCall32_gettid(InstDesc *inst, ThreadContext *context);
+  void sysCall32_set_thread_area(InstDesc *inst, ThreadContext *context);
+  void sysCall32_set_tid_address(InstDesc *inst, ThreadContext *context);
+  void sysCall32_set_robust_list(InstDesc *inst, ThreadContext *context);
+  //  void sysCall32_futex(InstDesc *inst, ThreadContext *context);
 } // namespace Mips
 
 InstDesc *mipsSysCall(InstDesc *inst, ThreadContext *context){
@@ -302,7 +308,7 @@ InstDesc *mipsSysCall(InstDesc *inst, ThreadContext *context){
   case 4004: Mips::sysCall32_write(inst,context); break;
   case 4005: Mips::sysCall32_open(inst,context); break;
   case 4006: Mips::sysCall32_close(inst,context); break;
-  case 4007: Mips::sysCall32_waitpid(inst,context); break;
+  case 4007: context->getSystem()->sysWaitpid(context,inst); break;
   case 4008: Mips::sysCall32_creat(inst,context); break;
   case 4009: Mips::sysCall32_link(inst,context); break;
   case 4010: Mips::sysCall32_unlink(inst,context); break;
@@ -495,8 +501,8 @@ InstDesc *mipsSysCall(InstDesc *inst, ThreadContext *context){
   case 4197: Mips::sysCall32_rt_sigtimedwait(inst,context); break;
   case 4198: Mips::sysCall32_rt_sigqueueinfo(inst,context); break;
   case 4199: Mips::sysCall32_rt_sigsuspend(inst,context); break;
-  case 4200: Mips::sysCall32_pread(inst,context); break;
-  case 4201: Mips::sysCall32_pwrite(inst,context); break;
+  case 4200: Mips::sysCall32_pread64(inst,context); break;
+  case 4201: Mips::sysCall32_pwrite64(inst,context); break;
   case 4202: Mips::sysCall32_chown(inst,context); break;
   case 4203: Mips::sysCall32_getcwd(inst,context); break;
   case 4204: Mips::sysCall32_capget(inst,context); break;
@@ -516,6 +522,105 @@ InstDesc *mipsSysCall(InstDesc *inst, ThreadContext *context){
   case 4218: Mips::sysCall32_madvise(inst,context); break;
   case 4219: Mips::sysCall32_getdents64(inst,context); break;
   case 4220: Mips::sysCall32_fcntl64(inst,context); break;
+//#define __NR_reserved221                (__NR_Linux + 221)
+  case 4222: Mips::sysCall32_gettid(inst,context); break;
+//#define __NR_readahead                  (__NR_Linux + 223)
+//#define __NR_setxattr                   (__NR_Linux + 224)
+//#define __NR_lsetxattr                  (__NR_Linux + 225)
+//#define __NR_fsetxattr                  (__NR_Linux + 226)
+//#define __NR_getxattr                   (__NR_Linux + 227)
+//#define __NR_lgetxattr                  (__NR_Linux + 228)
+//#define __NR_fgetxattr                  (__NR_Linux + 229)
+//#define __NR_listxattr                  (__NR_Linux + 230)
+//#define __NR_llistxattr                 (__NR_Linux + 231)
+//#define __NR_flistxattr                 (__NR_Linux + 232)
+//#define __NR_removexattr                (__NR_Linux + 233)
+//#define __NR_lremovexattr               (__NR_Linux + 234)
+//#define __NR_fremovexattr               (__NR_Linux + 235)
+//#define __NR_tkill                      (__NR_Linux + 236)
+//#define __NR_sendfile64                 (__NR_Linux + 237)
+  case 4238: context->getSystem()->sysFutex(context,inst); break;
+//#define __NR_sched_setaffinity          (__NR_Linux + 239)
+//#define __NR_sched_getaffinity          (__NR_Linux + 240)
+//#define __NR_io_setup                   (__NR_Linux + 241)
+//#define __NR_io_destroy                 (__NR_Linux + 242)
+//#define __NR_io_getevents               (__NR_Linux + 243)
+//#define __NR_io_submit                  (__NR_Linux + 244)
+//#define __NR_io_cancel                  (__NR_Linux + 245)
+  case 4246: return Mips::sysCall32_exit_group(inst,context);
+//#define __NR_lookup_dcookie             (__NR_Linux + 247)
+//#define __NR_epoll_create               (__NR_Linux + 248)
+//#define __NR_epoll_ctl                  (__NR_Linux + 249)
+//#define __NR_epoll_wait                 (__NR_Linux + 250)
+//#define __NR_remap_file_pages           (__NR_Linux + 251)
+  case 4252: Mips::sysCall32_set_tid_address(inst,context); break;
+//#define __NR_restart_syscall            (__NR_Linux + 253)
+//#define __NR_fadvise64                  (__NR_Linux + 254)
+//#define __NR_statfs64                   (__NR_Linux + 255)
+//#define __NR_fstatfs64                  (__NR_Linux + 256)
+//#define __NR_timer_create               (__NR_Linux + 257)
+//#define __NR_timer_settime              (__NR_Linux + 258)
+//#define __NR_timer_gettime              (__NR_Linux + 259)
+//#define __NR_timer_getoverrun           (__NR_Linux + 260)
+//#define __NR_timer_delete               (__NR_Linux + 261)
+//#define __NR_clock_settime              (__NR_Linux + 262)
+//#define __NR_clock_gettime              (__NR_Linux + 263)
+//#define __NR_clock_getres               (__NR_Linux + 264)
+//#define __NR_clock_nanosleep            (__NR_Linux + 265)
+//#define __NR_tgkill                     (__NR_Linux + 266)
+//#define __NR_utimes                     (__NR_Linux + 267)
+//#define __NR_mbind                      (__NR_Linux + 268)
+//#define __NR_get_mempolicy              (__NR_Linux + 269)
+//#define __NR_set_mempolicy              (__NR_Linux + 270)
+//#define __NR_mq_open                    (__NR_Linux + 271)
+//#define __NR_mq_unlink                  (__NR_Linux + 272)
+//#define __NR_mq_timedsend               (__NR_Linux + 273)
+//#define __NR_mq_timedreceive            (__NR_Linux + 274)
+//#define __NR_mq_notify                  (__NR_Linux + 275)
+//#define __NR_mq_getsetattr              (__NR_Linux + 276)
+//#define __NR_vserver                    (__NR_Linux + 277)
+//#define __NR_waitid                     (__NR_Linux + 278)
+/* #define __NR_sys_setaltroot          (__NR_Linux + 279) */
+//#define __NR_add_key                    (__NR_Linux + 280)
+//#define __NR_request_key                (__NR_Linux + 281)
+//#define __NR_keyctl                     (__NR_Linux + 282)
+  case 4283: Mips::sysCall32_set_thread_area(inst,context); break;
+//#define __NR_inotify_init               (__NR_Linux + 284)
+//#define __NR_inotify_add_watch          (__NR_Linux + 285)
+//#define __NR_inotify_rm_watch           (__NR_Linux + 286)
+//#define __NR_migrate_pages              (__NR_Linux + 287)
+//#define __NR_openat                     (__NR_Linux + 288)
+//#define __NR_mkdirat                    (__NR_Linux + 289)
+//#define __NR_mknodat                    (__NR_Linux + 290)
+//#define __NR_fchownat                   (__NR_Linux + 291)
+//#define __NR_futimesat                  (__NR_Linux + 292)
+//#define __NR_fstatat64                  (__NR_Linux + 293)
+//#define __NR_unlinkat                   (__NR_Linux + 294)
+//#define __NR_renameat                   (__NR_Linux + 295)
+//#define __NR_linkat                     (__NR_Linux + 296)
+//#define __NR_symlinkat                  (__NR_Linux + 297)
+//#define __NR_readlinkat                 (__NR_Linux + 298)
+//#define __NR_fchmodat                   (__NR_Linux + 299)
+//#define __NR_faccessat                  (__NR_Linux + 300)
+//#define __NR_pselect6                   (__NR_Linux + 301)
+//#define __NR_ppoll                      (__NR_Linux + 302)
+//#define __NR_unshare                    (__NR_Linux + 303)
+//#define __NR_splice                     (__NR_Linux + 304)
+//#define __NR_sync_file_range            (__NR_Linux + 305)
+//#define __NR_tee                        (__NR_Linux + 306)
+//#define __NR_vmsplice                   (__NR_Linux + 307)
+//#define __NR_move_pages                 (__NR_Linux + 308)
+  case 4309: Mips::sysCall32_set_robust_list(inst,context); break;
+//#define __NR_get_robust_list            (__NR_Linux + 310)
+//#define __NR_kexec_load                 (__NR_Linux + 311)
+//#define __NR_getcpu                     (__NR_Linux + 312)
+//#define __NR_epoll_pwait                (__NR_Linux + 313)
+//#define __NR_ioprio_set                 (__NR_Linux + 314)
+//#define __NR_ioprio_get                 (__NR_Linux + 315)
+//#define __NR_utimensat                  (__NR_Linux + 316)
+//#define __NR_signalfd                   (__NR_Linux + 317)
+//#define __NR_timerfd                    (__NR_Linux + 318)
+//#define __NR_eventfd                    (__NR_Linux + 319)
   default:
     fail("Unknown MIPS syscall %d at 0x%08x\n",sysCallNum,context->getIAddr());
   }
@@ -652,6 +757,11 @@ namespace Mips {
     return context->readMem<T>(sp);
   }
 
+  typedef struct{
+    uint32_t a_type; // Entry type
+    uint32_t a_val;  // Integer value
+  } Elf32_auxv_t;
+
   void setProgArgs(ThreadContext *context, int argc, char **argv, int envc, char **envp){
     I(context->getMode()==Mips32);
     uint32_t regSP=getRegAny<Mips32,uint32_t,RegSP>(context,RegSP);
@@ -680,6 +790,29 @@ namespace Mips {
     }
     argVAddrs[argc]=0;
     cvtEndianBig(argVAddrs[argc]);
+    // Prepare the aux vector
+    Elf32_auxv_t auxv[4];
+    auxv[0].a_type=AT_PAGESZ;
+    cvtEndianBig(auxv[0].a_type);
+    auxv[0].a_val=AddrSpacPageSize;
+    cvtEndianBig(auxv[0].a_val);
+    auxv[1].a_type=AT_PHDR;
+    cvtEndianBig(auxv[1].a_type);
+    auxv[1].a_val=context->getAddressSpace()->getFuncAddr("PrgHdrAddr");
+    cvtEndianBig(auxv[1].a_val);
+    auxv[2].a_type=AT_PHNUM;
+    cvtEndianBig(auxv[2].a_type);
+    auxv[2].a_val=context->getAddressSpace()->getFuncAddr("PrgHdrNum");
+    cvtEndianBig(auxv[2].a_val);
+    auxv[3].a_type=AT_NULL;
+    cvtEndianBig(auxv[3].a_type);
+    auxv[3].a_val=0;
+    cvtEndianBig(auxv[3].a_val);
+    // Align the stack pointer
+    regSP-=(regSP%sizeof(Elf32_auxv_t));
+    // Put the aux vector on the stack
+    regSP-=sizeof(auxv);
+    context->writeMemFromBuf(regSP,sizeof(auxv),auxv);
     // Put the envp array (with NULL at the end) on the stack
     regSP-=sizeof(envVAddrs);
     context->writeMemFromBuf(regSP,sizeof(envVAddrs),envVAddrs);
@@ -801,7 +934,7 @@ namespace Mips {
     VAddr sp=Mips::getRegAny<Mips32,uint32_t,RegSP>(context,RegSP);
     I(context->getIDesc()==context->virt2inst(context->getIAddr()));
     VAddr pc=context->getIAddr();
-    context->execCall(pc,Mips::sysCodeAddr,sp);
+    //    context->execCall(pc,Mips::sysCodeAddr,sp);
     push(context,pc);
     for(RegName r=RegZero+1;r<=RegRA;r++){
       uint32_t wrVal=getRegAny<Mips32,uint32_t,RegTypeGpr>(context,r);
@@ -814,6 +947,9 @@ namespace Mips {
     context->setSignalMask(sigDesc.mask);
     // Set registers and PC for execution of the handler
     Mips::setRegAny<Mips32,uint32_t,RegTypeGpr>(context,RegA0,sigFromLocal(sigInfo->signo));
+    if(sigDesc.flags&SaSigInfo){
+      printf("Mips::handleSignal with SA_SIGINFO not supported yet\n");
+    }
     Mips::setRegAny<Mips32,uint32_t,RegTypeGpr>(context,RegT9,sigDesc.handler);
     context->setIAddr(Mips::sysCodeAddr);
     return true;
@@ -851,11 +987,27 @@ namespace Mips {
       return sysCall32SetErr(context,Mips32_EFAULT);
     switch(resource){
     case Mips32_RLIMIT_STACK:
-      res.rlim_cur=res.rlim_max=context->getStackSize();
+      res.rlim_cur=Mips32_RLIM_INFINITY;
+      res.rlim_max=Mips32_RLIM_INFINITY;
+      break;
+    case Mips32_RLIMIT_NOFILE:
+      res.rlim_cur=res.rlim_max=Mips32_RLIM_INFINITY;
+      break;
+    case Mips32_RLIMIT_DATA:
+      res.rlim_cur=res.rlim_max=Mips32_RLIM_INFINITY;
+      break;
+    case Mips32_RLIMIT_AS:
+      res.rlim_cur=res.rlim_max=Mips32_RLIM_INFINITY;
+      break;
+    case Mips32_RLIMIT_CPU:
+      res.rlim_cur=res.rlim_max=Mips32_RLIM_INFINITY;
+      break;
+    case Mips32_RLIMIT_CORE:
+      res.rlim_cur=res.rlim_max=0;
       break;
     default:
-      res.rlim_cur=res.rlim_max=0;
-      fail("sysCall32_getrlimit called for resource %d at 0x%08x\n",resource,context->getIAddr());
+      res.rlim_cur=res.rlim_max=Mips32_RLIM_INFINITY;
+      printf("sysCall32_getrlimit called for unknown resource %d at 0x%08x. Returning RLIM_INFINITY\n",resource,context->getIAddr());
     }
     context->writeMem(rlim,res);
     return sysCall32SetRet(context,0);
@@ -869,8 +1021,7 @@ namespace Mips {
     Mips32_rlimit res=context->readMem<Mips32_rlimit>(rlim);
     switch(resource){
     case Mips32_RLIMIT_STACK:
-      if((res.rlim_cur>context->getStackSize())||(res.rlim_max>context->getStackSize()))
-	fail("sysCall32_setrlimit tries to change stack size (not supported yet)\n");
+      // Limit is already RLIM_INFINITY, so we don't care what the new size is
       break;
     default:
       fail("sysCall32_setrlimit called for resource %d at 0x%08x\n",resource,context->getIAddr());
@@ -882,6 +1033,10 @@ namespace Mips {
     fail("sysCall32_syscall: not implemented at 0x%08x\n",context->getIAddr());
   }
 
+  InstDesc *sysCall32_exit_group(InstDesc *inst, ThreadContext *context){
+    // TODO: Exit all the threads in this thread group
+    return sysCall32_exit(inst,context);
+  }
   InstDesc *sysCall32_exit(InstDesc *inst, ThreadContext *context){
     Mips32FuncArgs myArgs(context);
     int status=myArgs.getW();
@@ -927,6 +1082,10 @@ namespace Mips {
     // Deliver the exit signal to the parent process if needed
     SignalID exitSig=context->getExitSig();
     // If no signal to be delivered, just wait to be reaped
+    if(exitSig==SigDetached){
+      context->reap();
+      return 0;
+    }
     if(exitSig!=SigNone){
       SigInfo *sigInfo=new SigInfo(exitSig,SigCodeChldExit);
       sigInfo->pid=context->getPid();
@@ -937,7 +1096,7 @@ namespace Mips {
   }
   void sysCall32_fork(InstDesc *inst, ThreadContext *context){
     //    ThreadContext *newContext=context->createChild(false,false,false,SigChld);
-    ThreadContext *newContext=new ThreadContext(*context,false,false,false,SigChld);
+    ThreadContext *newContext=new ThreadContext(*context,false,false,false,false,false,SigChld,0);
     I(newContext!=0);
     // Fork returns an error only if there is no memory, which should not happen here
     // Set return values for parent and child
@@ -1081,6 +1240,7 @@ namespace Mips {
       envpArr[env]=envpPtr;
       envpPtr+=envLen;
     }
+#if (defined DEBUG_BENCH)
     printf("execve fname is %s\n",realName);
     for(size_t arg=0;arg<argvNum;arg++){
       printf("execve argv[%ld] is %s\n",(long int)arg,argvArr[arg]);
@@ -1088,6 +1248,7 @@ namespace Mips {
     for(size_t env=0;env<envpNum;env++){
       printf("execve envp[%ld] is %s\n",(long int)env,envpArr[env]);
     }
+#endif
     // Close files that are still open and are cloexec
     context->getOpenFiles()->exec();
     // Clear up the address space and load the new object file
@@ -1097,6 +1258,9 @@ namespace Mips {
     Mips::initSystem(context);
     Mips::createStack(context);
     Mips::setProgArgs(context,argvNum,argvArr,envpNum,envpArr);
+#if (defined DEBUG_BENCH)
+    context->clearCallStack();
+#endif
     // The InstDesc is gone now and we can't put it through the pipeline
     return 0;
   }
@@ -1193,19 +1357,19 @@ namespace Mips {
     Mips32FuncArgs myArgs(context);
     int32_t      flags=myArgs.getW();
     Mips32_VAddr child_stack=myArgs.getA();
-    if(!(flags&Mips32_CLONE_FS))
-      fail("sysCall32_clone without CLONE_FS not supported yet at 0x%08x, flags=0x%08x\n",context->getIAddr(),flags);
-//     if(flags&Mips32_CLONE_PARENT)
-//       fail("sysCall32_clone with CLONE_PARENT not supported yet at 0x%08x, flags=0x%08x\n",context->getIAddr(),flags);
-//     if(flags&Mips32_CLONE_THREAD)
-//       fail("sysCall32_clone with CLONE_PARENT not supported yet at 0x%08x, flags=0x%08x\n",context->getIAddr(),flags);
+    Mips32_VAddr ptid=myArgs.getA();
+    Mips32_VAddr tarea=myArgs.getA();
+    Mips32_VAddr ctid=myArgs.getA();
     if(flags&Mips32_CLONE_VFORK)
       fail("sysCall32_clone with CLONE_VFORK not supported yet at 0x%08x, flags=0x%08x\n",context->getIAddr(),flags);
-//     if(flags&Mips32_CLONE_NEWNS)
-//       fail("sysCall32_clone with CLONE_VFORK not supported yet at 0x%08x, flags=0x%08x\n",context->getIAddr(),flags);
-    SignalID sig=sigToLocal(flags&Mips32_CSIGNAL);
-    //    ThreadContext *newContext=context->createChild(flags&Mips32_CLONE_VM,flags&Mips32_CLONE_SIGHAND,flags&Mips32_CLONE_FILES,sig);
-    ThreadContext *newContext=new ThreadContext(*context,flags&Mips32_CLONE_VM,flags&Mips32_CLONE_SIGHAND,flags&Mips32_CLONE_FILES,sig);
+    if(flags&Mips32_CLONE_NEWNS)
+      fail("sysCall32_clone with CLONE_VFORK not supported yet at 0x%08x, flags=0x%08x\n",context->getIAddr(),flags);
+    if(flags&Mips32_CLONE_UNTRACED)
+      fail("sysCall32_clone with CLONE_UNTRACED not supported yet at 0x%08x, flags=0x%08x\n",context->getIAddr(),flags);
+    if(flags&Mips32_CLONE_STOPPED)
+      fail("sysCall32_clone with CLONE_STOPPED not supported yet at 0x%08x, flags=0x%08x\n",context->getIAddr(),flags);
+    SignalID sig=(flags&Mips32_CLONE_DETACHED)?SigDetached:sigToLocal(flags&Mips32_CSIGNAL);
+    ThreadContext *newContext=new ThreadContext(*context,flags&Mips32_CLONE_PARENT,flags&Mips32_CLONE_FILES,flags&Mips32_CLONE_SIGHAND,flags&Mips32_CLONE_VM,flags&Mips32_CLONE_THREAD,sig,(flags&Mips32_CLONE_CHILD_CLEARTID)?ctid:0);
     I(newContext!=0);
     // Fork returns an error only if there is no memory, which should not happen here
     // Set return values for parent and child
@@ -1226,6 +1390,12 @@ namespace Mips {
     }else{
       I(!(flags&Mips32_CLONE_VM));
     }
+     if(flags&Mips32_CLONE_PARENT_SETTID)
+       context->writeMem<uint32_t>(ptid,newContext->getPid());
+     if(flags&Mips32_CLONE_CHILD_SETTID)
+       newContext->writeMem<uint32_t>(ctid,newContext->getPid());
+     if(flags&Mips32_CLONE_SETTLS)
+       setRegAny<Mips32,uint32_t,RegTPtr>(newContext,RegTPtr,tarea);
     // Inform SESC that this process is created
     osSim->eventSpawn(-1,newContext->getPid(),0);
   }
@@ -1252,7 +1422,23 @@ namespace Mips {
   void sysCall32_setsid(InstDesc *inst, ThreadContext *context){
     fail("sysCall32_setsid: not implemented at 0x%08x\n",context->getIAddr());
   }
-
+  void sysCall32_gettid(InstDesc *inst, ThreadContext *context){
+    return sysCall32SetRet(context,context->getPid());
+  }
+  void sysCall32_set_tid_address(InstDesc *inst, ThreadContext *context){
+    Mips32FuncArgs myArgs(context);
+    VAddr tidptr = myArgs.getA();
+    context->set_tid_address(tidptr);
+    return sysCall32SetRet(context,context->getPid());
+  }
+  void sysCall32_set_robust_list(InstDesc *inst, ThreadContext *context){
+    Mips32FuncArgs myArgs(context);
+    VAddr  head = myArgs.getA();
+    size_t len  = myArgs.getW();
+    // TODO: Implement this syscall
+    printf("sysCall32_set_robust_list called\n");
+    return sysCall32SetRet(context,0);
+  }
   void sysCall32_kill(InstDesc *inst, ThreadContext *context){
     Mips32FuncArgs myArgs(context);
     int    pid = myArgs.getW();
@@ -1281,11 +1467,42 @@ namespace Mips {
       setRegAny<Mips32,uint32_t,RegTypeGpr>(context,r,rdVal);
     }
     context->setIAddr(pop<VAddr>(context));
-    context->execRet();
+    //    context->execRet();
     SignalSet    oldSet;
     sigMaskToLocal(oldMask,oldSet);
     context->setSignalMask(oldSet);
   }
+
+  SaSigFlags saSigFlagsToLocal(uint32_t sa_flags){
+    SaSigFlags rv=static_cast<SaSigFlags>(0);
+    if(sa_flags&Mips32_SA_NODEFER){
+      rv=static_cast<SaSigFlags>(rv|SaNoDefer);
+      sa_flags^=Mips32_SA_NODEFER;
+    }
+    if(sa_flags&Mips32_SA_SIGINFO){
+      rv=static_cast<SaSigFlags>(rv|SaSigInfo);
+      sa_flags^=Mips32_SA_SIGINFO;
+    }
+    if(sa_flags&Mips32_SA_RESTART){
+      rv=static_cast<SaSigFlags>(rv|SaRestart);
+      sa_flags^=Mips32_SA_RESTART;
+    }
+    if(sa_flags)
+      printf("saSigFlagsToLocal found unsupported sa_flags 0x%08x\n",sa_flags);
+    return rv;
+  }
+
+  uint32_t saSigFlagsFromLocal(SaSigFlags saFlags){
+    uint32_t rv=0;
+    if(saFlags&SaNoDefer)
+      rv|=Mips32_SA_NODEFER;
+    if(saFlags&SaSigInfo)
+      rv|=Mips32_SA_SIGINFO;
+    if(saFlags&SaRestart)
+      rv|=Mips32_SA_RESTART;
+    return rv;
+  }
+
   void sysCall32_rt_sigaction(InstDesc *inst, ThreadContext *context){
     Mips32FuncArgs myArgs(context);
     int    sig =myArgs.getW();
@@ -1312,15 +1529,15 @@ namespace Mips {
 	oactHandler=(VAddr)Mips32_SIG_IGN;
       }
       oactBuf.k_sa_handler=oactHandler;
-      oactBuf.sa_flags=0;//fromNativeSigactionFlags(context->getSignalFlags(sig));
+      oactBuf.sa_flags=saSigFlagsFromLocal(sigDesc.flags);
       sigMaskFromLocal(oactBuf.sa_mask,sigDesc.mask);
-      oactBuf.sa_restorer=0;
+//      oactBuf.sa_restorer=0;
       context->writeMem(oact,oactBuf);
     }
     if(act){
       actBuf=context->readMem<Mips32_k_sigaction>(act);
-      if(actBuf.sa_restorer)
-	printf("Mips::sysCall32_rt_sigaction specifies restorer, not supported\n");
+//      if(actBuf.sa_restorer)
+//	printf("Mips::sysCall32_rt_sigaction specifies restorer 0x%08x, not supported\n",actBuf.sa_restorer);
       // Set the new signal handler
       VAddr actHandler;
       if(actBuf.k_sa_handler==(VAddr)Mips32_SIG_DFL){
@@ -1331,18 +1548,11 @@ namespace Mips {
 	actHandler=actBuf.k_sa_handler;
       }
       sigDesc.handler=actHandler;
+      sigDesc.flags=saSigFlagsToLocal(actBuf.sa_flags);
       sigMaskToLocal(actBuf.sa_mask,sigDesc.mask);
       // Without SA_NODEFER, mask signal out in its own handler
-      if(!(actBuf.sa_flags&Mips32_SA_NODEFER))
+      if(!(sigDesc.flags&SaNoDefer))
 	sigDesc.mask.set(localSig);
-      if(actBuf.sa_flags&Mips32_SA_SIGINFO)
-	printf("Mips::sysCall32_rt_sigaction specifies SA_SIGINFO, not supported\n");
-      if(actBuf.sa_flags&Mips32_SA_ONSTACK)
-	printf("Mips::sysCall32_rt_sigaction specifies SA_ONSTACK, not supported\n");      
-      if(actBuf.sa_flags&Mips32_SA_RESETHAND)
-	printf("Mips::sysCall32_rt_sigaction specifies SA_RESETHAND, not supported\n");
-      if((localSig==SigChld)&&!(actBuf.sa_flags&Mips32_SA_NOCLDSTOP))
-	printf("Mips::sysCall32_rt_sigaction SIGCHLD without SA_NOCLDSTOP, not supported\n");
     }
     sysCall32SetRet(context,0);
   }
@@ -1478,7 +1688,9 @@ namespace Mips {
     Mips32FuncArgs myArgs(context);
     size_t size=myArgs.getW();
     VAddr  list=myArgs.getA();
+#if (defined DEBUG_BENCH)
     printf("sysCall32_getgroups(%ld,0x%08x)called\n",(long)size,list);
+#endif
     sysCall32SetRet(context,0);
   }
   
@@ -1515,11 +1727,12 @@ namespace Mips {
     int    fd=myArgs.getW();
     off_t  offset=myArgs.getW();
     if(flags&Mips32_MAP_FIXED)
-      fail("sysCall32Mmap: MAP_FIXED not supported\n");
+      return sysCall32SetErr(context,Mips32_EINVAL);
+      //      fail("sysCall32Mmap: MAP_FIXED not supported\n");
     I((flags&Mips32_MAP_SHARED)||(flags&Mips32_MAP_PRIVATE));
     I(!((flags&Mips32_MAP_SHARED)&&(flags&Mips32_MAP_PRIVATE)));
-    if(!(flags&Mips32_MAP_ANONYMOUS))
-      fail("sysCall32Mmap: Can't map real files yet\n");
+    if(!(flags&Mips32_MAP_ANONYMOUS)&&!(flags&Mips32_MAP_PRIVATE))
+      fail("sysCall32Mmap: Can't map real files without MAP_PRIVATE yet\n");
     VAddr  retVal=0;
     if(start&&context->getAddressSpace()->isNoSegment(start,length)){
       retVal=start;
@@ -1528,9 +1741,18 @@ namespace Mips {
     }
     if(!retVal)
       return sysCall32SetErr(context,Mips32_ENOMEM);
-    // Create a write-only segment and zero it out
+    // Create a write-only segment and initialize memory in it
     context->getAddressSpace()->newSegment(retVal,length,false,true,false,flags&Mips32_MAP_SHARED);
-    context->writeMemWithByte(retVal,length,0);
+    size_t initPos=0;
+    if(!(flags&Mips32_MAP_ANONYMOUS)){
+      I(flags&Mips32_MAP_PRIVATE);
+      ssize_t readRet=context->writeMemFromFile(retVal,length,fd,false,true,offset);
+      if(readRet==-1)
+	fail("MMap could not read from underlying file\n");
+      I(readRet>=0);
+      initPos=readRet;
+    }
+    context->writeMemWithByte(retVal+initPos,length-initPos,0);
     context->getAddressSpace()->protectSegment(retVal,length,prot&Mips32_PROT_READ,prot&Mips32_PROT_WRITE,prot&Mips32_PROT_EXEC);
 #if (defined DEBUG_MEMORY)
     printf("sysCall32_mmap addr 0x%08x len 0x%08lx R%d W%d X%d S%d\n",
@@ -1626,7 +1848,13 @@ namespace Mips {
   void sysCall32_mmap2(InstDesc *inst, ThreadContext *context){
     fail("sysCall32_mmap2: not implemented at 0x%08x\n",context->getIAddr());
   }
-
+  void sysCall32_set_thread_area(InstDesc *inst, ThreadContext *context){
+    Mips32FuncArgs myArgs(context);
+    VAddr addr  = myArgs.getA();
+    setRegAny<Mips32,uint32_t,RegTPtr>(context,RegTPtr,addr);
+    sysCall32SetRet(context,0);
+    //    fail("sysCall32_set_thread_area: not implemented at 0x%08x\n",context->getIAddr());
+  }
   // File system calls
   
   void sysCall32_open(InstDesc *inst, ThreadContext *context){
@@ -1887,11 +2115,11 @@ namespace Mips {
     }
     sysCall32SetRet(context,totBytes);
   }
-  void sysCall32_pread(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_pread: not implemented at 0x%08x\n",context->getIAddr()); 
+  void sysCall32_pread64(InstDesc *inst, ThreadContext *context){
+    fail("sysCall32_pread64: not implemented at 0x%08x\n",context->getIAddr()); 
   }
-  void sysCall32_pwrite(InstDesc *inst, ThreadContext *context){
-    fail("sysCall32_pwrite: not implemented at 0x%08x\n",context->getIAddr()); 
+  void sysCall32_pwrite64(InstDesc *inst, ThreadContext *context){
+    fail("sysCall32_pwrite64: not implemented at 0x%08x\n",context->getIAddr()); 
   }
   void sysCall32_lseek(InstDesc *inst, ThreadContext *context){
     Mips32FuncArgs myArgs(context);
@@ -2387,6 +2615,7 @@ namespace Mips {
   // Message-passing (IPC) system calls
   
   void sysCall32_ipc(InstDesc *inst, ThreadContext *context){
+    // If you implement this, you must also handle the CLONE_SYSVSEM flag in the clone system call
     fail("sysCall32_ipc: not implemented at 0x%08x\n",context->getIAddr());
   }
 
@@ -2596,9 +2825,9 @@ namespace Mips {
     if(!context->canWrite(buf,sizeof(myUtsname)))
       return sysCall32SetErr(context,Mips32_EFAULT);
     memset(&myUtsname,0,sizeof(myUtsname));
-    strcpy(myUtsname.sysname,"SescLinux");
+    strcpy(myUtsname.sysname,"GNU/Linux");
     strcpy(myUtsname.nodename,"sesc");
-    strcpy(myUtsname.release,"2.4.18");
+    strcpy(myUtsname.release,"2.6.22");
     strcpy(myUtsname.version,"#1 SMP Tue Jun 4 16:05:29 CDT 2002");
     strcpy(myUtsname.machine,"mips");
     strcpy(myUtsname.domainname,"Sesc");
@@ -2739,8 +2968,10 @@ namespace Mips {
   void sysCall32_shutdown(InstDesc *inst, ThreadContext *context){
     fail("sysCall32_shutdown: not implemented at 0x%08x\n",context->getIAddr()); }
   void sysCall32_socket(InstDesc *inst, ThreadContext *context){
+#if (defined DEBUG_BENCH)
     printf("sysCall32_socket: not implemented at 0x%08x\n",context->getIAddr());
-    Mips::sysCall32SetErr(context,Mips32_EACCES);
+#endif
+    Mips::sysCall32SetErr(context,Mips32_EAFNOSUPPORT);
   }
   void sysCall32_socketpair(InstDesc *inst, ThreadContext *context){
     fail("sysCall32_socketpair: not implemented at 0x%08x\n",context->getIAddr()); }

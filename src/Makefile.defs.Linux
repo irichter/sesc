@@ -79,6 +79,16 @@ ifeq ($(VendorId),GenuineIntel)
     endif
   endif
 endif
+ifeq ($(VendorId),AuthenticAMD)
+  # Intel's only x86-64 option is nocona
+  ifeq ($(shell uname -p),x86_64)
+    ifdef SESC_32BIT
+      OptArch += -m32 -march=i386
+    else
+      OptArch := -march=k8
+    endif
+  endif
+endif
 COPTS   += $(OptArch)
 LOPTS	+= $(OptArch)
 endif

@@ -113,6 +113,45 @@ namespace FileSys {
     BaseStatus::save(out);
     out << "Mode " << mode << " Pos " << ::lseek(fd,0,SEEK_CUR) << " NameLen " << strlen(name) << " Name " << name << endl;
   }
+  void FileStatus::mmap(MemSys::FrameDesc *frame, void *data, size_t size, off_t offs){
+    off_t curoff=::lseek(fd,0,SEEK_CUR);
+    I(curoff!=(off_t)-1);
+    off_t endoff=::lseek(fd,0,SEEK_END);
+    I(endoff!=(off_t)-1);
+    off_t finoff=::lseek(fd,curoff,SEEK_SET);
+    I(finoff==curoff);
+    if(offs>=endoff){
+      memset(data,0,size);
+    }else if(offs+(ssize_t)size<=endoff){
+      ssize_t nbytes=::pread(fd,data,size,offs);
+      I(nbytes==(ssize_t)size);
+    }else{
+      ssize_t nbytes=::pread(fd,data,endoff-offs,offs);
+      I(nbytes==endoff-offs);
+      memset((void *)((char *)data+nbytes),0,size-nbytes);
+    }
+    // TODO: Remember the mapping
+  }
+  void FileStatus::munmap(MemSys::FrameDesc *frame, void *data, size_t size, off_t offs){
+    // TODO: Remove the mapping
+  }
+  void FileStatus::msync(MemSys::FrameDesc *frame, void *data, size_t size, off_t offs){
+    off_t curoff=::lseek(fd,0,SEEK_CUR);
+    I(curoff!=(off_t)-1);
+    off_t endoff=::lseek(fd,0,SEEK_END);
+    I(endoff!=(off_t)-1);
+    off_t finoff=::lseek(fd,curoff,SEEK_SET);
+    I(finoff==curoff);
+    if(offs>=endoff){
+      // Do nothing
+    }else if(offs+(ssize_t)size<=endoff){
+      ssize_t nbytes=::pwrite(fd,data,size,offs);
+      I(nbytes==(ssize_t)size);
+    }else{
+      ssize_t nbytes=::pwrite(fd,data,endoff-offs,offs);
+      I(nbytes==endoff-offs);
+    }    
+  }
  
   void PipeStatus::setOtherEnd(PipeStatus *oe){
     I(!otherEnd);
@@ -437,12 +476,32 @@ namespace FileSys {
       status->endWriteBlock();
     return retVal;
   }
+  ssize_t OpenFiles::pread(int fd, void *buf, size_t count, off_t offs){
+    if(!isOpen(fd))
+      return error(EBADF);
+    FileDesc *desc=getDesc(fd);
+    BaseStatus *status=desc->getStatus();
+    ssize_t retVal=::pread(status->fd,buf,count,offs);
+    if(retVal>0)
+      status->endWriteBlock();
+    return retVal;
+  }
   ssize_t OpenFiles::write(int fd, const void *buf, size_t count){
     if(!isOpen(fd))
       return error(EBADF);
     FileDesc *desc=getDesc(fd);
     BaseStatus *status=desc->getStatus();
     ssize_t retVal=::write(status->fd,buf,count);
+    if(retVal>0)
+      status->endReadBlock();
+    return retVal;
+  }
+  ssize_t OpenFiles::pwrite(int fd, void *buf, size_t count, off_t offs){
+    if(!isOpen(fd))
+      return error(EBADF);
+    FileDesc *desc=getDesc(fd);
+    BaseStatus *status=desc->getStatus();
+    ssize_t retVal=::pwrite(status->fd,buf,count,offs);
     if(retVal>0)
       status->endReadBlock();
     return retVal;
@@ -513,9 +572,9 @@ namespace FileSys {
       fileNames->cwd=getcwd(0,0);
       I(fileNames->getCwd());
       const char *mnts=SescConf->getCharPtr("FileSys","mount");
-      if(*mnts==0)
-	fail("Error: Section FileSys entry mounts is empty\n");
-      do{
+      //      if(*mnts==0)
+      //	fail("Error: Section FileSys entry mounts is empty\n");
+      for(const char *mnts=SescConf->getCharPtr("FileSys","mount");*mnts!=0;mnts++){
 	const char *mend=strchr(mnts,':');
 	size_t mlen=(mend?(mend-mnts):strlen(mnts));
 	char buf[mlen+1];
@@ -527,7 +586,7 @@ namespace FileSys {
 	*beql++=0;
 	fileNames->mount(buf,beql);
 	mnts+=mlen;
-      }while(*mnts++!=0);
+      }
     }
     return fileNames;
   }
