@@ -669,12 +669,19 @@ typedef struct Mips32_rlimit {
   Mips32_rlim_t rlim_cur;
   Mips32_rlim_t rlim_max;
 } Mips32_rlimit;
+#include "sys/time.h"
 
-// Define timeval for rusage
+// Define Struct timeval
 typedef struct Mips32_timeval {
   int32_t tv_sec;
   int32_t tv_usec;
 } Mips32_timeval;
+
+// Define Struct timezone
+typedef struct Mips32_timezone {
+  int32_t tz_minuteswest;
+  int32_t tz_dsttime;
+} Mips32_timezone;
 
 // Define rusage for getrusage/setrusage
 typedef struct Mips32_rusage {
@@ -857,10 +864,15 @@ inline void cvtEndianBig(Mips32_rlimit &val){
   cvtEndianBig(val.rlim_cur);
   cvtEndianBig(val.rlim_max);
 }
-// Convert endianness of timeval for rusage
+// Convert endianness of Struct timeval
 inline void cvtEndianBig(Mips32_timeval &val){
   cvtEndianBig(val.tv_sec);
   cvtEndianBig(val.tv_usec);
+}
+// Convert endianness of Struct timezone
+inline void cvtEndianBig(Mips32_timezone &val){
+  cvtEndianBig(val.tz_minuteswest);
+  cvtEndianBig(val.tz_dsttime);
 }
 // Convert endianness of rusage for getrusage/setrusage
 inline void cvtEndianBig(Mips32_rusage &val){

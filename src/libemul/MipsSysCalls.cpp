@@ -1706,7 +1706,7 @@ namespace Mips {
       return sysCall32SetRet(context,brkBase+brkSize);
     if(brkPos<=brkBase+brkSize){
       if(brkPos<=brkBase)
-	fail("sysCall32_brk: new break makes data segment size negative\n");
+	fail("sysCall32_brk: new break 0x%08x below brkBase 0x%08x\n",brkPos,brkBase);
       context->getAddressSpace()->resizeSegment(brkBase,brkPos-brkBase);
       return sysCall32SetRet(context,brkPos);
     }
@@ -2796,14 +2796,22 @@ namespace Mips {
     Mips32FuncArgs myArgs(context);
     VAddr tv=myArgs.getA();
     VAddr tz=myArgs.getA();
-    if(tz)
-      fail("sysCall32_gettimeofday tz param is not null\n");
-    if(!context->canWrite(tv,sizeof(Mips32_timeval)))
+    if(tv&&!context->canWrite(tv,sizeof(Mips32_timeval)))
       return sysCall32SetErr(context,Mips32_EFAULT);
-    Mips32_timeval tvBuf;
-    tvBuf.tv_sec=15;
-    tvBuf.tv_usec=0;
-    context->writeMem(tv,tvBuf);
+    if(tz&&!context->canWrite(tz,sizeof(Mips32_timezone)))
+      return sysCall32SetErr(context,Mips32_EFAULT);
+    if(tv){
+      Mips32_timeval tvBuf;
+      tvBuf.tv_sec=15;
+      tvBuf.tv_usec=0;
+      context->writeMem(tv,tvBuf);
+    }
+    if(tz){
+      Mips32_timezone tzBuf;
+      tzBuf.tz_minuteswest=0;
+      tzBuf.tz_dsttime=0;
+      context->writeMem(tz,tzBuf);
+    }
     sysCall32SetRet(context,0);
   }
   void sysCall32_settimeofday(InstDesc *inst, ThreadContext *context){
