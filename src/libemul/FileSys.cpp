@@ -572,9 +572,7 @@ namespace FileSys {
       fileNames->cwd=getcwd(0,0);
       I(fileNames->getCwd());
       const char *mnts=SescConf->getCharPtr("FileSys","mount");
-      //      if(*mnts==0)
-      //	fail("Error: Section FileSys entry mounts is empty\n");
-      for(const char *mnts=SescConf->getCharPtr("FileSys","mount");*mnts!=0;mnts++){
+      while(*mnts){
 	const char *mend=strchr(mnts,':');
 	size_t mlen=(mend?(mend-mnts):strlen(mnts));
 	char buf[mlen+1];
@@ -585,7 +583,9 @@ namespace FileSys {
 	  fail("No '=' in section FileSys entry mount for %s\n",buf);
 	*beql++=0;
 	fileNames->mount(buf,beql);
-	mnts+=mlen;
+        if(!mnts[mlen])
+          break;
+	mnts+=(mlen+1);
       }
     }
     return fileNames;

@@ -726,8 +726,12 @@ public:
 
   // Parent/Child relationships
  private:
-  // Thread group ID (pid of the thread group leader)
-  int tgid;
+  // Pointer to the thread group leader
+  ThreadContext::pointer tgleader;
+  // Set of other thread group members, empty if this is not the leader
+  typedef std::set<ThreadContext::pointer> ContextSet;
+  ContextSet tgmembers;
+
   int parentID;
   typedef std::set<int> IntSet;
   IntSet childIDs;
@@ -736,8 +740,8 @@ public:
   // Futex to clear when this thread dies/exits
   VAddr clear_child_tid;
  public:
-  int gettgid(void) const{
-    return tgid;
+  ThreadContext *getTGLeader(void) const{
+    return tgleader;
   }
   void set_tid_address(VAddr tidptr){
     clear_child_tid=tidptr;
