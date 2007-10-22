@@ -25,6 +25,8 @@ class LinuxSys{
     template<typename T>
     T get(void);
   };
+  virtual void setThreadArea(ThreadContext *context, VAddr addr) = 0;
+  virtual void setStackPointer(ThreadContext *context, VAddr addr) = 0;
  public:
   // Creates an object of an architecture-specific LinuxSys subclass
   static LinuxSys *create(CpuMode cpuMode);
@@ -51,7 +53,7 @@ class LinuxSys{
   void futexWait(ThreadContext *context, VAddr futex);
   int futexWake(ThreadContext *context, VAddr futex, int nr_wake);
   int futexMove(ThreadContext *context, VAddr srcFutex, VAddr dstFutex, int nr_move);
-  template<typename addr_t, typename op_t, typename val_t, typename count_t>
+  template<typename addr_t, typename op_t, typename val_t, typename count_t, typename wakeop_t>
   void sysFutex_(ThreadContext *context, InstDesc *inst);
   virtual void sysFutex(ThreadContext *context, InstDesc *inst) = 0;
   // Process functions
@@ -61,17 +63,31 @@ class LinuxSys{
   void sysWait4_(ThreadContext *context, InstDesc *inst);
   template<typename addr_t, typename wpid_t, typename status_t, typename opts_t>
   void sysWaitpid_(ThreadContext *context, InstDesc *inst);
-  
   virtual void sysWait4(ThreadContext *context, InstDesc *inst) = 0;
   virtual void sysWaitpid(ThreadContext *context, InstDesc *inst) = 0;
+  
+  virtual void sysFork(ThreadContext *context, InstDesc *inst);
+  template<typename addr_t, typename flag_t, typename tid_t>
+  void sysClone_(ThreadContext *context, InstDesc *inst);
+  virtual void sysClone(ThreadContext *context, InstDesc *inst) = 0;
+  template<typename addr_t>
+  void sysSetThreadArea_(ThreadContext *context, InstDesc *inst);
+  virtual void sysSetThreadArea(ThreadContext *context, InstDesc *inst) = 0;
+  virtual void sysGetpid(ThreadContext *context, InstDesc *inst);
+  virtual void sysGettid(ThreadContext *context, InstDesc *inst);
 };
 
 class Mips32LinuxSys : public LinuxSys{
+ protected:
+  virtual void setThreadArea(ThreadContext *context, VAddr addr);
+  virtual void setStackPointer(ThreadContext *context, VAddr addr);
  public:
   virtual uint32_t getArgI32(ThreadContext *context, size_t &pos) const;
   virtual uint64_t getArgI64(ThreadContext *context, size_t &pos) const;
   virtual void setSysErr(ThreadContext *context, int err) const;
   virtual void setSysRet(ThreadContext *context, int val) const;
+  virtual void sysClone(ThreadContext *context, InstDesc *inst);
+  virtual void sysSetThreadArea(ThreadContext *context, InstDesc *inst);
   virtual void sysFutex(ThreadContext *context, InstDesc *inst);
   virtual void sysWait4(ThreadContext *context, InstDesc *inst);
   virtual void sysWaitpid(ThreadContext *context, InstDesc *inst);

@@ -504,16 +504,15 @@ void ThreadContext::newChild(ThreadContext *child)
   child->sibling = youngest;
   youngest = child;
 }
-#endif // For !(defined MIPS_EMUL)
 
-Pid_t ThreadContext::getThreadPid(void) const{
 #if (defined TLS)
+Pid_t ThreadContext::getThreadPid(void) const{
   I(getEpoch());
   return getEpoch()->getTid();
-#else
-  return getPid();
-#endif
 }
+#endif
+
+#endif // For !(defined MIPS_EMUL)
 
 #if !(defined MIPS_EMUL)
 unsigned long long ThreadContext::getMemValue(RAddr p, unsigned dsize) {
@@ -747,8 +746,6 @@ ThreadContext::ThreadContext(void)
   readySig(),
   suspSig(false),
   mySystem(0),
-  tgleader(this),
-  tgmembers(),
   parentID(-1),
   childIDs(),
   exitSig(SigNone),
@@ -758,13 +755,12 @@ ThreadContext::ThreadContext(void)
   killSignal(SigNone),
   callStack()
 {
-  tgleader->tgmembers.insert(this);
-  size_t id;
-  for(id=0;(id<pid2context.size())&&pid2context[id];id++);
-  if(id==pid2context.size())
+  for(tid=0;(tid<pid2context.size())&&pid2context[tid];tid++);
+  if(tid==pid2context.size())
     pid2context.resize(pid2context.size()+1);
-  pid2context[id]=this;
-  pid=id;
+  pid2context[tid]=this;
+  pid=tid;
+  tgid=tid;
 
   memset(regs,0,sizeof(regs));
   setAddressSpace(new AddressSpace());
@@ -785,8 +781,6 @@ ThreadContext::ThreadContext(ThreadContext &parent,
   maskedSig(),
   readySig(),
   suspSig(false),
-  tgleader(cloneThread?parent.tgleader:pointer(this)),
-  tgmembers(),
   parentID(cloneParent?parent.parentID:parent.pid),
   childIDs(),
   exitSig(sig),
@@ -796,14 +790,20 @@ ThreadContext::ThreadContext(ThreadContext &parent,
   killSignal(SigNone),
   callStack(parent.callStack)
 {
-  tgleader->tgmembers.insert(this);
   setMode(parent.cpuMode);
-  size_t id;
-  for(id=0;(id<pid2context.size())&&pid2context[id];id++);
-  if(id==pid2context.size())
+  for(tid=0;(tid<pid2context.size())&&pid2context[tid];tid++);
+  if(tid==pid2context.size())
     pid2context.resize(pid2context.size()+1);
-  pid2context[id]=this;
-  pid=id;
+  pid2context[tid]=this;
+  pid=tid;
+  if(cloneThread){
+    tgid=parent.tgid;
+    I(tgid!=-1);
+    I(pid2context[tgid]);
+    pid2context[tgid]->tgtids.insert(tid);
+  }else{
+    tgid=tid;
+  }
   if(parentID!=-1)
     pid2context[parentID]->childIDs.insert(pid);
   memcpy(regs,parent.regs,sizeof(regs));
@@ -895,8 +895,12 @@ bool ThreadContext::exit(int code){
   sigTable=0;
   exited=true;
   exitCode=code;
-  tgleader->tgmembers.erase(this);
-  tgleader=0;
+  if(tgid!=tid){
+    I(tgid!=-1);
+    I(pid2context[tgid]);
+    pid2context[tgid]->tgtids.erase(tid);
+    tgid=-1;
+  }
   osSim->eventExit(pid,exitCode);
   while(!childIDs.empty()){
     ThreadContext *childContext=getContext(*(childIDs.begin()));
@@ -1097,6 +1101,14 @@ ssize_t ThreadContext::readMemString(VAddr stringVAddr, size_t maxSize, char *ds
 
 void ThreadContext::execCall(VAddr entry, VAddr  ra, VAddr sp){
   I(entry!=0x418968);
+  // Unwind stack if needed
+  while(!callStack.empty()){
+    if(sp<callStack.back().sp)
+      break;
+    if((sp==callStack.back().sp)&&(addressSpace->getFuncAddr(ra)==callStack.back().entry))
+      break;
+    callStack.pop_back();
+  }
   bool tailr=(!callStack.empty())&&(sp==callStack.back().sp)&&(ra==callStack.back().ra);
   callStack.push_back(CallStackEntry(entry,ra,sp,tailr));
 #ifdef DEBUG

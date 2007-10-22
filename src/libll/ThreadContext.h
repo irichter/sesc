@@ -254,19 +254,22 @@ public:
   inline icode_ptr getRetIcode(void) const{
     return addr2icode(getIntReg(RetAddrReg));
   }
-#endif // End else branch of (defined MIPS_EMUL)
-  
+#if (defined TLS)
   // Returns the pid of the thread (what would be returned by a getpid call)
   // In TLS, many contexts can share the same actual thread pid
   Pid_t getThreadPid(void) const;
+#endif
+
+#endif // End else branch of (defined MIPS_EMUL)
+  
   // Returns the pid of the context
   Pid_t getPid(void) const { return pid; }
+
+#if !(defined MIPS_EMUL)
   // Sets the pid of the context
   void setPid(Pid_t newPid){
     pid=newPid;
   }
-
-#if !(defined MIPS_EMUL)
 
   int getErrno(void){
     return *perrno;
@@ -726,22 +729,27 @@ public:
 
   // Parent/Child relationships
  private:
-  // Pointer to the thread group leader
-  ThreadContext::pointer tgleader;
-  // Set of other thread group members, empty if this is not the leader
-  typedef std::set<ThreadContext::pointer> ContextSet;
-  ContextSet tgmembers;
+  typedef std::set<int> IntSet;
+  // Thread id of this thread
+  int tid;
+  // tid of the thread group leader
+  int tgid;
+  // This set is empty for threads that are not thread group leader
+  // In a thread group leader, this set contains the other members of the thread group
+  IntSet tgtids;
 
   int parentID;
-  typedef std::set<int> IntSet;
   IntSet childIDs;
   // Signal sent to parent when this thread dies/exits
   SignalID  exitSig;
   // Futex to clear when this thread dies/exits
   VAddr clear_child_tid;
  public:
-  ThreadContext *getTGLeader(void) const{
-    return tgleader;
+  int gettgid(void) const{
+    return tgid;
+  }
+  int gettid(void) const{
+    return tid;
   }
   void set_tid_address(VAddr tidptr){
     clear_child_tid=tidptr;

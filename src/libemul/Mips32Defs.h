@@ -110,6 +110,7 @@ enum Mips32_ErrNums {
   Mips32_EMFILE       = 0x18,
   Mips32_ENOTDIR      = 0x14,
   Mips32_EAFNOSUPPORT = 0x7c,
+  Mips32_ENOSYS       = 0x59,
   Mips32_EWOULDBLOCK  = 0xb,
 };
 #include <signal.h>
@@ -374,6 +375,7 @@ inline int toNativeErrNums(int val){
     case Mips32_EMFILE      : retVal+=EMFILE      ; break;
     case Mips32_ENOTDIR     : retVal+=ENOTDIR     ; break;
     case Mips32_EAFNOSUPPORT: retVal+=EAFNOSUPPORT; break;
+    case Mips32_ENOSYS      : retVal+=ENOSYS      ; break;
     default: fail("Unknown value %d (0x%x) in file %s line %d\n",val,val,__FILE__,__LINE__);
   }
   val=0;
@@ -564,6 +566,7 @@ inline int fromNativeErrNums(int val){
     case EMFILE      : retVal+=Mips32_EMFILE      ; break;
     case ENOTDIR     : retVal+=Mips32_ENOTDIR     ; break;
     case EAFNOSUPPORT: retVal+=Mips32_EAFNOSUPPORT; break;
+    case ENOSYS      : retVal+=Mips32_ENOSYS      ; break;
     default: fail("Unknown value %d (0x%x) in file %s line %d\n",val,val,__FILE__,__LINE__);
   }
   val=0;
