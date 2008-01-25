@@ -610,6 +610,7 @@ void ThreadContext::save(ChkWriter &out) const{
   out << "AddressSpace ";
   out.writeobj(getAddressSpace());
   out << "Parent " << parentID << " exitSig " << exitSig << " clear_child_tid " << clear_child_tid << endl;
+  out << "robust_list " << robust_list << endl;
   if(exited){
     I(!iDesc);
     I(!getSignalTable());
@@ -661,6 +662,7 @@ ThreadContext::ThreadContext(ChkReader &in) : nDInsts(0) {
   size_t _exitSig;
   in >> "Parent " >> parentID >> " exitSig " >> _exitSig >> " clear_child_tid " >> clear_child_tid >> endl;
   exitSig=static_cast<SignalID>(_exitSig);
+  in >> "robust_list " >> robust_list >> endl;
   if(exited){
     setIAddr(0);
     in >> "Exit " >> exitCode >> endl;
@@ -750,13 +752,14 @@ ThreadContext::ThreadContext(void)
   childIDs(),
   exitSig(SigNone),
   clear_child_tid(0),
+  robust_list(0),
   exited(false),
   exitCode(0),
   killSignal(SigNone),
   callStack()
 {
-  for(tid=0;(tid<pid2context.size())&&pid2context[tid];tid++);
-  if(tid==pid2context.size())
+  for(tid=0;(tid<int(pid2context.size()))&&pid2context[tid];tid++);
+  if(tid==int(pid2context.size()))
     pid2context.resize(pid2context.size()+1);
   pid2context[tid]=this;
   pid=tid;
@@ -785,14 +788,15 @@ ThreadContext::ThreadContext(ThreadContext &parent,
   childIDs(),
   exitSig(sig),
   clear_child_tid(0),
+  robust_list(0),
   exited(false),
   exitCode(0),
   killSignal(SigNone),
   callStack(parent.callStack)
 {
   setMode(parent.cpuMode);
-  for(tid=0;(tid<pid2context.size())&&pid2context[tid];tid++);
-  if(tid==pid2context.size())
+  for(tid=0;(tid<int(pid2context.size()))&&pid2context[tid];tid++);
+  if(tid==int(pid2context.size()))
     pid2context.resize(pid2context.size()+1);
   pid2context[tid]=this;
   pid=tid;
@@ -912,6 +916,8 @@ bool ThreadContext::exit(int code){
   }
   iAddr=0;
   iDesc=InvalidInstDesc;
+  if(robust_list)
+    getSystem()->exitRobustList(this,robust_list);
   if(parentID==-1){
     reap();
     return true;

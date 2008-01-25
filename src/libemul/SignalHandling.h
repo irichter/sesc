@@ -11,11 +11,12 @@
 //#define DEBUG_SIGNALS
 
 typedef enum{
-  SigActTerm   = 0,
-  SigActIgnore = 1,
-  SigActCore   = 2,
-  SigActStop   = 3,
-  SigActNumber = 4,
+  SigActDefault,
+  SigActIgnore,
+  SigActTerm,
+  SigActCore,
+  SigActStop,
+  SigActHandle,
 } SignalAction;
 
 typedef enum{

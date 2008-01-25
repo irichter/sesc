@@ -30,7 +30,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 #include "InstDesc.h"
 #include "ThreadContext.h"
-#include "MipsSysCalls.h"
+#include "LinuxSys.h"
 #include "MipsRegs.h"
 // To get definition of fail()
 #include "EmulInit.h"
@@ -333,7 +333,7 @@ namespace Mips {
     }else{
       context->updIAddr(inst->aupdate,1);
       I(inst->aupdate);
-      handleSignals(context);
+      context->getSystem()->handleSignals(context);
     }
     return inst;
   }
@@ -372,7 +372,7 @@ namespace Mips {
       context->updIDesc(cond?1:inst->iupdate);
     }
     if(inst->aupdate)
-      handleSignals(context);
+      context->getSystem()->handleSignals(context);
     return inst;
   }
 
@@ -388,7 +388,7 @@ namespace Mips {
       fail("emulTcnd: trap caused at 0x%08x, not supported yet\n",context->getIAddr());
     context->updIAddr(inst->aupdate,1);
     if(inst->aupdate)
-      handleSignals(context);
+      context->getSystem()->handleSignals(context);
     return inst;
   }
   
@@ -489,7 +489,7 @@ namespace Mips {
     I((RTyp!=RegTypeFpr)||(static_cast<RegT>(val)==getRegFpr<mode,RegT>(context,inst->regDst)));
     context->updIAddr(inst->aupdate,1);
     if(inst->aupdate)
-      handleSignals(context);
+      context->getSystem()->handleSignals(context);
     return inst;
   }
   template<Opcode op, CpuMode mode, typename OffsT, typename AddrT, typename RegT, typename MemT, RegName RTyp>
@@ -511,7 +511,7 @@ namespace Mips {
     }
     context->updIAddr(inst->aupdate,1);
     if(inst->aupdate)
-      handleSignals(context);
+      context->getSystem()->handleSignals(context);
     return inst;
   }
   template<Opcode op, CpuMode mode, typename RegSigT, typename RegUnsT>
@@ -573,7 +573,7 @@ namespace Mips {
     }
     context->updIAddr(inst->aupdate,1);
     if(inst->aupdate)
-      handleSignals(context);
+      context->getSystem()->handleSignals(context);
     return inst;
   }
 
@@ -626,7 +626,7 @@ namespace Mips {
       setRegAny<mode,RegT,RTyp>(context,inst->regDst,getRegAny<mode,RegT,RTyp>(context,inst->regSrc1));
     context->updIAddr(inst->aupdate,1);
     if(inst->aupdate)
-      handleSignals(context);
+      context->getSystem()->handleSignals(context);
     return inst;
   }
 
@@ -638,9 +638,7 @@ namespace Mips {
 
   template<Opcode op, CpuMode mode>
   InstDesc *emulSyscl(InstDesc *inst, ThreadContext *context){
-    // Note the ordering of IP update and mipsSysCall, which allows
-    // mipsSysCall to change control flow or simply let it continue
-    return mipsSysCall(inst,context);
+    return context->getSystem()->sysCall(context,inst);
   }
 
 enum InstCtlInfoEnum{

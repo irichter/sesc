@@ -2,7 +2,7 @@
 #include <fcntl.h>
 #include "ThreadContext.h"
 #include "ElfObject.h"
-#include "MipsSysCalls.h"
+//#include "MipsSysCalls.h"
 #include "MipsRegs.h" 
 #include "EmulInit.h"
 #include "FileSys.h"
@@ -80,16 +80,9 @@ void emulInit(int argc, char **argv, char **envp){
   
   ThreadContext *mainThread=new ThreadContext();
   loadElfObject(appArgv[0],mainThread);
-  I(mainThread->getMode()==Mips32);
-  switch(mainThread->getMode()){
-  case Mips32:
-    Mips::initSystem(mainThread);
-    Mips::createStack(mainThread);
-    Mips::setProgArgs(mainThread,appArgc,appArgv,appEnvc,appEnvp);
-    break;
-  default:
-    I(0);
-  }
+  mainThread->getSystem()->initSystem(mainThread);
+  mainThread->getSystem()->createStack(mainThread);
+  mainThread->getSystem()->setProgArgs(mainThread,appArgc,appArgv,appEnvc,appEnvp);
   FileSys::OpenFiles *openFiles=mainThread->getOpenFiles();
   openFiles->getDesc(STDIN_FILENO )->setStatus(inStatus);
   openFiles->getDesc(STDIN_FILENO )->setCloexec(false);

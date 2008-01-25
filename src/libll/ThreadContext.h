@@ -744,14 +744,28 @@ public:
   SignalID  exitSig;
   // Futex to clear when this thread dies/exits
   VAddr clear_child_tid;
+  // Robust list head pointer
+  VAddr robust_list;
  public:
   int gettgid(void) const{
     return tgid;
   }
+  size_t gettgtids(int tids[], size_t slots) const{
+    IntSet::const_iterator it=tgtids.begin();
+    for(size_t i=0;i<slots;i++,it++)
+      tids[i]=*it;
+    return tgtids.size();
+  }
   int gettid(void) const{
     return tid;
   }
-  void set_tid_address(VAddr tidptr){
+  int getppid(void) const{
+    return parentID;
+  }
+  void setRobustList(VAddr headptr){
+    robust_list=headptr;
+  }
+  void setTidAddress(VAddr tidptr){
     clear_child_tid=tidptr;
   }
   int  getParentID(void) const{

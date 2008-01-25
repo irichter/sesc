@@ -10,6 +10,33 @@ using std::hex;
 using std::dec;
 #include "GCObject.h"
 
+//     static bool didThis=false;
+//     if(!didThis){
+//       std::ofstream os("dump.txt",std::ios::out);
+//       ChkWriter chkWriter(os.rdbuf());
+//       size_t pidCnt=0;
+//       for(int i=0;i<context->getPidUb();i++)
+// 	if(ThreadContext::getContext(i))
+// 	  pidCnt++;
+//       chkWriter << "Pids " << pidCnt << endl;
+//       for(int i=0;i<context->getPidUb();i++){
+// 	ThreadContext *ct=ThreadContext::getContext(i);
+// 	if(ct)
+//  	  ct->save(chkWriter);
+//       }
+//       os.close();
+//       std::ifstream is("dump.txt",std::ios::in);
+//       ChkReader chkReader(is.rdbuf());
+//       size_t _pids;
+//       chkReader >> "Pids " >> _pids >> endl;
+//       while(_pids){
+// 	new ThreadContext(chkReader);
+// 	_pids--;
+//       }
+//       is.close();
+//       didThis=true;
+//     }
+
 class match{
   const char *str;
  public:
