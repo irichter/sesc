@@ -628,6 +628,7 @@ void AddressSpace::protectSegment(VAddr addr, size_t len, bool canRead, bool can
   SegmentDesc &mySeg=segmentMap[addr];
   I(mySeg.addr==addr);
   I(mySeg.len==len);
+
   for(size_t pageNum=mySeg.pageNumLb();pageNum<mySeg.pageNumUb();pageNum++){
     getPageDesc(pageNum).allow(canRead&&!mySeg.canRead,canWrite&&!mySeg.canWrite,canExec&&!mySeg.canExec);
     getPageDesc(pageNum).deny(mySeg.canRead&&!canRead,mySeg.canWrite&&!canWrite,mySeg.canExec&&!canExec);

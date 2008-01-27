@@ -367,6 +367,7 @@ void loadElfObject(const char *fname, ThreadContext *threadContext){
     case PT_PHDR:
       // Location of the program header table
       break;
+    case PT_GNU_EH_FRAME: break;
     case PT_INTERP: {
       // Interpreter information
       char buf[myPrgHdr.p_filesz];
@@ -442,7 +443,7 @@ void loadElfObject(const char *fname, ThreadContext *threadContext){
 // 	  }
           bool canWr=(mySecHdr.sh_flags&SHF_WRITE);
           bool canEx=(mySecHdr.sh_flags&SHF_EXECINSTR);
-// 	  addrSpace->protectSegment(mySecHdr.sh_addr,mySecHdr.sh_size,true,canWr,canEx);
+ 	  //addrSpace->protectSegment(mySecHdr.sh_addr,mySecHdr.sh_size,true,canWr,canEx);
           if(canEx&&(addrSpace->getFuncName(mySecHdr.sh_addr+mySecHdr.sh_size)==0)){
             char  *secNam=secNamTab+mySecHdr.sh_name;
             size_t secNamLen=strlen(secNam);

@@ -341,7 +341,9 @@ DInst *ExecutionFlow::executePC()
 #if (defined MIPS_EMUL)
   ThreadContext *thread=context;
   InstDesc *iDesc=thread->getIDesc();
-  //    printf("S @0x%lx\n",iDesc->addr);
+#ifdef DEBUG
+  //printf("S @0x%lx\n",iDesc->addr);
+#endif
   iDesc=(*iDesc)(thread);
   if(!iDesc)
     return 0;

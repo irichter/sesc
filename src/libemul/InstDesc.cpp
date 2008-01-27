@@ -363,7 +363,7 @@ namespace Mips {
     }else if(NTyp==NextCont){
       context->updIDesc(1);
     }else if(NTyp==NextBImm){
-      if(cond){
+      if(cond) {
 	context->setIAddr(AddrT(inst->imm));
       }else{
         context->updIAddr(inst->aupdate,inst->iupdate);
@@ -920,7 +920,7 @@ Instruction *createSescInst(const InstDesc *inst, VAddr iaddr, size_t deltaAddr,
     static InstImm decodeImm(InstImmInfo imm, RawInst inst, VAddr addr){
       switch(imm){
       case ImmNo:   return uint32_t(0);
-      case ImmJpTg: return static_cast<VAddr>(((addr+sizeof(inst))&(~0x0fffffff))|((inst&0x0fffffff)*sizeof(inst)));
+      case ImmJpTg: return static_cast<VAddr>(((addr+sizeof(inst))&(~0x0fffffff))|((inst&0x03ffffff)*sizeof(inst)));
       case ImmBrOf: return static_cast<VAddr>((addr+sizeof(inst))+((static_cast<int16_t>(inst&0xffff))*sizeof(inst)));
       case ImmSExt: return static_cast<int32_t>(static_cast<int16_t>(inst&0xffff));
       case ImmZExt: return static_cast<uint32_t>(static_cast<uint16_t>(inst&0xffff));
@@ -1421,7 +1421,7 @@ Instruction *createSescInst(const InstDesc *inst, VAddr iaddr, size_t deltaAddr,
 
 #define RegIntS int32_t
 #define RegIntU uint32_t
-    
+
 #define OpDataC0(op,ctl,typ,dst,src1,src2,imm,next,emul) op2Data[op]=OpData(emul<op,Mips32 >,0,ctl,typ,dst,src1,src2,imm,next)
 #define OpDataC1(op,ctl,typ,dst,src1,src2,imm,next,emul,T1) op2Data[op]=OpData(emul<op,Mips32,T1 >,0,ctl,typ,dst,src1,src2,imm,next)
 #define OpDataC2(op,ctl,typ,dst,src1,src2,imm,next,emul,T1,T2) op2Data[op]=OpData(emul<op,Mips32,T1,T2 >,0,ctl,typ,dst,src1,src2,imm,next)
@@ -1432,6 +1432,12 @@ Instruction *createSescInst(const InstDesc *inst, VAddr iaddr, size_t deltaAddr,
 #define OpDataC7(op,ctl,typ,dst,src1,src2,imm,next,emul,T1,T2,T3,T4,T5,T6,T7) op2Data[op]=OpData(emul<op,Mips32,T1,T2,T3,T4,T5,T6,T7 >,0,ctl,typ,dst,src1,src2,imm,next)
 #define OpDataC8(op,ctl,typ,dst,src1,src2,imm,next,emul,T1,T2,T3,T4,T5,T6,T7,T8) op2Data[op]=OpData(emul<op,Mips32,T1,T2,T3,T4,T5,T6,T7,T8 >,0,ctl,typ,dst,src1,src2,imm,next)
 #define OpDataI4(op,ctl,typ,dst,src1,src2,imm,next,emul,...) op2Data[op]=OpData(emul<op,Mips32,NextNext,__VA_ARGS__ >,0,ctl,typ,dst,src1,src2,imm,next)
+
+    brNoDSlot[OpJal]=OpOJal;
+    OpDataC6(OpOJal      , CtlBrTg, BrOpCall , ArgRa  , ArgNo  , ArgNo  , ImmJpTg  , OpInvalid      , emulJump, RegIntU, SrcZ      , SrcZ      , fns::tt<RegIntS> , DestRetA, NextBImm);
+    OpDataC6(OpJal       , CtlPrBr, IntOpALU , ArgRa  , ArgNo  , ArgNo  , ImmJpTg  , OpJal_      , emulJump, RegIntU, SrcZ      , SrcZ      , fns::tt<RegIntS> , DestRetA, NextCont);
+    OpDataC6(OpJal_      , CtlBrTg, BrOpCall , ArgRa  , ArgNo  , ArgNo  , ImmJpTg  , OpInvalid      , emulJump, RegIntU, SrcZ      , SrcZ      , fns::tt<RegIntS> , DestRetA, NextBImm);
+
 
 //     OpDataX(OpJal     ,emulJump , CtlBpr, TypNop  , ArgNo  , ArgNo  , ArgNo  , ImmNo  , OpJal_);
 //     OpDataE(OpJal_    ,emulJump , CtlJal, BrOpCall, ArgRa  , ArgNo  , ArgNo  , ImmJpTg);
