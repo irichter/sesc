@@ -183,22 +183,22 @@ namespace FileSys {
     // Returns true if this file is open and there are no more open duplicates
     // When the last copy is closed, we may need to take additional action
     // For example, when the write end of a pipe is closed we need to wake up any blocked readers
-    bool isLastOpen(int32_toldfd);
-    int32_tclose(int32_toldfd);
-    int32_tgetfd(int32_tfd);
-    int32_tsetfd(int32_tfd, int32_tcloex);
-    int32_tgetfl(int32_tfd);
-    ssize_t read(int32_tfd, void *buf, size_t count);
-    ssize_t pread(int32_tfd, void *buf, size_t count, off_t offs);
-    ssize_t write(int32_tfd, const void *buf, size_t count);
-    ssize_t pwrite(int32_tfd, void *buf, size_t count, off_t offs);
-    bool willReadBlock(int32_tfd);
-    bool willWriteBlock(int32_tfd);
-    void addReadBlock(int32_tfd, int32_tpid);
-    void addWriteBlock(int32_tfd, int32_tpid);
-    //    int32_t popReadBlock(int32_tfd);
-    //    int32_t popWriteBlock(int32_tfd);
-    off_t seek(int32_tfd, off_t offset, int32_twhence);
+    bool isLastOpen(int32_t oldfd);
+    int32_t close(int32_t oldfd);
+    int32_t getfd(int32_t fd);
+    int32_t setfd(int32_t fd, int32_t cloex);
+    int32_t getfl(int32_t fd);
+    ssize_t read(int32_t fd, void *buf, size_t count);
+    ssize_t pread(int32_t fd, void *buf, size_t count, off_t offs);
+    ssize_t write(int32_t fd, const void *buf, size_t count);
+    ssize_t pwrite(int32_t fd, void *buf, size_t count, off_t offs);
+    bool willReadBlock(int32_t fd);
+    bool willWriteBlock(int32_t fd);
+    void addReadBlock(int32_t fd, int32_t pid);
+    void addWriteBlock(int32_t fd, int32_t pid);
+    //    int32_t popReadBlock(int32_t fd);
+    //    int32_t popWriteBlock(int32_t fd);
+    off_t seek(int32_t fd, off_t offset, int32_t whence);
     void save(ChkWriter &out) const;
     OpenFiles(ChkReader &in);
   };

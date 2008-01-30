@@ -1,8 +1,18 @@
 #if !(defined CVTENDIAN_H)
 #define CVTENDIAN_H
 
+
 #include <errno.h>
+#include <stdint.h>
+
+#ifdef DARWIN
+#include <machine/endian.h>
+#define __BIG_ENDIAN    __DARWIN_BIG_ENDIAN
+#define __LITTLE_ENDIAN __DARWIN_LITTLE_ENDIAN
+#define __BYTE_ORDER    __DARWIN_BYTE_ORDER
+#else
 #include <endian.h>
+#endif
 #include "SizedTypes.h"
 
 #if !(defined __FLOAT_WORD_ORDER)
