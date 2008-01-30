@@ -1,7 +1,5 @@
 // -*- c++ -*-
 //
-// $Id: refcnt_ptr.h,v 1.2 2001/11/19 15:07:09 llee Exp $
-//
 // Software License for MTL
 //
 // Copyright (c) 2001-2005 The Trustees of Indiana University. All rights reserved.

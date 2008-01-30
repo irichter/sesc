@@ -1,6 +1,4 @@
 //
-// "$Id: CubeMain.cxx,v 1.1 2004/10/17 10:51:06 Administrator Exp $"
-//
 // CubeView class definitions for the Fast Light Tool Kit (FLTK).
 //
 // Copyright 1998-2003 by Bill Spitzak and others.
@@ -43,6 +41,3 @@ cout << "I'm all done!" << endl;
 }
 
 
-//
-// End of "$Id: CubeMain.cxx,v 1.1 2004/10/17 10:51:06 Administrator Exp $".
-//

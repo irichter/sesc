@@ -1,9 +1,4 @@
 //===========================================================================
-//  CVS Information:
-//
-//     $RCSfile: norm.h,v $  $Revision: 1.1 $  $State: Exp $
-//     $Author: jsiek $  $Date: 2000/07/12 21:51:46 $
-//     $Locker:  $
 //---------------------------------------------------------------------------
 //
 // DESCRIPTION
@@ -24,6 +19,9 @@
 // REVISION HISTORY:
 //
 // $Log: norm.h,v $
+// Revision 1.1  2008/01/30 05:33:21  jrenau
+// Sync for OS X and sesctherm
+//
 // Revision 1.1  2000/07/12 21:51:46  jsiek
 // Initial revision
 //
