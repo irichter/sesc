@@ -7,7 +7,7 @@
  * per unit length. see wire.h for the details of the
  * wire model and the computation of these constants
  */
-double wire_length2delay(double length, int layer)
+double wire_length2delay(double length, int32_t layer)
 {
 	if (layer == WIRE_GLOBAL)
 		return WIRE_DELAY_G * length;

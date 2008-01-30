@@ -16,7 +16,7 @@ IntlMemRequest::~IntlMemRequest()
 }
 
 IntlMemRequest *IntlMemRequest::create(MemObj * imp
-						 ,int iPhAddr
+						 ,int32_t iPhAddr
 				       ,MemOperation mop
 				       ,TimeDelta_t lat
 				       ,WorkFuncType wF
@@ -36,7 +36,7 @@ IntlMemRequest *IntlMemRequest::create(MemObj * imp
   return r;
 }
 
-void IntlMemRequest::reLaunch(int iPhAddr,
+void IntlMemRequest::reLaunch(int32_t iPhAddr,
 			      MemOperation mop,
 			      TimeDelta_t lat,
 			      WorkFuncType wF) 

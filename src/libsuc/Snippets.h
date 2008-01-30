@@ -29,8 +29,8 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 //**************************************************
 // Generic typedefs
-typedef unsigned char      uchar;
-typedef unsigned short int ushort;
+typedef uint8_t        uchar;
+typedef uint16_t       ushort;
 typedef unsigned long  ulong;
 typedef unsigned long long ulonglong;
 
@@ -38,11 +38,11 @@ typedef unsigned long long ulonglong;
 // Process typedefs
 
 // CPU_t is signed because -1 means that it is not mapped to any CPU.
-typedef int CPU_t;
+typedef int32_t CPU_t;
 
 // Only the lower 16 bits are valid (at most 64K threads), but
 // negative values may have special meaning (invalid == -1)
-typedef int         Pid_t;
+typedef int32_t         Pid_t;
 
 //**************************************************
 // Types used for time (move to callback?)
@@ -51,19 +51,19 @@ const unsigned long long MaxTime = ((~0ULL) - 1024);  // -1024 is to give a litt
 
 extern Time_t globalClock; // Defined in Thread.cpp
 
-typedef unsigned short TimeDelta_t;
-const unsigned short MaxDeltaTime = (65535 - 1024);  // -1024 is to give a little bit of margin
+typedef uint16_t TimeDelta_t;
+const uint16_t MaxDeltaTime = (65535 - 1024);  // -1024 is to give a little bit of margin
 
 //**************************************************
 // Memory subsystem
 typedef intptr_t Address;
 
-short  log2i(unsigned int n);
+short  log2i(uint32_t n);
 
 //x, y are integers and x,y > 0
 #define CEILDiv(x,y)            ((x)-1)/(y)+1
 
-unsigned int roundUpPower2(unsigned int x);
+uint32_t roundUpPower2(uint32_t x);
 
 void debugAccess();
 
@@ -81,7 +81,7 @@ void debugAccess();
 // 
 // My two cents: 
 //
-// ONLY use prefetch when you are very certaint that there is a cache miss,
+// ONLY use prefetch when you are very certaint32_t that there is a cache miss,
 // and you can't reorganize the code so that the structure has more
 // locality.
 //

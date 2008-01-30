@@ -14,7 +14,7 @@ friend class Grids;
 public:
 
 	//Constructor
-	FBlocks (double xcord1, double ycord1, double xcord2, double ycord2, double pow, int n);
+	FBlocks (double xcord1, double ycord1, double xcord2, double ycord2, double pow, int32_t n);
 
 	//Inspectors
 	double power() const;
@@ -31,11 +31,11 @@ public:
 	double gx2 () const;
 	double gy2 () const;
 
-	int index() const;
+	int32_t index() const;
 
 	void ListGrids() const;
 
-	bool IsGridPresent(int n) const;
+	bool IsGridPresent(int32_t n) const;
 
 	//Mutators
 	void power(double pow);
@@ -45,15 +45,15 @@ public:
 	void x2 (double xcord2);
 	void y2 (double ycord2);
 
-	void add_index (int n);
+	void add_index (int32_t n);
 
-	void updateGridcoord (int row, int column, double chip_length, double chip_height);
+	void updateGridcoord (int32_t row, int32_t column, double chip_length, double chip_height);
 
-	void AddGrid(int n, double gridarea);
+	void AddGrid(int32_t n, double gridarea);
 
-	void PartPower(int col, vector<Grids> &G);
+	void PartPower(int32_t col, vector<Grids> &G);
 
-	double CalculateTemp (vector<double> &grid_t, int offset, int mode, int g_col);
+	double CalculateTemp (vector<double> &grid_t, int32_t offset, int32_t mode, int32_t g_col);
 
 	void CalculateGridTemp(vector<Grids> &G);
 
@@ -63,7 +63,7 @@ public:
 
 //private:
 
-	int index_;
+	int32_t index_;
 
 	double x_1;
 	double y_1;
@@ -84,7 +84,7 @@ public:
 
 	struct GridDetails {
 		
-		int number;
+		int32_t number;
 		double area;		
 	};
 

@@ -17,7 +17,7 @@ typedef struct block_model_t_st
 	double **b;
 	/* LUP decomposition of b	*/
 	double **lu; 
-	int *p;
+	int32_t *p;
 	/* diagonal capacitance matrix stored as a 1-d vector	*/
 	double *a; 
 	/* inverse of the above	*/
@@ -33,18 +33,18 @@ typedef struct block_model_t_st
 	/* intermediate vectors and matrices	*/
 	double *gx, *gy, *gx_sp, *gy_sp, *t_vector;
 	double **len, **g;
-	int **border;
+	int32_t **border;
 
 	/* total no. of nodes	*/
-	int n_nodes;
+	int32_t n_nodes;
 	/* total no. of blocks	*/
-	int n_units;
+	int32_t n_units;
 	/* to allow for resizing	*/
-	int base_n_units;
+	int32_t base_n_units;
 
 	/* flags	*/
-	int r_ready;	/* are the R's initialized?	*/
-	int c_ready;	/* are the C's initialized?	*/
+	int32_t r_ready;	/* are the R's initialized?	*/
+	int32_t c_ready;	/* are the C's initialized?	*/
 }block_model_t;
 
 /* constructor/destructor	*/
@@ -66,12 +66,12 @@ double *hotspot_vector_block(block_model_t *model);
  * compaction
  */
 void trim_hotspot_vector_block(block_model_t *model, double *dst, double *src, 
-						 	   int at, int size);
+						 	   int32_t at, int32_t size);
 /* update the model's node count	*/						 
-void resize_thermal_model_block(block_model_t *model, int n_units);						 
+void resize_thermal_model_block(block_model_t *model, int32_t n_units);						 
 void set_temp_block (block_model_t *model, double *temp, double val);
 void dump_temp_block (block_model_t *model, double *temp, char *file);
-void read_temp_block (block_model_t *model, double *temp, char *file, int clip);
+void read_temp_block (block_model_t *model, double *temp, char *file, int32_t clip);
 void dump_power_block(block_model_t *model, double *power, char *file);
 void read_power_block (block_model_t *model, double *power, char *file);
 double find_max_temp_block(block_model_t *model, double *temp);

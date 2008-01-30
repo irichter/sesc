@@ -26,22 +26,22 @@ namespace FileSys {
     // Type of this file
     FileType type;
     // Native file descriptor 
-    int      fd;
+    int32_t      fd;
     // Simulated flags
-    int      flags;
+    int32_t      flags;
     // IDs of threads blocked on reads from this file
     class PidSet : public std::vector<int>{};
     //    typedef std::vector<int> PidSet;
     PidSet readBlockPids;
     PidSet writeBlockPids;
   protected:
-    BaseStatus(FileType type, int fd, int flags);
+    BaseStatus(FileType type, int32_t fd, int32_t flags);
     virtual ~BaseStatus(void);
   public:
-    virtual void addReadBlock(int pid){
+    virtual void addReadBlock(int32_t pid){
       readBlockPids.push_back(pid);
     }
-    virtual void addWriteBlock(int pid){
+    virtual void addWriteBlock(int32_t pid){
       writeBlockPids.push_back(pid);
     }
     virtual void endReadBlock(void){
@@ -70,10 +70,10 @@ namespace FileSys {
     // Mode with which the file was **intended** to be opened
     mode_t      mode;
   protected:
-    FileStatus(const char *name, int fd, int flags, mode_t mode);
+    FileStatus(const char *name, int32_t fd, int32_t flags, mode_t mode);
     virtual ~FileStatus(void);
   public:
-    static FileStatus *open(const char *name, int flags, mode_t mode);
+    static FileStatus *open(const char *name, int32_t flags, mode_t mode);
     virtual void save(ChkWriter &out) const;
     FileStatus(ChkReader &in);
     virtual void mmap(MemSys::FrameDesc *frame, void *data, size_t size, off_t offs);
@@ -87,9 +87,9 @@ namespace FileSys {
     // The other end of the pipe
     PipeStatus *otherEnd;
     // Native descriptor of the other end
-    int otherFd;
+    int32_t otherFd;
   protected:
-    PipeStatus(int fd, int otherFd, int flags, bool isWrite)
+    PipeStatus(int32_t fd, int32_t otherFd, int32_t flags, bool isWrite)
       : BaseStatus(Pipe,fd,flags), isWrite(isWrite), otherEnd(0), otherFd(otherFd){
     }
     ~PipeStatus(void){
@@ -106,10 +106,10 @@ namespace FileSys {
   };
   class StreamStatus : public BaseStatus{
   protected:
-    StreamStatus(int fd, int flags);
+    StreamStatus(int32_t fd, int32_t flags);
     ~StreamStatus(void);
   public:
-    static StreamStatus *wrap(int fd);
+    static StreamStatus *wrap(int32_t fd);
     virtual void save(ChkWriter &out) const;
     StreamStatus(ChkReader &in);
   };
@@ -150,21 +150,21 @@ namespace FileSys {
   private:
     typedef std::vector<FileDesc> FdArray;
     FdArray fds;
-    static int error(int err);
+    static int32_t error(int32_t err);
   public:
     OpenFiles(void);
     OpenFiles(const OpenFiles &src);
     virtual ~OpenFiles(void);
-    bool isOpen(int fd) const;
-    FileDesc *getDesc(int fd);
-    int findNextFree(int start){
-      int retVal=start;
+    bool isOpen(int32_t fd) const;
+    FileDesc *getDesc(int32_t fd);
+    int32_t findNextFree(int32_t start){
+      int32_t retVal=start;
       while(isOpen(retVal))
 	retVal++;
       return retVal;
     }
     /*
-    int findFirstUsed(int start){
+    int32_t findFirstUsed(int32_t start){
       for(size_t retVal=start;retVal<fds.size();retVal++)
 	if(isOpen(retVal))
 	  return (int)retVal;
@@ -175,30 +175,30 @@ namespace FileSys {
       for(size_t i=0;i<fds.size();i++)
 	fds[i].exec();
     }
-    int open(const char *name, int flags, mode_t mode);
-    int dup(int oldfd);
-    int dup2(int oldfd, int newfd);
-    int dupfd(int oldfd, int minfd);
-    int pipe(int fds[2]);
+    int32_t open(const char *name, int32_t flags, mode_t mode);
+    int32_t dup(int32_t oldfd);
+    int32_t dup2(int32_t oldfd, int32_t newfd);
+    int32_t dupfd(int32_t oldfd, int32_t minfd);
+    int32_t pipe(int32_t fds[2]);
     // Returns true if this file is open and there are no more open duplicates
     // When the last copy is closed, we may need to take additional action
     // For example, when the write end of a pipe is closed we need to wake up any blocked readers
-    bool isLastOpen(int oldfd);
-    int close(int oldfd);
-    int getfd(int fd);
-    int setfd(int fd, int cloex);
-    int getfl(int fd);
-    ssize_t read(int fd, void *buf, size_t count);
-    ssize_t pread(int fd, void *buf, size_t count, off_t offs);
-    ssize_t write(int fd, const void *buf, size_t count);
-    ssize_t pwrite(int fd, void *buf, size_t count, off_t offs);
-    bool willReadBlock(int fd);
-    bool willWriteBlock(int fd);
-    void addReadBlock(int fd, int pid);
-    void addWriteBlock(int fd, int pid);
-    //    int  popReadBlock(int fd);
-    //    int  popWriteBlock(int fd);
-    off_t seek(int fd, off_t offset, int whence);
+    bool isLastOpen(int32_toldfd);
+    int32_tclose(int32_toldfd);
+    int32_tgetfd(int32_tfd);
+    int32_tsetfd(int32_tfd, int32_tcloex);
+    int32_tgetfl(int32_tfd);
+    ssize_t read(int32_tfd, void *buf, size_t count);
+    ssize_t pread(int32_tfd, void *buf, size_t count, off_t offs);
+    ssize_t write(int32_tfd, const void *buf, size_t count);
+    ssize_t pwrite(int32_tfd, void *buf, size_t count, off_t offs);
+    bool willReadBlock(int32_tfd);
+    bool willWriteBlock(int32_tfd);
+    void addReadBlock(int32_tfd, int32_tpid);
+    void addWriteBlock(int32_tfd, int32_tpid);
+    //    int32_t popReadBlock(int32_tfd);
+    //    int32_t popWriteBlock(int32_tfd);
+    off_t seek(int32_tfd, off_t offset, int32_twhence);
     void save(ChkWriter &out) const;
     OpenFiles(ChkReader &in);
   };

@@ -19,9 +19,9 @@ SESC; see the file COPYING.  If not, write to the  Free Software Foundation, 59
 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 */
 
-// We need to emulate all sorts of floating point operations
+// We need to emulate all sorts of floating point32_t operations
 #include <math.h>
-// We need to control the rounding mode for floating point operations
+// We need to control the rounding mode for floating point32_t operations
 #if !(defined NO_FENV_H) 
 #include <fenv.h>
 #endif
@@ -209,7 +209,7 @@ namespace Mips {
     OpRdhwr,
     // Integer comparisons
     OpSlt, OpSltu, OpSlti, OpSltiu,
-    // Floating-point comparisons
+    // Floating-point32_t comparisons
     OpFcfs,    OpFcuns,   OpFceqs,   OpFcueqs,  OpFcolts,  OpFcults,  OpFcoles, OpFcules,
     OpFcsfs,   OpFcngles, OpFcseqs,  OpFcngls,  OpFclts,   OpFcnges,  OpFcles,  OpFcngts,
     OpFcfd,    OpFcund,   OpFceqd,   OpFcueqd,  OpFcoltd,  OpFcultd,  OpFcoled, OpFculed,
@@ -218,13 +218,13 @@ namespace Mips {
     OpMovz,   OpMovn,   OpMovf,   OpMovt,
     OpFmovzs, OpFmovns, OpFmovfs, OpFmovts,
     OpFmovzd, OpFmovnd, OpFmovfd, OpFmovtd,
-    // Floating-point arithmetic
+    // Floating-point32_t arithmetic
     OpFadds, OpFsubs, OpFmuls, OpFdivs, OpFsqrts, OpFabss, OpFnegs, OpFrecips, OpFrsqrts,
     OpFaddd, OpFsubd, OpFmuld, OpFdivd, OpFsqrtd, OpFabsd, OpFnegd, OpFrecipd, OpFrsqrtd,
     // These are two-part ops: multiply, then add/subtract
     OpFmadds, OpFmsubs, OpFnmadds, OpFnmsubs, OpFmaddd, OpFmsubd, OpFnmaddd, OpFnmsubd,
     OpFmadds_,OpFmsubs_,OpFnmadds_,OpFnmsubs_,OpFmaddd_,OpFmsubd_,OpFnmaddd_,OpFnmsubd_,
-    // Floating-point format conversion
+    // Floating-point32_t format conversion
     OpFroundls,OpFtruncls,OpFceills,OpFfloorls,OpFroundws,OpFtruncws,OpFceilws,OpFfloorws,
     OpFroundld,OpFtruncld,OpFceilld,OpFfloorld,OpFroundwd,OpFtruncwd,OpFceilwd,OpFfloorwd,
     OpFcvtls,OpFcvtws,OpFcvtld,OpFcvtwd,OpFcvtds,OpFcvtsd,OpFcvtsw,OpFcvtdw,OpFcvtsl,OpFcvtdl,
@@ -581,14 +581,14 @@ namespace Mips {
   struct mips_float_convert : public std::binary_function<_Ts,_Tm,_Td>{
     inline _Td operator()(const _Ts& __x, const _Tm& __y) const{
 #if !(defined NO_FENV_H)
-      static int Mips32_RoundMode[] = {
+      static int32_t Mips32_RoundMode[] = {
         FE_TONEAREST,  /* 00 nearest   */
         FE_TOWARDZERO, /* 01 zero      */
         FE_UPWARD,     /* 10 plus inf  */
         FE_DOWNWARD    /* 11 minus inf */
       };
-      int rm=Mips32_RoundMode[__y&3];
-      int saverm=fegetround();
+      int32_t rm=Mips32_RoundMode[__y&3];
+      int32_t saverm=fegetround();
       fesetround(rm);
       _Td retVal=_Td(__x);
       fesetround(saverm);
@@ -929,8 +929,8 @@ Instruction *createSescInst(const InstDesc *inst, VAddr iaddr, size_t deltaAddr,
       case ImmSh32: return static_cast<uint32_t>(32+((inst>>6)&0x1F));
       case ImmExCd: return static_cast<uint32_t>((inst>>6)&0xFFFFF);
       case ImmTrCd: return static_cast<uint32_t>((inst>>6)&0x3FF);
-      case ImmFbcc: { unsigned int cc=((inst>>18)&0x7); return static_cast<uint32_t>(1<<(23+cc+(cc>0))); }
-      case ImmFccc: { unsigned int cc=((inst>>8)&0x7); return static_cast<uint32_t>(1<<(23+cc+(cc>0))); }
+      case ImmFbcc: { uint32_t cc=((inst>>18)&0x7); return static_cast<uint32_t>(1<<(23+cc+(cc>0))); }
+      case ImmFccc: { uint32_t cc=((inst>>8)&0x7); return static_cast<uint32_t>(1<<(23+cc+(cc>0))); }
       default:
         fail("decodeImm called for invalid imm %d in raw inst 0x%08x\n",imm,inst);
       }
@@ -1683,7 +1683,7 @@ Instruction *createSescInst(const InstDesc *inst, VAddr iaddr, size_t deltaAddr,
     OpDataI4(OpSltiu   , CtlNorm, IntOpALU , ArgRt  , ArgRs  , ArgNo  , ImmSExt, OpInvalid , emulAlu  , RegTypeGpr, SrcI      , RegTypeGpr, std::less<RegIntU>);
     OpDataI4(OpSlt     , CtlNorm, IntOpALU , ArgRd  , ArgRs  , ArgRt  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeGpr, std::less<RegIntS>);
     OpDataI4(OpSltu    , CtlNorm, IntOpALU , ArgRd  , ArgRs  , ArgRt  , ImmNo  , OpInvalid , emulAlu  , RegTypeGpr, RegTypeGpr, RegTypeGpr, std::less<RegIntU>);
-    // Floating-point comparisons
+    // Floating-point32_t comparisons
     OpDataI4(OpFcfs    , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float32_t, false, false, false, false>));
     OpDataI4(OpFcuns   , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float32_t, false, false, false, true >));
     OpDataI4(OpFceqs   , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float32_t, false, false, true , false>));
@@ -1716,7 +1716,7 @@ Instruction *createSescInst(const InstDesc *inst, VAddr iaddr, size_t deltaAddr,
     OpDataI4(OpFcnged  , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float64_t, true , true , false, true >));
     OpDataI4(OpFcled   , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float64_t, true , true , true , false>));
     OpDataI4(OpFcngtd  , CtlNorm, FpOpALU  , ArgFccc, ArgFs  , ArgFt  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeCtl, typeof(fns::float_compare<float64_t, true , true , true , true >));
-    // Floating-point arithmetic
+    // Floating-point32_t arithmetic
     OpDataI4(OpFmovs   , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, fns::project1st_identity<float32_t>);
     OpDataI4(OpFsqrts  , CtlNorm, FpOpDiv  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, fns::project1st_sqrt<float32_t>);
     OpDataI4(OpFabss   , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, fns::project1st_abs<float32_t>);
@@ -1754,7 +1754,7 @@ Instruction *createSescInst(const InstDesc *inst, VAddr iaddr, size_t deltaAddr,
     OpDataI4(OpFnmsubs_, CtlNorm, FpOpALU  , ArgFd  , ArgFTmp, ArgFr  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, fns::minus_neg<float32_t>);
     OpDataI4(OpFnmsubd , CtlNorm, FpOpMul  , ArgFTmp, ArgFs  , ArgFt  , ImmNo  , OpFnmsubd_, emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, std::multiplies<float64_t>);
     OpDataI4(OpFnmsubd_, CtlNorm, FpOpALU  , ArgFd  , ArgFTmp, ArgFr  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, RegTypeFpr, RegTypeFpr, fns::minus_neg<float64_t>);
-    // Floating-point format conversion
+    // Floating-point32_t format conversion
     OpDataI4(OpFroundls, CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_round<float32_t,int64_t>));
     OpDataI4(OpFtruncls, CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_trunc<float32_t,int64_t>));
     OpDataI4(OpFceills , CtlNorm, FpOpALU  , ArgFd  , ArgFs  , ArgNo  , ImmNo  , OpInvalid , emulAlu  , RegTypeFpr, SrcZ      , RegTypeFpr, typeof(fns::project1st_ceil<float32_t,int64_t>));

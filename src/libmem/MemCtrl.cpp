@@ -56,7 +56,7 @@ MemCtrl::MemCtrl(MemorySystem* current, const char *device_descr_section,
   I(numBanks);
 
   I(current);
-  for (unsigned short int i = 0; i < numBanks; i++)
+  for (uint16_t i = 0; i < numBanks; i++)
     addLowerLevel(current->declareMemoryObj(device_descr_section, "bankType"));
 }
 
@@ -87,7 +87,7 @@ void MemCtrl::specialOp(MemRequest *mreq)
   exit(-1);
 }
 
-Bank *MemCtrl::getBank(unsigned short int i) const 
+Bank *MemCtrl::getBank(uint16_t i) const 
 {
   return static_cast < Bank * >(lowerLevel[i]);
 }

@@ -41,8 +41,8 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 long long FetchEngine::nInst2Sim=0;
 long long FetchEngine::totalnInst=0;
 
-FetchEngine::FetchEngine(int cId
-                         ,int i
+FetchEngine::FetchEngine(int32_t cId
+                         ,int32_t i
                          // TOFIX: GMemorySystem is in GPRocessor too. This is
                          // not consistent. Remove it from GProcessor and be
                          // sure that everybody that uses it gets it from
@@ -238,9 +238,9 @@ bool FetchEngine::processBranch(DInst *dinst, ushort n2Fetched)
   return false;
 }
 
-void FetchEngine::realFetch(IBucket *bucket, int fetchMax)
+void FetchEngine::realFetch(IBucket *bucket, int32_t fetchMax)
 {
-  int n2Fetched=fetchMax > 0 ? fetchMax : FetchWidth;
+  int32_t n2Fetched=fetchMax > 0 ? fetchMax : FetchWidth;
   maxBB = BB4Cycle; // Reset the max number of BB to fetch in this cycle (decreased in processBranch)
 
   // This method only can be called once per cycle or the restriction of the
@@ -327,7 +327,7 @@ void FetchEngine::realFetch(IBucket *bucket, int fetchMax)
 }
 
 
-void FetchEngine::fetch(IBucket *bucket, int fetchMax)
+void FetchEngine::fetch(IBucket *bucket, int32_t fetchMax)
 {
   if(missInstID) {
     fakeFetch(bucket, fetchMax);
@@ -348,7 +348,7 @@ void FetchEngine::fetch(IBucket *bucket, int fetchMax)
   }
 }
 
-void FetchEngine::fakeFetch(IBucket *bucket, int fetchMax)
+void FetchEngine::fakeFetch(IBucket *bucket, int32_t fetchMax)
 {
   I(missInstID);
 #ifdef SESC_MISPATH

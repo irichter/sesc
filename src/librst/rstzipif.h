@@ -51,7 +51,7 @@ enum {
 #include "mendian.h"
 
 typedef struct {
-  int cpu;
+  int32_t cpu;
   uint8_t count8;
   uint16_t count16;
   uint32_t count32;
@@ -65,7 +65,7 @@ public:
     dbgfp = NULL;
     gzfile = NULL;
 
-    for (int i = 0; i < RSTZIP_MAXCPUS; i++) {
+    for (int32_t i = 0; i < RSTZIP_MAXCPUS; i++) {
       rstzip[i] = NULL;
       rstunzip[i] = NULL;
     }
@@ -88,7 +88,7 @@ public:
     delete footer;
   }
 
-  int openRstzip(const char* outfile, int bufsize, int gzip, int stat, int numcpus) {
+  int32_t openRstzip(const char* outfile, int32_t bufsize, int32_t gzip, int32_t stat, int32_t numcpus) {
     // Get numcpu and initialize the individual RST buffers for each cpu.
     char text[80] = { 0 };    
 
@@ -96,7 +96,7 @@ public:
     cpucount = (CpuCount*) calloc(bufsize, sizeof(CpuCount));;
     zbuffer = (uint8_t*) calloc(bufsize, sizeof(rstf_unionT));
 
-    int retval = openFiles(NULL, outfile, gzip);
+    int32_t retval = openFiles(NULL, outfile, gzip);
 
     if (retval == 1) {
       if (numcpus == 1) {
@@ -133,7 +133,7 @@ public:
 
     closeFiles();
 
-    for (int i = 0; i < RSTZIP_MAXCPUS; i++) {
+    for (int32_t i = 0; i < RSTZIP_MAXCPUS; i++) {
       free(unirst[i].rst);
       delete rstzip[i];
     }
@@ -143,8 +143,8 @@ public:
     free(zbuffer);
   }
 
-  int openRstunzip(const char* infile, int bufsize, int gzip, int stat) {
-    int retval = -1;
+  int32_t openRstunzip(const char* infile, int32_t bufsize, int32_t gzip, int32_t stat) {
+    int32_t retval = -1;
 
     // Test and open files.
     if (gzip == 1) {
@@ -209,7 +209,7 @@ public:
 
     closeFiles();
 
-    for (int i = 0; i < RSTZIP_MAXCPUS; i++) {
+    for (int32_t i = 0; i < RSTZIP_MAXCPUS; i++) {
       free(unirst[i].rst);
       delete rstunzip[i];
     }
@@ -221,9 +221,9 @@ public:
 
 #if 0
 
-  int compress(rstf_unionT* rst, int nrecs) {
-    int zrecs = 0;
-    int i;
+  int32_t compress(rstf_unionT* rst, int32_t nrecs) {
+    int32_t zrecs = 0;
+    int32_t i;
 
     for (i = 0; i < nrecs / buffersize; i++) {
       zrecs += compressX(&rst[i * buffersize], buffersize);
@@ -238,15 +238,15 @@ public:
 
 #else
 
-  int compress(rstf_unionT* rst, int nrecs) {
+  int32_t compress(rstf_unionT* rst, int32_t nrecs) {
     return compressX(rst, nrecs);
   }
 
 #endif
 
   // Decompress exactly nrecs RST records to buf.
-  int decompress(rstf_unionT* buf, int nrecs) {
-    int totalrecs = 0;
+  int32_t decompress(rstf_unionT* buf, int32_t nrecs) {
+    int32_t totalrecs = 0;
 
     if (nrecs > buffersize) {
       totalrecs += decompress(buf, buffersize);
@@ -299,24 +299,24 @@ protected:
   RstzipBuffer* rstbuf;
 
   RstSplit* unirst;
-  int curcpu;
+  int32_t curcpu;
 
   CpuCount* cpucount;
   uint8_t* zbuffer;
 
   RstzipHeader* header;
   RstzipFooter* footer;
-  int stats;
-  int ncpus;
-  int decompress_done;
-  int buffersize;
+  int32_t stats;
+  int32_t ncpus;
+  int32_t decompress_done;
+  int32_t buffersize;
 
   // Compress RST buffer to file.
-  int compressX(rstf_unionT* rst, int nrecs) {
+  int32_t compressX(rstf_unionT* rst, int32_t nrecs) {
     //uint8_t size8;
     uint16_t size16;
     uint32_t size32;
-    int i, zbytes;
+    int32_t i, zbytes;
 
     if (ncpus == 1) {
       // Just compress the whole buffer in this case.
@@ -367,15 +367,15 @@ protected:
   }
 
   // Decompress file to RST buffer; return number of records decompressed.
-  int decompressX(rstf_unionT* buf, int nrecs) {
+  int32_t decompressX(rstf_unionT* buf, int32_t nrecs) {
     //rstf_cpuT rstcpu = { CPU_T, 0, 0, 0, 0, 0 };
     uint8_t* zbufptr = NULL;
-    int index[RSTZIP_MAXCPUS] = { 0 };
-    int decompressed_recs = 0;
-    int count, ncpurecs;
+    int32_t index[RSTZIP_MAXCPUS] = { 0 };
+    int32_t decompressed_recs = 0;
+    int32_t count, ncpurecs;
     //uint16_t size16;
     uint32_t size32;
-    int zbytes;
+    int32_t zbytes;
 
     if (decompress_done == 0) {
       if (buffersize > nrecs) {
@@ -393,7 +393,7 @@ protected:
         decompressed_recs = rstunzip[0]->rstz_decompress(&zbufptr, buf, nrecs);
 
         // Set cpuid to 0.
-        for (int i = 0; i < nrecs; i++) {
+        for (int32_t i = 0; i < nrecs; i++) {
           setRstCpuID(&buf[i], 0);
         }
       } else {
@@ -410,11 +410,11 @@ protected:
         fprintf(stderr, "size of cpucount recs=%d\n\n", size32);
 #endif
 
-        for (int i = 0; i < RSTZIP_MAXCPUS; i++) {
+        for (int32_t i = 0; i < RSTZIP_MAXCPUS; i++) {
           unirst[i].nrecs = 0;
         }
 
-        for (int i = 0; i < ncpurecs; i++) {
+        for (int32_t i = 0; i < ncpurecs; i++) {
           unirst[cpucount[i].cpu].nrecs += cpucount[i].count32;
         }
 
@@ -426,7 +426,7 @@ protected:
         zfread(zbuffer, zbytes);
         zbufptr = zbuffer;
 
-        for (int i = 0; i < RSTZIP_MAXCPUS; i++) {
+        for (int32_t i = 0; i < RSTZIP_MAXCPUS; i++) {
           if (unirst[i].nrecs != 0) {
             if (rstunzip[i] == NULL) {
               rstunzip[i] = new Rstunzip;
@@ -442,7 +442,7 @@ protected:
           }
         }
 
-        for (int i = 0; i < ncpurecs; i++) {
+        for (int32_t i = 0; i < ncpurecs; i++) {
           curcpu = cpucount[i].cpu;
           count = cpucount[i].count32;
 
@@ -460,7 +460,7 @@ protected:
     return decompressed_recs;
   }
 
-  int openFiles(const char* infile, const char* outfile, int gzip) {
+  int32_t openFiles(const char* infile, const char* outfile, int32_t gzip) {
     if (infile != NULL) {
       if (strcmp("-", infile) != 0 && strcmp("stdin", infile) != 0) {
         infp = fopen(infile, "r");
@@ -511,8 +511,8 @@ protected:
       fclose(outfp);
   }
 
-  int zfread(void* buf, long size) {
-    int ret = -1;
+  int32_t zfread(void* buf, long size) {
+    int32_t ret = -1;
 
     if (gzfile != NULL) {
       ret = gzread(gzfile, buf, size);
@@ -526,8 +526,8 @@ protected:
     return ret;
   }
 
-  int zfwrite(void* buf, long size) {
-    int ret = -1;
+  int32_t zfwrite(void* buf, long size) {
+    int32_t ret = -1;
 
     if (gzfile != NULL) {
       ret = gzwrite(gzfile, buf, size);
@@ -543,17 +543,17 @@ protected:
 
   // Sort the rst records in buffer by their cpu, into the unirst buffers. 
   // The total number of CpuRecCount records is returned.
-  int sortRstTrace(rstf_unionT* rst, int nrecs) {
-    int total_recs = 0;
-    int prevcpu = -1;
-    int count = 0;
+  int32_t sortRstTrace(rstf_unionT* rst, int32_t nrecs) {
+    int32_t total_recs = 0;
+    int32_t prevcpu = -1;
+    int32_t count = 0;
 
-    for (int i = 0; i < RSTZIP_MAXCPUS; i++) {
+    for (int32_t i = 0; i < RSTZIP_MAXCPUS; i++) {
       unirst[i].nrecs = 0;
     }
 
-    int j = 0;
-    for (int i = 0; i < nrecs; i++) {
+    int32_t j = 0;
+    for (int32_t i = 0; i < nrecs; i++) {
       curcpu = getRstCpuID(&rst[i]);
       if (curcpu == -1) {
         curcpu = 0;
@@ -589,10 +589,10 @@ protected:
     return (j);
   }
 
-  int compressCpuCount(uint8_t* zbuf, CpuCount* cpucnt, int ncpurecs) {
-    int zbytes = 0;
+  int32_t compressCpuCount(uint8_t* zbuf, CpuCount* cpucnt, int32_t ncpurecs) {
+    int32_t zbytes = 0;
 
-    for (int i = 0; i < ncpurecs; i++) {
+    for (int32_t i = 0; i < ncpurecs; i++) {
       if (cpucnt[i].count32 <= UINT_MAX) {
         cpucnt[i].count8 = cpucnt[i].count32;
 
@@ -633,8 +633,8 @@ protected:
     return zbytes;
   }
 
-  int decompressCpuCount(uint8_t* zbuf, CpuCount* cpucnt, int zcpurecsize) {
-    int i, j;
+  int32_t decompressCpuCount(uint8_t* zbuf, CpuCount* cpucnt, int32_t zcpurecsize) {
+    int32_t i, j;
 
     i = 0;
     j = 0;
@@ -672,7 +672,7 @@ protected:
     foot->init();
 
     if (decompress_done == 0) {
-      for (int i = 0; i < RSTZIP_MAXCPUS; i++) {
+      for (int32_t i = 0; i < RSTZIP_MAXCPUS; i++) {
         if (rstzip[i] != NULL) {
           foot->max_chunksize += rstzip[i]->max_chunksize;
           foot->total_instr += rstzip[i]->total_instr;
@@ -683,17 +683,17 @@ protected:
           foot->total_pavadiff += rstzip[i]->total_pavadiff;
           foot->zero_offset_count += rstzip[i]->zero_offset_count;
 
-          for (int j = 0; j < OFFSET_64BITS_IDX + 1; j++) { 
+          for (int32_t j = 0; j < OFFSET_64BITS_IDX + 1; j++) { 
             foot->offset_count[j] += rstzip[i]->offset_count[j];
           }
 
-          for (int j = 0; j < CHUNKSIZE_RES; j++) { 
+          for (int32_t j = 0; j < CHUNKSIZE_RES; j++) { 
             foot->chunksize_count[j] += rstzip[i]->chunksize_count[j];
           }
         }
       }
     } else {
-      for (int i = 0; i < RSTZIP_MAXCPUS; i++) {
+      for (int32_t i = 0; i < RSTZIP_MAXCPUS; i++) {
         if (rstunzip[i] != NULL) {
           foot->max_chunksize += rstunzip[i]->max_chunksize;
           foot->total_instr += rstunzip[i]->total_instr;
@@ -704,11 +704,11 @@ protected:
           foot->total_pavadiff += rstunzip[i]->total_pavadiff;
           foot->zero_offset_count += rstunzip[i]->zero_offset_count;
 
-          for (int j = 0; j < OFFSET_64BITS_IDX + 1; j++) { 
+          for (int32_t j = 0; j < OFFSET_64BITS_IDX + 1; j++) { 
             foot->offset_count[j] += rstunzip[i]->offset_count[j];
           }
 
-          for (int j = 0; j < CHUNKSIZE_RES; j++) { 
+          for (int32_t j = 0; j < CHUNKSIZE_RES; j++) { 
             foot->chunksize_count[j] += rstunzip[i]->chunksize_count[j];
           }
         }
@@ -718,9 +718,9 @@ protected:
     return foot;
   }
 
-  int checkFooter() {
+  int32_t checkFooter() {
     RstzipFooter calc_footer;
-    int numerr = 0;
+    int32_t numerr = 0;
 
     calcFooter(&calc_footer);
 

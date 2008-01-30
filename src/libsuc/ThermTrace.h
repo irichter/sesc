@@ -25,19 +25,19 @@ class ThermTrace {
     }
 
     const char *name;
-    int id;
+    int32_t id;
     TokenVectorType match;
     float area;
     float x;
     float y;
     float delta_x;
     float delta_y;
-    int units;
+    int32_t units;
     float energy; // used by trace only
   };
  private:
   const char *input_file_;
-  int input_fd_;
+  int32_t input_fd_;
 
   std::vector<FLPUnit *> flp;
 

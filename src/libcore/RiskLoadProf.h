@@ -27,7 +27,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 class RiskLoadProf {
 private:
-  typedef HASH_MAP<uint, int> HashType;
+  typedef HASH_MAP<uint32_t, int> HashType;
 
   FILE *fout;
   HashType riskLoads;
@@ -36,7 +36,7 @@ public:
   RiskLoadProf();
   ~RiskLoadProf() {}
 
-  void insert(uint ldInst);
+  void insert(uint32_t ldInst);
   void finalize();
 };
 

@@ -110,46 +110,46 @@ TLSLIBS =$(OBJ)/libvmem.a
 TMLIBS  =$(OBJ)/libtm.a
 
 sesc.tst : $(OBJ)/main.o $(TSTLIBS)
-	$(CXX) $(LDFLAGS) -o $@  $^  $(TSTLIBS) $(STDLIBS)
+	$(CXX) $(LDFLAGS) -o $@  $^  $(TSTLIBS) $(STDLIBS) $(QLIBS)
 
 sesc.tst.condor: $(OBJ)/main.o $(TSTLIBS)
-	$(CONDORLD) $(LDFLAGS) -o $@  $^  $(LIBS) $(STDLIBS)
+	$(CONDORLD) $(LDFLAGS) -o $@  $^  $(LIBS) $(STDLIBS) $(QLIBS)
 
 sesc.mem : $(OBJ)/mtst1.o $(MEMLIBS) $(TSTLIBS)
-	$(CXX) $(LDFLAGS) -o $@ $^  $(LIBS) $(STDLIBS)
+	$(CXX) $(LDFLAGS) -o $@ $^  $(LIBS) $(STDLIBS) $(QLIBS)
 
 sesc.mem.condor : $(OBJ)/mtst1.o $(MEMLIBS) $(TSTLIBS)
-	$(CONDORLD) $(LDFLAGS) -o $@ $^  $(LIBS) $(STDLIBS)
+	$(CONDORLD) $(LDFLAGS) -o $@ $^  $(LIBS) $(STDLIBS) $(QLIBS)
 
 sesc.tls: $(OBJ)/tls.o $(TLSLIBS) $(MEMLIBS) $(TSTLIBS) 
-	$(CXX) $(LDFLAGS) -o $@ $^  $(LIBS) $(STDLIBS)
+	$(CXX) $(LDFLAGS) -o $@ $^  $(LIBS) $(STDLIBS) $(QLIBS)
 
 sesc.tls.condor: $(OBJ)/tls.o $(TLSLIBS) $(MEMLIBS) $(TSTLIBS) 
-	$(CONDORLD) $(LDFLAGS) -o $@ $^  $(LIBS) $(STDLIBS)
+	$(CONDORLD) $(LDFLAGS) -o $@ $^  $(LIBS) $(STDLIBS) $(QLIBS)
 
 sesc.smp: $(OBJ)/smp.o $(SMPLIBS) $(MEMLIBS) $(TSTLIBS)
-	$(CXX) $(LDFLAGS) -o $@ $^ $(LIBS) $(STDLIBS)
+	$(CXX) $(LDFLAGS) -o $@ $^ $(LIBS) $(STDLIBS) $(QLIBS)
 
 sesc.smp.condor: $(OBJ)/smp.o $(SMPLIBS) $(MEMLIBS) $(TSTLIBS)
-	$(CONDORLD) $(LDFLAGS) -o $@ $^ $(LIBS) $(STDLIBS)
+	$(CONDORLD) $(LDFLAGS) -o $@ $^ $(LIBS) $(STDLIBS) $(QLIBS)
 
 sesc.ta: $(OBJ)/ta.o $(TSTLIBS)
-	$(CXX) $(LDFLAGS) -o $@ $^ $(LIBS) $(STDLIBS)
+	$(CXX) $(LDFLAGS) -o $@ $^ $(LIBS) $(STDLIBS) $(QLIBS)
 
 sesc.ta.condor: $(OBJ)/ta.o $(TSTLIBS)
-	$(CONDORLD) $(LDFLAGS) -o $@ $^ $(LIBS) $(STDLIBS)
+	$(CONDORLD) $(LDFLAGS) -o $@ $^ $(LIBS) $(STDLIBS) $(QLIBS)
 
 sesc.sta: $(OBJ)/sta.o $(TSTLIBS)
-	$(CXX) $(LDFLAGS) -o $@ $^ $(LIBS) $(STDLIBS)
+	$(CXX) $(LDFLAGS) -o $@ $^ $(LIBS) $(STDLIBS) $(QLIBS)
 
 sesc.sta.condor: $(OBJ)/sta.o $(TSTLIBS)
-	$(CONDORLD) $(LDFLAGS) -o $@ $^ $(LIBS) $(STDLIBS)
+	$(CONDORLD) $(LDFLAGS) -o $@ $^ $(LIBS) $(STDLIBS) $(QLIBS)
 
 sesc.tm: $(OBJ)/TMmain.o $(TMLIBS) $(MEMLIBS) $(TSTLIBS)
-	$(CXX) $(LDFLAGS) -o $@ $^ $(LIBS) $(STDLIBS)
+	$(CXX) $(LDFLAGS) -o $@ $^ $(LIBS) $(STDLIBS) $(QLIBS)
 
 sesc.tm.condor: $(OBJ)/TMmain.o $(TMLIBS) $(MEMLIBS) $(TSTLIBS)
-	$(CONDORLD) $(LDFLAGS) -o $@ $^ $(LIBS) $(STDLIBS)
+	$(CONDORLD) $(LDFLAGS) -o $@ $^ $(LIBS) $(STDLIBS) $(QLIBS)
 
 
 ############ Simulator Benchmarking (bench the simulator, not the architecture)

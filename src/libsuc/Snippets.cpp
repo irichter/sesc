@@ -25,7 +25,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 #include <typeinfo>
 
-short log2i(unsigned int n)
+short log2i(uint32_t n)
 {
   ulong m = 1;
   ulong i = 0;
@@ -47,7 +47,7 @@ short log2i(unsigned int n)
 
 // this routine computes the smallest power of 2 greater than the
 // parameter
-unsigned int roundUpPower2(unsigned int x)
+uint32_t roundUpPower2(uint32_t x)
 {  
   // efficient branchless code extracted from "Hacker's Delight" by
   // Henry S. Warren, Jr.
@@ -65,6 +65,6 @@ bool debacc  = false;
 void debugAccess()
 {
   debacc = true;
-  int j = rand();
+  int32_t j = rand();
 }
 

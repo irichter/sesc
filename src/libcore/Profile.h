@@ -56,10 +56,10 @@ private:
   typedef CacheGeneric<PCState,PAddr> PCacheType;
   PCacheType *pcache;
 
-  int nRdHit;
-  int nRdMiss;
-  int nWrHit;
-  int nWrMiss;
+  int32_t nRdHit;
+  int32_t nRdMiss;
+  int32_t nWrHit;
+  int32_t nWrMiss;
   
 public:
   ProfCache();
@@ -68,10 +68,10 @@ public:
   bool read(PAddr addr);
   bool write(PAddr addr);
 
-  int getNRdHit()  const { return nRdHit; }
-  int getNRdMiss() const { return nRdMiss;}
-  int getNWrHit()  const { return nWrHit; }
-  int getNWrMiss() const { return nWrMiss;}
+  int32_t getNRdHit()  const { return nRdHit; }
+  int32_t getNRdMiss() const { return nRdMiss;}
+  int32_t getNWrHit()  const { return nWrHit; }
+  int32_t getNWrMiss() const { return nWrMiss;}
 };
 
 enum Note_t {
@@ -87,32 +87,32 @@ class Profile : public GStats {
 private:
   class TaskInfo {
   public:
-    int  predecessor;
+    int32_t  predecessor;
 
     bool eliminated;            //mark it if it is going to be eliminated
-    int  nViolations;           //number of violations happened
+    int32_t  nViolations;           //number of violations happened
     long long currHoist;
 
-	 int startAddr;
-    int  nExec;                 //how many times it gets executed
-    int  nSpawn;                //how many spawns inside it
+	 int32_t startAddr;
+    int32_t  nExec;                 //how many times it gets executed
+    int32_t  nSpawn;                //how many spawns inside it
     long long nInst;
     long long nStaticHoist;     //how far does it get hoisted statically
     long long nDynHoist;        //how far does it get hoisted dynamically
     
-    int spawnedBy;              //parent task ID
+    int32_t spawnedBy;              //parent task ID
     long long spawnPos;         //where it gets spawned
     long long startPos;         //where it starts
 
     Time_t beginTime;           //virtual start time
     Time_t seqBeginTime;        //virtual start time for sequential run
 
-	 int nRdHit;
-	 int nRdMiss;
-	 int nWrHit;
-	 int nWrMiss;
-	 int nUncountRdMiss;        //Misses between two squashes
-	 int nUncountWrMiss;
+	 int32_t nRdHit;
+	 int32_t nRdMiss;
+	 int32_t nWrHit;
+	 int32_t nWrMiss;
+	 int32_t nUncountRdMiss;        //Misses between two squashes
+	 int32_t nUncountWrMiss;
 
     Note_t note;                //Note for each task
 
@@ -150,12 +150,12 @@ private:
 
   class SpawnInfo {
   public:
-    int taskID;
+    int32_t taskID;
     long long instPos; //spawn position
     Time_t vTime;      //virtual time
   };
   SLIST<SpawnInfo> spawns;
-  typedef HASH_MAP<int,TaskInfo> TaskInfoType;
+  typedef HASH_MAP<int32_t,TaskInfo> TaskInfoType;
   static TaskInfoType tasks;
 
   class WriteInfo {
@@ -163,7 +163,7 @@ private:
     long long instPos;
     icode_ptr picode;
 
-    int taskID;       //which task it belongs to
+    int32_t taskID;       //which task it belongs to
     Time_t vTime;     //record the virtual time because the future 
                       //task may have the same task id, and the beginTime
                       //of each task may change. The writeTime caculation is
@@ -187,20 +187,20 @@ private:
   static WriteList localWrites;
 #endif
   
-  int   taskSizeThrd;
-  int   staticHoistThrd;
-  int   maxHoistThrd;
-  int   dynamicHoistThrd;
+  int32_t   taskSizeThrd;
+  int32_t   staticHoistThrd;
+  int32_t   maxHoistThrd;
+  int32_t   dynamicHoistThrd;
   float violationThrd;
-  int   spawnOverhead;
+  int32_t   spawnOverhead;
   float l2MissOccThrd;
   float sHoistOccThrd;
   float dHoistOccThrd;
   float extraWorkRate;
-  int   latReadMiss;
-  int   latReadHit;
-  int   latWriteMiss;
-  int   latWriteHit;
+  int32_t   latReadMiss;
+  int32_t   latReadHit;
+  int32_t   latWriteMiss;
+  int32_t   latWriteHit;
 
   long long startInst;
   long long stopInst;
@@ -209,7 +209,7 @@ private:
   Time_t currTime;      //Virtual time, TLS execution time
   Time_t maxCurrTime;
 
-  int currTaskID;
+  int32_t currTaskID;
 
   bool started;
 
@@ -231,13 +231,13 @@ public:
   void recStartInst();
   void recStopInst();
 
-  void recSpawn(int pid);
-  void recCommit(int pid, int tid);
+  void recSpawn(int32_t pid);
+  void recCommit(int32_t pid, int32_t tid);
   void recWrite(VAddr vaddr, icode_ptr picode, bool silent);
   void recRead(VAddr vaddr, icode_ptr picode);
 
-  void recInitial(int pid);     //record first task
-  void recTermination(int pid); //record last task
+  void recInitial(int32_t pid);     //record first task
+  void recTermination(int32_t pid); //record last task
 
   void mergeProfFile(const char *dstFile, char *srcFile1, char *srcFile2) const;
 

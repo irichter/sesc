@@ -67,16 +67,16 @@ protected:
 
   TimeDelta_t lat;
 
-  int  nPendingMsg;
+  int32_t  nPendingMsg;
 
   VMemState state;
 
 #ifdef DEBUG
-  static unsigned int snCount; // serial number counter
-  unsigned int serialNumber;   // serial number itself
+  static uint32_t snCount; // serial number counter
+  uint32_t serialNumber;   // serial number itself
 #endif
 
-  int nReq;
+  int32_t nReq;
   
 public:
   TimeDelta_t getLatency() const { return lat; }
@@ -112,14 +112,14 @@ public:
     return nPendingMsg != 0;
   }
 
-  int getnRequests()  const {return nReq; }
+  int32_t getnRequests()  const {return nReq; }
   void incnRequests() { nReq++; }
   void decnRequests() { nReq--; }
   
 #ifdef DEBUG
-  unsigned int getSerialNumber() const { return serialNumber; }
+  uint32_t getSerialNumber() const { return serialNumber; }
 #else
-  unsigned int getSerialNumber() const { return 0; }
+  uint32_t getSerialNumber() const { return 0; }
 #endif
 };
 

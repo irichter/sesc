@@ -33,17 +33,17 @@
 
 #include "mendian.h"
 
-extern int nm_cmp_name(const void *p1, const void *p2);
+extern int32_t nm_cmp_name(const void *p1, const void *p2);
 
 extern FILE *Fobj;              /* file descriptor for object file */
 extern struct filehdr Fhdr;     /* need to fake this for COFF routines */
 
 extern char *Stringtab;
 extern namelist_ptr Nmlist;
-extern int Num_symbols;
+extern int32_t Num_symbols;
 
 static Elf32_Sym *Symtab;
-static int Numsyms;
+static int32_t Numsyms;
 
 /* prototype for functions used here */
 extern void close_object();
@@ -57,12 +57,12 @@ elf_read_hdrs(char *objfile)
   char *table = NULL;
   char *shstrtab = NULL;
   char *name = NULL;
-  unsigned int addr, size, offset;
-  unsigned int size_orig;
-  unsigned int nscns, shsize, shoff;
+  uint32_t addr, size, offset;
+  uint32_t size_orig;
+  uint32_t nscns, shsize, shoff;
   Elf32_Shdr shdr;
   Elf32_Ehdr Ehdr;
-  int have_mdebug = 0;
+  int32_t have_mdebug = 0;
 
   close_object();
   Fobj = fopen(objfile, "r");
@@ -572,7 +572,7 @@ elf_read_hdrs(char *objfile)
         fatal("elf_read_hdrs: could not read string table\n");
       Stringtab = table;
     } else if (strcmp(name, ".symtab") == 0) {
-      int i;
+      int32_t i;
           
       /* If the mdebug section exists, then use the symbol table
        * from there instead.
@@ -614,7 +614,7 @@ elf_read_hdrs(char *objfile)
 void
 elf_read_nmlist()
 {
-    int ent, bind, type, nm_next, size;
+    int32_t ent, bind, type, nm_next, size;
 
     /* allocate space for the namelist pointers and entries */
     size = Numsyms * sizeof(namelist_t);

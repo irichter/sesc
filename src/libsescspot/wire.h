@@ -125,6 +125,6 @@
 							(2.0 * WIRE_A + sqrt (2.0 * WIRE_A * WIRE_B)))
 
 /* function for wire-length to wire-delay conversion	*/
-double wire_length2delay(double length, int layer);
+double wire_length2delay(double length, int32_t layer);
 
 #endif

@@ -41,7 +41,7 @@ static const bool dbg_regid = false;
 
 
 // rstbufsize <= rz3_bufsize
-int rstzip3::compress_buffer(rstf_unionT * rstbuf, int rstbufsize)
+int32_t rstzip3::compress_buffer(rstf_unionT * rstbuf, int32_t rstbufsize)
 {
 
   shdr->clear();
@@ -56,7 +56,7 @@ int rstzip3::compress_buffer(rstf_unionT * rstbuf, int rstbufsize)
   // write record count to header
   shdr->nrecords = rstbufsize;
 
-  int i;
+  int32_t i;
   for (i=0; i<rstbufsize; i++) {
     if (rfs_phase) {
       if (rfs_cw_phase) {
@@ -210,7 +210,7 @@ static bool ds_indicates_tail_call(uint32_t instr) {
   return (instr == MOV_G1_G7_INSTR) || ((instr & RESTORE_OPCODE_MASK) == RESTORE_OPCODE_BITS);
 }
 
-void rstzip3::compress_inst(rstf_unionT * rstbuf, int idx)
+void rstzip3::compress_inst(rstf_unionT * rstbuf, int32_t idx)
 {
 
   rstf_instrT *ir = &(rstbuf[idx].instr);
@@ -342,13 +342,13 @@ void rstzip3::compress_inst(rstf_unionT * rstbuf, int idx)
     } else /* not dcti */ {
 
       // predict bt == 0
-      unsigned int pred_bt = icdata->dinfo.flags.is_done_retry;
+      uint32_t pred_bt = icdata->dinfo.flags.is_done_retry;
       if (pred_bt != ir->bt) {
         instr_preds &= instr_mispred_bt;
       }
 
       // ea_valid=1 for ld/st/pf
-      unsigned int pred_ea_valid;
+      uint32_t pred_ea_valid;
       if (icdata->is_ldstpf) {
         // FIXME: make sure this is not an internal ASI
         pred_ea_valid = 1;
@@ -384,7 +384,7 @@ void rstzip3::compress_inst(rstf_unionT * rstbuf, int idx)
 
 
 
-void rstzip3::compress_ea_va(rstf_unionT * rstbuf, int idx)
+void rstzip3::compress_ea_va(rstf_unionT * rstbuf, int32_t idx)
 {
   rstf_instrT * ir = &(rstbuf[idx].instr);
   uint16_t cpuid = rstf_pre212 ? ir->cpuid : rstf_instrT_get_cpuid(ir);
@@ -395,14 +395,14 @@ void rstzip3::compress_ea_va(rstf_unionT * rstbuf, int idx)
   compress_value(cpuid, ir->ea_va);
 } // rstzip3::compress_ea_va
 
-void rstzip3::compress_pavadiff(rstf_unionT * rstbuf, int idx)
+void rstzip3::compress_pavadiff(rstf_unionT * rstbuf, int32_t idx)
 {
   if (0 && idx == 102577) {
     printf("debug: decompress_pavadiff idx %d\n", idx);
   }
 
   rstf_pavadiffT * dr = &(rstbuf[idx].pavadiff);
-  int cpuid = rstf_pre212 ? dr->cpuid : dr->get_cpuid();
+  int32_t cpuid = rstf_pre212 ? dr->cpuid : dr->get_cpuid();
 
   // check and predict cpuid
   if (pred_cpuid == cpuid) {
@@ -440,7 +440,7 @@ void rstzip3::compress_pavadiff(rstf_unionT * rstbuf, int idx)
   bool found_ea_va = false;
   uint64_t nextea_va;
 
-  int i;
+  int32_t i;
   for (i=idx+1; i<shdr->nrecords; i++) {
     if (rstbuf[i].proto.rtype == INSTR_T) {
       rstf_instrT * ir = &(rstbuf[i].instr);
@@ -518,20 +518,20 @@ void rstzip3::compress_pavadiff(rstf_unionT * rstbuf, int idx)
     // dont need lookahead flag since the pc_pa_va_pred flag and/or the ea_pa_va_pred flag will indicate lookahead
   } else {
     // we need to indicate whether there was no prediction or misprediction(s)
-    int lookahead_flag = (found_pc_va || found_ea_va);
+    int32_t lookahead_flag = (found_pc_va || found_ea_va);
     sdata->bitarrays[pavadiff_lookahead_array]->Push(lookahead_flag);
   }
-} // void rstzip3::compress_pavadiff(rstf_unionT * rstbuf, int idx)
+} // void rstzip3::compress_pavadiff(rstf_unionT * rstbuf, int32_t idx)
 
 
 // predict bt, ea_valid, ea_va, NEXT-instr an for a dcti instr. also set pred_npc
-void rstzip3::compress_dcti(rstf_unionT * rstbuf, int idx, rz3iu_icache_data * icdata)
+void rstzip3::compress_dcti(rstf_unionT * rstbuf, int32_t idx, rz3iu_icache_data * icdata)
 {
   rstf_instrT * ir = &(rstbuf[idx].instr);
   uint16_t cpuid = rstf_pre212 ? ir->cpuid : rstf_instrT_get_cpuid(ir);
   uint64_t pc = ir->pc_va;
 
-  int bt_pred_hit;
+  int32_t bt_pred_hit;
 
   if (icdata->dinfo.flags.iscbranch) {
 
@@ -625,7 +625,7 @@ void rstzip3::compress_dcti(rstf_unionT * rstbuf, int idx, rz3iu_icache_data * i
     sdata->bitarrays[dcti_ea_va_pred_array]->Push(0);
     sdata->bitarrays[raw_value64_array]->Push(ir->ea_va);
 
-    // at this point we know the real ea_va. predict npc=ea_va
+    // at this point32_t we know the real ea_va. predict npc=ea_va
     tdata[cpuid]->pred_npc = ir->ea_va;
   }
 
@@ -642,14 +642,14 @@ void rstzip3::compress_dcti(rstf_unionT * rstbuf, int idx, rz3iu_icache_data * i
 // theres not much room for architectural compression
 // here, except in case of value traces. all we do here
 // is not store rtype and unused fields.
-void rstzip3::compress_tlb(rstf_unionT * rstbuf, int idx)
+void rstzip3::compress_tlb(rstf_unionT * rstbuf, int32_t idx)
 {
   rstf_tlbT *tr = &(rstbuf[idx].tlb);
   // pack demap(25), tlb_index(24:9), tlb_type(8), tlb_no(7:6), cpuid(5:0) into a single
   // 26-bit field. we thus save only 38 bits/tlb record.
   // pack demap(29), tlb_index(28:13), tlb_type(12), tlb_no(11:10), cpuid(9:0) into a single
   // 30-bit field. we thus save only 34 bits/tlb record.
-  int cpuid = rstf_pre212 ? tr->cpuid : rstf_tlbT_get_cpuid(tr);
+  int32_t cpuid = rstf_pre212 ? tr->cpuid : rstf_tlbT_get_cpuid(tr);
 
   uint32_t tlb_info = (tr->demap<<29) | (((uint32_t)tr->tlb_index) << 13) | (tr->tlb_type << 12)
     | (tr->tlb_no << 10) | cpuid;
@@ -659,19 +659,19 @@ void rstzip3::compress_tlb(rstf_unionT * rstbuf, int idx)
   sdata->bitarrays[raw_value64_array]->Push(tr->tte_data);
 
 
-} // void rstzip3::compress_tlb(rstf_unionT * rstbuf, int idx)
+} // void rstzip3::compress_tlb(rstf_unionT * rstbuf, int32_t idx)
 
 
 // try to predict pc and npc.
 // at the time of this writing, trap records occur *before* the
 // instr record at the time the trap occurred.
 // For future RST versions, we will change this assumption if necessary
-void rstzip3::compress_trap(rstf_unionT * rstbuf, int idx)
+void rstzip3::compress_trap(rstf_unionT * rstbuf, int32_t idx)
 {
   rstf_trapT * tr = &(rstbuf[idx].trap);
 
   // predict cpuid as the predicted cpuid of the next instr
-  int cpuid = rstf_pre212 ? tr->cpuid : rstf_trapT_get_cpuid(tr);
+  int32_t cpuid = rstf_pre212 ? tr->cpuid : rstf_trapT_get_cpuid(tr);
 
   if (cpuid == pred_cpuid) {
     sdata->bitarrays[cpuid_pred_array]->Push(1);
@@ -708,16 +708,16 @@ void rstzip3::compress_trap(rstf_unionT * rstbuf, int idx)
   }
 
   sdata->bitarrays[trap_info_array]->Push(trap_info);
-} // void rstzip3::compress_trap(rstf_unionT * rstbuf, int idx)
+} // void rstzip3::compress_trap(rstf_unionT * rstbuf, int32_t idx)
 
 
-void rstzip3::compress_preg(rstf_unionT * rstbuf, int idx)
+void rstzip3::compress_preg(rstf_unionT * rstbuf, int32_t idx)
 {
   rstf_pregT * pr = &(rstbuf[idx].preg);
 
   // cpuid: predict same as previous instr cpuid
-  int cpuid = rstf_pre212 ? pr->cpuid : pr->get_cpuid();
-  int cpuid_pred = (cpuid==pred_cpuid) ? 1 : 0;
+  int32_t cpuid = rstf_pre212 ? pr->cpuid : pr->get_cpuid();
+  int32_t cpuid_pred = (cpuid==pred_cpuid) ? 1 : 0;
   if (!cpuid_pred) {
     sdata->bitarrays[raw_cpuid_array]->Push(cpuid);
   }
@@ -729,24 +729,24 @@ void rstzip3::compress_preg(rstf_unionT * rstbuf, int idx)
 
 
   // primA and secA are not used - ignore
-} // void rstzip3::compress_preg(rstf_unionT * rstbuf, int idx)
+} // void rstzip3::compress_preg(rstf_unionT * rstbuf, int32_t idx)
 
-void rstzip3::compress_dma(rstf_unionT * rstbuf, int idx)
+void rstzip3::compress_dma(rstf_unionT * rstbuf, int32_t idx)
 {
   rstf_dmaT * dr = &(rstbuf[idx].dma);
   sdata->bitarrays[dma_iswrite_array]->Push(dr->iswrite);
   sdata->bitarrays[dma_nbytes_array]->Push(dr->nbytes);
   sdata->bitarrays[raw_value64_array]->Push(dr->start_pa);
 
-} // void rstzip3::compress_dma(rstf_unionT * rstbuf, int idx)
+} // void rstzip3::compress_dma(rstf_unionT * rstbuf, int32_t idx)
 
-void rstzip3::compress_regval(rstf_unionT * rstbuf, int idx)
+void rstzip3::compress_regval(rstf_unionT * rstbuf, int32_t idx)
 {
   // for now, try to compress the reg64 fields using the same mechanism as ea_va compression
   rstf_regvalT * vr = &(rstbuf[idx].regval);
 
   // cpuid
-  int cpuid = rstf_pre212 ? vr->cpuid : rstf_regvalT_get_cpuid(vr);
+  int32_t cpuid = rstf_pre212 ? vr->cpuid : rstf_regvalT_get_cpuid(vr);
 
   if (cpuid == last_instr_cpuid) {
     sdata->bitarrays[cpuid_pred_array]->Push(1);
@@ -776,10 +776,10 @@ void rstzip3::compress_regval(rstf_unionT * rstbuf, int idx)
 
   // regtype, regid
   uint64_t prev_pc = tdata[cpuid]->prev_pc;
-  int regtype_tbl_idx = (prev_pc >> 2) & (rz3_percpu_data::rz3_tdata_regval_regtype_tbl_size-1);
-  int regid_tbl_idx = (prev_pc >> 2) & (rz3_percpu_data::rz3_tdata_regval_regid_tbl_size-1);
+  int32_t regtype_tbl_idx = (prev_pc >> 2) & (rz3_percpu_data::rz3_tdata_regval_regtype_tbl_size-1);
+  int32_t regid_tbl_idx = (prev_pc >> 2) & (rz3_percpu_data::rz3_tdata_regval_regid_tbl_size-1);
 
-  int k;
+  int32_t k;
   for (k=0; k<2; k++) {
 
     // predict regtype: use prev_instr
@@ -817,7 +817,7 @@ void rstzip3::compress_regval(rstf_unionT * rstbuf, int idx)
       if ((vr->regtype[k] == RSTREG_INT_RT) && (vr->regid[k] == 0)) {
         if (v64 != 0x0) {
           if (g0_nonzero_warn) {
-            fprintf(stderr, "warning: rz3: compress_regval: int reg %%g0 has non-zero value %llx. will be ignored\n", v64);
+            fprintf(stderr, "warning: rz3: compress_regval: int32_t reg %%g0 has non-zero value %llx. will be ignored\n", v64);
             if (!verbose) {
               fprintf(stderr, "  (further %%g0!=0 warnings will be suppressed)\n");
               g0_nonzero_warn = false;
@@ -829,8 +829,8 @@ void rstzip3::compress_regval(rstf_unionT * rstbuf, int idx)
       if (v64 == 0) {
         sdata->bitarrays[value_iszero_array]->Push(1);
       } else {
-        static int regval_vc_refs = 0;
-        static int regval_vc_hits = 0;
+        static int32_t regval_vc_refs = 0;
+        static int32_t regval_vc_hits = 0;
         sdata->bitarrays[value_iszero_array]->Push(0);
         regval_vc_refs++;
         if (compress_value(cpuid, v64)) {
@@ -847,7 +847,7 @@ void rstzip3::compress_regval(rstf_unionT * rstbuf, int idx)
   } // for reg field = 0,1
 } // rstzip3::compress_regval
 
-void rstzip3::compress_memval(rstf_unionT * rstbuf, int idx)
+void rstzip3::compress_memval(rstf_unionT * rstbuf, int32_t idx)
 {
   // rtype: in raw rtype array
   // ismemval128: raw
@@ -872,7 +872,7 @@ void rstzip3::compress_memval(rstf_unionT * rstbuf, int idx)
   sdata->bitarrays[memval_fields_array]->Push(! m128->addrisVA);
 
   // cpuid
-  int cpuid = rstf_pre212 ? m128->cpuid : rstf_memval128T_get_cpuid(m128);
+  int32_t cpuid = rstf_pre212 ? m128->cpuid : rstf_memval128T_get_cpuid(m128);
   if (cpuid == pred_cpuid) {
     sdata->bitarrays[cpuid_pred_array]->Push(1);
   } else {
@@ -910,7 +910,7 @@ void rstzip3::compress_memval(rstf_unionT * rstbuf, int idx)
 } // compress_memval
 
 
-void rstzip3::compress_rfs_cw(rstf_unionT * rstbuf, int idx)
+void rstzip3::compress_rfs_cw(rstf_unionT * rstbuf, int32_t idx)
 {
   rstf_cachewarmingT *cw = &(rstbuf[idx].cachewarming);
 
@@ -919,7 +919,7 @@ void rstzip3::compress_rfs_cw(rstf_unionT * rstbuf, int idx)
 
   // dont predict cpuid
   
-  int cpuid;
+  int32_t cpuid;
 
   if ((cw->reftype == cw_reftype_DMA_R) || (cw->reftype == cw_reftype_DMA_W)) {
     cpuid = 0;
@@ -978,17 +978,17 @@ void rstzip3::compress_rfs_cw(rstf_unionT * rstbuf, int idx)
       sdata->bitarrays[raw_value64_array]->Push(cw->pa);
     }
   }
-} // rstzip3::compress_rfs_cw(rstf_unionT * rstbuf, int idx)
+} // rstzip3::compress_rfs_cw(rstf_unionT * rstbuf, int32_t idx)
 
 
-void rstzip3::compress_rfs_bt(rstf_unionT * rstbuf, int idx)
+void rstzip3::compress_rfs_bt(rstf_unionT * rstbuf, int32_t idx)
 {
   rstf_bpwarmingT * bt = &(rstbuf[idx].bpwarming);
 
   // a bt record consists of cpuid, taken, instr, pc_va, npc_va
 
   // no easy way to compress cpuid: store raw
-  int cpuid = rstf_bpwarmingT_get_cpuid(bt);
+  int32_t cpuid = rstf_bpwarmingT_get_cpuid(bt);
   sdata->bitarrays[rfs_raw_cpuid_array]->Push(cpuid);
   if (tdata[cpuid] == NULL) {
     tdata[cpuid] = new rz3_percpu_data(cpuid);
@@ -1019,7 +1019,7 @@ void rstzip3::compress_rfs_bt(rstf_unionT * rstbuf, int idx)
   }
 
   // bt
-  int bt_pred_hit;
+  int32_t bt_pred_hit;
   if (icdata->dinfo.flags.iscbranch) {
     bt_pred_hit = tdata[cpuid]->bp->pred_hit(bt->pc_va, bt->taken);
     if (!bt_pred_hit) perf_stats[ps_brpred_misses]++;
@@ -1049,19 +1049,19 @@ void rstzip3::compress_rfs_bt(rstf_unionT * rstbuf, int idx)
 
   tdata[cpuid]->pred_pc = tdata[cpuid]->rfs_pc_pred_table->get(bt->npc_va);
 
-} // rstzip3::compress_rstf_bt(rfs_unionT * rstbuf, int idx)
+} // rstzip3::compress_rstf_bt(rfs_unionT * rstbuf, int32_t idx)
 
 
 
 // return true if could compress using valuecache
-bool rstzip3::compress_value(int cpuid, uint64_t v64)
+bool rstzip3::compress_value(int32_t cpuid, uint64_t v64)
 {
   if (tdata[cpuid] == NULL) {
     tdata[cpuid] = new rz3_percpu_data(cpuid);
   }
 
   uint64_t key;
-  int level = tdata[cpuid]->valuecache->Ref(v64, key);
+  int32_t level = tdata[cpuid]->valuecache->Ref(v64, key);
   sdata->bitarrays[valuecache_level_array]->Push(level);
   sdata->bitarrays[valuecache_data0_array+level]->Push(key);
 
@@ -1073,10 +1073,10 @@ bool rstzip3::compress_value(int cpuid, uint64_t v64)
 
 
 #if 0 // leave this obsolete code in here. it is useful for making sense of the decompress_pavadiff_v315 code in decompress_engine.C
-void rstzip3::compress_pavadiff_v315(rstf_unionT * rstbuf, int idx)
+void rstzip3::compress_pavadiff_v315(rstf_unionT * rstbuf, int32_t idx)
 {
   rstf_pavadiffT * dr = &(rstbuf[idx].pavadiff);
-  int cpuid = dr->get_cpuid();
+  int32_t cpuid = dr->get_cpuid();
 
   // check and predict cpuid
   if (pred_cpuid == cpuid) {
@@ -1114,7 +1114,7 @@ void rstzip3::compress_pavadiff_v315(rstf_unionT * rstbuf, int idx)
   bool found_ea_va = false;
   uint64_t nextea_va;
 
-  int i;
+  int32_t i;
   for (i=idx+1; i<shdr->nrecords; i++) {
     if (rstbuf[i].proto.rtype == INSTR_T) {
       if (rstf_instrT_get_cpuid(&rstbuf[i].instr) == cpuid) {
@@ -1191,7 +1191,7 @@ void rstzip3::compress_pavadiff_v315(rstf_unionT * rstbuf, int idx)
     // dont need lookahead since the pc_pa_va_pred_array and/or the ea_pa_va_pred_array will indicate lookahead
   } else {
     // we need to indicate whether there was no prediction or misprediction(s)
-    int lookahead_flag = (found_pc_va || found_ea_va);
+    int32_t lookahead_flag = (found_pc_va || found_ea_va);
     sdata->bitarrays[pavadiff_lookahead_array]->Push(lookahead_flag);
   }
 } // rstzip3::compress_pavadiff()

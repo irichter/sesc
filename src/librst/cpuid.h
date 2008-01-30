@@ -31,10 +31,10 @@ extern "C" {
 #endif
 
 // Returns -1 if record type has no cpuid field.
-int getRstCpuID(rstf_unionT* rst);
+int32_t getRstCpuID(rstf_unionT* rst);
 
 // Set cpuid field in rst.  Returns rst.
-rstf_unionT* setRstCpuID(rstf_unionT* rst, int cpuid);
+rstf_unionT* setRstCpuID(rstf_unionT* rst, int32_t cpuid);
 
 #ifdef __cplusplus
 }

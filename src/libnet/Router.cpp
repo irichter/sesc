@@ -43,7 +43,7 @@ Router::Router(const char *section, RouterID_t id,
 
   for(PortID_t i=LOCAL_PORT1;i<maxLocalPort;i++) {
     char name[256];
-    int ret = snprintf(name,127,"l2rPort(%d-%d)",myID,i);
+    int32_t ret = snprintf(name,127,"l2rPort(%d-%d)",myID,i);
     I(ret > 0);
     l2rPort[i] = PortGeneric::create(name,localPort,localOcc);
     
@@ -53,7 +53,7 @@ Router::Router(const char *section, RouterID_t id,
   }
   for(PortID_t i=DISABLED_PORT;i<rTable->getnPorts();i++) {
     char name[256];
-    int ret = snprintf(name,127,"r2rPort(%d-%d)",myID,i+1);
+    int32_t ret = snprintf(name,127,"r2rPort(%d-%d)",myID,i+1);
     I(ret > 0);
 
     r2rPort[i+1] = PortGeneric::create(name,1,1);
@@ -227,7 +227,7 @@ void Router::dump()
   fprintf(stderr, "Router #%d\n", myID);
 }
 
-void Router::registerProtocol(ProtocolCBBase *pcb, PortID_t pID, int id)
+void Router::registerProtocol(ProtocolCBBase *pcb, PortID_t pID, int32_t id)
 {
   I(localPortProtocol.find(id) == localPortProtocol.end());
   localPortProtocol[id] = pcb;

@@ -36,7 +36,7 @@ private:
   uchar *table;
  protected:
  public:
-  SCTable(int id, const char *str, size_t size, uchar bits=2);
+  SCTable(int32_t id, const char *str, size_t size, uchar bits=2);
   ~SCTable(void);
   void clear(ulong cid); // Bias to not-taken
   void reset(ulong cid, bool taken);

@@ -35,8 +35,8 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 struct UnitEntry {
   PortGeneric *gen;
-  int num;
-  int occ;
+  int32_t num;
+  int32_t occ;
 };
 
 //Class for comparison to be used in hashes of char * where the content is to be compared
@@ -156,7 +156,7 @@ void Cluster::buildUnit(const char *clusterName
   break ;
   case iBJ:
     {
-      int MaxBranches = SescConf->getInt("cpucore", "maxBranches", gproc->getId());
+      int32_t MaxBranches = SescConf->getInt("cpucore", "maxBranches", gproc->getId());
       if( MaxBranches == 0 )
 	MaxBranches = INT_MAX;
 	
@@ -168,7 +168,7 @@ void Cluster::buildUnit(const char *clusterName
       TimeDelta_t ldstdelay=SescConf->getInt("cpucore", "stForwardDelay",gproc->getId());
       SescConf->isInt("cpucore", "maxLoads",gproc->getId());
       SescConf->isBetween("cpucore", "maxLoads", 0, 256*1024, gproc->getId());
-      int maxLoads=SescConf->getInt("cpucore", "maxLoads",gproc->getId());
+      int32_t maxLoads=SescConf->getInt("cpucore", "maxLoads",gproc->getId());
       if( maxLoads == 0 )
 	maxLoads = 256*1024;
 	
@@ -179,7 +179,7 @@ void Cluster::buildUnit(const char *clusterName
     {
       SescConf->isInt("cpucore", "maxStores",gproc->getId());
       SescConf->isBetween("cpucore", "maxStores", 0, 256*1024, gproc->getId());
-      int maxStores=SescConf->getInt("cpucore", "maxStores",gproc->getId());
+      int32_t maxStores=SescConf->getInt("cpucore", "maxStores",gproc->getId());
       if( maxStores == 0 )
 	maxStores = 256*1024;
 	
@@ -311,15 +311,15 @@ ClusterManager::ClusterManager(GMemorySystem *ms, GProcessor *gproc)
   if(coreSection == 0) 
     return;  // No core section, bad conf
 
-  int nClusters = SescConf->getRecordSize(coreSection,"cluster");
+  int32_t nClusters = SescConf->getRecordSize(coreSection,"cluster");
   
-  for(int i=0;i<nClusters;i++) {
+  for(int32_t i=0;i<nClusters;i++) {
     const char *clusterName = SescConf->getCharPtr(coreSection,"cluster",i);
     SescConf->isCharPtr(coreSection,"cluster",i);
     
     Cluster *cluster = Cluster::create(clusterName, ms, gproc);
 
-    for(int t = 0; t < MaxInstType; t++) {
+    for(int32_t t = 0; t < MaxInstType; t++) {
       Resource *r = cluster->getResource(static_cast<InstType>(t));
 
       if (r) {

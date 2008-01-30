@@ -65,7 +65,7 @@ COPTS +=-fno-strict-aliasing -freg-struct-return
 
 ##############################################################################
 ARFLAGS	:=cr
-SHELL	=/bin/sh
+SHELL	=/bin/bash
 AS	=as
 LD	=ld
 AR	=ar

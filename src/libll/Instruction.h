@@ -43,12 +43,12 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "qemu_sesc.h"
 #endif
 
-// 0 int, 1 FP, 2 none
+// 0 int32_t, 1 FP, 2 none
 #define INSTRUCTION_MAX_DESTPOOL 3
 
 #include "InstType.h"
 
-typedef uint InstID;
+typedef uint32_t InstID;
 
 enum RegType {
   NoDependence = 0, //fix this, 0 is used by PPC
@@ -62,7 +62,7 @@ enum RegType {
     NumArchRegs // = BaseInstTypeReg +MaxInstType old times
 };
 
-typedef unsigned char MemDataSize;
+typedef uint8_t MemDataSize;
 
 //! Static Instruction type
 /*! For each assembly instruction in the binary there is an
@@ -77,10 +77,10 @@ public:
 
 private:
   static size_t InstTableSize;
-  static int    maxFuncID;
+  static int32_t    maxFuncID;
   static Instruction *InstTable;
   
-  typedef HASH_MAP<int, Instruction*> InstHash;
+  typedef HASH_MAP<int32_t, Instruction*> InstHash;
   static InstHash instHash;
 
   static Instruction *simicsInstTable;
@@ -89,15 +89,15 @@ private:
     return !(next < LowerLimit || next > UpperLimit);
   }
 
-  static void initializeMINT(int argc,
+  static void initializeMINT(int32_t argc,
                              char **argv,
                              char **envp);
   
-  static void initializePPCTrace(int argc,
+  static void initializePPCTrace(int32_t argc,
                                  char **argv,
                                  char **envp);
 #ifdef SESC_SIMICS
-  static void initializeSimicsTrace(int argc,
+  static void initializeSimicsTrace(int32_t argc,
                                     char **argv,
                                     char **envp);
 #endif
@@ -115,7 +115,7 @@ private:
                                     ,bool &guessTaken
                                     ,bool &jumpLabel);
 
-  static void PPCDecodeInstruction(Instruction *inst, uint rawInst);
+  static void PPCDecodeInstruction(Instruction *inst, uint32_t rawInst);
 #ifdef QEMU_DRIVEN
   static void QemuSparcDecodeInstruction(Instruction *inst, QemuSescTrace *qst); 
 #endif
@@ -152,7 +152,7 @@ private:
   bool condLikely;
   bool jumpLabel; // If iBJ jumps to offset (not register)
 
-  uint addr;
+  uint32_t addr;
   
 #ifdef AIX
   const char *funcName;
@@ -163,7 +163,7 @@ public:
   static void QemuSparcDecodeInstruction(Instruction *inst, Sparc_Inst_Predecode *predec);
 #endif
 
-  static void initialize(int argc, char **argv, char **envp);  
+  static void initialize(int32_t argc, char **argv, char **envp);  
   
   static void finalize();
 
@@ -172,7 +172,7 @@ public:
     return &InstTable[id];
   }
 
-  static const Instruction *getSharedInstByPC(int addr) {
+  static const Instruction *getSharedInstByPC(int32_t addr) {
     InstHash::iterator it = instHash.find(addr);
 
     if(it != instHash.end())
@@ -182,7 +182,7 @@ public:
   }
 
   // this is what should be called by TraceFlow in TT6PPC mode
-  static const Instruction *getPPCInstByPC(int addr, uint rawInst) {
+  static const Instruction *getPPCInstByPC(int32_t addr, uint32_t rawInst) {
 
     InstHash::iterator it = instHash.find(addr);
     I(it == instHash.end());
@@ -197,7 +197,7 @@ public:
     return inst;   // to TraceFlow.cpp
   }
   
-  static const Instruction *getQemuInstByPC(unsigned int addr, QemuSescTrace *qst) {            
+  static const Instruction *getQemuInstByPC(uint32_t addr, QemuSescTrace *qst) {            
     InstHash::iterator it = instHash.find(addr); 
     I(it == instHash.end());
 
@@ -212,7 +212,7 @@ public:
   }
 
 #ifdef SESC_RSTTRACE
-  static const Instruction *getRSTInstByPC(unsigned int addr, uint rawInst);
+  static const Instruction *getRSTInstByPC(uint32_t addr, uint32_t rawInst);
 #endif
 
 #ifdef SESC_SIMICS
@@ -222,7 +222,7 @@ public:
   }
 #endif
 
-  static const Instruction *getInst4Addr(int addr) {
+  static const Instruction *getInst4Addr(int32_t addr) {
     icode_ptr picode = addr2icode(addr);
     return getInst(picode->instID);
   }
@@ -239,8 +239,8 @@ public:
     GI(src2Pool==2, src2 == NoDependence);
     return src2 != NoDependence;
   }
-  static unsigned char whichPool(RegType r) {
-    unsigned char p;
+  static uint8_t whichPool(RegType r) {
+    uint8_t p;
     if( r < IntFPBoundary && r != NoDependence ) {
       p = 0;
     }else if(r == CondReg) {
@@ -264,7 +264,7 @@ public:
 #endif
   }
 
-  int getAddr() const {
+  int32_t getAddr() const {
 #if ((defined TRACE_DRIVEN)||(defined MIPS_EMUL)||(defined QEMU_DRIVEN))
     return addr;
 #else
@@ -292,9 +292,9 @@ public:
     return jumpLabel;
   }
 
-  int getSrc1Pool() const { return src1Pool; } //  0 Int , 1 FP, 2 none
-  int getSrc2Pool() const { return src2Pool; } //  0 Int , 1 FP, 2 none
-  int getDstPool() const  { return dstPool;  } //  0 Int , 1 FP, 2 none
+  int32_t getSrc1Pool() const { return src1Pool; } //  0 Int , 1 FP, 2 none
+  int32_t getSrc2Pool() const { return src2Pool; } //  0 Int , 1 FP, 2 none
+  int32_t getDstPool() const  { return dstPool;  } //  0 Int , 1 FP, 2 none
 
 #if !(defined MIPS_EMUL)
   InstID getTarget() const {
@@ -352,7 +352,7 @@ public:
   static InstID getEventID(EventType ev) { return (InstTableSize - MaxEvent) + ev;  }
 
   static InstID getTableSize() { return InstTableSize;  }
-  static int getMaxFuncID()    { return maxFuncID;  }
+  static int32_t getMaxFuncID()    { return maxFuncID;  }
 
   void dump(const char *str) const;
 
@@ -360,7 +360,7 @@ public:
   // the default % size
   class HashAddress{
   public: 
-         size_t operator()(const int &addr) const {
+         size_t operator()(const int32_t &addr) const {
       return ((addr>>2) ^ (addr>>18));
     }
   };

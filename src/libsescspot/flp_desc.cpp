@@ -8,9 +8,9 @@
 #include "util.h"
 
 /* get unit index from its name */
-int desc_get_blk_index(flp_desc_t *flp_desc, char *name)
+int32_t desc_get_blk_index(flp_desc_t *flp_desc, char *name)
 {
-	int i;
+	int32_t i;
 	char msg[STR_SIZE];
 
 	if (!flp_desc)
@@ -32,14 +32,14 @@ int desc_get_blk_index(flp_desc_t *flp_desc, char *name)
  * find the number of units from the 
  * floorplan description file
  */
-int desc_count_units(FILE *fp)
+int32_t desc_count_units(FILE *fp)
 {
     char str1[STR_SIZE], str2[STR_SIZE];
 	char name[STR_SIZE];
 	double area, min, max;
-	int rotable;
+	int32_t rotable;
 	char *ptr;
-    int count = 0;
+    int32_t count = 0;
 
 	fseek(fp, 0, SEEK_SET);
 	while(!feof(fp)) {
@@ -57,9 +57,9 @@ int desc_count_units(FILE *fp)
 	return count;
 }
 
-flp_desc_t *desc_alloc_init_mem(int count, flp_config_t *config)
+flp_desc_t *desc_alloc_init_mem(int32_t count, flp_config_t *config)
 {
-	int i;
+	int32_t i;
 	flp_desc_t *flp_desc;
 	flp_desc = (flp_desc_t *) calloc (1, sizeof(flp_desc_t));
 	if(!flp_desc)
@@ -82,13 +82,13 @@ flp_desc_t *desc_alloc_init_mem(int count, flp_config_t *config)
 /* populate block information	*/
 void desc_populate_blks(flp_desc_t *flp_desc, FILE *fp)
 {
-	int i=0;
+	int32_t i=0;
 	char str1[STR_SIZE], str2[STR_SIZE]; 
 	char name1[STR_SIZE], name2[STR_SIZE];
 	double area, min, max, wire_density;
-	int rotable;
+	int32_t rotable;
 	char *ptr;
-	int wrap_l2 = FALSE;
+	int32_t wrap_l2 = FALSE;
 
 	fseek(fp, 0, SEEK_SET);
 	while(!feof(fp)) {
@@ -138,7 +138,7 @@ void desc_populate_connects(flp_desc_t *flp_desc, FILE *fp)
 	char str1[STR_SIZE], str2[STR_SIZE]; 
 	char name1[STR_SIZE], name2[STR_SIZE];
 	double area, min, max, wire_density;
-	int rotable;
+	int32_t rotable;
 	char *ptr;
 
 	fseek(fp, 0, SEEK_SET);
@@ -154,7 +154,7 @@ void desc_populate_connects(flp_desc_t *flp_desc, FILE *fp)
 		  if (sscanf(str2, "%s%lf%lf%lf%d", name1, &area, &min, &max, &rotable) == 5)
 		  	continue;
 		  else if (sscanf(str2, "%s%s%lf", name1, name2, &wire_density) == 3) {
-		    int x, y;
+		    int32_t x, y;
 			x = desc_get_blk_index(flp_desc, name1);
 			y = desc_get_blk_index(flp_desc, name2);
 
@@ -181,7 +181,7 @@ flp_desc_t *read_flp_desc(char *file, flp_config_t *config)
 	char str[STR_SIZE];
 	FILE *fp = fopen(file, "r");
 	flp_desc_t *flp_desc;
-	int count;
+	int32_t count;
 
 	if (!fp) {
 		sprintf(str, "error opening file %s\n", file);
@@ -208,7 +208,7 @@ flp_desc_t *read_flp_desc(char *file, flp_config_t *config)
 
 void free_flp_desc(flp_desc_t *flp_desc)
 {
-	int i;
+	int32_t i;
 	for (i=0; i < flp_desc->n_units; i++) {
 		/* wrapped L2 doesn't have a shape curve	*/
 		if (flp_desc->units[i].shape)
@@ -232,7 +232,7 @@ void print_unplaced(unplaced_t *unit)
 
 void desc_print_wire_density(flp_desc_t *flp_desc)
 {
-	int i, j;
+	int32_t i, j;
 
 	fprintf(stdout, "printing wire density matrix\n\t");
 
@@ -254,7 +254,7 @@ void desc_print_wire_density(flp_desc_t *flp_desc)
 /* debug print	*/
 void print_flp_desc(flp_desc_t *flp_desc)
 {
-	int i;
+	int32_t i;
 
 	for(i=0;  i < flp_desc->n_units; i++)
 		print_unplaced(&flp_desc->units[i]);

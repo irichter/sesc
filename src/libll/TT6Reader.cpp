@@ -102,7 +102,7 @@ void TT6Reader::readPC() {
       MSG("Error while reading the trace file.");
       exit(1);
     }
-  //MSG("TT6Reader: readPC() currentPC = %08x", (unsigned int) PC);
+  //MSG("TT6Reader: readPC() currentPC = %08x", (uint32_t) PC);
 }
 
 void TT6Reader::readInst() { 
@@ -138,7 +138,7 @@ void TT6Reader::readCount() {
     }
 }
 
-void TT6Reader::fillTraceEntry(TraceEntry *te, int id) {
+void TT6Reader::fillTraceEntry(TraceEntry *te, int32_t id) {
   I(id == 0); // multi-threaded TT6 not supported yet;
   
   if(getCurrentPC() == 0xffffffff) { // end of trace

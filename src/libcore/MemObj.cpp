@@ -68,7 +68,7 @@ void MemObj::computenUpperCaches()
 {
   nUpperCaches = 0;
 
-  for(uint j=0; j < upperLevel.size(); j++) {
+  for(uint32_t j=0; j < upperLevel.size(); j++) {
     if(upperLevel[j]->isCache())
       nUpperCaches++;
     else 
@@ -76,7 +76,7 @@ void MemObj::computenUpperCaches()
   }
 
   // top-down traversal of the memory objects
-  for(uint i=0; i < lowerLevel.size(); i++) {
+  for(uint32_t i=0; i < lowerLevel.size(); i++) {
     lowerLevel[i]->computenUpperCaches();
   }
 }

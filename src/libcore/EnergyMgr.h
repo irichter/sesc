@@ -44,8 +44,8 @@ public:
   
   static double cycletons(double clk);
 
-  static double get(const char *block, const char *name, int procId=0);
-  static double get(const char* name, int procId=0);
+  static double get(const char *block, const char *name, int32_t procId=0);
+  static double get(const char* name, int32_t procId=0);
 };
 
 #else // !SESC_ENERGY
@@ -68,10 +68,10 @@ public:
     return 0;
   }
 
-  static double get(const char *block, const char *name, int procId=0) {
+  static double get(const char *block, const char *name, int32_t procId=0) {
     return -1.0;
   }
-  static double get(const char* name, int procId=0) {
+  static double get(const char* name, int32_t procId=0) {
     return -1.0;
   }
 };

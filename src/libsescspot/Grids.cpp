@@ -10,7 +10,7 @@ using namespace std;
 // for functional blocks and grid cells.
 
 //Constructor
-Grids::Grids (int r, int c, int n, double chip_length, double chip_height) 
+Grids::Grids (int32_t r, int32_t c, int32_t n, double chip_length, double chip_height) 
 {
 	power_ = 0.0;
 	temperature = 0.0;
@@ -98,7 +98,7 @@ void Grids::ResetTemp()
 	temperature = 0.0;
 }
 
-void Grids::AddGrid(int n, double gridarea) 
+void Grids::AddGrid(int32_t n, double gridarea) 
 {
 		BlkDetails temp;
        
@@ -109,20 +109,20 @@ void Grids::AddGrid(int n, double gridarea)
 }
 
 
-double Grids::CalculateGridTemp(vector<double> &block_t, int offset) 
+double Grids::CalculateGridTemp(vector<double> &block_t, int32_t offset) 
 {
         double temp = 0.0;
-        for (int i = 0; i < (int) blocks.size(); i++) { 
+        for (int32_t i = 0; i < (int) blocks.size(); i++) { 
                 temp = temp + (blocks[i].area * block_t[blocks[i].number + offset]);
         }
                 
         return temp;
 }
 
-double Grids::CalculateGridPower(vector<double> &block_pow, int offset, vector<FBlocks> &F) 
+double Grids::CalculateGridPower(vector<double> &block_pow, int32_t offset, vector<FBlocks> &F) 
 {
 	double pow = 0.0;
-        for (int i = 0; i < (int) blocks.size(); i++) {
+        for (int32_t i = 0; i < (int) blocks.size(); i++) {
            pow = pow + ( (blocks[i].area / F[blocks[i].number].garea_) * 
 				   block_pow[blocks[i].number + offset] );
         }

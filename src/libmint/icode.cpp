@@ -97,7 +97,7 @@ const char *icode::dis_instr()
     /*CONSTCOND*/
     sprintf(str, "%s\tr%d, r%d, 0x%x",
             opname, getRN(RT), getRN(RS),
-            (unsigned short) immed);
+            (uint16_t) immed);
     break;
   case beq_opn:
   case b_opn:
@@ -212,7 +212,7 @@ const char *icode::dis_instr()
   case lui_opn:
     /*CONSTCOND*/
     sprintf(str, "%s\tr%d, 0x%x",
-            opname, getRN(RT), (unsigned short) immed);
+            opname, getRN(RT), (uint16_t) immed);
     break;
   case mfhi_opn:
   case mflo_opn:
@@ -349,7 +349,7 @@ const char *icode::dis_instr()
             opname, getDPN(ICODEFS), getDPN(ICODEFT));
     break;
     
-    /* fixed-point precision */
+    /* fixed-point32_t precision */
   case cvt_s_w_opn:
     sprintf(str, "%s\t$f%d, $f%d",
             opname, getFPN(ICODEFD), getFPN(ICODEFS));

@@ -49,7 +49,7 @@ class LDSTQ {
   GProcessor *gproc;
   
  public:
-  LDSTQ(GProcessor *gp, const int id);
+  LDSTQ(GProcessor *gp, const int32_t id);
   ~LDSTQ() { }
   
   void insert(DInst *dinst);

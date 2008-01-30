@@ -20,13 +20,13 @@ void fail(const char *fmt, ...){
   exit(1);
 }
 
-void emulInit(int argc, char **argv, char **envp){
+void emulInit(int32_t argc, char **argv, char **envp){
   FileSys::BaseStatus *inStatus=0;
   FileSys::BaseStatus *outStatus=0;
   FileSys::BaseStatus *errStatus=0;
 
   extern char *optarg;
-  int opt;
+  int32_t opt;
   while((opt=getopt(argc, argv, "+hi:o:e:"))!=-1){
     switch(opt){
     case 'i':
@@ -70,11 +70,11 @@ void emulInit(int argc, char **argv, char **envp){
     if(!errStatus)
       fail("Could not wrap stderr\n");
   }
-  int    appArgc=argc-optind;
+  int32_t    appArgc=argc-optind;
   char **appArgv=&(argv[optind]);
   char **appEnvp=envp;
   // Count environment variables
-  int    appEnvc=0;
+  int32_t    appEnvc=0;
   while(appEnvp[appEnvc])
     appEnvc++;
   

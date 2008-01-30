@@ -26,14 +26,14 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "Instruction.h"
 #include "PPCDecoder.h"
 
-void Instruction::initializePPCTrace(int argc,
+void Instruction::initializePPCTrace(int32_t argc,
 				     char **argv,
 				     char **envp)
 {
   PPCDecoder::Initialize();
 }
 
-void Instruction::PPCDecodeInstruction(Instruction *inst, uint rawInst)
+void Instruction::PPCDecodeInstruction(Instruction *inst, uint32_t rawInst)
 {
   PPCInstDef *ppcInst = PPCDecoder::getInstDef(rawInst);
 
@@ -70,7 +70,7 @@ void Instruction::PPCDecodeInstruction(Instruction *inst, uint rawInst)
   case D_form: 
   case DS_form: 
     {
-      int rD, rA, imm;
+      int32_t rD, rA, imm;
       PPC_DEC_D_UImm(rawInst, rD, rA, imm);
       
       switch(ppcInst->inst) {
@@ -114,7 +114,7 @@ void Instruction::PPCDecodeInstruction(Instruction *inst, uint rawInst)
 
   case X_form:
     {
-      int rS, rA, rB, xo;
+      int32_t rS, rA, rB, xo;
       PPC_DEC_X(rawInst, rS, rA, rB, xo);
 
       switch(ppcInst->inst) {
@@ -276,7 +276,7 @@ void Instruction::PPCDecodeInstruction(Instruction *inst, uint rawInst)
 
   case XFX_form:
     {
-      int rS, crm, xo;
+      int32_t rS, crm, xo;
       PPC_DEC_XFX(rawInst, rS, crm, xo);
       switch(ppcInst->inst) {
       case mfspr_inst:
@@ -295,7 +295,7 @@ void Instruction::PPCDecodeInstruction(Instruction *inst, uint rawInst)
     }
   case XFL_form: 
     {
-      int rB, fm, xo;
+      int32_t rB, fm, xo;
       PPC_DEC_XFL(rawInst, rB, fm, xo);
       inst->src1 = static_cast < RegType > (rB);
       break;
@@ -306,7 +306,7 @@ void Instruction::PPCDecodeInstruction(Instruction *inst, uint rawInst)
 
   case XO_form: 
     {
-      int rS, rA, rB, xo;
+      int32_t rS, rA, rB, xo;
       PPC_DEC_XO(rawInst, rS, rA, rB, xo);
       
       switch(ppcInst->inst) {
@@ -330,7 +330,7 @@ void Instruction::PPCDecodeInstruction(Instruction *inst, uint rawInst)
     
   case A_form: 
     {
-      int rD, rA, rB, rC, xo;
+      int32_t rD, rA, rB, rC, xo;
       PPC_DEC_A(rawInst, rD, rA, rB, rC, xo);
       rD += IntFPBoundary;
       rA += IntFPBoundary;
@@ -347,7 +347,7 @@ void Instruction::PPCDecodeInstruction(Instruction *inst, uint rawInst)
     
   case M_form: 
     {
-      int rS, rA, sh, mb, me;
+      int32_t rS, rA, sh, mb, me;
       PPC_DEC_M(rawInst, rS, rA, sh, mb, me); 
       
       inst->dest = static_cast < RegType > (rS);

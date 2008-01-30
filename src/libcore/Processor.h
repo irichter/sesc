@@ -35,7 +35,7 @@ private:
   FetchEngine IFID;
   PipeQueue pipeQ;
 
-  signed int spaceInInstQueue;
+  int32_t spaceInInstQueue;
 
   MemObj *l1Cache;
   
@@ -45,7 +45,7 @@ protected:
 
 
   // BEGIN VIRTUAL FUNCTIONS of GProcessor
-  DInst **getRAT(const int contextId);
+  DInst **getRAT(const int32_t contextId);
   FetchEngine *currentFlow();
 
 #if !(defined MIPS_EMUL)

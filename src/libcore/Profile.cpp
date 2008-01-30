@@ -235,14 +235,14 @@ void Profile::mergeProfFile(const char *dstFile, char *srcFile1, char *srcFile2)
 
 void Profile::reportValue() const
 {
-  int sumExec = 0;
+  int32_t sumExec = 0;
   long long sumInst = 0;
   long long sumRdMiss = 0;
   long long sumWrMiss = 0;
-  int numTask = 0;
+  int32_t numTask = 0;
   for (TaskInfoType::const_iterator it = tasks.begin();
        it != tasks.end(); it++) {
-    int taskID = (*it).first;
+    int32_t taskID = (*it).first;
     const TaskInfo &tInfo = (*it).second;
    
     sumExec += tInfo.nExec;
@@ -270,7 +270,7 @@ void Profile::reportValue() const
     I(fp);
     for (TaskInfoType::const_iterator it = tasks.begin();
          it != tasks.end(); it++) {
-      int taskID = (*it).first;
+      int32_t taskID = (*it).first;
       TaskInfo &tInfo = (TaskInfo &)((*it).second);
       bool bElim = false;
 
@@ -313,7 +313,7 @@ void Profile::reportValue() const
     I(fp);
     for (TaskInfoType::const_iterator it = tasks.begin();
          it != tasks.end(); it++) {
-      int taskID = (*it).first;
+      int32_t taskID = (*it).first;
       TaskInfo &tInfo = (TaskInfo &)((*it).second);
       bool bElim = false;
 
@@ -350,10 +350,10 @@ void Profile::reportValue() const
   fclose(takeFp);
 
   // Report
-  int ii = 0;
+  int32_t ii = 0;
   for (TaskInfoType::const_iterator it = tasks.begin();
        it != tasks.end(); it++) {
-    int taskID = (*it).first;
+    int32_t taskID = (*it).first;
     const TaskInfo &tInfo = (*it).second;
    
     I(tInfo.nExec);
@@ -400,7 +400,7 @@ void Profile::recStopInst()
   stopInst = ExecutionFlow::getnExecRabbit();
 }
   
-void Profile::recSpawn(int pid)
+void Profile::recSpawn(int32_t pid)
 {
   updateTime();
   
@@ -416,7 +416,7 @@ void Profile::recSpawn(int pid)
   tInfo.nSpawn ++;
 }
 
-void Profile::recCommit(int pid, int tid)
+void Profile::recCommit(int32_t pid, int32_t tid)
 {
   if (!osSim->enoughMarks1())
     return;
@@ -463,7 +463,7 @@ void Profile::recCommit(int pid, int tid)
   //prepare for next task
   recStartInst();
 
-  int preTaskID = currTaskID;
+  int32_t preTaskID = currTaskID;
   currTaskID = tid;
 
   TaskInfo &childTaskInfo = tasks[currTaskID];
@@ -485,7 +485,7 @@ void Profile::recCommit(int pid, int tid)
     sInfo.instPos = tasks[0].startPos;
     sInfo.vTime = tasks[0].beginTime;
   } else {
-    int oldID = sInfo.taskID; 
+    int32_t oldID = sInfo.taskID; 
     sInfo = spawns.front();
     // printf("oldID=%d, newID=%d\n", oldID, sInfo.taskID);
     spawns.pop_front();
@@ -513,7 +513,7 @@ void Profile::recCommit(int pid, int tid)
   currTime = childTaskInfo.beginTime;
 }
 
-void Profile::recInitial(int pid)
+void Profile::recInitial(int32_t pid)
 {
   if (!osSim->enoughMarks1())
     return;
@@ -537,7 +537,7 @@ void Profile::recInitial(int pid)
   tInfo.seqBeginTime = maxCurrTime;
 }
 
-void Profile::recTermination(int pid)
+void Profile::recTermination(int32_t pid)
 {
   if (!osSim->enoughMarks1())
     return;
@@ -621,7 +621,7 @@ void Profile::recRead(VAddr vaddr, icode_ptr picode)
   const WriteInfo &wInfo = (*wIt).second;
 
   // get the task info which write is in
-  int taskID = wInfo.taskID;
+  int32_t taskID = wInfo.taskID;
   TaskInfoType::iterator pTaskIt = tasks.find(taskID);
   I(pTaskIt != tasks.end());
   const TaskInfo &pTaskInfo = (*pTaskIt).second;

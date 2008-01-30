@@ -30,7 +30,7 @@ struct FloorplanDetails {
 //This struct holds the properties of a layer. This is calculated from
 //the parameters read from the file. This is retained throughout the file.
 struct LayerDetails {
-        int Id;
+        int32_t Id;
         bool Lateral;
         bool Power;
         double Rx;
@@ -47,7 +47,7 @@ struct LayerDetails {
  * leaves the function.
  */
 struct layerprops {
-	int Id;
+	int32_t Id;
 	bool Lateral;
 	bool Power;
 	double SpHtCap;
@@ -72,8 +72,8 @@ typedef struct grid_model_t_st
 	thermal_config_t config;
 
 	/* flags	*/
-	int r_ready;	/* are the R's initialized?	*/
-	int c_ready;	/* are the C's initialized?	*/
+	int32_t r_ready;	/* are the R's initialized?	*/
+	int32_t c_ready;	/* are the C's initialized?	*/
 
 	/* default chip thickness */
 	double t_chip;
@@ -99,7 +99,7 @@ typedef struct grid_model_t_st
 	vector <layerprops> LayerInternal;
 	
 	/*dummy variable: multigrid levels */
-	int mv_level;
+	int32_t mv_level;
 
 	/* thermal capacitance fitting factor for silicon	*/
 	double factor_chip;
@@ -110,13 +110,13 @@ typedef struct grid_model_t_st
 	double Tamb;
 
  	/* total number of nodes excuding the heatsink */
-	int total_n_blocks;
+	int32_t total_n_blocks;
 	/* sum total of the functional blocks of all floorplans	*/
-	int sum_n_units;
+	int32_t sum_n_units;
 	/* grid resolution	*/
-	int row, col;
+	int32_t row, col;
 	/* grid-to-block mapping mode	*/
-	int map_mode;
+	int32_t map_mode;
 
 	/* steady state and transient grid temperatures	*/
 	vector <double> steady_g_temp, g_temp;
@@ -137,14 +137,14 @@ void steady_state_temp_grid(grid_model_t *model, double *power, double *temp);
 void compute_temp_grid(grid_model_t *model, double *power, double *temp, double time_elapsed);
 
 /* read in layer config info for the grid model */
-int layer_R_setup(grid_model_t *model);
-int layer_C_setup(grid_model_t *model);
+int32_t layer_R_setup(grid_model_t *model);
+int32_t layer_C_setup(grid_model_t *model);
 
 //Setup FBlockChip and GridChip
-int grid_setup (grid_model_t *model, double init_temp);
+int32_t grid_setup (grid_model_t *model, double init_temp);
 
 //initialize grid power in the grid model 
-void init_gpower(int layer_total, grid_model_t *model);
+void init_gpower(int32_t layer_total, grid_model_t *model);
 
 //Translate functional block temp to grid temp
 void trans_btemp_gtemp(vector<double> &temp);
@@ -172,9 +172,9 @@ void fast_tran_solver(double sampling_intvl, grid_model_t *model);
 //Solve steady-state temperature (fast solver)
 void fast_steady_solver(grid_model_t *model);
 
-double SumTemp (vector<double> &temp, int row, int col, int x1, int y1, int x2, int y2, int Offset, int Offset2, int Offset3);
+double SumTemp (vector<double> &temp, int32_t row, int32_t col, int32_t x1, int32_t y1, int32_t x2, int32_t y2, int32_t Offset, int32_t Offset2, int32_t Offset3);
 void LayerTemperature (vector<double> &temp, vector<double> &power, grid_model_t *model, double delta_t);
-double SteadySumTemp (vector<double> &steady_temp, int row, int col, int x1, int y1, int x2, int y2, int Offset, int Offset2, int Offset3);
+double SteadySumTemp (vector<double> &steady_temp, int32_t row, int32_t col, int32_t x1, int32_t y1, int32_t x2, int32_t y2, int32_t Offset, int32_t Offset2, int32_t Offset3);
 void LayerSteadyTemperature (vector<double> &steady_temp, vector<double> &power, grid_model_t *model);
 
 /* differs from 'dvector()' in that memory for internal nodes is also allocated	*/
@@ -184,12 +184,12 @@ double *hotspot_vector_grid(grid_model_t *model);
  * compaction
  */
 void trim_hotspot_vector_grid(grid_model_t *model, double *dst, double *src, 
-						 	  int at, int size);
+						 	  int32_t at, int32_t size);
 /* update the model's node count	*/						 
-void resize_thermal_model_grid(grid_model_t *model, int n_units);						 
+void resize_thermal_model_grid(grid_model_t *model, int32_t n_units);						 
 void set_temp_grid (grid_model_t *model, double *temp, double val);
 void dump_temp_grid (grid_model_t *model, double *temp, char *file);
-void read_temp_grid (grid_model_t *model, double *temp, char *file, int clip);
+void read_temp_grid (grid_model_t *model, double *temp, char *file, int32_t clip);
 void dump_power_grid(grid_model_t *model, double *power, char *file);
 void read_power_grid (grid_model_t *model, double *power, char *file);
 double find_max_temp_grid(grid_model_t *model, double *temp);

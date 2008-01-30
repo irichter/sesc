@@ -49,9 +49,9 @@ using namespace std;
 
 
 FILE *ReportTherm::rfd[MAXREPORTSTACK];
-int ReportTherm::cyclesPerSample=0; //number of cycles between stats/thermal dumps
-int ReportTherm::tos=0;
-int ReportTherm::rep=0;
+int32_t ReportTherm::cyclesPerSample=0; //number of cycles between stats/thermal dumps
+int32_t ReportTherm::tos=0;
+int32_t ReportTherm::rep=0;
 
 StaticCallbackFunction0<ReportTherm::report> ReportTherm::reportCB;
 
@@ -91,7 +91,7 @@ void ReportTherm::openFile(char *name)
   FILE *ffd1;
   rep = 0;
   if(strstr(name, "XXXXXX")) {
-    int fd;
+    int32_t fd;
     
     fd = mkstemp(name);
     ffd1 = fdopen(fd, "a");
@@ -121,7 +121,7 @@ void ReportTherm::close()
   }
 }
 
-void ReportTherm::field(int fn, const char *format,...)
+void ReportTherm::field(int32_t fn, const char *format,...)
 {
   va_list ap;
 

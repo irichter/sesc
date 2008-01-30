@@ -42,13 +42,13 @@
 #include "rstf.h"
 
 
-static const int rstzip3_major_version = 3;
-static const int rstzip3_minor_version = 20;
+static const int32_t rstzip3_major_version = 3;
+static const int32_t rstzip3_minor_version = 20;
 static const char rstzip3_version_str[] = "rstzip v3.20";
 
 // try to fit an RST buffer in less than half of the external cache (8MB)
 // 2400KB => 100K rst records. We use 128K records as the buffer size
-static const int rz3_bufsize = 128<<10;
+static const int32_t rz3_bufsize = 128<<10;
 
 /* we use a 16-character magic string to identify an rz3 compressed trace
  * starting with "RZ3 " and ending with a $ and the null-terminator (\0).
@@ -68,7 +68,7 @@ struct rz3_header {
 }; // struct rz3_header
 
 
-static const int rz3_max_ncpus = 1<<10;
+static const int32_t rz3_max_ncpus = 1<<10;
 
 static const uint64_t rz3_amask_mask = ((1ull<<32)-1);
 
@@ -78,11 +78,11 @@ class rstzip3 {
 
   ~rstzip3();
 
-  int getMajorVersion() {
+  int32_t getMajorVersion() {
     return rstzip3_major_version;
   }
 
-  int getMinorVersion() {
+  int32_t getMinorVersion() {
     return rstzip3_minor_version;
   }
 
@@ -90,9 +90,9 @@ class rstzip3 {
     return rstzip3_version_str;
   }
 
-  int compress(rstf_unionT * buf, int nrec);
+  int32_t compress(rstf_unionT * buf, int32_t nrec);
 
-  int decompress(rstf_unionT * buf, int nrec);
+  int32_t decompress(rstf_unionT * buf, int32_t nrec);
 
   bool error();
 
@@ -100,43 +100,43 @@ class rstzip3 {
   void setstats();
 
 private:
-  int compress_buffer(rstf_unionT * rstbuf, int rstbufsize);
-  void compress_inst(rstf_unionT * rstbuf, int idx);
-  void compress_dcti(rstf_unionT * rstbuf, int idx, struct rz3iu_icache_data * icdata);
-  void compress_pavadiff(rstf_unionT * rstbuf, int idx);
-  void compress_tlb(rstf_unionT * rstbuf, int idx);
-  void compress_preg(rstf_unionT * rstbuf, int idx);
-  void compress_trap(rstf_unionT * rstbuf, int idx);
-  void compress_dma(rstf_unionT * rstbuf, int idx);
-  void compress_regval(rstf_unionT * rstbuf, int idx);
-  void compress_memval(rstf_unionT * rstbuf, int idx);
-  void compress_ea_va(rstf_unionT * rstbuf, int idx);
-  void compress_rfs_cw(rstf_unionT * rstbuf, int idx);
-  void compress_rfs_bt(rstf_unionT * rstbuf, int idx);
+  int32_t compress_buffer(rstf_unionT * rstbuf, int32_t rstbufsize);
+  void compress_inst(rstf_unionT * rstbuf, int32_t idx);
+  void compress_dcti(rstf_unionT * rstbuf, int32_t idx, struct rz3iu_icache_data * icdata);
+  void compress_pavadiff(rstf_unionT * rstbuf, int32_t idx);
+  void compress_tlb(rstf_unionT * rstbuf, int32_t idx);
+  void compress_preg(rstf_unionT * rstbuf, int32_t idx);
+  void compress_trap(rstf_unionT * rstbuf, int32_t idx);
+  void compress_dma(rstf_unionT * rstbuf, int32_t idx);
+  void compress_regval(rstf_unionT * rstbuf, int32_t idx);
+  void compress_memval(rstf_unionT * rstbuf, int32_t idx);
+  void compress_ea_va(rstf_unionT * rstbuf, int32_t idx);
+  void compress_rfs_cw(rstf_unionT * rstbuf, int32_t idx);
+  void compress_rfs_bt(rstf_unionT * rstbuf, int32_t idx);
 
-  bool compress_value(int cpuid, uint64_t v64);
+  bool compress_value(int32_t cpuid, uint64_t v64);
 
-  bool regen_value(rstf_regvalT *vr, int idx);
+  bool regen_value(rstf_regvalT *vr, int32_t idx);
 
-  int decompress_buffer(rstf_unionT * rstbuf, int rstbufsize);
-  void decompress_inst(rstf_unionT * rstbuf, int idx);
-  void decompress_dcti(rstf_unionT * rstbuf, int idx, struct rz3iu_icache_data * icdata);
-  void decompress_pavadiff(rstf_unionT * rstbuf, int idx);
-  void decompress_pavadiff_pass2(rstf_unionT * rstbuf, int instr_idx);
-  void decompress_tlb(rstf_unionT * rstbuf, int idx);
-  void decompress_preg(rstf_unionT * rstbuf, int idx);
-  void decompress_trap(rstf_unionT * rstbuf, int idx);
-  void decompress_dma(rstf_unionT * rstbuf, int idx);
-  void decompress_regval(rstf_unionT * rstbuf, int idx);
-  void decompress_memval(rstf_unionT * rstbuf, int idx);
-  void decompress_ea_va(rstf_unionT * rstbuf, int idx);
-  void decompress_rfs_cw(rstf_unionT * rstbuf, int idx);
-  void decompress_rfs_bt(rstf_unionT * rstbuf, int idx);
+  int32_t decompress_buffer(rstf_unionT * rstbuf, int32_t rstbufsize);
+  void decompress_inst(rstf_unionT * rstbuf, int32_t idx);
+  void decompress_dcti(rstf_unionT * rstbuf, int32_t idx, struct rz3iu_icache_data * icdata);
+  void decompress_pavadiff(rstf_unionT * rstbuf, int32_t idx);
+  void decompress_pavadiff_pass2(rstf_unionT * rstbuf, int32_t instr_idx);
+  void decompress_tlb(rstf_unionT * rstbuf, int32_t idx);
+  void decompress_preg(rstf_unionT * rstbuf, int32_t idx);
+  void decompress_trap(rstf_unionT * rstbuf, int32_t idx);
+  void decompress_dma(rstf_unionT * rstbuf, int32_t idx);
+  void decompress_regval(rstf_unionT * rstbuf, int32_t idx);
+  void decompress_memval(rstf_unionT * rstbuf, int32_t idx);
+  void decompress_ea_va(rstf_unionT * rstbuf, int32_t idx);
+  void decompress_rfs_cw(rstf_unionT * rstbuf, int32_t idx);
+  void decompress_rfs_bt(rstf_unionT * rstbuf, int32_t idx);
 
-  bool decompress_value(int cpuid, uint64_t & v64);
+  bool decompress_value(int32_t cpuid, uint64_t & v64);
 
   // backward compatibility support
-  void decompress_pavadiff_pass2_v315(rstf_unionT * rstbuf, int instr_idx);
+  void decompress_pavadiff_pass2_v315(rstf_unionT * rstbuf, int32_t instr_idx);
 
  public:
   bool c_nd; // compress, not decompress
@@ -161,9 +161,9 @@ private:
 
   bool rz3_error;
 
-  int nsections; // incremented every time a section is completed and written out, or read in and decompressed
+  int32_t nsections; // incremented every time a section is completed and written out, or read in and decompressed
 
-  // int n_cpuids;
+  // int32_t n_cpuids;
 
   // state variables used in prediction (other than per-cpu)
   uint16_t last_instr_cpuid; // cpuid of the prev instr seen. we need this for records corresponding to this cpuid that occur after the instr record (eg regval)
@@ -186,9 +186,9 @@ private:
 
   // size of the interface buffer. when compressing, this is rz3_bufsize
   // when decompressing, we get this size from the section header
-  int interface_buffer_size;
+  int32_t interface_buffer_size;
 
-  int interface_buffer_count;
+  int32_t interface_buffer_count;
   // count of records in the buffer waiting to be compressed/copied out
   // we try to keep this buffer empty as far as possible. When empty,
   // we try to compress/decompress directly using the caller's buffer.
@@ -337,7 +337,7 @@ private:
 
   }; // enum perf_stats_e
 
-  int * perf_stats;
+  int32_t * perf_stats;
   int64_t * perf_stat_totals;
 
   static struct rz3_perf_stats_descr perf_stats_descr [];
@@ -359,14 +359,14 @@ private:
  */
 struct rz3_bitarray_descr {
   const char *name;
-  int nbits;
-  int size_hint;
+  int32_t nbits;
+  int32_t size_hint;
 }; // struct rz3_bitarray_descr
 
 
 struct rz3_perf_stats_descr {
   const char * name;
-  enum rstzip3::perf_stats_e rel; // print stats relative to this parameters. ps_MAX => none
+  enum rstzip3::perf_stats_e rel; // print32_t stats relative to this parameters. ps_MAX => none
 }; // struct rz3_perf_stats_descr
 
 

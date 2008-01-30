@@ -57,10 +57,10 @@ template<class Addr_t, class Cache_t> class MSHR;
 template<class Addr_t, class Cache_t>
   class MSHRStats {
  protected:
-  //	HASH_MAP< MSHR<Addr_t, Cache_t> *, int > entries;
-  HASH_MAP< long , int > entries;
-  int totalEntries;
-  int outsRdReqs;
+  //	HASH_MAP< MSHR<Addr_t, Cache_t> *, int32_t > entries;
+  HASH_MAP< long , int32_t > entries;
+  int32_t totalEntries;
+  int32_t outsRdReqs;
 
   GStatsTimingHist occupancyHistogram;
 
@@ -97,8 +97,8 @@ template<class Addr_t, class Cache_t>
     entries[(long)mshr] = 0;
   }
 
-  void sampleEntryOcc( MSHR<Addr_t, Cache_t> *mshr, int numEntries ) {
-    int oldNum = entries[(long)mshr];
+  void sampleEntryOcc( MSHR<Addr_t, Cache_t> *mshr, int32_t numEntries ) {
+    int32_t oldNum = entries[(long)mshr];
     totalEntries += numEntries - oldNum;
     I(totalEntries >= 0);
     entries[(long)mshr] = numEntries;
@@ -123,12 +123,12 @@ template<class Addr_t, class Cache_t>
     wrEntriesOcc.commit_sample(id);
   }
   
-  void incRdReqs(int nr = 1) {
+  void incRdReqs(int32_t nr = 1) {
     outsRdReqs += nr;
     rdReqsOcc.sample(outsRdReqs);
   }
 
-  void decRdReqs(int nr = 1) {
+  void decRdReqs(int32_t nr = 1) {
     outsRdReqs -= nr;
     I(outsRdReqs >= 0);
     rdReqsOcc.sample(outsRdReqs);
@@ -145,8 +145,8 @@ template<class Addr_t,class Cache_t>
   class MSHR {
  private:
  protected:
-  const int nEntries;
-  int nFreeEntries; 
+  const int32_t nEntries;
+  int32_t nFreeEntries; 
 
   const size_t Log2LineSize;
 
@@ -160,7 +160,7 @@ template<class Addr_t,class Cache_t>
   GStatsCntr nCanNotAcceptConv;
   GStatsTimingHist blockingCycles;
 
-  int allocPolicy;  
+  int32_t allocPolicy;  
 
   MSHRStats<Addr_t, Cache_t> *occStats;
   bool occStatsAttached;
@@ -169,8 +169,8 @@ template<class Addr_t,class Cache_t>
 
  public:
   static MSHR<Addr_t,Cache_t> *create(const char *name, const char *type, 
-				      int size, int lineSize, int nse = 16, 
-				      int nwr = 16, int aPolicy=SPECIAL);
+				      int32_t size, int32_t lineSize, int32_t nse = 16, 
+				      int32_t nwr = 16, int32_t aPolicy=SPECIAL);
 
   static MSHR<Addr_t,Cache_t> *create(const char *name, const char *section);
 
@@ -182,7 +182,7 @@ template<class Addr_t,class Cache_t>
   virtual ~MSHR() { 
     if(!occStatsAttached) delete occStats;
   }
-  MSHR(const char *name, int size, int lineSize, int aPolicy);
+  MSHR(const char *name, int32_t size, int32_t lineSize, int32_t aPolicy);
 
   void destroy() {
     delete this;
@@ -210,13 +210,13 @@ template<class Addr_t,class Cache_t>
 
   Addr_t calcLineAddr(Addr_t paddr) const { return paddr >> Log2LineSize; }
 
-  int getnEntries() const { return nEntries; }
+  int32_t getnEntries() const { return nEntries; }
 
-  virtual int  getnReads() const { return 1; }
-  virtual int  getnWrites() const { return 1; }
+  virtual int32_t  getnReads() const { return 1; }
+  virtual int32_t  getnWrites() const { return 1; }
   
-  virtual int  getUsedReads(Addr_t paddr) { return 0; }
-  virtual int  getUsedWrites(Addr_t paddr) { return 0; }
+  virtual int32_t  getUsedReads(Addr_t paddr) { return 0; }
+  virtual int32_t  getUsedWrites(Addr_t paddr) { return 0; }
 
   size_t getLineSize() const { return 1 << Log2LineSize; }
 
@@ -264,7 +264,7 @@ template<class Addr_t, class Cache_t>
     
  protected:
     friend class MSHR<Addr_t, Cache_t>;
-    NoMSHR(const char *name, int size, int lineSize, int aPolicy);
+    NoMSHR(const char *name, int32_t size, int32_t lineSize, int32_t aPolicy);
 
  public:
     virtual ~NoMSHR() { }
@@ -308,7 +308,7 @@ template<class Addr_t, class Cache_t>
     Overflow overflow;
  protected:
     friend class MSHR<Addr_t, Cache_t>;
-    NoDepsMSHR(const char *name, int size, int lineSize, int aPolicy);
+    NoDepsMSHR(const char *name, int32_t size, int32_t lineSize, int32_t aPolicy);
   
  public:
     virtual ~NoDepsMSHR() { }
@@ -351,8 +351,8 @@ class FullMSHR : public MSHR<Addr_t, Cache_t> {
  private:
     GStatsCntr nStallConflict;
 
-    const int    MSHRSize;
-    const int    MSHRMask;
+    const int32_t    MSHRSize;
+    const int32_t    MSHRMask;
 
     bool overflowing;
 
@@ -362,7 +362,7 @@ class FullMSHR : public MSHR<Addr_t, Cache_t> {
     // Running crafty, I verified that the current hash function
     // performs pretty well (due to the extra space on MSHRSize). It
     // performs only 5% worse than an oversize prime number (noise).
-    int calcEntry(Addr_t paddr) const {
+    int32_t calcEntry(Addr_t paddr) const {
       ulong p = paddr >> Log2LineSize;
       return (p ^ (p>>11)) & MSHRMask;
     }
@@ -381,7 +381,7 @@ class FullMSHR : public MSHR<Addr_t, Cache_t> {
 
  protected:
     friend class MSHR<Addr_t, Cache_t>;
-    FullMSHR(const char *name, int size, int lineSize, int aPolicy);
+    FullMSHR(const char *name, int32_t size, int32_t lineSize, int32_t aPolicy);
 
  public:
     virtual ~FullMSHR() { delete entry; }
@@ -409,12 +409,12 @@ class FullMSHR : public MSHR<Addr_t, Cache_t> {
 template<class Addr_t> 
 class MSHRentry {
  private:
-  int nReads;
-  int nFreeReads;
-  int nWrites;
+  int32_t nReads;
+  int32_t nFreeReads;
+  int32_t nWrites;
   bool rdWrSharing;
-  int nFreeWrites;
-  int nFreeSEntries;  
+  int32_t nFreeWrites;
+  int32_t nFreeSEntries;  
   CallbackContainer cc;
   Addr_t reqLineAddr;
   bool displaced;
@@ -447,7 +447,7 @@ class MSHRentry {
   bool isRdWrSharing() { return rdWrSharing; }
 
   bool addRequest(Addr_t reqAddr, CallbackBase *rcb, MemOperation mo);
-  void firstRequest(Addr_t addr, Addr_t lineAddr, int nrd, int nwr, MemOperation mo) { 
+  void firstRequest(Addr_t addr, Addr_t lineAddr, int32_t nrd, int32_t nwr, MemOperation mo) { 
     I(nFreeSEntries == 0);
  
     nReads = nrd;
@@ -491,16 +491,16 @@ class MSHRentry {
 
   bool retire();
 
-  int getUsedReads()     const { return (nReads - nFreeReads); }
-  int hasFreeReads()     const { return (nFreeSEntries > 0 && nFreeReads > 0); }
+  int32_t getUsedReads()     const { return (nReads - nFreeReads); }
+  int32_t hasFreeReads()     const { return (nFreeSEntries > 0 && nFreeReads > 0); }
 
-  int getNWrittenWords() const { return writeSet.size(); }
-  int getUsedWrites()    const { return (nWrites - nFreeWrites); }
+  int32_t getNWrittenWords() const { return writeSet.size(); }
+  int32_t getUsedWrites()    const { return (nWrites - nFreeWrites); }
   bool hasFreeWrites()   const { return (nFreeSEntries > 0 && nFreeWrites > 0); }
 
-  int getPendingReqs()  const { return nReads+nWrites-nFreeSEntries; }
+  int32_t getPendingReqs()  const { return nReads+nWrites-nFreeSEntries; }
 
-  void adjustParameters(int nrd, int nwr) {
+  void adjustParameters(int32_t nrd, int32_t nwr) {
     // the new entry also shares read/write subentries
     bool rdWrSharingNewEntry = (nwr == 0);
 
@@ -516,8 +516,8 @@ class MSHRentry {
     } else if (rdWrSharing && !rdWrSharingNewEntry) {
       // the source MSHR shared and the destination does not share
       I(nwr != 0);
-      int nUsedWrites = (nWrites - nFreeWrites);
-      int nUsedReads = (nReads - nFreeReads);
+      int32_t nUsedWrites = (nWrites - nFreeWrites);
+      int32_t nUsedReads = (nReads - nFreeReads);
 
       nFreeSEntries = (nrd - nUsedReads) + (nwr - nUsedWrites);
       
@@ -565,15 +565,15 @@ template<class Addr_t, class Cache_t>
     using MSHR<Addr_t, Cache_t>::occStats;
 
  private:  
-    const int nReads;
-    const int nWrites;
-    int nOutsReqs;
+    const int32_t nReads;
+    const int32_t nWrites;
+    int32_t nOutsReqs;
     BloomFilter bf;
 
     bool checkingOverflow;
 
-    int nFullReadEntries;
-    int nFullWriteEntries;
+    int32_t nFullReadEntries;
+    int32_t nFullWriteEntries;
 
     typedef OverflowFieldT<Addr_t> OverflowField;
     typedef std::deque<OverflowField> Overflow;
@@ -609,8 +609,8 @@ template<class Addr_t, class Cache_t>
     void checkSubEntries(Addr_t paddr, MemOperation mo);
 
  public:
-    SingleMSHR(const char *name, int size, int lineSize, 
-	       int nrd = 16, int nwr = 16, int aPolicy = SPECIAL);
+    SingleMSHR(const char *name, int32_t size, int32_t lineSize, 
+	       int32_t nrd = 16, int32_t nwr = 16, int32_t aPolicy = SPECIAL);
 
     virtual ~SingleMSHR() { }
 
@@ -624,17 +624,17 @@ template<class Addr_t, class Cache_t>
 
     bool retire(Addr_t paddr);
 
-    int getnReads() const { return nReads; }
-    int getnWrites() const { return nWrites; }
+    int32_t getnReads() const { return nReads; }
+    int32_t getnWrites() const { return nWrites; }
 
-    int getUsedReads(Addr_t paddr) {
+    int32_t getUsedReads(Addr_t paddr) {
       MSHRit it = ms.find(calcLineAddr(paddr));
       I(it != ms.end());
       
       return (*it).second.getUsedReads();
     }
 
-    int getUsedWrites(Addr_t paddr) {
+    int32_t getUsedWrites(Addr_t paddr) {
       MSHRit it = ms.find(calcLineAddr(paddr));
       I(it != ms.end());
       
@@ -676,16 +676,16 @@ template<class Addr_t, class Cache_t>
     using MSHR<Addr_t, Cache_t>::lowerCache;
 
  private:  
-    const int nBanks;
+    const int32_t nBanks;
     SingleMSHR<Addr_t, Cache_t> **mshrBank;
 
     GStatsMax maxOutsReqs;
     GStatsAvg avgOverflowConsumptions;
 
-    int nOutsReqs;
+    int32_t nOutsReqs;
     bool checkingOverflow;
   
-    int calcBankIndex(Addr_t paddr) const { 
+    int32_t calcBankIndex(Addr_t paddr) const { 
       paddr = calcLineAddr(paddr);
       Addr_t idx = (paddr >> (16 - Log2LineSize/2)) ^ (paddr & 0x0000ffff);
       return  idx % nBanks;  // TODO:move to a mask
@@ -702,8 +702,8 @@ template<class Addr_t, class Cache_t>
   
  protected:
     friend class MSHR<Addr_t,Cache_t>;
-    BankedMSHR(const char *name, int size, int lineSize, int nb, 
-	       int nrd = 16, int nwr = 16, int aPolicy = SPECIAL);
+    BankedMSHR(const char *name, int32_t size, int32_t lineSize, int32_t nb, 
+	       int32_t nrd = 16, int32_t nwr = 16, int32_t aPolicy = SPECIAL);
   
  public:
     virtual ~BankedMSHR() { }
@@ -725,14 +725,14 @@ template<class Addr_t, class Cache_t>
 
     void setLowerCache(Cache_t *lCache);
 
-    int getnReads() const { I(nBanks); return mshrBank[0]->getnReads(); }
-    int getnWrites() const { I(nBanks); return mshrBank[0]->getnWrites(); }
+    int32_t getnReads() const { I(nBanks); return mshrBank[0]->getnReads(); }
+    int32_t getnWrites() const { I(nBanks); return mshrBank[0]->getnWrites(); }
 
-    int getUsedReads(Addr_t paddr) {
+    int32_t getUsedReads(Addr_t paddr) {
       return mshrBank[calcBankIndex(paddr)]->getUsedReads(paddr);
     }
 
-    int getUsedWrites(Addr_t paddr) {
+    int32_t getUsedWrites(Addr_t paddr) {
       return mshrBank[calcBankIndex(paddr)]->getUsedWrites(paddr);
     }
 

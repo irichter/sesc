@@ -38,9 +38,9 @@ class TraceReader {
   virtual void openTrace(const char* basename) = 0;
   virtual void closeTrace() = 0;
 
-  virtual void fillTraceEntry(TraceEntry *te, int id) = 0;
+  virtual void fillTraceEntry(TraceEntry *te, int32_t id) = 0;
 
-  virtual bool hasBufferedEntries(int id=-1) { return false; }
+  virtual bool hasBufferedEntries(int32_t id=-1) { return false; }
 };
 
 #endif

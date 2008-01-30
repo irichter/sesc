@@ -45,7 +45,7 @@ grid_model_t *alloc_grid_model(thermal_config_t *config, flp_t *flp_default)
 /* thermal resistances only	*/
 void populate_R_model_grid(grid_model_t *model)
 {
-	int layer_total = layer_R_setup(model);
+	int32_t layer_total = layer_R_setup(model);
 	init_gpower(layer_total, model); /* assign zero intial power to all grid cells */
 	  
 	/* set up grid cells, and return the number of nodes excluding 
@@ -77,7 +77,7 @@ void steady_state_temp_grid(grid_model_t *model, double *power, double *temp)
 	if (!model->r_ready)
 		fatal("R model not ready\n");
 		
-	int i;		
+	int32_t i;		
 	vector<double> steady_temp_g, overall_power_g;	
 	
 	/* allocate and initialize temperature and power vectors */	
@@ -107,7 +107,7 @@ void steady_state_temp_grid(grid_model_t *model, double *power, double *temp)
 	/* also dump the internal grid temperatures if specified	*/
 	if(strcmp(model->config.grid_steady_file, NULLFILE)) {
 		ofstream fout_result (model->config.grid_steady_file);
-		for (int i=0; i<(int)(model->row)*(model->col); i++)
+		for (int32_t i=0; i<(int)(model->row)*(model->col); i++)
 			fout_result << i << "\t" << model->steady_g_temp[i] << endl;
 		fout_result.close();
 	}
@@ -118,7 +118,7 @@ void steady_state_temp_grid(grid_model_t *model, double *power, double *temp)
  */
 void compute_temp_grid(grid_model_t *model, double *power, double *temp, double time_elapsed)
 {
-	int i;
+	int32_t i;
 	
 	if (!model->r_ready || !model->c_ready)
 		fatal("grid model not ready\n");
@@ -166,9 +166,9 @@ double *hotspot_vector_grid(grid_model_t *model)
  * compaction
  */
 void trim_hotspot_vector_grid(grid_model_t *model, double *dst, double *src, 
-						 	  int at, int size)
+						 	  int32_t at, int32_t size)
 {
-	int i;
+	int32_t i;
 	for (i=0; i < at && i < model->total_n_blocks + EXTRA; i++)
 		dst[i] = src[i];
 	for(i=at+size; i < model->total_n_blocks + EXTRA; i++)
@@ -178,7 +178,7 @@ void trim_hotspot_vector_grid(grid_model_t *model, double *dst, double *src,
 /* sets the temperature of a vector 'temp' allocated using 'hotspot_vector'	*/
 void set_temp_grid(grid_model_t *model, double *temp, double val)
 {
-	int i;
+	int32_t i;
 	if (model->total_n_blocks <= 0)
 		fatal("total_n_blocks is not greater than zero\n");
 	for(i=0; i < model->total_n_blocks + EXTRA; i++)
@@ -190,9 +190,9 @@ void dump_temp_grid(grid_model_t *model, double *temp, char *file)
 {
 	vector<flp_t *> layer_flp;
 	flp_t *flp;
-	int i;
-	unsigned int k;
-	int count=0;
+	int32_t i;
+	uint32_t k;
+	int32_t count=0;
 	char str[STR_SIZE];
 
 	/* precondition: layer config file should have been read	*/
@@ -252,13 +252,13 @@ void dump_temp_grid(grid_model_t *model, double *temp, char *file)
  * which was dumped using 'dump_temp'. values are clipped to thermal
  * threshold based on 'clip'.
  */ 
-void read_temp_grid(grid_model_t *model, double *temp, char *file, int clip)
+void read_temp_grid(grid_model_t *model, double *temp, char *file, int32_t clip)
 {
 	/*	shortcuts	*/
 	double thermal_threshold = model->config.thermal_threshold;
 	double ambient = model->config.ambient;
   
-  	int i;
+  	int32_t i;
   	double max=0.0, val;
 	char *ptr, str1[STR_SIZE], str2[STR_SIZE], name[STR_SIZE];
   
@@ -310,10 +310,10 @@ void read_temp_grid(grid_model_t *model, double *temp, char *file, int clip)
 /* dump power numbers to file	*/
 void dump_power_grid(grid_model_t *model, double *power, char *file)
 {
-	int i;
+	int32_t i;
 	char str[STR_SIZE];
 	
-	unsigned int k, count=0;
+	uint32_t k, count=0;
   	vector<flp_t *> layer_flp;
 	flp_t *flp;
 	
@@ -361,7 +361,7 @@ void dump_power_grid(grid_model_t *model, double *power, char *file)
  */ 
 void read_power_grid (grid_model_t *model, double *power, char *file)
 {
-	int i=0;
+	int32_t i=0;
 	double val;
 	char *ptr, str1[STR_SIZE], str2[STR_SIZE], name[STR_SIZE];
 	FILE *fp;
@@ -395,8 +395,8 @@ void read_power_grid (grid_model_t *model, double *power, char *file)
 
 double find_max_temp_grid(grid_model_t *model, double *temp)
 {
-	int i;
-	unsigned int k, count=0;
+	int32_t i;
+	uint32_t k, count=0;
   	vector<flp_t *> layer_flp;
 	flp_t *flp;
 	double max = 0.0;
@@ -429,8 +429,8 @@ double find_max_temp_grid(grid_model_t *model, double *temp)
 
 double find_avg_temp_grid(grid_model_t *model, double *temp)
 {
-	int i, j=0;
-	unsigned int k, count=0;
+	int32_t i, j=0;
+	uint32_t k, count=0;
   	vector<flp_t *> layer_flp;
 	flp_t *flp;
 	double sum = 0.0;
@@ -471,7 +471,7 @@ void delete_grid_model(grid_model_t *model)
 }
 
 /* Sets up the RC difference equations for the Grid model */
-int layer_R_setup(grid_model_t *model) 
+int32_t layer_R_setup(grid_model_t *model) 
 {
 		/*	shortcuts	*/
 	double r_convec = model->config.r_convec;
@@ -479,8 +479,8 @@ int layer_R_setup(grid_model_t *model)
 	double t_sink = model->config.t_sink;
 	double s_spreader = model->config.s_spreader;
 	double t_spreader = model->config.t_spreader;
-	int row = model->row;
-	int col = model->col;
+	int32_t row = model->row;
+	int32_t col = model->col;
 	
 	double r_sp1, r_sp2, r_hs;	/* lateral resistances to spreader and heatsink	*/
 
@@ -537,7 +537,7 @@ int layer_R_setup(grid_model_t *model)
 
 	bool done = false;
 	char FileLine[STR_SIZE];			
-	int count = 0;
+	int32_t count = 0;
 	layerprops *temp_layerprops = NULL;					//Temporary store for layer parameters
 	
 	/* Read from layer config file and store the parameters in model->LayerInternal */
@@ -598,7 +598,7 @@ int layer_R_setup(grid_model_t *model)
 	temp_layerprops->K = 1/temp_layerprops->Rho;
 	temp_layerprops->Thickness = t_spreader;
 
-	int NumOfLayer = model->LayerInternal.size();
+	int32_t NumOfLayer = model->LayerInternal.size();
 	
 	/* use the last floorplan for spreader center */
 	temp_layerprops->flp_name = model->LayerInternal[NumOfLayer-1].flp_name; 
@@ -610,7 +610,7 @@ int layer_R_setup(grid_model_t *model)
 	NumOfLayer += 1; 
 	
 	/* note: mv_level=0 in this release, i.e. no multigrid algorithm */
-	for (int lvl =0; lvl <= model->mv_level; lvl++) { 
+	for (int32_t lvl =0; lvl <= model->mv_level; lvl++) { 
 		model->Layers.push_back(vector <LayerDetails>()); /* allocate layer for each multigrid level */
 		height = l_chip / (row * (lvl+1));	/* grid size for current multigrid level */
 		width = w_chip / (col * (lvl+1));  
@@ -619,7 +619,7 @@ int layer_R_setup(grid_model_t *model)
 		LayerDetails * tempLayer;
   	
 		//Calculate the properties of each layer and store them in Layers
-		for (int i = 0; i < NumOfLayer; i++) {
+		for (int32_t i = 0; i < NumOfLayer; i++) {
   	
 			tempLayer = new LayerDetails;
   	
@@ -645,7 +645,7 @@ int layer_R_setup(grid_model_t *model)
 }
 
 /* Sets up the RC difference equations for the Grid model */
-int layer_C_setup(grid_model_t *model) 
+int32_t layer_C_setup(grid_model_t *model) 
 {
 	/*	shortcuts	*/
 	double c_convec = model->config.c_convec;
@@ -653,8 +653,8 @@ int layer_C_setup(grid_model_t *model)
 	double t_sink = model->config.t_sink;
 	double s_spreader = model->config.s_spreader;
 	double t_spreader = model->config.t_spreader;
-	int row = model->row;
-	int col = model->col;
+	int32_t row = model->row;
+	int32_t col = model->col;
 		
 	/* NOTE: *_mid - the vertical R/C from CENTER nodes of spreader 
 	 * and heatsink. *_per - the vertical R/C from PERIPHERAL (n,s,e,w) nodes
@@ -688,13 +688,13 @@ int layer_C_setup(grid_model_t *model)
 	model->Csic = c_hs_mid;	
 	model->Cconv = c_convec;
 	
-	for (int lvl =0; lvl <= model->mv_level; lvl++) {
+	for (int32_t lvl =0; lvl <= model->mv_level; lvl++) {
 		height = l_chip / (row * (lvl+1));	/* grid size for current multigrid level */
 		width = w_chip / (col * (lvl+1));  
 		grid_area = height * width;
 	
 		//Calculate the properties of each layer and store them in Layers
-		for (int i = 0; i < (int)model->LayerInternal.size(); i++) {
+		for (int32_t i = 0; i < (int)model->LayerInternal.size(); i++) {
   		if (i != (int) (model->LayerInternal.size() - 1) ) {   //All layers except spreader layer
   	  	FittingFactor = C_FACTOR * ((model->LayerInternal[i].SpHtCap / model->LayerInternal[i+1].SpHtCap) *
   	                                          (w_chip + 0.88 * model->LayerInternal[i+1].Thickness) *
@@ -731,16 +731,16 @@ int layer_C_setup(grid_model_t *model)
 // to difference equations and solve the difference equations by iterating 
 void compute_tran_temp(double time_elapsed, grid_model_t *model, vector<double> &temp, vector<double> &power) 
 {
-	int i;
+	int32_t i;
 	/* shortcut	*/
-	int row = model->row;
-	int col = model->col;
+	int32_t row = model->row;
+	int32_t col = model->col;
 	
-	int g_n = row * col;	
+	int32_t g_n = row * col;	
 
-	int OffSP = (model->Layers[0].size() - 1) * g_n;
-	int OffSI = model->Layers[0].size() * g_n;
-	int Spr = model->Layers[0].size() - 1;
+	int32_t OffSP = (model->Layers[0].size() - 1) * g_n;
+	int32_t OffSI = model->Layers[0].size() * g_n;
+	int32_t Spr = model->Layers[0].size() - 1;
 
 	/* Number of Iteration Calculation */
 
@@ -759,7 +759,7 @@ void compute_tran_temp(double time_elapsed, grid_model_t *model, vector<double> 
 	// dT for heat spreader peripheral nodes and heat sink nodes
 	vector<double> delta_temp_extra(EXTRA);
 	
-	int n;
+	int32_t n;
 	for (n = 0; n < no_of_iter; n++) {
 		LayerTemperature (temp, power, model, delta_t);
 
@@ -801,9 +801,9 @@ void compute_tran_temp(double time_elapsed, grid_model_t *model, vector<double> 
 	}
 }
 
-double SumTemp (vector<double> &temp, int row, int col, int x1, int y1, int x2, int y2, int Offset, int Offset2, int Offset3) 
+double SumTemp (vector<double> &temp, int32_t row, int32_t col, int32_t x1, int32_t y1, int32_t x2, int32_t y2, int32_t Offset, int32_t Offset2, int32_t Offset3) 
 {
-	int i , j;
+	int32_t i , j;
 	double result = 0.0;
 	if ((x2 > x1) && (y2 > y1)) {
 		for (i = x1; i <= x2; i++) {
@@ -831,20 +831,20 @@ double SumTemp (vector<double> &temp, int row, int col, int x1, int y1, int x2, 
 void LayerTemperature (vector<double> &temp, vector<double> &power, grid_model_t *model, double delta_t) 
 {
 	/* shortcut	*/
-	int row = model->row;
-	int col = model->col;
+	int32_t row = model->row;
+	int32_t col = model->col;
 
-	int g_n =row * col;
-	int nL = model->Layers[0].size();		//Number Of Layers
-	int OffSet;
-	int NextOffSet;
-	int PrevOffSet;
-	int OffSI = nL * g_n;
-	int OffSP = (nL-1) * g_n;
-	int i = 0;
+	int32_t g_n =row * col;
+	int32_t nL = model->Layers[0].size();		//Number Of Layers
+	int32_t OffSet;
+	int32_t NextOffSet;
+	int32_t PrevOffSet;
+	int32_t OffSI = nL * g_n;
+	int32_t OffSP = (nL-1) * g_n;
+	int32_t i = 0;
 
-	for (int r = 0; r < row; r++) {
-	for (int c = 0; c < col; c++) {
+	for (int32_t r = 0; r < row; r++) {
+	for (int32_t c = 0; c < col; c++) {
 
 	if ( (r == 0) && (c == 0) ) {	//Corner 1
 		for (i = 0; i < (int) model->Layers[0].size() - 1; i++) {
@@ -1275,9 +1275,9 @@ void LayerTemperature (vector<double> &temp, vector<double> &power, grid_model_t
 }
 }
 
-int convergence_check(vector<double> &steady_temp, vector <double> &prev)
+int32_t convergence_check(vector<double> &steady_temp, vector <double> &prev)
 {
-	unsigned int i;
+	uint32_t i;
 	for(i=0; i < steady_temp.size(); i++)
 		if (!eq(steady_temp[i], prev[i]))
 			return FALSE;
@@ -1288,17 +1288,17 @@ int convergence_check(vector<double> &steady_temp, vector <double> &prev)
 void compute_steady_temp(grid_model_t *model, vector<double> &steady_temp, vector<double> &power)
 {
 	/* shortcut	*/
-	int row = model->row;
-	int col = model->col;
+	int32_t row = model->row;
+	int32_t col = model->col;
 
-	int g_n = row * col;
+	int32_t g_n = row * col;
 
-	int OffSP = (model->Layers[0].size() - 1) * g_n;
-	int OffSI = model->Layers[0].size() * g_n;
-	int Spr = model->Layers[0].size() - 1;
+	int32_t OffSP = (model->Layers[0].size() - 1) * g_n;
+	int32_t OffSI = model->Layers[0].size() * g_n;
+	int32_t Spr = model->Layers[0].size() - 1;
 	
 	/* Number of Iteration Calculation */
-	int no_of_iter	= 500; // minimum number of iterations
+	int32_t no_of_iter	= 500; // minimum number of iterations
 	
 	/* empirically determine number of iterations for the steady-state solver 					*/
 	/* only valid for normal die size: about 20mm x 20mm 																*/
@@ -1329,8 +1329,8 @@ void compute_steady_temp(grid_model_t *model, vector<double> &steady_temp, vecto
 	if (no_of_iter>=10000) 
 		cout << "May take a long time to finish..." << endl;
  
-	int n = 0;
-	int converged = FALSE;
+	int32_t n = 0;
+	int32_t converged = FALSE;
 //	for (n = 0; n < no_of_iter; n++) {
 	vector<double> prev = steady_temp;
 	while(!converged) {				
@@ -1371,9 +1371,9 @@ void compute_steady_temp(grid_model_t *model, vector<double> &steady_temp, vecto
 	#endif
 }
 
-double SteadySumTemp (vector<double> &steady_temp, int row, int col, int x1, int y1, int x2, int y2, int Offset, int Offset2, int Offset3)
+double SteadySumTemp (vector<double> &steady_temp, int32_t row, int32_t col, int32_t x1, int32_t y1, int32_t x2, int32_t y2, int32_t Offset, int32_t Offset2, int32_t Offset3)
 {
-	int i , j;
+	int32_t i , j;
 	double result = 0.0;
 	if ((x2 > x1) && (y2 > y1)) {
 		for (i = x1; i <= x2; i++) {
@@ -1401,20 +1401,20 @@ double SteadySumTemp (vector<double> &steady_temp, int row, int col, int x1, int
 void LayerSteadyTemperature (vector<double> &steady_temp, vector<double> &power, grid_model_t *model) 
 {
 	/* shortcut	*/
-	int row = model->row;
-	int col = model->col;
+	int32_t row = model->row;
+	int32_t col = model->col;
 
-	int g_n =row * col;
-	int nL = model->Layers[0].size();		//Number Of Layers
-	int OffSet;
-	int NextOffSet;
-	int PrevOffSet;
-	int OffSI = nL * g_n;
-	int OffSP = (nL-1) * g_n;
-	int i = 0;
+	int32_t g_n =row * col;
+	int32_t nL = model->Layers[0].size();		//Number Of Layers
+	int32_t OffSet;
+	int32_t NextOffSet;
+	int32_t PrevOffSet;
+	int32_t OffSI = nL * g_n;
+	int32_t OffSP = (nL-1) * g_n;
+	int32_t i = 0;
 	
-for (int r = 0; r < row; r++) {
-	for (int c = 0; c < col; c++) {
+for (int32_t r = 0; r < row; r++) {
+	for (int32_t c = 0; c < col; c++) {
 
 	if ( (r == 0) && (c == 0) ) {	//Corner 1
 		for (i = 0; i < (int) model->Layers[0].size() - 1; i++) {
@@ -1820,21 +1820,21 @@ for (int r = 0; r < row; r++) {
 }
 
 /* set the size and inital values for the power of each grid cell*/
-void init_gpower(int layer_total, grid_model_t *model)
+void init_gpower(int32_t layer_total, grid_model_t *model)
 {
-	int g_row = model->row;
-	int g_col = model->col;
+	int32_t g_row = model->row;
+	int32_t g_col = model->col;
 	model->g_power.resize(layer_total*g_row*g_col+EXTRA, 0.0);
 }
 
 /* Initialize block and grid structures from floorplan files for each layer*/
-int grid_setup (grid_model_t *model, double init_temp) 
+int32_t grid_setup (grid_model_t *model, double init_temp) 
 {	
-	int nL = model->Layers[0].size();
-	int total_block = 0;
+	int32_t nL = model->Layers[0].size();
+	int32_t total_block = 0;
 	
-	int g_row = model->row;
-	int g_col = model->col;
+	int32_t g_row = model->row;
+	int32_t g_col = model->col;
 
 	model->g_temp.resize(nL*g_row*g_col+EXTRA, init_temp);
 	model->steady_g_temp.resize(nL*g_row*g_col+EXTRA, init_temp);
@@ -1848,10 +1848,10 @@ int grid_setup (grid_model_t *model, double init_temp)
 	Grids *G;
 	FloorplanDetails *temp;
 
-  int row = g_row;
-	int column = g_col;
-	int k = 0;
-  int i = 0;
+  int32_t row = g_row;
+	int32_t column = g_col;
+	int32_t k = 0;
+  int32_t i = 0;
   
 	model->sum_n_units = 0;	
 
@@ -1925,16 +1925,16 @@ int grid_setup (grid_model_t *model, double init_temp)
 /* convert block power to grid power */
 void trans_bpow_gpow (vector<double> &power, grid_model_t *model) 
 {
-	int i;
+	int32_t i;
 	/* shortcut	*/
-	int g_row = model->row;
-	int g_col = model->col;
+	int32_t g_row = model->row;
+	int32_t g_col = model->col;
 
-	int g_n = g_row * g_col;
-	int nL = model->Layers[0].size();
- 	int j = 0;
-	int GridOffSet = 0;
-	int BlockOffSet = 0;
+	int32_t g_n = g_row * g_col;
+	int32_t nL = model->Layers[0].size();
+ 	int32_t j = 0;
+	int32_t GridOffSet = 0;
+	int32_t BlockOffSet = 0;
 
 	for (j = 0; j < nL; j++) {
 			GridOffSet = j * g_n;
@@ -1956,16 +1956,16 @@ void trans_bpow_gpow (vector<double> &power, grid_model_t *model)
 /* convert initial transient block temp to grid temp, not used in this release*/
 void trans_tran_btemp_gtemp(vector<double> &temp, grid_model_t *model)
 {
-	int i;
+	int32_t i;
 	/* shortcut	*/
-	int g_row = model->row;
-	int g_col = model->col;
+	int32_t g_row = model->row;
+	int32_t g_col = model->col;
 
-	int g_n = g_row * g_col;
-	int GridOffSet = 0;
-	int BlockOffSet = 0;
+	int32_t g_n = g_row * g_col;
+	int32_t GridOffSet = 0;
+	int32_t BlockOffSet = 0;
 
-	int j;
+	int32_t j;
 	for (j = 0; j < (int) model->Layers[0].size(); j++) {
 		GridOffSet = j * g_n;
 		for (i = 1; i < (int) model->Floorplan[j].GridChip.size(); i++) {
@@ -1985,16 +1985,16 @@ void trans_tran_btemp_gtemp(vector<double> &temp, grid_model_t *model)
 /* convert initial steady block temp to grid temp, not used in this release*/
 void trans_steady_btemp_gtemp(vector<double> &temp, grid_model_t *model)
 {
-	int i;
+	int32_t i;
 	/* shortcut	*/
-	int g_row = model->row;
-	int g_col = model->col;
+	int32_t g_row = model->row;
+	int32_t g_col = model->col;
 
-	int g_n = g_row * g_col;
-	int GridOffSet = 0;
-	int BlockOffSet = 0;
+	int32_t g_n = g_row * g_col;
+	int32_t GridOffSet = 0;
+	int32_t BlockOffSet = 0;
 
-	int j;
+	int32_t j;
 	for (j = 0; j < (int) model->Layers[0].size(); j++) {
 		GridOffSet = j * g_n;
 		for (i = 1; i < (int) model->Floorplan[j].GridChip.size(); i++) {
@@ -2015,17 +2015,17 @@ void trans_steady_btemp_gtemp(vector<double> &temp, grid_model_t *model)
 void trans_tran_gtemp_btemp(vector<double> &temp, grid_model_t *model)
 {
 	/* shortcut	*/
-	int g_row = model->row;
-	int g_col = model->col;
+	int32_t g_row = model->row;
+	int32_t g_col = model->col;
 
-	int g_n = g_row * g_col;
-	int i, j;
-	int GridOffSet = 0;
-	int BlockOffSet = 0;
+	int32_t g_n = g_row * g_col;
+	int32_t i, j;
+	int32_t GridOffSet = 0;
+	int32_t BlockOffSet = 0;
 
 	for (j = 0; j < (int) model->Layers[0].size(); j++) {
 			GridOffSet = j * g_n;
-			int n = model->Floorplan[j].FBlockChip.size();
+			int32_t n = model->Floorplan[j].FBlockChip.size();
 			for (i = 0; i < n; i++) {
 				temp[i+BlockOffSet] = model->Floorplan[j].FBlockChip[i].CalculateTemp(model->g_temp, 
 									  GridOffSet, model->map_mode, g_col);
@@ -2041,18 +2041,18 @@ void trans_tran_gtemp_btemp(vector<double> &temp, grid_model_t *model)
 void trans_steady_gtemp_btemp(vector<double> &steady_temp, grid_model_t *model)
 {
 	/* shortcut	*/
-	int g_row = model->row;
-	int g_col = model->col;
+	int32_t g_row = model->row;
+	int32_t g_col = model->col;
 
-	int g_n = g_row * g_col;
-	int i, j;
-	int GridOffSet = 0;
-	int BlockOffSet = 0;
+	int32_t g_n = g_row * g_col;
+	int32_t i, j;
+	int32_t GridOffSet = 0;
+	int32_t BlockOffSet = 0;
 
 	for (j = 0; j < (int) model->Layers[0].size(); j++) {
 			GridOffSet = j * g_n;
 			//convert temperatures from grid to block
-			int n = model->Floorplan[j].FBlockChip.size();
+			int32_t n = model->Floorplan[j].FBlockChip.size();
 			
 			for (i = 0; i < n; i++) {
 				steady_temp[i+BlockOffSet] = model->Floorplan[j].FBlockChip[i].CalculateTemp(model->steady_g_temp, 

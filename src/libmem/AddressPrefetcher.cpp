@@ -84,7 +84,7 @@ void AddressPrefetcher::tryPrefetch(MemRequest *mreq)
   RAddr end   = start + bsize;
 
   for(RAddr addr = start ; addr < end ; addr+=4) {
-	 int *pos = (int *)addr;
+	 int32_t *pos = (int32_t *)addr;
     VAddr val = SWAP_WORD(*pos);
 #if 0
     // FIXME: val is a virtual address, it must be translated

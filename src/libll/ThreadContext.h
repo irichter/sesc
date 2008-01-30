@@ -31,8 +31,8 @@ namespace tls {
  * the object file goes here.
  */
 typedef struct objfile {
-  int rdata_size;
-  int db_size;
+  int32_t rdata_size;
+  int32_t db_size;
   char *objname;
 } objfile_t, *objfile_ptr;
 
@@ -106,17 +106,17 @@ class ThreadContext {
 #if !(defined MIPS_EMUL)
  public:
   IntRegValue reg[33];	// The extra register is for writes to r0
-  int lo;
-  int hi;
+  int32_t lo;
+  int32_t hi;
 #endif
  private:
 #if !(defined MIPS_EMUL)
-  unsigned int fcr0;	// floating point control register 0
-  float fp[32];	        // floating point (and double) registers
-  unsigned int fcr31;	// floating point control register 31
+  uint32_t fcr0;	// floating point32_t control register 0
+  float fp[32];	        // floating point32_t (and double) registers
+  uint32_t fcr31;	// floating point32_t control register 31
   icode_ptr picode;	// pointer to the next instruction (the "pc")
 #endif
-  int pid;		// process id
+  int32_t pid;		// process id
 #if !(defined MIPS_EMUL)
   RAddr raddr;		// real address computed by an event function
   icode_ptr target;	// place to store branch target during delay slot
@@ -141,8 +141,8 @@ class ThreadContext {
   ThreadContext *parent;    // pointer to parent
   ThreadContext *youngest;  // pointer to youngest child
   ThreadContext *sibling;   // pointer to next older sibling
-  int *perrno;	            // pointer to the errno variable
-  int rerrno;		    // most recent errno for this thread
+  int32_t *perrno;	            // pointer to the errno variable
+  int32_t rerrno;		    // most recent errno for this thread
 
   char      *fd;	    // file descriptors; =1 means open, =0 means closed
 #endif // Else branch of (defined MIPS_EMUL)
@@ -174,7 +174,7 @@ private:
 
 public:
 #if (defined MIPS_EMUL)
-  static inline int getPidUb(void){
+  static inline int32_t getPidUb(void){
     return pid2context.size();
   }
   void setMode(CpuMode newMode);
@@ -222,19 +222,19 @@ public:
   inline VAddr getStkPtr(void) const{
     return getIntReg(StkPtrReg);
   }
-  inline void setStkPtr(int val){
+  inline void setStkPtr(int32_t val){
     I(sizeof(val)==4);
     setIntReg(StkPtrReg,val);
   }
-  inline void setRetVal(int val){
+  inline void setRetVal(int32_t val){
     I(sizeof(val)==4);
     setIntReg(RetValReg,val);
   }
-  inline void setRetVal64(long long int val){
+  inline void setRetVal64(int64_t val){
     I(sizeof(val)==8);
-    unsigned long long valLo=val;
+    uint64_t valLo=val;
     valLo&=0xFFFFFFFFllu;
-    unsigned long long valHi=val;
+    uint64_t valHi=val;
     valHi>>=32;
     valHi&=0xFFFFFFFFllu;
     setIntReg(RetValLoReg,(IntRegValue)valLo);
@@ -271,11 +271,11 @@ public:
     pid=newPid;
   }
 
-  int getErrno(void){
+  int32_t getErrno(void){
     return *perrno;
   }
 
-  void setErrno(int newErrno){
+  void setErrno(int32_t newErrno){
     I(perrno);
     *perrno=newErrno;
   }
@@ -297,39 +297,39 @@ public:
   void copy(const ThreadContext *src);
 
 #if !(defined MIPS_EMUL)
-  unsigned int getFPUControl31() const { return fcr31; }
-  void setFPUControl31(unsigned int v) {
+  uint32_t getFPUControl31() const { return fcr31; }
+  void setFPUControl31(uint32_t v) {
     fcr31 = v;
   }
 
-  unsigned int getFPUControl0() const { return fcr0; }
-  void setFPUControl0(unsigned int v) {
+  uint32_t getFPUControl0() const { return fcr0; }
+  void setFPUControl0(uint32_t v) {
     fcr0 = v;
   }
 
-  int getREG(icode_ptr pi, int R) { return reg[pi->args[R]];}
-  void setREG(icode_ptr pi, int R, int val) { 
+  int32_t getREG(icode_ptr pi, int32_t R) { return reg[pi->args[R]];}
+  void setREG(icode_ptr pi, int32_t R, int32_t val) { 
     reg[pi->args[R]] = val;
   }
 
-  void setREGFromMem(icode_ptr pi, int R, int *addr) {
+  void setREGFromMem(icode_ptr pi, int32_t R, int32_t *addr) {
 #ifdef LENDIAN
-    int val = SWAP_WORD(*addr);
+    int32_t val = SWAP_WORD(*addr);
 #else
-    int val = *addr;
+    int32_t val = *addr;
 #endif
     setREG(pi, R, val);
   }
 
-  float getFP( icode_ptr pi, int R) { return fp[pi->args[R]]; }
-  void  setFP( icode_ptr pi, int R, float val) { 
+  float getFP( icode_ptr pi, int32_t R) { return fp[pi->args[R]]; }
+  void  setFP( icode_ptr pi, int32_t R, float val) { 
     fp[pi->args[R]] = val; 
   }
-  void  setFPFromMem( icode_ptr pi, int R, float *addr) { 
+  void  setFPFromMem( icode_ptr pi, int32_t R, float *addr) { 
     float *pos = &fp[pi->args[R]];
 #ifdef LENDIAN
-    unsigned int v1;
-    v1 = *(unsigned int *)addr;
+    uint32_t v1;
+    v1 = *(uint32_t *)addr;
     v1 = SWAP_WORD(v1);
     *pos = *(float *)&v1;
 #else
@@ -337,12 +337,12 @@ public:
 #endif
   }
 
-  double getDP( icode_ptr pi, int R) const { 
+  double getDP( icode_ptr pi, int32_t R) const { 
 #ifdef SPARC 
   // MIPS supports 32 bit align double access
-    unsigned int w1 = *(unsigned int *) &fp[pi->args[R]];
-    unsigned int w2 = *(unsigned int *) &fp[pi->args[R]+1];
-    static unsigned long long ret = w2;
+    uint32_t w1 = *(uint32_t *) &fp[pi->args[R]];
+    uint32_t w2 = *(uint32_t *) &fp[pi->args[R]+1];
+    static uint64_t ret = w2;
     ret = w2;
     ret = (ret<<32) | w1;
     return *(double *) (&ret);
@@ -351,11 +351,11 @@ public:
 #endif
   }
 
-  void   setDP( icode_ptr pi, int R, double val) { 
+  void   setDP( icode_ptr pi, int32_t R, double val) { 
 #ifdef SPARC 
-    unsigned int *pos = (unsigned int*)&fp[pi->args[R]];
-    unsigned int b1 = ((unsigned int *)&val)[0];
-    unsigned int b2 = ((unsigned int *)&val)[1];
+    uint32_t *pos = (uint32_t*)&fp[pi->args[R]];
+    uint32_t b1 = ((uint32_t *)&val)[0];
+    uint32_t b2 = ((uint32_t *)&val)[1];
     pos[0] = b1;
     pos[1] = b2;	
 #else
@@ -364,16 +364,16 @@ public:
   }
 
 
-  void   setDPFromMem( icode_ptr pi, int R, double *addr) { 
+  void   setDPFromMem( icode_ptr pi, int32_t R, double *addr) { 
 #ifdef SPARC 
-    unsigned int *pos = (unsigned int*) ((long)(fp) + pi->args[R]);
-    pos[0] = (unsigned int) addr[0];
-    pos[1] = (unsigned int) addr[1];
+    uint32_t *pos = (uint32_t*) ((long)(fp) + pi->args[R]);
+    pos[0] = (uint32_t) addr[0];
+    pos[1] = (uint32_t) addr[1];
 #else
     double *pos = (double *) &fp[pi->args[R]];
 #ifdef LENDIAN
-    unsigned long long v1;
-    v1 = *(unsigned long long *)(addr);
+    uint64_t v1;
+    v1 = *(uint64_t *)(addr);
     v1 = SWAP_LONG(v1);
     *pos = *(double *)&v1;
 #else
@@ -382,26 +382,26 @@ public:
 #endif // SPARC
   }
 
-  int getWFP(icode_ptr pi, int R) { return *(int   *)&fp[pi->args[R]]; }
-  void setWFP(icode_ptr pi, int R, int val) { 
-    *((int   *)&fp[pi->args[R]]) = val; 
+  int32_t getWFP(icode_ptr pi, int32_t R) { return *(int32_t   *)&fp[pi->args[R]]; }
+  void setWFP(icode_ptr pi, int32_t R, int32_t val) { 
+    *((int32_t   *)&fp[pi->args[R]]) = val; 
   }
 
   // Methods used by ops.m4 and coproc.m4 (mostly)
-  int getREGNUM(int R) const { return reg[R]; }
-  void setREGNUM(int R, int val) {
+  int32_t getREGNUM(int32_t R) const { return reg[R]; }
+  void setREGNUM(int32_t R, int32_t val) {
     reg[R] = val;
   }
 
   // FIXME: SPARC
-  double getDPNUM(int R) {return *((double *)&fp[R]); }
-  void   setDPNUM(int R, double val) {
+  double getDPNUM(int32_t R) {return *((double *)&fp[R]); }
+  void   setDPNUM(int32_t R, double val) {
     *((double *) &fp[R]) = val; 
   }
 
   // for constant (or unshifted) register indices
-  float getFPNUM(int i) const { return fp[i]; }
-  int getWFPNUM(int i) const  { return *((int *)&fp[i]); }
+  float getFPNUM(int32_t i) const { return fp[i]; }
+  int32_t getWFPNUM(int32_t i) const  { return *((int32_t *)&fp[i]); }
 
   RAddr getRAddr() const{
     return raddr;
@@ -434,7 +434,7 @@ public:
 #endif // else of (defined MIPS_EMUL)
 
 
-  static unsigned long long getMemValue(RAddr p, unsigned dsize); 
+  static uint64_t getMemValue(RAddr p, unsigned dsize); 
 
   // BEGIN Memory Mapping
   bool isValidDataVAddr(VAddr vaddr) const{
@@ -540,7 +540,7 @@ public:
   ThreadContext *getParent() const { return parent; }
 
   void useSameAddrSpace(ThreadContext *parent);
-  void shareAddrSpace(ThreadContext *parent, int share_all, int copy_stack);
+  void shareAddrSpace(ThreadContext *parent, int32_t share_all, int32_t copy_stack);
   void newChild(ThreadContext *child);
   void init();
 #endif
@@ -581,8 +581,8 @@ public:
   inline size_t getNDInsts(void){
     return nDInsts;
   }
-  static inline int nextReady(int startPid){
-    int foundPid=startPid;
+  static inline int32_t nextReady(int32_t startPid){
+    int32_t foundPid=startPid;
     do{
       if(foundPid==(int)(pid2context.size()))
         foundPid=0;
@@ -594,7 +594,7 @@ public:
     return -1;      
   }
   inline bool skipInst(void);
-  static long long int skipInsts(long long int skipCount);
+  static int64_t skipInsts(int64_t skipCount);
 #if (defined HAS_MEM_STATE)
   inline const MemState &getState(VAddr addr) const{
     return addressSpace->getState(addr);
@@ -610,10 +610,10 @@ public:
     return addressSpace->canWrite(addr,len);
   }
   void    writeMemFromBuf(VAddr addr, size_t len, const void *buf);
-  ssize_t writeMemFromFile(VAddr addr, size_t len, int fd, bool natFile, bool usePread=false, off_t offs=0);
+  ssize_t writeMemFromFile(VAddr addr, size_t len, int32_t fd, bool natFile, bool usePread=false, off_t offs=0);
   void    writeMemWithByte(VAddr addr, size_t len, uint8_t c);  
   void    readMemToBuf(VAddr addr, size_t len, void *buf);
-  ssize_t readMemToFile(VAddr addr, size_t len, int fd, bool natFile);
+  ssize_t readMemToFile(VAddr addr, size_t len, int32_t fd, bool natFile);
   ssize_t readMemString(VAddr stringVAddr, size_t maxSize, char *dstStr);
   template<class T>
   inline T readMemRaw(VAddr addr){
@@ -731,9 +731,9 @@ public:
  private:
   typedef std::set<int> IntSet;
   // Thread id of this thread
-  int tid;
+  int32_t tid;
   // tid of the thread group leader
-  int tgid;
+  int32_t tgid;
   // This set is empty for threads that are not thread group leader
   // In a thread group leader, this set contains the other members of the thread group
   IntSet tgtids;
@@ -747,7 +747,7 @@ public:
   // Robust list head pointer
   VAddr robust_list;
  public:
-  int gettgid(void) const{
+  int32_t gettgid(void) const{
     return tgid;
   }
   size_t gettgtids(int tids[], size_t slots) const{
@@ -756,7 +756,7 @@ public:
       tids[i]=*it;
     return tgtids.size();
   }
-  int gettid(void) const{
+  int32_t gettid(void) const{
     return tid;
   }
   int getppid(void) const{
@@ -768,22 +768,22 @@ public:
   void setTidAddress(VAddr tidptr){
     clear_child_tid=tidptr;
   }
-  int  getParentID(void) const{
+  int32_t  getParentID(void) const{
     return parentID;
   }
   bool hasChildren(void) const{
     return !childIDs.empty();
   }
-  bool isChildID(int id) const{
+  bool isChildID(int32_t id) const{
     return (childIDs.find(id)!=childIDs.end());
   }
-  int findZombieChild(void) const;
+  int32_t findZombieChild(void) const;
   SignalID getExitSig(void){
     return exitSig;
   }
  private:
   bool     exited;
-  int      exitCode;
+  int32_t      exitCode;
   SignalID killSignal;
  public:
   bool isWaiting(void) const{
@@ -792,7 +792,7 @@ public:
   bool isExited(void) const{
     return exited;
   }
-  int getExitCode(void) const{
+  int32_t getExitCode(void) const{
     return exitCode;
   }
   bool isKilled(void) const{
@@ -803,7 +803,7 @@ public:
   }
   // Exit this process
   // Returns: true if exit complete, false if process is now zombie
-  bool exit(int code);
+  bool exit(int32_t code);
   // Reap an exited process
   void reap();
   void doKill(SignalID sig){
@@ -845,14 +845,14 @@ public:
     target = p;
   }
 
-  int getperrno() const { return *perrno; }
-  void setperrno(int v) {
+  int32_t getperrno() const { return *perrno; }
+  void setperrno(int32_t v) {
     I(perrno);
     *perrno = v;
   }
 
-  int getFD(int id) const { return fd[id]; }
-  void setFD(int id, int val) {
+  int32_t getFD(int32_t id) const { return fd[id]; }
+  void setFD(int32_t id, int32_t val) {
     fd[id] = val;
   }
   
@@ -876,18 +876,18 @@ class MintFuncArgs{
  private:
   const ThreadContext *myContext;
   const icode_t *myIcode;
-  int   curPos;
+  int32_t   curPos;
  public:
   MintFuncArgs(const ThreadContext *context, const icode_t *picode)
     : myContext(context), myIcode(picode), curPos(0)
     {
     }
-  int getInt32(void);
-  long long int getInt64(void);
+  int32_t getInt32(void);
+  int64_t getInt64(void);
   VAddr getVAddr(void){ return (VAddr)getInt32(); }
 };
 
-#define REGNUM(R) (*((int *) &pthread->reg[R]))
+#define REGNUM(R) (*((int32_t *) &pthread->reg[R]))
 #endif // For !(defined MIPS_EMUL)
 
 #endif // THREADCONTEXT_H

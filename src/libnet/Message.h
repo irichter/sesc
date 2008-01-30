@@ -17,7 +17,7 @@ class Message {
 public:
   enum DeliveryType_t {PT_TO_PT, RCV_AND_PASS, RCV};
   /*
-    PT_TO_PT is a normal point-to-point message
+    PT_TO_PT is a normal point-to-point32_t message
     RCV_AND_PASS is for broadcast messages -- Router sends message up
       to cache and to neighbor
     RCV -- Router sends message to subsequent processor (ask Karin)
@@ -71,7 +71,7 @@ protected:
   
   size_t nSize;
 
-  unsigned int refCount; // number of references counter 
+  uint32_t refCount; // number of references counter 
 
   Message();
   virtual ~Message() {
@@ -136,9 +136,9 @@ public:
   }
 #endif
 
-  virtual int getUniqueProtID() const = 0;
+  virtual int32_t getUniqueProtID() const = 0;
   
-  void setSize(unsigned int size);
+  void setSize(uint32_t size);
 
   size_t getSize() const {
     return nSize;

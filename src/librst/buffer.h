@@ -35,10 +35,10 @@ typedef struct {
 class RstzipBuffer {
 public:
   rstf_unionT* rstbuf;
-  int nrecs;
-  int curindex;
+  int32_t nrecs;
+  int32_t curindex;
 
-  RstzipBuffer(int bufsize) {
+  RstzipBuffer(int32_t bufsize) {
     rstbuf = (rstf_unionT*) malloc((bufsize + PADDING) * sizeof(rstf_unionT));
     nrecs = 0;
     curindex = 0;
@@ -49,7 +49,7 @@ public:
     free(rstbuf);
   }
 
-  int fillBuffer(rstf_unionT* buf, int bufrecs) {
+  int32_t fillBuffer(rstf_unionT* buf, int32_t bufrecs) {
     if (nrecs + bufrecs < buffersize + PADDING) {
       memcpy(&rstbuf[nrecs], buf, bufrecs * sizeof(rstf_unionT));
       nrecs += bufrecs;
@@ -62,8 +62,8 @@ public:
     return nrecs;
   }
 
-  int getLastCpuRecIndex() {
-    int i;
+  int32_t getLastCpuRecIndex() {
+    int32_t i;
 
     for (i = nrecs - 1; i >= 0; i--) {
       if (rstbuf[i].proto.rtype == CPU_T) {
@@ -74,7 +74,7 @@ public:
     return i;
   }
 
-  int shiftBuffer(int index) {
+  int32_t shiftBuffer(int32_t index) {
     if (index > nrecs) {
       fprintf(stderr, "Error: in RstzipBuffer::shiftBuffer() index (%d) > nrecs (%d)\n", index, nrecs);
       exit(1);
@@ -99,7 +99,7 @@ protected:
     PADDING = 1000
   };
 
-  int buffersize;
+  int32_t buffersize;
 };  // RstzipBuffer
 
 #endif  // _BUFFER_H

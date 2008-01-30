@@ -64,14 +64,14 @@ public:
   };
 
 protected:
-  const int id;
+  const int32_t id;
 
   GStatsCntr nHit;  // N.B. predictors should not update these counters directly
   GStatsCntr nMiss; // in their predict() function.
 
   GStatsEnergy *bpredEnergy;
-  int bpred4Cycle;
-  int bpred4CycleAddrShift;
+  int32_t bpred4Cycle;
+  int32_t bpred4CycleAddrShift;
 
   HistoryType calcInstID(const Instruction *inst) const {
     HistoryType cid = inst->currentID(); // psudo-PC works, no need addr (slower)
@@ -85,7 +85,7 @@ protected:
   }
 protected:
 public:
-  BPred(int i, int fetchWidth, const char *section, const char *name);
+  BPred(int32_t i, int32_t fetchWidth, const char *section, const char *name);
   virtual ~BPred();
 
   // If oracleID is not passed, the predictor is not updaed
@@ -112,11 +112,11 @@ private:
   const ushort RasSize;
 
   InstID *stack;
-  int index;
+  int32_t index;
   GStatsEnergy *rasEnergy;
 protected:
 public:
-  BPRas(int i, int fetchWidth, const char *section);
+  BPRas(int32_t i, int32_t fetchWidth, const char *section);
   ~BPRas();
   PredType predict(const Instruction * inst, InstID oracleID, bool doUpdate);
 
@@ -141,13 +141,13 @@ private:
     }
   };
 
-  typedef CacheGeneric<BTBState, uint, false> BTBCache;
+  typedef CacheGeneric<BTBState, uint32_t, false> BTBCache;
   
   BTBCache *data;
   
 protected:
 public:
-  BPBTB(int i, int fetchWidth, const char *section, const char *name=0);
+  BPBTB(int32_t i, int32_t fetchWidth, const char *section, const char *name=0);
   ~BPBTB();
 
   PredType predict(const Instruction * inst, InstID oracleID, bool doUpdate);
@@ -163,7 +163,7 @@ private:
 
 protected:
 public:
-  BPOracle(int i, int fetchWidth, const char *section)
+  BPOracle(int32_t i, int32_t fetchWidth, const char *section)
     :BPred(i, fetchWidth, section, "Oracle")
     ,btb(i, fetchWidth, section) {
   }
@@ -178,7 +178,7 @@ class BPNotTaken : public BPred {
 private:
 protected:
 public:
-  BPNotTaken(int i, int fetchWidth, const char *section)
+  BPNotTaken(int32_t i, int32_t fetchWidth, const char *section)
     :BPred(i, fetchWidth, section, "NotTaken") {
     // Done
   }
@@ -195,7 +195,7 @@ private:
 
 protected:
 public:
-  BPTaken(int i, int fetchWidth, const char *section)
+  BPTaken(int32_t i, int32_t fetchWidth, const char *section)
     :BPred(i, fetchWidth, section, "Taken") 
     ,btb(  i, fetchWidth, section) {
     // Done
@@ -213,7 +213,7 @@ private:
 
 protected:
 public:
-  BPStatic(int i, int fetchWidth, const char *section)
+  BPStatic(int32_t i, int32_t fetchWidth, const char *section)
     :BPred(i, fetchWidth, section, "Static") 
     ,btb(  i, fetchWidth, section) {
     // Done
@@ -232,7 +232,7 @@ private:
   SCTable table;
 protected:
 public:
-  BP2bit(int i, int fetchWidth, const char *section);
+  BP2bit(int32_t i, int32_t fetchWidth, const char *section);
 
   PredType predict(const Instruction * inst, InstID oracleID, bool doUpdate);
 
@@ -245,7 +245,7 @@ private:
   BPBTB btb;
 
   const ushort l1Size;
-  const uint  l1SizeMask;
+  const uint32_t  l1SizeMask;
 
   const ushort historySize;
   const HistoryType historyMask;
@@ -255,7 +255,7 @@ private:
   HistoryType *historyTable; // LHR
 protected:
 public:
-  BP2level(int i, int fetchWidth, const char *section);
+  BP2level(int32_t i, int32_t fetchWidth, const char *section);
   ~BP2level();
 
   PredType predict(const Instruction * inst, InstID oracleID, bool doUpdate);
@@ -280,7 +280,7 @@ private:
 
 protected:
 public:
-  BPHybrid(int i, int fetchWidth, const char *section);
+  BPHybrid(int32_t i, int32_t fetchWidth, const char *section);
   ~BPHybrid();
 
   PredType predict(const Instruction * inst, InstID oracleID, bool doUpdate);
@@ -310,7 +310,7 @@ private:
   HistoryType history;
 protected:
 public:
-  BP2BcgSkew(int i, int fetchWidth, const char *section);
+  BP2BcgSkew(int32_t i, int32_t fetchWidth, const char *section);
   ~BP2BcgSkew();
   
   PredType predict(const Instruction * inst, InstID oracleID, bool doUpdate);
@@ -342,7 +342,7 @@ private:
 
 protected:
 public:
-  BPyags(int i, int fetchWidth, const char *section);
+  BPyags(int32_t i, int32_t fetchWidth, const char *section);
   ~BPyags();
   
   PredType predict(const Instruction * inst, InstID oracleID, bool doUpdate);
@@ -355,33 +355,33 @@ class BPOgehl : public BPred {
 private:
   BPBTB btb;
   
-  const int M_SIZ;
-  const int glength;
-  const int nentry;
-  const int addwidth;
-  int logpred;
+  const int32_t M_SIZ;
+  const int32_t glength;
+  const int32_t nentry;
+  const int32_t addwidth;
+  int32_t logpred;
 
-  int THETA;
-  int MAXTHETA;
-  int THETAUP;
-  int PREDUP;
+  int32_t THETA;
+  int32_t MAXTHETA;
+  int32_t THETAUP;
+  int32_t PREDUP;
 
   long long phist;
   long long *ghist;
-  int *histLength;
-  int *usedHistLength;
+  int32_t *histLength;
+  int32_t *usedHistLength;
   
-  int *T;
-  int AC;  
-  int miniTag;
+  int32_t *T;
+  int32_t AC;  
+  int32_t miniTag;
   char *MINITAG;
   
   char **pred;
-  int TC;
+  int32_t TC;
 protected:
-  int geoidx(long long Add, long long *histo, long long phisto, int m, int funct);
+  int32_t geoidx(long long Add, long long *histo, long long phisto, int32_t m, int32_t funct);
 public:
-  BPOgehl(int i, int fetchWidth, const char *section);
+  BPOgehl(int32_t i, int32_t fetchWidth, const char *section);
   ~BPOgehl();
   
   PredType predict(const Instruction * inst, InstID oracleID, bool doUpdate);
@@ -392,7 +392,7 @@ public:
 
 class BPredictor {
 private:
-  const int id;
+  const int32_t id;
   const bool SMTcopy;
 
   BPRas ras;
@@ -406,10 +406,10 @@ private:
 
 protected:
 public:
-  BPredictor(int i, int fetchWidth, const char *section, BPredictor *bpred=0);
+  BPredictor(int32_t i, int32_t fetchWidth, const char *section, BPredictor *bpred=0);
   ~BPredictor();
 
-  static BPred *getBPred(int id, int fetchWidth, const char *sec);
+  static BPred *getBPred(int32_t id, int32_t fetchWidth, const char *sec);
 
   PredType predict(const Instruction *inst, InstID oracleID, bool doUpdate) {
     I(inst->isBranch());

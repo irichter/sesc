@@ -40,21 +40,21 @@ Rstzip2if::~Rstzip2if() {
 
 // ==== Version routines ====
 
-int Rstzip2if::getMajorVersion() {
+int32_t Rstzip2if::getMajorVersion() {
   return RSTZIP_MAJOR_VERSION;
 }
 
-int Rstzip2if::getMinorVersion() {
+int32_t Rstzip2if::getMinorVersion() {
   return RSTZIP_MINOR_VERSION;
 }
 
 // ==== Compression routines ====
 
-int Rstzip2if::openRstzip(const char* outfile, int buffersize, int gzip, int stats, int numcpus) {
+int32_t Rstzip2if::openRstzip(const char* outfile, int32_t buffersize, int32_t gzip, int32_t stats, int32_t numcpus) {
   return rstzip->openRstzip(outfile, buffersize, gzip, stats, numcpus);
 }
 
-int Rstzip2if::compress(rstf_unionT* rstbuf, int nrecs) {
+int32_t Rstzip2if::compress(rstf_unionT* rstbuf, int32_t nrecs) {
   return rstzip->compress(rstbuf, nrecs);
 }
 
@@ -64,11 +64,11 @@ void Rstzip2if::closeRstzip() {
 
 // ==== Decompression routines ====
 
-int Rstzip2if::openRstunzip(const char* infile, int buffersize, int gzip, int stats) {
+int32_t Rstzip2if::openRstunzip(const char* infile, int32_t buffersize, int32_t gzip, int32_t stats) {
   return rstzip->openRstunzip(infile, buffersize, gzip, stats);
 }
 
-int Rstzip2if::decompress(rstf_unionT* rstbuf, int nrecs) {
+int32_t Rstzip2if::decompress(rstf_unionT* rstbuf, int32_t nrecs) {
   return rstzip->decompress(rstbuf, nrecs);
 }
 
@@ -78,15 +78,15 @@ void Rstzip2if::closeRstunzip() {
 
 // C wrapper prototypes.
 
-int rz2_getMajorVersion(Rstzip2if* rstzip) {
+int32_t rz2_getMajorVersion(Rstzip2if* rstzip) {
   return rstzip->getMajorVersion();
 }
 
-int rz2_getMinorVersion(Rstzip2if* rstzip) {
+int32_t rz2_getMinorVersion(Rstzip2if* rstzip) {
   return rstzip->getMinorVersion();
 }
 
-Rstzip2if* rz2_openRstzip(char* outfile, int buffersize, int gzip, int stats, int numcpus) {
+Rstzip2if* rz2_openRstzip(char* outfile, int32_t buffersize, int32_t gzip, int32_t stats, int32_t numcpus) {
   Rstzip2if* rstzip = new Rstzip2if;
 
   assert(rstzip != NULL);
@@ -95,7 +95,7 @@ Rstzip2if* rz2_openRstzip(char* outfile, int buffersize, int gzip, int stats, in
   return rstzip;
 }
 
-int rz2_compress(Rstzip2if* rstzip, rstf_unionT* rstbuf, int nrecs) {
+int32_t rz2_compress(Rstzip2if* rstzip, rstf_unionT* rstbuf, int32_t nrecs) {
   return rstzip->compress(rstbuf, nrecs);
 }
 
@@ -104,7 +104,7 @@ void rz2_closeRstzip(Rstzip2if* rstzip) {
   delete rstzip;
 }
 
-Rstzip2if* rz2_openRstunzip(char* infile, int buffersize, int gzip, int stats) {
+Rstzip2if* rz2_openRstunzip(char* infile, int32_t buffersize, int32_t gzip, int32_t stats) {
   Rstzip2if* rstunzip = new Rstzip2if;
 
   assert(rstunzip != NULL);
@@ -113,7 +113,7 @@ Rstzip2if* rz2_openRstunzip(char* infile, int buffersize, int gzip, int stats) {
   return rstunzip;
 }
 
-int rz2_decompress(Rstzip2if* rstunzip, rstf_unionT* rstbuf, int nrecs) {
+int32_t rz2_decompress(Rstzip2if* rstunzip, rstf_unionT* rstbuf, int32_t nrecs) {
   return rstunzip->decompress(rstbuf, nrecs);
 }
 

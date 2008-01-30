@@ -5,7 +5,7 @@
 
 SignatureVector::SignatureVector(){
   // Clear all bits
-  for(int i = 0; i < 16; i++){
+  for(int32_t i = 0; i < 16; i++){
     signator[i] = 0;
   }// End Array
 }
@@ -13,20 +13,20 @@ SignatureVector::SignatureVector(){
 SignatureVector::~SignatureVector(){}
 
 
-void SignatureVector::setPCBit(unsigned int pc)
+void SignatureVector::setPCBit(uint32_t pc)
 {
   setBit(hashPC(pc));
 }
 
-int SignatureVector::hashPC(unsigned int pc)
+int32_t SignatureVector::hashPC(uint32_t pc)
 {
 #ifdef ADVANCED_HASH
-  unsigned int temp9;
-  unsigned int temp3High;
-  unsigned int temp3Mid;
-  unsigned int temp3Low;
-  unsigned int resultTri;
-  unsigned int result;
+  uint32_t temp9;
+  uint32_t temp3High;
+  uint32_t temp3Mid;
+  uint32_t temp3Low;
+  uint32_t resultTri;
+  uint32_t result;
 
   result = 0;
 
@@ -68,27 +68,27 @@ int SignatureVector::hashPC(unsigned int pc)
 }
 
 #if 0
-int SignatureVector::hashPC(unsigned int pc){
-  unsigned int t1, bits_4, bits_3, bits_2;
-  unsigned int result = 0;
+int32_t SignatureVector::hashPC(uint32_t pc){
+  uint32_t t1, bits_4, bits_3, bits_2;
+  uint32_t result = 0;
   
   t1 = (pc & 0xFFFF0000) >> 16;
   bits_4 = 0;
-  for(int i = 0; i < 4; i++){
+  for(int32_t i = 0; i < 4; i++){
     bits_4 = (t1 & 0xF) ^ bits_4; 
     t1 = t1 >> 4;
   }
  
   t1 = (pc & 0x0000FF80) >> 7;
   bits_3 = 0;
-  for(int i = 0; i <3 ; i++){
+  for(int32_t i = 0; i <3 ; i++){
     bits_3 = (t1 & 0x7) ^ bits_3;
     t1 = t1 >> 3;
   }
 
   t1 = (pc & 0x0000007D)  ;
   bits_2 = 0;
-  for(int i = 0; i < 2; i++){
+  for(int32_t i = 0; i < 2; i++){
     bits_2 = (t1 & 0x3) ^ bits_2;
     t1 = t1 >> 2 ;
   }
@@ -99,11 +99,11 @@ int SignatureVector::hashPC(unsigned int pc){
 }
 #endif
 
-void SignatureVector::setBit(int index)
+void SignatureVector::setBit(int32_t index)
 {
-  int arrayIndex  = 0;
-  int subIndex    = 0;
-  int range_count = 32;
+  int32_t arrayIndex  = 0;
+  int32_t subIndex    = 0;
+  int32_t range_count = 32;
 
 //printf("Set bit:%d", index);
 
@@ -126,15 +126,15 @@ void SignatureVector::setBit(int index)
   signator[arrayIndex] = signator[arrayIndex] | (1 << subIndex);
 }
 
-int SignatureVector::getNumberOfBits()
+int32_t SignatureVector::getNumberOfBits()
 {
   I(0);
 
-  int bitCount = 0;
-  int tempLong = 0;
-  for(int i = 0; i < 16; i++){
+  int32_t bitCount = 0;
+  int32_t tempLong = 0;
+  for(int32_t i = 0; i < 16; i++){
     tempLong =signator[i];
-    for(int j = 0; j < 32; j++){
+    for(int32_t j = 0; j < 32; j++){
       if(tempLong & 0x80000000){
         bitCount++;
       }
@@ -145,13 +145,13 @@ int SignatureVector::getNumberOfBits()
   return 1;
 }
 
-int SignatureVector::getNumberOfBits(unsigned int input)
+int32_t SignatureVector::getNumberOfBits(uint32_t input)
 {
-  int bitCount = 0;
-  unsigned int tempLong = 0;
+  int32_t bitCount = 0;
+  uint32_t tempLong = 0;
  
   tempLong =input;
-  for(int j = 0; j < sizeof(unsigned int); j++) {
+  for(int32_t j = 0; j < sizeof(uint32_t); j++) {
     
     bitCount = bitCount + (tempLong & 0x1);
 
@@ -161,17 +161,17 @@ int SignatureVector::getNumberOfBits(unsigned int input)
   return bitCount;
 }
 
-float SignatureVector::getSignatureDifference(unsigned int compareSig[])
+float SignatureVector::getSignatureDifference(uint32_t compareSig[])
 {
   float percentDif = 0.0;
-  int bitCountCommon = 0;
-  int bitCountDiff = 0;
+  int32_t bitCountCommon = 0;
+  int32_t bitCountDiff = 0;
 
-  unsigned int bitsCommon[16];
-  unsigned int bitsDiff[16];
+  uint32_t bitsCommon[16];
+  uint32_t bitsDiff[16];
 
 
-  for(int i = 0; i < 16; i++){
+  for(int32_t i = 0; i < 16; i++){
     bitsDiff[i]   = signator[i] ^ compareSig[i];
     bitsCommon[i] = signator[i] & compareSig[i];
     
@@ -189,15 +189,15 @@ float SignatureVector::getSignatureDifference(unsigned int compareSig[])
   return percentDif;
 }
 
-unsigned int* SignatureVector::getSignature(){
+uint32_t* SignatureVector::getSignature(){
 	return signator;
 }
 
-int SignatureVector::matchBits(unsigned int compareSig[16]){
+int32_t SignatureVector::matchBits(uint32_t compareSig[16]){
 
-  unsigned int tempLong;
-  unsigned int tempComp;
-  for(int i = 0; i < 16; i++){
+  uint32_t tempLong;
+  uint32_t tempComp;
+  for(int32_t i = 0; i < 16; i++){
     tempLong = signator[i];
     tempComp = compareSig[i];
       if(tempLong ^ tempComp){
@@ -208,16 +208,16 @@ int SignatureVector::matchBits(unsigned int compareSig[16]){
   return 1;
 }
 
-int SignatureVector:: copySignature(unsigned int copySig[]){
-  for(int i = 0; i < 16; i++){
+int32_t SignatureVector:: copySignature(uint32_t copySig[]){
+  for(int32_t i = 0; i < 16; i++){
     signator[i] = copySig[i];
   }// End Array
   
   return 1;
 }
 
-int SignatureVector:: clearBits(){
-  for(int i = 0; i < 16; i++){
+int32_t SignatureVector:: clearBits(){
+  for(int32_t i = 0; i < 16; i++){
     signator[i] = 0;
   }// End Array
   
@@ -233,15 +233,15 @@ SignatureTable::SignatureTable()
 
 SignatureTable::~SignatureTable()
 {
-  for(int i = 0; i < 128; i++){
+  for(int32_t i = 0; i < 128; i++){
     //   delete(&sigEntries[i]);
   }
 }
 
-int SignatureTable::isSignatureInTable(SignatureVector vec)
+int32_t SignatureTable::isSignatureInTable(SignatureVector vec)
 {
   SignatureEntry *entry;
-  for(int i = 0; i < 128; i++){
+  for(int32_t i = 0; i < 128; i++){
     entry = &sigEntries[i];
     if(entry->taken != 0){
       if(entry->sigVec.matchBits(vec.getSignature())){
@@ -252,7 +252,7 @@ int SignatureTable::isSignatureInTable(SignatureVector vec)
   return -1;
 }
 
-int SignatureTable::getSignatureMode(int index)
+int32_t SignatureTable::getSignatureMode(int32_t index)
 {
   SignatureEntry *entry = &sigEntries[index];
   if(entry->taken == 0)
@@ -261,7 +261,7 @@ int SignatureTable::getSignatureMode(int index)
   return entry->mode;
 }
 
-int SignatureTable::addSignatureVector(SignatureVector vec, int mode)
+int32_t SignatureTable::addSignatureVector(SignatureVector vec, int32_t mode)
 {
   SignatureEntry *entry = &sigEntries[nextUpdatePos];
   //vec.copySignature(entry->sigVec.getSignature()); // Need to make a copy constructor
@@ -296,19 +296,19 @@ PipeLineSelector::~PipeLineSelector()
 }
 
 //=====================================================
-void PipeLineSelector::updateCurrSignature(unsigned int pc)
+void PipeLineSelector::updateCurrSignature(uint32_t pc)
 {
   signatureCurr.setPCBit(pc);
 }
 
 
-double PipeLineSelector::calculateEDD(int currClockCount, double currTotEnergy)
+double PipeLineSelector::calculateEDD(int32_t currClockCount, double currTotEnergy)
 { 
   double caculatedEDD = 0;
   //double energy =  GStatsEnergy::getTotalEnergy();
   
   double delta_energy = currTotEnergy - totEnergy;       
-  int  delta_time = currClockCount - clockCount;
+  int32_t  delta_time = currClockCount - clockCount;
   caculatedEDD = (delta_energy/100) * ((double)delta_time/100.0* (double)delta_time/100.0);
   
   return caculatedEDD;
@@ -323,7 +323,7 @@ void PipeLineSelector::report(const char* str)
 }
 
 //====================================================================================
-int PipeLineSelector::getPipeLineMode(unsigned int pc)
+int32_t PipeLineSelector::getPipeLineMode(uint32_t pc)
 { 
  
 
@@ -340,10 +340,10 @@ int PipeLineSelector::getPipeLineMode(unsigned int pc)
 
    double currTotEnergy =0;
 
-	int currClockCount = globalClock;
+	int32_t currClockCount = globalClock;
   // FIXME: begin of getPipeLineMode (move previous instructions to updateHashPC)
   float signatureDiff = 0.0;
-  int tableIndex;
+  int32_t tableIndex;
 
   windowInstCount = 0;
   // We can calclulate the edd for the last window

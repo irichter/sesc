@@ -25,7 +25,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "VBus.h"
 #include "SescConf.h"
 
-VMemorySystem::VMemorySystem(int processorId)
+VMemorySystem::VMemorySystem(int32_t processorId)
   : MemorySystem(processorId)
 {
   baseCache = 0;

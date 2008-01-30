@@ -16,25 +16,25 @@
 //==================================================================
 class SignatureVector {
  private:
-  unsigned int signator[16];
+  uint32_t signator[16];
  public:
   SignatureVector();
   ~SignatureVector();
   
-  unsigned int* getSignature();
+  uint32_t* getSignature();
   
-  int  hashPC(unsigned int pc);
+  int32_t  hashPC(uint32_t pc);
 
-  void setPCBit(unsigned int pc); // Calls hashPC
-  void setBit(int index);
+  void setPCBit(uint32_t pc); // Calls hashPC
+  void setBit(int32_t index);
 
-  int getNumberOfBits();
-  int getNumberOfBits(unsigned int input);
-  int matchBits(unsigned int compareSig[]);
+  int32_t getNumberOfBits();
+  int32_t getNumberOfBits(uint32_t input);
+  int32_t matchBits(uint32_t compareSig[]);
 
-  float getSignatureDifference(unsigned int compareSig[]);
-  int copySignature(unsigned int copySig[]);
-  int clearBits();
+  float getSignatureDifference(uint32_t compareSig[]);
+  int32_t copySignature(uint32_t copySig[]);
+  int32_t clearBits();
 };
 
 
@@ -44,9 +44,9 @@ class SignatureVector {
 class SignatureEntry{
 public:
   SignatureVector sigVec;
-  int mode;
-  int taken;
-  int accessTimes; // For LRU policy (to be implemented )
+  int32_t mode;
+  int32_t taken;
+  int32_t accessTimes; // For LRU policy (to be implemented )
   
   SignatureEntry(){               
     mode = -1;
@@ -61,15 +61,15 @@ public:
 class SignatureTable {
  private:
   SignatureEntry sigEntries[128];
-  int nextUpdatePos;
+  int32_t nextUpdatePos;
 
  public:
   /* Return -1, index in array */
   SignatureTable();
   ~SignatureTable();
-  int isSignatureInTable(SignatureVector signature);
-  int addSignatureVector(SignatureVector signature, int mode);
-  int getSignatureMode(int index);
+  int32_t isSignatureInTable(SignatureVector signature);
+  int32_t addSignatureVector(SignatureVector signature, int32_t mode);
+  int32_t getSignatureMode(int32_t index);
 };
 
 //==========================================================================
@@ -83,20 +83,20 @@ class PipeLineSelector {
   SignatureTable table;
   
   double totEnergy;
-  int clockCount;
+  int32_t clockCount;
   double inOrderEDD, outOrderEDD; // Energy * delay^2
   
-  int windowInstCount; // counter from 0 - 10,000
-  int trainWindowCount;  
-  int currPipelineMode, currState; 
+  int32_t windowInstCount; // counter from 0 - 10,000
+  int32_t trainWindowCount;  
+  int32_t currPipelineMode, currState; 
   
-  void updateCurrSignature(unsigned int pc);
-  double calculateEDD(int currClockCount, double currTotEnergy);
+  void updateCurrSignature(uint32_t pc);
+  double calculateEDD(int32_t currClockCount, double currTotEnergy);
         
  public:
   PipeLineSelector();
   ~PipeLineSelector();
-  int getPipeLineMode(unsigned int pc, int currClockCount, double currTotEnergy); // called on every clock
+  int32_t getPipeLineMode(uint32_t pc, int32_t currClockCount, double currTotEnergy); // called on every clock
 };
 
 #endif   // SIGNATURE_H

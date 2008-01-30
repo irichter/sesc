@@ -41,8 +41,8 @@ namespace tls{
     syncDelta=SescConf->getInt("TLS","LClockSyncDelta");
   }
 
-  unsigned int numBegThread=0;
-  unsigned int numEndThread=0;
+  uint32_t numBegThread=0;
+  uint32_t numEndThread=0;
 
   InstrCount Epoch::limitEpochInstrCount;
   InstrCount Epoch::maxEpochInstrCount=0;
@@ -276,7 +276,7 @@ namespace tls{
   size_t Thread::limitThreadAllVersions;
   size_t Thread::maxThreadAllVersions=0;
 
-  void simExpired(int sig){
+  void simExpired(int32_t sig){
     raise(SIGUSR1);
     raise(SIGKILL);
   }
@@ -292,14 +292,14 @@ namespace tls{
       itv.it_value.tv_usec=0;
       itv.it_interval.tv_sec=0;
       itv.it_interval.tv_usec=0;    
-      int timerRes=setitimer(ITIMER_VIRTUAL,&itv,0);
+      int32_t timerRes=setitimer(ITIMER_VIRTUAL,&itv,0);
       I(timerRes==0);
       struct sigaction sac;
       sac.sa_handler=simExpired;
-      int setRes=sigemptyset(&(sac.sa_mask));
+      int32_t setRes=sigemptyset(&(sac.sa_mask));
       I(setRes==0);
       sac.sa_flags=SA_ONESHOT|SA_NOMASK;
-      int actionRes=sigaction(SIGVTALRM,&sac,0);
+      int32_t actionRes=sigaction(SIGVTALRM,&sac,0);
       I(actionRes==0);
     }
     SescConf->isInt("TLS","limitThreadInstrCount");
@@ -1990,7 +1990,7 @@ namespace tls{
     }
     // Now my state is LazyMerge
     myState=State::LazyMerge;
-    // Find the checkpoint to merge into and start the merging process
+    // Find the checkpoint32_t to merge into and start the merging process
     myCheckpoint=Checkpoint::mergeInit(this);
     I(pidToEpoch[myPidTmp]==this);
     if(blockRemovalEnabled)
@@ -2229,7 +2229,7 @@ namespace tls{
       BufferBlockList::iterator currWrPos=block->writersPos;
       BufferBlockList::iterator newAcPos=block->accessorsPos;
       BufferBlockList::iterator newWrPos=block->writersPos;
-      // This is a write block. Because read blocks point to the
+      // This is a write block. Because read blocks point32_t to the
       // first predecessor writer block, when we advance this
       // block we must adjust the write position of read blocks
       // we pass. We do this until we either reach our new position
@@ -2492,7 +2492,7 @@ namespace tls{
     //BACKEND:If this was called by backend remove it from list
 
 //   	printf("myBlockRemovalRequests count after erase %u\n",myBlockRemovalRequests.size());
-    int blkCount = Epoch::pendWb.count(baseAddr);
+    int32_t blkCount = Epoch::pendWb.count(baseAddr);
     if (blkCount>0)
     {
     	printf("Clear address %ul\n",baseAddr);
@@ -2946,8 +2946,8 @@ namespace tls{
       // Process the writes that precede this read and do the copy-in
       if(backMask){
 	// Destination address for data copy-in
-	unsigned char *dstDataPtr=
-	  (unsigned char *)(bufferBlock->wkData)+blockOffs-chunkOffs;	
+	uint8_t *dstDataPtr=
+	  (uint8_t *)(bufferBlock->wkData)+blockOffs-chunkOffs;	
 	for(BlockVersions::ConflictList::const_iterator wrBeforeIt=writesBefore.begin();
 	    wrBeforeIt!=writesBefore.end();wrBeforeIt++){
 	  BufferBlock *wrBeforeBlock=wrBeforeIt->block;
@@ -2957,8 +2957,8 @@ namespace tls{
           // If block is not merged, copy-in the bytes we need
           if(!wrBeforeBlock->isMerged()){
 	    // Source data for copy-in is in the predecessor's buffer
-	    unsigned char *srcDataPtr=
-	      (unsigned char *)(wrBeforeBlock->wkData)+blockOffs-chunkOffs;
+	    uint8_t *srcDataPtr=
+	      (uint8_t *)(wrBeforeBlock->wkData)+blockOffs-chunkOffs;
 	    BufferBlock::maskedChunkCopy(srcDataPtr,dstDataPtr,wrBeforeMask);
 	    // Add the bytes to exposed read mask
 	    bufferBlock->xpMask[chunkIndx]|=wrBeforeMask;
@@ -3015,7 +3015,7 @@ namespace tls{
 	}
 	if(memMask){
 	  // Source data for copy-in is in main memory
-	  unsigned char *srcDataPtr=(unsigned char *)(dAddrR-chunkOffs);
+	  uint8_t *srcDataPtr=(uint8_t *)(dAddrR-chunkOffs);
 	  BufferBlock::maskedChunkCopy(srcDataPtr,dstDataPtr,memMask);
 	  // Add the bytes to exposed read mask, unless we are in condition mode
 	  bufferBlock->xpMask[chunkIndx]|=memMask;

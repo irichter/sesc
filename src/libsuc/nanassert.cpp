@@ -57,7 +57,7 @@ void nanassertexit(){
 void VoidNoGCCMSG(const char *format, ...) {
 }
 
-void VoidNoGCCGMSG(int g, const char *format, ...) {
+void VoidNoGCCGMSG(int32_t g, const char *format, ...) {
 }
 
 void NoGCCMSG(const char *format, ...) {
@@ -70,7 +70,7 @@ void NoGCCMSG(const char *format, ...) {
   fprintf(ASSERTSTREAM, "\n");
 }
 
-void NoGCCGMSG(int g, const char *format, ...) {
+void NoGCCGMSG(int32_t g, const char *format, ...) {
 
   va_list ap;
 
@@ -126,8 +126,8 @@ void nanassertTRACE(const char *envvar,
                     const char *format,
                     ...)
 {
-  static int doTrace = -1;
-  int found;
+  static int32_t doTrace = -1;
+  int32_t found;
   va_list ap;
 
   if(doTrace == -1) {

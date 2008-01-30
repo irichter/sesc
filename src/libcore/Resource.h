@@ -116,7 +116,7 @@ protected:
   GStatsEnergyBase *stqRdWrEnergy;  // Read-write operations (insert, exec, retire)
   GStatsEnergyBase *iAluEnergy;
 
-  MemResource(Cluster *cls, PortGeneric *aGen, GMemorySystem *ms, int id, const char *cad);
+  MemResource(Cluster *cls, PortGeneric *aGen, GMemorySystem *ms, int32_t id, const char *cad);
 public:
 };
 
@@ -124,7 +124,7 @@ class FUMemory : public MemResource {
 private:
 protected:
 public:
-  FUMemory(Cluster *cls, GMemorySystem *ms, int id);
+  FUMemory(Cluster *cls, GMemorySystem *ms, int32_t id);
 
   StallCause canIssue(DInst *dinst);
   void simTime(DInst *dinst);
@@ -139,8 +139,8 @@ private:
 
   const TimeDelta_t lat;
   const TimeDelta_t LSDelay;
-  int freeLoads;
-  int misLoads; // loads from wrong paths
+  int32_t freeLoads;
+  int32_t misLoads; // loads from wrong paths
 
 protected:
   void cacheDispatched(DInst *dinst);
@@ -150,14 +150,14 @@ public:
   FULoad(Cluster *cls, PortGeneric *aGen
          ,TimeDelta_t l, TimeDelta_t lsdelay
          ,GMemorySystem *ms, size_t maxLoads
-         ,int id);
+         ,int32_t id);
 
   StallCause canIssue(DInst *dinst);
   void simTime(DInst *dinst);
   RetOutcome retire(DInst *dinst);
 
   void executed(DInst *dinst);
-  int freeEntries() const { return freeLoads; }
+  int32_t freeEntries() const { return freeLoads; }
 
 
 #ifdef SESC_MISPATH
@@ -172,11 +172,11 @@ private:
   GStatsCntr  nDeadStore;
 
   const TimeDelta_t lat;
-  int               freeStores;
-  int               misStores;
+  int32_t               freeStores;
+  int32_t               misStores;
 
   bool pendingFence;
-  int  nOutsStores;
+  int32_t  nOutsStores;
 
   GStatsCntr   nFences;
   GStatsCntr   fenceStallCycles;
@@ -189,14 +189,14 @@ public:
           ,TimeDelta_t l
           ,GMemorySystem *ms
           ,size_t maxLoads
-          ,int id);
+          ,int32_t id);
 
   StallCause canIssue(DInst *dinst);
   void simTime(DInst *dinst);
   void executed(DInst *dinst);
   RetOutcome retire(DInst *dinst);
 
-  int freeEntries() const { return freeStores; }
+  int32_t freeEntries() const { return freeStores; }
 
 
 #ifdef SESC_MISPATH
@@ -235,11 +235,11 @@ class SpawnRob;
 class FUBranch : public Resource {
 private:
   const TimeDelta_t lat;
-  int freeBranches;
+  int32_t freeBranches;
 
 protected:
 public:
-  FUBranch(Cluster *cls, PortGeneric *aGen, TimeDelta_t l, int mb);
+  FUBranch(Cluster *cls, PortGeneric *aGen, TimeDelta_t l, int32_t mb);
 
   StallCause canIssue(DInst *dinst);
   void simTime(DInst * dinst);

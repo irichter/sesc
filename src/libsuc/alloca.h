@@ -37,7 +37,7 @@ extern void *_alloca (size_t __size);
 #define alloca(size)    _alloca (size)
 
 #else
-extern void *alloca (unsigned int __size);
+extern void *alloca (uint32_t __size);
 #define alloca  __builtin_alloca
 #endif /* __GNUC__ */
 

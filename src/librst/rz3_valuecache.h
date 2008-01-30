@@ -40,7 +40,7 @@
 
 struct rz3_valuecache_module {
 
-  rz3_valuecache_module(int arg_size, int arg_lsbits) {
+  rz3_valuecache_module(int32_t arg_size, int32_t arg_lsbits) {
 
     size = arg_size;
     lsbits = arg_lsbits;
@@ -61,15 +61,15 @@ struct rz3_valuecache_module {
   }
 
 
-  int size;
-  int lsbits;
+  int32_t size;
+  int32_t lsbits;
   uint64_t *tags;
 
   uint64_t refs;
   uint64_t misses;
 
   // these are statistics-related variables set and used by rz3_valuecache
-  int cost; // cost per hit
+  int32_t cost; // cost per hit
   uint64_t level_hits;
   uint64_t levelcost; // total cost of hits at this level
 
@@ -99,14 +99,14 @@ static const uint64_t rz3_valuecache_size[] = {
   rz3_valuecache_size6,
 };
 
-static const int rz3_valuecache_idxbits0 = 3;
-static const int rz3_valuecache_idxbits1 = 5;
-static const int rz3_valuecache_idxbits2 = 6;
-static const int rz3_valuecache_idxbits3 = 7;
-static const int rz3_valuecache_idxbits4 = 9;
-static const int rz3_valuecache_idxbits5 = 11;
-static const int rz3_valuecache_idxbits6 = 13;
-static const int rz3_valuecache_idxbits[] = {
+static const int32_t rz3_valuecache_idxbits0 = 3;
+static const int32_t rz3_valuecache_idxbits1 = 5;
+static const int32_t rz3_valuecache_idxbits2 = 6;
+static const int32_t rz3_valuecache_idxbits3 = 7;
+static const int32_t rz3_valuecache_idxbits4 = 9;
+static const int32_t rz3_valuecache_idxbits5 = 11;
+static const int32_t rz3_valuecache_idxbits6 = 13;
+static const int32_t rz3_valuecache_idxbits[] = {
   rz3_valuecache_idxbits0,
   rz3_valuecache_idxbits1,
   rz3_valuecache_idxbits2,
@@ -116,14 +116,14 @@ static const int rz3_valuecache_idxbits[] = {
   rz3_valuecache_idxbits6,
 };
 
-static const int rz3_valuecache_lsbits0 = 4;
-static const int rz3_valuecache_lsbits1 = 6;
-static const int rz3_valuecache_lsbits2 = 7;
-static const int rz3_valuecache_lsbits3 = 8;
-static const int rz3_valuecache_lsbits4 = 9;
-static const int rz3_valuecache_lsbits5 = 10;
-static const int rz3_valuecache_lsbits6 = 12;
-static const int rz3_valuecache_lsbits[] = {
+static const int32_t rz3_valuecache_lsbits0 = 4;
+static const int32_t rz3_valuecache_lsbits1 = 6;
+static const int32_t rz3_valuecache_lsbits2 = 7;
+static const int32_t rz3_valuecache_lsbits3 = 8;
+static const int32_t rz3_valuecache_lsbits4 = 9;
+static const int32_t rz3_valuecache_lsbits5 = 10;
+static const int32_t rz3_valuecache_lsbits6 = 12;
+static const int32_t rz3_valuecache_lsbits[] = {
   rz3_valuecache_lsbits0,
   rz3_valuecache_lsbits1,
   rz3_valuecache_lsbits2,
@@ -147,7 +147,7 @@ struct rz3_valuecache {
 
     lsbmask = new uint64_t [nlevels];
 
-    int i;
+    int32_t i;
     for (i=0; i<nlevels; i++) {
       modules[i] = new rz3_valuecache_module(rz3_valuecache_size[i], rz3_valuecache_lsbits[i]);
       lsbmask[i] = (1ull << rz3_valuecache_lsbits[i]) - 1;
@@ -160,7 +160,7 @@ struct rz3_valuecache {
   }
 
   virtual ~rz3_valuecache() {
-    int i;
+    int32_t i;
     for (i=0; i<nlevels; i++) {
       delete modules[i];
       modules[i] = NULL;
@@ -174,16 +174,16 @@ struct rz3_valuecache {
 
 
   void Clear() {
-    int i;
+    int32_t i;
     for (i=0; i<nlevels; i++) {
       modules[i]->Clear();
     }
   }
 
 
-  int Ref(uint64_t v, uint64_t & key) {
+  int32_t Ref(uint64_t v, uint64_t & key) {
     refs++;
-    int i;
+    int32_t i;
 
     if (rz3_valuecache_debug) 
       fprintf(stderr, "valuecache %s: ref %lld: v=%llx ", name, refs, v);
@@ -219,7 +219,7 @@ struct rz3_valuecache {
 
   } // Ref()
 
-  bool Retrieve(int level, uint64_t key, uint64_t & v) {
+  bool Retrieve(int32_t level, uint64_t key, uint64_t & v) {
 
     if (level == nlevels) {
       v = key;
@@ -242,7 +242,7 @@ struct rz3_valuecache {
 
 
     uint64_t key2;
-    int level2;
+    int32_t level2;
     level2 = Ref(v, key2);
 
     if ((level2 != level) || (key2 != key)) {
@@ -256,9 +256,9 @@ struct rz3_valuecache {
 
 
 #if 0
-  int Ref_noupdate(uint64_t v, uint64_t & key) {
+  int32_t Ref_noupdate(uint64_t v, uint64_t & key) {
     refs++;
-    int i;
+    int32_t i;
 
     for (i=0; i<nlevels; i++) {
       modules[i]->refs++;
@@ -293,7 +293,7 @@ struct rz3_valuecache {
   uint64_t refs;
   uint64_t misses;
 
-  int level_id_bits;
+  int32_t level_id_bits;
 
   void Report(FILE *fp) {
     fprintf(fp, "\nValuecache %s report:\n", name);
@@ -302,7 +302,7 @@ struct rz3_valuecache {
     uint64_t rawcost = misses * (64 + level_id_bits);
 
     uint64_t cost = 0;
-    int i;
+    int32_t i;
     for (i=0; i<nlevels; i++) {
       modules[i]->cost = modules[i]->lsbits + nbits(modules[i]->size-1);
       modules[i]->levelcost = (modules[i]->refs-modules[i]->misses) * (modules[i]->cost + level_id_bits);
@@ -327,8 +327,8 @@ struct rz3_valuecache {
   }
 
 
-  static int nbits(uint64_t n) {
-    int rv = 1;
+  static int32_t nbits(uint64_t n) {
+    int32_t rv = 1;
     while(n>>rv) {
       rv++;
     }

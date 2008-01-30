@@ -162,8 +162,8 @@ typedef enum PPCInstEnum {
 typedef struct _PPCInstDef {
   const char *name;
   PPCInst inst;
-  int majorOpcode;
-  int extOpcode;
+  int32_t majorOpcode;
+  int32_t extOpcode;
   PPCInstForm form;
   InstType type;
   InstSubType subType;

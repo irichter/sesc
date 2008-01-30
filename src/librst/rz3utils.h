@@ -44,8 +44,8 @@
 #include "rz3_valuecache.h"
 
 
-static int rz3_nbits(uint64_t v) {
-  int rv = 1;
+static int32_t rz3_nbits(uint64_t v) {
+  int32_t rv = 1;
   while(v >> rv) {
     rv++;
   }
@@ -55,7 +55,7 @@ static int rz3_nbits(uint64_t v) {
 
 template <class vtype> struct rz3_tagged_table {
 
-  rz3_tagged_table(int size) {
+  rz3_tagged_table(int32_t size) {
     sz = size;
     tags = new uint64_t [sz];
     data= new vtype [sz];
@@ -74,13 +74,13 @@ template <class vtype> struct rz3_tagged_table {
   }
 
   void set(uint64_t key, const vtype value) {
-    int idx = (key & (sz-1));
+    int32_t idx = (key & (sz-1));
     tags[idx] = key;
     data[idx] = value;
   }
 
   vtype get(uint64_t key) {
-    int idx = key & (sz-1);
+    int32_t idx = key & (sz-1);
     if (tags[idx] == key) {
       return data[idx];
     } else {
@@ -88,7 +88,7 @@ template <class vtype> struct rz3_tagged_table {
     }
   }
 
-  int sz;
+  int32_t sz;
   uint64_t *tags;
   vtype *data;
 }; // template <class vtype> struct rz3_tagged_table
@@ -96,7 +96,7 @@ template <class vtype> struct rz3_tagged_table {
 
 template <class vtype> struct rz3_table {
 
-  rz3_table(int size) {
+  rz3_table(int32_t size) {
     sz = size;
     data= new vtype [sz];
 
@@ -112,16 +112,16 @@ template <class vtype> struct rz3_table {
   }
 
   void set(uint64_t key, const vtype value) {
-    int idx = (key & (sz-1));
+    int32_t idx = (key & (sz-1));
     data[idx] = value;
   }
 
   vtype get(uint64_t key) {
-    int idx = key & (sz-1);
+    int32_t idx = key & (sz-1);
     return data[idx];
   }
 
-  int sz;
+  int32_t sz;
   vtype *data;
 }; // template <class vtype> struct rz3_table
 
@@ -130,7 +130,7 @@ template <class vtype> struct rz3_table {
 // proximity list - used in rstzip3 to exploit temporal-spatial locality
 // to compress ea_va and regval/memval values
 struct rz3_prox_elem {
-  int valid;
+  int32_t valid;
   uint64_t data;
   rz3_prox_elem * next;
   rz3_prox_elem * prev;
@@ -138,7 +138,7 @@ struct rz3_prox_elem {
 
 
 struct rz3_prox_list {
-  rz3_prox_list(int size) {
+  rz3_prox_list(int32_t size) {
     sz = size;
     arr = new rz3_prox_elem[sz];
 
@@ -147,7 +147,7 @@ struct rz3_prox_list {
 
 
   void clear() {
-    int i;
+    int32_t i;
     for (i=0; i<sz; i++) {
 
       if (i == 0) {
@@ -167,8 +167,8 @@ struct rz3_prox_list {
 
   } // clear();
 
-  uint64_t lookup(int idx) {
-    int i;
+  uint64_t lookup(int32_t idx) {
+    int32_t i;
     rz3_prox_elem *pe = arr;
     for (i=0; i<idx; i++) {
       pe = pe->next;
@@ -180,8 +180,8 @@ struct rz3_prox_list {
   // returns the index if match, -1 otherwise
   // if v is found in the prox list, it is moved
   // to the head of the list ("most recent" position)
-  int ref(uint64_t v) {
-    int i;
+  int32_t ref(uint64_t v) {
+    int32_t i;
     rz3_prox_elem * pe = arr;
     assert(pe->prev == NULL);
     for (i=0; i<sz; i++) {
@@ -220,13 +220,13 @@ struct rz3_prox_list {
       arr = pe;
       return -1;
     }
-  } // int ref(uint64_t v)
+  } // int32_t ref(uint64_t v)
 
   ~rz3_prox_list() {
     delete [] arr;
   }
 
-  int sz;
+  int32_t sz;
   rz3_prox_elem * arr;
 
 }; // struct rz3_prox_list

@@ -36,7 +36,7 @@
 
 /* MemorySystem CLASS */
 
-MemorySystem::MemorySystem(int processorId) 
+MemorySystem::MemorySystem(int32_t processorId) 
   : GMemorySystem(processorId)
   ,pID(processorId)
 {

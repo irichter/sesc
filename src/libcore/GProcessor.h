@@ -58,11 +58,11 @@ private:
 protected:
   // Per instance data
   const CPU_t Id;
-  const int FetchWidth;
-  const int IssueWidth;
-  const int RetireWidth;
-  const int RealisticWidth;
-  const int InstQueueSize;
+  const int32_t FetchWidth;
+  const int32_t IssueWidth;
+  const int32_t RetireWidth;
+  const int32_t RealisticWidth;
+  const int32_t InstQueueSize;
   bool InOrderCore;
   const size_t MaxFlows;
   const size_t MaxROBSize;
@@ -93,9 +93,9 @@ protected:
   GStatsEnergyBase *wrRegEnergy[3]; // 0 INT, 1 FP, 2 NONE
   GStatsEnergyBase *rdRegEnergy[3]; // 0 INT, 1 FP, 2 NONE
 
-  signed int regPool[INSTRUCTION_MAX_DESTPOOL];
+  int32_t regPool[INSTRUCTION_MAX_DESTPOOL];
 #ifdef SESC_MISPATH
-  signed int misRegPool[INSTRUCTION_MAX_DESTPOOL];
+  int32_t misRegPool[INSTRUCTION_MAX_DESTPOOL];
 #endif
 
   // Updated by Processor or SMTProcessor. Shows the number of clocks
@@ -106,7 +106,7 @@ protected:
   Time_t stallUntil; //stall the cpu until
 #endif
 
-  ID(int prevDInstID);
+  ID(int32_t prevDInstID);
 
   GStatsCntr *nStall[MaxStall];
   GStatsCntr *nInst[MaxInstType];
@@ -134,11 +134,11 @@ protected:
 
   virtual StallCause addInst(DInst *dinst) = 0;
   StallCause sharedAddInst(DInst *dinst);
-  int issue(PipeQueue &pipeQ);
-  int issueFromReplayQ();
+  int32_t issue(PipeQueue &pipeQ);
+  int32_t issueFromReplayQ();
   void retire();
 
-  virtual DInst **getRAT(const int contextId) = 0;
+  virtual DInst **getRAT(const int32_t contextId) = 0;
 
   virtual FetchEngine *currentFlow() = 0;
 
@@ -163,7 +163,7 @@ public:
   virtual ~GProcessor();
   CPU_t getId() const { return Id; }
 
-  DInst *getRATEntry(const int contextId, RegType reg) {
+  DInst *getRATEntry(const int32_t contextId, RegType reg) {
     DInst **RAT = getRAT(contextId);
     return RAT[reg];
   }
@@ -176,7 +176,7 @@ public:
   // Returns the maximum number of flows this processor can support 
   size_t getMaxFlows(void) const { return MaxFlows; }
 
-  void addEvent(EventType ev, CallbackBase *cb, int vaddr);
+  void addEvent(EventType ev, CallbackBase *cb, int32_t vaddr);
 
   void report(const char *str);
 

@@ -40,7 +40,7 @@ protected:
 public:
 
   static IntlMemRequest *create(MemObj * imp
-				,int iPhAddr
+				,int32_t iPhAddr
 				,MemOperation mop
 				,TimeDelta_t lat
 				,WorkFuncType wF = 0
@@ -53,7 +53,7 @@ public:
   void setBaseData(void *data) {baseData = data; }
   void *getBaseData() const { return baseData; }
 
-  void reLaunch(int iPhAddr, MemOperation mop,
+  void reLaunch(int32_t iPhAddr, MemOperation mop,
 		TimeDelta_t lat = 0, WorkFuncType wF = 0);
 
   void schedule(TimeDelta_t lat);

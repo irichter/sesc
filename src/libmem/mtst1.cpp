@@ -20,19 +20,19 @@
 #include "TaskHandler.h"
 #endif
 
-int main(int argc, char **argv, char **envp)
+int32_t main(int32_t argc, char **argv, char **envp)
 { 
 #ifdef TASKSCALAR
   taskHandler = new TaskHandler();
 #endif
   osSim = new OSSim(argc, argv, envp);
 
-  int nProcs = SescConf->getRecordSize("","cpucore");
+  int32_t nProcs = SescConf->getRecordSize("","cpucore");
 
   std::vector<GMemorySystem *> ms(nProcs);
   std::vector<GProcessor *>    pr(nProcs);
 
-  for(int i = 0; i < nProcs; i ++) {
+  for(int32_t i = 0; i < nProcs; i ++) {
     GMemorySystem *gms = new MemorySystem(i);
     gms->buildMemorySystem();
     ms[i] = gms;
@@ -47,10 +47,10 @@ int main(int argc, char **argv, char **envp)
 
   osSim->boot();
 
-  // Reaches this point only when all the active threads have finished.
+  // Reaches this point32_t only when all the active threads have finished.
   
   
-  for(int i = 0; i < nProcs; i ++) {
+  for(int32_t i = 0; i < nProcs; i ++) {
     GProcessor *gp = pr[i];
     delete ms[i];
   }

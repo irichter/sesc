@@ -25,7 +25,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "LVIDTable.h"
 #include "TaskContext.h"
 
-unsigned int VMemObj::counter = 0;
+uint32_t VMemObj::counter = 0;
 ushort VMemObj::lineShift=0;
 
 VMemObj::VMemObj(MemorySystem *gms, const char *section, const char *name)
@@ -43,7 +43,7 @@ VMemObj::VMemObj(MemorySystem *gms, const char *section, const char *name)
   if (lineShift==0) {
     SescConf->isPower2("TaskScalar", "bsize");
     SescConf->isGT("TaskScalar", "bsize", 1);
-    int lineSize = SescConf->getInt("TaskScalar", "bsize");
+    int32_t lineSize = SescConf->getInt("TaskScalar", "bsize");
     lineShift = log2i(lineSize);
     I(lineShift < 8);
   }
@@ -55,7 +55,7 @@ VMemObj::VMemObj(MemorySystem *gms, const char *section, const char *name)
 
 void VMemObj::access(MemRequest *mreq) 
 {
-  // Main entry point for the Version Memory System
+  // Main entry point32_t for the Version Memory System
 
   I(isHighestLevel());
   I(mreq->getLVID());

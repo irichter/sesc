@@ -42,7 +42,7 @@ public:
   }
 
   void init() {
-    int i;
+    int32_t i;
 
     max_chunksize = 0;
     total_instr = 0;
@@ -63,7 +63,7 @@ public:
   }
 
   void fprint(FILE* fp) {
-    int i;
+    int32_t i;
 
     fprintf(fp, "\n");
     fprintf(fp, "Max chunksize                    = %d\n", max_chunksize);

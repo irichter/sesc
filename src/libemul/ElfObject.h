@@ -80,7 +80,7 @@ typedef struct
 
 class ThreadContext;
 
-int  checkElfObject(const char *fname);
+int32_t  checkElfObject(const char *fname);
 void loadElfObject(const char *fname, ThreadContext *threadContext);
 
 #endif

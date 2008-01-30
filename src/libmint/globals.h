@@ -118,13 +118,13 @@ EXTERN size_t Sdata_seek;		/* seek offset in file for sdata section */
 #endif
 
 /* address of the errno variable in the object program */
-EXTERN int Errno_addr;
+EXTERN int32_t Errno_addr;
 
 /* address of the environ variable in the object program */
-EXTERN int Environ_addr;
+EXTERN int32_t Environ_addr;
 
 /* text address of the exit() routine (used by the sproc() call) */
-EXTERN int Exit_addr;
+EXTERN int32_t Exit_addr;
 
 /* All queues are circular doubly linked lists with a head node.
  * When a thread exits, it goes on the Done_q until the parent waits on
@@ -138,16 +138,16 @@ EXTERN int Exit_addr;
  */
 
 /* the maximum process id ever used (process ids start at zero) */
-EXTERN int Maxpid;
+EXTERN int32_t Maxpid;
 
 /* The maximum number of processes that can be simulated. This is used
  * to allocate space. This value can be changed with the "-p" command
  * line option.
  */
-EXTERN int Max_nprocs;
+EXTERN int32_t Max_nprocs;
 
 /* the number of function pointers we need to allocate */
-extern int Nfuncs;
+extern int32_t Nfuncs;
 
 #define SESC_MAXEVENT 48
 
@@ -163,7 +163,7 @@ enum {
 };
 
 /* globals set by command line options */
-EXTERN int Every_write_ll;	/* every write checks for a load-linked */
+EXTERN int32_t Every_write_ll;	/* every write checks for a load-linked */
 
 // OpClass, OpReplayClass, and OpRestrictClass are only used in TLS,
 // but need to be defined always, to avoid using separate function
@@ -215,7 +215,7 @@ class OpClass{
 typedef struct func_desc_t{
   const char *name;	      // Name of function pointer to replace
   PFPI func;	      // Substitute function that acts as a replacement
-  int no_spec;        // The func calls can not be executed speculatively, sync to non-spec
+  int32_t no_spec;        // The func calls can not be executed speculatively, sync to non-spec
   OpClass opClass;    // Classification of this function for TLS
   // Note: opClass is used only in TLS, but it is defined always, to avoid
   // having separate function substitution tables for TLS and "normal" builds
@@ -225,20 +225,20 @@ extern func_desc_t Func_subst[];
 
 #ifndef MAIN
 /* array of starting addresses for sections, used in relocation */
-EXTERN int Section_start[];
+EXTERN int32_t Section_start[];
 #endif
 
 /* The minimum value of a function symbol in the list of names looked up.
- * Anything after this point is assumed to be library code.
+ * Anything after this point32_t is assumed to be library code.
  */
-EXTERN unsigned int Min_lib_value;
+EXTERN uint32_t Min_lib_value;
 
-EXTERN int Nlocalsyms;
-EXTERN int Gp_value;
+EXTERN int32_t Nlocalsyms;
+EXTERN int32_t Gp_value;
 
 /* function prototypes */
 icode_ptr newcopy_icode(icode_ptr picode);
 void copy_addr_space(thread_ptr parent, thread_ptr child);
-int decode_instr(icode_ptr picode, int instr);
+int32_t decode_instr(icode_ptr picode, int32_t instr);
 
 #endif /* GLOBALS_H */

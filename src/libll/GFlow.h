@@ -42,14 +42,14 @@ class GFlow {
 
   static MemObj *trainCache;
 
-  const int fid;
-  const int cpuId;
+  const int32_t fid;
+  const int32_t cpuId;
 
   GMemorySystem *gms;
   GMemoryOS *gmos;
   
  public:
-  GFlow(int i, int cId, GMemorySystem *gmem);
+  GFlow(int32_t i, int32_t cId, GMemorySystem *gmem);
 
   virtual ~GFlow() {
     // Nothing
@@ -57,24 +57,24 @@ class GFlow {
   
   virtual InstID getNextID() const = 0;
 
-  virtual void addEvent(EventType e, CallbackBase *cb, int addr) = 0;
+  virtual void addEvent(EventType e, CallbackBase *cb, int32_t addr) = 0;
 
 #if !(defined MIPS_EMUL)
   virtual ThreadContext *getThreadContext(void) = 0;
 
-  virtual void saveThreadContext(int pid) = 0;
+  virtual void saveThreadContext(int32_t pid) = 0;
 
-  virtual void loadThreadContext(int pid) = 0;
+  virtual void loadThreadContext(int32_t pid) = 0;
 
   virtual icode_ptr getInstructionPointer(void) = 0;
 
   virtual void setInstructionPointer(icode_ptr picode) = 0;
 #endif // !(defined MIPS_EMUL)
 
-  virtual void switchIn(int i) = 0;
-  virtual void switchOut(int i) = 0;
+  virtual void switchIn(int32_t i) = 0;
+  virtual void switchOut(int32_t i) = 0;
 
-  virtual int currentPid(void) = 0;
+  virtual int32_t currentPid(void) = 0;
 
   virtual void goRabbitMode(long long n2skip=0) = 0;
   virtual void dump(const char *str) const = 0;

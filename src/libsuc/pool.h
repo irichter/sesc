@@ -69,7 +69,7 @@ protected:
   Holder *allFirst; // List of Holders when active
 #endif
 
-  const int Size; // Reproduction size
+  const int32_t Size; // Reproduction size
 
   Parameter1 p1;
 
@@ -78,7 +78,7 @@ protected:
   void reproduce() {
     I(first==0);
 
-    for(int i = 0; i < Size; i++) {
+    for(int32_t i = 0; i < Size; i++) {
       Holder *h = ::new Holder(p1);
       h->holderNext = first;
       IS(h->inPool = true);
@@ -91,7 +91,7 @@ protected:
   }
 
 public:
-  pool1(Parameter1 a1, int s = 32)
+  pool1(Parameter1 a1, int32_t s = 32)
     : Size(s)
       ,p1(a1) {
     I(Size > 0);
@@ -212,7 +212,7 @@ protected:
   Holder *allFirst; // List of Holders when active
 #endif
 
-  const int Size; // Reproduction size
+  const int32_t Size; // Reproduction size
   const char *Name;
 
   Holder *first;  // List of free nodes
@@ -220,7 +220,7 @@ protected:
   void reproduce() {
     I(first==0);
 
-    for(int i = 0; i < Size; i++) {
+    for(int32_t i = 0; i < Size; i++) {
       Holder *h = ::new Holder;
       h->holderNext = first;
       IS(h->inPool = true);
@@ -233,7 +233,7 @@ protected:
   }
 
 public:
-    pool(int s = 32, const char *n = "pool name not declared")
+    pool(int32_t s = 32, const char *n = "pool name not declared")
     : Size(s)
     , Name(n)
     {
@@ -358,7 +358,7 @@ protected:
   Holder *allFirst; // List of Holders when active
 #endif
 
-  const int Size; // Reproduction size
+  const int32_t Size; // Reproduction size
   const char *Name;
 
   Holder *first;  // List of free nodes
@@ -366,7 +366,7 @@ protected:
   void reproduce() {
     I(first==0);
 
-    for(int i = 0; i < Size; i++) {
+    for(int32_t i = 0; i < Size; i++) {
       Holder *h = ::new Holder;
       h->holderNext = first;
       IS(h->inPool = true);
@@ -379,7 +379,7 @@ protected:
   }
 
 public:
-    poolplus(int s = 32, const char *n = "poolplus name not declared")
+    poolplus(int32_t s = 32, const char *n = "poolplus name not declared")
     : Size(s)
     , Name(n)
     {

@@ -26,7 +26,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 class HVersion;
 
-// Entry point for all kills and restarts
+// Entry point32_t for all kills and restarts
 class TaskHandler {
 public:
   // Task Killed due to:

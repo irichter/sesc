@@ -35,9 +35,9 @@ class TT6Reader : public TraceReader {
  private:
   FILE* trace;
   VAddr PC;
-  uint inst;
+  uint32_t inst;
   VAddr address;
-  int   count;
+  int32_t   count;
   
   bool tracEof;
 
@@ -47,8 +47,8 @@ class TT6Reader : public TraceReader {
   void readCount();
 
   VAddr getCurrentPC()    const { return PC; }
-  int   getCurrentInst()  const { return inst; }
-  int   getCurrentCount() const { return count;}
+  int32_t   getCurrentInst()  const { return inst; }
+  int32_t   getCurrentCount() const { return count;}
   VAddr getCurrentDataAddress() const { return address; }
   
   bool  isBranch()  { return tt6_isFlowAltering(inst>>26, (inst>>1) & 0x3FF);};
@@ -66,7 +66,7 @@ class TT6Reader : public TraceReader {
   void openTrace(const char* basename);
   void closeTrace();
 
-  void fillTraceEntry(TraceEntry *te, int id);
+  void fillTraceEntry(TraceEntry *te, int32_t id);
 };
 
 #endif

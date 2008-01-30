@@ -76,7 +76,7 @@ extern "C" long long n_inst_start;
 
 char *OSSim::benchName=0;
 
-static void sescConfSignal(int sig)
+static void sescConfSignal(int32_t sig)
 {
   static bool sigFaulting=false;
 
@@ -94,7 +94,7 @@ static void sescConfSignal(int sig)
   abort();
 }
 
-extern "C" void signalCatcher(int sig)
+extern "C" void signalCatcher(int32_t sig)
 {
   osSim->reportOnTheFly();
 
@@ -125,7 +125,7 @@ void OSSim::reportOnTheFly(const char *file)
   free(tmp);
 }
 
-OSSim::OSSim(int argc, char **argv, char **envp)
+OSSim::OSSim(int32_t argc, char **argv, char **envp)
   : traceFile(0) 
     ,snapshotGlobalClock(0)    
     ,finishWorkNowCB(&cpus)
@@ -140,7 +140,7 @@ OSSim::OSSim(int argc, char **argv, char **envp)
 
   char *tmp=(char *)malloc(argc*50+4096);
   tmp[0] = 0;
-  for(int i = 0; i < argc; i++) {
+  for(int32_t i = 0; i < argc; i++) {
     strcat(tmp,argv[i]);
     strcat(tmp," ");
   }
@@ -174,25 +174,25 @@ OSSim::OSSim(int argc, char **argv, char **envp)
 #endif
 }
 
-void OSSim::processParams(int argc, char **argv, char **envp)
+void OSSim::processParams(int32_t argc, char **argv, char **envp)
 { 
   const char *x6="XXXXXX";
   bool trace_flag = false;
 
   // Change, add parameters to mint
   char **nargv = (char **)malloc((20+argc)*sizeof(char *));
-  int nargc;
+  int32_t nargc;
   
   nargv[0] = strdup(argv[0]);
 
-  int i=1;
-  int ni=1;
+  int32_t i=1;
+  int32_t ni=1;
 
   nInst2Skip=0;
   nInst2Sim=0;
 
   bool useMTMarks = false;
-  int  mtId=0;
+  int32_t  mtId=0;
 
   simMarks.total = 0;
   simMarks.begin = 0;
@@ -488,7 +488,7 @@ OSSim::~OSSim()
   //printf("destructed..\n");
 }
 
-void OSSim::eventSysconf(Pid_t ppid, Pid_t fid, int flags)
+void OSSim::eventSysconf(Pid_t ppid, Pid_t fid, int32_t flags)
 {
   LOG("OSSim::sysconf(%d,%d,0x%lx)", ppid, fid, flags);
   ProcessId *myProcessId=ProcessId::getProcessId(fid);
@@ -506,13 +506,13 @@ void OSSim::eventSysconf(Pid_t ppid, Pid_t fid, int flags)
   }
 }
 
-int OSSim::eventGetconf(Pid_t curPid, Pid_t targPid)
+int32_t OSSim::eventGetconf(Pid_t curPid, Pid_t targPid)
 {
   ProcessId *myProcessId=ProcessId::getProcessId(targPid);
   return myProcessId->getconf();
 }
 
-void OSSim::eventSpawn(Pid_t ppid, Pid_t fid, int flags, bool stopped)
+void OSSim::eventSpawn(Pid_t ppid, Pid_t fid, int32_t flags, bool stopped)
 {
   if (NoMigration)
     flags |= SESC_FLAG_NOMIGRATE;
@@ -543,12 +543,12 @@ void OSSim::unstop(Pid_t pid)
   cpus.makeRunnable(proc);
 }
 
-void OSSim::setPriority(Pid_t pid, int newPrio)
+void OSSim::setPriority(Pid_t pid, int32_t newPrio)
 {
   ProcessId *proc = ProcessId::getProcessId(pid);
   I(proc);
 
-  int oldPrio=proc->getPriority();
+  int32_t oldPrio=proc->getPriority();
 
   if(newPrio==oldPrio)
     return;
@@ -584,7 +584,7 @@ void OSSim::setPriority(Pid_t pid, int newPrio)
   }
 }
 
-int OSSim::getPriority(Pid_t pid)
+int32_t OSSim::getPriority(Pid_t pid)
 {
   // Get the process descriptor
   ProcessId *proc = ProcessId::getProcessId(pid);
@@ -615,7 +615,7 @@ void OSSim::tryWakeupParent(Pid_t cpid)
   }
 }
 
-void OSSim::eventExit(Pid_t cpid, int err)
+void OSSim::eventExit(Pid_t cpid, int32_t err)
 {
   LOG("OSSim::exit err[%d] (cpid %d)", err, cpid);
   ProcessId *proc = ProcessId::getProcessId(cpid);
@@ -687,7 +687,7 @@ ThreadContext *OSSim::getContext(Pid_t pid)
   return ThreadContext::getContext(pid);
 }
 
-int OSSim::getContextRegister(Pid_t pid, int regnum)
+int32_t OSSim::getContextRegister(Pid_t pid, int32_t regnum)
 {
   ThreadContext *s = getContext(pid);
 #if (defined MIPS_EMUL)
@@ -756,7 +756,7 @@ void OSSim::eventSetPPid(Pid_t pid, Pid_t ppid)
   proc->setPPid(ppid);
 }
 
-int OSSim::eventSuspend(Pid_t cpid, Pid_t pid)
+int32_t OSSim::eventSuspend(Pid_t cpid, Pid_t pid)
 {
   LOG("OSSim::suspend(%d) Received from pid %d",pid,cpid);
   ProcessId *proc = ProcessId::getProcessId(pid);
@@ -788,7 +788,7 @@ int OSSim::eventSuspend(Pid_t cpid, Pid_t pid)
   return 1;
 }
 
-int OSSim::eventResume(Pid_t cpid, Pid_t pid)
+int32_t OSSim::eventResume(Pid_t cpid, Pid_t pid)
 {
   LOG("OSSim::resume(%d,%d)", cpid, pid);
   ProcessId *proc = ProcessId::getProcessId(pid);
@@ -814,7 +814,7 @@ int OSSim::eventResume(Pid_t cpid, Pid_t pid)
   return 0;
 }
 
-int OSSim::eventYield(Pid_t curPid, Pid_t yieldPid)
+int32_t OSSim::eventYield(Pid_t curPid, Pid_t yieldPid)
 {
   //  LOG("OSSim::yield(%d,%d)", curPid, yieldPid);
   ProcessId  *curProc=ProcessId::getProcessId(curPid);
@@ -1107,7 +1107,7 @@ void OSSim::report(const char *str)
     totPower      += corePower;
     totClockPower += clockPower;
 
-    // print the rest of the report fields
+    // print32_t the rest of the report fields
     GStatsEnergy::dump(i);
     Report::field("Proc(%d):clockPower=%g",i,clockPower);
     Report::field("Proc(%d):totPower=%g",i,corePower);
@@ -1135,7 +1135,7 @@ void OSSim::report(const char *str)
 GProcessor *OSSim::pid2GProcessor(Pid_t pid)
 {
   I(ProcessId::getProcessId(pid));
-  signed int cpu = ProcessId::getProcessId(pid)->getCPU();
+  int32_t cpu = ProcessId::getProcessId(pid)->getCPU();
   // -1 when it has never started to execute
   I(cpu>=0);
     

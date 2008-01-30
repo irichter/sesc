@@ -95,12 +95,12 @@ public:
 
 private:
   Time minTime;
-  int minPos;
+  int32_t minPos;
 
-  int nNodes;
+  int32_t nNodes;
 
-  const unsigned int AccessSize;
-  const unsigned int AccessMask;
+  const uint32_t AccessSize;
+  const uint32_t AccessMask;
 
   Data *access;
   Data *accessTail;
@@ -120,7 +120,7 @@ private:
 
     I(!tooFar.empty());
 
-    while (((unsigned int)(tooFar.front()->getTQTime() - minTime)) < AccessSize) {
+    while (((uint32_t)(tooFar.front()->getTQTime() - minTime)) < AccessSize) {
 
       addNode(tooFar.front(), tooFar.front()->getTQTime());
 
@@ -140,7 +140,7 @@ private:
     I(time >= minTime);
     I((unsigned)abs((int)(time - minTime)) < AccessSize);
 
-    unsigned int pos = ((unsigned int)(minPos + time - minTime)) & AccessMask;
+    uint32_t pos = ((uint32_t)(minPos + time - minTime)) & AccessMask;
 
     if(access[pos] == 0) {
       access[pos] = node;
@@ -155,7 +155,7 @@ private:
 
 protected:
 public:
-  TQueue(unsigned int MaxTimeDiff);
+  TQueue(uint32_t MaxTimeDiff);
   ~TQueue();
 
   void reset();
@@ -166,7 +166,7 @@ public:
 
     data->setTQTime(time);
 
-    if((unsigned int)(time - minTime) < AccessSize) {
+    if((uint32_t)(time - minTime) < AccessSize) {
       addNode(data, time);
     } else {
       // Some nodes already exists, and this is too distant in
@@ -250,7 +250,7 @@ public:
 	access[minPos] = access[minPos]->getTQNext();
 	node->removeFromQueue();
       }else{
-	unsigned int pos = ((unsigned int)(minPos + time - minTime)) & AccessMask;
+	uint32_t pos = ((uint32_t)(minPos + time - minTime)) & AccessMask;
 		
 	Data prev = 0;
 	Data curr = access[pos];

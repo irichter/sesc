@@ -33,10 +33,10 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 void RSTReader::addInstruction(const rstf_unionT *rp) {
 
-  int fid       = rstf_instrT_get_cpuid(&(rp->instr));
+  int32_t fid       = rstf_instrT_get_cpuid(&(rp->instr));
  
   VAddr PC      = rp->instr.pc_va;
-  uint  rawInst = rp->instr.instr;
+  uint32_t  rawInst = rp->instr.instr;
   VAddr address = rp->instr.ea_va;
 
   const Instruction *inst = Instruction::getSharedInstByPC(PC);
@@ -59,7 +59,7 @@ void RSTReader::addInstruction(const rstf_unionT *rp) {
   head_size[fid]++;
 }
 
-void RSTReader::advancePC(int fid) { 
+void RSTReader::advancePC(int32_t fid) { 
 
   while(!end_of_trace) {
     while (buf_pos < buf_end) {
@@ -69,9 +69,9 @@ void RSTReader::advancePC(int fid) {
       if (rp->proto.rtype != INSTR_T)
         continue;
 
-      int inst_fid       = rstf_instrT_get_cpuid(&(rp->instr));
+      int32_t inst_fid       = rstf_instrT_get_cpuid(&(rp->instr));
       if (inst_fid >= nFlows) {
-        static int max_flow_found = nFlows;
+        static int32_t max_flow_found = nFlows;
         if(max_flow_found < inst_fid) {
           MSG("More Flows (%d) than thread contexts (%d)",inst_fid, nFlows);
           max_flow_found = inst_fid;
@@ -119,7 +119,7 @@ RSTReader::RSTReader()
   buf_pos = 0;
   buf_end = 0;
 
-  int nProcs = SescConf->getRecordSize("","cpucore");
+  int32_t nProcs = SescConf->getRecordSize("","cpucore");
   nFlows = 0;
   for(Pid_t i = 0; i < nProcs; i ++) {
     if(SescConf->checkInt("cpucore","smtContexts",i)) {
@@ -137,7 +137,7 @@ RSTReader::RSTReader()
 void RSTReader::openTrace(const char *filename) {
 
   rz = new Rstzip;
-  int rv=rz->open(filename, "r", "verbose=0");
+  int32_t rv=rz->open(filename, "r", "verbose=0");
   if (rv != RSTZIP_OK) {
     MSG("ERROR: RSTReader::openTrace(%s) error opening input trace", filename);
     exit(1);
@@ -153,10 +153,10 @@ void RSTReader::openTrace(const char *filename) {
       if (rp->proto.rtype != INSTR_T)
         continue;
 
-      int fid       = rstf_instrT_get_cpuid(&(rp->instr));
+      int32_t fid       = rstf_instrT_get_cpuid(&(rp->instr));
 
       VAddr PC      = rp->instr.pc_va;
-      uint  rawInst = rp->instr.instr;
+      uint32_t  rawInst = rp->instr.instr;
       VAddr address = rp->instr.ea_va;
 
       const Instruction *inst = Instruction::getSharedInstByPC(PC);
@@ -195,7 +195,7 @@ void RSTReader::closeTrace() {
   delete rz;
 }
 
-DInst *RSTReader::executePC(int fid) {
+DInst *RSTReader::executePC(int32_t fid) {
 
   I(fid<nFlows);
 

@@ -22,7 +22,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "GMemoryOS.h"
 
 
-DummyMemoryOS::DummyMemoryOS(int i)
+DummyMemoryOS::DummyMemoryOS(int32_t i)
   : GMemoryOS(i)
 {
   itlb = DTLBCache::create(SescConf->getCharPtr("cpucore","itlb",i)
@@ -35,12 +35,12 @@ DummyMemoryOS::~DummyMemoryOS()
 {
 }
 
-int DummyMemoryOS::ITLBTranslate(VAddr iAddr)
+int32_t DummyMemoryOS::ITLBTranslate(VAddr iAddr)
 {
   return iAddr;
 }
 
-int DummyMemoryOS::TLBTranslate(VAddr vAddr)
+int32_t DummyMemoryOS::TLBTranslate(VAddr vAddr)
 { 
   return vAddr;
 }

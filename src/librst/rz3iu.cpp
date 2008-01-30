@@ -88,8 +88,8 @@ union dcti_info_u gen_dcti_info(uint32_t instr)
 	// is ret if rd=0, rs1=31, imm=8
 	// is retl if rd=0, rs1=15, imm=8
 	// is "call indirect" otherwise if rd is 15
-	int rs1 = (instr >> 14) & 0x1f;
-	int rd = (instr >> 25) & 0x1f;
+	int32_t rs1 = (instr >> 14) & 0x1f;
+	int32_t rd = (instr >> 25) & 0x1f;
 	uint32_t simm13 = instr & 0x1fff;
 	if ((rd == 0) && (simm13 == 0x8)){
 	  if (rs1 == 15) {
@@ -175,8 +175,8 @@ union dcti_info_u gen_dcti_info_v317(uint32_t instr)
 	// is ret if rd=0, rs1=31, imm=8
 	// is retl if rd=0, rs1=15, imm=8
 	// is "call indirect" otherwise if rd is 15
-	int rs1 = (instr >> 14) & 0x1f;
-	int rd = (instr >> 25) & 0x1f;
+	int32_t rs1 = (instr >> 14) & 0x1f;
+	int32_t rd = (instr >> 25) & 0x1f;
 	uint32_t simm13 = instr & 0x1fff;
 	if ((rd == 0) && (simm13 == 0x8)){
 	  if (rs1 == 15) {

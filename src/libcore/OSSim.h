@@ -96,15 +96,15 @@ private:
   } SimulationMark_t;
 
   SimulationMark_t simMarks;
-  std::map<int,SimulationMark_t> idSimMarks;
+  std::map<int32_t,SimulationMark_t> idSimMarks;
 
-  int numIdSimMarks;
-  int waitBeginIdSimMarks;
-  int waitEndIdSimMarks;
+  int32_t numIdSimMarks;
+  int32_t waitBeginIdSimMarks;
+  int32_t waitEndIdSimMarks;
 
 #ifdef TS_PROFILING
   Profile *profiler;
-  int profPhase;
+  int32_t profPhase;
   const char *profSectionName;
 #endif
 
@@ -116,12 +116,12 @@ private:
 protected:
   StaticCallbackMember0<RunningProcs, &RunningProcs::finishWorkNow> finishWorkNowCB;
 
-  void processParams(int argc, char **argv, char **envp);
+  void processParams(int32_t argc, char **argv, char **envp);
 
 public:
 
   RunningProcs cpus;
-  OSSim(int argc, char **argv, char **envp);
+  OSSim(int32_t argc, char **argv, char **envp);
   virtual ~OSSim();
 
   void report(const char *str);
@@ -135,11 +135,11 @@ public:
 
 
 
-  virtual void preEvent(Pid_t pid, int vaddr, int type, void *sptr) {
+  virtual void preEvent(Pid_t pid, int32_t vaddr, int32_t type, void *sptr) {
     MSG("preevent(%d, %d, %p) pid %d", vaddr, type, sptr, pid);
   }
 
-  virtual void postEvent(Pid_t pid, int vaddr, int type, const void *sptr) {
+  virtual void postEvent(Pid_t pid, int32_t vaddr, int32_t type, const void *sptr) {
     // Notice that the sptr is a const. This is because the postEvent
     // is notified much latter than it was really executed. If the
     // backend tryies to modify (give data back) to the application
@@ -148,28 +148,28 @@ public:
     MSG("postevent(%d, %d, %p) pid %d @%lld", vaddr, type, sptr, pid, (long long)globalClock);
   }
 
-  virtual void memBarrierEvent(Pid_t pid, int vaddr, int type, const void *sptr) {
+  virtual void memBarrierEvent(Pid_t pid, int32_t vaddr, int32_t type, const void *sptr) {
     MSG("membarrier(%d, %d, %p) pid %d @%lld", vaddr, type, sptr, pid, (long long)globalClock);
   }
 
   // Those functions are only callable through the events. Not
   // directly inside the simulator.
 
-  virtual void eventSpawnOpcode(int pid, const int *params, int nParams) {
+  virtual void eventSpawnOpcode(int32_t pid, const int32_t *params, int32_t nParams) {
     MSG("spawnOpcode(%p, %d) pid %d", params, nParams, pid);
   }
 
   // Spawns a new process newPid with given flags
   // If stopped is true, the new process will not be made runnable
-  void eventSpawn(Pid_t curPid, Pid_t newPid, int flags, bool stopped=false);
-  void eventSysconf(Pid_t curPid, Pid_t targPid, int flags);
-  int eventGetconf(Pid_t curPid, Pid_t targPid);
-  void eventExit(Pid_t cpid, int err);
+  void eventSpawn(Pid_t curPid, Pid_t newPid, int32_t flags, bool stopped=false);
+  void eventSysconf(Pid_t curPid, Pid_t targPid, int32_t flags);
+  int32_t eventGetconf(Pid_t curPid, Pid_t targPid);
+  void eventExit(Pid_t cpid, int32_t err);
   void tryWakeupParent(Pid_t cpid);
   void eventWait(Pid_t cpid);
-  int eventSuspend(Pid_t cpid, Pid_t tid);
-  int eventResume(Pid_t cpid, Pid_t tid);
-  int eventYield(Pid_t cpid, Pid_t yieldID);
+  int32_t eventSuspend(Pid_t cpid, Pid_t tid);
+  int32_t eventResume(Pid_t cpid, Pid_t tid);
+  int32_t eventYield(Pid_t cpid, Pid_t yieldID);
   void eventSaveContext(Pid_t pid);
   void eventLoadContext(Pid_t pid);
   void eventSetInstructionPointer(Pid_t pid, icode_ptr picode);
@@ -180,7 +180,7 @@ public:
   void eventSimulationMark() {
     simMarks.total++;
   }
-  void eventSimulationMark(int id,Pid_t pid) {
+  void eventSimulationMark(int32_t id,Pid_t pid) {
     if(idSimMarks.find(id)==idSimMarks.end()) {
       idSimMarks[id].total = 0;
       idSimMarks[id].begin = 0;
@@ -191,9 +191,9 @@ public:
     idSimMarks[id].pid=pid;
     idSimMarks[id].mtMarks=true;
   }
-  uint getSimulationMark() const { return simMarks.total; }
-  uint getSimulationMark1() const { return simMarks.begin; }
-  uint getSimulationMark2() const { return simMarks.end; }
+  uint32_t getSimulationMark() const { return simMarks.total; }
+  uint32_t getSimulationMark1() const { return simMarks.begin; }
+  uint32_t getSimulationMark2() const { return simMarks.end; }
   // If marks are not used but -w option is, total and begin are both zero
   // and there are never enough marks to exit simulation. I changed the comparison
   // to >= from >. If this does not work, please fix it in a way that does not break
@@ -201,28 +201,28 @@ public:
   bool enoughMarks1() const { return simMarks.total >= simMarks.begin; }
   bool enoughMarks2() const { return simMarks.total > simMarks.end; }
 
-  uint getSimulationMark(int id) const {
-    std::map<int,SimulationMark_t>::const_iterator it = idSimMarks.find(id);
+  uint32_t getSimulationMark(int32_t id) const {
+    std::map<int32_t,SimulationMark_t>::const_iterator it = idSimMarks.find(id);
     return (*it).second.total;
   }
-  uint getSimulationMark1(int id) const {
-    std::map<int,SimulationMark_t>::const_iterator it = idSimMarks.find(id);
+  uint32_t getSimulationMark1(int32_t id) const {
+    std::map<int32_t,SimulationMark_t>::const_iterator it = idSimMarks.find(id);
     return (*it).second.begin;
   }
-  uint getSimulationMark2(int id) const {
-    std::map<int,SimulationMark_t>::const_iterator it = idSimMarks.find(id);
+  uint32_t getSimulationMark2(int32_t id) const {
+    std::map<int32_t,SimulationMark_t>::const_iterator it = idSimMarks.find(id);
     return (*it).second.end;
   }
-  bool enoughMarks1(int id) const {
-    std::map<int,SimulationMark_t>::const_iterator it = idSimMarks.find(id);
+  bool enoughMarks1(int32_t id) const {
+    std::map<int32_t,SimulationMark_t>::const_iterator it = idSimMarks.find(id);
     return (*it).second.total > (*it).second.begin;
   }
-  bool enoughMarks2(int id) const {
-    std::map<int,SimulationMark_t>::const_iterator it = idSimMarks.find(id);
+  bool enoughMarks2(int32_t id) const {
+    std::map<int32_t,SimulationMark_t>::const_iterator it = idSimMarks.find(id);
     return (*it).second.total > (*it).second.end;
   }
   bool enoughMTMarks1() const {
-    std::map<int,SimulationMark_t>::const_iterator it = idSimMarks.begin();
+    std::map<int32_t,SimulationMark_t>::const_iterator it = idSimMarks.begin();
 
     bool ret=true;
     for(it=idSimMarks.begin(); it!=idSimMarks.end(); it++) {
@@ -231,8 +231,8 @@ public:
 
     return ret;
   }
-  bool enoughMTMarks1(int pid,bool justMe) const {
-    std::map<int,SimulationMark_t>::const_iterator it = idSimMarks.begin();
+  bool enoughMTMarks1(int32_t pid,bool justMe) const {
+    std::map<int32_t,SimulationMark_t>::const_iterator it = idSimMarks.begin();
     bool me=false;
     bool ret=true;
     for(it=idSimMarks.begin(); it!=idSimMarks.end(); it++) {
@@ -251,7 +251,7 @@ public:
   Profile *getProfiler() const {
     return profiler;
   }
-  int getProfPhase() const {
+  int32_t getProfPhase() const {
     return profPhase;
   }
   const char *getProfSectionName() const {
@@ -268,7 +268,7 @@ public:
 
   ThreadContext *getContext(Pid_t pid);
 
-  int getContextRegister(Pid_t pid, int regnum);
+  int32_t getContextRegister(Pid_t pid, int32_t regnum);
 
   void suspend(Pid_t pid) {
     eventSuspend(-1,pid);
@@ -284,10 +284,10 @@ public:
   void unstop(Pid_t pid);
 
   // Sets the priority of a process
-  void setPriority(Pid_t pid, int newPrio);
+  void setPriority(Pid_t pid, int32_t newPrio);
 
   // Returns the current priority of a process
-  int getPriority(Pid_t pid);
+  int32_t getPriority(Pid_t pid);
 
   // Removes from cpu a running thread (only if necessary), and
   // activates the pid thread.
@@ -354,7 +354,7 @@ public:
 
 };
 
-typedef CallbackMember4<OSSim, Pid_t, int, int, const void *, &OSSim::postEvent> postEventCB;
+typedef CallbackMember4<OSSim, Pid_t, int32_t, int32_t, const void *, &OSSim::postEvent> postEventCB;
 
 extern OSSim *osSim;
 extern double etop(double energy);

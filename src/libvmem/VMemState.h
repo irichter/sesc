@@ -46,7 +46,7 @@ protected:
   static ulong  lineMask; // Cache Line Mask (unique for the whole system)
 
 #ifdef DEBUG
-  unsigned int msgSerialNumber;
+  uint32_t msgSerialNumber;
 #endif
 
   virtual void promote();
@@ -112,15 +112,15 @@ public:
   bool isDirty() const { return wrmask != 0; }
 
 #ifdef DEBUG
-  void setMsgSerialNumber(unsigned int sn) {
+  void setMsgSerialNumber(uint32_t sn) {
     msgSerialNumber = sn;
   }
 
-  unsigned int getMsgSerialNumber() const {
+  uint32_t getMsgSerialNumber() const {
     return msgSerialNumber;
   }
 #else
-  void setMsgSerialNumber(unsigned int sn) {  }
+  void setMsgSerialNumber(uint32_t sn) {  }
 #endif
 
 };

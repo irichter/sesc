@@ -37,7 +37,7 @@
 #include "mendian.h"
 
 #if defined(DARWIN) || (defined(sparc) && !defined(__svr4__))
-typedef unsigned int uint;
+typedef uint32_t uint;
 #endif
 
 typedef struct icode *icode_ptr;
@@ -75,23 +75,23 @@ class icode {
   OpClass opClass;
 #endif
 public:
-  unsigned int instID;
+  uint32_t instID;
   PFPI func;			/* function that simulates this instruction */
-  int addr;			/* text address of this instruction */
+  int32_t addr;			/* text address of this instruction */
   short args[4];		/* the non-shifted register args */
   short immed;		/* bits 0 - 15 */
   icode_ptr next;		/* pointer to next icode to execute */
   icode_ptr target;		/* for branches and jumps */
   icode_ptr not_taken;	/* target when branch not taken */
-  unsigned int is_target : 1;	/* =1 if this instruction is a branch target */
-  unsigned int opnum : 15;	/* arbitrary index for an instruction */
-  unsigned int opflags : 16;	/* tells what kind of instruction */
-  int instr;			/* undecoded instruction */
+  uint32_t is_target : 1;	/* =1 if this instruction is a branch target */
+  uint32_t opnum : 15;	/* arbitrary index for an instruction */
+  uint32_t opflags : 16;	/* tells what kind of instruction */
+  int32_t instr;			/* undecoded instruction */
 
-  int getFPN(int R) const { return args[R]; }
-  int getRN(int R)  const { return args[R]; }
-  int getDPN(int R) const { return args[R]; }
-  const char *getFPFMT(int F) {
+  int32_t getFPN(int32_t R) const { return args[R]; }
+  int32_t getRN(int32_t R)  const { return args[R]; }
+  int32_t getDPN(int32_t R) const { return args[R]; }
+  const char *getFPFMT(int32_t F) {
     return ((F) ==  16 ? "s" : (F) == 17 ? "d" : (F) == 20 ? "w" : "?");
   }
 
@@ -112,8 +112,8 @@ typedef struct icode  icode_t;
 extern icode_ptr icodeArray;
 extern size_t    icodeArraySize;
 
-//extern signed int Text_start;
-//extern signed int Text_end;
+//extern signed int32_t Text_start;
+//extern signed int32_t Text_end;
 extern struct icode **Itext;
 
 // Takes the logical address of an instruction, returns pointer to its icode
@@ -133,7 +133,7 @@ inline Address icode2addr(icode_ptr picode) {
 }
 
 // An icode that should not be executed. Unused, free, and inactive
-// thread contexts can point to this icode to catch buggy execution
+// thread contexts can point32_t to this icode to catch buggy execution
 extern icode_t invalidIcode;
 
 #endif /* ICODE_H */

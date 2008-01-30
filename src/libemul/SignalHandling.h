@@ -37,10 +37,10 @@ class SigInfo{
   SignalID signo;
   SigCode  code;
 
-  int pid;
-  int uid;
+  int32_t pid;
+  int32_t uid;
 
-  int data; // Status for SIGCLD, fd for SIGIO
+  int32_t data; // Status for SIGCLD, fd for SIGIO
   SigInfo(){
   }
   SigInfo(SignalID signo, SigCode code) : signo(signo), code(code){

@@ -31,19 +31,19 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 class ReportTherm {
 private:
-  static const int MAXREPORTSTACK = 32;
+  static const int32_t MAXREPORTSTACK = 32;
 
   static FILE *rfd[MAXREPORTSTACK];
-  static int tos;
-  static int rep;
+  static int32_t tos;
+  static int32_t rep;
   static FILE *createTmp(const char *name);
-  static int cyclesPerSample;
+  static int32_t cyclesPerSample;
   ReportTherm();
 public:
   // Creates a new report file. Notice that if the name has the syntax
   // .XXXXXX it would modify the XXXXXX for the final file name.
   static void openFile(char *name);
-  static void field(int fn, const char *format,...);
+  static void field(int32_t fn, const char *format,...);
   static void field(const char *format,...);
   static void fieldRaw(float val);
   static void close();

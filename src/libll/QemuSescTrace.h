@@ -26,30 +26,30 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include <stdio.h>
 
 typedef struct {
-  unsigned int pc:32;    
-  unsigned int npc:32;
-  unsigned int src1:32;
-  unsigned int src2:32;
-  unsigned int dest:32;
-  int opc;
-  int type;
-  int subtype;
+  uint32_t pc:32;    
+  uint32_t npc:32;
+  uint8_t src1;
+  uint8_t src2;
+  uint8_t dest;
+  int32_t opc;
+  int32_t type;
+  int32_t subtype;
 } QemuSescTrace;
 
 // defining the getter functions
 
-void setpc(QemuSescTrace *qst, unsigned int pc);
-void setopc(QemuSescTrace *qst, int opc);
-void setsrc1(QemuSescTrace *qst, unsigned int src1);
-void setsrc2(QemuSescTrace *qst, unsigned int src2);
-void setdest(QemuSescTrace *qst, unsigned int dest);
+void setpc(QemuSescTrace *qst, uint32_t pc);
+void setopc(QemuSescTrace *qst, int32_t opc);
+void setsrc1(QemuSescTrace *qst, uint8_t src1);
+void setsrc2(QemuSescTrace *qst, uint8_t src2);
+void setdest(QemuSescTrace *qst, uint8_t dest);
 
-unsigned int getpc(QemuSescTrace *qst);
-int getopc(QemuSescTrace *qst);
-unsigned int getsrc1(QemuSescTrace *qst);
-unsigned int getsrc2(QemuSescTrace *qst);
-unsigned int getdest(QemuSescTrace *qst);
-unsigned int getNextPC(QemuSescTrace *qst,unsigned int);
+uint32_t getpc(QemuSescTrace *qst);
+int32_t getopc(QemuSescTrace *qst);
+uint32_t getsrc1(QemuSescTrace *qst);
+uint32_t getsrc2(QemuSescTrace *qst);
+uint32_t getdest(QemuSescTrace *qst);
+uint32_t getNextPC(QemuSescTrace *qst,uint32_t);
 
 //defining trace file functions
 

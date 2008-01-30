@@ -72,24 +72,24 @@ double getr(double k, double Wb, double Lb, double Ws, double t)
  * indicates that 'a' is symmetric and positive definite 
  */
  
-void lupdcmp(double**a, int n, int *p, int spd)
+void lupdcmp(double**a, int32_t n, int32_t *p, int32_t spd)
 {
 	#if(MATHACCEL == MA_INTEL)
-	int info = 0;
+	int32_t info = 0;
 	if (!spd)
 		dgetrf(&n, &n, a[0], &n, p, &info);
 	else	
 		dpotrf("U", &n, a[0], &n, &info);
 	assert(info == 0);	
 	#elif(MATHACCEL == MA_AMD)
-	int info = 0;
+	int32_t info = 0;
 	if (!spd)
 		dgetrf_(&n, &n, a[0], &n, p, &info);
 	else	
 		dpotrf_("U", &n, a[0], &n, &info, 1);
 	assert(info == 0);	
 	#elif(MATHACCEL == MA_APPLE)
-	int info = 0;
+	int32_t info = 0;
 	if (!spd)
 		dgetrf_((__CLPK_integer *)&n, (__CLPK_integer *)&n, a[0], \
 				(__CLPK_integer *)&n, (__CLPK_integer *)p, \
@@ -99,14 +99,14 @@ void lupdcmp(double**a, int n, int *p, int spd)
 				(__CLPK_integer *)&info);
 	assert(info == 0);	
 	#elif(MATHACCEL == MA_SUN)
-	int info = 0;
+	int32_t info = 0;
 	if (!spd)
 		dgetrf_(&n, &n, a[0], &n, p, &info);
 	else	
 		dpotrf_("U", &n, a[0], &n, &info);
 	assert(info == 0);	
 	#else
-	int i, j, k, pivot=0;
+	int32_t i, j, k, pivot=0;
 	double max = 0;
 
 	/* start with identity permutation	*/
@@ -154,10 +154,10 @@ void lupdcmp(double**a, int n, int *p, int spd)
  * 'spd' flag indicates that 'a' is symmetric and positive definite
  */
 
-void lusolve(double **a, int n, int *p, double *b, double *x, int spd)
+void lusolve(double **a, int32_t n, int32_t *p, double *b, double *x, int32_t spd)
 {
 	#if(MATHACCEL == MA_INTEL)
-	int one = 1, info = 0;
+	int32_t one = 1, info = 0;
 	cblas_dcopy(n, b, 1, x, 1);
 	if (!spd)
 		dgetrs("T", &n, &one, a[0], &n, p, x, &n, &info);
@@ -165,7 +165,7 @@ void lusolve(double **a, int n, int *p, double *b, double *x, int spd)
 		dpotrs("U", &n, &one, a[0], &n, x, &n, &info);
 	assert(info == 0);	
 	#elif(MATHACCEL == MA_AMD)
-	int one = 1, info = 0;
+	int32_t one = 1, info = 0;
 	dcopy(n, b, 1, x, 1);
 	if (!spd)
 		dgetrs_("T", &n, &one, a[0], &n, p, x, &n, &info, 1);
@@ -173,7 +173,7 @@ void lusolve(double **a, int n, int *p, double *b, double *x, int spd)
 		dpotrs_("U", &n, &one, a[0], &n, x, &n, &info, 1);
 	assert(info == 0);	
 	#elif(MATHACCEL == MA_APPLE)
-	int one = 1, info = 0;
+	int32_t one = 1, info = 0;
 	cblas_dcopy(n, b, 1, x, 1);
 	if (!spd)
 		dgetrs_("T", (__CLPK_integer *)&n, (__CLPK_integer *)&one, a[0], \
@@ -185,7 +185,7 @@ void lusolve(double **a, int n, int *p, double *b, double *x, int spd)
 				(__CLPK_integer *)&info);
 	assert(info == 0);	
 	#elif(MATHACCEL == MA_SUN)
-	int one = 1, info = 0;
+	int32_t one = 1, info = 0;
 	dcopy(n, b, 1, x, 1);
 	if (!spd)
 		dgetrs_("T", &n, &one, a[0], &n, p, x, &n, &info);
@@ -193,7 +193,7 @@ void lusolve(double **a, int n, int *p, double *b, double *x, int spd)
 		dpotrs_("U", &n, &one, a[0], &n, x, &n, &info);
 	assert(info == 0);	
 	#else
-	int i, j;
+	int32_t i, j;
 	double *y = dvector (n);
 	double sum;
 
@@ -222,9 +222,9 @@ void lusolve(double **a, int n, int *p, double *b, double *x, int spd)
  * "Numerical Recipes in C", Chapter 16, from 
  * http://www.library.cornell.edu/nr/bookcpdf/c16-0.pdf
  */
-void rk4_core(double **c, double *y, double *k1, double *pow, int n, double h, double *yout)
+void rk4_core(double **c, double *y, double *k1, double *pow, int32_t n, double h, double *yout)
 {
-	int i,j;
+	int32_t i,j;
 	double *t, *k2, *k3, *k4;
 	k2 = dvector(n);
 	k3 = dvector(n);
@@ -327,9 +327,9 @@ void rk4_core(double **c, double *y, double *k1, double *pow, int n, double h, d
 #define RK4_MAXUP		5.0
 #define RK4_MAXDOWN		10.0
 #define RK4_PRECISION	0.01
-double rk4(double **c, double *y, double *p, int n, double h, double *yout)
+double rk4(double **c, double *y, double *p, int32_t n, double h, double *yout)
 {
-	int i;
+	int32_t i;
 	double *k1, *t1, *t2, *ytemp, max, new_h = h;
 
 	k1 = dvector(n);
@@ -459,7 +459,7 @@ double rk4(double **c, double *y, double *p, int n, double h, double *yout)
 }
 
 /* matmult: C = AB, A, B are n x n square matrices	*/
-void matmult(double **c, double **a, double **b, int n) 
+void matmult(double **c, double **a, double **b, int32_t n) 
 {
 	#if (MATHACCEL == MA_INTEL || MATHACCEL == MA_APPLE)
 	cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, \
@@ -468,7 +468,7 @@ void matmult(double **c, double **a, double **b, int n)
 	/* B^T * A^T = (A * B)^T	*/
 	dgemm('N', 'N', n, n, n, 1.0, b[0], n, a[0], n, 0.0, c[0], n);
 	#else
-	int i, j, k;
+	int32_t i, j, k;
 
 	for (i = 0; i < n; i++)
 		for (j = 0; j < n; j++) {
@@ -480,9 +480,9 @@ void matmult(double **c, double **a, double **b, int n)
 }
 
 /* same as above but 'a' is a diagonal matrix stored as a 1-d array	*/
-void diagmatmult(double **c, double *a, double **b, int n) 
+void diagmatmult(double **c, double *a, double **b, int32_t n) 
 {
-	int i;
+	int32_t i;
 	#if (MATHACCEL == MA_INTEL || MATHACCEL == MA_APPLE)
 	zero_dmatrix(c, n, n);
 	for(i=0; i < n; i++)
@@ -492,7 +492,7 @@ void diagmatmult(double **c, double *a, double **b, int n)
 	for(i=0; i < n; i++)
 		daxpy(n, a[i], b[i], 1, c[i], 1);
 	#else
-	int j;
+	int32_t j;
 
 	for (i = 0; i < n; i++)
 		for (j = 0; j < n; j++)
@@ -501,7 +501,7 @@ void diagmatmult(double **c, double *a, double **b, int n)
 }
 
 /* mult of an n x n matrix and an n x 1 column vector	*/
-void matvectmult(double *vout, double **m, double *vin, int n)
+void matvectmult(double *vout, double **m, double *vin, int32_t n)
 {
 	#if (MATHACCEL == MA_INTEL || MATHACCEL == MA_APPLE)
 	cblas_dgemv(CblasRowMajor, CblasNoTrans, n, n, 1.0, m[0], \
@@ -509,7 +509,7 @@ void matvectmult(double *vout, double **m, double *vin, int n)
 	#elif (MATHACCEL == MA_AMD  || MATHACCEL == MA_SUN)
 	dgemv('T', n, n, 1.0, m[0], n, vin, 1, 0.0, vout, 1);
 	#else
-	int i, j;
+	int32_t i, j;
 
 	for (i = 0; i < n; i++) {
 		vout[i] = 0;
@@ -520,7 +520,7 @@ void matvectmult(double *vout, double **m, double *vin, int n)
 }
 
 /* same as above but 'm' is a diagonal matrix stored as a 1-d array	*/
-void diagmatvectmult(double *vout, double *m, double *vin, int n)
+void diagmatvectmult(double *vout, double *m, double *vin, int32_t n)
 {
 	#if (MATHACCEL == MA_INTEL || MATHACCEL == MA_APPLE)
 	cblas_dsbmv(CblasRowMajor, CblasUpper, n, 0, 1.0, m, 1, vin, \
@@ -528,7 +528,7 @@ void diagmatvectmult(double *vout, double *m, double *vin, int n)
 	#elif (MATHACCEL == MA_AMD  || MATHACCEL == MA_SUN)
 	dsbmv('U', n, 0, 1.0, m, 1, vin, 1, 0.0, vout, 1);
 	#else
-	int i;
+	int32_t i;
 
 	for (i = 0; i < n; i++)
 		vout[i] = m[i] * vin[i];
@@ -541,9 +541,9 @@ void diagmatvectmult(double *vout, double *m, double *vin, int n)
  * and positive definite 
  */
 #define BLOCK_SIZE		256
-void matinv(double **inv, double **m, int n, int spd)
+void matinv(double **inv, double **m, int32_t n, int32_t spd)
 {
-	int *p, info = 0, lwork;
+	int32_t *p, info = 0, lwork;
 	double *work;
 	p = ivector(n);
 	lwork = n * BLOCK_SIZE;
@@ -612,7 +612,7 @@ void matinv(double **inv, double **m, int n, int spd)
 		mirror_dmatrix(inv, n);
 	}
 	#else
-	int i, j;
+	int32_t i, j;
 	double *col;
 
 	col = dvector(n);

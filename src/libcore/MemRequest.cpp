@@ -34,7 +34,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "Cluster.h"
 
 
-ID(int MemRequest::numMemReqs = 0;);
+ID(int32_t MemRequest::numMemReqs = 0;);
 
 #ifdef SESC_SMP_DEBUG
 pool<ReqPathEntry> ReqPathEntry::pPool(4096, "ReqPathEntry");
@@ -111,9 +111,9 @@ void DMemRequest::dinstAck(DInst *dinst, MemOperation memOp, TimeDelta_t lat)
 void DMemRequest::create(DInst *dinst, GMemorySystem *gmem, MemOperation mop)
 {
   // turn off address translation
-  int old_addr = dinst->getVaddr();
+  int32_t old_addr = dinst->getVaddr();
 
-#ifndef TRACE_DRIVEN
+#if !((defined TRACE_DRIVEN)||(defined QEMU_DRIVEN))
 #if (defined MIPS_EMUL)
   ThreadContext *context=dinst->context;
 #else
@@ -137,12 +137,11 @@ void DMemRequest::create(DInst *dinst, GMemorySystem *gmem, MemOperation mop)
   r->dataReq = true;
   r->prefetch= false;
   r->priority = 0;
-  #ifdef TLS
-  	r->clearStall();
-  #endif
+#ifdef TLS
+  r->clearStall();
+#endif
  
-
-  int ph_addr = gmem->getMemoryOS()->TLBTranslate(old_addr);
+  int32_t ph_addr = gmem->getMemoryOS()->TLBTranslate(old_addr);
   if (ph_addr == -1) {
     gmem->getMemoryOS()->solveRequest(r);
     return;
@@ -208,8 +207,8 @@ void IMemRequest::create(DInst *dinst, GMemorySystem *gmem, IBucket *bb)
   #ifdef TLS
   	r->clearStall();
   #endif
-  int old_addr = dinst->getInst()->getAddr();
-  int ph_addr = gmem->getMemoryOS()->ITLBTranslate(old_addr);
+  int32_t old_addr = dinst->getInst()->getAddr();
+  int32_t ph_addr = gmem->getMemoryOS()->ITLBTranslate(old_addr);
   if (ph_addr == -1) {
     gmem->getMemoryOS()->solveRequest(r);
     return;

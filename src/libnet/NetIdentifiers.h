@@ -10,15 +10,15 @@ enum PortID_t {
 };
 
 
-inline PortID_t&operator++(PortID_t &p, int i) {
-  I(i==0); // The int parameters has no sense. a p++ always passes zero????
+inline PortID_t&operator++(PortID_t &p, int32_t i) {
+  I(i==0); // The int32_t parameters has no sense. a p++ always passes zero????
   p = PortID_t(p+1);
   I(p<=MAX_PORTS);
   return p;
 };
 
-inline PortID_t&operator--(PortID_t &p, int i){
-  I(i==0); // The int parameters has no sense. a p++ always passes zero????
+inline PortID_t&operator--(PortID_t &p, int32_t i){
+  I(i==0); // The int32_t parameters has no sense. a p++ always passes zero????
   p = PortID_t(p-1);
   I(p>=DISABLED_PORT);
   return p;

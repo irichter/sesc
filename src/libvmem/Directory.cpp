@@ -21,9 +21,9 @@ SESC; see the file COPYING.  If not, write to the  Free Software Foundation, 59
 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 */
 
-unsigned int reads = 0;
-unsigned int writes = 0;
-unsigned int fills = 0;
+uint32_t reads = 0;
+uint32_t writes = 0;
+uint32_t fills = 0;
 
 #include "Directory.h"
 
@@ -34,7 +34,7 @@ Directory::Directory(const char *section, const char *name)
 
   // size (in bits) of unit of information is # of processors (== # of L1
   // caches) + 1 (victim cache), rounded to the next power of 2
-  unsigned int unitSize = SescConf->getRecordSize("", "cpucore") + 1;
+  uint32_t unitSize = SescConf->getRecordSize("", "cpucore") + 1;
   unitSize = roundUpPower2(unitSize); 
 
   if (unitSize < 8) { // 8 = # of bits in a byte
@@ -52,7 +52,7 @@ Directory::~Directory()
   // Do nothing
 }
 
-void Directory::setPresentIn(const unsigned int cacheId, PAddr addr)
+void Directory::setPresentIn(const uint32_t cacheId, PAddr addr)
 {
   Line *l = cache->writeLine(addr >> corrShift);
   writes++;
@@ -77,7 +77,7 @@ void Directory::setPresentIn(const unsigned int cacheId, PAddr addr)
   I(l->isPresent(cacheId, addr));
 }
 
-void Directory::resetPresentIn(const unsigned int cacheId, PAddr addr)
+void Directory::resetPresentIn(const uint32_t cacheId, PAddr addr)
 {
   Line *l = cache->writeLine(addr >> corrShift);
   writes++;
@@ -144,7 +144,7 @@ void Directory::resetAllPresent(PAddr addr)
 }
 
 bool Directory::getInfoForLine(PAddr addr, 
-			       unsigned int *info) const
+			       uint32_t *info) const
 {
   Line *l = cache->readLine(addr >> corrShift);
   reads++;
@@ -161,18 +161,18 @@ bool Directory::getInfoForLine(PAddr addr,
   return true;
 }
 
-bool Directory::isPresent(const unsigned int cacheId, const unsigned int info)
+bool Directory::isPresent(const uint32_t cacheId, const uint32_t info)
 {
   return ((1 << cacheId) & info);
 }
 
-unsigned int Directory::whereIsPresent(PAddr addr)
+uint32_t Directory::whereIsPresent(PAddr addr)
 {
   Line *l = cache->readLine(addr >> corrShift);
 
   if (!l) {
     MSG("address 0x%08lx not present in directory", addr);
-    return (unsigned int) -1;
+    return (uint32_t) -1;
   }
 
   return l->whereIsPresent(addr);

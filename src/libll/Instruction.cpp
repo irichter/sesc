@@ -45,11 +45,11 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #if (defined MIPS_EMUL)
 #include "EmulInit.h"
 #else
-void mint_init(int argc, char **argv, char **envp);
+void mint_init(int32_t argc, char **argv, char **envp);
 #endif
 OP(mint_getpid);
-int isFirstInFuncCall(unsigned int addr);
-char *print_instr_regs(icode_ptr picode, thread_ptr pthread, int maxlen);
+int32_t isFirstInFuncCall(uint32_t addr);
+char *print_instr_regs(icode_ptr picode, thread_ptr pthread, int32_t maxlen);
 
 // iBJUncond is also true for all the conditional instruction
 // marked as likely. If the compiler tells me that most of the
@@ -85,14 +85,14 @@ static const char *opcode2NameTable[] = {
 icode_ptr Instruction::LowerLimit;
 icode_ptr Instruction::UpperLimit;
 
-int Instruction::maxFuncID=0;
+int32_t Instruction::maxFuncID=0;
 
 Instruction *Instruction::InstTable = 0;
 Instruction::InstHash Instruction::instHash;
 
 size_t Instruction::InstTableSize = 0;
 
-void Instruction::initialize(int argc
+void Instruction::initialize(int32_t argc
                              ,char **argv
                              ,char **envp)
 {
@@ -144,7 +144,7 @@ void Instruction::dump(const char *str) const
   MSG("%s:0x%8x: reg[%2d] = reg[%2d] [%8s:%2d] reg[%2d] (uEvent=%d)", str,
       (int)getAddr(), dest, src1, opcode2Name(opcode), subCode, src2, uEvent);
 
-#if !((defined TRACE_DRIVEN)||(defined MIPS_EMUL))
+#if !((defined TRACE_DRIVEN)||(defined MIPS_EMUL)||(defined QEMU_DRIVEN))
   // This is mint-only junk
   Itext[currentID()]->dump();
 #endif

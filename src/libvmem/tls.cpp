@@ -39,19 +39,19 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "NetAddrMap.h"
 #include "VTaskHandler.h"
 
-int main(int argc, char **argv, char **envp)
+int32_t main(int32_t argc, char **argv, char **envp)
 { 
   taskHandler = new VTaskHandler();
 
   osSim = new OSSim(argc, argv, envp);
 
-  int nProcs = SescConf->getRecordSize("","cpucore");
+  int32_t nProcs = SescConf->getRecordSize("","cpucore");
 
   std::vector<GMemorySystem *> ms(nProcs);
   std::vector<GProcessor *>    pr(nProcs);
   
  
-  for(int i=0; i < nProcs; i++) {
+  for(int32_t i=0; i < nProcs; i++) {
     GMemorySystem *gms = new VMemorySystem(i);
     gms->buildMemorySystem();
     ms[i] = gms;
@@ -65,7 +65,7 @@ int main(int argc, char **argv, char **envp)
 
   osSim->boot();
   
-  for(int i = 0; i < nProcs; i++ ) { 
+  for(int32_t i = 0; i < nProcs; i++ ) { 
     delete ms[i];
     delete pr[i];
   }

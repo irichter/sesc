@@ -37,7 +37,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "opcodes.h"
 #endif // !(defined MIPS_EMUL)
 
-ExecutionFlow::ExecutionFlow(int cId, int i, GMemorySystem *gmem)
+ExecutionFlow::ExecutionFlow(int32_t cId, int32_t i, GMemorySystem *gmem)
   : GFlow(i, cId, gmem)
 {
 #if (defined MIPS_EMUL)
@@ -63,10 +63,10 @@ ExecutionFlow::ExecutionFlow(int cId, int i, GMemorySystem *gmem)
 }
 
 #if !(defined MIPS_EMUL)
-int ExecutionFlow::exeInst(void)
+int32_t ExecutionFlow::exeInst(void)
 {
   // Instruction address
-  int iAddr = picodePC->addr;
+  int32_t iAddr = picodePC->addr;
   // Instruction flags
   short opflags=picodePC->opflags;
   // For load/store instructions, will contain the virtual address of data
@@ -103,7 +103,7 @@ int ExecutionFlow::exeInst(void)
   // For load/store instructions, need to translate the data address
   if(opflags&E_MEM_REF) {
     // Get the Virtual address
-         dAddrV = (*((int *)&thread.reg[picodePC->args[RS]])) + picodePC->immed;
+         dAddrV = (*((int32_t *)&thread.reg[picodePC->args[RS]])) + picodePC->immed;
     // Get the Real address
     dAddrR = thread.virt2real(dAddrV, opflags);
 
@@ -195,7 +195,7 @@ void ExecutionFlow::exeInstFast()
 #else // For (defined MIPS_EMUL)
   // This exeInstFast can be called when for sure there are no speculative
   // threads (TLS, or TASKSCALAR)
-  int iAddr   =picodePC->addr;
+  int32_t iAddr   =picodePC->addr;
   short iFlags=picodePC->opflags;
 
 
@@ -214,7 +214,7 @@ void ExecutionFlow::exeInstFast()
 
   if(iFlags&E_MEM_REF) {
     // Get the Logical address
-         VAddr vaddr = (*((int *)&thread.reg[picodePC->args[RS]])) + picodePC->immed;
+         VAddr vaddr = (*((int32_t *)&thread.reg[picodePC->args[RS]])) + picodePC->immed;
     // Get the Real address
     thread.setRAddr(thread.virt2real(vaddr, iFlags));
     if (trainCache)
@@ -223,8 +223,8 @@ void ExecutionFlow::exeInstFast()
 #ifdef TS_PROFILING
     if (osSim->enoughMarks1()) {
       if(iFlags&E_WRITE) {
-          int value = *((int *)&thread.reg[picodePC->args[RT]]);
-          if (value == SWAP_WORD(*(int *)thread.getRAddr())) {
+          int32_t value = *((int32_t *)&thread.reg[picodePC->args[RT]]);
+          if (value == SWAP_WORD(*(int32_t *)thread.getRAddr())) {
           //silent store
           //LOG("silent store@0x%lx, %ld", picodePC->addr, value);
           osSim->getProfiler()->recWrite(vaddr, picodePC, true);
@@ -245,7 +245,7 @@ void ExecutionFlow::exeInstFast()
 #endif // For else of (defined MIPS_EMUL)
 }
 
-void ExecutionFlow::switchIn(int i)
+void ExecutionFlow::switchIn(int32_t i)
 {
 #if (defined MIPS_EMUL)
   I(!context);
@@ -283,7 +283,7 @@ void ExecutionFlow::switchIn(int i)
   }
 }
 
-void ExecutionFlow::switchOut(int i)
+void ExecutionFlow::switchOut(int32_t i)
 {
 #ifdef TS_TIMELINE
   TraceGen::add(verID,"out=%lld",globalClock);
@@ -425,7 +425,7 @@ DInst *ExecutionFlow::executePC()
   epoch->pendInstr();
 #endif // (defined TLS)
 
-  int vaddr = exeInst();
+  int32_t vaddr = exeInst();
 
 #if (defined TASKSCALAR) || (defined TLS)
   // No instruction executed?
@@ -596,7 +596,7 @@ DInst *ExecutionFlow::executePC()
 
 void ExecutionFlow::goRabbitMode(long long n2skip)
 {
-  int nFastSims = 0;
+  int32_t nFastSims = 0;
   if( ev == FastSimBeginEvent ) {
     // Can't train cache in those cases. Cache only be train if the
     // processor did not even started to execute instructions
@@ -638,7 +638,7 @@ void ExecutionFlow::goRabbitMode(long long n2skip)
     const Instruction *inst = Instruction::getInst(picodePC->instID);
     if (inst->isBranch())
       bb[picodePC->instID]++;
-    static int conta = 10000000; // 10M
+    static int32_t conta = 10000000; // 10M
     conta--;
     if (conta<=0) { // Every 2**26 instructions
       fprintf(stderr,"\nT");

@@ -41,7 +41,7 @@ public:
   }
 };
 
-int nMessages;
+int32_t nMessages;
 
 class ProtocolA : public ProtocolBase {
 public:
@@ -67,7 +67,7 @@ public:
   void TestHandler(Message *m) {
     nMessages++;
     PBTestMsg *msg = static_cast<PBTestMsg *>(m);
-    static unsigned char conta=0;
+    static uint8_t conta=0;
     conta++;
 
     I(this == msg->getDstPB());
@@ -124,18 +124,18 @@ void bench1()
 {
   // Two neighbours messages
 
-  for(int i=0; i< NMSG ; i++ ) {
+  for(int32_t i=0; i< NMSG ; i++ ) {
     Message *msg = PBTestMsg::create(pa[nRouters/2],pa[nRouters/2+1]);
     net->sendMsg(msg);
     EventScheduler::advanceClock();
     if( (i % 128) == 0 ) {
-      for(int k = 0; k < TIME_BUBBLE ; k++) {
+      for(int32_t k = 0; k < TIME_BUBBLE ; k++) {
 	EventScheduler::advanceClock();
       }
     }
   }
 
-  for(int k = 0; k < TIME_BUBBLE ; k++) {
+  for(int32_t k = 0; k < TIME_BUBBLE ; k++) {
     EventScheduler::advanceClock();
   }
 }
@@ -152,19 +152,19 @@ void bench2()
     }
     EventScheduler::advanceClock();
     if( (i % 32) == 0 ) {
-      for(int k = 0; k < TIME_BUBBLE ; k++) {
+      for(int32_t k = 0; k < TIME_BUBBLE ; k++) {
 	EventScheduler::advanceClock();
       }
     }
   }
 
-  for(int k = 0; k < 4*TIME_BUBBLE ; k++) {
+  for(int32_t k = 0; k < 4*TIME_BUBBLE ; k++) {
     EventScheduler::advanceClock();
   }
 }
 
 
-int main(int argc, char **argv, char **envp)
+int32_t main(int32_t argc, char **argv, char **envp)
 {
   if (argc<2) {
     fprintf(stderr,"Usage:\n\t%s <router.conf>\n", argv[0]);
@@ -210,7 +210,7 @@ int main(int argc, char **argv, char **envp)
   fprintf(stderr,"done\n");
   endBench("bench3");
 
-  for(int k = 0; k < TIME_BUBBLE*100 ; k++) {
+  for(int32_t k = 0; k < TIME_BUBBLE*100 ; k++) {
     EventScheduler::advanceClock();
   }
 

@@ -49,7 +49,7 @@ struct rz3iu_brpred {
   rz3iu_brpred() {
     bpa = new uint8_t [1<<14];
     clear();
-    int i;
+    int32_t i;
     for (i=0; i<4; i++) {
       update_taken[i] = i+1;
       update_nottaken[i] = i-1;
@@ -64,7 +64,7 @@ struct rz3iu_brpred {
   }
 
   void clear() {
-    int i;
+    int32_t i;
     memset(bpa, 0, (1<<14));
     bhr = 0x0;
   }
@@ -75,21 +75,21 @@ struct rz3iu_brpred {
   // 1. we know the actual outcome of the branch. generate a prediction and return the *accuracy* of the prediction
   // 2. we know the *accuracy* of the prediction. generate the prediction and return the *actual outcome* of the branch
 
-  int pred_hit(uint64_t pc, int actual_outcome)
+  int32_t pred_hit(uint64_t pc, int32_t actual_outcome)
   {
-    int index = (int) (((pc>>2) & 0x3fff) ^ (bhr << 2));
+    int32_t index = (int) (((pc>>2) & 0x3fff) ^ (bhr << 2));
     uint8_t countervalue = bpa[index];
-    int pred = (countervalue >> 1);
+    int32_t pred = (countervalue >> 1);
     bpa[index] = actual_outcome ? update_taken[countervalue] : update_nottaken[countervalue];
     return (pred == actual_outcome);
   }
 
-  int actual_outcome(uint64_t pc, int pred_hit)
+  int32_t actual_outcome(uint64_t pc, int32_t pred_hit)
   {
-    int index = (int) (((pc>>2) & 0x3fff) ^ (bhr << 2));
+    int32_t index = (int) (((pc>>2) & 0x3fff) ^ (bhr << 2));
     uint8_t countervalue = bpa[index];
-    int pred = (countervalue >> 1);
-    int actual_outcome = (pred == pred_hit);
+    int32_t pred = (countervalue >> 1);
+    int32_t actual_outcome = (pred == pred_hit);
     bpa[index] = actual_outcome ? update_taken[countervalue] : update_nottaken[countervalue];
     return actual_outcome;
   }
@@ -154,7 +154,7 @@ struct rz3iu_icache_data {
 
 
 
-static const int rz3iu_icache_bshift = 0; // 8-instr block
+static const int32_t rz3iu_icache_bshift = 0; // 8-instr block
 static const uint64_t rz3iu_icache_bsize = 1<<rz3iu_icache_bshift;
 static const uint64_t rz3iu_icache_size = 256<<10;
 static const uint64_t rz3iu_icache_sets = rz3iu_icache_size >> 1+rz3iu_icache_bshift; // 2-way set-assoc
@@ -187,10 +187,10 @@ struct rz3iu_icache {
   rz3iu_icache_data * set(uint64_t pc, uint32_t instr, uint8_t rz3_major_version, uint8_t rz3_minor_version) {
     // replace lru
     uint64_t tag;
-    int idx;
-    int offset;
+    int32_t idx;
+    int32_t offset;
     tag_idx_ofs(pc, tag, idx, offset);
-    int lruway;
+    int32_t lruway;
     if (tags[idx] == tag) {
       lruway = 0;
       lru[idx] = 1;
@@ -201,10 +201,10 @@ struct rz3iu_icache {
       lruway = lru[idx];
     }
 
-    int w = idx + (lruway ? rz3iu_icache_sets : 0);
+    int32_t w = idx + (lruway ? rz3iu_icache_sets : 0);
 
     tags[w] = tag;
-    int loc = (w << rz3iu_icache_bshift) | offset;
+    int32_t loc = (w << rz3iu_icache_bshift) | offset;
     rz3iu_icache_data * icdata = &(data[loc]);
     icdata->instr = instr;
     // icdata->iop = spix_sparc_iop(SPIX_SPARC_V9, &(instr));
@@ -226,16 +226,16 @@ struct rz3iu_icache {
 
   struct rz3iu_icache_data * get(uint64_t pc) {
     uint64_t tag;
-    int idx;
-    int offset;
+    int32_t idx;
+    int32_t offset;
     tag_idx_ofs(pc, tag, idx, offset);
     if (tags[idx] == tag) {
-      int loc = (idx << rz3iu_icache_bshift);
+      int32_t loc = (idx << rz3iu_icache_bshift);
       loc |= offset;
       lru[idx] = 1;
       return &(data[loc]);
     } else if (tags[idx+rz3iu_icache_sets] == tag) {
-      int loc = (idx+rz3iu_icache_sets) << rz3iu_icache_bshift;
+      int32_t loc = (idx+rz3iu_icache_sets) << rz3iu_icache_bshift;
       loc |= offset;
       lru[idx] = 0;
       return & (data[loc]);
@@ -244,7 +244,7 @@ struct rz3iu_icache {
     }
   }
 
-  void tag_idx_ofs(uint64_t pc, uint64_t & tag, int & idx, int & ofs)
+  void tag_idx_ofs(uint64_t pc, uint64_t & tag, int32_t & idx, int32_t & ofs)
   {
     tag = (pc >> (2+rz3iu_icache_bshift));
     idx =  (int) (tag & (rz3iu_icache_sets - 1));
@@ -257,8 +257,8 @@ struct rz3_ras {
 
   enum consts_e { ras_sz = 16 };
   uint64_t arr[ras_sz];
-  int top;
-  int n;
+  int32_t top;
+  int32_t n;
 
   rz3_ras() {
     clear();
@@ -270,7 +270,7 @@ struct rz3_ras {
   }
 
   void push(uint64_t pc) {
-    int idx = (top+1) % ras_sz;
+    int32_t idx = (top+1) % ras_sz;
     arr[idx] = pc;
     top = idx;
     if (n<ras_sz) n++;

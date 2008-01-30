@@ -42,7 +42,7 @@ protected:
       prevTurn =0;
     }
     std::vector<Wire> succs;
-    int prevTurn;
+    int32_t prevTurn;
   };
   
   std::vector<Wires4Router> nextHop;

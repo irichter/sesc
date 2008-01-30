@@ -110,50 +110,50 @@
 
 typedef struct Colamd_Col_struct
 {
-    int start ;		/* index for A of first row in this column, or DEAD */
+    int32_t start ;		/* index for A of first row in this column, or DEAD */
 			/* if column is dead */
-    int length ;	/* number of rows in this column */
+    int32_t length ;	/* number of rows in this column */
     union
     {
-	int thickness ;	/* number of original columns represented by this */
+	int32_t thickness ;	/* number of original columns represented by this */
 			/* col, if the column is alive */
-	int parent ;	/* parent in parent tree super-column structure, if */
+	int32_t parent ;	/* parent in parent tree super-column structure, if */
 			/* the column is dead */
     } shared1 ;
     union
     {
-	int score ;	/* the score used to maintain heap, if col is alive */
-	int order ;	/* pivot ordering of this column, if col is dead */
+	int32_t score ;	/* the score used to maintain heap, if col is alive */
+	int32_t order ;	/* pivot ordering of this column, if col is dead */
     } shared2 ;
     union
     {
-	int headhash ;	/* head of a hash bucket, if col is at the head of */
+	int32_t headhash ;	/* head of a hash bucket, if col is at the head of */
 			/* a degree list */
-	int hash ;	/* hash value, if col is not in a degree list */
-	int prev ;	/* previous column in degree list, if col is in a */
+	int32_t hash ;	/* hash value, if col is not in a degree list */
+	int32_t prev ;	/* previous column in degree list, if col is in a */
 			/* degree list (but not at the head of a degree list) */
     } shared3 ;
     union
     {
-	int degree_next ;	/* next column, if col is in a degree list */
-	int hash_next ;		/* next column, if col is in a hash list */
+	int32_t degree_next ;	/* next column, if col is in a degree list */
+	int32_t hash_next ;		/* next column, if col is in a hash list */
     } shared4 ;
 
 } Colamd_Col ;
 
 typedef struct Colamd_Row_struct
 {
-    int start ;		/* index for A of first col in this row */
-    int length ;	/* number of principal columns in this row */
+    int32_t start ;		/* index for A of first col in this row */
+    int32_t length ;	/* number of principal columns in this row */
     union
     {
-	int degree ;	/* number of principal & non-principal columns in row */
-	int p ;		/* used as a row pointer in init_rows_cols () */
+	int32_t degree ;	/* number of principal & non-principal columns in row */
+	int32_t p ;		/* used as a row pointer in init_rows_cols () */
     } shared1 ;
     union
     {
-	int mark ;	/* for computing set differences and marking dead rows*/
-	int first_column ;/* first column in row (used in garbage collection) */
+	int32_t mark ;	/* for computing set differences and marking dead rows*/
+	int32_t first_column ;/* first column in row (used in garbage collection) */
     } shared2 ;
 
 } Colamd_Row ;
@@ -173,7 +173,7 @@ typedef struct Colamd_Row_struct
 
     This macro is not needed when using symamd.
 
-    Explicit typecast to int added Sept. 23, 2002, COLAMD version 2.2, to avoid
+    Explicit typecast to int32_t added Sept. 23, 2002, COLAMD version 2.2, to avoid
     gcc -pedantic warning messages.
 */
 
@@ -193,12 +193,12 @@ typedef struct Colamd_Row_struct
 /* === Prototypes of user-callable routines ================================= */
 /* ========================================================================== */
 
-int colamd_recommended		/* returns recommended value of Alen, */
+int32_t colamd_recommended		/* returns recommended value of Alen, */
 				/* or (-1) if input arguments are erroneous */
 (
-    int nnz,			/* nonzeros in A */
-    int n_row,			/* number of rows in A */
-    int n_col			/* number of columns in A */
+    int32_t nnz,			/* nonzeros in A */
+    int32_t n_row,			/* number of rows in A */
+    int32_t n_col			/* number of columns in A */
 ) ;
 
 void colamd_set_defaults	/* sets default parameters */
@@ -206,25 +206,25 @@ void colamd_set_defaults	/* sets default parameters */
     double knobs [COLAMD_KNOBS]	/* parameter settings for colamd */
 ) ;
 
-int colamd			/* returns (1) if successful, (0) otherwise*/
+int32_t colamd			/* returns (1) if successful, (0) otherwise*/
 (				/* A and p arguments are modified on output */
-    int n_row,			/* number of rows in A */
-    int n_col,			/* number of columns in A */
-    int Alen,			/* size of the array A */
-    int A [],			/* row indices of A, of size Alen */
-    int p [],			/* column pointers of A, of size n_col+1 */
+    int32_t n_row,			/* number of rows in A */
+    int32_t n_col,			/* number of columns in A */
+    int32_t Alen,			/* size of the array A */
+    int32_t A [],			/* row indices of A, of size Alen */
+    int32_t p [],			/* column pointers of A, of size n_col+1 */
     double knobs [COLAMD_KNOBS],/* parameter settings for colamd */
-    int stats [COLAMD_STATS]	/* colamd output statistics and error codes */
+    int32_t stats [COLAMD_STATS]	/* colamd output statistics and error codes */
 ) ;
 
-int symamd				/* return (1) if OK, (0) otherwise */
+int32_t symamd				/* return (1) if OK, (0) otherwise */
 (
-    int n,				/* number of rows and columns of A */
-    int A [],				/* row indices of A */
-    int p [],				/* column pointers of A */
-    int perm [],			/* output permutation, size n_col+1 */
+    int32_t n,				/* number of rows and columns of A */
+    int32_t A [],				/* row indices of A */
+    int32_t p [],				/* column pointers of A */
+    int32_t perm [],			/* output permutation, size n_col+1 */
     double knobs [COLAMD_KNOBS],	/* parameters (uses defaults if NULL) */
-    int stats [COLAMD_STATS],		/* output statistics and error codes */
+    int32_t stats [COLAMD_STATS],		/* output statistics and error codes */
     void * (*allocate) (size_t, size_t),
     					/* pointer to calloc (ANSI C) or */
 					/* mxCalloc (for MATLAB mexFunction) */
@@ -235,12 +235,12 @@ int symamd				/* return (1) if OK, (0) otherwise */
 
 void colamd_report
 (
-    int stats [COLAMD_STATS]
+    int32_t stats [COLAMD_STATS]
 ) ;
 
 void symamd_report
 (
-    int stats [COLAMD_STATS]
+    int32_t stats [COLAMD_STATS]
 ) ;
 
 #endif /* COLAMD_H */

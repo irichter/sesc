@@ -46,10 +46,10 @@ struct VCEntry {
 
 class InvalidIndexException {
  public:
-  InvalidIndexException( int i ) : idx( i )
+  InvalidIndexException( int32_t i ) : idx( i )
   {}
 
-  int idx;
+  int32_t idx;
 };
 
 class ValueCache {
@@ -81,7 +81,7 @@ class ValueCache {
   }
 
   // compatability w/ existing code
-  int hit( uint64_t d ) {
+  int32_t hit( uint64_t d ) {
     IdxT i;
 
     if( hit( d, i ) ){
@@ -116,12 +116,12 @@ class ValueCache {
     return cache[idx].value;
   }
 
-  int conflicts() const { return evictions; }
+  int32_t conflicts() const { return evictions; }
 
  private:
   unsigned vcacheSize;
   VCEntry *cache;
-  int evictions;
+  int32_t evictions;
 };
 
 #endif /* INCLUDED_VALUECACHE_H */

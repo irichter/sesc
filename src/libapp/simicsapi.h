@@ -11,7 +11,7 @@
 #define SIMICS_MAGICW_LEAVE_BARRIER 0x000001ba
 
 #define __SIMICS_MAGIC_CASSERT(p) do {                \
-    typedef int __check_magic_argument[(p) ? 1 : -1]; \
+    typedef int32_t __check_magic_argument[(p) ? 1 : -1]; \
   } while (0)
 
 #define SIMICS_MAGIC(n) do {			       \

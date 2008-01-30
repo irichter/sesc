@@ -35,16 +35,16 @@ class MemRequest;
 
 class GMemoryOS {
 private:
-  const int Id; // One OS instance per processor (1 per SMT too)
+  const int32_t Id; // One OS instance per processor (1 per SMT too)
 protected:
 public:
-  GMemoryOS(int i) 
+  GMemoryOS(int32_t i) 
     : Id(i) {
   }
   virtual ~GMemoryOS() {
   }
-  virtual int TLBTranslate(VAddr vAddr) = 0;
-  virtual int ITLBTranslate(VAddr iAddr) = 0 ;
+  virtual int32_t TLBTranslate(VAddr vAddr) = 0;
+  virtual int32_t ITLBTranslate(VAddr iAddr) = 0 ;
   virtual void solveRequest(MemRequest *r) = 0;
   virtual void boot() = 0;
   virtual void report(const char *str) = 0;
@@ -54,9 +54,9 @@ class DummyMemoryOS : public GMemoryOS {
 private:
   class DTLBState : public StateGeneric<> {
   public:
-	 int  physicalPage;
+	 int32_t  physicalPage;
 
-	 DTLBState(int iphysicalPage = -1) {  physicalPage = iphysicalPage; }
+	 DTLBState(int32_t iphysicalPage = -1) {  physicalPage = iphysicalPage; }
 
     bool operator==(DTLBState s) const {
       return physicalPage == s.physicalPage;
@@ -68,11 +68,11 @@ private:
   DTLBCache *dtlb;
 public:
   
-  DummyMemoryOS(int i);
+  DummyMemoryOS(int32_t i);
   virtual ~DummyMemoryOS();
 
-  int ITLBTranslate(VAddr iAddr);
-  int TLBTranslate(VAddr vAddr);
+  int32_t ITLBTranslate(VAddr iAddr);
+  int32_t TLBTranslate(VAddr vAddr);
 
   void solveRequest(MemRequest *r);
 

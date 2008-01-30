@@ -22,7 +22,7 @@
    10     10 (0x800)  Plus Inf
    11     01 (0x400)  Minus Inf
 */
-NativeFPUControlType changeFPUControl(unsigned int mipsFlag) {
+NativeFPUControlType changeFPUControl(uint32_t mipsFlag) {
   NativeFPUControlType oldValue, newValue;
   _FPU_GETCW(oldValue);
   /* Change the lowest 2 bits to correspond to the i387 rounding */ 
@@ -37,7 +37,7 @@ NativeFPUControlType changeFPUControl(unsigned int mipsFlag) {
   return oldValue;
 }
 
-void setFPUControl(unsigned int mipsFlag)
+void setFPUControl(uint32_t mipsFlag)
 {
   changeFPUControl(mipsFlag & 0x3);
 }
@@ -49,17 +49,17 @@ void restoreFPUControl(NativeFPUControlType i387Flag) {
 #elif defined(DARWIN)
 #include <fenv.h>
 
-static unsigned int FloatValue [] ={FE_TONEAREST,  /* 00 nearest   */
+static uint32_t FloatValue [] ={FE_TONEAREST,  /* 00 nearest   */
                                     FE_TOWARDZERO, /* 01 zero      */
                                     FE_UPWARD,     /* 10 plus inf  */
                                     FE_DOWNWARD    /* 11 minus inf */
 };
-void setFPUControl(unsigned int mipsFlag)
+void setFPUControl(uint32_t mipsFlag)
 {
   fesetround(FloatValue[mipsFlag & 0x3]);
 }
 
-NativeFPUControlType changeFPUControl(unsigned int mipsFlag)
+NativeFPUControlType changeFPUControl(uint32_t mipsFlag)
 {
   NativeFPUControlType oldValue;
 
@@ -86,11 +86,11 @@ static fp_rnd FloatValue [] ={FP_RN, /* nearest */
                               FP_RZ  /* --minus inf */
 };
 
-void setFPUControl(unsigned int mipsFlag) {
+void setFPUControl(uint32_t mipsFlag) {
   fpsetround(FloatValue[mipsFlag & 0x3]);
 }
 
-NativeFPUControlType changeFPUControl(unsigned int mipsFlag) {
+NativeFPUControlType changeFPUControl(uint32_t mipsFlag) {
   return fpsetround(FloatValue[mipsFlag & 0x3]);
 }
 
@@ -102,11 +102,11 @@ void restoreFPUControl(NativeFPUControlType nativeFlag) {
 
 #warning "setFPUControl not implemented for this architecture"
 
-void setFPUControl(unsigned int mipsFlag) {
+void setFPUControl(uint32_t mipsFlag) {
   fesetround(FloatValue[mipsFlag & 0x3]);
 }
 
-NativeFPUControlType changeFPUControl(unsigned int mipsFlag) {
+NativeFPUControlType changeFPUControl(uint32_t mipsFlag) {
   return fesetround(FloatValue[mipsFlag & 0x3]);
 }
 
@@ -115,23 +115,23 @@ static inline void restoreFPUControl(NativeFPUControlType nativeFlag) {
 }
 #endif
 
-unsigned int mips_div(int a, int b, int *lo, int *hi)
+uint32_t mips_div(int32_t a, int32_t b, int32_t *lo, int32_t *hi)
 {
   *lo = a / b;
   *hi = a % b;
   return 0;
 }
 
-unsigned int mips_divu(unsigned int a, unsigned int b, int *lo, int *hi)
+uint32_t mips_divu(uint32_t a, uint32_t b, int32_t *lo, int32_t *hi)
 {
   *lo = a / b;
   *hi = a % b;
   return 0;
 }
 
-unsigned int mips_lwlBE(int value, char *addr)
+uint32_t mips_lwlBE(int32_t value, char *addr)
 {
-  unsigned int rval;
+  uint32_t rval;
   char *pval;
         
   rval = value;
@@ -142,10 +142,10 @@ unsigned int mips_lwlBE(int value, char *addr)
   return rval;
 }
 
-unsigned int mips_lwlLE(int value, char *addr)
+uint32_t mips_lwlLE(int32_t value, char *addr)
 {
-  unsigned int rval;
-  unsigned int offset;
+  uint32_t rval;
+  uint32_t offset;
   char *pval;
 
   offset = ((uintptr_t)addr) & 0x3;
@@ -159,9 +159,9 @@ unsigned int mips_lwlLE(int value, char *addr)
   return rval;
 }
 
-int mips_lwrBE(int value, char *addr)
+int32_t mips_lwrBE(int32_t value, char *addr)
 {
-  int rval;
+  int32_t rval;
   char *pval;
 
   rval = value;
@@ -172,9 +172,9 @@ int mips_lwrBE(int value, char *addr)
   return rval;
 }
 
-int mips_lwrLE(int value, char *addr)
+int32_t mips_lwrLE(int32_t value, char *addr)
 {
-  int rval;
+  int32_t rval;
   char *pval;
 
   RAddr offset = ((RAddr)addr)&0x3;
@@ -197,17 +197,17 @@ int mips_lwrLE(int value, char *addr)
  * 
  * There must be a more efficient way to do signed 32-bit multiplication.
  */
-int mips_mult(int a, int b, int *lo, int *hi)
+int32_t mips_mult(int32_t a, int32_t b, int32_t *lo, int32_t *hi)
 {
-  unsigned int ahi, alo, bhi, blo;
-  unsigned int part1, part2, part3, part4;
-  unsigned int p2lo, p2hi, p3lo, p3hi;
-  unsigned int ms1, ms2, ms3, sum, carry;
-  unsigned int extra;
+  uint32_t ahi, alo, bhi, blo;
+  uint32_t part1, part2, part3, part4;
+  uint32_t p2lo, p2hi, p3lo, p3hi;
+  uint32_t ms1, ms2, ms3, sum, carry;
+  uint32_t extra;
 
-  ahi = (unsigned int) a >> 16;
+  ahi = (uint32_t) a >> 16;
   alo = a & 0xffff;
-  bhi = (unsigned int) b >> 16;
+  bhi = (uint32_t) b >> 16;
   blo = b & 0xffff;
 
   /* compute the partial products */
@@ -252,12 +252,12 @@ int mips_mult(int a, int b, int *lo, int *hi)
  * location pointed to by "lo" and stores the high 32 bits of the result
  * in the location pointed to by "hi".
  */
-int mips_multu(unsigned int a, unsigned int b, int *lo, int *hi)
+int32_t mips_multu(uint32_t a, uint32_t b, int32_t *lo, int32_t *hi)
 {
-  unsigned int ahi, alo, bhi, blo;
-  unsigned int part1, part2, part3, part4;
-  unsigned int p2lo, p2hi, p3lo, p3hi;
-  unsigned int ms1, ms2, ms3, sum, carry;
+  uint32_t ahi, alo, bhi, blo;
+  uint32_t part1, part2, part3, part4;
+  uint32_t p2lo, p2hi, p3lo, p3hi;
+  uint32_t ms1, ms2, ms3, sum, carry;
 
   ahi = a >> 16;
   alo = a & 0xffff;
@@ -294,7 +294,7 @@ int mips_multu(unsigned int a, unsigned int b, int *lo, int *hi)
   return 0;
 }
 
-void mips_swlBE(int value, char *addr)
+void mips_swlBE(int32_t value, char *addr)
 {
   char *pval;
 
@@ -304,10 +304,10 @@ void mips_swlBE(int value, char *addr)
     *addr++ = *pval++;
 }
 
-void mips_swlLE(int value, char *addr)
+void mips_swlLE(int32_t value, char *addr)
 {
   char *pval;
-  unsigned int offset;
+  uint32_t offset;
 
   offset = ((uintptr_t)addr) & 0x3;
   pval = (char *) &value+3 ;
@@ -318,7 +318,7 @@ void mips_swlLE(int value, char *addr)
 }
 
 
-void mips_swrBE(int value, char *addr)
+void mips_swrBE(int32_t value, char *addr)
 {
   char *pval;
 
@@ -329,10 +329,10 @@ void mips_swrBE(int value, char *addr)
   }
 }
 
-void mips_swrLE(int value, char *addr)
+void mips_swrLE(int32_t value, char *addr)
 {
   char *pval;
-  unsigned int offset;
+  uint32_t offset;
 
   offset = ((uintptr_t)addr) & 0x3;
   offset = 3 - offset;
@@ -346,15 +346,15 @@ void mips_swrLE(int value, char *addr)
 }
 
 
-/* The conversion from float to int on the SPARC ignores the rounding mode
+/* The conversion from float to int32_t on the SPARC ignores the rounding mode
  * bits, but the MIPS follows them faithfully. For example, when round-to-
  * nearest or round-to-plus-infinity is used, 1234.6 should be converted
  * to 1235, but the SPARC always truncates. So we have to do the conversion
  * explicitly. (Ugh!)
  */
-int mips_cvt_w_s(float pf, int fsr)
+int32_t mips_cvt_w_s(float pf, int32_t fsr)
 {
-  int ival, rmode;
+  int32_t ival, rmode;
 
   ival = (int) pf;
   rmode = fsr & 3;
@@ -382,9 +382,9 @@ int mips_cvt_w_s(float pf, int fsr)
   return ival;
 }
 
-int mips_cvt_w_d(double dval, int fsr)
+int32_t mips_cvt_w_d(double dval, int32_t fsr)
 {
-  int ival, rmode;
+  int32_t ival, rmode;
 
   rmode = fsr & 3;
   if (dval < 0) {

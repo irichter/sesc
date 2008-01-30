@@ -177,7 +177,7 @@ void ProcessId::squash()
 }
 #endif
 
-bool ProcessId::sysconf(int flags)
+bool ProcessId::sysconf(int32_t flags)
 {
   // Reject if running and it must be pinned to another processor
   if(((state==RunningState)||(state==ReadyState))&&(flags&SESC_FLAG_NOMIGRATE)&&
@@ -213,9 +213,9 @@ bool ProcessId::sysconf(int flags)
   return true;
 }
 
-int ProcessId::getconf(void)
+int32_t ProcessId::getconf(void)
 {
-  int flags=0;
+  int32_t flags=0;
   if(!migrable)
     flags|=SESC_FLAG_NOMIGRATE;
   if(cpu!=-1){
@@ -225,10 +225,10 @@ int ProcessId::getconf(void)
   return flags;
 }
 
-ProcessId *ProcessId::create(Pid_t ppid, Pid_t id, int flags)
+ProcessId *ProcessId::create(Pid_t ppid, Pid_t id, int32_t flags)
 {
   ProcessId *proc = pidPool.out();
-  int parentId = -1;
+  int32_t parentId = -1;
 
   if((ppid>=0)&&(pidTable[ppid])){
     ProcessId *pproc=pidTable[ppid];
@@ -237,7 +237,7 @@ ProcessId *ProcessId::create(Pid_t ppid, Pid_t id, int flags)
     parentId = pproc->myId;
   }
 
-  static int uniqueId=0;
+  static int32_t uniqueId=0;
   proc->myId         = uniqueId++;
 
   proc->priority     =0;
@@ -340,7 +340,7 @@ ProcessId *ProcessId::getProcessId(Pid_t pid)
   return pidTable[pid];
 }
 
-unsigned int ProcessId::getNumThreads()
+uint32_t ProcessId::getNumThreads()
 { 
 #if (defined MIPS_EMUL)
   return ThreadContext::getPidUb();
@@ -436,7 +436,7 @@ void ProcessId::printQueue(char *where)
 void ProcessId::decSuspendedCounter(){
   I(suspendedCounter > 0); 
   if(suspendedCounter <= 0){
-    int j = rand();
+    int32_t j = rand();
   }
   suspendedCounter--; 
 }

@@ -38,11 +38,11 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 // debugging defines
 #include "TMDebug.h"
 
-int main(int argc, char**argv, char **envp)
+int32_t main(int32_t argc, char**argv, char **envp)
 {
   OSSim *osSim = new OSSim(argc, argv, envp);
 
-  int nProcs = SescConf->getRecordSize("","cpucore");
+  int32_t nProcs = SescConf->getRecordSize("","cpucore");
 
   GLOG(SMPDBG_CONSTR, "Number of Processors: %d", nProcs);
 
@@ -50,7 +50,7 @@ int main(int argc, char**argv, char **envp)
   std::vector<GProcessor *>    pr(nProcs);
   std::vector<GMemorySystem *> ms(nProcs);
 
-  for(int i = 0; i < nProcs; i++) {
+  for(int32_t i = 0; i < nProcs; i++) {
     GLOG(SMPDBG_CONSTR, "Building processor %d and its memory subsystem", i);
     GMemorySystem *gms = new SMemorySystem(i);
     gms->buildMemorySystem();
@@ -62,7 +62,7 @@ int main(int argc, char**argv, char **envp)
   osSim->boot();
   GLOG(SMPDBG_CONSTR, "Terminating simulation");
 
-  for(int i = 0; i < nProcs; i++) {
+  for(int32_t i = 0; i < nProcs; i++) {
     delete pr[i];
     delete ms[i];
   }

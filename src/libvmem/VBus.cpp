@@ -133,7 +133,7 @@ void VBus::doRead(VMemReadReq *readReq)
 
 #ifdef DIRECTORY
   PAddr pos = calcLine(readReq->getPAddr());
-  unsigned int lineInfo = (unsigned int) -1;
+  uint32_t lineInfo = (uint32_t) -1;
   lineDirectory.getInfoForLine(pos, &lineInfo);
 
   for(size_t i=0;i<nL1s;i++) {
@@ -179,7 +179,7 @@ void VBus::readAck(VMemReadReq *readAckReq)
 
 #ifdef DIRECTORY
   PAddr pos = calcLine(readAckReq->getPAddr());
-  unsigned int lineInfo = (unsigned int) -1;
+  uint32_t lineInfo = (uint32_t) -1;
   lineDirectory.getInfoForLine(pos, &lineInfo); 
 
   // the directory has to agree that the cache sending the data 
@@ -228,7 +228,7 @@ void VBus::doSendReadAck(VMemReadReq *readAckReq)
   I(isInUpperLevel(readAckReq->getVMem()));
 
 #ifdef DIRECTORY 
-  unsigned int id = readAckReq->getVMem()->getId();
+  uint32_t id = readAckReq->getVMem()->getId();
   PAddr pos = calcLine(readAckReq->getPAddr()); 
 
   // vbus was source for data, forwarding it from memory or from
@@ -463,7 +463,7 @@ void VBus::askPushLine(VMemPushLineReq *vreq)
   size_t nL1s = upperLevel.size();
 #ifdef DIRECTORY
   PAddr pos = calcLine(vreq->getPAddr());
-  unsigned int lineInfo = (unsigned int) -1;
+  uint32_t lineInfo = (uint32_t) -1;
   lineDirectory.getInfoForLine(pos, &lineInfo);
 
   for(size_t i=0;i<nL1s;i++) {

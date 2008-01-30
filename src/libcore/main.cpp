@@ -43,7 +43,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "TaskHandler.h"
 #endif
 
-int main(int argc, char **argv, char **envp)
+int32_t main(int32_t argc, char **argv, char **envp)
 { 
 #ifdef TASKSCALAR
   taskHandler = new TaskHandler();
@@ -51,7 +51,7 @@ int main(int argc, char **argv, char **envp)
   
   osSim = new OSSim(argc, argv, envp); // You can extend the OS if desired
 
-  int nProcs = SescConf->getRecordSize("","cpucore");
+  int32_t nProcs = SescConf->getRecordSize("","cpucore");
 
   std::vector<GMemorySystem *> ms(nProcs);
   std::vector<GProcessor *>    pr(nProcs);
@@ -71,9 +71,9 @@ int main(int argc, char **argv, char **envp)
 
   osSim->boot();
 
-  // Reaches this point only when all the active threads have finished.
+  // Reaches this point32_t only when all the active threads have finished.
 
-  for(int i = 0; i < nProcs; i ++) { 
+  for(int32_t i = 0; i < nProcs; i ++) { 
     delete pr[i];
     delete ms[i];
   }

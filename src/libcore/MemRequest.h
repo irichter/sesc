@@ -78,12 +78,12 @@ public:
   const char *memobj;
   const char *action;
   Time_t accessTime;
-  int specialId;
+  int32_t specialId;
   
   static ReqPathEntry *create(const char *memobj, 
 				 const char *action,
 				 Time_t accessTime,
-				 int specialId = -1) {
+				 int32_t specialId = -1) {
     ReqPathEntry *rpEntry = pPool.out();
     rpEntry->memobj = memobj;
     rpEntry->action = action;
@@ -121,7 +121,7 @@ protected:
  	VcacheFlags vcacheFlags;
  #endif
 
-  ID(static int numMemReqs;)
+  ID(static int32_t numMemReqs;)
 
   // Called through callback
   void access();
@@ -138,7 +138,7 @@ protected:
   PAddr  pAddr; // physical address
   MemOperation memOp;
 
- int priority;
+ int32_t priority;
 
   Time_t l2MissDetection;
 
@@ -167,9 +167,9 @@ protected:
   VMemReq *vmemReq;
 #endif
 
-  int wToRLevel;
+  int32_t wToRLevel;
 
-  ID(int reqId;) // It can be used as a printf trigger
+  ID(int32_t reqId;) // It can be used as a printf trigger
 
   MemRequest();
   virtual ~MemRequest();
@@ -178,7 +178,7 @@ protected:
   StaticCallbackMember0<MemRequest, &MemRequest::returnAccess> returnAccessCB;
 
 public:
-  ID(int id() const { return reqId; })
+  ID(int32_t id() const { return reqId; })
 
   MemOperation getMemOperation() const { return memOp; }
 //For Tls
@@ -236,8 +236,8 @@ public:
     prefetch = true;
   }
 
-  void setPriority(int p) { priority = p; }
-  int  getPriority() { return priority; }
+  void setPriority(int32_t p) { priority = p; }
+  int32_t  getPriority() { return priority; }
  
 #ifdef SESC_DSM // libdsm stuff
   // local is true by default
@@ -418,7 +418,7 @@ public:
     reqPath.push_back(entry);
   }
 
-  void registerVisit(const char *name, const char *action, Time_t time, int sId)
+  void registerVisit(const char *name, const char *action, Time_t time, int32_t sId)
   {
     ReqPathEntry *entry = ReqPathEntry::create(name, action, time, sId);
     reqPath.push_back(entry);
@@ -438,7 +438,7 @@ public:
     if(reqPath.size() > 2) {
       MSG("...");
       
-      int i = reqPath.size() - 1;
+      int32_t i = reqPath.size() - 1;
       if(reqPath[i]->specialId == -1) {
 	MSG("%d: %s/%s - +%lld", i, reqPath[i]->memobj, reqPath[i]->action, 
 	    reqPath[i]->accessTime - reqPath[i-1]->accessTime);

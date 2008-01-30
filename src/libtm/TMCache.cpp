@@ -148,8 +148,8 @@ void SMPCache::access(MemRequest *mreq)
   GMSG(mreq->getPAddr() < 1024,
        "mreq dinst=0x%p paddr=0x%x vaddr=0x%x memOp=%d ignored",
        mreq->getDInst(),
-       (unsigned int) mreq->getPAddr(),
-       (unsigned int) mreq->getVaddr(),
+       (uint32_t) mreq->getPAddr(),
+       (uint32_t) mreq->getVaddr(),
        mreq->getMemOperation());
   
   I(addr > 1024); 
@@ -539,7 +539,7 @@ void SMPCache::doReceiveFromBelow(SMPMemRequest *sreq)
 		{
 			MemRequest *oreq=sreq->getOriginalRequest();
 			//If Line epoch is < request epoch set Others exposed
-			long int tmpclk=((oreq->getEpoch())->getClock());
+			long int32_t tmpclk=((oreq->getEpoch())->getClock());
 			if ((l->getEpoch())->getClock()<tmpclk)
 			{
 				l->getCacheFlags()->setOE();
@@ -556,7 +556,7 @@ void SMPCache::doReceiveFromBelow(SMPMemRequest *sreq)
 		{
 			MemRequest *oreq=sreq->getOriginalRequest();
 			//If Line epoch is < request epoch set Others exposed
-			long int tmpclk=((oreq->getEpoch())->getClock());
+			long int32_t tmpclk=((oreq->getEpoch())->getClock());
 			if ((l->getEpoch())->getClock()<tmpclk)
 			{
 				l->getCacheFlags()->setOE();
@@ -582,7 +582,7 @@ void SMPCache::doReceiveFromBelow(SMPMemRequest *sreq)
 				if (((l->getEpoch())->getClock()>((oreq->getEpoch())->getClock())) && l->getCacheFlags()->getWordER(getOffsetInLine(addr)))
 				{
 	 				//realInvalidateTLS(addr,cache->getLineSize());
-	 				int sqhCount=squash(l->getEpoch());
+	 				int32_t sqhCount=squash(l->getEpoch());
 					printf("Backend Squash: Invalidated lines- %ld\n",sqhCount);
 					squashes.inc();
 				}
@@ -609,7 +609,7 @@ void SMPCache::doReceiveFromBelow(SMPMemRequest *sreq)
 			if (((l->getEpoch())->getClock()>((oreq->getEpoch())->getClock())) && l->getCacheFlags()->getWordER(getOffsetInLine(addr)))
 			{
  				//realInvalidateTLS(addr,cache->getLineSize());
-	 				int sqhCount=squash(l->getEpoch());
+	 				int32_t sqhCount=squash(l->getEpoch());
 					printf("Backend Squash: Invalidated lines- %ld\n",sqhCount);
 					squashes.inc();
 			}
@@ -933,15 +933,15 @@ void SMPCache::sendUp(MemRequest *mreq)
 }
 
 
-unsigned int SMPCache::getOffsetInLine(PAddr addr)
+uint32_t SMPCache::getOffsetInLine(PAddr addr)
 {
 	if (cache->getLineSize()!=32)
 		printf("Check allocation for cacheFlags!!!!\n");
-	unsigned int temp,shft;
+	uint32_t temp,shft;
 	shft=(int)(log10((double)cache->getLineSize())/(double)log10(2.0));
 	temp= addr >> shft;
 	temp=addr-(temp<<shft);
-	return (unsigned int)temp;
+	return (uint32_t)temp;
 }
 void SMPCache::doWriteBack(MemRequest *mreq)
 {
@@ -949,7 +949,7 @@ void SMPCache::doWriteBack(MemRequest *mreq)
 
   bool commitResult;
   RAddr addr;  
-  int tid;
+  int32_t tid;
     
    Line *l = cache->findLine2Replace(mreq->getPAddr());
    PAddr rpl_addr = cache->calcAddr4Tag(l->getTag());
@@ -1077,9 +1077,9 @@ void SMPCache::doInvalidateLineTLS(MemRequest *mreq)
   //mutExclBuffer->retire(addr);
 }
 
-int SMPCache::squash(tls::Epoch *epoch)
+int32_t SMPCache::squash(tls::Epoch *epoch)
 {
-	unsigned int i,count=0;
+	uint32_t i,count=0;
 	Line *l;
 	for (i=0;i<cache->getNumLines();i++)
 	{

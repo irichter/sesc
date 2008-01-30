@@ -40,14 +40,14 @@ public:
     return header;
   }
 
-  void setNumcpus(int numcpus) {
+  void setNumcpus(int32_t numcpus) {
     char text[80];
 
     sprintf(text, "%s%d.\n", RSTZIP_HEADER_NUMCPU_STRING, numcpus);
     strcat(header, text);
   }
 
-  int getNumcpus() {
+  int32_t getNumcpus() {
     char* pnumcpu = strstr(header, RSTZIP_HEADER_NUMCPU_STRING);
 
     if (pnumcpu != NULL) {
@@ -57,15 +57,15 @@ public:
     return 0;
   }
 
-  int getHeaderSize() {
+  int32_t getHeaderSize() {
     return strlen(header);
   }
 
-  int getMaxHeaderSize() {
+  int32_t getMaxHeaderSize() {
     return RSTZIP_HEADERSIZE;
   }
 
-  int isValid() {
+  int32_t isValid() {
     return (strncmp(header, "RZ2", 3) == 0);
   }
 

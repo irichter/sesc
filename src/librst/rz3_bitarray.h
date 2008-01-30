@@ -42,14 +42,14 @@
 #include "mendian.h"
 
 // set this to 1 for debugging - outputs every update to each bitarray
-const int rz3_bitarray_debug = 0;
+const int32_t rz3_bitarray_debug = 0;
 
 // class rz3_bitarray_base {
 class rz3_bitarray {
  public:
 
-  // rz3_bitarray_base(const char * arg_name, int arg_nbits, int size_hint) {
-  rz3_bitarray(const char * arg_name, int arg_nbits, int size_hint) {
+  // rz3_bitarray_base(const char * arg_name, int32_t arg_nbits, int32_t size_hint) {
+  rz3_bitarray(const char * arg_name, int32_t arg_nbits, int32_t size_hint) {
     name = strdup(arg_name);
 
     elemsize = arg_nbits;
@@ -59,7 +59,7 @@ class rz3_bitarray {
     maxcount = 0;
     u64 = NULL;
 
-    int desired_count;
+    int32_t desired_count;
     if (size_hint) {
       desired_count = size_hint;
     } else {
@@ -98,11 +98,11 @@ class rz3_bitarray {
       reallocate(count+1);
     }
 
-    int u64idx = nbits/64;
-    int offs = nbits%64;
+    int32_t u64idx = nbits/64;
+    int32_t offs = nbits%64;
     if (straddle && ((64-offs) < elemsize)) {
       // low-order bits
-      int lbits = (64-offs);
+      int32_t lbits = (64-offs);
       uint64_t lmask = (1ull << lbits) - 1;
       uint64_t lowbits = data_nbits & lmask;
       u64[u64idx] &= ~(lmask << offs);
@@ -118,7 +118,7 @@ class rz3_bitarray {
   }
 
 
-  virtual bool Get(int key, uint64_t & value)
+  virtual bool Get(int32_t key, uint64_t & value)
   {
     if (key >= count) {
       if (rz3_bitarray_debug) fprintf(stderr, "rz3_bitarray %s: Error: Get(%d) - count is %d\n", name, key, count);
@@ -126,11 +126,11 @@ class rz3_bitarray {
     }
 
     value = 0x0;
-    int u64idx = (key*elemsize)/64;
-    int offs = (key*elemsize)%64;
+    int32_t u64idx = (key*elemsize)/64;
+    int32_t offs = (key*elemsize)%64;
     if (straddle && ((offs+elemsize)>64)) {
-      int hbits = (offs+elemsize)-64;
-      int lbits = elemsize-hbits;
+      int32_t hbits = (offs+elemsize)-64;
+      int32_t lbits = elemsize-hbits;
       value = u64[u64idx] >> offs;
       uint64_t hmask = (1ull << hbits)-1;
       uint64_t hval = u64[u64idx+1] & hmask;
@@ -153,13 +153,13 @@ class rz3_bitarray {
     return rv;
   }
 
-  virtual int Count() {
+  virtual int32_t Count() {
     return count;
   }
 
-  virtual uint64_t ComputeMemBufSize(int n_elements)
+  virtual uint64_t ComputeMemBufSize(int32_t n_elements)
   {
-    int n_u64 =  (n_elements * elemsize + 63)/64;
+    int32_t n_u64 =  (n_elements * elemsize + 63)/64;
     return n_u64 * sizeof(uint64_t);
   }
 
@@ -167,29 +167,29 @@ class rz3_bitarray {
     return ComputeMemBufSize(count);
   }
 
-  virtual uint64_t CopyTo(unsigned char * membuf)
+  virtual uint64_t CopyTo(uint8_t * membuf)
   {
-    int n_u64 = (nbits+63)/64;
+    int32_t n_u64 = (nbits+63)/64;
     uint64_t sz = n_u64*sizeof(uint64_t);
     memcpy(membuf, u64, sz);
     return sz;
   }
 
-  virtual uint64_t CopyFrom(unsigned char * membuf, int arg_count)
+  virtual uint64_t CopyFrom(uint8_t * membuf, int32_t arg_count)
   {
     if (arg_count > maxcount) {
       reallocate(arg_count);
     }
     count = arg_count;
     nbits = count * elemsize;
-    int n_u64 = (nbits + 63)/64;
-    int sz = n_u64 * sizeof(uint64_t);
+    int32_t n_u64 = (nbits + 63)/64;
+    int32_t sz = n_u64 * sizeof(uint64_t);
     memcpy(u64, membuf, sz);
 
     //jan {
     //We need to swap_long here on little endian machines because the
     //cast from char* byte array to uint64_t messes things up otherwise
-    for (int j=0; j<n_u64; j++) { 
+    for (int32_t j=0; j<n_u64; j++) { 
       u64[j] = SWAP_LONG(u64[j]);
     }
     //jan }
@@ -205,14 +205,14 @@ class rz3_bitarray {
 
  protected:
 
-  void reallocate(int desired_size) {
+  void reallocate(int32_t desired_size) {
     if (desired_size <= maxcount) return;
 
     if (desired_size < (2*maxcount)) {
       desired_size = 2*maxcount;
     }
 
-    int new_u64_count = (desired_size * elemsize + 63)/64;
+    int32_t new_u64_count = (desired_size * elemsize + 63)/64;
     uint64_t * new_u64 = new uint64_t [new_u64_count];
     if (u64 != NULL) {
       memcpy(new_u64, u64, u64_count*sizeof(uint64_t));
@@ -228,17 +228,17 @@ class rz3_bitarray {
 
   char * name;
 
-  int elemsize;
+  int32_t elemsize;
   uint64_t elem_mask;
 
-  int count; // count of valid elements in the array
-  int maxcount; // the most number of elements that can exist in the array
+  int32_t count; // count of valid elements in the array
+  int32_t maxcount; // the most number of elements that can exist in the array
 
-  int nbits;
+  int32_t nbits;
 
-  int nextidx;
+  int32_t nextidx;
 
-  int u64_count;
+  int32_t u64_count;
 
   uint64_t * u64;
 

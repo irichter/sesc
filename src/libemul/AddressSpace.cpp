@@ -351,7 +351,7 @@ size_t AddressSpace::getFuncSize(VAddr addr) const{
   return fend-fbeg;
 }
 
-// Print name(s) of function(s) with given entry point
+// Print32_t name(s) of function(s) with given entry point
 void AddressSpace::printFuncName(VAddr addr){
   AddrToNameMap::iterator nameBegIt=funcAddrToName.lower_bound(addr);
   AddrToNameMap::iterator nameEndIt=funcAddrToName.upper_bound(addr);

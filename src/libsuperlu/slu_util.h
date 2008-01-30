@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <string.h>
 /*
 #ifndef __STDC__
@@ -48,7 +49,7 @@
 #define SUPERLU_FREE(addr) USER_FREE(addr)
 
 #define CHECK_MALLOC(where) {                 \
-    extern int superlu_malloc_total;        \
+    extern int32_t superlu_malloc_total;        \
     printf("%s: malloc_total %d Bytes\n",     \
 	   where, superlu_malloc_total); \
 }
@@ -104,7 +105,7 @@ typedef enum {
  * Type definitions
  ***********************************************************************/
 typedef float    flops_t;
-typedef unsigned char Logical;
+typedef uint8_t Logical;
 
 /* 
  *-- This contains the options used to control the solve process.
@@ -157,7 +158,7 @@ typedef unsigned char Logical;
  *        = ExtraPrec: perform iterative refinement in extra precision
  *
  * PrintStat (yes_no_t)
- *        Specifies whether to print the solver's statistics.
+ *        Specifies whether to print32_t the solver's statistics.
  *
  * DiagPivotThresh (double, in [0.0, 1.0]) (only for sequential SuperLU)
  *        Specifies the threshold used for a diagonal entry to be an
@@ -206,11 +207,11 @@ typedef struct {
 } superlu_options_t;
 
 typedef struct {
-    int     *panel_histo; /* histogram of panel size distribution */
+    int32_t     *panel_histo; /* histogram of panel size distribution */
     double  *utime;       /* running time at various phases */
     flops_t *ops;         /* operation count at various phases */
-    int     TinyPivots;   /* number of tiny pivots */
-    int     RefineSteps;  /* number of iterative refinement steps */
+    int32_t     TinyPivots;   /* number of tiny pivots */
+    int32_t     RefineSteps;  /* number of iterative refinement steps */
 } SuperLUStat_t;
 
 
@@ -227,36 +228,36 @@ void    Destroy_CompRow_Matrix(SuperMatrix *);
 void    Destroy_SuperNode_Matrix(SuperMatrix *);
 void    Destroy_CompCol_Permuted(SuperMatrix *);
 void    Destroy_Dense_Matrix(SuperMatrix *);
-void    get_perm_c(int, SuperMatrix *, int *);
+void    get_perm_c(int32_t, SuperMatrix *, int32_t *);
 void    set_default_options(superlu_options_t *options);
 void    sp_preorder (superlu_options_t *, SuperMatrix*, int*, int*,
 			    SuperMatrix*);
 void    superlu_abort_and_exit(char*);
 void    *superlu_malloc (size_t);
-int     *intMalloc (int);
-int     *intCalloc (int);
+int32_t     *intMalloc (int);
+int32_t     *intCalloc (int);
 void    superlu_free (void*);
-void    SetIWork (int, int, int, int *, int **, int **, int **,
-                         int **, int **, int **, int **);
-int     sp_coletree (int *, int *, int *, int, int, int *);
-void    relax_snode (const int, int *, const int, int *, int *);
-void    heap_relax_snode (const int, int *, const int, int *, int *);
-void    resetrep_col (const int, const int *, int *);
-int     spcoletree (int *, int *, int *, int, int, int *);
-int     *TreePostorder (int, int *);
+void    SetIWork (int32_t, int32_t, int32_t, int32_t *, int32_t **, int32_t **, int32_t **,
+                         int32_t **, int32_t **, int32_t **, int32_t **);
+int32_t     sp_coletree (int32_t *, int32_t *, int32_t *, int32_t, int32_t, int32_t *);
+void    relax_snode (const int32_t, int32_t *, const int32_t, int32_t *, int32_t *);
+void    heap_relax_snode (const int32_t, int32_t *, const int32_t, int32_t *, int32_t *);
+void    resetrep_col (const int32_t, const int32_t *, int32_t *);
+int32_t     spcoletree (int32_t *, int32_t *, int32_t *, int32_t, int32_t, int32_t *);
+int32_t     *TreePostorder (int32_t, int32_t *);
 double  SuperLU_timer_ ();
-int     sp_ienv (int);
-int     lsame_ (char *, char *);
-int     xerbla_ (char *, int *);
-void    ifill (int *, int, int);
-void    snode_profile (int, int *);
-void    super_stats (int, int *);
-void    PrintSumm (char *, int, int, int);
+int32_t     sp_ienv (int);
+int32_t     lsame_ (char *, char *);
+int32_t     xerbla_ (char *, int32_t *);
+void    ifill (int32_t *, int32_t, int);
+void    snode_profile (int32_t, int32_t *);
+void    super_stats (int32_t, int32_t *);
+void    PrintSumm (char *, int32_t, int32_t, int);
 void    StatInit(SuperLUStat_t *);
-void    StatPrint (SuperLUStat_t *);
+void    StatPrint32_t (SuperLUStat_t *);
 void    StatFree(SuperLUStat_t *);
-void    print_panel_seg(int, int, int, int, int *, int *);
-void    check_repfnz(int, int, int, int *);
+void    print_panel_seg(int32_t, int32_t, int32_t, int32_t, int32_t *, int32_t *);
+void    check_repfnz(int32_t, int32_t, int32_t, int32_t *);
 
 #ifdef __cplusplus
   }

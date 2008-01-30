@@ -135,7 +135,7 @@ public:
   virtual bool isSafestEntry() const;
 };
 
-// Fake LVID Entry for the safest version. Caches can point to it, and no version
+// Fake LVID Entry for the safest version. Caches can point32_t to it, and no version
 // gets recycled.
 class LVIDSafest : public LVID {
 private:

@@ -35,7 +35,7 @@ class PPCDecoder {
   static PPCInstDef ppcInstTable[];
 
   static void Initialize();
-  static void expandDecodeEntry(PPCInstDef *, int extOpSize);
+  static void expandDecodeEntry(PPCInstDef *, int32_t extOpSize);
   static void fillDummyEntries();
   
   static PPCInstDef* getInstDef(unsigned rawInst) {

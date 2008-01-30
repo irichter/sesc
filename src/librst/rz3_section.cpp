@@ -42,14 +42,14 @@ bool rz3_section_header::write(gzFile gzf) {
 
 
 bool rz3_section_header::read(gzFile gzf) {
-  int bytes_read = gzread(gzf, this, sizeof(rz3_section_header));
+  int32_t bytes_read = gzread(gzf, this, sizeof(rz3_section_header));
   if (bytes_read == 0) {
     /* end of file */
     return false;
   }
 
   if (bytes_read != sizeof(rz3_section_header)) {
-    int errnum;
+    int32_t errnum;
     fprintf(stderr, "rz3_section_header::read() - gzread error (bytes read=%d, req = %d) %s\n", bytes_read, sizeof(rz3_section_header),
             gzerror(gzf, &errnum));
     fprintf(stderr, "errnum %d\n", errnum);
@@ -62,7 +62,7 @@ bool rz3_section_header::read(gzFile gzf) {
   CompressedBufferSize = SWAP_LONG(CompressedBufferSize);
   //fprintf(stderr, "NRECORDS: %x;\nCOMPRESSEDBUFFERSIZE: %llx;\n", nrecords, CompressedBufferSize);
 
-  for (int j=0; j<rstzip3::bitarray_count; j++) {
+  for (int32_t j=0; j<rstzip3::bitarray_count; j++) {
     rz3_bitarray_counts[j] = SWAP_WORD(rz3_bitarray_counts[j]);
     //fprintf(stderr, "J: %d; BITARRAYCOUNTS: %x;\n", j, rz3_bitarray_counts[j]);
   }
@@ -94,9 +94,9 @@ rz3_section_data::rz3_section_data(rz3_section_header * arg_shdr, bool pre320) {
 
   // raw_records_array = new rz3_rst_array(rz3_bufsize); // only allocates bufsize/512 pointers. array grows on demand
 
-  int i;
+  int32_t i;
   for (i=0; i<rstzip3::bitarray_count; i++) {
-    int nbits = rstzip3::bitarray_descr[i].nbits;
+    int32_t nbits = rstzip3::bitarray_descr[i].nbits;
 
     // this is a sub-optimal way of coding this, but we need to
     // special case things for version differences and backward
@@ -117,7 +117,7 @@ rz3_section_data::rz3_section_data(rz3_section_header * arg_shdr, bool pre320) {
       } // switch i
     } // if pre320
 
-    int size_hint = rstzip3::bitarray_descr[i].size_hint;
+    int32_t size_hint = rstzip3::bitarray_descr[i].size_hint;
     bitarrays[i] = new rz3_bitarray(rstzip3::bitarray_descr[i].name, nbits, size_hint);
     total_rz3_bitarray_counts[i] = 0;
     total_rz3_bitarray_sums[i] = 0;
@@ -132,7 +132,7 @@ rz3_section_data::~rz3_section_data() {
 
   // delete raw_records_array; raw_records_array = NULL;
 
-  int i;
+  int32_t i;
   for (i=0; i<rstzip3::bitarray_count; i++) {
     delete bitarrays[i]; bitarrays[i] = NULL;
   }
@@ -140,7 +140,7 @@ rz3_section_data::~rz3_section_data() {
 } // rz3_section_data::~()
 
 void rz3_section_data::clear() {
-  for (int i=0; i<rstzip3::bitarray_count; i++) {
+  for (int32_t i=0; i<rstzip3::bitarray_count; i++) {
     bitarrays[i]->clear();
   }
 
@@ -154,10 +154,10 @@ void rz3_section_data::print() {
   fprintf(stderr, "\nSection array sizes:\n");
   fprintf(stderr, "nrecords = %d\n", shdr->nrecords);
 
-  int instr_count = bitarrays[rstzip3::instr_pred_all_array]->Count();
+  int32_t instr_count = bitarrays[rstzip3::instr_pred_all_array]->Count();
 
-  for (int i=0; i<rstzip3::bitarray_count; i++) {
-    int count = shdr->rz3_bitarray_counts[i];
+  for (int32_t i=0; i<rstzip3::bitarray_count; i++) {
+    int32_t count = shdr->rz3_bitarray_counts[i];
     fprintf(stderr, "# %s = %6d (%7.4f%%/instr, %7.4f%%/rec)  %7.4f bits/rec %7.4f%% of all bits",
             rstzip3::bitarray_descr[i].name, count, count*100.0/instr_count, count*100.0/shdr->nrecords,
             count*rstzip3::bitarray_descr[i].nbits*1.0/shdr->nrecords, count*rstzip3::bitarray_descr[i].nbits*100.0/(8*shdr->CompressedBufferSize));
@@ -169,7 +169,7 @@ void rz3_section_data::print() {
     }
   }
 
-  // int count = raw_records_array->Count();
+  // int32_t count = raw_records_array->Count();
   // fprintf(stderr, "# raw_records_array = %d (%3.4f%%/instr, \t%3.4f%%/rec)\n", count, count*100.0/instr_count, count*100.0/shdr->nrecords);
 
   fprintf(stderr, "Size of compressed buffer is %lld (%7.4f bytes/instr, %7.4f bytes/rec)\n",
@@ -182,12 +182,12 @@ void rz3_section_data::print_totals() {
   fprintf(stderr, "\nTotal section array sizes:\n");
   fprintf(stderr, "nrecords = %llx\n", total_nrecords);
 
-  int instr_count = total_rz3_bitarray_counts[rstzip3::instr_pred_all_array];
+  int32_t instr_count = total_rz3_bitarray_counts[rstzip3::instr_pred_all_array];
 
 
-  int i;
+  int32_t i;
   for (i=0; i<rstzip3::bitarray_count; i++) {
-    int count = total_rz3_bitarray_counts[i];
+    int32_t count = total_rz3_bitarray_counts[i];
     fprintf(stderr, "# total %s = %6d (%7.4f%%/instr, %7.4f%%/rec)  %7.4f bits/rec %7.4f%% of all bits",
             rstzip3::bitarray_descr[i].name, count, count*100.0/instr_count, count*100.0/total_nrecords,
             count*rstzip3::bitarray_descr[i].nbits*1.0/total_nrecords, count*rstzip3::bitarray_descr[i].nbits*100.0/(8*total_CompressedBufferSize));
@@ -199,7 +199,7 @@ void rz3_section_data::print_totals() {
     }
   }
 
-  // int count = raw_records_array->Count();
+  // int32_t count = raw_records_array->Count();
   // fprintf(stderr, "# raw_records_array = %d (%3.4f%%/instr, \t%3.4f%%/rec)\n", count, count*100.0/instr_count, count*100.0/shdr->nrecords);
 
   fprintf(stderr, "Total size of compressed buffer is %lld (%7.4f bytes/instr, %7.4f bytes/rec)\n",
@@ -210,7 +210,7 @@ void rz3_section_data::print_totals() {
 void rz3_section_data::update_counts() {
   shdr->CompressedBufferSize = sizeof(rz3_section_header);
 
-  int i;
+  int32_t i;
   for (i=0; i<rstzip3::bitarray_count; i++) {
     shdr->rz3_bitarray_counts[i] = bitarrays[i]->Count();
     total_rz3_bitarray_counts[i] += shdr->rz3_bitarray_counts[i];
@@ -230,7 +230,7 @@ bool rz3_section_data::write(gzFile gzf) {
   uint64_t membufsz = rz3_bufsize;
   uint8_t * membuf = new uint8_t [membufsz];
 
-  int i;
+  int32_t i;
   for (i=0; i<rstzip3::bitarray_count; i++) {
     uint64_t sz = bitarrays[i]->GetMemBufSize();
     if (sz > membufsz) {
@@ -239,7 +239,7 @@ bool rz3_section_data::write(gzFile gzf) {
       membuf = new uint8_t [membufsz];
     }
     bitarrays[i]->CopyTo(membuf);
-    if ((uint64_t)gzwrite(gzf, (void *)membuf, (unsigned int)sz) != sz) {
+    if ((uint64_t)gzwrite(gzf, (void *)membuf, (uint32_t)sz) != sz) {
       return false;
     }
   } // for each array
@@ -252,7 +252,7 @@ bool rz3_section_data::read(gzFile gzf) {
   uint64_t membufsz = rz3_bufsize;
   uint8_t * membuf = new uint8_t [membufsz];
 
-  int i;
+  int32_t i;
   for (i=0; i<rstzip3::bitarray_count; i++) {
     uint64_t sz = bitarrays[i]->ComputeMemBufSize(shdr->rz3_bitarray_counts[i]);
     if (sz > membufsz) {
@@ -261,7 +261,7 @@ bool rz3_section_data::read(gzFile gzf) {
       membuf = new uint8_t [membufsz];
     }
 
-    if ((uint64_t)gzread(gzf, (void *)membuf, (unsigned int)sz) != sz) {
+    if ((uint64_t)gzread(gzf, (void *)membuf, (uint32_t)sz) != sz) {
       fprintf(stderr, "gzread failed\n"); //jan
       return false;
     }
@@ -282,7 +282,7 @@ bool rz3_section_data::write(FILE * fp)
   uint64_t membufsz = rz3_bufsize;
   uint8_t * membuf = new uint8_t [membufsz];
 
-  int i;
+  int32_t i;
   for (i=0; i<rstzip3::bitarray_count; i++) {
     uint64_t sz = bitarrays[i]->GetMemBufSize();
     if (sz > membufsz) {
@@ -305,7 +305,7 @@ bool rz3_section_data::read(FILE * fp)
   uint64_t membufsz = rz3_bufsize;
   uint8_t * membuf = new uint8_t [membufsz];
 
-  int i;
+  int32_t i;
   for (i=0; i<rstzip3::bitarray_count; i++) {
     uint64_t sz = bitarrays[i]->ComputeMemBufSize(shdr->rz3_bitarray_counts[i]);
     if (sz > membufsz) {
@@ -327,7 +327,7 @@ bool rz3_section_data::read(FILE * fp)
   return true;
 }
 
-rz3_percpu_data::rz3_percpu_data(int arg_cpuid) {
+rz3_percpu_data::rz3_percpu_data(int32_t arg_cpuid) {
 
   cpuid = arg_cpuid;
 

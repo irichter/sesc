@@ -40,17 +40,17 @@ protected:
   // TODO: Change busyUntil for a GenericPort
   Time_t busyUntil;
 
-  unsigned short int numBanks;
-  unsigned short int numBanksPerChip;
-  unsigned short int pagesPerBank;
-  unsigned short int numChips;
+  uint16_t numBanks;
+  uint16_t numBanksPerChip;
+  uint16_t pagesPerBank;
+  uint16_t numChips;
 
   TimeDelta_t rowAccessDelay;
   TimeDelta_t hitDelay;
 
   GStatsCntr chWait;
 
-  int calcBank(PAddr paddr) {
+  int32_t calcBank(PAddr paddr) {
     return GMemorySystem::calcPage(paddr) % numBanks;
   }
 
@@ -65,7 +65,7 @@ public:
   virtual void write(MemRequest *mreq);
   virtual void specialOp(MemRequest *mreq);
 
-  Bank *getBank(unsigned short int i) const;
+  Bank *getBank(uint16_t i) const;
 
   Time_t getNextFreeCycle() const;
 

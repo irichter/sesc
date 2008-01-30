@@ -42,7 +42,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 // Class CacheGeneric, the combinational logic of Cache
 //
 template<class State, class Addr_t, bool Energy>
-CacheGeneric<State, Addr_t, Energy> *CacheGeneric<State, Addr_t, Energy>::create(int size, int assoc, int bsize, int addrUnit, const char *pStr, bool skew)
+CacheGeneric<State, Addr_t, Energy> *CacheGeneric<State, Addr_t, Energy>::create(int32_t size, int32_t assoc, int32_t bsize, int32_t addrUnit, const char *pStr, bool skew)
 {
   CacheGeneric *cache;
 
@@ -104,7 +104,7 @@ void CacheGeneric<State, Addr_t, Energy>::createStats(const char *section, const
   if (typeExists)
     type = SescConf->getCharPtr(section, "deviceType");
 
-  int procId = 0;
+  int32_t procId = 0;
   if ( name[0] == 'P' && name[1] == '(' ) {
     // This structure is assigned to an specific processor
     const char *number = &name[2];
@@ -160,15 +160,15 @@ CacheGeneric<State, Addr_t, Energy> *CacheGeneric<State, Addr_t, Energy>::create
   snprintf(repl ,STR_BUF_SIZE,"%sReplPolicy",append);
   snprintf(skew ,STR_BUF_SIZE,"%sSkew",append);
 
-  int s = SescConf->getInt(section, size);
-  int a = SescConf->getInt(section, assoc);
-  int b = SescConf->getInt(section, bsize);
+  int32_t s = SescConf->getInt(section, size);
+  int32_t a = SescConf->getInt(section, assoc);
+  int32_t b = SescConf->getInt(section, bsize);
   bool sk = false;
   if (SescConf->checkBool(section, skew))
     sk = SescConf->getBool(section, skew);
   
   //For now, tolerate caches that don't have this defined.
-  int u;
+  int32_t u;
   if ( SescConf->checkInt(section,addrUnit) ) {
     if ( SescConf->isBetween(section, addrUnit, 0, b) &&
          SescConf->isPower2(section, addrUnit) )
@@ -221,7 +221,7 @@ CacheGeneric<State, Addr_t, Energy> *CacheGeneric<State, Addr_t, Energy>::create
  *********************************************************/
 
 template<class State, class Addr_t, bool Energy>
-CacheAssoc<State, Addr_t, Energy>::CacheAssoc(int size, int assoc, int blksize, int addrUnit, const char *pStr) 
+CacheAssoc<State, Addr_t, Energy>::CacheAssoc(int32_t size, int32_t assoc, int32_t blksize, int32_t addrUnit, const char *pStr) 
   : CacheGeneric<State, Addr_t, Energy>(size, assoc, blksize, addrUnit) 
 {
   I(numLines>0);
@@ -238,7 +238,7 @@ CacheAssoc<State, Addr_t, Energy>::CacheAssoc(int size, int assoc, int blksize, 
   mem     = new Line [numLines + 1];
   content = new Line* [numLines + 1];
 
-  for(uint i = 0; i < numLines; i++) {
+  for(uint32_t i = 0; i < numLines; i++) {
     mem[i].initialize(this);
     mem[i].invalidate();
     content[i] = &mem[i];
@@ -398,7 +398,7 @@ typename CacheAssoc<State, Addr_t, Energy>::Line
  *********************************************************/
 
 template<class State, class Addr_t, bool Energy>
-CacheDM<State, Addr_t, Energy>::CacheDM(int size, int blksize, int addrUnit, const char *pStr) 
+CacheDM<State, Addr_t, Energy>::CacheDM(int32_t size, int32_t blksize, int32_t addrUnit, const char *pStr) 
   : CacheGeneric<State, Addr_t, Energy>(size, 1, blksize, addrUnit) 
 {
   I(numLines>0);
@@ -406,7 +406,7 @@ CacheDM<State, Addr_t, Energy>::CacheDM(int size, int blksize, int addrUnit, con
   mem     = new Line[numLines + 1];
   content = new Line* [numLines + 1];
 
-  for(uint i = 0; i < numLines; i++) {
+  for(uint32_t i = 0; i < numLines; i++) {
     mem[i].initialize(this);
     mem[i].invalidate();
     content[i] = &mem[i];
@@ -460,7 +460,7 @@ typename CacheDM<State, Addr_t, Energy>::Line
  *********************************************************/
 
 template<class State, class Addr_t, bool Energy>
-CacheDMSkew<State, Addr_t, Energy>::CacheDMSkew(int size, int blksize, int addrUnit, const char *pStr) 
+CacheDMSkew<State, Addr_t, Energy>::CacheDMSkew(int32_t size, int32_t blksize, int32_t addrUnit, const char *pStr) 
   : CacheGeneric<State, Addr_t, Energy>(size, 1, blksize, addrUnit) 
 {
   I(numLines>0);
@@ -468,7 +468,7 @@ CacheDMSkew<State, Addr_t, Energy>::CacheDMSkew(int size, int blksize, int addrU
   mem     = new Line[numLines + 1];
   content = new Line* [numLines + 1];
 
-  for(uint i = 0; i < numLines; i++) {
+  for(uint32_t i = 0; i < numLines; i++) {
     mem[i].initialize(this);
     mem[i].invalidate();
     content[i] = &mem[i];
@@ -532,7 +532,7 @@ typename CacheDMSkew<State, Addr_t, Energy>::Line
     I(line2->isValid());
     return line2;
   }
-  static int rand_number =0;
+  static int32_t rand_number =0;
   if (rand_number++ & 1)
     return line;
   else

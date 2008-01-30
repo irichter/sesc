@@ -30,7 +30,7 @@ pool<VMemWriteReq>    VMemWriteReq::rPool(256, "VMemWriteReq");
 pool<VMemPushLineReq> VMemPushLineReq::rPool(256, "VMemPushLineReq");
 
 #ifdef DEBUG
-unsigned int VMemReq::snCount = 0;
+uint32_t VMemReq::snCount = 0;
 #endif
 
 /**********************************
@@ -80,7 +80,7 @@ VMemReadReq *VMemReadReq::createRead(VMemObj *c, HVersion *ver, MemRequest *mreq
 
   I(mreq->getMemOperation() == MemRead) ;
   if(mreq->getMemOperation() != MemRead){
-    int j = rand();
+    int32_t j = rand();
   }
   
   I(req->getType() == VRead);

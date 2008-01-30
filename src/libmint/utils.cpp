@@ -14,8 +14,8 @@
 #define MAX_ERRORS 100
 #define MAX_WARNINGS 1000000
 
-int Max_errors = MAX_ERRORS;
-int Max_warnings = MAX_WARNINGS;
+int32_t Max_errors = MAX_ERRORS;
+int32_t Max_warnings = MAX_WARNINGS;
 
 /*
  * This routine prints an error message and exits.
@@ -28,7 +28,7 @@ void fatal(const char *fmt, ...)
 {
     va_list ap;
 #if 0
-    char c, *s; int d;
+    char c, *s; int32_t d;
 #endif
 
     fflush(stdout);
@@ -55,9 +55,9 @@ void error(const char *fmt, ...)
 {
     va_list ap;
 #if 0
-    char c, *s; int d;
+    char c, *s; int32_t d;
 #endif
-    static int total_errors = 0;
+    static int32_t total_errors = 0;
 
     fflush(stdout);
     fprintf(stderr, "\nERROR: ");
@@ -85,9 +85,9 @@ void warning(const char *fmt, ...)
 {
     va_list ap;
 #if 0
-    char c, *s; int d;
+    char c, *s; int32_t d;
 #endif
-    static int total_warnings = 0;
+    static int32_t total_warnings = 0;
 
     fflush(stdout);
     fprintf(stderr, "\nWarning: ");
@@ -104,9 +104,9 @@ void warning(const char *fmt, ...)
 /* strlen_expand() returns the length of the string, counting tabs
  * as the equivalent number of spaces that would be generated.
  */
-int strlen_expand(const char *str)
+int32_t strlen_expand(const char *str)
 {
-    int len;
+    int32_t len;
 
     if (str == NULL)
         return 0;
@@ -121,16 +121,16 @@ int strlen_expand(const char *str)
  * It also rounds up its argument to the next higher power of 2.
  *
  * Example:
- *   int logsize, size = 5;
+ *   int32_t logsize, size = 5;
  * 
  *   logsize = base2roundup(&size);
  *
  * will make logsize = 3, and size = 8.
  */
 int
-base2roundup(int *pnum)
+base2roundup(int32_t *pnum)
 {
-    int logsize, exp;
+    int32_t logsize, exp;
 
     for (logsize = 0, exp = 1; exp < *pnum; logsize++)
         exp *= 2;
@@ -143,9 +143,9 @@ base2roundup(int *pnum)
 
 /* returns the number of newlines in "buf"
  */
-int newlines(const char *buf)
+int32_t newlines(const char *buf)
 {
-    int count;
+    int32_t count;
 
     count = 0;
     while (*buf) {

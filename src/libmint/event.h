@@ -24,9 +24,11 @@
 #ifndef __event_h
 #define __event_h
 
+#include <stdlib.h>
+
 /* define a type that can hold all machine types */
 typedef union numeric {
-	 int lval;
+    int32_t lval;
     float fval;
     double dval;
 } numeric_t, *numeric_ptr;

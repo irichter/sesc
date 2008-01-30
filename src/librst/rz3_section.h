@@ -41,11 +41,11 @@ struct rz3_section_header {
   char magic[16];
 
   // other meta data about the section
-  int nrecords;
+  int32_t nrecords;
 
   uint64_t CompressedBufferSize;
 
-  int rz3_bitarray_counts[rstzip3::bitarray_count];
+  int32_t rz3_bitarray_counts[rstzip3::bitarray_count];
 
   void clear();
 
@@ -82,7 +82,7 @@ struct rz3_section_data {
 
   void update_counts();
 
-  void print(); // print stats
+  void print(); // print32_t stats
 
   void print_totals();
 
@@ -107,7 +107,7 @@ struct rz3_section_data {
 
 // this struct contains temp state variables used to compress/decompress records
 struct rz3_percpu_data {
-  int cpuid;
+  int32_t cpuid;
   
   uint64_t pred_pc;
   uint64_t pred_npc;
@@ -115,14 +115,14 @@ struct rz3_percpu_data {
   uint16_t pred_icontext;
   uint16_t pred_dcontext;
 
-  unsigned int pred_amask;
-  unsigned int pred_an;
-  unsigned int pred_hpriv;
-  unsigned int pred_pr;
+  uint32_t pred_amask;
+  uint32_t pred_an;
+  uint32_t pred_hpriv;
+  uint32_t pred_pr;
 
   bool call_delay_slot;
 
-  int pending_pavadiff_idx; // -1 implies invalid
+  int32_t pending_pavadiff_idx; // -1 implies invalid
   bool pending_pavadiff_pc_pa_va_pred;
   bool pending_pavadiff_ea_pa_va_pred;
 
@@ -164,7 +164,7 @@ struct rz3_percpu_data {
   };
 
 
-  rz3_percpu_data(int arg_cpuid);
+  rz3_percpu_data(int32_t arg_cpuid);
   ~rz3_percpu_data();
   void clear();
 

@@ -55,7 +55,7 @@ class SMPCacheState : public StateGeneric<> {
 
 private:
 protected:
-  uint state;
+  uint32_t state;
 #if (defined TLS)
   tls::Epoch *epoch;
   typedef tls::CacheFlags CFlags;
@@ -80,13 +80,13 @@ public:
   	
 //#ifdef TLS
 //template<class State, class Addr_t, bool Energy>
-//typename CacheAssoc<State, Addr_t, Energy>::Line *CacheAssoc<State, Addr_t, Energy>::getLine(long int index)
+//typename CacheAssoc<State, Addr_t, Energy>::Line *CacheAssoc<State, Addr_t, Energy>::getLine(long int32_t index)
 //{
 //	Line *line =content[index];
 //	return line;
 //}
 //template<class State, class Addr_t, bool Energy>
-//typename CacheDM<State, Addr_t, Energy>::Line *CacheDM<State, Addr_t, Energy>::getLine(long int index)
+//typename CacheDM<State, Addr_t, Energy>::Line *CacheDM<State, Addr_t, Energy>::getLine(long int32_t index)
 //{
 //	Line *line =content[index];
 //	return line;

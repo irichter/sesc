@@ -48,7 +48,7 @@ TaskContext::Tid2TaskContextType TaskContext::tid2TaskContext;
 
 unsigned long long TaskContext::writeData=0;
 
-int TaskContext::SyncOnRestart;
+int32_t TaskContext::SyncOnRestart;
 
 size_t TaskContext::MLThreshold;
 size_t TaskContext::MFThreshold;
@@ -95,7 +95,7 @@ GStatsCntr *TaskContext::nDataDepViolation[DataDepViolationAtMax];
 GStatsCntr *TaskContext::numThreads[TaskContext::MaxThreadsHist];
 GStatsCntr *TaskContext::numRunningThreads[TaskContext::MaxThreadsHist];
 
-HASH_MAP<int,int> TaskContext::compressedStaticId;
+HASH_MAP<int32_t,int> TaskContext::compressedStaticId;
 
 TaskContext::TaskContext() 
 {
@@ -194,7 +194,7 @@ void TaskContext::mergeDestroy()
   nCorrectOutOrderSpawn->cinc(memVer->getTaskContext()->wasSpawnedOO);
   nCorrectInOrderSpawn->cinc(!memVer->getTaskContext()->wasSpawnedOO);
 
-  int nInst = ProcessId::getProcessId(tid)->getNGradInsts();
+  int32_t nInst = ProcessId::getProcessId(tid)->getNGradInsts();
 
 #ifdef OOO_PAPER_STATS
   TaskEntriesType::iterator it = taskEntries.find(spawnAddr);
@@ -286,10 +286,10 @@ PAddr TaskContext::adjustChildSpawnAddr(PAddr childAddr)
 
 
 //XXX liuwei: actually it gets the jump address following 
-//            a spawn point which is not necessary a new task
+//            a spawn point32_t which is not necessary a new task
 PAddr TaskContext::calcChildSpawnAddr(PAddr childAddr)
 {
-  ID(int conta=0);
+  ID(int32_t conta=0);
   const Instruction *inst = Instruction::getInst4Addr(childAddr);
 
   while(!inst->isBJCond()) {
@@ -379,7 +379,7 @@ void TaskContext::localRestart()
   }
 
 #ifdef TS_PARANOID
-  for(int i=0; i<68; i++)
+  for(int32_t i=0; i<68; i++)
     bad_reg[i] = true;
 
   bad_reg[28]=false;
@@ -698,7 +698,7 @@ void TaskContext::preBoot()
   SescConf->isBetween("TaskScalar" ,"MLThreshold",2,MAXPROC-20);
   SescConf->isBetween("TaskScalar" ,"MFThreshold",2,MAXPROC-20);
 
-  for(int i=0;i<MAXPROC;i++) {
+  for(int32_t i=0;i<MAXPROC;i++) {
     tid2TaskContext.push_back(0);
   }
   I(tid2TaskContext.size() == MAXPROC);
@@ -717,7 +717,7 @@ void TaskContext::preBoot()
   tc->ooTask          = false;
 
 #ifdef TS_PARANOID
-  for(int i=0; i<68; i++)
+  for(int32_t i=0; i<68; i++)
     tc->bad_reg[i] = false;
 #endif
 
@@ -742,7 +742,7 @@ void TaskContext::postBoot()
   I(tc->memVer->isOldestTaskContext());
 }
 
-void TaskContext::spawnSuccessor(Pid_t childPid, PAddr childAddr, int sid)
+void TaskContext::spawnSuccessor(Pid_t childPid, PAddr childAddr, int32_t sid)
 {
   thReadEnergy->inc();  // Read local info
   thWriteEnergy->inc(); // update local info acordingly
@@ -786,7 +786,7 @@ void TaskContext::spawnSuccessor(Pid_t childPid, PAddr childAddr, int sid)
   NES      = 0;
 
 #ifdef TS_PARANOID
-  for(int i=0; i<68; i++)
+  for(int32_t i=0; i<68; i++)
     tc->bad_reg[i] = true;
 
   tc->bad_reg[28]=false;
@@ -796,7 +796,7 @@ void TaskContext::spawnSuccessor(Pid_t childPid, PAddr childAddr, int sid)
 #endif
 
 #if defined(TS_COUNT_TASKS_AHEAD) && defined(OOO_PAPER_STATS)
-  int ntAhead=0;
+  int32_t ntAhead=0;
   for(const HVersion *hp=memVer->getNextRef(); hp != 0; hp = hp->getNextRef(), ntAhead++);
   nTasksAhead->sample(ntAhead);
 #endif
@@ -904,7 +904,7 @@ void TaskContext::endTaskExecuted(Pid_t fpid)
   }
 }
 
-void TaskContext::invalidMemAccess(int rID, DataDepViolationAt rAt)
+void TaskContext::invalidMemAccess(int32_t rID, DataDepViolationAt rAt)
 {
   if (rID != dataDepViolationID || !dataDepViolation)
     return;
@@ -996,7 +996,7 @@ bool TaskContext::canMergeNext()
   return false;
 }
 
-int TaskContext::ignoreExit()
+int32_t TaskContext::ignoreExit()
 {
   I(NES>=0); // Can't be negative
 
@@ -1052,10 +1052,10 @@ void TaskContext::dumpAll()
 
   printf("TC[%3d:%3d]%10lld:", ProcessId::getNumThreads(), ProcessId::getNumRunningThreads(), globalClock);
 
-  for(int i = 0; i < HVersionDomain::getNDomains(); i++) {
+  for(int32_t i = 0; i < HVersionDomain::getNDomains(); i++) {
     HVersionDomain *vd = HVersionDomain::getVDomain(i);
     v = HVersion::getOldestRef(vd);
-    int numL=0;
+    int32_t numL=0;
     while(v) {
       const TaskContext *tc = v->getTaskContext();
       if (tc==0) {
@@ -1139,7 +1139,7 @@ void TaskContext::setOOtask()
 }
 
 
-int TaskContext::getCompressedStaticId(int staticId)
+int32_t TaskContext::getCompressedStaticId(int32_t staticId)
 {
   if (compressedStaticId.find(staticId) == compressedStaticId.end()) {
     compressedStaticId[staticId] = compressedStaticId.size();

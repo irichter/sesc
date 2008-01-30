@@ -15,9 +15,9 @@ protected:
 
   static MapType type;
 
-  static uint log2TileSize;
-  static uint numNodes;
-  static uint numNodesMask;
+  static uint32_t log2TileSize;
+  static uint32_t numNodes;
+  static uint32_t numNodesMask;
 
 public:
   static void InitMap(char *descr_section) {
@@ -30,7 +30,7 @@ public:
       numNodes = SescConf->getInt("gNetwork","width");
       numNodes *= numNodes;
     } else {  
-      int nProcsPerNode = SescConf->getInt("","procsPerNode");
+      int32_t nProcsPerNode = SescConf->getInt("","procsPerNode");
       LOG("NetAddrMap: nProcsPerNode = %d", nProcsPerNode);
       numNodes = SescConf->getRecordSize("","cpucore");
       LOG("NetAddrMap: numNodes = %ld", numNodes);
@@ -41,7 +41,7 @@ public:
       LOG("NetAddrMap: final numNodes = %ld", numNodes);
     }      
 
-    unsigned int temp=1;
+    uint32_t temp=1;
     while(temp < numNodes-1) {
       temp = temp<<1;
       temp++;
@@ -65,7 +65,7 @@ public:
 	"of nodes in the system. (%ld)", (uint) paddr, log2TileSize, numNodes);
       return paddr >> log2TileSize;
     } else {
-		uint temp;
+		uint32_t temp;
       temp = (paddr >> log2TileSize);
       temp = (numNodesMask & temp);
       if( temp >= numNodes ) {

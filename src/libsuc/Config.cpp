@@ -47,7 +47,7 @@ Config::Record::Record(bool val)
   Y=0;
 }
 
-Config::Record::Record(int val)
+Config::Record::Record(int32_t val)
   : env(false)
     ,used(false)
     ,printed(false)
@@ -80,7 +80,7 @@ Config::Record::Record(const char *val)
   Y=0;
 }
 
-Config::Record::Record(bool val, int x, int y)
+Config::Record::Record(bool val, int32_t x, int32_t y)
   :env(false)
    ,used(false)
    ,printed(false)
@@ -91,7 +91,7 @@ Config::Record::Record(bool val, int x, int y)
   Y=y;
 }
 
-Config::Record::Record(int val, int x, int y)
+Config::Record::Record(int32_t val, int32_t x, int32_t y)
   :env(false)
   ,used(false)
   ,printed(false)
@@ -102,7 +102,7 @@ Config::Record::Record(int val, int x, int y)
   Y=y;
 }
 
-Config::Record::Record(double val, int x, int y)
+Config::Record::Record(double val, int32_t x, int32_t y)
   :env(false)
   ,used(false)
   ,printed(false)
@@ -113,7 +113,7 @@ Config::Record::Record(double val, int x, int y)
   Y=y;
 }
 
-Config::Record::Record(const char *val, int x, int y)
+Config::Record::Record(const char *val, int32_t x, int32_t y)
   :env(false)
    ,used(false)
    ,printed(false)
@@ -238,7 +238,7 @@ ssize_t Config::getRecordMax(const char *block, const char *name) const
 
 const Config::Record * Config::getRecord(const char *block,
                                          const char *name,
-													  int vectorPos)
+													  int32_t vectorPos)
 {
   KeyIndex key(block,name);
 
@@ -349,8 +349,8 @@ void Config::addRecord(const char *block,
 void Config::addVRecord(const char *block,
                         const char *name,
                         const char *val,
-			int X,
-			int Y)
+			int32_t X,
+			int32_t Y)
 {
   Record *rec;
 
@@ -376,8 +376,8 @@ void Config::addVRecord(const char *block,
 void Config::addVRecord(const char *block,
                         const char *name,
                         double val,
-			int X,
-			int Y)
+			int32_t X,
+			int32_t Y)
 {
   Record *rec;
 
@@ -402,9 +402,9 @@ void Config::addVRecord(const char *block,
 
 void Config::addVRecord(const char *block,
                         const char *name,
-                        int val,
-			int X,
-			int Y)
+                        int32_t val,
+			int32_t X,
+			int32_t Y)
 {
   Record *rec;
 
@@ -455,7 +455,7 @@ void Config::addRecord(const char *block,
 
 void Config::addRecord(const char *block,
                        const char *name,
-							  int val)
+							  int32_t val)
 {
   const char *env;
   Record *rec;
@@ -502,7 +502,7 @@ void Config::addRecord(const char *block,
 
 bool Config::getBool(const char *block,
                      const char *name,
-							int vectorPos)
+							int32_t vectorPos)
 {
   const Record *rec = getRecord(block, name,vectorPos);
 
@@ -518,7 +518,7 @@ bool Config::getBool(const char *block,
 
 bool Config::checkBool(const char *block,
                      const char *name,
-							int vectorPos)
+							int32_t vectorPos)
 {
   const Record *rec = getRecord(block, name,vectorPos);
 
@@ -531,7 +531,7 @@ bool Config::checkBool(const char *block,
 
 double Config::getDouble(const char *block,
                          const char *name,
-								 int vectorPos)
+								 int32_t vectorPos)
 {
   const Record *rec = getRecord(block, name,vectorPos);
   if(rec) {
@@ -549,7 +549,7 @@ double Config::getDouble(const char *block,
 }
 bool Config::checkDouble(const char *block,
                          const char *name,
-								 int vectorPos)
+								 int32_t vectorPos)
 {
   const Record *rec = getRecord(block, name,vectorPos);
   if(rec)
@@ -560,9 +560,9 @@ bool Config::checkDouble(const char *block,
 
 
 
-int Config::getInt(const char *block,
+int32_t Config::getInt(const char *block,
                      const char *name,
-							int vectorPos)
+							int32_t vectorPos)
 {
   const Record *rec = getRecord(block, name, vectorPos);
 
@@ -577,7 +577,7 @@ int Config::getInt(const char *block,
 }
 bool Config::checkInt(const char *block,
                      const char *name,
-							int vectorPos)
+							int32_t vectorPos)
 {
   const Record *rec = getRecord(block, name, vectorPos);
   if(rec)
@@ -589,7 +589,7 @@ bool Config::checkInt(const char *block,
 
 const char *Config::getCharPtr(const char *block,
                                const char *name,
-										 int vectorPos)
+										 int32_t vectorPos)
 {
   const Record *rec = getRecord(block, name, vectorPos);
 
@@ -605,7 +605,7 @@ const char *Config::getCharPtr(const char *block,
 
 bool Config::checkCharPtr(const char *block,
                                const char *name,
-										 int vectorPos)
+										 int32_t vectorPos)
 {
   const Record *rec = getRecord(block, name, vectorPos);
 
@@ -640,7 +640,7 @@ const char *Config::getEnvVar(const char *block,
     snprintf(envVar,envLen+1,"%s_%s_%s=", envstart, block, name);
   // Look for envVar in environ
   const char *envVal = 0;
-  for(int i=0;environ[i]!=0;i++){
+  for(int32_t i=0;environ[i]!=0;i++){
     if(strncasecmp(envVar,environ[i],envLen)==0){
       envVal = &environ[i][envLen];
       break;
@@ -663,7 +663,7 @@ void Config::dump(bool showAll)
     block = 0;
     hiter = hashRecord.begin();
 
-    // First print the records with empty section
+    // First print32_t the records with empty section
     for(; hiter != hashRecord.end(); hiter++) {
       if (!(showAll || hiter->second->isUsed()))
         continue;
@@ -683,7 +683,7 @@ void Config::dump(bool showAll)
 
     }
 
-    // Print the other sections
+    // Print32_t the other sections
     block = 0;
     hiter = hashRecord.begin();
     for(; hiter != hashRecord.end(); hiter++) {
@@ -727,7 +727,7 @@ void Config::notCorrect()
 {
   errorFound = true;
   if(locked) {
-    MSG("Config::Constraint not meet while configuration already locked??");
+    MSG("Config::Constraint32_t not meet while configuration already locked??");
     exit(-2);
   }
 }
@@ -735,7 +735,7 @@ void Config::notCorrect()
 
 bool Config::isPower2(const char *block,
                       const char *name,
-							 int vectorPos)
+							 int32_t vectorPos)
 {
   const Record *rec = getRecord(block, name, vectorPos);
 
@@ -759,7 +759,7 @@ bool Config::isPower2(const char *block,
     return false;
   }
 
-  unsigned int v = (unsigned int)val;
+  uint32_t v = (uint32_t)val;
 
   if(v != val) {
     MSG("Config::isPower2 for %s[%d] [%s] not satisfied(1)"
@@ -782,7 +782,7 @@ bool Config::isBetween(const char *block,
                        const char *name,
                        double llim,
                        double ulim,
-							  int vectorPos)
+							  int32_t vectorPos)
 {
   const Record *rec = getRecord(block, name, vectorPos);
 
@@ -819,7 +819,7 @@ bool Config::isBetween(const char *block,
 bool Config::isGT(const char *block,
                   const char *name,
                   double llim,
-						int vectorPos)
+						int32_t vectorPos)
 {
   const Record *rec = getRecord(block, name, vectorPos);
 
@@ -857,7 +857,7 @@ bool Config::isGT(const char *block,
 bool Config::isLT(const char *block,
                   const char *name,
                   double ulim,
-						int vectorPos)
+						int32_t vectorPos)
 {
   const Record *rec = getRecord(block, name, vectorPos);
 
@@ -893,7 +893,7 @@ bool Config::isLT(const char *block,
 
 bool Config::isBool(const char *block,
                     const char *name,
-						  int vectorPos)
+						  int32_t vectorPos)
 {
   const Record *rec = getRecord(block, name, vectorPos);
 
@@ -916,7 +916,7 @@ bool Config::isBool(const char *block,
 
 bool Config::isInt(const char *block,
                     const char *name,
-						  int vectorPos)
+						  int32_t vectorPos)
 {
   const Record *rec = getRecord(block, name, vectorPos);
 
@@ -939,7 +939,7 @@ bool Config::isInt(const char *block,
 
 bool Config::isDouble(const char *block,
                       const char *name,
-							 int vectorPos)
+							 int32_t vectorPos)
 {
   const Record *rec = getRecord(block, name, vectorPos);
 
@@ -962,7 +962,7 @@ bool Config::isDouble(const char *block,
 
 bool Config::isCharPtr(const char *block,
                        const char *name,
-							  int vectorPos)
+							  int32_t vectorPos)
 {
   const Record *rec = getRecord(block, name, vectorPos);
 
@@ -992,7 +992,7 @@ bool Config::isInList(const char *block,
                       const char *l5,
                       const char *l6,
                       const char *l7,
-							 const int vectorPos)
+							 const int32_t vectorPos)
 {
   const Record *rec = getRecord(block, name, vectorPos);
 
@@ -1039,7 +1039,7 @@ bool Config::isInList(const char *block,
   return false;
 }
 
-void Config::updateRecord(const char *block, const char *name, double v,int vectorPos)
+void Config::updateRecord(const char *block, const char *name, double v,int32_t vectorPos)
 {
   KeyIndex key(block,name);
 
@@ -1062,7 +1062,7 @@ void Config::updateRecord(const char *block, const char *name, double v,int vect
     addRecord(block,name,v);
 }
 
-void Config::updateRecord(const char *block, const char *name, const char *val, int vectorPos)
+void Config::updateRecord(const char *block, const char *name, const char *val, int32_t vectorPos)
 {
   KeyIndex key(block,name);
 

@@ -35,7 +35,7 @@ protected:
   typedef CacheGeneric<BState,PAddr> CacheType;
   typedef CacheGeneric<BState,PAddr>::CacheLine Line;
 
-  const int bsize;
+  const int32_t bsize;
   GMemorySystem *gms;
   PortGeneric *cachePort;
 

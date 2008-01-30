@@ -56,8 +56,8 @@ void RoutingPolicy::shortestPaths(RouterID_t dest)
 {
   std::vector<bool> tentative(nRouters);
 
-  unsigned int i;
-  int k,min;
+  uint32_t i;
+  int32_t k,min;
 
   for(size_t i = 0; i < nRouters; i++) {
     tentative[i] = true;
@@ -75,7 +75,7 @@ void RoutingPolicy::shortestPaths(RouterID_t dest)
 
   do {
     for (i = 0; i < nRouters; i++) {
-      int dist = adjacent[k][i][0].dist; // All the wires should have same dist
+      int32_t dist = adjacent[k][i][0].dist; // All the wires should have same dist
       
       if (dist != 0 && tentative[i]) {
 	if (adjacent[dest][k][0].dist + dist + crossLat <= adjacent[dest][i][0].dist) {
@@ -162,7 +162,7 @@ void FullyConnectedRoutingPolicy::create()
 	adjacent[i][j][0].dist = wireLat;
       }
     }
-    int k = (i + 1) % nRouters; /* next for broadcasts (see Message::type) */ 
+    int32_t k = (i + 1) % nRouters; /* next for broadcasts (see Message::type) */ 
     next[i] = &adjacent[i][k][0];
   }
 }
@@ -170,7 +170,7 @@ void FullyConnectedRoutingPolicy::create()
 void UniRingRoutingPolicy::create()
 {
   for(size_t i = 0; i < nRouters; i++) {
-    int a;
+    int32_t a;
 
     if (i == 0)
       a = nRouters - 1;
@@ -190,7 +190,7 @@ void BiRingRoutingPolicy::create()
   UniRingRoutingPolicy::create();
 
   for(size_t i = 0; i < nRouters; i++) {
-    int b;
+    int32_t b;
 
     if (i == nRouters - 1)
       b = 0;

@@ -102,7 +102,7 @@ MarkovPrefetcher::MarkovPrefetcher(MemorySystem* current
 
 void MarkovPrefetcher::access(MemRequest *mreq)
 {
-  uint paddr = mreq->getPAddr() & defaultMask;
+  uint32_t paddr = mreq->getPAddr() & defaultMask;
   
   if (mreq->getMemOperation() == MemRead
       || mreq->getMemOperation() == MemReadW) {
@@ -119,7 +119,7 @@ void MarkovPrefetcher::access(MemRequest *mreq)
 
 void MarkovPrefetcher::read(MemRequest *mreq)
 {
-  uint paddr = mreq->getPAddr() & defaultMask;
+  uint32_t paddr = mreq->getPAddr() & defaultMask;
   bLine *l = buff->readLine(paddr);
 
   if(l) { //hit
@@ -153,7 +153,7 @@ void MarkovPrefetcher::read(MemRequest *mreq)
 
 void MarkovPrefetcher::prefetch(PAddr prefAddr, Time_t lat)
 {
-  uint paddr = prefAddr & defaultMask;
+  uint32_t paddr = prefAddr & defaultMask;
   
   if(!buff->readLine(paddr)) { // it is not in the buff
     penFetchSet::iterator it = pendingFetches.find(paddr);
@@ -176,7 +176,7 @@ void MarkovPrefetcher::prefetch(PAddr prefAddr, Time_t lat)
 
 void MarkovPrefetcher::returnAccess(MemRequest *mreq)
 {
-  uint paddr = mreq->getPAddr() & defaultMask;
+  uint32_t paddr = mreq->getPAddr() & defaultMask;
 
   //LOG("GHBP: returnAccess [%08lx]", paddr);
   mreq->goUp(0);
@@ -189,7 +189,7 @@ bool MarkovPrefetcher::canAcceptStore(PAddr addr)
 
 void MarkovPrefetcher::invalidate(PAddr addr,ushort size,MemObj *oc)
 { 
-	uint paddr = addr & defaultMask;
+	uint32_t paddr = addr & defaultMask;
    nextBuffSlot();
 
    bLine *l = buff->readLine(paddr);
@@ -204,7 +204,7 @@ Time_t MarkovPrefetcher::getNextFreeCycle() const
 
 void MarkovPrefetcher::processAck(PAddr addr)
 {
-  uint paddr = addr & defaultMask;
+  uint32_t paddr = addr & defaultMask;
 
   penFetchSet::iterator itF = pendingFetches.find(paddr);
   if(itF == pendingFetches.end()) 
@@ -229,7 +229,7 @@ void MarkovPrefetcher::processAck(PAddr addr)
 }
 
 void MarkovPrefetcher::insertTable(PAddr addr){
-  uint tag = table->calcTag(addr);
+  uint32_t tag = table->calcTag(addr);
   Time_t lat = 0;
 
   if(tag){
@@ -283,7 +283,7 @@ void MarkovPrefetcher::TESTinsertTable(PAddr addr){
   TESTdata[9] = 30000;
   TESTdata[10] = 10000;
 
-  for(int i = 0; i < 11; i++) {
+  for(int32_t i = 0; i < 11; i++) {
     PAddr d = TESTdata[i];
     LOG("Addr %d", d);    
     insertTable(d);

@@ -43,7 +43,7 @@ struct filehdr Fhdr;
 static struct file_info *File_info;
 
 /* The number of entries in File_info */
-static int Numfiles;
+static int32_t Numfiles;
 
 /* Stringtab contains all the symbol names in the application program */
 char *Stringtab;
@@ -52,7 +52,7 @@ char *Stringtab;
 static char *Linetab;
 
 /* Line_end is the address of the byte past the end of Linetab */
-static unsigned char *Line_end;
+static uint8_t *Line_end;
 
 /* Nmlist is an array of namelist entries for the "interesting" symbols in
  * the application object file. Each namelist entry is a structure
@@ -64,8 +64,8 @@ namelist_ptr Funclist;
 
 
 /* Num_symbols is the number of symbols stored in Nmlist */
-int Num_symbols;
-int Num_funcs;
+int32_t Num_symbols;
+int32_t Num_funcs;
 
 /* External procedure declarations */
 void elf_read_nmlist();
@@ -73,13 +73,13 @@ void elf_read_nmlist();
 /* Forward procedure declarations */
 void read_nmlist();
 void read_linenum();
-int nm_cmp_name(const void *v1, const void *v2);
-int nm_cmp_name_ptr(const void *v1, const void *v2);
-int nm_cmp_value_ptr(const void *v1, const void *v2);
-int readsrc(char *fname, int lnum, int numlines, char *buf, int buflen);
+int32_t nm_cmp_name(const void *v1, const void *v2);
+int32_t nm_cmp_name_ptr(const void *v1, const void *v2);
+int32_t nm_cmp_value_ptr(const void *v1, const void *v2);
+int32_t readsrc(char *fname, int32_t lnum, int32_t numlines, char *buf, int32_t buflen);
 
 
-int noun_strcmp(const char *s1, const char *s2)
+int32_t noun_strcmp(const char *s1, const char *s2)
 {
   /* A normal strcmp but ignores the underscores at the beginning of
      the of the string */
@@ -108,7 +108,7 @@ close_object()
 void
 read_hdrs(char *objfile)
 {
-  int i, magic;
+  int32_t i, magic;
   struct aouthdr ahdr;
   struct scnhdr shdr;
   char ident[EI_NIDENT];
@@ -221,8 +221,8 @@ read_hdrs(char *objfile)
 void
 read_nmlist()
 {
-    int i, err, str_offset, ifd, ipd, len, size, nm_next, func_next, type;
-    int symnum, lastsym, addr, first, last, nextf, offset, offsetpd;
+    int32_t i, err, str_offset, ifd, ipd, len, size, nm_next, func_next, type;
+    int32_t symnum, lastsym, addr, first, last, nextf, offset, offsetpd;
     char *fname;
     HDRR symhdr;
     FDR *fdr;
@@ -276,7 +276,7 @@ read_nmlist()
         exit(1);
     }
 	{
-		int i;
+		int32_t i;
 
 		for(i=0;i<symhdr.ifdMax;i++)
 			EndianFDR(&fdr[i]);
@@ -297,7 +297,7 @@ read_nmlist()
     }
 	
     {
-      int i;
+      int32_t i;
       
       for(i=0;i<symhdr.ipdMax;i++)
 	EndianPDR(&pdr[i]);
@@ -318,7 +318,7 @@ read_nmlist()
     }
 
     {
-      int i;
+      int32_t i;
       
       for(i=0;i<symhdr.isymMax;i++){
 	EndianSYMR(&symr[i]);
@@ -362,7 +362,7 @@ read_nmlist()
             File_info[nextf].addr = addr + pdr[ipd].adr;
             File_info[nextf].linelow = pdr[ipd].lnLow;
             offsetpd = offset + pdr[ipd].cbLineOffset;
-            File_info[nextf].lptr = (unsigned char *) &Linetab[offsetpd];
+            File_info[nextf].lptr = (uint8_t *) &Linetab[offsetpd];
         }
     }
 
@@ -409,7 +409,7 @@ read_nmlist()
     }
 
     {
-      int i;
+      int32_t i;
       
       for(i=0;i<symhdr.iextMax;i++)
 	EndianEXTR(&extr[i]);
@@ -437,9 +437,9 @@ read_nmlist()
     qsort((void *) Nmlist, Num_symbols, sizeof(namelist_t), nm_cmp_name);
 }
 
-int isFirstInFuncCall(unsigned int addr)
+int32_t isFirstInFuncCall(uint32_t addr)
 {
-  int i;
+  int32_t i;
   
   for (i = 0; i < Num_funcs; i++)
     if( Funclist[i].n_value == addr )
@@ -453,7 +453,7 @@ int isFirstInFuncCall(unsigned int addr)
  * for debugging and for meaningful error messages.
  */
 
-int nm_cmp_name(const void *v1, const void *v2)
+int32_t nm_cmp_name(const void *v1, const void *v2)
 {
   const namelist_t *p1 = (const namelist_t *)v1;
   const namelist_t *p2 = (const namelist_t *)v2;
@@ -461,7 +461,7 @@ int nm_cmp_name(const void *v1, const void *v2)
   return noun_strcmp(p1->n_name, p2->n_name);
 }
 
-int nm_cmp_name_ptr(const void *v1, const void *v2)
+int32_t nm_cmp_name_ptr(const void *v1, const void *v2)
 {
   const namelist_t **p1 = (const namelist_t **)v1;
   const namelist_t **p2 = (const namelist_t **)v2;
@@ -469,7 +469,7 @@ int nm_cmp_name_ptr(const void *v1, const void *v2)
   return noun_strcmp((*p1)->n_name, (*p2)->n_name);
 }
 
-int nm_cmp_value_ptr(const void *v1, const void *v2)
+int32_t nm_cmp_value_ptr(const void *v1, const void *v2)
 {
   const namelist_t **p1 = (const namelist_t **)v1;
   const namelist_t **p2 = (const namelist_t **)v2;
@@ -481,10 +481,10 @@ int nm_cmp_value_ptr(const void *v1, const void *v2)
  * read_nmlist() to fill in the values of symbols passed in the array
  * pointed to by "pnlist".
  */
-int namelist(char *objname, namelist_ptr pnlist)
+int32_t namelist(char *objname, namelist_ptr pnlist)
 {
-  int count, next, found, symbol;
-  int result=0;
+  int32_t count, next, found, symbol;
+  int32_t result=0;
   namelist_ptr psym, *base, pnmlist;
 
   /* initialize the return values to 0, and count the number of elements */
@@ -540,7 +540,7 @@ int namelist(char *objname, namelist_ptr pnlist)
 	psym = base[next];
       } while (noun_strcmp(pnmlist->n_name, psym->n_name) == 0);
 
-      /* at this point, the psym name is greater than the pnmlist
+      /* at this point32_t, the psym name is greater than the pnmlist
        * name, so advance the pnmlist pointer
        */
       pnmlist++;
@@ -559,7 +559,7 @@ int namelist(char *objname, namelist_ptr pnlist)
 void
 read_linenum()
 {
-    int err;
+    int32_t err;
     HDRR symhdr;
     
     /* seek to the beginning of the symbolic header */
@@ -586,7 +586,7 @@ read_linenum()
         perror("reading line number entries");
         exit(1);
     }
-    Line_end = (unsigned char *) Linetab + symhdr.cbLine;
+    Line_end = (uint8_t *) Linetab + symhdr.cbLine;
 }
 
 /* addr2src() maps an instruction address in the application program
@@ -595,7 +595,7 @@ read_linenum()
  * Parameters:
  *   iaddr	the instruction address
  *   fname	if not NULL, the address of a character pointer that
- * 		will be set to point to the file name containing iaddr
+ * 		will be set to point32_t to the file name containing iaddr
  *   linenum	if not NULL, the address of an integer that will be
  * 		set to the source line number for the given iaddr
  *   buf	if not NULL, a buffer that will contain the source
@@ -608,12 +608,12 @@ read_linenum()
  * If a mapping (file:line) is found, but the source file does not exist
  * then 1 is returned but "buf" is not modified.
  */
-int addr2src(int iaddr, const char **fname, int *linenum, char *buf, int buflen)
+int32_t addr2src(int32_t iaddr, const char **fname, int32_t *linenum, char *buf, int32_t buflen)
 {
-    int i, lnum, delta, count;
-	 int addr;
-    int index = 0;
-    unsigned char *ptr;
+    int32_t i, lnum, delta, count;
+	 int32_t addr;
+    int32_t index = 0;
+    uint8_t *ptr;
     unsigned const char *last;
 
     if (File_info == NULL || iaddr < File_info[0].addr)
@@ -673,11 +673,11 @@ static char Buffer[BUFSIZE];
  * lines long, then "buf" is unmodified. If modified, "buf" is terminated
  * with a zero byte. The number of bytes read into "buf" is returned.
  */
-int readsrc(char *fname, int lnum, int numlines, char *buf, int buflen)
+int32_t readsrc(char *fname, int32_t lnum, int32_t numlines, char *buf, int32_t buflen)
 {
     FILE *fd;
     char path[300], *ptr;
-    int lines, len, spaceleft;
+    int32_t lines, len, spaceleft;
 
     if (buf == NULL || buflen <= 0 || numlines <= 0)
         return 0;
@@ -750,7 +750,7 @@ int readsrc(char *fname, int lnum, int numlines, char *buf, int buflen)
 void
 print_nmlist()
 {
-    int i;
+    int32_t i;
 
     for (i = 0; i < Num_symbols; i++)
         printf("0x%x %2d %s\n",Nmlist[i].n_value, Nmlist[i].n_type, Nmlist[i].n_name);

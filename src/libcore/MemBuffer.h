@@ -42,7 +42,7 @@ struct MemBufferEntryLessThan {
   bool operator()(const MemBufferEntry *v1, const MemBufferEntry *v2) const;
 };
 
-typedef unsigned char BitMaskType;
+typedef uint8_t BitMaskType;
 enum {
   logChunkSize=3,              // == log2(sizeof(long long))
   chunkSize=(1<<logChunkSize), // == sizeof(long long) == sizeof(BitMaskType)*8
@@ -51,7 +51,7 @@ enum {
 };
 
 typedef std::set<MemBufferEntry *, MemBufferEntryLessThan> MemOpsType;
-typedef HASH_MAP<uint, MemOpsType::iterator> MapMemOpsType;
+typedef HASH_MAP<uint32_t, MemOpsType::iterator> MapMemOpsType;
 
 class MemBufferEntry {
 private:
@@ -70,9 +70,9 @@ protected:
   // TaskControl is responsible for the allocation/deallocation of HVersion
   const HVersion *ver; // Version that the rd/wr belongs
 
-  uint  cIndex; // chunkIndex (addr>>logChunkSize)
+  uint32_t  cIndex; // chunkIndex (addr>>logChunkSize)
 
-  uint  instAddr; // the ST/LD instruction
+  uint32_t  instAddr; // the ST/LD instruction
 
   void initializeData(const MemBufferEntry *srcEntry) {
     data = srcEntry->data;
@@ -80,7 +80,7 @@ protected:
 
 
 public:
-  static MemBufferEntry *create(const HVersion *v, uint ci, RAddr raddr, uint iaddr=0);
+  static MemBufferEntry *create(const HVersion *v, uint32_t ci, RAddr raddr, uint32_t iaddr=0);
   void initializeData(MemOpsType::iterator mit);
 
   static bool chunkCopy(RAddr dstAddr, RAddr srcAddr, BitMaskType rbitmask);
@@ -89,7 +89,7 @@ public:
 
   RAddr getRealAddr() const { return realAddr; }
 
-  static BitMaskType calcAccessMask(short opflags, uint cOffset) {
+  static BitMaskType calcAccessMask(short opflags, uint32_t cOffset) {
     I(cOffset < chunkSize);
     BitMaskType bm = accessBitMask[opflags & (E_RIGHT|E_LEFT|E_SIZE)][cOffset];
     // bm can be zero because an illegal access can have invalid mask
@@ -113,23 +113,23 @@ public:
     wrmask = wrmask | accMask;
   }
 
-  static uint calcChunkIndex(RAddr addr) {
+  static uint32_t calcChunkIndex(RAddr addr) {
 	 I(sizeof(RAddr) == sizeof(uint));
 	 return static_cast<uint>(addr) >> logChunkSize;
   }
 
-  static uint calcChunkOffset(RAddr addr) {
+  static uint32_t calcChunkOffset(RAddr addr) {
 	 return static_cast<uint>(addr) & chunkAddrMask;
   }
 
-  static uint calcAlignChunk(RAddr addr) {
+  static uint32_t calcAlignChunk(RAddr addr) {
 	 return static_cast<uint>(addr) & (~0UL ^chunkAddrMask);
   }
 
   RAddr getAddr(RAddr addr)       const { return (RAddr)(&data)+calcChunkOffset(addr);  }
   RAddr getAddr()                 const { return (RAddr)(&data);  }
-  uint getChunkIndex()           const { return cIndex;          }
-  uint getInstAddr()             const { return instAddr;        }
+  uint32_t getChunkIndex()           const { return cIndex;          }
+  uint32_t getInstAddr()             const { return instAddr;        }
   const HVersion *getVersionRef() const { return ver;             }
 
   bool getDataIfNeeded(const MemBufferEntry *stEntry, BitMaskType cpmask);
@@ -179,11 +179,11 @@ public:
   void justDestroy();
 
   // Prepare to read from this version. Returns the address to read from.
-  RAddr read(uint iaddr, short iFlags, RAddr addr);
+  RAddr read(uint32_t iaddr, short iFlags, RAddr addr);
 
   void silentReadChunk(MemOpsType::iterator it, MemBufferEntry *e, RAddr addr);
 
-  const HVersion *postWrite(const unsigned long long *data, uint iaddr,
+  const HVersion *postWrite(const unsigned long long *data, uint32_t iaddr,
 			    short iFlags, RAddr addr);
 
 

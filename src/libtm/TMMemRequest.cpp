@@ -212,7 +212,7 @@ void SMPMemRequest::ack(TimeDelta_t lat)
   destroy();
 }
 
-void SMPMemRequest::setState(unsigned int st)
+void SMPMemRequest::setState(uint32_t st)
 {
   state = st;
 }
@@ -232,7 +232,7 @@ MemOperation SMPMemRequest::getMemOperation()
   return memOp;
 }
 
-unsigned int SMPMemRequest::getState()
+uint32_t SMPMemRequest::getState()
 {
   return state;
 }

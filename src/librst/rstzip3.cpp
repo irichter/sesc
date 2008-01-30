@@ -122,7 +122,7 @@ rz3_bitarray_descr rstzip3::bitarray_descr[] = {
 
 
 
-// the rel field is a parameter relative to which to print stats
+// the rel field is a parameter relative to which to print32_t stats
 // (in addition to per record and per instr). eg raw-regvals per regval.
 // ps_max => none
 struct rz3_perf_stats_descr rstzip3::perf_stats_descr[] = {
@@ -233,9 +233,9 @@ rstzip3::rstzip3(const char * fname, const char * mode)
     }
 
     // read header
-    int nbytes = gzread(gzf, header, sizeof(rz3_header));
+    int32_t nbytes = gzread(gzf, header, sizeof(rz3_header));
     if (nbytes != sizeof(rz3_header)) {
-      int errnum;
+      int32_t errnum;
       fprintf(stderr, "ERROR: gzread rz3 header from input file: %s", gzerror(gzf, &errnum));
       fprintf(stderr, "errnum %d\n", errnum);
       rz3_error = true;
@@ -248,7 +248,7 @@ rstzip3::rstzip3(const char * fname, const char * mode)
       if (verbose) {
         fprintf(stderr, "  expected: %s\n", rz3_hdr_magic);
         fprintf(stderr, "  saw: ");
-        int i;
+        int32_t i;
         for (i=0; i<15; i++) {
           if (isprint(header->magic[i])) fprintf(stderr, "%c", header->magic[i]); else fprintf(stderr, "\\%03o", (int) header->magic[i]);
         }
@@ -290,7 +290,7 @@ rstzip3::rstzip3(const char * fname, const char * mode)
 
   tdata = new rz3_percpu_data * [rz3_max_ncpus];
 
-  int i;
+  int32_t i;
   for (i=0; i<(rz3_max_ncpus); i++) {
     tdata[i] = NULL;
   }
@@ -305,7 +305,7 @@ rstzip3::rstzip3(const char * fname, const char * mode)
 
   nsections = 0;
 
-  perf_stats = new int [ps_MAX];
+  perf_stats = new int32_t [ps_MAX];
   perf_stat_totals = new int64_t [ps_MAX];
   for (i=0; i<ps_MAX; i++) {
     perf_stat_totals[i] = 0;
@@ -332,7 +332,7 @@ rstzip3::~rstzip3()
   if (sdata != NULL) {
     if (verbose) sdata->print_totals();
     if (verbose) {
-      int i;
+      int32_t i;
       for (i=0; i<rz3_max_ncpus; i++) {
         if (tdata[i] != NULL) {
           tdata[i]->valuecache->Report(stderr);
@@ -349,7 +349,7 @@ rstzip3::~rstzip3()
   delete shdr; shdr = NULL;
   delete sdata; sdata = NULL;
 
-  int i;
+  int32_t i;
   for (i=0; i<(rz3_max_ncpus); i++) {
     if (tdata[i] != NULL) {
       delete tdata[i]; tdata[i] = NULL;
@@ -364,12 +364,12 @@ rstzip3::~rstzip3()
 
 
 
-int rstzip3::compress(rstf_unionT * buf, int nrec)
+int32_t rstzip3::compress(rstf_unionT * buf, int32_t nrec)
 {
   // if interface buffer count is non-zero, copy in records to fill up buffer
-  int done = 0;
+  int32_t done = 0;
   if (interface_buffer_count) {
-    int n = (rz3_bufsize - interface_buffer_count);
+    int32_t n = (rz3_bufsize - interface_buffer_count);
     if (n > nrec) n = nrec;
     memcpy(interface_buffer+interface_buffer_count, buf, n*sizeof(rstf_unionT));
     interface_buffer_count += n;
@@ -383,13 +383,13 @@ int rstzip3::compress(rstf_unionT * buf, int nrec)
     }
   }
 
-  // at this point, there are no records waiting to be compressed in the buffer
+  // at this point32_t, there are no records waiting to be compressed in the buffer
   while((nrec-done) >= rz3_bufsize) {
     compress_buffer(buf+done, rz3_bufsize);
     done += rz3_bufsize;
   }
 
-  // at this point, the buffer is empty; there may be some records left to be
+  // at this point32_t, the buffer is empty; there may be some records left to be
   // compressed, but not enough to fill the buffer
   if (done < nrec) {
     memcpy(interface_buffer, buf+done, (nrec-done)*sizeof(rstf_unionT));
@@ -397,16 +397,16 @@ int rstzip3::compress(rstf_unionT * buf, int nrec)
   }
   return nrec;
 
-} // int rstzip3::compress(rstf_unionT * buf, int nrec)
+} // int32_t rstzip3::compress(rstf_unionT * buf, int32_t nrec)
 
 
-int rstzip3::decompress(rstf_unionT * buf, int nrec)
+int32_t rstzip3::decompress(rstf_unionT * buf, int32_t nrec)
 {
   // if there are some records ready to be
   // copied out, copy out as many as possible
-  int done = 0;
+  int32_t done = 0;
   if (interface_buffer_count) {
-    int n = interface_buffer_count;
+    int32_t n = interface_buffer_count;
     if (n > nrec) n = nrec;
 
     memcpy(buf+done, interface_buffer+(interface_buffer_size-interface_buffer_count), n*sizeof(rstf_unionT));
@@ -415,16 +415,16 @@ int rstzip3::decompress(rstf_unionT * buf, int nrec)
     if (done == nrec) return nrec;
   }
 
-  // at this point, if we haven't returned, done < nrec and interface_buffer_count == 0
+  // at this point32_t, if we haven't returned, done < nrec and interface_buffer_count == 0
   // decompress the next section.
   while((nrec-done) >= rz3_bufsize) {
-    int n = decompress_buffer(buf+done, rz3_bufsize); // returns the actual number of records decmopressed
+    int32_t n = decompress_buffer(buf+done, rz3_bufsize); // returns the actual number of records decmopressed
     // this should be equal to rz3_bufsize unless we reached the end of file
     if (n == 0) return done;
     done += n;
   }
 
-  // at this point, the number of records that can be copied to the caller is < rz3_bufsize.
+  // at this point32_t, the number of records that can be copied to the caller is < rz3_bufsize.
   // to avoid buffer overflow, we use the interface buffer once again
   while(done < nrec) {
     interface_buffer_size = decompress_buffer(interface_buffer, rz3_bufsize);
@@ -433,7 +433,7 @@ int rstzip3::decompress(rstf_unionT * buf, int nrec)
     interface_buffer_count = interface_buffer_size;
 
     // how many can we copy out?
-    int n = interface_buffer_size;
+    int32_t n = interface_buffer_size;
     if (n > (nrec-done)) n = (nrec-done);
 
     // copy and update (decrement) buffer count
@@ -441,10 +441,10 @@ int rstzip3::decompress(rstf_unionT * buf, int nrec)
     done += n;
     interface_buffer_count -= n;
   }
-  // at this point done = nrec.
+  // at this point32_t done = nrec.
   return nrec;
 
-} // rstzip3::decompress(rstf_unionT * buf, int nrec)
+} // rstzip3::decompress(rstf_unionT * buf, int32_t nrec)
 
 
 bool rstzip3::error() {
@@ -484,14 +484,14 @@ void rstzip3::clear_stats()
 
 void rstzip3::print_stats()
 {
-  int i;
+  int32_t i;
   fprintf(stderr, "\nPerformance statistics for this section:\n");
   for (i=0; i<ps_MAX; i++) {
     fprintf(stderr, "%s \t%d \t%0.4f%%/rec \t%0.4f%%/instr", perf_stats_descr[i].name, perf_stats[i],
            perf_stats[i]*100.0/perf_stats[ps_nrecords], perf_stats[i]*100.0/perf_stats[ps_instr_count]);
 
     if (perf_stats_descr[i].rel != ps_MAX) {
-      int rel = perf_stats_descr[i].rel;
+      int32_t rel = perf_stats_descr[i].rel;
       fprintf(stderr, " \t%0.4f%%/%s", perf_stats[i]*100.0/perf_stats[rel], perf_stats_descr[rel].name);
     }
     fprintf(stderr, "\n");
@@ -501,14 +501,14 @@ void rstzip3::print_stats()
 
 void rstzip3::print_stat_totals()
 {
-  int i;
+  int32_t i;
   fprintf(stderr, "\nOverall performance statistics:\n");
   for (i=0; i<ps_MAX; i++) {
     fprintf(stderr, "total %s \t%lld \t%0.4f%%/rec \t%0.4f%%/instr", perf_stats_descr[i].name, perf_stat_totals[i],
            perf_stat_totals[i]*100.0/perf_stat_totals[ps_nrecords], perf_stat_totals[i]*100.0/perf_stat_totals[ps_instr_count]);
 
     if (perf_stats_descr[i].rel != ps_MAX) {
-      int rel = perf_stats_descr[i].rel;
+      int32_t rel = perf_stats_descr[i].rel;
       fprintf(stderr, " \t%0.4f%%/%s", perf_stat_totals[i]*100.0/perf_stat_totals[rel], perf_stats_descr[rel].name);
     }
     fprintf(stderr, "\n");
@@ -537,7 +537,7 @@ void rstzip3::update_stats()
   perf_stats[ps_pavadiff_ea_valid_count] = shdr->rz3_bitarray_counts[pavadiff_dctxt_pred_array];
   perf_stats[ps_pavadiff_dctxt_misses] = shdr->rz3_bitarray_counts[pavadiff_raw_dctxt_array];
 
-  int i;
+  int32_t i;
   for (i=0; i<ps_MAX; i++) {
     perf_stat_totals[i] += perf_stats[i];
   }

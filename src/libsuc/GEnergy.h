@@ -46,7 +46,7 @@ enum PowerGroup {
   ****************************************************/
 
 /*
- * Right now this class is designed as entry point to get the energy
+ * Right now this class is designed as entry point32_t to get the energy
  * for processor 0. The idea is also to use it for implementing
  * dynamic voltage scaling.
  */
@@ -61,10 +61,10 @@ private:
 public:
   EnergyStore() {
   }
-  double get(const char *block, const char *name, int procId=0) {
+  double get(const char *block, const char *name, int32_t procId=0) {
     return -1;
   }
-  double get(const char *name, int procId=0) {
+  double get(const char *name, int32_t procId=0) {
     return -1;
   }
   void dump(){}
@@ -76,19 +76,19 @@ class GStatsEnergyBase {
     return 0.0;
   }
   void inc() {}
-  void add(int v){}
+  void add(int32_t v){}
 };
 
 class GStatsEnergy : public GStatsEnergyBase {
 public:
   GStatsEnergy(const char *name, const char *block
-               ,int procId, PowerGroup grp
+               ,int32_t procId, PowerGroup grp
                ,double energy) {
   }
   ~GStatsEnergy() {
   }
 
-  static double getTotalProc(int procId) {
+  static double getTotalProc(int32_t procId) {
     return 0;
   }
   
@@ -96,7 +96,7 @@ public:
     return 0.0;
   }
   void inc() {}
-  void add(int v){}
+  void add(int32_t v){}
 };
 
 class GStatsEnergyNull : public GStatsEnergyBase {
@@ -105,7 +105,7 @@ class GStatsEnergyNull : public GStatsEnergyBase {
 
 class GStatsEnergyCGBase {
 public:
-  GStatsEnergyCGBase(const char* str,int id) {}
+  GStatsEnergyCGBase(const char* str,int32_t id) {}
   void subscribe(double v) {
   }
   void calcClockGate() {
@@ -118,11 +118,11 @@ public:
 class GStatsEnergyCG {
 public:
   GStatsEnergyCG(const char *name, const char* block
-                 ,int procId, PowerGroup grp
+                 ,int32_t procId, PowerGroup grp
                  ,double energy, GStatsEnergyCGBase *b) {
   }
   void inc() {}
-  void add(int v){}
+  void add(int32_t v){}
   double getDouble() {
     return 0.0;
   }
@@ -138,22 +138,22 @@ public:
   static const char *getEnergyStr(PowerGroup d);
 
   EnergyStore();
-  double get(const char *block, const char *name, int procId=0);
-  double get(const char *name, int procId=0);
+  double get(const char *block, const char *name, int32_t procId=0);
+  double get(const char *name, int32_t procId=0);
 };
 
 class GStatsEnergyBase : public GStats {
  public:
   virtual double getDouble() const = 0;
   virtual void inc() = 0;
-  virtual void add(int v) = 0;
+  virtual void add(int32_t v) = 0;
 };
 
 class GStatsEnergyNull : public GStatsEnergyBase {
  public:
   double getDouble() const;
   void inc();
-  void add(int v);
+  void add(int32_t v);
 
   void reportValue() const {};
 };
@@ -173,19 +173,19 @@ protected:
 
 public:
   GStatsEnergy(const char *name, const char* block
-               ,int procId, PowerGroup grp
+               ,int32_t procId, PowerGroup grp
                ,double energy);
   ~GStatsEnergy() {};
-  static double getTotalProc(int procId);
+  static double getTotalProc(int32_t procId);
   static double getTotalGroup(PowerGroup grp);
   
-  static void dump(int procId);
+  static void dump(int32_t procId);
   static void dump();
   static double getTotalEnergy();
 
 #ifdef SESC_THERM
-  static void setupDump(int procId);
-  static void printDump(int procId);
+  static void setupDump(int32_t procId);
+  static void printDump(int32_t procId);
 
   void reportValueDump() const;
   void reportValueDumpSetup() const;
@@ -197,19 +197,19 @@ public:
 
   virtual double getDouble() const;
   virtual void inc();
-  virtual void add(int v);
+  virtual void add(int32_t v);
 };
 
 class GStatsEnergyCGBase {
 protected:
   Time_t lastCycleUsed;
-  int  numCycles;
+  int32_t  numCycles;
   char *name;
-  int   id;
+  int32_t   id;
 
 public:
-  int getNumCycles(){ return numCycles; }
-  GStatsEnergyCGBase(const char* str,int id);
+  int32_t getNumCycles(){ return numCycles; }
+  GStatsEnergyCGBase(const char* str,int32_t id);
   
   void use();
 };
@@ -222,12 +222,12 @@ protected:
 
 public:
   GStatsEnergyCG(const char *name, const char* block
-                 ,int procId, PowerGroup grp
+                 ,int32_t procId, PowerGroup grp
                  ,double energy, GStatsEnergyCGBase *b);
 
   double getDouble() const;
   void inc();
-  void add(int v);
+  void add(int32_t v);
 };
 #endif
 

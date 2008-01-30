@@ -90,16 +90,16 @@ typedef struct thermal_config_t_st
 	char steady_file[STR_SIZE];
 	double sampling_intvl;	/* interval per call to compute_temp	*/
 	double base_proc_freq;	/* in Hz	*/
-	int dtm_used;			/* flag to guide the scaling of init Ts	*/
+	int32_t dtm_used;			/* flag to guide the scaling of init Ts	*/
 	/* model type - block or grid */
 	char model_type[STR_SIZE];
 
 	/* parameters specific to block model	*/
-	int block_omit_lateral;	/* omit lateral resistance?	*/
+	int32_t block_omit_lateral;	/* omit lateral resistance?	*/
 
 	/* parameters specific to grid model	*/
-	int grid_rows;			/* grid resolution - no. of rows	*/
-	int grid_cols;			/* grid resolution - no. of cols	*/
+	int32_t grid_rows;			/* grid resolution - no. of rows	*/
+	int32_t grid_cols;			/* grid resolution - no. of cols	*/
 	/* layer configuration from	file */
 	char grid_layer_file[STR_SIZE];
 	/* output grid temperatures instead of block temperatures */
@@ -114,12 +114,12 @@ thermal_config_t default_thermal_config(void);
  * parse a table of name-value string pairs and add the configuration
  * parameters to 'config'
  */
-void thermal_config_add_from_strs(thermal_config_t *config, str_pair *table, int size);
+void thermal_config_add_from_strs(thermal_config_t *config, str_pair *table, int32_t size);
 /* 
  * convert config into a table of name-value pairs. returns the no.
  * of parameters converted
  */
-int thermal_config_to_strs(thermal_config_t *config, str_pair *table, int max_entries);
+int32_t thermal_config_to_strs(thermal_config_t *config, str_pair *table, int32_t max_entries);
 
 /* hotspot thermal model - can be a block or grid model	*/
 struct block_model_t_st;
@@ -132,7 +132,7 @@ typedef struct RC_model_t_st
 		struct grid_model_t_st *grid;
 	};
 	/* block model or grid model	*/
-	int type;
+	int32_t type;
 	thermal_config_t *config;
 }RC_model_t;
 
@@ -155,12 +155,12 @@ double *hotspot_vector(RC_model_t *model);
  * compaction
  */
 void trim_hotspot_vector(RC_model_t *model, double *dst, double *src, 
-						 int at, int size);
+						 int32_t at, int32_t size);
 /* update the model's node count	*/						 
-void resize_thermal_model(RC_model_t *model, int n_units);						 
+void resize_thermal_model(RC_model_t *model, int32_t n_units);						 
 void set_temp (RC_model_t *model, double *temp, double val);
 void dump_temp (RC_model_t *model, double *temp, char *file);
-void read_temp (RC_model_t *model, double *temp, char *file, int clip);
+void read_temp (RC_model_t *model, double *temp, char *file, int32_t clip);
 void dump_power(RC_model_t *model, double *power, char *file);
 void read_power (RC_model_t *model, double *power, char *file);
 double find_max_temp(RC_model_t *model, double *temp);
@@ -169,29 +169,29 @@ double find_avg_temp(RC_model_t *model, double *temp);
 /* other functions used by the above interfaces	*/
 
 /* LUP decomposition	*/
-void lupdcmp(double**a, int n, int *p, int spd);
+void lupdcmp(double**a, int32_t n, int32_t *p, int32_t spd);
 
 /* get the thermal resistance values	*/
 double getr(double k, double Wb, double Lb, double Ws, double t);
 
 /* LU forward and backward substitution	*/
-void lusolve(double **a, int n, int *p, double *b, double *x, int spd);
+void lusolve(double **a, int32_t n, int32_t *p, double *b, double *x, int32_t spd);
 
 /* 4th order Runge Kutta solver with adaptive step sizing */
-double rk4(double **c, double *y, double *p, int n, double h, double *yout);
+double rk4(double **c, double *y, double *p, int32_t n, double h, double *yout);
 
 /* matrix routines	*/
-void matmult(double **c, double **a, double **b, int n);
+void matmult(double **c, double **a, double **b, int32_t n);
 /* same as above but 'a' is a diagonal matrix stored as a 1-d array	*/
-void diagmatmult(double **c, double *a, double **b, int n); 
-void matvectmult(double *vout, double **m, double *vin, int n);
+void diagmatmult(double **c, double *a, double **b, int32_t n); 
+void matvectmult(double *vout, double **m, double *vin, int32_t n);
 /* same as above but 'm' is a diagonal matrix stored as a 1-d array	*/
-void diagmatvectmult(double *vout, double *m, double *vin, int n);
+void diagmatvectmult(double *vout, double *m, double *vin, int32_t n);
 /* 
  * inv = m^-1, inv, m are n by n matrices.
  * the spd flag indicates that m is symmetric 
  * and positive definite 
  */
-void matinv(double **inv, double **m, int n, int spd);
+void matinv(double **inv, double **m, int32_t n, int32_t spd);
 
 #endif

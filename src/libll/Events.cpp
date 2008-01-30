@@ -47,7 +47,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 static long long NES=0; // Number of exits pending to scape
 
-int rsesc_usecs(void)
+int32_t rsesc_usecs(void)
 {
   // as in 1000000 clocks per second report (Linux is 100)
 
@@ -75,7 +75,7 @@ int rsesc_usecs(void)
  * As soon as the instructions is fetched this event is called. Its
  * called before anything is done inside the sesc simulator.
  */
-void rsesc_preevent(int pid, int vaddr, int type, void *sptr)
+void rsesc_preevent(int32_t pid, int32_t vaddr, int32_t type, void *sptr)
 {
   osSim->preEvent(pid, vaddr, type, sptr);
 }
@@ -87,7 +87,7 @@ void rsesc_preevent(int pid, int vaddr, int type, void *sptr)
  * fetch, issue, dispatch width, and occupy an instruction window
  * slot). It also enforces the dependences for the registers R4, R6.
  */
-void rsesc_postevent(int pid, int vaddr, int type, void *sptr)
+void rsesc_postevent(int32_t pid, int32_t vaddr, int32_t type, void *sptr)
 {
   postEventCB *cb = postEventCB::create(osSim, pid, vaddr, type, sptr);
     
@@ -99,7 +99,7 @@ void rsesc_postevent(int pid, int vaddr, int type, void *sptr)
  * sesc_postevent, with the difference that it is not dispatched until
  * all the previous memory operations have been performed.
  */
-void rsesc_memfence(int pid, int vaddr)
+void rsesc_memfence(int32_t pid, int32_t vaddr)
 {
   osSim->pid2GProcessor(pid)->addEvent(MemFenceEvent, 0, vaddr);
 }
@@ -112,7 +112,7 @@ void rsesc_memfence(int pid, int vaddr)
  * the ENDIAN is respected (this is a problem in little endian
  * machines like x86)
  */
-void rsesc_acquire(int pid, int vaddr)
+void rsesc_acquire(int32_t pid, int32_t vaddr)
 {
 #ifndef JOE_MUST_DO_IT_OR_ELSE
   return;
@@ -127,7 +127,7 @@ void rsesc_acquire(int pid, int vaddr)
  * the ENDIAN is respected (this is a problem in little endian
  * machines like x86)
  */
-void rsesc_release(int pid, int vaddr)
+void rsesc_release(int32_t pid, int32_t vaddr)
 {
 #ifndef JOE_MUST_DO_IT_OR_ELSE
   return;
@@ -136,26 +136,26 @@ void rsesc_release(int pid, int vaddr)
 }
 
 /**************************************************
- * Called each time that mint has created a new thread. Currently only
+ * Called each time that mint32_t has created a new thread. Currently only
  * spawn is supported.
  *
  * pid is the Thread[pid] where the new context have been created.ExecutionFlow
  * constructor must use this parameter. ppid is the parent thread
  */
 #if (!defined TASKSCALAR)
-void rsesc_spawn(int ppid, int cpid, int flags)
+void rsesc_spawn(int32_t ppid, int32_t cpid, int32_t flags)
 {
   osSim->eventSpawn(ppid, cpid, flags);
 }
 
-int rsesc_exit(int cpid, int err)
+int32_t rsesc_exit(int32_t cpid, int32_t err)
 {
   osSim->eventExit(cpid, err);
   return 1;
 }
 #endif
 
-void rsesc_finish(int pid)
+void rsesc_finish(int32_t pid)
 {
 
 #if 0
@@ -177,28 +177,28 @@ void rsesc_finish(int pid)
 }
 
 /* Same as rsesc_spawn, except that the new thread does not become ready */
-void rsesc_spawn_stopped(int cpid, int pid, int flags){
+void rsesc_spawn_stopped(int32_t cpid, int32_t pid, int32_t flags){
   osSim->eventSpawn(cpid, pid, flags, true);
 }
 
 /* Returns the number of CPUs (cores) the system has */ 
-int rsesc_get_num_cpus(void){
+int32_t rsesc_get_num_cpus(void){
   return osSim->getNumCPUs();
 }
 
-void rsesc_sysconf(int cpid, int pid, int flags)
+void rsesc_sysconf(int32_t cpid, int32_t pid, int32_t flags)
 {
   osSim->eventSysconf(cpid, pid, flags);
 }
 
-void rsesc_wait(int cpid)
+void rsesc_wait(int32_t cpid)
 {
   osSim->eventWait(cpid);
 }
 
-int rsesc_pseudoreset_cnt = 0;
+int32_t rsesc_pseudoreset_cnt = 0;
 
-void rsesc_pseudoreset(int pid)
+void rsesc_pseudoreset(int32_t pid)
 { 
   if (pid==0 && rsesc_pseudoreset_cnt==0)
     {
@@ -211,28 +211,28 @@ void rsesc_pseudoreset(int pid)
   }
 }
 
-int rsesc_suspend(int cpid, int pid)
+int32_t rsesc_suspend(int32_t cpid, int32_t pid)
 {
   return osSim->eventSuspend(cpid,pid);
 }
 
-int rsesc_resume(int cpid, int pid)
+int32_t rsesc_resume(int32_t cpid, int32_t pid)
 {
   return osSim->eventResume(cpid, pid);
 }
 
-int rsesc_yield(int cpid, int pid)
+int32_t rsesc_yield(int32_t cpid, int32_t pid)
 {
   return osSim->eventYield(cpid,pid);
 }
 
-void rsesc_fast_sim_begin(int pid)
+void rsesc_fast_sim_begin(int32_t pid)
 {
   LOG("Begin Rabbit mode (embeded)");
   osSim->pid2GProcessor(pid)->addEvent(FastSimBeginEvent, 0, 0);
 }
 
-void mint_termination(int pid)
+void mint_termination(int32_t pid)
 {
   LOG("mint_termination(%d) received (NES=%lld)\n", pid, NES);
 
@@ -249,7 +249,7 @@ void mint_termination(int pid)
   exit(0);
 }
 
-void rsesc_simulation_mark(int pid)
+void rsesc_simulation_mark(int32_t pid)
 {
   if (GFlow::isGoingRabbit()) {
     MSG("sesc_simulation_mark %d (rabbit) inst=%lld", osSim->getSimulationMark(), GFlow::getnExecRabbit());
@@ -273,7 +273,7 @@ void rsesc_simulation_mark(int pid)
   }
 }
 
-void rsesc_simulation_mark_id(int pid, int id)
+void rsesc_simulation_mark_id(int32_t pid, int32_t id)
 {
   if (GFlow::isGoingRabbit()) {
     MSG("sesc_simulation_mark(%d) %d (rabbit) inst=%lld", id, osSim->getSimulationMark(id), GFlow::getnExecRabbit());
@@ -297,18 +297,18 @@ void rsesc_simulation_mark_id(int pid, int id)
   }
 }
 
-void rsesc_fast_sim_end(int pid)
+void rsesc_fast_sim_end(int32_t pid)
 {
   osSim->pid2GProcessor(pid)->addEvent(FastSimEndEvent, 0, 0);
   LOG("End Rabbit mode (embeded)");
 }
 
-int rsesc_fetch_op(int pid, enum FetchOpType op, int vaddr, int *data, int val)
+int32_t rsesc_fetch_op(int32_t pid, enum FetchOpType op, int32_t vaddr, int32_t *data, int32_t val)
 {
   I(vaddr);
 
   osSim->pid2GProcessor(pid)->addEvent(FetchOpEvent, 0, vaddr);
-  int odata = SWAP_WORD(*data);
+  int32_t odata = SWAP_WORD(*data);
 
   if (odata)
     osSim->pid2GProcessor(pid)->nLockContCycles.inc();
@@ -333,15 +333,15 @@ int rsesc_fetch_op(int pid, enum FetchOpType op, int vaddr, int *data, int val)
   return odata;
 }
 
-void rsesc_do_unlock(int* data, int val)
+void rsesc_do_unlock(int* data, int32_t val)
 {
   I(data);
   *data = SWAP_WORD(val);
 }
 
-typedef CallbackFunction2<int*, int, &rsesc_do_unlock> do_unlockCB;
+typedef CallbackFunction2<int*, int32_t, &rsesc_do_unlock> do_unlockCB;
 
-void rsesc_unlock_op(int pid, int vaddr, int *data, int val)
+void rsesc_unlock_op(int32_t pid, int32_t vaddr, int32_t *data, int32_t val)
 {
   I(vaddr);
   osSim->pid2GProcessor(pid)->addEvent(UnlockEvent, 
@@ -349,24 +349,24 @@ void rsesc_unlock_op(int pid, int vaddr, int *data, int val)
   osSim->pid2GProcessor(pid)->nLocks.inc();
 }
 
-ThreadContext *rsesc_get_thread_context(int pid)
+ThreadContext *rsesc_get_thread_context(int32_t pid)
 {
   return osSim->getContext(pid);
 }
 
 #if !(defined MIPS_EMUL)
-void rsesc_set_instruction_pointer(int pid, icode_ptr picode)
+void rsesc_set_instruction_pointer(int32_t pid, icode_ptr picode)
 {
   osSim->eventSetInstructionPointer(pid,picode);
 }
 
-icode_ptr rsesc_get_instruction_pointer(int pid)
+icode_ptr rsesc_get_instruction_pointer(int32_t pid)
 {
   return osSim->eventGetInstructionPointer(pid);
 }
 #endif // For !(defined MIPS_EMUL)
 
-void rsesc_spawn_opcode(int pid, const int *params, int nParams)
+void rsesc_spawn_opcode(int32_t pid, const int32_t *params, int32_t nParams)
 {
   osSim->eventSpawnOpcode(pid,params,nParams);
 }
@@ -446,7 +446,7 @@ void rsesc_fatal(void)
 //       epoch->complete();
 //   }
   
-void *rsesc_OS_read(int pid, int iAddr, VAddr vaddr, int flags) {
+void *rsesc_OS_read(int32_t pid, int32_t iAddr, VAddr vaddr, int32_t flags) {
 
   ThreadContext *pthread = ThreadContext::getContext(pid);
   I((flags & E_WRITE) == 0);
@@ -458,7 +458,7 @@ void *rsesc_OS_read(int pid, int iAddr, VAddr vaddr, int flags) {
   return (void *)(pthread->virt2real(vaddr, flags));
 }
 
-void *rsesc_OS_prewrite(int pid, int iAddr, VAddr vaddr, int flags) {
+void *rsesc_OS_prewrite(int32_t pid, int32_t iAddr, VAddr vaddr, int32_t flags) {
   ThreadContext *pthread = ThreadContext::getContext(pid);
   I((flags & E_READ) == 0);
   flags = (E_WRITE | flags); 
@@ -469,14 +469,14 @@ void *rsesc_OS_prewrite(int pid, int iAddr, VAddr vaddr, int flags) {
   return (void *)(pthread->virt2real(vaddr, flags));
 }
 
-void rsesc_OS_postwrite(int pid, int iAddr, VAddr vaddr, int flags) {
+void rsesc_OS_postwrite(int32_t pid, int32_t iAddr, VAddr vaddr, int32_t flags) {
   // Do nothing
 }
   
 #endif
   
 #ifdef VALUEPRED
-int rsesc_get_last_value(int pid, int index)
+int32_t rsesc_get_last_value(int32_t pid, int32_t index)
 {
   if (!osSim->enoughMarks1())
     return 0;
@@ -484,7 +484,7 @@ int rsesc_get_last_value(int pid, int index)
   return ValueTable::readLVPredictor(index);
 }
 
-void rsesc_put_last_value(int pid, int index, int val)
+void rsesc_put_last_value(int32_t pid, int32_t index, int32_t val)
 {
   if (!osSim->enoughMarks1())
     return;
@@ -492,7 +492,7 @@ void rsesc_put_last_value(int pid, int index, int val)
   ValueTable::updateLVPredictor(index, val);
 }
 
-int rsesc_get_stride_value(int pid, int index)
+int32_t rsesc_get_stride_value(int32_t pid, int32_t index)
 {
   if (!osSim->enoughMarks1())
     return 0;
@@ -500,7 +500,7 @@ int rsesc_get_stride_value(int pid, int index)
   return ValueTable::readSVPredictor(index);
 }
 
-void rsesc_put_stride_value(int pid, int index, int val)
+void rsesc_put_stride_value(int32_t pid, int32_t index, int32_t val)
 {
   if (!osSim->enoughMarks1())
     return;
@@ -508,7 +508,7 @@ void rsesc_put_stride_value(int pid, int index, int val)
   ValueTable::updateSVPredictor(index, val);
 }
 
-int rsesc_get_incr_value(int pid, int index, int lval)
+int32_t rsesc_get_incr_value(int32_t pid, int32_t index, int32_t lval)
 {
   if (!osSim->enoughMarks1())
     return 0;
@@ -516,7 +516,7 @@ int rsesc_get_incr_value(int pid, int index, int lval)
   return ValueTable::readIncrPredictor(index, lval);
 }
 
-void  rsesc_put_incr_value(int pid, int index, int incr)
+void  rsesc_put_incr_value(int32_t pid, int32_t index, int32_t incr)
 {
   if (!osSim->enoughMarks1())
     return;
@@ -524,7 +524,7 @@ void  rsesc_put_incr_value(int pid, int index, int incr)
   ValueTable::updateIncrPredictor(index, incr);
 }
 
-void  rsesc_verify_value(int pid, int rval, int pval)
+void  rsesc_verify_value(int32_t pid, int32_t rval, int32_t pval)
 {
   if (!osSim->enoughMarks1())
     return;
@@ -534,11 +534,11 @@ void  rsesc_verify_value(int pid, int rval, int pval)
 #endif
 
 #if (defined TASKSCALAR) || (defined TLS)
-// Memory protection subroutines. Those are invoqued by mint (mainly subst.c) to
+// Memory protection subroutines. Those are invoqued by mint32_t (mainly subst.c) to
 // access/update data that has been versioned
 
 // Copy data from srcStart (real) to version memory (logical can generate squash/restart)
-void rsesc_OS_write_block(int pid, int iAddr, VAddr dstStart, RAddr rsrcStart, size_t size) {
+void rsesc_OS_write_block(int32_t pid, int32_t iAddr, VAddr dstStart, RAddr rsrcStart, size_t size) {
 
   RAddr rsrc = rsrcStart;
   VAddr dst  = dstStart;
@@ -546,8 +546,8 @@ void rsesc_OS_write_block(int pid, int iAddr, VAddr dstStart, RAddr rsrcStart, s
   
   // BYTE copy (8 bits)
   while(dst < end) {
-    unsigned char *rsrc_addr = (unsigned char*)rsrc;
-    unsigned char *dst_addr  = static_cast<unsigned char*>(rsesc_OS_prewrite(pid, iAddr, dst, E_BYTE));
+    uint8_t *rsrc_addr = (uint8_t*)rsrc;
+    uint8_t *dst_addr  = static_cast<uint8_t*>(rsesc_OS_prewrite(pid, iAddr, dst, E_BYTE));
 
     *dst_addr = *rsrc_addr;
     rsesc_OS_postwrite(pid, iAddr, dst, E_BYTE);
@@ -556,20 +556,20 @@ void rsesc_OS_write_block(int pid, int iAddr, VAddr dstStart, RAddr rsrcStart, s
     dst++;
   }
 }
-void rsesc_OS_write_block(int pid, int iAddr, VAddr dstStart, const void *srcStart, size_t size) {
+void rsesc_OS_write_block(int32_t pid, int32_t iAddr, VAddr dstStart, const void *srcStart, size_t size) {
   return rsesc_OS_write_block(pid, iAddr, dstStart, (RAddr)srcStart, size);
 }
 
 // Copy data from srcStart (logical can generate squash/restart) to rdstStart (real)
-bool rsesc_OS_read_string(int pid, VAddr iAddr, RAddr rdstStart, VAddr srcStart, size_t size) {
+bool rsesc_OS_read_string(int32_t pid, VAddr iAddr, RAddr rdstStart, VAddr srcStart, size_t size) {
 
   VAddr src  = srcStart;
   RAddr rdst = rdstStart;
   RAddr rend = rdstStart + size;
 
   while(rdst < rend) {
-    unsigned char *src_addr  = static_cast<unsigned char*>(rsesc_OS_read(pid, iAddr, src, E_BYTE));
-    unsigned char *rdst_addr = (unsigned char*)rdst;
+    uint8_t *src_addr  = static_cast<uint8_t*>(rsesc_OS_read(pid, iAddr, src, E_BYTE));
+    uint8_t *rdst_addr = (uint8_t*)rdst;
 
     *rdst_addr = *src_addr;
 
@@ -583,7 +583,7 @@ bool rsesc_OS_read_string(int pid, VAddr iAddr, RAddr rdstStart, VAddr srcStart,
   // String does not fit in dst buffer
   return false;
 }
-bool rsesc_OS_read_string(int pid, VAddr iAddr, void *dstStart, VAddr srcStart, size_t size) {
+bool rsesc_OS_read_string(int32_t pid, VAddr iAddr, void *dstStart, VAddr srcStart, size_t size) {
   return rsesc_OS_read_string(pid, iAddr, (RAddr)dstStart, srcStart, size);
 }
 
@@ -592,15 +592,15 @@ bool rsesc_OS_read_string(int pid, VAddr iAddr, void *dstStart, VAddr srcStart, 
 // a restart is generated, it can not recopy the data.
 //
 // TODO: Maybe it should not track the read (screw the restart!)
-void rsesc_OS_read_block(int pid, int iAddr, RAddr rdstStart, VAddr srcStart, size_t size) {
+void rsesc_OS_read_block(int32_t pid, int32_t iAddr, RAddr rdstStart, VAddr srcStart, size_t size) {
 
   VAddr src  = srcStart;
   RAddr rdst = rdstStart;
   RAddr rend = rdstStart + size;
 
   while(rdst < rend) {
-    unsigned char *src_addr  = static_cast<unsigned char*>(rsesc_OS_read(pid, iAddr, src, E_BYTE));
-    unsigned char *rdst_addr = (unsigned char*)rdst;
+    uint8_t *src_addr  = static_cast<uint8_t*>(rsesc_OS_read(pid, iAddr, src, E_BYTE));
+    uint8_t *rdst_addr = (uint8_t*)rdst;
 
     *rdst_addr = *src_addr;
 
@@ -608,7 +608,7 @@ void rsesc_OS_read_block(int pid, int iAddr, RAddr rdstStart, VAddr srcStart, si
     rdst++;
   }
 }
-void rsesc_OS_read_block(int pid, int iAddr, void *dstStart, VAddr srcStart, size_t size) {
+void rsesc_OS_read_block(int32_t pid, int32_t iAddr, void *dstStart, VAddr srcStart, size_t size) {
   return rsesc_OS_read_block(pid, iAddr, (RAddr)dstStart, srcStart, size);
 }
 #endif // END of either TaskScalar or VersionMem or TLS
@@ -622,7 +622,7 @@ void rsesc_OS_read_block(int pid, int iAddr, void *dstStart, VAddr srcStart, siz
 #error "Taskscalar is incompatible with TLS"
 #endif
 
-void rsesc_exception(int pid)
+void rsesc_exception(int32_t pid)
 {
   if (ExecutionFlow::isGoingRabbit()) {
     MSG("exception in rabbit mode pc=0x%x r31=0x%x"
@@ -641,7 +641,7 @@ void rsesc_exception(int pid)
   tc->exception();
 }
 
-void rsesc_spawn(int ppid, int cpid, int flags)
+void rsesc_spawn(int32_t ppid, int32_t cpid, int32_t flags)
 {
   //if (ExecutionFlow::isGoingRabbit()) {
   //  MSG("spawn not supported in rabbit mode. Sorry");
@@ -658,7 +658,7 @@ void rsesc_spawn(int ppid, int cpid, int flags)
 #endif
 }
 
-int rsesc_exit(int cpid, int err)
+int32_t rsesc_exit(int32_t cpid, int32_t err)
 {
   if (ExecutionFlow::isGoingRabbit()) {
     MSG("Real exit called (NES=%lld) pc=0x%x", NES, (int)osSim->getContextRegister(cpid,31));
@@ -675,7 +675,7 @@ int rsesc_exit(int cpid, int err)
   return 1;
 }
 
-int rsesc_version_can_exit(int pid)
+int32_t rsesc_version_can_exit(int32_t pid)
 {
   if (ExecutionFlow::isGoingRabbit()) {
     GLOG(DEBUG2, "can_exit (NES=%lld) pc=0x%x", NES, (int)osSim->getContextRegister(pid,31));
@@ -694,7 +694,7 @@ int rsesc_version_can_exit(int pid)
   return 0; // Proceed normal exit
 }
 
-void rsesc_prof_commit(int pid, int tid)
+void rsesc_prof_commit(int32_t pid, int32_t tid)
 {
 #ifdef TS_PROFILING
   if (ExecutionFlow::isGoingRabbit()) {
@@ -703,7 +703,7 @@ void rsesc_prof_commit(int pid, int tid)
 #endif
 }
 
-void rsesc_fork_successor(int ppid, int where, int tid)
+void rsesc_fork_successor(int32_t ppid, int32_t where, int32_t tid)
 {
   if (ExecutionFlow::isGoingRabbit()) {
 #ifdef TS_PROFILING  
@@ -732,7 +732,7 @@ void rsesc_fork_successor(int ppid, int where, int tid)
 
   ThreadContext *parentThread=osSim->getContext(ppid);
 
-  int childPid=mint_sesc_create_clone(parentThread); // Child
+  int32_t childPid=mint_sesc_create_clone(parentThread); // Child
 
   ThreadContext *childThread=osSim->getContext(childPid);
 
@@ -741,8 +741,8 @@ void rsesc_fork_successor(int ppid, int where, int tid)
 
   // Swallow the first two (should not exist) instructions from the thread (branch + nop)
 
-  for(int i=0; i<0; i++) {
-    int iAddr = childThread->getPicode()->addr;
+  for(int32_t i=0; i<0; i++) {
+    int32_t iAddr = childThread->getPicode()->addr;
     I( ((childThread->getPicode()->opflags)&E_MEM_REF) == 0);
     do{
       childThread->setPicode(childThread->getPicode()->func(childThread->getPicode(), childThread));
@@ -769,7 +769,7 @@ void rsesc_fork_successor(int ppid, int where, int tid)
 #if 0 // def SPREAD_SPAWNING
   ProcessId *proc = ProcessId::getProcessId(childPid);
   
-  unsigned short r = (unsigned short)pTC->getSpawnAddr();
+  uint16_t r = (uint16_t)pTC->getSpawnAddr();
   r = (r>>3) ^ (r>>5);
   r = r % (osSim->getNumCPUs()+1);
   proc->sysconf(SESC_FLAG_MAP| r);
@@ -777,7 +777,7 @@ void rsesc_fork_successor(int ppid, int where, int tid)
 #endif
 }
 
-void rsesc_become_safe(int pid)
+void rsesc_become_safe(int32_t pid)
 {
   if (ExecutionFlow::isGoingRabbit())
     return;
@@ -791,7 +791,7 @@ void rsesc_become_safe(int pid)
   tc->syncBecomeSafe();
 }
 
-bool rsesc_is_safe(int pid)
+bool rsesc_is_safe(int32_t pid)
 {
   if (ExecutionFlow::isGoingRabbit())
     return true;
@@ -801,7 +801,7 @@ bool rsesc_is_safe(int pid)
 
 ID(static bool preWriteCalled=false);
 
-void *rsesc_OS_prewrite(int pid, int iAddr, VAddr vaddr, int flags)
+void *rsesc_OS_prewrite(int32_t pid, int32_t iAddr, VAddr vaddr, int32_t flags)
 {
   ThreadContext *pthread = ThreadContext::getContext(pid);
 
@@ -816,7 +816,7 @@ void *rsesc_OS_prewrite(int pid, int iAddr, VAddr vaddr, int flags)
   return (void *)TaskContext::getTaskContext(pid)->preWrite(pthread->virt2real(vaddr, flags));
 }
 
-void rsesc_OS_postwrite(int pid, int iAddr, VAddr vaddr, int flags)
+void rsesc_OS_postwrite(int32_t pid, int32_t iAddr, VAddr vaddr, int32_t flags)
 {
   I(preWriteCalled);
   IS(preWriteCalled=false);
@@ -832,7 +832,7 @@ void rsesc_OS_postwrite(int pid, int iAddr, VAddr vaddr, int flags)
   TaskContext::getTaskContext(pid)->postWrite(iAddr, flags, pthread->virt2real(vaddr, flags));
 }
 
-void *rsesc_OS_read(int pid, int iAddr, VAddr vaddr, int flags)
+void *rsesc_OS_read(int32_t pid, int32_t iAddr, VAddr vaddr, int32_t flags)
 {
   I((flags & E_WRITE) == 0);
   flags = (E_READ | flags); 
@@ -845,7 +845,7 @@ void *rsesc_OS_read(int pid, int iAddr, VAddr vaddr, int flags)
   return (void *)TaskContext::getTaskContext(pid)->read(iAddr, flags, pthread->virt2real(vaddr, flags));
 }
 
-int rsesc_is_versioned(int pid)
+int32_t rsesc_is_versioned(int32_t pid)
 {
   return ExecutionFlow::isGoingRabbit()? 0 : 1;
 }
@@ -858,7 +858,7 @@ static GStatsCntr* lockTime = 0;
 static GStatsCntr* lockCount = 0;
 static GStatsCntr* lockOccTime = 0;
 
-extern "C" void rsesc_startlock(int pid)
+extern "C" void rsesc_startlock(int32_t pid)
 {
   if (!lockTime) {
     lockTime    = new GStatsCntr("","LOCK:Time");
@@ -869,17 +869,17 @@ extern "C" void rsesc_startlock(int pid)
   lockCount->inc();
 }
 
-extern "C" void rsesc_endlock(int pid)
+extern "C" void rsesc_endlock(int32_t pid)
 {
   lockTime->add(globalClock);
 }
 
-extern "C" void rsesc_startlock2(int pid)
+extern "C" void rsesc_startlock2(int32_t pid)
 {
   lockOccTime->add(-globalClock);
 }
 
-extern "C" void rsesc_endlock2(int pid)
+extern "C" void rsesc_endlock2(int32_t pid)
 {
   lockOccTime->add(globalClock);
 }

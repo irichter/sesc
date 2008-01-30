@@ -22,7 +22,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 #include "DirState.h"
 
-unsigned int DirState::linesPerEntry = 0;
+uint32_t DirState::linesPerEntry = 0;
 
 DirState::DirState()
 {
@@ -39,7 +39,7 @@ void DirState::initialize(CacheType *c)
 {
   // size (in bits) of unit of information is # of processors (== # of L1
   // caches) + 1 (victim cache), rounded to the next power of 2
-  unsigned int unitSize = SescConf->getRecordSize("", "cpucore") + 1;
+  uint32_t unitSize = SescConf->getRecordSize("", "cpucore") + 1;
   unitSize = roundUpPower2(unitSize); 
 
   cache = c;
@@ -58,8 +58,8 @@ void DirState::initialize(CacheType *c)
   I(linesPerEntry != 0);
 
   // initialize directory entries
-  for(unsigned int i = 0; i < linesPerEntry; i++)
-    presenceBits.push_back((unsigned int) -1);
+  for(uint32_t i = 0; i < linesPerEntry; i++)
+    presenceBits.push_back((uint32_t) -1);
 }
 
 bool DirState::isLocked() {
@@ -79,7 +79,7 @@ void DirState::setTag(PAddr a) {
 void DirState::invalidate() 
 { 
   invalid = true; 
-  for(unsigned int i = 0; i < linesPerEntry; i++)
-    presenceBits[i] = (unsigned int) -1;
+  for(uint32_t i = 0; i < linesPerEntry; i++)
+    presenceBits[i] = (uint32_t) -1;
 }
 

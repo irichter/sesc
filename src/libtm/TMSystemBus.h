@@ -38,11 +38,11 @@ protected:
   GStatsTimingHist l2DataProv;
   #ifdef TLS
     TimeDelta_t busDelay;
-    long int VCRCount;
+    long int32_t VCRCount;
     GStatsCntr VCRMaxCount;
   #endif
 
-  typedef HASH_MAP<MemRequest *, int, SMPMemReqHashFunc> PendReqsTable;
+  typedef HASH_MAP<MemRequest *, int32_t, SMPMemReqHashFunc> PendReqsTable;
 
   PendReqsTable pendReqsTable;
 
@@ -66,7 +66,7 @@ protected:
   typedef CallbackMember1<SMPSystemBus, MemRequest *, &SMPSystemBus::doPush> 
     doPushCB;
 #ifdef TLS
-  int processResponses(MemRequest *mreq);
+  int32_t processResponses(MemRequest *mreq);
   TimeDelta_t finalizePush(MemRequest *mreq);
 #endif
   virtual void finalizeRead(MemRequest *mreq);

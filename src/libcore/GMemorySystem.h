@@ -62,9 +62,9 @@ public:
 class GMemorySystem {
 private:
   static ushort Log2PageSize;
-  static unsigned int PageMask;
+  static uint32_t PageMask;
 
-  typedef HASH_MAP<const char*, unsigned int, HASH<const char*>, MemObjCaseeqstr > StrCounterType;
+  typedef HASH_MAP<const char*, uint32_t, HASH<const char*>, MemObjCaseeqstr > StrCounterType;
   static StrCounterType usedNames;
 
   static MemoryObjContainer sharedMemoryObjContainer;
@@ -87,30 +87,30 @@ private:
   GMemoryOS *memoryOS;
 
 protected:
-  const int Id;
+  const int32_t Id;
 
   char *buildUniqueName(const char *device_type);
 
-  static char *privatizeDeviceName(char *given_name, int num);
+  static char *privatizeDeviceName(char *given_name, int32_t num);
 
   virtual GMemoryOS *buildMemoryOS(const char *section);
   virtual MemObj *buildMemoryObj(const char *type, const char *section, const char *name);
 
 public:
-  GMemorySystem(int processorId);
+  GMemorySystem(int32_t processorId);
   virtual ~GMemorySystem();
 
   // The code can not be located in constructor because it is nor possible to
   // operate with virtual functions at construction time
   virtual void buildMemorySystem();
 
-  static int  getPageSize()  { return 1<<Log2PageSize; }
-  static int  calcPage(PAddr paddr)  { return paddr >> Log2PageSize; }
-  static PAddr calcPAddr4Page(int p) { return p << Log2PageSize; }
-  static int  calcFullPage(int p) { return p << Log2PageSize; }
-  static int  calcPageMask(int p) { return p & PageMask; }
-  static int  calcPageAddr(VAddr va) { return va & ~PageMask; }
-  static PAddr calcPAddr(int p, VAddr a) {
+  static int32_t  getPageSize()  { return 1<<Log2PageSize; }
+  static int32_t  calcPage(PAddr paddr)  { return paddr >> Log2PageSize; }
+  static PAddr calcPAddr4Page(int32_t p) { return p << Log2PageSize; }
+  static int32_t  calcFullPage(int32_t p) { return p << Log2PageSize; }
+  static int32_t  calcPageMask(int32_t p) { return p & PageMask; }
+  static int32_t  calcPageAddr(VAddr va) { return va & ~PageMask; }
+  static PAddr calcPAddr(int32_t p, VAddr a) {
     I((p & PageMask) == 0);
     return p | (a & PageMask); 
   }
@@ -120,7 +120,7 @@ public:
 
   MemObj *declareMemoryObj(const char *block, const char *field);
   
-  int getId() const;
+  int32_t getId() const;
   
   MemObj *getDataSource()  const;
   MemObj *getInstrSource() const;
@@ -138,7 +138,7 @@ private:
 #endif
 protected:
 public:
-  DummyMemorySystem(int id);
+  DummyMemorySystem(int32_t id);
   ~DummyMemorySystem();
 
 #ifdef TASKSCALAR

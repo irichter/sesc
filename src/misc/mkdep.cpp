@@ -62,14 +62,14 @@
 
 char __depname[512] = "";
 #define depname (__depname+9)
-int hasdep;
+int32_t hasdep;
 
 struct path_struct {
-	int len;
+	int32_t len;
 	char *buffer;
 };
 struct path_struct *path_array;
-int paths;
+int32_t paths;
 
 
 /* Current input file */
@@ -82,17 +82,17 @@ static const char *g_filename;
  * extremely fast.
  */
 char * str_config  = NULL;
-int    size_config = 0;
-int    len_config  = 0;
+int32_t    size_config = 0;
+int32_t    len_config  = 0;
 
 
 char **pendingDeps;
-int nPendingDeps=0;
-int pendingDepsSize=0;
+int32_t nPendingDeps=0;
+int32_t pendingDepsSize=0;
 
 void addPendingDeps(const char *dep)
 {
-  int i;
+  int32_t i;
 
   for(i=0;i<nPendingDeps;i++) {
     if(strcmp(pendingDeps[i],dep) == 0 )
@@ -126,14 +126,14 @@ void addPendingDeps(const char *dep)
 
 char **allDeps;
 char ***foundDeps;
-int nFoundDeps=0;
-int foundDepsSize=0;
+int32_t nFoundDeps=0;
+int32_t foundDepsSize=0;
 
 #define MAXDEPS  1024
 
-void growFoundDeps(int xtra)
+void growFoundDeps(int32_t xtra)
 {
-  int i;
+  int32_t i;
   
   if( foundDepsSize > nFoundDeps + xtra )
     return;
@@ -151,7 +151,7 @@ void growFoundDeps(int xtra)
     allDeps = (char **)calloc(sizeof(char *),MAXDEPS);
   }else{
     if((nFoundDeps+1) >= foundDepsSize ){
-      int val = foundDepsSize;
+      int32_t val = foundDepsSize;
       
       foundDepsSize *= 2;
       foundDeps = (char ***)realloc(foundDeps, sizeof(char **)*foundDepsSize);
@@ -203,8 +203,8 @@ char *simplifyPath(const char *str)
 
 void addFoundDeps(const char *target, const char *dep)
 {
-  int i;
-  int targetPos=-1;
+  int32_t i;
+  int32_t targetPos=-1;
 
   for(i=0;i<nFoundDeps;i++) {
     if(strcmp(foundDeps[i][0],target) == 0 ) {
@@ -250,9 +250,9 @@ void addFoundDeps(const char *target, const char *dep)
 
 void expandDeps(const char *target)
 {
-  int i;
-  int j;
-  int targetPos = -1;
+  int32_t i;
+  int32_t j;
+  int32_t targetPos = -1;
   
   for(i=0;i<nFoundDeps;i++) {
     if( strcmp(foundDeps[i][0],target) == 0 ) {
@@ -270,12 +270,12 @@ void expandDeps(const char *target)
     j=1;
     while( foundDeps[i][j] ) {
       if( strcmp(foundDeps[i][j],target) == 0 ) {
-	int k=1;
+	int32_t k=1;
 	if( foundDeps[targetPos][1] == 0 )
 	  continue;
 	while(foundDeps[targetPos][k]){
 	  char *curStr=foundDeps[targetPos][k];
-	  int   curLen=strlen(curStr);
+	  int32_t   curLen=strlen(curStr);
 	  if((curLen>2)&&(curStr[curLen-2]=='.')&&(curStr[curLen-1]=='h')){
 	    addFoundDeps(foundDeps[i][0],foundDeps[targetPos][k]);
 	  }else if((curLen>4)&&(curStr[curLen-4]=='.')&&(curStr[curLen-3]=='h')&&
@@ -307,7 +307,7 @@ static void do_depname(void)
  * Grow the configuration string to a desired length.
  * Usually the first growth is plenty.
  */
-void grow_config(int len)
+void grow_config(int32_t len)
 {
   while (len_config + len > size_config) {
     if (size_config == 0)
@@ -325,7 +325,7 @@ void grow_config(int len)
 /*
  * Lookup a value in the configuration string.
  */
-int is_defined_config(const char * name, int len)
+int32_t is_defined_config(const char * name, int32_t len)
 {
   const char * pconfig;
   const char * plast = str_config + len_config - len;
@@ -343,7 +343,7 @@ int is_defined_config(const char * name, int len)
 /*
  * Add a new value to the configuration string.
  */
-void define_config(const char * name, int len)
+void define_config(const char * name, int32_t len)
 {
   grow_config(len + 1);
 
@@ -367,10 +367,10 @@ void clear_config(void)
 /*
  * Handle an #include line.
  */
-void handle_include(int start, const char * name, int len)
+void handle_include(int32_t start, const char * name, int32_t len)
 {
   struct path_struct *path;
-  int i;
+  int32_t i;
 
   if (len >= 7 && !memcmp(name, "config/", 7))
     define_config(name+7, len-7-2);
@@ -451,10 +451,10 @@ void add_path(const char *name)
 /*
  * Record the use of a CONFIG_* word.
  */
-void use_config(const char * name, int len)
+void use_config(const char * name, int32_t len)
 {
   char *pc;
-  int i;
+  int32_t i;
 
   pc = path_array[paths-1].buffer + path_array[paths-1].len;
   memcpy(pc, "config/", 7);
@@ -716,9 +716,9 @@ cee_CONFIG_word:
  */
 void do_depend(const char * filename, const char * command)
 {
-  int mapsize;
-  int pagesizem1 = getpagesize()-1;
-  int fd;
+  int32_t mapsize;
+  int32_t pagesizem1 = getpagesize()-1;
+  int32_t fd;
   struct stat st;
   char * map;
 
@@ -763,10 +763,10 @@ void do_depend(const char * filename, const char * command)
 /*
  * Generate dependencies for all files.
  */
-int main(int argc, char **argv)
+int32_t main(int32_t argc, char **argv)
 {
-  int len;
-  int i;
+  int32_t len;
+  int32_t i;
   char path[4096];
 
   add_path(".");		/* for #include "..." */
@@ -822,7 +822,7 @@ int main(int argc, char **argv)
   }
 
   for(i=0;i<nFoundDeps;i++) {
-    int j;
+    int32_t j;
     
     if( foundDeps[i] == 0 )
       continue;
@@ -838,7 +838,7 @@ int main(int argc, char **argv)
 
 #if 0
   {
-    int j=0;
+    int32_t j=0;
     while( allDeps[j] ) {
       if (allDeps[j][0] == '/')
 	printf(" %s",allDeps[j]);
@@ -851,7 +851,7 @@ int main(int argc, char **argv)
 #endif
 
   for(i=0;i<nFoundDeps;i++) {
-    int j;
+    int32_t j;
     
     if( foundDeps[i] == 0 )
       continue;

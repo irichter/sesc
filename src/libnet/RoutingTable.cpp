@@ -38,7 +38,7 @@ void RoutingTable::addNeighborWire(RouterID_t id, const Wire &wire)
     // Only keep one destination per router, but try to balance the number of ports used. So that
     // not all the packets go through the same port for all the destinations.
     if( !nextHop[id].succs.empty() ) {
-      int cntr[MAX_PORTS];
+      int32_t cntr[MAX_PORTS];
       bzero(cntr,sizeof(int)*MAX_PORTS);
       
       for(size_t i=0;i<nextHop.size();i++) {

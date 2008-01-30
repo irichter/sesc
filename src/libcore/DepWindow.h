@@ -37,9 +37,7 @@ class DepWindow {
 private:
   GProcessor *gproc;
 
-  const int Id;
-
-  const bool InOrderCore;
+  const int32_t Id;
 
   const TimeDelta_t InterClusterLat;
   const TimeDelta_t WakeUpDelay;

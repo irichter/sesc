@@ -125,7 +125,7 @@ GStatsPDF::GStatsPDF(const char *format,...)
   subscribe();
 }
 
-void GStatsPDF::sample(const int v)
+void GStatsPDF::sample(const int32_t v)
 {
   data += v;
   nData++;
@@ -143,7 +143,7 @@ void GStatsPDF::sample(GStatsPDF &g)
   data += g.data;
   nData += g.nData;
 
-  HASH_MAP<int,int>::iterator it;
+  HASH_MAP<int32_t,int>::iterator it;
   for(it=g.density.begin(); it!=g.density.end(); it++) {
     if( density.find( (*it).first ) == density.end() ) {
       density[ (*it).first ] = (*it).second;
@@ -171,7 +171,7 @@ double GStatsPDF::getStdDev() const
 
   double sum = 0.0;
 
-  HASH_MAP<int,int>::const_iterator it;
+  HASH_MAP<int32_t,int>::const_iterator it;
 
   for(it=density.begin(); it!=density.end(); it++) {
     double value = (*it).first;
@@ -186,9 +186,9 @@ double GStatsPDF::getSpread(double p) const
 {
   double avg = getDouble();
   double perAvg = p*avg;
-  int cnt=0;
+  int32_t cnt=0;
 
-  HASH_MAP<int,int>::const_iterator it;
+  HASH_MAP<int32_t,int>::const_iterator it;
     
   for(it=density.begin(); it!=density.end(); it++) {
     if( double((*it).first) > perAvg ) {
@@ -283,26 +283,22 @@ GStatsProfiler::GStatsProfiler(const char *format, ...)
   subscribe();
 }
 
-void GStatsProfiler::sample(uint key)
+void GStatsProfiler::sample(uint32_t key)
 {
   ProfHash::iterator it = p.find(key);
-  if(it != p.end())
-    {
-      (*it).second++;
-    }
-  else
-    {
-      p[key] = 1;
-    }
+  if(it != p.end()) {
+    (*it).second++;
+  }else{
+    p[key] = 1;
+  }
 }
 
 void GStatsProfiler::reportValue() const 
 {
   ProfHash::const_iterator it;
-  for( it = p.begin(); it != p.end(); it++ )
-    {
-      Report::field("%s(%d)=%d",name,(*it).first,(*it).second);
-    }
+  for( it = p.begin(); it != p.end(); it++ ) {
+    Report::field("%s(%d)=%d",name,(*it).first,(*it).second);
+  }
 }
 
 
@@ -349,7 +345,7 @@ void GStatsHist::reportValue() const
 {
   Histogram::const_iterator it;
     
-  unsigned int maxKey = 0;
+  uint32_t maxKey = 0;
 
   for(it=H.begin();it!=H.end();it++) {
     Report::field("%s(%lu)=%llu",name,(*it).first,(*it).second);
@@ -364,7 +360,7 @@ void GStatsHist::reportValue() const
   Report::field("%s_Samples=%lu",name,numSample);
 }
 
-void GStatsHist::sample(unsigned int key, unsigned long long weight)
+void GStatsHist::sample(uint32_t key, unsigned long long weight)
 {
   if(H.find(key)==H.end())
     H[key]=0;
@@ -395,7 +391,7 @@ GStatsTimingAvg::GStatsTimingAvg(const char *format,...)
   subscribe();
 }
 
-void GStatsTimingAvg::sample(const int v)
+void GStatsTimingAvg::sample(const int32_t v)
 {
   if(lastUpdate != globalClock && lastUpdate != 0) {
     data += lastValue;
@@ -448,7 +444,7 @@ void GStatsTimingHist::reportValue() const
   Report::field("%s_AutoAvg=%f", name, wavg);
 }
 
-void GStatsTimingHist::sample(unsigned int key)
+void GStatsTimingHist::sample(uint32_t key)
 {
   GStatsHist::sample(lastKey, (unsigned long long) (globalClock-lastUpdate));
   lastUpdate = globalClock;
@@ -510,7 +506,7 @@ void GStatsEventTimingHist::begin_sample(unsigned long long id)
   // Add another request pending on this begin point
   (*it_now).second = (*it_now).second + 1;
 
-  // Make sure begin point is included in begin-timeline
+  // Make sure begin point32_t is included in begin-timeline
   beginT.insert(globalClock);
 
   evPending[id].start = globalClock;
@@ -589,7 +585,7 @@ void GStatsEventTimingHist::reportValue() const
 
 /* GStatsPeriodicHist */
 
-GStatsPeriodicHist::GStatsPeriodicHist(int p, const char *format,...)
+GStatsPeriodicHist::GStatsPeriodicHist(int32_t p, const char *format,...)
 {
   char *str;
   va_list ap;
@@ -658,7 +654,7 @@ void GStatsChangeHist::reportValue() const
 
 }
 
-void GStatsChangeHist::sample(unsigned int key)
+void GStatsChangeHist::sample(uint32_t key)
 {
   if (lastUpdate != globalClock)
     GStatsHist::sample(key, 1);

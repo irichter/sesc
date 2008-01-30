@@ -13,8 +13,8 @@
 block_model_t *alloc_block_model(thermal_config_t *config, flp_t *placeholder)
 {
 	/* shortcuts	*/
-	int n = placeholder->n_units;
-	int m = NL*n+EXTRA;
+	int32_t n = placeholder->n_units;
+	int32_t m = NL*n+EXTRA;
 
 	block_model_t *model = (block_model_t *) calloc (1, sizeof(block_model_t));
 	if (!model)
@@ -56,8 +56,8 @@ void populate_R_model_block(block_model_t *model, flp_t *flp)
 	double *gx = model->gx, *gy = model->gy;
 	double *gx_sp = model->gx_sp, *gy_sp = model->gy_sp;
 	double **len = model->len, **g = model->g, **lu = model->lu;
-	int **border = model->border;
-	int *p = model->p;
+	int32_t **border = model->border;
+	int32_t *p = model->p;
 	double t_chip = model->config.t_chip;
 	double r_convec = model->config.r_convec;
 	double s_sink = model->config.s_sink;
@@ -66,7 +66,7 @@ void populate_R_model_block(block_model_t *model, flp_t *flp)
 	double t_spreader = model->config.t_spreader;
 	double t_interface = model->config.t_interface;
 
-	int i, j, k = 0, n = flp->n_units;
+	int32_t i, j, k = 0, n = flp->n_units;
 	double r_sp1, r_sp2, r_hs;	/* lateral resistances to spreader and heatsink	*/
 
 	/* NOTE: *_mid - the vertical Rs from CENTER nodes of spreader 
@@ -268,7 +268,7 @@ void populate_C_model_block(block_model_t *model, flp_t *flp)
 	double t_spreader = model->config.t_spreader;
 	double t_interface = model->config.t_interface;
 
-	int i, n = flp->n_units;
+	int32_t i, n = flp->n_units;
 
 	if (!model->r_ready)
 		fatal("R model not ready\n");
@@ -290,7 +290,7 @@ void populate_C_model_block(block_model_t *model, flp_t *flp)
 				* (l_chip + 0.88 * t_interface) * t_interface / ( w_chip * l_chip * t_chip) + 1);
 
 	/* fitting factor for interface	 - same rationale as above */
-	model->factor_int = C_FACTOR * ((SPEC_HEAT_CU / SPEC_HEAT_INT) * (w_chip + 0.88 * t_spreader) \
+	model->factor_int32_t = C_FACTOR * ((SPEC_HEAT_CU / SPEC_HEAT_INT) * (w_chip + 0.88 * t_spreader) \
 				* (l_chip + 0.88 * t_spreader) * t_spreader / ( w_chip * l_chip * t_interface) + 1);
 
 	/*fprintf(stdout, "fitting factors : %f, %f\n", factor_chip, factor_int);	*/
@@ -306,7 +306,7 @@ void populate_C_model_block(block_model_t *model, flp_t *flp)
 		/* C's from functional units to ground	*/
 		a[i] = model->factor_chip * SPEC_HEAT_SI * t_chip * area;
 		/* C's from interface portion of the functional units to ground	*/
-		a[IFACE*n+i] = model->factor_int * SPEC_HEAT_INT * t_interface * area;
+		a[IFACE*n+i] = model->factor_int32_t * SPEC_HEAT_INT * t_interface * area;
 		/* C's from spreader portion of the functional units to ground	*/
 		a[HSP*n+i] = model->factor_pack * SPEC_HEAT_CU * t_spreader * area;
 	}
@@ -410,9 +410,9 @@ double *hotspot_vector_block(block_model_t *model)
  * compaction
  */
 void trim_hotspot_vector_block(block_model_t *model, double *dst, double *src, 
-						 	   int at, int size)
+						 	   int32_t at, int32_t size)
 {
-	int i;
+	int32_t i;
 
 	for (i=0; i < at && i < model->n_nodes; i++)
 		dst[i] = src[i];
@@ -421,7 +421,7 @@ void trim_hotspot_vector_block(block_model_t *model, double *dst, double *src,
 }
 
 /* update the model's node count	*/						 
-void resize_thermal_model_block(block_model_t *model, int n_units)
+void resize_thermal_model_block(block_model_t *model, int32_t n_units)
 {
 	if (n_units > model->base_n_units)
 		fatal("resizing block model to more than the allocated space\n");
@@ -438,7 +438,7 @@ void resize_thermal_model_block(block_model_t *model, int n_units)
 /* sets the temperature of a vector 'temp' allocated using 'hotspot_vector'	*/
 void set_temp_block(block_model_t *model, double *temp, double val)
 {
-	int i;
+	int32_t i;
 	for(i=0; i < model->n_nodes; i++)
 		temp[i] = val;
 }
@@ -447,7 +447,7 @@ void set_temp_block(block_model_t *model, double *temp, double val)
 void dump_temp_block(block_model_t *model, double *temp, char *file)
 {
 	flp_t *flp = model->flp;
-	int i;
+	int32_t i;
 	char str[STR_SIZE];
 	FILE *fp;
 
@@ -489,14 +489,14 @@ void dump_temp_block(block_model_t *model, double *temp, char *file)
  * which was dumped using 'dump_temp'. values are clipped to thermal
  * threshold based on 'clip'
  */ 
-void read_temp_block(block_model_t *model, double *temp, char *file, int clip)
+void read_temp_block(block_model_t *model, double *temp, char *file, int32_t clip)
 {
 	/*	shortcuts	*/
 	flp_t *flp = model->flp;
 	double thermal_threshold = model->config.thermal_threshold;
 	double ambient = model->config.ambient;
 
-	int i, idx;
+	int32_t i, idx;
 	double max=0, val;
 	char *ptr, str1[STR_SIZE], str2[STR_SIZE], name[STR_SIZE];
 	FILE *fp;
@@ -595,7 +595,7 @@ void read_temp_block(block_model_t *model, double *temp, char *file, int clip)
 void dump_power_block(block_model_t *model, double *power, char *file)
 {
 	flp_t *flp = model->flp;
-	int i;
+	int32_t i;
 	char str[STR_SIZE];
 	FILE *fp;
 
@@ -623,7 +623,7 @@ void dump_power_block(block_model_t *model, double *power, char *file)
 void read_power_block (block_model_t *model, double *power, char *file)
 {
 	flp_t *flp = model->flp;
-	int i=0, idx;
+	int32_t i=0, idx;
 	double val;
 	char *ptr, str1[STR_SIZE], str2[STR_SIZE], name[STR_SIZE];
 	FILE *fp;
@@ -661,7 +661,7 @@ void read_power_block (block_model_t *model, double *power, char *file)
 
 double find_max_temp_block(block_model_t *model, double *temp)
 {
-	int i;
+	int32_t i;
 	double max = 0.0;
 	for(i=0; i < model->n_units; i++) {
 		if (temp[i] < 0)
@@ -675,7 +675,7 @@ double find_max_temp_block(block_model_t *model, double *temp)
 
 double find_avg_temp_block(block_model_t *model, double *temp)
 {
-	int i;
+	int32_t i;
 	double sum = 0.0;
 	for(i=0; i < model->n_units; i++) {
 		if (temp[i] < 0)

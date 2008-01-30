@@ -42,8 +42,8 @@ class Pstate {
     pstate = 0x0;  // PSTATE.AM == 0
   }
   
-  int getField(int field) {
-    int pstate_field;
+  int32_t getField(int32_t field) {
+    int32_t pstate_field;
     
     switch (field) {
     case PSTATE_CLE:

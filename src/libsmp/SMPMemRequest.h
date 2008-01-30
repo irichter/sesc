@@ -35,7 +35,7 @@ private:
 protected:
 
   MemRequest *oreq;
-  unsigned int state;
+  uint32_t state;
   MemObj *requestor;
   MemObj *supplier;
   bool found;
@@ -76,13 +76,13 @@ public:
   // END: MemRequest interface
 
   void setOriginalRequest(MemRequest *mreq);
-  void setState(unsigned int st);
+  void setState(uint32_t st);
   void setRequestor(MemObj *reqCache);
   void setSupplier(MemObj *supCache);
 
   MemRequest  *getOriginalRequest();
   MemOperation getMemOperation();
-  unsigned int getState();
+  uint32_t getState();
   MemObj      *getRequestor();
   MemObj      *getSupplier();
 

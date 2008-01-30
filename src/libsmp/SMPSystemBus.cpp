@@ -80,8 +80,8 @@ void SMPSystemBus::access(MemRequest *mreq)
   GMSG(mreq->getPAddr() < 1024,
        "mreq dinst=0x%p paddr=0x%x vaddr=0x%x memOp=%d",
        mreq->getDInst(),
-       (unsigned int) mreq->getPAddr(),
-       (unsigned int) mreq->getVaddr(),
+       (uint32_t) mreq->getPAddr(),
+       (uint32_t) mreq->getVaddr(),
        mreq->getMemOperation());
   
   I(mreq->getPAddr() > 1024); 
@@ -161,7 +161,7 @@ void SMPSystemBus::doRead(MemRequest *mreq)
     }
 
     // distribute requests to other caches, wait for responses
-         for(uint i = 0; i < upperLevel.size(); i++) {
+         for(uint32_t i = 0; i < upperLevel.size(); i++) {
       if(upperLevel[i] != static_cast<SMPMemRequest *>(mreq)->getRequestor()) {
         upperLevel[i]->returnAccess(mreq);
       }
@@ -215,7 +215,7 @@ void SMPSystemBus::doWrite(MemRequest *mreq)
     }
 
     // distribute requests to other caches, wait for responses
-         for(uint i = 0; i < upperLevel.size(); i++) {
+         for(uint32_t i = 0; i < upperLevel.size(); i++) {
       if(upperLevel[i] != static_cast<SMPMemRequest *>(mreq)->getRequestor()) {
         upperLevel[i]->returnAccess(mreq);
       }

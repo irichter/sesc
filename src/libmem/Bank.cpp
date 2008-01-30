@@ -26,8 +26,8 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 #include "Bank.h"
 
-void Bank::initialize_bank(int rb_num, int rb_width, const char *p, 
-			   int org, bool pipeline, bool segm)
+void Bank::initialize_bank(int32_t rb_num, int32_t rb_width, const char *p, 
+			   int32_t org, bool pipeline, bool segm)
 {
   // the last two parameters are read timing which is not used 
   // the reuse of code is the book keeping for different policy
@@ -53,13 +53,13 @@ void Bank::initialize_bank(int rb_num, int rb_width, const char *p,
     isSharing = false;
   }
   
-  for (int i = 0; i < segment; i++) {
+  for (int32_t i = 0; i < segment; i++) {
     segBusy[i] = 0;
-    for (int j = 0; j < subBank; j++) {
+    for (int32_t j = 0; j < subBank; j++) {
       bankBusy[i][j] = 0;
       bankPC[i][j] = 0;
       nextRBN[i][j] = 0;
-      for (int k = 0; k < numRB; k ++)
+      for (int32_t k = 0; k < numRB; k ++)
 	address[i][j][k] = -1;
     }
   }
@@ -81,11 +81,11 @@ Bank::Bank(MemorySystem* current, const char *device_descr_section,
   ,busyUntil(0)
 { 
 
-  int rb_num   = SescConf->getInt(device_descr_section, "numRBs");
-  int rb_width = SescConf->getInt(device_descr_section, "rowWidth");
+  int32_t rb_num   = SescConf->getInt(device_descr_section, "numRBs");
+  int32_t rb_width = SescConf->getInt(device_descr_section, "rowWidth");
 
   const char *p= SescConf->getCharPtr(device_descr_section, "RBRepl");
-  int org      = SescConf->getInt(device_descr_section,"RBOrg");
+  int32_t org      = SescConf->getInt(device_descr_section,"RBOrg");
   bool pipe    = SescConf->getBool(device_descr_section,"RBPipelined");
   bool seg     = SescConf->getBool(device_descr_section,"RBSegmented");
 
@@ -94,16 +94,16 @@ Bank::Bank(MemorySystem* current, const char *device_descr_section,
   initialize_bank(rb_num, rb_width, p, org, pipe, seg);
 }
 
-bool Bank::RBHIT(int addr) const
+bool Bank::RBHIT(int32_t addr) const
 { 
-  for (int i = 0; i < numRB; i++)
+  for (int32_t i = 0; i < numRB; i++)
     if (address[SEG(addr)][BANK(addr)][i] == addr / rowSize)
       return true;
 
   return false;
 }
 
-void Bank::DESTROYNEIGHBOR(int seg, int bank, int i)
+void Bank::DESTROYNEIGHBOR(int32_t seg, int32_t bank, int32_t i)
 {
   if (bank != 0)
     address[seg][bank-1][i] = -1;
@@ -132,9 +132,9 @@ void Bank::read(MemRequest *mreq)
   else
     finalTime = globalClock;
 
-  int addr= mreq->getPAddr();
-  int seg = SEG(addr);
-  int bank = BANK(addr);
+  int32_t addr= mreq->getPAddr();
+  int32_t seg = SEG(addr);
+  int32_t bank = BANK(addr);
 
   /* BBF By now they all will be NormalRead...
      NR = ((MCStack*) ptask->uptr)->IsNormalRead(); */
@@ -186,7 +186,7 @@ void Bank::read(MemRequest *mreq)
     else segBusy[seg] = finalTime + MissDelay;
 		
     // replacing new row, selecting which one to replace
-    int n = nextRBN[seg][bank];
+    int32_t n = nextRBN[seg][bank];
     address[seg][bank][n] = addr / rowSize;
     nextRBN[seg][bank] = (n + 1) % numRB;
     if (isSharing) DESTROYNEIGHBOR(seg, bank, n);
@@ -221,9 +221,9 @@ void Bank::write(MemRequest *mreq)
      need to regain control to deal with bookkeeping of suspended tasks	*/
 
   Time_t finalTime, lateTime = 0;
-  int addr= mreq->getPAddr();
-  int seg = SEG(addr);
-  int  bank = BANK(addr);
+  int32_t addr= mreq->getPAddr();
+  int32_t seg = SEG(addr);
+  int32_t  bank = BANK(addr);
   bool rbhit = RBHIT(addr);
 
   //BBF : ? statistics->inc_bank_wr_access(getId(), rbhit);
@@ -259,7 +259,7 @@ void Bank::write(MemRequest *mreq)
   // the bit lines.  talking with seung suggests that we
   // have to go through row buffer replacing new row,
   // selecting which one to replace
-  int n = nextRBN[seg][bank];
+  int32_t n = nextRBN[seg][bank];
   address[seg][bank][n] = addr;
   nextRBN[seg][bank] = (n + 1) % numRB;
   if (isSharing)

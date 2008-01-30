@@ -34,16 +34,16 @@ class MemorySystem;
 
 class Bank : public MemObj {
 protected:
-  static const int RBMAX=4, SEGMAX=9, BANKMAX=16;
+  static const int32_t RBMAX=4, SEGMAX=9, BANKMAX=16;
 
   // to simplify assume equal everywhere
-  static const int II=2;
+  static const int32_t II=2;
 
   // precharge time
-  static const int PC_TIME=8;
+  static const int32_t PC_TIME=8;
 
-  const int HitDelay;
-  const int MissDelay;
+  const int32_t HitDelay;
+  const int32_t MissDelay;
 
   //BBF: nReads=readHit + readMiss
   GStatsCntr    nWrites;
@@ -59,24 +59,24 @@ protected:
   Time_t bankBusy[SEGMAX][BANKMAX];
   Time_t bankPC[SEGMAX][BANKMAX];
 
-  int    nextRBN[SEGMAX][BANKMAX];
-  int    address[SEGMAX][BANKMAX][RBMAX];
+  int32_t    nextRBN[SEGMAX][BANKMAX];
+  int32_t    address[SEGMAX][BANKMAX][RBMAX];
 	
   bool		isSharing, isSegm, isPipe, isIntlv, active;
   int		segment, subBank, rowSize, numRB;
   ReplacementPolicy	policy;
 
 
-  int   id;
+  int32_t   id;
 
 private:
 
-  int  SEG(int addr) const { return (addr / rowSize) % segment; }
-  int  BANK(int addr) const { return (addr / rowSize / segment * 2) % subBank; }
-  bool RBHIT(int addr) const ;
-  void DESTROYNEIGHBOR(int seg, int bank, int i);
-  void initialize_bank(int rb_num, int rb_width, const char *p, 
-		       int org, bool pipe, bool seg);
+  int32_t  SEG(int32_t addr) const { return (addr / rowSize) % segment; }
+  int32_t  BANK(int32_t addr) const { return (addr / rowSize / segment * 2) % subBank; }
+  bool RBHIT(int32_t addr) const ;
+  void DESTROYNEIGHBOR(int32_t seg, int32_t bank, int32_t i);
+  void initialize_bank(int32_t rb_num, int32_t rb_width, const char *p, 
+		       int32_t org, bool pipe, bool seg);
 
 public:
   Bank(MemorySystem* current, const char *device_descr_section,

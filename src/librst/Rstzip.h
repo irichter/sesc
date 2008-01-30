@@ -44,7 +44,7 @@ typedef enum {
   // alternative buffer sizes may be specified to the compressor using the options string
   // FIXME: the rstzip object can be queried for the buffer size of the input trace after the open() call
 
-const int rstzip_opt_buffersize = 1<<17; // 128K - as large as possible without overrunning the typical 8M ecache
+const int32_t rstzip_opt_buffersize = 1<<17; // 128K - as large as possible without overrunning the typical 8M ecache
 
 #ifdef __cplusplus
 }
@@ -83,15 +83,15 @@ public:
   virtual ~Rstzip();
 
   // SYNOPSIS
-  // virtual int getMajorVersion();
-  // virtual int getMinorVersion();
+  // virtual int32_t getMajorVersion();
+  // virtual int32_t getMinorVersion();
   // virtual const char* getVersionStr();
   //
   // DESCRIPTION
   // Return compressor library version information.
-  virtual int getMajorVersion();
+  virtual int32_t getMajorVersion();
 
-  virtual int getMinorVersion();
+  virtual int32_t getMinorVersion();
 
   virtual const char* getVersionStr();
 
@@ -116,7 +116,7 @@ public:
   // Unrecognized options will be discarded. Recognized options are:
   //
   // verbose=0|1        <= produce verbose output while compressing/decompressing
-  // stats=0|1          <= print compression statistics
+  // stats=0|1          <= print32_t compression statistics
   // ver=0|1|2|3        <= for decompression only: specify version of incoming file
   //
   //     when opening a disk file, rstzip detects its version automatically.
@@ -135,10 +135,10 @@ public:
   // RETURN VALUES
   // Returns RSTZIP_OK (1) if the file is successfully opened; returns 
   // RSTZIP_ERROR (-1) otherwise.
-  virtual int open(const char* file, const char* md, const char* options);
+  virtual int32_t open(const char* file, const char* md, const char* options);
 
   // SYNOPSIS
-  // virtual int compress(rstf_unionT* rstbuf, int nrecs);
+  // virtual int32_t compress(rstf_unionT* rstbuf, int32_t nrecs);
   //
   // DESCRIPTION
   // Compresses exactly 'nrecs' RST records from 'rstbuf', and writes
@@ -150,10 +150,10 @@ public:
   // RETURN VALUES
   // The number of RST records compressed is returned; this value
   // should be equal to 'nrecs'.
-  virtual int compress(rstf_unionT* rstbuf, int nrecs);
+  virtual int32_t compress(rstf_unionT* rstbuf, int32_t nrecs);
 
   // SYNOPSIS
-  // virtual int decompress(rstf_unionT* rstbuf, int nrecs);
+  // virtual int32_t decompress(rstf_unionT* rstbuf, int32_t nrecs);
   //
   // DESCRIPTION
   // Decompresses up to 'nrecs' records from the file opened by
@@ -167,7 +167,7 @@ public:
   // The number of RST records decompressed is returned; this value
   // should be equal to 'nrecs', unless the end of the compressed
   // trace is reached. Subsequent calls to decompress() will return 0.
-  virtual int decompress(rstf_unionT* rstbuf, int nrecs);
+  virtual int32_t decompress(rstf_unionT* rstbuf, int32_t nrecs);
 
   // SYNOPSIS
   // virtual void close();
@@ -196,7 +196,7 @@ public:
   // empty the internal buffer, if any, so that subsequent decompress() calls
   // would directly decompress into the caller's buffer.
   //
-  // virtual int opt_buffer_size();
+  // virtual int32_t opt_buffer_size();
 
   // protected:
   // Compressor* rstzip;
@@ -226,17 +226,17 @@ extern "C" {
 // Pointer to the allocated Rstzip Compressor object.
 Rstzip* rzMakeRstzip();
 
-int rzGetMajorVersion(Rstzip* rstzip);
+int32_t rzGetMajorVersion(Rstzip* rstzip);
 
-int rzGetMinorVersion(Rstzip* rstzip);
+int32_t rzGetMinorVersion(Rstzip* rstzip);
 
 const char* rzGetVersionStr(Rstzip* rstzip);
 
-int rzOpen(Rstzip* rstzip, const char* file, const char* md, const char* options);
+int32_t rzOpen(Rstzip* rstzip, const char* file, const char* md, const char* options);
 
-int rzCompress(Rstzip* rstzip, rstf_unionT* rstbuf, int nrecs);
+int32_t rzCompress(Rstzip* rstzip, rstf_unionT* rstbuf, int32_t nrecs);
 
-int rzDecompress(Rstzip* rstzip, rstf_unionT* rstbuf, int nrecs);
+int32_t rzDecompress(Rstzip* rstzip, rstf_unionT* rstbuf, int32_t nrecs);
 
 void rzClose(Rstzip* rstzip);
 

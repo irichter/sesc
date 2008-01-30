@@ -259,7 +259,7 @@ void ThreadContext::initAddressing(VAddr dataVAddrLb2, VAddr dataVAddrUb2,
 
 void ThreadContext::dump()
 {
-  int i, j;
+  int32_t i, j;
 
   printf("thread 0x%p:\n", this);
   for (i = 0; i < 32; ) {
@@ -269,7 +269,7 @@ void ThreadContext::dump()
   }
   printf("  lo:   0x%08x  hi:   0x%08x\n", lo, hi);
 
-  /* print out floats and doubles */
+  /* print32_t out floats and doubles */
   for (i = 0; i < 32; ) {
     for (j = 0; j < 4; j++, i++)
       printf("  $f%d:%s %10.6f", i, i < 10 ? " " : "", getFPNUM(i));
@@ -299,17 +299,17 @@ void ThreadContext::dump()
 /* dump the stack for stksize number of words */
 void ThreadContext::dumpStack()
 {
-  int stksize = Stack_size;
+  int32_t stksize = Stack_size;
   VAddr sp;
   VAddr i;
-  int j;
-  unsigned char c;
+  int32_t j;
+  uint8_t c;
 
   sp = getREGNUM(29);
   printf("sp = 0x%08x\n", (unsigned) sp);
   for (i = sp + (stksize - 1) * 4; i >= sp; i -= 4) {
     printf("0x%08x (+%d): 0x%x (%f)  ",
-           i,  (i - sp), *(int *) this->virt2real(i), *(float *) this->virt2real(i));
+           i,  (i - sp), *(int32_t *) this->virt2real(i), *(float *) this->virt2real(i));
     for (j = 0; j < 4; j++) {
       c = *((char *) this->virt2real(i) + j);
       if (c < ' ')
@@ -328,13 +328,13 @@ void ThreadContext::useSameAddrSpace(thread_ptr pthread)
   
   lo = pthread->lo;
   hi = pthread->hi;
-  for (int i = 0; i < 32; i++)
+  for (int32_t i = 0; i < 32; i++)
     reg[i] = pthread->reg[i];
 
 
   fcr0 = pthread->fcr0;
   fcr31 = pthread->fcr31;
-  for (int i = 0; i < 32; i++)
+  for (int32_t i = 0; i < 32; i++)
     fp[i] = pthread->fp[i];
 
   dataVAddrLb=pthread->dataVAddrLb;
@@ -352,7 +352,7 @@ void ThreadContext::useSameAddrSpace(thread_ptr pthread)
 #endif
 }
 
-void ThreadContext::shareAddrSpace(thread_ptr pthread, int share_all, int copy_stack)
+void ThreadContext::shareAddrSpace(thread_ptr pthread, int32_t share_all, int32_t copy_stack)
 {
   // The address space has already been allocated
 
@@ -361,11 +361,11 @@ void ThreadContext::shareAddrSpace(thread_ptr pthread, int share_all, int copy_s
   setHeapManager(pthread->getHeapManager());
 
   /* copy all the registers */
-  for (int i = 0; i < 32; i++)
+  for (int32_t i = 0; i < 32; i++)
     reg[i] = pthread->reg[i];
   lo = pthread->lo;
   hi = pthread->hi;
-  for (int i = 0; i < 32; i++)
+  for (int32_t i = 0; i < 32; i++)
     fp[i] = pthread->fp[i];
   fcr0 = pthread->fcr0;
   fcr31 = pthread->fcr31;
@@ -396,7 +396,7 @@ void ThreadContext::shareAddrSpace(thread_ptr pthread, int share_all, int copy_s
 	   (void *)(pthread->virt2real(srcStkPtr)),
 	   myStackAddrUb-dstStkPtr);
   } else {
-    // Point to the top of the stack (but leave some empty space there)
+    // Point32_t to the top of the stack (but leave some empty space there)
     setStkPtr(myStackAddrUb-FRAME_SIZE);
     I(isLocalStackData(getStkPtr()));
   }
@@ -445,7 +445,7 @@ void ThreadContext::badSpecThread(VAddr addr, short opflags) const
 
 void ThreadContext::init()
 {
-  int i;
+  int32_t i;
 
   reg[0]    = 0;
   rerrno    = 0;
@@ -453,7 +453,7 @@ void ThreadContext::init()
 
   /* map in the global errno */
   if (Errno_addr)
-    perrno = (int *) virt2real(Errno_addr);
+    perrno = (int32_t *) virt2real(Errno_addr);
   else
     perrno = &rerrno;
 
@@ -464,7 +464,7 @@ void ThreadContext::init()
 
 void ThreadContext::initMainThread()
 {
-  int i, entry_index;
+  int32_t i, entry_index;
   thread_ptr pthread=getMainThreadContext();
 
   pthread->parent = NULL;
@@ -515,26 +515,26 @@ Pid_t ThreadContext::getThreadPid(void) const{
 #endif // For !(defined MIPS_EMUL)
 
 #if !(defined MIPS_EMUL)
-unsigned long long ThreadContext::getMemValue(RAddr p, unsigned dsize) {
-  unsigned long long value = 0;
+uint64_t ThreadContext::getMemValue(RAddr p, unsigned dsize) {
+  uint64_t value = 0;
   switch(dsize) {
   case 1:
-    value = *((unsigned char *) p);
+    value = *((uint8_t *) p);
     break;
   case 2:
-    value = *((unsigned short *) p);
+    value = *((uint16_t *) p);
 #ifdef LENDIAN
     value = SWAP_SHORT(value);
 #endif      
     break;
   case 4:
-    value = *((unsigned *) p);
+    value = *((uint32_t *) p);
 #ifdef LENDIAN
     value = SWAP_WORD(value);
 #endif      
     break;
   case 8:
-    value = *((unsigned long long*) p);
+    value = *((uint64_t *) p);
 #ifdef LENDIAN
     value = SWAP_LONG(value);
 #endif      
@@ -548,8 +548,8 @@ unsigned long long ThreadContext::getMemValue(RAddr p, unsigned dsize) {
   return value;
 }
 
-int MintFuncArgs::getInt32(void) {
-  int retVal; 
+int32_t MintFuncArgs::getInt32(void) {
+  int32_t retVal; 
   I(sizeof(retVal)==4);
   I((curPos % 4)==0);
   if(curPos<16){
@@ -559,9 +559,9 @@ int MintFuncArgs::getInt32(void) {
     RAddr addr=myContext->virt2real(myContext->getStkPtr())+curPos;
 #if (defined TASKSCALAR) || (defined TLS)
     VAddr vaddr = myContext->real2virt(addr);
-    int *ptr =(int *)(rsesc_OS_read(myContext->getPid(),myIcode->addr,vaddr,E_WORD));
+    int32_t *ptr =(int32_t *)(rsesc_OS_read(myContext->getPid(),myIcode->addr,vaddr,E_WORD));
 #else
-    int *ptr=(int *)addr;
+    int32_t *ptr=(int32_t *)addr;
 #endif
     retVal=SWAP_WORD(*ptr);
   }                                     
@@ -569,8 +569,8 @@ int MintFuncArgs::getInt32(void) {
   return retVal;
 }           
 
-long long int MintFuncArgs::getInt64(void){
-  long long int retVal;
+int64_t  MintFuncArgs::getInt64(void){
+  int64_t retVal;
   I(sizeof(retVal)==8);
   I((curPos%4)==0);
   // Align current position                  
@@ -584,10 +584,10 @@ long long int MintFuncArgs::getInt64(void){
   }else{
     RAddr addr=myContext->virt2real(myContext->getStkPtr())+curPos;
 #if (defined TASKSCALAR) || (defined TLS)
-    long long int *ptr =
-      (long long int *)(rsesc_OS_read(myContext->getPid(),myIcode->addr,addr,E_DWORD));
+    int64_t *ptr =
+      (int64_t *)(rsesc_OS_read(myContext->getPid(),myIcode->addr,addr,E_DWORD));
 #else
-    long long int *ptr=(long long int*)addr;
+    int64_t *ptr=(int64_t *)addr;
 #endif
     retVal=SWAP_LONG(*ptr);
   }
@@ -856,7 +856,7 @@ void ThreadContext::setAddressSpace(AddressSpace *newAddressSpace){
 
 #include "OSSim.h"
 
-int ThreadContext::findZombieChild(void) const{
+int32_t ThreadContext::findZombieChild(void) const{
   for(IntSet::iterator childIt=childIDs.begin();childIt!=childIDs.end();childIt++){
     ThreadContext *childContext=getContext(*childIt);
     if(childContext->isExited()||childContext->isKilled())
@@ -891,7 +891,7 @@ void ThreadContext::resume(void){
   osSim->eventResume(pid,pid);
 }
 
-bool ThreadContext::exit(int code){
+bool ThreadContext::exit(int32_t code){
   I(!isExited());
   I(!isKilled());
   I(!isWaiting());
@@ -951,8 +951,8 @@ inline bool ThreadContext::skipInst(void){
   return true;
 }
 
-long long int ThreadContext::skipInsts(long long int skipCount){
-    long long int skipped=0;
+int64_t ThreadContext::skipInsts(int64_t skipCount){
+    int64_t skipped=0;
     int nowPid=0;
     while(skipped<skipCount){
       nowPid=nextReady(nowPid);
@@ -1001,7 +1001,7 @@ void ThreadContext::writeMemFromBuf(VAddr addr, size_t len, const void *buf){
     }
   }
 }
-ssize_t ThreadContext::writeMemFromFile(VAddr addr, size_t len, int fd, bool natFile, bool usePread, off_t offs){
+ssize_t ThreadContext::writeMemFromFile(VAddr addr, size_t len, int32_t fd, bool natFile, bool usePread, off_t offs){
   I(canWrite(addr,len));
   ssize_t retVal=0;
   uint8_t buf[AddressSpace::getPageSize()];
@@ -1067,7 +1067,7 @@ void ThreadContext::readMemToBuf(VAddr addr, size_t len, void *buf){
     }
   }
 }
-ssize_t ThreadContext::readMemToFile(VAddr addr, size_t len, int fd, bool natFile){
+ssize_t ThreadContext::readMemToFile(VAddr addr, size_t len, int32_t fd, bool natFile){
   I(canRead(addr,len));
   ssize_t retVal=0;
   uint8_t buf[AddressSpace::getPageSize()];

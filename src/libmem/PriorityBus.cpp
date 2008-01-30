@@ -52,7 +52,7 @@ PriorityBus::PriorityBus(MemorySystem* current, const char *section,
   tHist[upLowP] = new GStatsTimingHist("PBus%s_upLowOcc", name);
   tHist[downLowP] = new GStatsTimingHist("PBus%s_downLowOcc", name);
 
-  for(int q = 0; q < LastQ; q++) {
+  for(int32_t q = 0; q < LastQ; q++) {
     reqQs[q].clear();
     timeQs[q].clear();
   }
@@ -70,7 +70,7 @@ void PriorityBus::access(MemRequest *mreq)
     mreq->setPriority(1);
   
   bool schedCallback = allQueuesEmpty();
-  int q = -1;
+  int32_t q = -1;
 
   if(enablePrio && mreq->getPriority() != 0) 
     q = downLowP;
@@ -89,7 +89,7 @@ void PriorityBus::returnAccess(MemRequest *mreq)
 {
 
   bool schedCallback = allQueuesEmpty();
-  int q = -1;
+  int32_t q = -1;
 
   if(enablePrio && mreq->getPriority() != 0)
     q = upLowP;
@@ -109,8 +109,8 @@ void PriorityBus::processQ()
   // if this was called, there *must* be a req waiting
   I(!allQueuesEmpty());
 
-  int selectedQ = -1; 
-  for(int q = 0; q < LastQ; q++) {
+  int32_t selectedQ = -1; 
+  for(int32_t q = 0; q < LastQ; q++) {
     if(!reqQs[q].empty()) {
       selectedQ = q;
       break;

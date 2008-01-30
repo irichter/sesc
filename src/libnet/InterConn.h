@@ -54,7 +54,7 @@ private:
   
   // stores how many routers were already attached to by type of
   // object in the network
-  typedef HASH_MAP<const char *, unsigned int, 
+  typedef HASH_MAP<const char *, uint32_t, 
                    HASH<const char*>, SectionComp> ValHash;
 
   ValHash routersCtr; 
@@ -86,11 +86,11 @@ public:
     return descrSection;
   }
 
-  unsigned int getMaxRouters() {
-    return (unsigned int) routers.size();
+  uint32_t getMaxRouters() {
+    return (uint32_t) routers.size();
   }
 
-  unsigned int getNextFreeRouter(const char *section); 
+  uint32_t getNextFreeRouter(const char *section); 
 
   ushort getLinkBits() {
     return linkBits;
@@ -148,8 +148,8 @@ public:
 class InterconnectionHashFunc {
 public: 
   size_t operator()(const InterConnection *ip) const {
-	 HASH<unsigned int> H;
-	 return H((unsigned int) ip);
+	 HASH<uint32_t> H;
+	 return H((uint32_t) ip);
   }
 };
 

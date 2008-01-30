@@ -31,7 +31,7 @@ void EnergyMgr::init()
 {
   enStore = new EnergyStore();
 
-  int nProcs = SescConf->getRecordSize("","cpucore");
+  int32_t nProcs = SescConf->getRecordSize("","cpucore");
 
   // Check area factor, so that it is dump in conf
   for(Pid_t i = 0; i < nProcs; i ++) {
@@ -39,13 +39,13 @@ void EnergyMgr::init()
   }
 }
 
-double EnergyMgr::get(const char *block, const char *name, int procId)
+double EnergyMgr::get(const char *block, const char *name, int32_t procId)
 {
   I(enStore);
   return enStore->get(block, name, procId);
 }
 
-double EnergyMgr::get(const char* name, int procId)
+double EnergyMgr::get(const char* name, int32_t procId)
 {
   I(enStore);
   return enStore->get(name, procId);

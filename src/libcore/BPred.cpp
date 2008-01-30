@@ -39,7 +39,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  * BPred
  */
 
-BPred::BPred(int i, int fetchWidth, const char *sec, const char *name)
+BPred::BPred(int32_t i, int32_t fetchWidth, const char *sec, const char *name)
   :id(i)
    ,nHit("BPred(%d)_%s:nHit",i,name)
    ,nMiss("BPred(%d)_%s:nMiss",i,name)
@@ -78,7 +78,7 @@ BPred::~BPred()
 /*****************************************
  * RAS
  */
-BPRas::BPRas(int i, int fetchWidth, const char *section)
+BPRas::BPRas(int32_t i, int32_t fetchWidth, const char *section)
   :BPred(i, fetchWidth, section,"RAS")
    ,RasSize(SescConf->getInt(section,"rasSize"))
 {
@@ -160,7 +160,7 @@ void BPRas::switchOut(Pid_t pid)
 /*****************************************
  * BTB
  */
-BPBTB::BPBTB(int i, int fetchWidth,const char *section, const char *name)
+BPBTB::BPBTB(int32_t i, int32_t fetchWidth,const char *section, const char *name)
   :BPred(i, fetchWidth, section, name ? name : "BTB")
 {
   char cadena[100];
@@ -191,7 +191,7 @@ void BPBTB::updateOnly(const Instruction *inst, InstID oracleID)
     return;
 
   bool ntaken = inst->calcNextInstID() == oracleID;
-  uint key   = calcInstID(inst);
+  uint32_t key   = calcInstID(inst);
   
   // Update only in taken branches
   if( ntaken )
@@ -222,7 +222,7 @@ PredType BPBTB::predict(const Instruction * inst, InstID oracleID, bool doUpdate
     return CorrectPrediction;
   }
 
-  uint key = calcInstID(inst);
+  uint32_t key = calcInstID(inst);
 
   if ( ntaken || !doUpdate ) {
     // The branch is not taken. Do not update the cache
@@ -371,7 +371,7 @@ void BPStatic::switchOut(Pid_t pid)
  * BP2bit
  */
 
-BP2bit::BP2bit(int i, int fetchWidth, const char *section)
+BP2bit::BP2bit(int32_t i, int32_t fetchWidth, const char *section)
   :BPred(i, fetchWidth, section, "2bit")
   ,btb(  i, fetchWidth, section)
   ,table(i,section
@@ -426,7 +426,7 @@ void BP2bit::switchOut(Pid_t pid)
  * BP2level
  */
 
-BP2level::BP2level(int i, int fetchWidth, const char *section)
+BP2level::BP2level(int32_t i, int32_t fetchWidth, const char *section)
   :BPred(i, fetchWidth, section,"2level")
    ,btb( i, fetchWidth, section)
    ,l1Size(SescConf->getInt(section,"l1Size"))
@@ -520,7 +520,7 @@ void BP2level::switchOut(Pid_t pid)
  * BPHybid
  */
 
-BPHybrid::BPHybrid(int i, int fetchWidth, const char *section)
+BPHybrid::BPHybrid(int32_t i, int32_t fetchWidth, const char *section)
   :BPred(i, fetchWidth, section,"Hybrid")
   ,btb(  i, fetchWidth, section)
    ,historySize(SescConf->getInt(section,"historySize"))
@@ -644,7 +644,7 @@ void BPHybrid::switchOut(Pid_t pid)
  * A. Seznec, S. Felix, V. Krishnan, Y. Sazeides
  */
 
-BP2BcgSkew::BP2BcgSkew(int i, int fetchWidth, const char *section)
+BP2BcgSkew::BP2BcgSkew(int32_t i, int32_t fetchWidth, const char *section)
   : BPred(i, fetchWidth, section,"2BcgSkew")
   ,btb(   i, fetchWidth, section)
   ,BIM(i,section,SescConf->getInt(section,"BIMSize"))
@@ -817,7 +817,7 @@ void BP2BcgSkew::switchOut(Pid_t pid)
  *
  */
 
-BPyags::BPyags(int i, int fetchWidth, const char *section)
+BPyags::BPyags(int32_t i, int32_t fetchWidth, const char *section)
   :BPred(i, fetchWidth, section, "yags")
   ,btb(  i, fetchWidth, section)
   ,historySize(24)
@@ -962,7 +962,7 @@ void BPyags::switchOut(Pid_t pid)
  * 
  */
  
-BPOgehl::BPOgehl(int i, int fetchWidth,const char *section)
+BPOgehl::BPOgehl(int32_t i, int32_t fetchWidth,const char *section)
   :BPred(i, fetchWidth, section, "ogehl")
   ,btb(  i, fetchWidth, section)
   ,M_SIZ(SescConf->getInt(section,"mtables"))
@@ -984,9 +984,9 @@ BPOgehl::BPOgehl(int i, int fetchWidth,const char *section)
   SescConf->isBetween(section, "mtables", 6, 32);
 
   pred = new char*[M_SIZ];
-  for (int i = 0; i < M_SIZ; i++) {
+  for (int32_t i = 0; i < M_SIZ; i++) {
     pred[i] = new char[1 << logpred];
-    for (int j = 0; j < (1 << logpred); j++)
+    for (int32_t j = 0; j < (1 << logpred); j++)
       pred[i][j] = 0;
   }
 
@@ -994,11 +994,11 @@ BPOgehl::BPOgehl(int i, int fetchWidth,const char *section)
   ghist = new long long[(glength >> 6) + 1];
   MINITAG = new char[(1 << (logpred - 1))];
   
-  for (int i = 0; i < (glength >> 6) + 1; i++)
+  for (int32_t i = 0; i < (glength >> 6) + 1; i++)
     ghist[i] = 0;
   phist = 0;
 
-  for (int j = 0; j < (1 << (logpred - 1)); j++)
+  for (int32_t j = 0; j < (1 << (logpred - 1)); j++)
     MINITAG[j] = 0;
   AC=0;
 
@@ -1010,9 +1010,9 @@ BPOgehl::BPOgehl(int i, int fetchWidth,const char *section)
   usedHistLength = new int[M_SIZ];
   histLength[0] = 0;
   histLength[1] = 3;
-  for (int i = 2; i < M_SIZ + 3; i++)
+  for (int32_t i = 2; i < M_SIZ + 3; i++)
     histLength[i] = (int) ((initset * pow (Pow, (double) (i - 1))) + 0.5);
-  for (int i = 0; i < M_SIZ; i++) {
+  for (int32_t i = 0; i < M_SIZ; i++) {
     usedHistLength[i] = histLength[i];
   }
 }
@@ -1031,11 +1031,11 @@ PredType BPOgehl::predict(const Instruction *inst, InstID oracleID, bool doUpdat
   bool taken = (inst->calcNextInstID() != oracleID);
   bool ptaken = false;
 
-  int S = (M_SIZ/2);
+  int32_t S = (M_SIZ/2);
   HistoryType *iID = (HistoryType *)alloca(M_SIZ*sizeof(HistoryType));
 
   // Prediction is sum of entries in M tables (table 1 is half-size to fit in 64k)
-  for (int i = 0; i < M_SIZ; i++) {
+  for (int32_t i = 0; i < M_SIZ; i++) {
     if (i == 1)
       logpred--;
     iID[i] = geoidx(inst->currentID(), ghist, phist, usedHistLength[i], (i & 3) + 1);    
@@ -1071,7 +1071,7 @@ PredType BPOgehl::predict(const Instruction *inst, InstID oracleID, bool doUpdat
     if( taken != ptaken || (S < THETA && S >= -THETA)) {
 
       // Update M tables
-      for (int i = 0; i < M_SIZ; i++) {
+      for (int32_t i = 0; i < M_SIZ; i++) {
         if (taken) {
           if (pred[i][iID[i]] < PREDUP - 1)
             pred[i][iID[i]]++;
@@ -1110,7 +1110,7 @@ PredType BPOgehl::predict(const Instruction *inst, InstID oracleID, bool doUpdat
   
     // Update branch/path histories
     phist = (phist << 1) + (inst->currentID() & 1);
-    for (int i = (glength >> 6); i > 0; i--)
+    for (int32_t i = (glength >> 6); i > 0; i--)
       ghist[i] = (ghist[i] << 1) + (ghist[i - 1] < 0);
     ghist[0] = ghist[0] << 1;
     if (taken)
@@ -1123,14 +1123,14 @@ PredType BPOgehl::predict(const Instruction *inst, InstID oracleID, bool doUpdat
   return ptaken ? btb.predict(inst, oracleID, doUpdate) : CorrectPrediction;
 }
 
-int BPOgehl::geoidx(long long Add, long long *histo, long long phisto, int m, int funct)
+int32_t BPOgehl::geoidx(long long Add, long long *histo, long long phisto, int32_t m, int32_t funct)
 {
   long long inter, Hh, Res;
-  int x, i, shift;
-  int PT;
-  int MinAdd;
-  int FUNCT;
-  int plength;
+  int32_t x, i, shift;
+  int32_t PT;
+  int32_t MinAdd;
+  int32_t FUNCT;
+  int32_t plength;
 
   if (m < 16)
     plength = m;
@@ -1213,7 +1213,7 @@ void BPOgehl::switchOut(Pid_t pid)
  */
 
 
-BPred *BPredictor::getBPred(int id, int fetchWidth, const char *sec)
+BPred *BPredictor::getBPred(int32_t id, int32_t fetchWidth, const char *sec)
 {
   BPred *pred=0;
   
@@ -1249,7 +1249,7 @@ BPred *BPredictor::getBPred(int id, int fetchWidth, const char *sec)
   return pred;
 }
 
-BPredictor::BPredictor(int i, int fetchWidth, const char *sec, BPredictor *bpred)
+BPredictor::BPredictor(int32_t i, int32_t fetchWidth, const char *sec, BPredictor *bpred)
   :id(i)
   ,SMTcopy(bpred != 0)
   ,ras(i, fetchWidth, sec)

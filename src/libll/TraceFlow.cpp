@@ -31,7 +31,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 char *TraceFlow::traceFile = 0;
 TraceReader *TraceFlow::trace = 0;
-TraceFlow::TraceFlow(int cId, int i, GMemorySystem *gms) 
+TraceFlow::TraceFlow(int32_t cId, int32_t i, GMemorySystem *gms) 
   : GFlow(i, cId, gms)
 {
 #if (defined(TASKSCALAR) || defined(SESC_MISPATH))

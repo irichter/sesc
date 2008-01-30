@@ -87,48 +87,48 @@ enum FetchOpType {
 
 #else
 typedef struct {
-  volatile int spin;            /* lock spins */
-  volatile int dummy;
+  volatile int32_t spin;            /* lock spins */
+  volatile int32_t dummy;
 #ifdef NOSPIN_DOSUSPEND
-  volatile int waitSpin;
-  volatile int waitingPos;
-  int waiting[MAXLOCKWAITING+1];
+  volatile int32_t waitSpin;
+  volatile int32_t waitingPos;
+  int32_t waiting[MAXLOCKWAITING+1];
 #endif
 } slock_t;
 #endif  /* !SESCAPI_NATIVE */
 
 
 typedef struct {
-  volatile int gsense;
+  volatile int32_t gsense;
 #ifdef SESCAPI_NATIVE_IRIX
   atomic_var_t *count;
 #else /* !SESCAPI_NATIVE_IRIX */
-  volatile int count;    /* the count of entered processors */
+  volatile int32_t count;    /* the count of entered processors */
 #ifdef NOSPIN_DOSUSPEND
   /* Only for the enter phase */
-  volatile int waitingPos;
-  int waiting[MAXLOCKWAITING+1];
+  volatile int32_t waitingPos;
+  int32_t waiting[MAXLOCKWAITING+1];
 #endif
 #endif /* SESCAPI_NATIVE_IRIX */
 } sbarrier_t;
 
 typedef struct {
-  int count;                   /* shared object, the number of arrived processors */
-  volatile int gsen;            /* shared object, the global sense */
+  int32_t count;                   /* shared object, the number of arrived processors */
+  volatile int32_t gsen;            /* shared object, the global sense */
 } sgbarr_t;
 
 typedef struct {
-  int lsen;                     /* local object, the local sense */
+  int32_t lsen;                     /* local object, the local sense */
 } slbarr_t;
 
 typedef struct {
-  volatile int count;          /* the number of resource available to the semaphore */
+  volatile int32_t count;          /* the number of resource available to the semaphore */
 } ssema_t;
 
 /* A flag, implemented an in the original ANL macros for Splash-2 */
 typedef struct{
-  int     flag;
-  int     count;
+  int32_t     flag;
+  int32_t     count;
   slock_t lock;
   ssema_t queue;
 } sflag_t;
@@ -136,26 +136,26 @@ typedef struct{
 #ifdef __cplusplus
 extern "C" {
 #endif
-  void sesc_preevent_(int vaddr, int type, void *sptr);
-  void sesc_preevent(int vaddr, int type, void *sptr);
-  void sesc_postevent_(int vaddr, int type, const void *sptr);
-  void sesc_postevent(int vaddr, int type, const void *sptr);
-  void sesc_memfence_(int vaddr);
-  void sesc_memfence(int vaddr);
-  void sesc_acquire_(int vaddr);
-  void sesc_acquire(int vaddr);
-  void sesc_release_(int vaddr);
-  void sesc_release(int vaddr);
+  void sesc_preevent_(int32_t vaddr, int32_t type, void *sptr);
+  void sesc_preevent(int32_t vaddr, int32_t type, void *sptr);
+  void sesc_postevent_(int32_t vaddr, int32_t type, const void *sptr);
+  void sesc_postevent(int32_t vaddr, int32_t type, const void *sptr);
+  void sesc_memfence_(int32_t vaddr);
+  void sesc_memfence(int32_t vaddr);
+  void sesc_acquire_(int32_t vaddr);
+  void sesc_acquire(int32_t vaddr);
+  void sesc_release_(int32_t vaddr);
+  void sesc_release(int32_t vaddr);
 
   void sesc_init(void);
-  int  sesc_get_num_cpus(void);
-  void sesc_sysconf(int tid, int flags);
-  int  sesc_spawn(void (*start_routine) (void *), void *arg, int flags);
-  int  sesc_self(void);
-  int  sesc_suspend(int tid);
-  int  sesc_resume(int tid);
-  int  sesc_yield(int tid);
-  void sesc_exit(int err);
+  int32_t  sesc_get_num_cpus(void);
+  void sesc_sysconf(int32_t tid, int32_t flags);
+  int32_t  sesc_spawn(void (*start_routine) (void *), void *arg, int32_t flags);
+  int32_t  sesc_self(void);
+  int32_t  sesc_suspend(int32_t tid);
+  int32_t  sesc_resume(int32_t tid);
+  int32_t  sesc_yield(int32_t tid);
+  void sesc_exit(int32_t err);
   void sesc_finish(void);  /* Finish the whole simulation */
   void sesc_wait(void);
 
@@ -163,17 +163,17 @@ extern "C" {
                                         applications to subtract spawning
                                         overheads                            */
 
-  int sesc_fetch_op(enum FetchOpType op, volatile int *addr, int val); 
-  void sesc_unlock_op(volatile int *addr, int val);
+  int32_t sesc_fetch_op(enum FetchOpType op, volatile int32_t *addr, int32_t val); 
+  void sesc_unlock_op(volatile int32_t *addr, int32_t val);
 
   void sesc_simulation_mark(void);
   void sesc_simulation_mark_(void);
 #if (defined SESCAPI_NATIVE) || (defined SUNSTUDIO)
-  void sesc_simulation_mark_id(int id);
-  void sesc_simulation_mark_id_(int id);
+  void sesc_simulation_mark_id(int32_t id);
+  void sesc_simulation_mark_id_(int32_t id);
 #else
-  void sesc_simulation_mark_id(int id) __attribute__((noinline));
-  void sesc_simulation_mark_id_(int id) __attribute__((noinline));
+  void sesc_simulation_mark_id(int32_t id) __attribute__((noinline));
+  void sesc_simulation_mark_id_(int32_t id) __attribute__((noinline));
 #endif
   void sesc_fast_sim_begin(void);
   void sesc_fast_sim_begin_(void);
@@ -195,13 +195,13 @@ extern "C" {
    * a two-phase centralized barrier
    */
   void sesc_barrier_init(sbarrier_t *barr);
-  void sesc_barrier(sbarrier_t *barr, int num_proc);
+  void sesc_barrier(sbarrier_t *barr, int32_t num_proc);
 
   /*
    * Semaphore
    * busy-wait semaphore
    */
-  void sesc_sema_init(ssema_t *sema, int initValue);
+  void sesc_sema_init(ssema_t *sema, int32_t initValue);
   void sesc_psema(ssema_t *sema);
   void sesc_vsema(ssema_t *sema);
 
@@ -215,13 +215,13 @@ extern "C" {
   void sesc_flag_clear(sflag_t *flag);
 
 #ifdef VALUEPRED
-  int  sesc_get_last_value(int id);
-  void sesc_put_last_value(int id, int val);
-  int  sesc_get_stride_value(int id);
-  void sesc_put_stride_value(int id, int val);
-  int  sesc_get_incr_value(int id, int lval);
-  void sesc_put_incr_value(int id, int incr);
-  void sesc_verify_value(int rval, int pval);
+  int32_t  sesc_get_last_value(int32_t id);
+  void sesc_put_last_value(int32_t id, int32_t val);
+  int32_t  sesc_get_stride_value(int32_t id);
+  void sesc_put_stride_value(int32_t id, int32_t val);
+  int32_t  sesc_get_incr_value(int32_t id, int32_t lval);
+  void sesc_put_incr_value(int32_t id, int32_t incr);
+  void sesc_verify_value(int32_t rval, int32_t pval);
 #endif
 
 #ifdef TLS
@@ -233,7 +233,7 @@ extern "C" {
      newly created epoch, the ID of the new epoch is returned to the original
      epoch
   */
-  int  sesc_future_epoch(void);
+  int32_t  sesc_future_epoch(void);
 
   /* Creates and begins a new epoch that is the sequential successor of the
      current epoch. The successor begins executing instructions from the
@@ -309,7 +309,7 @@ extern "C" {
   static inline void tls_unlock(slock_t *lock_ptr) __attribute__ ((always_inline));
 
   static inline void tls_barrier_init(sbarrier_t *barr_ptr) __attribute__ ((always_inline));
-  static inline void tls_barrier(sbarrier_t *barr_ptr, int num_proc) __attribute__ ((always_inline));
+  static inline void tls_barrier(sbarrier_t *barr_ptr, int32_t num_proc) __attribute__ ((always_inline));
 
   static inline void tls_begin_epochs(void){
     asm volatile ("jal sesc_begin_epochs"
@@ -360,8 +360,8 @@ extern "C" {
 #if (defined ASPECT)
     aspectAtomicBegin();
 #else
-    typedef volatile int volint;
-    register volint *spinptr=&(lock_ptr->spin);
+    typedef volatile int32_t volint;
+    register volint32_t *spinptr=&(lock_ptr->spin);
     aspectAcquireBegin();
     if(*spinptr!=UNLOCKED)
       aspectAcquireRetry();
@@ -374,8 +374,8 @@ extern "C" {
 #if (defined ASPECT)
     aspectAtomicEnd();
 #else
-    typedef volatile int volint;
-    register volint *spinptr=&(lock_ptr->spin);
+    typedef volatile int32_t volint;
+    register volint32_t *spinptr=&(lock_ptr->spin);
     aspectReleaseBegin();
     *spinptr=UNLOCKED;
     aspectAtomicEnd();
@@ -385,12 +385,12 @@ extern "C" {
     barr_ptr->count=0;
     barr_ptr->gsense=0;
   }
-  static inline void tls_barrier(sbarrier_t *barr_ptr, int num_proc){
-    typedef volatile int volint;
-    register volint *gsenseptr=&(barr_ptr->gsense);
-    register int  lsense=!(*gsenseptr);
-    register volint *countptr=&(barr_ptr->count);
-    register int lcount;
+  static inline void tls_barrier(sbarrier_t *barr_ptr, int32_t num_proc){
+    typedef volatile int32_t volint;
+    register volint32_t *gsenseptr=&(barr_ptr->gsense);
+    register int32_t  lsense=!(*gsenseptr);
+    register volint32_t *countptr=&(barr_ptr->count);
+    register int32_t lcount;
     aspectAtomicBegin();
     lcount=(*countptr)++;
     if(lcount==num_proc-1){
@@ -413,15 +413,15 @@ extern "C" {
     flag_ptr->flag=LOCKED;
   }
   static inline void tls_flag_set(sflag_t *flag_ptr){
-    typedef volatile int volint;
-    register volint *flagptr=&(flag_ptr->flag);
+    typedef volatile int32_t volint;
+    register volint32_t *flagptr=&(flag_ptr->flag);
     aspectReleaseBegin();
     *(flagptr)=UNLOCKED;
     aspectAtomicEnd();
   }
   static inline void tls_flag_wait(sflag_t *flag_ptr){
-    typedef volatile int volint;
-    register volint *flagptr=&(flag_ptr->flag);
+    typedef volatile int32_t volint;
+    register volint32_t *flagptr=&(flag_ptr->flag);
     aspectAcquireBegin();
     if((*flagptr)!=UNLOCKED)
       aspectAcquireRetry();
@@ -433,17 +433,17 @@ extern "C" {
 
 #ifdef TASKSCALAR
   void sesc_begin_versioning(void);
-  int  sesc_fork_successor(void);
-  int  sesc_prof_fork_successor(int id);
+  int32_t  sesc_fork_successor(void);
+  int32_t  sesc_prof_fork_successor(int32_t id);
   void sesc_become_safe(void);
   void sesc_end_versioning(void);
-  int  sesc_is_safe(int pid);
-  int  sesc_commit();
-  int  sesc_prof_commit(int id);
+  int32_t  sesc_is_safe(int32_t pid);
+  int32_t  sesc_commit();
+  int32_t  sesc_prof_commit(int32_t id);
 #endif
 
 #ifdef TS_CKPSUPORT
-  int  sesc_ckp();
+  int32_t  sesc_ckp();
   void sesc_commit_ckp();
   void sesc_restart_ckp();
 #endif
@@ -457,7 +457,7 @@ extern "C" {
 #endif
 
 #ifdef VALUEPROF
-  void sesc_delinquent_load_begin(int id);
+  void sesc_delinquent_load_begin(int32_t id);
   void sesc_delinquent_load_end();
 #endif
 

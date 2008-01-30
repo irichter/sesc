@@ -35,15 +35,15 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 class SMTProcessor:public GProcessor {
 private:
-  int cFetchId;
-  int cDecodeId;
-  int cIssueId;
+  int32_t cFetchId;
+  int32_t cDecodeId;
+  int32_t cIssueId;
 
-  const int smtContexts;
-  const int smtFetchs4Clk;
-  const int smtDecodes4Clk;
-  const int smtIssues4Clk;
-  const int firstContext;
+  const int32_t smtContexts;
+  const int32_t smtFetchs4Clk;
+  const int32_t smtDecodes4Clk;
+  const int32_t smtIssues4Clk;
+  const int32_t firstContext;
 
   GStatsHist fetchDist;
 #ifdef TASKSCALAR
@@ -55,14 +55,14 @@ private:
 
   class Fetch {
   public:
-    Fetch(GMemorySystem *gm, CPU_t cpuID, int cid, GProcessor *gproc, FetchEngine *fe=0);
+    Fetch(GMemorySystem *gm, CPU_t cpuID, int32_t cid, GProcessor *gproc, FetchEngine *fe=0);
     ~Fetch();
 
     FetchEngine IFID;
     PipeQueue   pipeQ;
   };
 
-  signed int spaceInInstQueue;
+  int32_t spaceInInstQueue;
 
   typedef std::vector<Fetch *> FetchContainer;
   FetchContainer flow;
@@ -75,7 +75,7 @@ private:
 
 protected:
   // BEGIN VIRTUAL FUNCTIONS of GProcessor
-  DInst **getRAT(const int contextId);
+  DInst **getRAT(const int32_t contextId);
   FetchEngine *currentFlow();
 
   void saveThreadContext(Pid_t pid);

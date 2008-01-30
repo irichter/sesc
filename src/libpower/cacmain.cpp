@@ -10,7 +10,7 @@
 
 void cacti_setup();
 
-int main(int argc, char **argv)
+int32_t main(int32_t argc, char **argv)
 {
   // Note: This is not integrated with powermain.cpp in a single pass because
   // cacti and wattch have same function names. Therefore, they do not link

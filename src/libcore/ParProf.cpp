@@ -75,8 +75,8 @@ void ParProf::processInst(const Instruction *inst, unsigned vAddr)
     e = Ret;
   }
   
-  unsigned char tag = e;
-  int wc = fwrite(&tag, sizeof(tag), 1, fout);
+  uint8_t tag = e;
+  int32_t wc = fwrite(&tag, sizeof(tag), 1, fout);
   I(wc);
 
   if(writeAddr) {

@@ -46,8 +46,8 @@ class Cluster {
  protected:
   DepWindow window;
 
-  const int MaxWinSize;
-  int windowSize;
+  const int32_t MaxWinSize;
+  int32_t windowSize;
 
   GProcessor *const gproc;
 

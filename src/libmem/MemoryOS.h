@@ -36,11 +36,11 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 #include "TLB.h"
 
-typedef HASH_MAP<unsigned int, unsigned int> PageMapper;
+typedef HASH_MAP<uint32_t, uint32_t> PageMapper;
 
 class MemoryOS : public GMemoryOS {
 public:
-  static uint numPhysicalPages;
+  static uint32_t numPhysicalPages;
 protected:
   TLB DTLB;
   TLB ITLB;
@@ -55,20 +55,20 @@ protected:
   TimeDelta_t period;
   bool busy;
 
-  void fillDTLB(int vAddr, int phPage) {
+  void fillDTLB(int32_t vAddr, int32_t phPage) {
     DTLB.insert(vAddr, GMemorySystem::calcFullPage(phPage));
   }
 
-  void fillITLB(int vAddr, int phPage){
+  void fillITLB(int32_t vAddr, int32_t phPage){
     ITLB.insert(vAddr, GMemorySystem::calcFullPage(phPage));
   }
 
-  void launchReq(MemRequest *mreq, int phaddr) const {
+  void launchReq(MemRequest *mreq, int32_t phaddr) const {
      mreq->setPAddr(phaddr);
      mreq->getCurrentMemObj()->access(mreq);
   }
 
-  void completeReq(MemRequest *mreq, int vAddr, int phPage) {
+  void completeReq(MemRequest *mreq, int32_t vAddr, int32_t phPage) {
     GLOG(DEBUGCONDITION,"[C %llu] %li. %lu -> %lu", globalClock, mreq->getVaddr(), GMemorySystem::calcPage(vAddr), phPage);
     if(mreq->isDataReq()) 
       fillDTLB(vAddr, phPage);
@@ -85,8 +85,8 @@ public:
 
   virtual ~MemoryOS() { }
 
-  int TLBTranslate(VAddr vAddr);
-  int ITLBTranslate(VAddr vAddr);
+  int32_t TLBTranslate(VAddr vAddr);
+  int32_t ITLBTranslate(VAddr vAddr);
 
 };
 
@@ -94,8 +94,8 @@ class PageTable {
 public:
   typedef struct {
     Time_t lastTimeToTLB;
-	 unsigned int virtualPage;
-    short int status;
+    uint32_t virtualPage;
+    int16_t status;
   } IntlPTEntry;
 
 protected:
@@ -108,24 +108,24 @@ protected:
   };
 
   typedef struct {
-    unsigned int physicalPage;
-    short int status;
+    uint32_t physicalPage;
+    int16_t status;
   } L1IntlPTEntry;
 
   PageMapper vToPMap;
   IntlPTEntry   *invertedPT;
   L1IntlPTEntry *L1PT;
 
-  uint maskEntriesPage;
-  uint log2EntriesPage;
+  uint32_t maskEntriesPage;
+  uint32_t log2EntriesPage;
 
   GStatsCntr numOSPages;
   GStatsCntr numUsrPages;
 
 /* We will assume 32 bit page table entries */
-  static const unsigned short int BytesPerEntry = 4;
+  static const uint16_t BytesPerEntry = 4;
 
-  IntlPTEntry *getReplCandidate(unsigned short int first_bank, unsigned short int search_step);
+  IntlPTEntry *getReplCandidate(uint16_t first_bank, uint16_t search_step);
 
 public:
   PageTable();
@@ -135,23 +135,23 @@ public:
     return getReplCandidate(0, 1);
   }
 
-  unsigned int getL1EntryNum(const unsigned int vPage) const {
+  uint32_t getL1EntryNum(const uint32_t vPage) const {
     return (vPage >> log2EntriesPage);
   }
 
-  void assignL1Entry(unsigned int vPage, unsigned int pPage);
-  void assignL2Entry(unsigned int vPage, unsigned int pPage);
+  void assignL1Entry(uint32_t vPage, uint32_t pPage);
+  void assignL2Entry(uint32_t vPage, uint32_t pPage);
   void evictL2Entry(IntlPTEntry *p);
 
-  unsigned int L2PTEntryToPhPage(const IntlPTEntry *p) const {
+  uint32_t L2PTEntryToPhPage(const IntlPTEntry *p) const {
     return p - invertedPT;
   }
 
-  unsigned int getL1PTEntryPhysicalAddress(const unsigned int vPage) const {
+  uint32_t getL1PTEntryPhysicalAddress(const uint32_t vPage) const {
     return getL1EntryNum(vPage) * BytesPerEntry + 0xFFFF;
   }
 
-  int getL2PTEntryPhysicalAddress(const unsigned int vPage) const {
+  int32_t getL2PTEntryPhysicalAddress(const uint32_t vPage) const {
     L1IntlPTEntry *p = L1PT + getL1EntryNum(vPage);
     if (!(p->status & ValidPageStatus) )
       return -1;
@@ -159,12 +159,12 @@ public:
       return (int)((p->physicalPage) | ((vPage & maskEntriesPage) * BytesPerEntry)) + 0xFFFF;
   }
 
-  void stampPhPage(const unsigned int pPage) {
+  void stampPhPage(const uint32_t pPage) {
     // This should really imply a write op, but...
     invertedPT[pPage].lastTimeToTLB = globalClock;
   }
 
-  int translate(const unsigned int vPage) {
+  int32_t translate(const uint32_t vPage) {
     PageMapper::const_iterator it = vToPMap.find(vPage);
     if (it == vToPMap.end())
       return -1;
@@ -192,13 +192,13 @@ protected:
   static PageTable *PT; // Shared by all the MemoryOS
 
   std::vector<MemRequest *> pendingReqs;
-  uint     nextPhysicalPage; //Marker to find new free physical pages
+  uint32_t     nextPhysicalPage; //Marker to find new free physical pages
   MemObj   *cacheObj;
   TimeDelta_t minTLBMissDelay;
 
-  unsigned int getFreePhysicalPage();
+  uint32_t getFreePhysicalPage();
   void serviceRequest(MemRequest*);
-  void attemptToEmptyQueue(uint vaddr, uint phPage);
+  void attemptToEmptyQueue(uint32_t vaddr, uint32_t phPage);
 
 public:
   StdMemoryOS(GMemorySystem *ms, const char *descr_section);

@@ -22,7 +22,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "LDSTQ.h"
 #include "GProcessor.h"
 
-LDSTQ::LDSTQ(GProcessor *gp, const int id) 
+LDSTQ::LDSTQ(GProcessor *gp, const int32_t id) 
   :ldldViolations("LDSTQ(%d)_ldldViolations", id)
   ,stldViolations("LDSTQ(%d)_stldViolations", id)
   ,ststViolations("LDSTQ(%d)_ststViolations", id)

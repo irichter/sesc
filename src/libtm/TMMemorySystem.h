@@ -35,7 +35,7 @@ protected:
 			 const char *name);  
 
 public:
-  SMemorySystem(int processorId);
+  SMemorySystem(int32_t processorId);
   virtual ~SMemorySystem() {
   }
 };

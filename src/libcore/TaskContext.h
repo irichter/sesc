@@ -58,7 +58,7 @@ class TaskContext {
 #ifdef OOO_PAPER_STATS
   class TaskEntry {
   public:
-	 int nSpawns;
+	 int32_t nSpawns;
     long long nInst;
     bool outOrder;
     TaskEntry() {
@@ -86,7 +86,7 @@ class TaskContext {
 
   static unsigned long long writeData;
 
-  static int  SyncOnRestart; // # of restarts to support before wait to become safe
+  static int32_t  SyncOnRestart; // # of restarts to support before wait to become safe
 
   static size_t MLThreshold; // Merge Last Threshold
   static size_t MFThreshold; // Merge First Threshold
@@ -135,8 +135,8 @@ class TaskContext {
   static GStatsCntr *numRunningThreads[];
 
 
-  static HASH_MAP<int,int> compressedStaticId;
-  static int getCompressedStaticId(int staticId);
+  static HASH_MAP<int32_t,int> compressedStaticId;
+  static int32_t getCompressedStaticId(int32_t staticId);
 
   /************* Instance Data ***************/
 
@@ -150,19 +150,19 @@ class TaskContext {
 
   MemBuffer *memBuffer;
 
-  int nLocalRestarts; // # of restarts that the task received
+  int32_t nLocalRestarts; // # of restarts that the task received
 
-  int nLMergeNext; // # mergeNext that this TC has done
+  int32_t nLMergeNext; // # mergeNext that this TC has done
 
   PAddr spawnAddr;
-  int   staticId;  // Static Task Id
+  int32_t   staticId;  // Static Task Id
 
-  int NES; // Number of Exists to Skipt (mergeNext)
+  int32_t NES; // Number of Exists to Skipt (mergeNext)
   BPred::HistoryType startBPHistory; // Original history used
   BPred::HistoryType newBPHistory;
   BPred *currentBranchPredictor;
 
-  int dataDepViolationID; // Latest restart to wait for
+  int32_t dataDepViolationID; // Latest restart to wait for
 
   bool wasSpawnedOO;   // true if the current task was spawned Out-Of-Order
   bool ooTask;         // true if the current task was Out-Of-Order
@@ -180,7 +180,7 @@ protected:
 
   void setFields(Pid_t tid, HVersion *v);
 
-  // Return a pthread to mint 
+  // Return a pthread to mint32_t 
   static void freeThread(Pid_t pid);
 
   void destroy();
@@ -231,7 +231,7 @@ public:
   static void tryPropagateSafeToken(const HVersionDomain *vd);
 
   // Spawn a successor for current version: versionmem interface
-  void spawnSuccessor(Pid_t chilPid, PAddr childAddr, int sid);
+  void spawnSuccessor(Pid_t chilPid, PAddr childAddr, int32_t sid);
 
   void normalFork(Pid_t cpid);
   static void normalForkNewDomain(Pid_t cpid);
@@ -239,7 +239,7 @@ public:
   void endTaskExecuted(Pid_t fpid);
 
   bool hasDataDepViolation() const { return dataDepViolation; }
-  int addDataDepViolation() {
+  int32_t addDataDepViolation() {
     I(!memVer->isSafe());
 
     dataDepViolation = true;
@@ -247,7 +247,7 @@ public:
     return dataDepViolationID;
   }
 
-  void invalidMemAccess(int rID, DataDepViolationAt dAt = DataDepViolationAtExe);
+  void invalidMemAccess(int32_t rID, DataDepViolationAt dAt = DataDepViolationAtExe);
   void exception();
 
 
@@ -258,13 +258,13 @@ public:
   // Merging task functionality. Those both functions are called for
   // all the fork_successor and spawns.
   bool canMergeNext();
-  int  ignoreExit();
+  int32_t  ignoreExit();
 
   // NOTE: restartedBy killedBy should be called ONLY by taskHandler
   void localRestart();
   void localKill(bool inv);
 
-  RAddr read(uint iAddr, short iFlags, RAddr addr) {
+  RAddr read(uint32_t iAddr, short iFlags, RAddr addr) {
 
 #ifdef TC_PARTIALORDER
     if(memVer->isOnly()) 
@@ -284,7 +284,7 @@ public:
     return (RAddr)(&writeData)+MemBufferEntry::calcChunkOffset(addr);
   }
 
-  const HVersion *postWrite(uint iAddr, short iFlags, RAddr addr) {
+  const HVersion *postWrite(uint32_t iAddr, short iFlags, RAddr addr) {
 #ifdef TC_PARTIALORDER
     if(memVer->isOnly()) 
       return 0;

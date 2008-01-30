@@ -44,7 +44,7 @@ class GValuePredictor {
   virtual void putStore(PAddr addr, PAddr iPC, ValueType value) { }
   virtual ValueType getValue(PAddr addr, PAddr iPC) { return 0; }
   virtual void incOnlyHit() { onlyHit.inc(); }
-  virtual void setBrHist(int bo) {  brHist = ((brHist << 1) | !!bo); }
+  virtual void setBrHist(int32_t bo) {  brHist = ((brHist << 1) | !!bo); }
 };
 
 class Selector {
@@ -58,13 +58,13 @@ class Selector {
   GValuePredictor *vp2;
 
  public:
-  Selector(int size, const char *name, GValuePredictor *p1, GValuePredictor *p2);
+  Selector(int32_t size, const char *name, GValuePredictor *p1, GValuePredictor *p2);
   ~Selector() { }
   bool predict(PAddr addr, PAddr iPC, ValueType value, bool countAcc=true);
   ValueType getValue(PAddr addr, PAddr iPC);
   void update(PAddr addr, PAddr iPC, ValueType value, bool updateVP=false);
   unsigned getIndex(PAddr iPC);
-  void setBrHist(int bo) { vp1->setBrHist(bo); vp2->setBrHist(bo); }
+  void setBrHist(int32_t bo) { vp1->setBrHist(bo); vp2->setBrHist(bo); }
 };
 
 class ConfidenceEstimator {
@@ -76,11 +76,11 @@ class ConfidenceEstimator {
   unsigned brHist;
 
  public:
-  ConfidenceEstimator(int size, const char *name, bool ubh);
+  ConfidenceEstimator(int32_t size, const char *name, bool ubh);
   ~ConfidenceEstimator() { }
   unsigned getIndex(PAddr iPC);
   bool doPrediction(PAddr iPC, bool vhit);
-  void setBrHist(int bo) {  brHist = ((brHist << 1) | !!bo); }
+  void setBrHist(int32_t bo) {  brHist = ((brHist << 1) | !!bo); }
 };
 
 

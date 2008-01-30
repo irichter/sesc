@@ -53,16 +53,16 @@ enum EventType {
 
 /* System events supported by sesc_postevent(....)
  */
-static const int EvSimStop  = 1;
-static const int EvSimStart = 2;
+static const int32_t EvSimStop  = 1;
+static const int32_t EvSimStart = 2;
 
 /*
  * The first 10 types are reserved for communicate with the
  * system. This means that you CAN NOT use sesc_preevent(...,3,...);
  */
-static const int EvMinType  = 10;
+static const int32_t EvMinType  = 10;
 
-void mint_termination(int pid);
+void mint_termination(int32_t pid);
 
 #include "mintapi.h"
 

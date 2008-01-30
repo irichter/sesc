@@ -35,31 +35,31 @@ class QEMUFlow : public GFlow {
   bool   swappingDelaySlot;
   DInst *delayDInst;
   
-  unsigned int n_te;
-  unsigned int index_te;
+  uint32_t n_te;
+  uint32_t index_te;
 
  protected:
  public:
-  QEMUFlow(int cId, int i, GMemorySystem *gms);
+  QEMUFlow(int32_t cId, int32_t i, GMemorySystem *gms);
 
   InstID getNextID() const;
 
-  void addEvent(EventType e, CallbackBase *cb, int addr) {
+  void addEvent(EventType e, CallbackBase *cb, int32_t addr) {
     I(0);
   }
         
   // context-switch not supported in QEMUFlow
   ThreadContext *getThreadContext(void) { I(0); return 0; }
-  void saveThreadContext(int pid) { I(0); }
-  void loadThreadContext(int pid) { I(0); }
+  void saveThreadContext(int32_t pid) { I(0); }
+  void loadThreadContext(int32_t pid) { I(0); }
   icode_ptr getInstructionPointer(void) { I(0); return 0; }
   void setInstructionPointer(icode_ptr picode) { I(0); }
-  void switchIn(int i)  { I(0); }
-  void switchOut(int i) { I(0); }
+  void switchIn(int32_t i)  { I(0); }
+  void switchOut(int32_t i) { I(0); }
 
   // lets make the pid the same as the processor id
   // ideally we shold decouple Pid from the flow and sesc from ossim... but fine.
-  int currentPid(void) { return fid; }
+  int32_t currentPid(void) { return fid; }
 
   DInst *executePC();
 

@@ -6,7 +6,7 @@
 #include <iostream>
 using namespace std;
 
-TLB::TLB(const char *section, bool dataTLB, int i)
+TLB::TLB(const char *section, bool dataTLB, int32_t i)
   : id(i)
 {
   if (dataTLB)
@@ -23,7 +23,7 @@ TLB::~TLB()
     cache->destroy();
 }
 
-int TLB::translate(VAddr vAddr)
+int32_t TLB::translate(VAddr vAddr)
 {
   if(GMemorySystem::calcPage(vAddr) == 0)
     return 0;
@@ -37,7 +37,7 @@ int TLB::translate(VAddr vAddr)
   return cl->physicalPage;
 }
 
-void TLB::insert(VAddr vAddr, int  phPage)
+void TLB::insert(VAddr vAddr, int32_t  phPage)
 {
   if(GMemorySystem::calcPage(vAddr) == 0)
     return;

@@ -33,7 +33,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "ReportGen.h"
 
 FILE *Report::rfd[MAXREPORTSTACK];
-int Report::tos=0;
+int32_t Report::tos=0;
 
 Report::Report()
 {
@@ -48,7 +48,7 @@ void Report::openFile(char *name)
   FILE *ffd;
   
   if(strstr(name, "XXXXXX")) {
-    int fd;
+    int32_t fd;
     
     fd = mkstemp(name);
     
@@ -73,7 +73,7 @@ void Report::close()
   }
 }
 
-void Report::field(int fn, const char *format,...)
+void Report::field(int32_t fn, const char *format,...)
 {
   va_list ap;
 

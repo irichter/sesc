@@ -66,8 +66,8 @@
 #define  decDebugP( str, var )
 #endif
 
-// static int carry_ea(int ih, int ea_valid) { // changed - 20040210 (vp)
-static int carry_ea(uint32_t iw, int ea_valid) {
+// static int32_t carry_ea(int32_t ih, int32_t ea_valid) { // changed - 20040210 (vp)
+static int32_t carry_ea(uint32_t iw, int32_t ea_valid) {
   // return (ea_valid == 1 && ih_ispcrelcti(ih) == 0); // replaced - 20040210 (vp)
   return (ea_valid == 1 && !rz_is_pc_relative_cti(iw));
 }
@@ -214,18 +214,18 @@ class RstzipBase {
   uint64_t ea_buf[MAX_CHUNKSIZE];            // ea of ld/st+cti instructions
   flags_t flags_buf[MAX_CHUNKSIZE];          // flags for each instruction
   uint8_t noninstr_count_buf[MAX_CHUNKSIZE]; // counts of non-instr chunks
-  int lastRegIdBuf[MAX_CHUNKSIZE];           // the regid observed in an instruction
+  int32_t lastRegIdBuf[MAX_CHUNKSIZE];           // the regid observed in an instruction
   rstf_instrT noninstr_buf[MAX_CHUNKSIZE];   // non-instr records in chunk
 
   // misc info
-  int num_ea;                        // number of ld/st+cti instrs in chunk
-  int num_noninstr;                  // non-instruction records in chunk
-  int num_total;                     // num_instr + num_noninstr
-  int num_noninstr_count;            // size of noninstr_count_buf[]
+  int32_t num_ea;                        // number of ld/st+cti instrs in chunk
+  int32_t num_noninstr;                  // non-instruction records in chunk
+  int32_t num_total;                     // num_instr + num_noninstr
+  int32_t num_noninstr_count;            // size of noninstr_count_buf[]
 
 
   // flags support
-  flags_t set_flags(flags_t* flags, int mask, int val) {
+  flags_t set_flags(flags_t* flags, int32_t mask, int32_t val) {
     flags_t flgs = *flags;
 
     if (val) {
@@ -240,7 +240,7 @@ class RstzipBase {
   }  // RstzipBase::set_flags()
 
   uint64_t compute_checksum64() {
-    int i;
+    int32_t i;
     uint64_t chksm;
 
     chksm = rtype + num_instr + pc_start;
@@ -264,7 +264,7 @@ class RstzipBase {
     return chksm;
   }  // RstzipBase::compute_checksum64()
 
-  int check_buffersize(int nrecs) {
+  int32_t check_buffersize(int32_t nrecs) {
     if (nrecs < MAX_CHUNKSIZE) {
       return MAX_CHUNKSIZE - nrecs;
     }
@@ -272,7 +272,7 @@ class RstzipBase {
     return 0;
   }  // RstzipBase::check_buffersize()
 
-  int get_flags(flags_t flags, int mask) {
+  int32_t get_flags(flags_t flags, int32_t mask) {
     return ((flags & mask) ? 1 : 0);
   }  // RstzipBase::get_flags()
 
@@ -280,7 +280,7 @@ class RstzipBase {
   uint64_t print_chunk_chunk_counter;
 
   void print_chunk(FILE* fp) {
-    int i;
+    int32_t i;
 
     if (rtype != 0) {
       fprintf(fp, "[BOC] rtype=%d\n", rtype);
@@ -332,8 +332,8 @@ class RstzipBase {
     }
   }  // RstzipBase::print_chunk()
 
-  void print_rstbuf(FILE* fp, rstf_instrT buf[], int num) {
-    int i;
+  void print_rstbuf(FILE* fp, rstf_instrT buf[], int32_t num) {
+    int32_t i;
 
     for (i = 0; i < num; i++) {
       print_rstrec(fp, &buf[i]);
@@ -521,10 +521,10 @@ class RstzipBase {
       break;
 
     default:
-      int range = 1;
+      int32_t range = 1;
       uint8_t* c_ptr = (uint8_t*) (rst - range);
 
-      for (int i = range; i > 0; i--) {
+      for (int32_t i = range; i > 0; i--) {
         for (size_t j = 0; j < sizeof(rstf_instrT); j++) {
           fprintf(fp, "%02x", *c_ptr);
           c_ptr++;
@@ -538,7 +538,7 @@ class RstzipBase {
       }
       fprintf(fp, " -> Unknown rtype (%02x)\n", rst->rtype);
 
-      for (int i = 1; i <= range; i++) {
+      for (int32_t i = 1; i <= range; i++) {
         for (size_t j = 0; j < sizeof(rstf_instrT); j++) {
           fprintf(fp, "%02x", *c_ptr);
           c_ptr++;
@@ -558,7 +558,7 @@ class RstzipBase {
   }
 
 
-  bool compressedRegType( int rt ) {
+  bool compressedRegType( int32_t rt ) {
     
     switch( rt ){
     case z_CCR_T:
@@ -616,13 +616,13 @@ class Rstunzip : public RstzipBase {
     //free(outbuf);
   }
 
-  int rstz_decompress_unzipped_recs;  // new recs unzipped in next chunk in outbuf
-  int rstz_decompress_fbytes;         // number of bytes of compressed data fread() 
+  int32_t rstz_decompress_unzipped_recs;  // new recs unzipped in next chunk in outbuf
+  int32_t rstz_decompress_fbytes;         // number of bytes of compressed data fread() 
   // Decompress up to nrecs RST records from *infp into buf[].
   // Returns number of records decompressed.  Upon return, *infp will
-  // point to the start of the next compressed record.
-  int rstz_decompress(uint8_t** zbufptr, rstf_unionT* rstbuf, int nrecs) {
-    int total_recs = 0;        // total recs copied to buf[]
+  // point32_t to the start of the next compressed record.
+  int32_t rstz_decompress(uint8_t** zbufptr, rstf_unionT* rstbuf, int32_t nrecs) {
+    int32_t total_recs = 0;        // total recs copied to buf[]
     rstf_instrT* buf_ptr = &rstbuf[0].instr;
 
 #if 0
@@ -670,9 +670,9 @@ class Rstunzip : public RstzipBase {
 
   // rd-compression member data:
   ValueCache valueCache;  
-  int lastRd;
+  int32_t lastRd;
 #ifdef DEC_DEBUG
-  int iCtr;
+  int32_t iCtr;
 #endif
   ///////////////////////////////
 
@@ -682,14 +682,14 @@ class Rstunzip : public RstzipBase {
   rstf_instrT* outbuf_ptr;     // always points to current outbuf location
 
   Pstate pstate;
-  int icontext;
+  int32_t icontext;
 
   uint64_t unzip_chunk_chksm_sum;
   uint64_t unzip_chunk_chunk_counter;
   // Decompress one chunk from inbuf[] into outbuf[].  Return the
   // number of records decompressed.
-  int unzip_chunk() {
-    int prerecs, hashval, set;
+  int32_t unzip_chunk() {
+    int32_t prerecs, hashval, set;
     uint64_t chksm;
     hash_table_t* table;
 
@@ -739,7 +739,7 @@ class Rstunzip : public RstzipBase {
       pc_start = SWAP_LONG(pc_start);
         
 #if 0
-      static int chunkNumber = 0;
+      static int32_t chunkNumber = 0;
       fprintf(stderr, "Chunk #%d\n", chunkNumber++ );
       fprintf(stderr, "    decoding %u instructions starting at pc 0x%llx\n", num_instr, pc_start );
 #endif
@@ -751,7 +751,7 @@ class Rstunzip : public RstzipBase {
 
 	//jan {
 	//reading byte stream into uint32_t - need to swap_word on little endian
-	for (int i = 0; i < num_instr; i++) {
+	for (int32_t i = 0; i < num_instr; i++) {
 	  instr_buf[i] = SWAP_WORD(instr_buf[i]);
 	}
 	// jan }
@@ -831,8 +831,8 @@ class Rstunzip : public RstzipBase {
   // Build the RST's from instr_buf[], ea_buf[], flags_buf[], etc.,
   // and writes the records in the chunk to *outbuf.  Returns the
   // number of records written.
-  int write_chunk() {
-    int i, j, ea_cnt, noninstr_cnt, noninstr_buf_cnt;
+  int32_t write_chunk() {
+    int32_t i, j, ea_cnt, noninstr_cnt, noninstr_buf_cnt;
     bool write_noninstr;
     rstf_instrT rst;
 
@@ -861,7 +861,7 @@ class Rstunzip : public RstzipBase {
       rst.an = get_flags(flags_buf[i], AN);
 
       rst.reservedCompress = 0; // this field might go away in the future
-      int reservedCompress = get_flags(flags_buf[i], RSRVD_CMPRSS);
+      int32_t reservedCompress = get_flags(flags_buf[i], RSRVD_CMPRSS);
       // get_flags(flags_buf[i], RSRVD_CMPRSS);
 
       // rst.ihash = getIHash(instr_buf[i]); // removed - 20040210 (vp)
@@ -953,8 +953,8 @@ class Rstunzip : public RstzipBase {
   }  // Rstunzip::write_chunk()
 
   // Read instr_buf[] to count number of (valid) ld/st instructions.
-  int find_num_ea() {
-    int i, ih;
+  int32_t find_num_ea() {
+    int32_t i, ih;
 
     num_ea = 0;
 
@@ -971,8 +971,8 @@ class Rstunzip : public RstzipBase {
   }  // Rstunzip::find_num_ea()
 
   // Read flags_buf[] to count RSRVD_CMPRSS=1 fields .
-  int find_num_noninstr_count() {
-    int i;
+  int32_t find_num_noninstr_count() {
+    int32_t i;
 
     num_noninstr_count = 0;
 
@@ -986,8 +986,8 @@ class Rstunzip : public RstzipBase {
   }  // Rstunzip::find_num_noninstr_count()
 
   // Sum noninstr_count_buf[].
-  int find_num_noninstr() {
-    int i;
+  int32_t find_num_noninstr() {
+    int32_t i;
 
     num_noninstr = 0;
 
@@ -1004,7 +1004,7 @@ class Rstunzip : public RstzipBase {
 
   // Read n bytes from *inbuf_ptr into *to, and advance *inbuf_ptr.
   // Return the number of bytes read.
-  int read_inbuf(void* to, size_t n) {
+  int32_t read_inbuf(void* to, size_t n) {
     memcpy(to, inbuf_ptr, n);
     inbuf_ptr += n;
 
@@ -1013,19 +1013,19 @@ class Rstunzip : public RstzipBase {
 
   // Write n RST records from from into outbuf_ptr, and advance
   // outbuf_ptr.  Return the number of records written.
-  int write_rst2outbuf(rstf_instrT* from, size_t n) {
+  int32_t write_rst2outbuf(rstf_instrT* from, size_t n) {
     memcpy(outbuf_ptr, from, n * sizeof(rstf_instrT));
     outbuf_ptr += n;
 
     return n;
   }  // Rstunzip::write_rst2outbuf()
 
-  int read_ea(hash_table_t* table) {
+  int32_t read_ea(hash_table_t* table) {
     int8_t offset8;
     int16_t offset16;
     int32_t offset32;
     int64_t offset64;
-    int i, n;
+    int32_t i, n;
 
     n = 0;
 
@@ -1035,7 +1035,7 @@ class Rstunzip : public RstzipBase {
 
 	//jan {
 	//reading byte stream into uint64_t - need to swap_long on little endian
-	for (int j = 0; j < num_ea; j++) {
+	for (int32_t j = 0; j < num_ea; j++) {
 	  ea_buf[j] = SWAP_LONG(ea_buf[j]);
 	}
 	// jan }
@@ -1211,10 +1211,10 @@ class Rstunzip : public RstzipBase {
     return &read_noninstr_rec_rst.instr;
   }  // Rstunzip::read_noninstr_rec()
 
-  void decompressReg( uint8_t curr_rt, int idx ) {
+  void decompressReg( uint8_t curr_rt, int32_t idx ) {
 
-    int regid = -1;
-    int rt = curr_rt;
+    int32_t regid = -1;
+    int32_t rt = curr_rt;
     
     decDebug( "       " );
     if ( rt == z_REGID_T ) {
@@ -1354,8 +1354,8 @@ class Rstunzip : public RstzipBase {
     decDebugP( "%u\n", read_noninstr_rec_rst.regval.regid[idx] );
   }
 
-  int read_noninstr_recs() {
-    int i, n;
+  int32_t read_noninstr_recs() {
+    int32_t i, n;
 
     n = 0;
 
@@ -1367,11 +1367,11 @@ class Rstunzip : public RstzipBase {
     return n;
   }  // Rstunzip::read_noninstr_recs()
 
-  int zrecs_o() {
+  int32_t zrecs_o() {
     return outbuf_ptr - outbuf;
   }  // Rstunzip::zrecs_o()
 
-  int zbytes_i() {
+  int32_t zbytes_i() {
     return inbuf_ptr - inbuf;
   }  // Rstunzip::zbytes_i()
 
@@ -1410,11 +1410,11 @@ public:
     //free(outbuf);
   }
 
-  int rstz_compress_prev_nrecs;
+  int32_t rstz_compress_prev_nrecs;
   // Compress nrecs RST records from rstbuf[] to rz2buf[].
   // Returns size of compressed nrecs records in rz2buf[].
-  int rstz_compress(uint8_t* rz2buf, rstf_unionT* rstbuf, int nrecs) {
-    int buf_instr = 0;
+  int32_t rstz_compress(uint8_t* rz2buf, rstf_unionT* rstbuf, int32_t nrecs) {
+    int32_t buf_instr = 0;
 
     if (rstbuf == NULL) {
       return 0;
@@ -1446,12 +1446,12 @@ public:
   }  // Rstzip::zip()
 
 #if 0
-  int rstz_write_prev_nrecs;
+  int32_t rstz_write_prev_nrecs;
   // Compress nrecs RST records from buf[] to *outfp; assume exactly
   // nrecs records exist in buf[].  Returns number of records
   // compressed.
-  int rstz_write(rstf_unionT buf[], int nrecs) {
-    int buf_instr = 0;
+  int32_t rstz_write(rstf_unionT buf[], int32_t nrecs) {
+    int32_t buf_instr = 0;
 
     inbuf = &buf[0].instr;
 
@@ -1499,7 +1499,7 @@ protected:
 
   ValueCache valueCache;
   uint64_t currentPC;
-  int lastRID;
+  int32_t lastRID;
   bool inChunk;
 
   rstf_instrT* inbuf;      // input rst buffer
@@ -1508,14 +1508,14 @@ protected:
   uint64_t zip_chunk_chksm;
   uint64_t zip_chunk_chunk_counter;
   // Compress one chunk of RST records from *inbuf_ptr to *outbuf_ptr.
-  void zip_chunk(int nrecs) {
-    int hashval, set;
+  void zip_chunk(int32_t nrecs) {
+    int32_t hashval, set;
 
     rstf_instrT* inbuf_start = inbuf_ptr;
 
 #if 0
     // CURRDEBUG
-    for( int i = 0; i < 5; i++ ){
+    for( int32_t i = 0; i < 5; i++ ){
       print_rstrec(DBGFP, inbuf_start++ );
     }
 #endif
@@ -1550,8 +1550,8 @@ protected:
     }
   }  // Rstzip::zip_chunk()
 
-  int make_pavadiff_rtype(int index) {
-    int ztype;
+  int32_t make_pavadiff_rtype(int32_t index) {
+    int32_t ztype;
 
     switch (index) {
     case 0:
@@ -1589,10 +1589,10 @@ protected:
   // Read one chunk of compressed data from *inbuf_ptr to instr_buf[],
   // ea_buf[], flags_buf[], etc.  Return the total number of records
   // written.
-  int read_chunk(int nrecs) {
+  int32_t read_chunk(int32_t nrecs) {
     rstf_instrT* inbuf_start;
-    int ih;
-    int lastRegid = -1;
+    int32_t ih;
+    int32_t lastRegid = -1;
 
     // init some data members
     rtype = 0;
@@ -1623,7 +1623,7 @@ protected:
       pc_start = inbuf_ptr->pc_va;
 
 #ifdef COM_DEBUG
-      static int chunkNum = 0;
+      static int32_t chunkNum = 0;
       fprintf( stderr, "writing chunk #%d\n", chunkNum++ );
 #endif
       inChunk = true;
@@ -1711,8 +1711,8 @@ protected:
   //   4) > INT_MAX sequential noninstruction records
   // Chunks are not terminated by non-instruction records (to improve
   // compression).
-  bool in_same_chunk(rstf_instrT* rst, int nrecs, int chunk_recs) {
-    int recs, ni_recs;
+  bool in_same_chunk(rstf_instrT* rst, int32_t nrecs, int32_t chunk_recs) {
+    int32_t recs, ni_recs;
 
     if (chunk_recs >= MAX_CHUNKSIZE) {
       return false;
@@ -1751,8 +1751,8 @@ protected:
 
   // Write the chunk data from instr_buf[], ea_buf[], flags_buf[],
   // etc. to *outbuf_ptr.  Return the number of bytes written.
-  int write_chunk() {
-    int n = 0;
+  int32_t write_chunk() {
+    int32_t n = 0;
 
     rtype = z_INSTR_T;
 
@@ -1772,8 +1772,8 @@ protected:
   // Write the loop chunk data from instr_buf[], ea_buf[],
   // flags_buf[], etc. to *outbuf_ptr.  Return the number of bytes
   // written.
-  int write_loop_chunk(hash_table_t* table) {
-    int n = 0;
+  int32_t write_loop_chunk(hash_table_t* table) {
+    int32_t n = 0;
 
     rtype = zL_INSTR_T;
 
@@ -1789,12 +1789,12 @@ protected:
     return n;
   }  // Rstzip::write_loop_chunk()
 
-  int write_ea(hash_table_t* table) {
+  int32_t write_ea(hash_table_t* table) {
     int8_t offset8;
     int16_t offset16;
     int32_t offset32;
     int64_t offset64;
-    int i, n;
+    int32_t i, n;
 
     n = 0;
 
@@ -1879,17 +1879,17 @@ protected:
 
   // Write n bytes from *from to *outbuf_ptr, and increment
   // outbuf_ptr.  Return the number of bytes written.
-  int write_outbuf(void* from, size_t n) {
+  int32_t write_outbuf(void* from, size_t n) {
     memcpy(outbuf_ptr, from, n);
     outbuf_ptr += n;
 
     return n;
   }  // Rstzip::write_outbuf()
 
-  int write_noninstr_rec(rstf_instrT* rst) {
-    int index, n;
+  int32_t write_noninstr_rec(rstf_instrT* rst) {
+    int32_t index, n;
 
-    static int niNr = 0;
+    static int32_t niNr = 0;
     n = 0;
 
 
@@ -1948,7 +1948,7 @@ protected:
     return n;
   }
 
-    unsigned compressIntegerRecord( uint8_t regid, uint64_t regval, uint8_t cpuid, int lastInstrRegId = -1 )
+    unsigned compressIntegerRecord( uint8_t regid, uint64_t regval, uint8_t cpuid, int32_t lastInstrRegId = -1 )
     {
         uint8_t tag;
         unsigned totalSize = 0;
@@ -2055,8 +2055,8 @@ protected:
     
     
 
-  int write_noninstr_recs() {
-    int i, n;
+  int32_t write_noninstr_recs() {
+    int32_t i, n;
 
     n = 0;
 
@@ -2068,11 +2068,11 @@ protected:
     return n;
   }
 
-  int zrecs_i() {
+  int32_t zrecs_i() {
     return inbuf_ptr - inbuf;
   }  // Rstzip::zrecs_i()()
 
-  int zbytes_o() {
+  int32_t zbytes_o() {
     return outbuf_ptr - outbuf;
   }  // Rstzip::zbytes_o()()
 

@@ -43,11 +43,11 @@
 /* === Prototypes of user-callable routines ================================= */
 /* ========================================================================== */
 
-int colamd_recommended		/* returns recommended value of Alen */
+int32_t colamd_recommended		/* returns recommended value of Alen */
 (
-    int nnz,			/* nonzeros in A */
-    int n_row,			/* number of rows in A */
-    int n_col			/* number of columns in A */
+    int32_t nnz,			/* nonzeros in A */
+    int32_t n_row,			/* number of rows in A */
+    int32_t n_col			/* number of columns in A */
 ) ;
 
 void colamd_set_defaults	/* sets default parameters */
@@ -55,13 +55,13 @@ void colamd_set_defaults	/* sets default parameters */
     double knobs [COLAMD_KNOBS]	/* parameter settings for colamd */
 ) ;
 
-int colamd			/* returns TRUE if successful, FALSE otherwise*/
+int32_t colamd			/* returns TRUE if successful, FALSE otherwise*/
 (				/* A and p arguments are modified on output */
-    int n_row,			/* number of rows in A */
-    int n_col,			/* number of columns in A */
-    int Alen,			/* size of the array A */
-    int A [],			/* row indices of A, of size Alen */
-    int p [],			/* column pointers of A, of size n_col+1 */
+    int32_t n_row,			/* number of rows in A */
+    int32_t n_col,			/* number of columns in A */
+    int32_t Alen,			/* size of the array A */
+    int32_t A [],			/* row indices of A, of size Alen */
+    int32_t p [],			/* column pointers of A, of size n_col+1 */
     double knobs [COLAMD_KNOBS]	/* parameter settings for colamd */
 ) ;
 

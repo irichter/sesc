@@ -22,6 +22,8 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 
 #include <strings.h>
+#include <stdlib.h>
+
 #include "nanassert.h"
 #include "PPCDecoder.h"
 
@@ -40,15 +42,15 @@ void PPCDecoder::Initialize()
 {
   I(decodeTable == 0);
 
-  int nInsts = sizeof(ppcInstTable) / sizeof(PPCInstDef);
+  int32_t nInsts = sizeof(ppcInstTable) / sizeof(PPCInstDef);
   // 32 major opcodes
   // 1024 max number of extended opcodes
-  int nEntries = PPC_OPS * PPC_EXTOPS * sizeof(PPCInstDef *);
+  int32_t nEntries = PPC_OPS * PPC_EXTOPS * sizeof(PPCInstDef *);
   decodeTable = (PPCInstDef **) malloc(nEntries);
   bzero(decodeTable, nEntries);
 
   // first entry in table is dummy
-  for(int i = 1; i < nInsts; i++) {
+  for(int32_t i = 1; i < nInsts; i++) {
     PPCInstDef *instDef = &ppcInstTable[i];
     switch(instDef->form) {
     case I_form:
@@ -83,16 +85,16 @@ void PPCDecoder::Initialize()
   fillDummyEntries();
 }
 
-void PPCDecoder::expandDecodeEntry(PPCInstDef *instDef, int extOpSize) 
+void PPCDecoder::expandDecodeEntry(PPCInstDef *instDef, int32_t extOpSize) 
 {
   I(extOpSize <= PPC_EXTOP_BITS);
   
-  int nOffset = 1 << extOpSize;
+  int32_t nOffset = 1 << extOpSize;
 
-  unsigned int constIndex = (instDef->majorOpcode << PPC_EXTOP_BITS) 
+  int32_t constIndex = (instDef->majorOpcode << PPC_EXTOP_BITS) 
                             + instDef->extOpcode;
 
-  for(int i = 0; i < PPC_EXTOPS; i += nOffset) {
+  for(int32_t i = 0; i < PPC_EXTOPS; i += nOffset) {
     I(decodeTable[(constIndex + i)] == 0);
     decodeTable[(constIndex + i)] = instDef;
   }
@@ -102,7 +104,7 @@ void PPCDecoder::fillDummyEntries()
 {
   PPCInstDef *dummyDef = &ppcInstTable[0];
 
-  for(int i = 0; i < PPC_OPS * PPC_EXTOPS; i++) {
+  for(int32_t i = 0; i < PPC_OPS * PPC_EXTOPS; i++) {
     if(decodeTable[i] == NULL)
       decodeTable[i] = dummyDef;
   }

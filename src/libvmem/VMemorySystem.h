@@ -31,7 +31,7 @@ protected:
   VMemObj *baseCache;
   MemObj *buildMemoryObj(const char *type, const char *section, const char *name);
 public:
-  VMemorySystem(int processorId);
+  VMemorySystem(int32_t processorId);
   GLVID *findCreateLVID(HVersion *ver);
   VMemObj *getL1Cache() const {
     I(baseCache);

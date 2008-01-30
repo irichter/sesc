@@ -70,7 +70,7 @@ GProcessor::GProcessor(GMemorySystem *gm, CPU_t i, size_t numFlows)
   osSim->registerProc(this);
 
   SescConf->isInt("cpucore", "issueWidth",i);
-  SescConf->isLT("cpucore", "issueWidth", 1025,i); // no longer than unsigned short
+  SescConf->isLT("cpucore", "issueWidth", 1025,i); // no longer than uint16_t
 
   SescConf->isInt("cpucore"    , "retireWidth",i);
   SescConf->isBetween("cpucore" , "retireWidth", 0, 32700,i);
@@ -89,7 +89,7 @@ GProcessor::GProcessor(GMemorySystem *gm, CPU_t i, size_t numFlows)
   regPool[2] = 262144; // Unlimited registers for invalid output
 
 #ifdef SESC_MISPATH
-  for (int j = 0 ; j < INSTRUCTION_MAX_DESTPOOL; j++)
+  for (int32_t j = 0 ; j < INSTRUCTION_MAX_DESTPOOL; j++)
     misRegPool[j] = 0;
 #endif
 
@@ -258,7 +258,7 @@ void GProcessor::buildInstStats(GStatsCntr *i[MaxInstType], const char *txt)
   i[iFence] = new GStatsCntr("%s(%d)_other:n", txt, Id);
   i[iEvent] = i[iFence];
 
-  IN(forall((int a=1;a<(int)MaxInstType;a++), i[a] != 0));
+  IN(forall((int32_t a=1;a<(int)MaxInstType;a++), i[a] != 0));
 }
 
 StallCause GProcessor::sharedAddInst(DInst *dinst) 
@@ -342,10 +342,10 @@ StallCause GProcessor::sharedAddInst(DInst *dinst)
   return NoStall;
 }
 
-int GProcessor::issue(PipeQueue &pipeQ)
+int32_t GProcessor::issue(PipeQueue &pipeQ)
 {
-  int i=0; // Instructions executed counter
-  int j=0; // Fake Instructions counter
+  int32_t i=0; // Instructions executed counter
+  int32_t j=0; // Fake Instructions counter
 
   I(!pipeQ.instQueue.empty());
 
@@ -399,9 +399,9 @@ int GProcessor::issue(PipeQueue &pipeQ)
   return i+j;
 }
 
-int GProcessor::issueFromReplayQ()
+int32_t GProcessor::issueFromReplayQ()
 {
-  int nIssued = 0;
+  int32_t nIssued = 0;
 
   while(!replayQ.empty()) {
     DInst *dinst = replayQ.top();
@@ -432,7 +432,7 @@ void GProcessor::replay(DInst *dinst)
     return;
 
   bool pushInst = false;
-  unsigned int robPos = ROB.getIdFromTop(0); // head or top
+  uint32_t robPos = ROB.getIdFromTop(0); // head or top
   while(1) {
     DInst *robDInst = ROB.getData(robPos);
     if(robDInst == dinst)
@@ -455,7 +455,7 @@ void GProcessor::report(const char *str)
   memorySystem->getMemoryOS()->report(str);
 }
 
-void GProcessor::addEvent(EventType ev, CallbackBase *cb, int vaddr)
+void GProcessor::addEvent(EventType ev, CallbackBase *cb, int32_t vaddr)
 {
   currentFlow()->addEvent(ev,cb,vaddr);
 }
@@ -499,7 +499,7 @@ void GProcessor::retire()
     }
 
     // save it now because retire can destroy DInst
-    int rp = dinst->getInst()->getDstPool();
+    int32_t rp = dinst->getInst()->getDstPool();
 
     bool fake = dinst->isFake();
 

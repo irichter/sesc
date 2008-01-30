@@ -47,7 +47,7 @@ namespace tls{
   typedef std::list<class Epoch *> EpochList;
 
   // Type for a scalar value of a clock
-  typedef long int ClockValue;
+  typedef long int32_t ClockValue;
   // Too-small value for a clock field (all actual values are larger)
   const ClockValue smallClockValue=0x00000000l;
   // Initial value of the clock field (smallest actual clock value)
@@ -272,7 +272,7 @@ namespace tls{
 #endif // (defined DEBUG)
 
     bool     exitAtEnd;
-    int      myExitCode;
+    int32_t      myExitCode;
     static size_t totalThreads;
     static size_t waitingThreads;
     bool isWaiting;
@@ -554,7 +554,7 @@ namespace tls{
     LClock     myLClock;
     ClockValue getCheckClock(void) const{ return myCheckClock; }
     
-    class Checkpoint *myCheckpoint;
+    class Checkpoint32_t *myCheckpoint;
 
     // Position of this epoch in the allEpochs list
     EpochList::iterator myAllEpochsPos;
@@ -1092,7 +1092,7 @@ namespace tls{
     // their access bits. Each kind of access bits for a block is
     // stored in a sequence of entries whose type is ChunkBitMask,
     // each containing chunkSize access bits.
-    typedef unsigned char ChunkBitMask;
+    typedef uint8_t ChunkBitMask;
     enum BufferBlockConstantsEnum{
       logChunkSize=3,
       logBlockSize=5,
@@ -1292,7 +1292,7 @@ namespace tls{
 	  epoch(epoch), baseAddr(baseAddr){
 	blockCount++;
 	I(chunkSize==sizeof(ChunkBitMask)*8);
-	for(int i=0;i<blockSize/chunkSize;i++){
+	for(int32_t i=0;i<blockSize/chunkSize;i++){
 	  xpMask[i]=(ChunkBitMask)0;
 	  wrMask[i]=(ChunkBitMask)0;
 	}
@@ -1308,13 +1308,13 @@ namespace tls{
 	ID(epoch=0);
 	ID(myVersions=0);
       }
-      static void maskedChunkCopy(unsigned char *srcChunk,
-				  unsigned char *dstChunk,
+      static void maskedChunkCopy(uint8_t *srcChunk,
+				  uint8_t *dstChunk,
 				  ChunkBitMask cpMask){
 	I(cpMask);
-	unsigned char *srcPtr=srcChunk;
-	unsigned char *dstPtr=dstChunk;
-	unsigned char *srcChunkEnd=srcChunk+chunkSize;
+	uint8_t *srcPtr=srcChunk;
+	uint8_t *dstPtr=dstChunk;
+	uint8_t *srcChunkEnd=srcChunk+chunkSize;
 	while(srcPtr!=srcChunkEnd){
 	  if(cpMask&(1<<(chunkSize-1)))
 	    (*dstPtr)=(*srcPtr);
@@ -1328,9 +1328,9 @@ namespace tls{
 	I(baseAddr==succBlock->baseAddr);
 	ID(EpochList::reverse_iterator succEpochPos(epoch->myAllEpochsPos));
 	I(succBlock->epoch==*succEpochPos);
-	unsigned char *srcDataPtr=(unsigned char *)succBlock->wkData;
-	unsigned char *dstDataPtr=(unsigned char *)wkData;
-	for(int i=0;i<blockSize/chunkSize;i++){
+	uint8_t *srcDataPtr=(uint8_t *)succBlock->wkData;
+	uint8_t *dstDataPtr=(uint8_t *)wkData;
+	for(int32_t i=0;i<blockSize/chunkSize;i++){
 	  ChunkBitMask addXpMask=succBlock->xpMask[i];
 	  addXpMask&=(~wrMask[i]);
 	  addXpMask&=(~xpMask[i]);
@@ -1356,16 +1356,16 @@ namespace tls{
       }
       // Cleans the state of the block (invalidate dirty bytes)
       void clean(void){
-	for(int i=0;i<blockSize/chunkSize;i++){
+	for(int32_t i=0;i<blockSize/chunkSize;i++){
 	  xpMask[i]&=~wrMask[i];
 	  wrMask[i]=(ChunkBitMask)0;
 	}
       }
       // Merges the written data of this block into main memory
       void merge(void){
-	unsigned char *memDataPtr=(unsigned char *)baseAddr;
-	unsigned char *bufDataPtr=(unsigned char *)wkData;
-	const unsigned char *memBlockEnd=memDataPtr+blockSize;
+	uint8_t *memDataPtr=(uint8_t *)baseAddr;
+	uint8_t *bufDataPtr=(uint8_t *)wkData;
+	const uint8_t *memBlockEnd=memDataPtr+blockSize;
 	const ChunkBitMask  *wrMaskPtr=wrMask;
 	while(memDataPtr<memBlockEnd){
 	  ChunkBitMask wrMask=*wrMaskPtr;

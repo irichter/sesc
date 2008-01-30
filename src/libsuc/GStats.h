@@ -63,7 +63,7 @@ protected:
   virtual void prepareReport() {}
   
 public:
-  int gd;
+  int32_t gd;
 
   static void report(const char *str);
   static GStats *getRef(const char *str);
@@ -92,12 +92,12 @@ protected:
 public:
   GStatsCntr(const char *format,...);
 
-  GStatsCntr & operator += (const int v) {
+  GStatsCntr & operator += (const int32_t v) {
     data += v;
     return *this;
   }
 
-  void add(const int v) {
+  void add(const int32_t v) {
     data += v;
   }
   // TODO? (Volunteer wanted!)
@@ -130,7 +130,7 @@ public:
   GStatsAvg(const char *format,...);
   GStatsAvg() { }
 
-  virtual void sample(const int v) {
+  virtual void sample(const int32_t v) {
     data += v;
     nData++;
   }
@@ -157,12 +157,12 @@ public:
 class GStatsPDF : public GStatsAvg {
 private:
 protected:
-  HASH_MAP<int,int> density;
+  HASH_MAP<int32_t,int> density;
 public:
   GStatsPDF(const char *format,...);
   GStatsPDF() { }
 
-  void sample(const int v);
+  void sample(const int32_t v);
 
   // Merge two GStatsPDF together
   void sample(GStatsPDF &g);
@@ -179,7 +179,7 @@ class GStatsProfiler : public GStats {
 private:
 protected:
 
-  typedef HASH_MAP<uint, int> ProfHash;
+  typedef HASH_MAP<uint32_t, int> ProfHash;
 
   ProfHash p;
 
@@ -188,18 +188,18 @@ public:
 
   void reportValue() const;
 
-  void sample(uint key);
+  void sample(uint32_t key);
 };
 
 class GStatsMax : public GStats {
  private:
  protected:
-  int maxValue;
+  int32_t maxValue;
   long long nData;
  public:
   GStatsMax(const char *format,...);
 
-  void sample(const int v) {
+  void sample(const int32_t v) {
     maxValue = v > maxValue ? v : maxValue;
     nData++;
   }
@@ -212,19 +212,19 @@ class GStatsMax : public GStats {
 class GStatsTimingAvg : public GStatsAvg {
 private:
   Time_t lastUpdate;
-  int lastValue;
+  int32_t lastValue;
 protected:
 public:
   GStatsTimingAvg(const char *format,...);
 
-  void sample(const int v);
+  void sample(const int32_t v);
 };
 
 class GStatsHist : public GStats {
 private:
 protected:
   
-  typedef HASH_MAP<unsigned int, unsigned long long> Histogram;
+  typedef HASH_MAP<uint32_t, unsigned long long> Histogram;
 
   unsigned long long numSample;
   unsigned long long cumulative;
@@ -238,13 +238,13 @@ public:
   void reportValue() const;
 
 
-  void sample(unsigned int key, unsigned long long weight=1);
+  void sample(uint32_t key, unsigned long long weight=1);
 };
 
 class GStatsTimingHist : public GStatsHist {
 private:
   Time_t lastUpdate;
-  unsigned int lastKey;
+  uint32_t lastKey;
   bool reportWholeHist;
 public:
   GStatsTimingHist(const char *format,...);
@@ -254,7 +254,7 @@ public:
 
   //Call on each update, it remembes what the last (key,time) pair was
   //and uses that to update the histogram.
-  void sample(unsigned int key);
+  void sample(uint32_t key);
 
   // Call if you want only the timing average to be reported
   void disableLongOutput() { reportWholeHist = false; }
@@ -269,12 +269,12 @@ public:
 
   //Call on each update, it remembes what the last (key,time) pair was
   //and uses that to update the histogram.
-  void sample(unsigned int key=1);
+  void sample(uint32_t key=1);
 };
 
 class GStatsEventTimingHist : protected GStatsHist {
 private:
-  int currentSum;
+  int32_t currentSum;
 
 protected:
 
@@ -285,7 +285,7 @@ protected:
   };
 
   typedef std::set<unsigned long long> EventTimes;
-  typedef HASH_MAP<unsigned long long, int, 
+  typedef HASH_MAP<unsigned long long, int32_t, 
     hash_unsigned_long_long, compare_unsigned_long_long> EventHistory;
   typedef HASH_MAP<unsigned long long, PendingEvent,
     hash_unsigned_long_long, compare_unsigned_long_long> PendingEventsHash;
@@ -320,7 +320,7 @@ private:
 
   long long data;
  public:
-  GStatsPeriodicHist(int p, const char* format, ...);
+  GStatsPeriodicHist(int32_t p, const char* format, ...);
 
 
   void reportValue() const;

@@ -23,7 +23,7 @@ char *TraceGen::getText(const char *format, va_list ap)
   return strdup(strid);
 }
 
-void TraceGen::add(int id, const char *format, ...)
+void TraceGen::add(int32_t id, const char *format, ...)
 {
   if (!tracing)
     return;
@@ -47,7 +47,7 @@ void TraceGen::add(int id, const char *format, ...)
   }
 }
 
-void TraceGen::dump(int id)
+void TraceGen::dump(int32_t id)
 {
   IDMap::iterator it = idMap.find(id);
   if (it == idMap.end())

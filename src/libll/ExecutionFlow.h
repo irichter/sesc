@@ -60,7 +60,7 @@ private:
 #endif
 
 #ifdef TS_TIMELINE
-  int verID;
+  int32_t verID;
 #endif
 
   // picodePC==0 means no thread in this execution flow
@@ -68,7 +68,7 @@ private:
 
   EventType ev;
   CallbackBase *evCB;
-  int evAddr;
+  int32_t evAddr;
 
   DInst *pendingDInst;
 
@@ -79,7 +79,7 @@ private:
       return;
     TaskContext *tc=restartVer->getTaskContext();
     if(tc) {
-      int rID = tc->addDataDepViolation();
+      int32_t rID = tc->addDataDepViolation();
       tc->invalidMemAccess(rID, DataDepViolationAtFetch);
     }
     restartVer = 0;
@@ -104,7 +104,7 @@ private:
   //   For executed load/store instructions, the returned (non-zero)
   //   value is the virtual address of the data accessed. Note that
   //   load/store accesses to a virtual address of zero are not allowed.
-  int exeInst();
+  int32_t exeInst();
 #endif // !(defined MIPS_EMUL)
 
 protected:
@@ -119,13 +119,13 @@ public:
 #endif
   }
 
-  void addEvent(EventType e, CallbackBase *cb, int addr) {
+  void addEvent(EventType e, CallbackBase *cb, int32_t addr) {
     ev     = e;
     evCB   = cb;
     evAddr = addr;
   }
 
-  ExecutionFlow(int cId, int i, GMemorySystem *gms);
+  ExecutionFlow(int32_t cId, int32_t i, GMemorySystem *gms);
 
 #if !(defined MIPS_EMUL)
   ThreadContext *getThreadContext(void) {
@@ -133,7 +133,7 @@ public:
     return &thread;
   }
 
-  void saveThreadContext(int pid) {
+  void saveThreadContext(int32_t pid) {
     I(thread.getPid()==pid);
 #if !(defined TLS)
     thread.setPCIcode(picodePC);
@@ -144,7 +144,7 @@ public:
 #endif
   }
 
-  void loadThreadContext(int pid) {
+  void loadThreadContext(int32_t pid) {
     I((thread.getPid()==-1)||(thread.getPid()==pid));
     thread.copy(ThreadContext::getContext(pid));
     thread.setPid(pid); // Not in copyContext
@@ -158,10 +158,10 @@ public:
   void setInstructionPointer(icode_ptr picode) ;
 #endif // !(defined MIPS_EMUL)
 
-  void switchIn(int i);
-  void switchOut(int i);
+  void switchIn(int32_t i);
+  void switchOut(int32_t i);
 
-  int currentPid(void) {
+  int32_t currentPid(void) {
 #if (defined MIPS_EMUL)
     if(!context)
       return -1;

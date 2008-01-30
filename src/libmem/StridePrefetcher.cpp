@@ -114,7 +114,7 @@ StridePrefetcher::StridePrefetcher(MemorySystem* current
 
 void StridePrefetcher::read(MemRequest *mreq)
 {
-  uint paddr = mreq->getPAddr() & defaultMask;
+  uint32_t paddr = mreq->getPAddr() & defaultMask;
   bLine *l = buff->readLine(paddr);
 
   if(l) { //hit
@@ -139,7 +139,7 @@ void StridePrefetcher::read(MemRequest *mreq)
     I(itR != pendingRequests.end());
     
     (*itR).second->push(mreq);
-    learnHit(paddr); // half-miss is a hit from the learning point of view
+    learnHit(paddr); // half-miss is a hit from the learning point32_t of view
     return;
   }
 
@@ -151,7 +151,7 @@ void StridePrefetcher::read(MemRequest *mreq)
 
 void StridePrefetcher::learnHit(PAddr addr)
 {
-  uint paddr = addr & defaultMask;
+  uint32_t paddr = addr & defaultMask;
   pEntry *pe = table->readLine(paddr);
   Time_t lat = nextTableSlot() - globalClock;
 
@@ -165,11 +165,11 @@ void StridePrefetcher::learnHit(PAddr addr)
 
 void StridePrefetcher::learnMiss(PAddr addr)
 {
-  uint paddr = addr & defaultMask;
+  uint32_t paddr = addr & defaultMask;
   Time_t lat = nextTableSlot() - globalClock;
   bool foundUnitStride = false;
-  uint newStride = 0;
-  uint minDelta = (uint) -1;
+  uint32_t newStride = 0;
+  uint32_t minDelta = (uint) -1;
   bool goingUp = true;
 
   if(lastMissesQ.empty()) {
@@ -181,7 +181,7 @@ void StridePrefetcher::learnMiss(PAddr addr)
   std::deque<PAddr>::iterator it = lastMissesQ.begin();
   while(it != lastMissesQ.end()) {
 
-	 uint delta;
+	 uint32_t delta;
     if(paddr < (*it)) {
       goingUp = false;
       delta = (*it) - paddr;
@@ -234,10 +234,10 @@ void StridePrefetcher::learnMiss(PAddr addr)
 
 void StridePrefetcher::prefetch(pEntry *pe, Time_t lat)
 {
-  uint bsize = buff->getLineSize();
+  uint32_t bsize = buff->getLineSize();
   PAddr prefAddr = pe->nextAddr(table);
 
-  for(int i = 0; i < depth; i++) {
+  for(int32_t i = 0; i < depth; i++) {
     if(!buff->readLine(prefAddr)) { // it is not in the buff
       penFetchSet::iterator it = pendingFetches.find(prefAddr);
       if(it == pendingFetches.end()) {
@@ -257,7 +257,7 @@ void StridePrefetcher::prefetch(pEntry *pe, Time_t lat)
 
 void StridePrefetcher::access(MemRequest *mreq)
 {
-  uint paddr = mreq->getPAddr() & defaultMask;
+  uint32_t paddr = mreq->getPAddr() & defaultMask;
   LOG("SP:access addr=%08lx", paddr);
 
   // TODO: should i really consider all these read types? 
@@ -279,7 +279,7 @@ void StridePrefetcher::access(MemRequest *mreq)
 
 void StridePrefetcher::returnAccess(MemRequest *mreq)
 {
-  uint paddr = mreq->getPAddr() & defaultMask;
+  uint32_t paddr = mreq->getPAddr() & defaultMask;
   LOG("SP:returnAccess addr=%08lx", paddr);
 
   mreq->goUp(0);
@@ -287,7 +287,7 @@ void StridePrefetcher::returnAccess(MemRequest *mreq)
 
 void StridePrefetcher::processAck(PAddr addr)
 {
-  uint paddr = addr & defaultMask;
+  uint32_t paddr = addr & defaultMask;
 
   penFetchSet::iterator itF = pendingFetches.find(paddr);
   if(itF == pendingFetches.end()) 
@@ -318,7 +318,7 @@ bool StridePrefetcher::canAcceptStore(PAddr addr)
 
 void StridePrefetcher::invalidate(PAddr addr,ushort size,MemObj *oc)
 { 
-	uint paddr = addr & defaultMask;
+	uint32_t paddr = addr & defaultMask;
    nextBuffSlot();
 
    bLine *l = buff->readLine(paddr);

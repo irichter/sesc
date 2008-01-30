@@ -33,8 +33,8 @@ class MemorySystem;
 class VMemObj : public MemObj {
 private:
 protected:
-  const unsigned  int id;
-  static unsigned int counter;
+  const unsigned  int32_t id;
+  static uint32_t counter;
   static ushort  lineShift;
 
 public:
@@ -42,7 +42,7 @@ public:
 
   PAddr calcLine(PAddr addr) const { return addr >> lineShift; }
   
-  unsigned int getId() const { return id; }
+  uint32_t getId() const { return id; }
 
   // MemObj Interface (only for highest level cache)
   void access(MemRequest *mreq);

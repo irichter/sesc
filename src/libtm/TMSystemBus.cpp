@@ -86,8 +86,8 @@ void SMPSystemBus::access(MemRequest *mreq)
   GMSG(mreq->getPAddr() < 1024,
        "mreq dinst=0x%p paddr=0x%x vaddr=0x%x memOp=%d",
        mreq->getDInst(),
-       (unsigned int) mreq->getPAddr(),
-       (unsigned int) mreq->getVaddr(),
+       (uint32_t) mreq->getPAddr(),
+       (uint32_t) mreq->getVaddr(),
        mreq->getMemOperation());
   
   I(mreq->getPAddr() > 1024); 
@@ -163,7 +163,7 @@ void SMPSystemBus::doRead(MemRequest *mreq)
 		if (mreq->isDataReq() && sreq->needsData())VCRCount++;
 	#endif
     // distribute requests to other caches, wait for responses
-	 for(uint i = 0; i < upperLevel.size(); i++) {
+	 for(uint32_t i = 0; i < upperLevel.size(); i++) {
       if(upperLevel[i] != static_cast<SMPMemRequest *>(mreq)->getRequestor()) {
 	upperLevel[i]->returnAccess(mreq);
       }
@@ -222,7 +222,7 @@ void SMPSystemBus::doWrite(MemRequest *mreq)
 		if (mreq->isDataReq()&& sreq->needsData())VCRCount++;
 	#endif
     // distribute requests to other caches, wait for responses
-	 for(uint i = 0; i < upperLevel.size(); i++) {
+	 for(uint32_t i = 0; i < upperLevel.size(); i++) {
       if(upperLevel[i] != static_cast<SMPMemRequest *>(mreq)->getRequestor()) {
 	upperLevel[i]->returnAccess(mreq);
       }
@@ -260,7 +260,7 @@ void SMPSystemBus::finalizeAccess(MemRequest *mreq)
 	  if (mreq->isDataReq())
 	  {
 	  	
-	  	int nLesserEpochs=processResponses(mreq);
+	  	int32_t nLesserEpochs=processResponses(mreq);
 	 	//Version combining has concluded
     	//doVCRCB::scheduleAbs(busDelay*wrSize+nextSlot(mreq)+delay, this, mreq);
 	 	if (VCRMaxCount.getValue()<VCRCount)
@@ -311,7 +311,7 @@ void SMPSystemBus::doPush(MemRequest *mreq)
 
    	VCRCount++;
     // distribute requests to other caches, wait for responses
-    for(uint i = 0; i < upperLevel.size(); i++) {
+    for(uint32_t i = 0; i < upperLevel.size(); i++) {
       if(upperLevel[i] != static_cast<SMPMemRequest *>(mreq)->getRequestor()) {
 	upperLevel[i]->returnAccess(mreq);
       }
@@ -354,12 +354,12 @@ void SMPSystemBus::returnAccess(MemRequest *mreq)
   mreq->goUpAbs(nextSlot(mreq)+delay);
 }
 #ifdef TLS
-int SMPSystemBus::processResponses(MemRequest *mreq)
+int32_t SMPSystemBus::processResponses(MemRequest *mreq)
 {
 		SMPMemRequest *sreq = static_cast<SMPMemRequest *>(mreq);
 		typedef std::vector<tls::CacheFlags>::iterator ItVcacheFlags;
-		int nLesserEpochs=0;
-		int wrSize=(sreq->getVcacheFlags())->size();
+		int32_t nLesserEpochs=0;
+		int32_t wrSize=(sreq->getVcacheFlags())->size();
 		//I(wrSize<=nProcs);
 
 		//MEM ACCESS IN NO LONGER NECESSARY
@@ -454,7 +454,7 @@ int SMPSystemBus::processResponses(MemRequest *mreq)
 	  if (mreq->isDataReq())
 	  {
 	  	
-	  	int nLesserEpochs=processResponses(mreq);
+	  	int32_t nLesserEpochs=processResponses(mreq);
 	 	//Version combining has concluded
     	//doVCRCB::scheduleAbs(busDelay*wrSize+nextSlot(mreq)+delay, this, mreq);
 	 	if (VCRMaxCount.getValue()<VCRCount)

@@ -45,7 +45,7 @@ void ThermTrace::tokenize(const char *str, TokenVectorType &tokens) {
       break;
     }
 
-    int len = new_pos-str;
+    int32_t len = new_pos-str;
     char *new_str = (char *)malloc(len+4);
     strncpy(new_str,str,len);
     new_str[len]=0;
@@ -70,7 +70,7 @@ void ThermTrace::read_sesc_variable(const char *input_file) {
   bool eof = false;
   std::string line;
   while( !eof  && buffer != '\n') {
-    int s = read(input_fd_, &buffer, 1);
+    int32_t s = read(input_fd_, &buffer, 1);
     if ( s == 0)
       eof = true;
     else
@@ -97,7 +97,7 @@ void ThermTrace::read_sesc_variable(const char *input_file) {
 
 bool ThermTrace::grep(const char *line, const char *pattern) {
 
-  int    status;
+  int32_t    status;
   regex_t    re;
 
   if (regcomp(&re, pattern, REG_NOSUB|REG_ICASE) != 0)
@@ -222,7 +222,7 @@ bool ThermTrace::read_energy() {
 
   I(input_fd_>=0);
 
-  int s = read(input_fd_, 
+  int32_t s = read(input_fd_, 
 	       buffer, 
 	       sizeof(float)*mapping.size());
 
@@ -237,7 +237,7 @@ bool ThermTrace::read_energy() {
   for(size_t i=0;i<mapping.size();i++) {
 
     for(size_t k=0;k<mapping[i].map.size();k++) {
-      int flp_id  = mapping[i].map[k];
+      int32_t flp_id  = mapping[i].map[k];
 
       flp[flp_id]->energy += mapping[i].ratio[k]*buffer[i];
     }

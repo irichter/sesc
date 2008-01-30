@@ -56,7 +56,7 @@ protected:
 
   class Entry {
   public:
-    int outsResps;        // outstanding responses: number of caches 
+    int32_t outsResps;        // outstanding responses: number of caches 
                           // that still need to acknowledge invalidates
     bool invalidate;
     bool writeback;

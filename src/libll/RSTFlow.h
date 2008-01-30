@@ -41,29 +41,29 @@ class RSTFlow : public GFlow {
 
  protected:
  public:
-  RSTFlow(int cId, int i, GMemorySystem *gms);
+  RSTFlow(int32_t cId, int32_t i, GMemorySystem *gms);
 
   static void setTraceFile(const char *tf) { traceFile = strdup(tf); }
   static const char *getTraceFile() { return traceFile; }
   
   InstID getNextID() const;
 
-  void addEvent(EventType e, CallbackBase *cb, int addr) {
+  void addEvent(EventType e, CallbackBase *cb, int32_t addr) {
     I(0);
   }
         
   // context-switch not supported in RSTFlow
   ThreadContext *getThreadContext(void) { I(0); return 0; }
-  void saveThreadContext(int pid) { I(0); }
-  void loadThreadContext(int pid) { I(0); }
+  void saveThreadContext(int32_t pid) { I(0); }
+  void loadThreadContext(int32_t pid) { I(0); }
   icode_ptr getInstructionPointer(void) { I(0); return 0; }
   void setInstructionPointer(icode_ptr picode) { I(0); }
-  void switchIn(int i)  { I(0); }
-  void switchOut(int i) { I(0); }
+  void switchIn(int32_t i)  { I(0); }
+  void switchOut(int32_t i) { I(0); }
 
   // lets make the pid the same as the processor id
   // ideally we shold decouple Pid from the flow and sesc from ossim... but fine.
-  int currentPid(void) { return fid; }
+  int32_t currentPid(void) { return fid; }
 
   DInst *executePC();
 

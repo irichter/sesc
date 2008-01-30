@@ -70,9 +70,9 @@ thermal_config_t default_thermal_config(void)
  * parse a table of name-value string pairs and add the configuration
  * parameters to 'config'
  */
-void thermal_config_add_from_strs(thermal_config_t *config, str_pair *table, int size)
+void thermal_config_add_from_strs(thermal_config_t *config, str_pair *table, int32_t size)
 {
-	int idx;
+	int32_t idx;
 	if ((idx = get_str_index(table, size, "t_chip")) >= 0)
 		if(sscanf(table[idx].value, "%lf", &config->t_chip) != 1)
 			fatal("invalid format for configuration  parameter t_chip");
@@ -167,7 +167,7 @@ void thermal_config_add_from_strs(thermal_config_t *config, str_pair *table, int
  * convert config into a table of name-value pairs. returns the no.
  * of parameters converted
  */
-int thermal_config_to_strs(thermal_config_t *config, str_pair *table, int max_entries)
+int32_t thermal_config_to_strs(thermal_config_t *config, str_pair *table, int32_t max_entries)
 {
 	if (max_entries < 23)
 		fatal("not enough entries in table\n");
@@ -317,7 +317,7 @@ double *hotspot_vector(RC_model_t *model)
  * compaction
  */
 void trim_hotspot_vector(RC_model_t *model, double *dst, double *src, 
-						 int at, int size)
+						 int32_t at, int32_t size)
 {
 	if (model->type == BLOCK_MODEL)
 		trim_hotspot_vector_block(model->block, dst, src, at, size);
@@ -327,7 +327,7 @@ void trim_hotspot_vector(RC_model_t *model, double *dst, double *src,
 }
 
 /* update the model's node count	*/						 
-void resize_thermal_model(RC_model_t *model, int n_units)
+void resize_thermal_model(RC_model_t *model, int32_t n_units)
 {
 	if (model->type == BLOCK_MODEL)
 		resize_thermal_model_block(model->block, n_units);
@@ -362,7 +362,7 @@ void dump_temp(RC_model_t *model, double *temp, char *file)
  * which was dumped using 'dump_temp'. values are clipped to thermal
  * threshold based on 'clip'
  */ 
-void read_temp(RC_model_t *model, double *temp, char *file, int clip)
+void read_temp(RC_model_t *model, double *temp, char *file, int32_t clip)
 {
 	if (model->type == BLOCK_MODEL)
 		read_temp_block(model->block, temp, file, clip);

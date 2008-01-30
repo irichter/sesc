@@ -25,7 +25,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "TraceGen.h"
 
 #ifdef TS_TIMELINE
-int HVersion::gID=0;
+int32_t HVersion::gID=0;
 #endif
 
 HVersion::poolType HVersion::vPool(1024, "HVersion");
@@ -98,7 +98,7 @@ void HVersion::IDP::executed(Pid_t pid, PAddr addr, size_t nChild)
   cl->setnChild(nChild);
 }
 
-int HVersion::IDP::predict(Pid_t pid, PAddr addr)
+int32_t HVersion::IDP::predict(Pid_t pid, PAddr addr)
 {
   I(nChildMax !=0);
 
@@ -495,8 +495,8 @@ HVersion *HVersion::createSuccessor(TaskContext *t)
     else if (prange <= 64 || IDP::deactivated())
       prange = prange/4;
     else { 
-		int c = IDP::predict(tc->getPid(), t->getSpawnAddr());
-		int p = IDP::predict(tc->getPid(), tc->getSpawnAddr());
+		int32_t c = IDP::predict(tc->getPid(), t->getSpawnAddr());
+		int32_t p = IDP::predict(tc->getPid(), tc->getSpawnAddr());
 		if ((int)nChild >= p && c>0) {
 	// last spawn, child spawns
 	prange = prange/64;
@@ -555,7 +555,7 @@ void HVersion::dumpAll() const
 {
   const HVersion *n;
   char cadena[100];
-  int i;
+  int32_t i;
 
   n = this;
   i = 0;
@@ -622,6 +622,6 @@ HVersionDomain *HVersionDomain::create()
 
 void HVersionDomain::tryPropagateSafeTokenAll()
 {
-for (unsigned int i = 0; i < vdVec.size(); i++)
+for (uint32_t i = 0; i < vdVec.size(); i++)
   TaskContext::tryPropagateSafeToken(vdVec[i]);
 }

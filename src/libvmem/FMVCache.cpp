@@ -117,7 +117,7 @@ void FMVCache::displaceLine(CacheLine *cl)
 #endif
 
   // nSharers == 1 means no more sharers for this address one 
-  int nSharers = countLinesInSet(cl->getPAddr());
+  int32_t nSharers = countLinesInSet(cl->getPAddr());
   
   sendPushLine(cl->getVersionDuplicate(), cl->getPAddr(), cl
 	       ,nSharers == 1
@@ -183,7 +183,7 @@ bool FMVCache::displaceSafeLines(PAddr paddr, VMemPushLineReq *askReq)
     return false;
 
   bool safeDisp = false;
-  int  nSharers = countLinesInSet(paddr);
+  int32_t  nSharers = countLinesInSet(paddr);
 
   I(nSharers>=(int)safeLines.size());
 
@@ -754,7 +754,7 @@ void FMVCache::pushLineAck(VMemPushLineReq *pushAckReq)
       // KILLED: just do nothing
     }else if (pushAckReq->getVersionRef()->isSafe()) {
       // SAFE: It got safe while traveling
-      int nSharers = countLinesInSet(paddr);
+      int32_t nSharers = countLinesInSet(paddr);
 
       sendPushLine(pushAckReq->getVersionDuplicate(), paddr, pushAckReq->getStateRef()
 		   ,nSharers == 0, 0);
@@ -791,7 +791,7 @@ void FMVCache::askPushLine(VMemPushLineReq *askReq)
     return;
   }
 
-  int nSharers = countLinesInSet(paddr);
+  int32_t nSharers = countLinesInSet(paddr);
 
   askReq->decPendingMsg(); // For the msg just processed
 

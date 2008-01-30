@@ -33,7 +33,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 template<class Data>
 class FastQueue : public std::deque<Data> {
 public:
-  FastQueue(int size) {
+  FastQueue(int32_t size) {
   };
   
   void push(Data d) {
@@ -53,10 +53,10 @@ class FastQueue {
 private:
   Data *pipe;
 
-  unsigned int pipeMask;
-  unsigned int start; 
-  unsigned int end;
-  unsigned int nElems;
+  uint32_t pipeMask;
+  uint32_t start; 
+  uint32_t end;
+  uint32_t nElems;
 
 protected:
 public:
@@ -101,15 +101,15 @@ public:
     start = (start+1) & pipeMask;
   }
 
-  unsigned int getIdFromTop(unsigned int i) const {
+  uint32_t getIdFromTop(uint32_t i) const {
     I(nElems > i);
     return (start+i) & pipeMask;
   }
 
-  unsigned int getNextId(unsigned int id) const { return (id+1) & pipeMask; }
-  bool isEnd(unsigned int id) const { return id == end; }
+  uint32_t getNextId(uint32_t id) const { return (id+1) & pipeMask; }
+  bool isEnd(uint32_t id) const { return id == end; }
 
-  Data getData(unsigned int id) const {
+  Data getData(uint32_t id) const {
     I(id <= pipeMask);
     I(id != end);
     return pipe[id];

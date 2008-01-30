@@ -64,7 +64,7 @@ private:
   
 #ifdef DEBUG
   const char *fileName;
-  int lineno;
+  int32_t lineno;
 #endif
 protected:
 public:

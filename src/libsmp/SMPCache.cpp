@@ -162,8 +162,8 @@ void SMPCache::access(MemRequest *mreq)
   GMSG(mreq->getPAddr() < 1024,
        "mreq dinst=0x%p paddr=0x%x vaddr=0x%x memOp=%d ignored",
        mreq->getDInst(),
-       (unsigned int) mreq->getPAddr(),
-       (unsigned int) mreq->getVaddr(),
+       (uint32_t) mreq->getPAddr(),
+       (uint32_t) mreq->getVaddr(),
        mreq->getMemOperation());
   
   I(addr >= 1024); 

@@ -10,7 +10,7 @@
 
 void fill_unit_pos(NPE_t *expr)
 {
-	int i, j=0; 
+	int32_t i, j=0; 
 	for (i=0; i < expr->size; i++)
 		if (expr->elements[i] >= 0) {
 			expr->unit_pos[j] = i;
@@ -21,7 +21,7 @@ void fill_unit_pos(NPE_t *expr)
 
 void fill_flip_pos(NPE_t *expr)
 {
-	int i, j=0; 
+	int32_t i, j=0; 
 	for (i=0; i < expr->size - 1; i++)
 		if ((expr->elements[i] < 0 && expr->elements[i+1] >= 0) ||
 			(expr->elements[i] >= 0 && expr->elements[i+1] < 0)) {
@@ -33,7 +33,7 @@ void fill_flip_pos(NPE_t *expr)
 
 void fill_chain_pos(NPE_t *expr)
 {
-	int i=0, j=0, prev; 
+	int32_t i=0, j=0, prev; 
 
 	while (i < expr->size) {
 		if (expr->elements[i] < 0) {
@@ -57,7 +57,7 @@ void fill_chain_pos(NPE_t *expr)
 
 void fill_ballot_count(NPE_t *expr)
 {
-	int i, ballot_count = 0;
+	int32_t i, ballot_count = 0;
 
 	for (i=0; i < expr->size; i++) {
 		if (expr->elements[i] < 0)
@@ -69,16 +69,16 @@ void fill_ballot_count(NPE_t *expr)
 /* the starting solution for simulated annealing	*/
 NPE_t *NPE_get_initial(flp_desc_t *flp_desc)
 {
-	int i;
+	int32_t i;
 	NPE_t *expr = (NPE_t *) calloc(1, sizeof(NPE_t));
 	if (!expr)
 		fatal("memory allocation error\n");
 	expr->size = 2 * flp_desc->n_units - 1;
-	expr->elements = (int *) calloc(expr->size, sizeof(int));
-	expr->unit_pos = (int *) calloc(flp_desc->n_units, sizeof(int));
-	expr->flip_pos = (int *) calloc(expr->size, sizeof(int));
-	expr->chain_pos = (int *) calloc(flp_desc->n_units-1, sizeof(int));
-	expr->ballot_count = (int *) calloc(expr->size, sizeof(int));
+	expr->elements = (int32_t *) calloc(expr->size, sizeof(int));
+	expr->unit_pos = (int32_t *) calloc(flp_desc->n_units, sizeof(int));
+	expr->flip_pos = (int32_t *) calloc(expr->size, sizeof(int));
+	expr->chain_pos = (int32_t *) calloc(flp_desc->n_units-1, sizeof(int));
+	expr->ballot_count = (int32_t *) calloc(expr->size, sizeof(int));
 
 	if(!expr->elements || !expr->unit_pos || !expr->flip_pos 
 	   || !expr->chain_pos || !expr->ballot_count)
@@ -112,7 +112,7 @@ void free_NPE(NPE_t *expr)
 /* debug print	*/
 void print_NPE(NPE_t *expr, flp_desc_t *flp_desc)
 {
-	int i;
+	int32_t i;
 
 	fprintf(stdout, "printing normalized polish expression ");
 	fprintf(stdout, "of size %d\n", expr->size);
@@ -149,9 +149,9 @@ void print_NPE(NPE_t *expr, flp_desc_t *flp_desc)
  * move M1 of the floorplan paper 
  * swap two units adjacent in the NPE	
  */
-void NPE_swap_units(NPE_t *expr, int pos)
+void NPE_swap_units(NPE_t *expr, int32_t pos)
 {
-	int i, t;
+	int32_t i, t;
 	
 	/* find adjacent unit	*/
 	for (i=pos+1; i < expr->size; i++)
@@ -167,9 +167,9 @@ void NPE_swap_units(NPE_t *expr, int pos)
 }
 
 /* move M2 - invert a chain of cut_types in the NPE	*/
-void NPE_invert_chain(NPE_t *expr, int pos)
+void NPE_invert_chain(NPE_t *expr, int32_t pos)
 {
-	int i = pos+1, prev = expr->elements[pos];
+	int32_t i = pos+1, prev = expr->elements[pos];
 
 	if (expr->elements[pos] == CUT_VERTICAL)
 		expr->elements[pos] = CUT_HORIZONTAL;
@@ -193,10 +193,10 @@ void NPE_invert_chain(NPE_t *expr, int pos)
 }
 
 /* binary search and increment the unit position by delta	*/
-int update_unit_pos(NPE_t *expr, int pos, int delta,
-					int start, int end)
+int32_t update_unit_pos(NPE_t *expr, int32_t pos, int32_t delta,
+					int32_t start, int32_t end)
 {
-	int mid;
+	int32_t mid;
 
 	if (start > end)
 		return FALSE;
@@ -217,9 +217,9 @@ int update_unit_pos(NPE_t *expr, int pos, int delta,
  * - could result in a non-allowable move. hence returns
  * if the move is legal or not
  */
-int NPE_swap_cut_unit(NPE_t *expr, int pos)
+int32_t NPE_swap_cut_unit(NPE_t *expr, int32_t pos)
 {
-	int t;
+	int32_t t;
 
 	if (pos <= 0 || pos >= expr->size -1)
 		fatal("invalid position in NPE_swap_cut_unit\n");
@@ -261,7 +261,7 @@ int NPE_swap_cut_unit(NPE_t *expr, int pos)
 /* make a random move out of the above	*/
 NPE_t *make_random_move(NPE_t *expr)
 {
-	int i, move, count = 0, done = FALSE, m3_count;
+	int32_t i, move, count = 0, done = FALSE, m3_count;
 	NPE_t *copy = NPE_duplicate(expr);
 
 	while (!done && count < MAX_MOVES) {
@@ -318,15 +318,15 @@ NPE_t *make_random_move(NPE_t *expr)
 /* make a copy of this NPE	*/
 NPE_t *NPE_duplicate(NPE_t *expr)
 {
-	int i;
+	int32_t i;
 	NPE_t *copy = (NPE_t *) calloc(1, sizeof(NPE_t));
 	if (!copy)
 		fatal("memory allocation error\n");
-	copy->elements = (int *) calloc(expr->size, sizeof(int));
-	copy->unit_pos = (int *) calloc(expr->n_units, sizeof(int));
-	copy->flip_pos = (int *) calloc(expr->size, sizeof(int));
-	copy->chain_pos = (int *) calloc(expr->n_units-1, sizeof(int));
-	copy->ballot_count = (int *) calloc(expr->size, sizeof(int));
+	copy->elements = (int32_t *) calloc(expr->size, sizeof(int));
+	copy->unit_pos = (int32_t *) calloc(expr->n_units, sizeof(int));
+	copy->flip_pos = (int32_t *) calloc(expr->size, sizeof(int));
+	copy->chain_pos = (int32_t *) calloc(expr->n_units-1, sizeof(int));
+	copy->ballot_count = (int32_t *) calloc(expr->size, sizeof(int));
 
 	if(!copy->elements || !copy->unit_pos || !copy->flip_pos 
 	   || !copy->chain_pos || !copy->ballot_count)

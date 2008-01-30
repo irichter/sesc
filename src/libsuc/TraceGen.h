@@ -6,7 +6,7 @@
 
 class TraceGen {
  private:
-  typedef HASH_MAP<int, char *> IDMap;
+  typedef HASH_MAP<int32_t, char *> IDMap;
 
   static IDMap idMap;
 
@@ -17,9 +17,9 @@ class TraceGen {
 
  public:
 
-  static void add(int id, const char *format, ...);
+  static void add(int32_t id, const char *format, ...);
   
-  static void dump(int id);
+  static void dump(int32_t id);
 };
 
 #endif // TRACEGEN_H

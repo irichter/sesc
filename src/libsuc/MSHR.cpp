@@ -35,11 +35,11 @@
 template<class Addr_t, class Cache_t>
 MSHR<Addr_t, Cache_t> *MSHR<Addr_t, Cache_t>::create(const char *name,
                                                      const char *type,
-                                                     int size,
-                                                     int lineSize,
-                                                     int nrd,
-                                                     int nwr,
-                                                     int aPolicy)
+                                                     int32_t size,
+                                                     int32_t lineSize,
+                                                     int32_t nrd,
+                                                     int32_t nwr,
+                                                     int32_t aPolicy)
 {
   MSHR *mshr;
 
@@ -63,13 +63,13 @@ template<class Addr_t, class Cache_t>
 MSHR<Addr_t, Cache_t> *MSHR<Addr_t, Cache_t>::create(const char *name, const char *section)
 {
   MSHR *mshr;
-  int nrd = 16;
-  int nwr = 0;
-  int aPolicy = SPECIAL;
+  int32_t nrd = 16;
+  int32_t nwr = 0;
+  int32_t aPolicy = SPECIAL;
 
   const char *type = SescConf->getCharPtr(section, "type");
-  int size = SescConf->getInt(section, "size");
-  int lineSize = SescConf->getInt(section, "bsize");
+  int32_t size = SescConf->getInt(section, "size");
+  int32_t lineSize = SescConf->getInt(section, "bsize");
 
   const char *alloc;
   if(SescConf->checkCharPtr(section,"alloc")) {
@@ -87,7 +87,7 @@ MSHR<Addr_t, Cache_t> *MSHR<Addr_t, Cache_t>::create(const char *name, const cha
     nwr = SescConf->getInt(section, "maxWrites");
 
   if(strcmp(type, "banked") == 0) {
-    int nb = SescConf->getInt(section, "banks");
+    int32_t nb = SescConf->getInt(section, "banks");
     mshr = new BankedMSHR<Addr_t, Cache_t>(name, size, lineSize, nb, nrd, nwr,
                                            aPolicy);
   } else {
@@ -104,7 +104,7 @@ MSHR<Addr_t,Cache_t> *MSHR<Addr_t, Cache_t>::attach(const char *name,
                                                     MSHR<Addr_t,Cache_t> *mshr)
 {
   MSHR *newmshr;
-  int aPolicy = SPECIAL;
+  int32_t aPolicy = SPECIAL;
 
     {
       newmshr = MSHR<Addr_t,Cache_t>::create(name,section);
@@ -117,7 +117,7 @@ MSHR<Addr_t,Cache_t> *MSHR<Addr_t, Cache_t>::attach(const char *name,
 }
 
 template<class Addr_t, class Cache_t>
-MSHR<Addr_t, Cache_t>::MSHR(const char *name, int size, int lineSize, int aPolicy)
+MSHR<Addr_t, Cache_t>::MSHR(const char *name, int32_t size, int32_t lineSize, int32_t aPolicy)
   :nEntries(size)
   ,Log2LineSize(log2i(lineSize))
   ,nUse("%s_MSHR:nUse", name)
@@ -223,7 +223,7 @@ void MSHR<Addr_t, Cache_t>::updateOccHistogram()
 //
 
 template<class Addr_t, class Cache_t>
-NoMSHR<Addr_t, Cache_t>::NoMSHR(const char *name, int size, int lineSize, int aPolicy)
+NoMSHR<Addr_t, Cache_t>::NoMSHR(const char *name, int32_t size, int32_t lineSize, int32_t aPolicy)
   : MSHR<Addr_t, Cache_t>(name, size, lineSize, aPolicy)
 {
   //nothing to do
@@ -235,8 +235,8 @@ NoMSHR<Addr_t, Cache_t>::NoMSHR(const char *name, int size, int lineSize, int aP
 //
 
 template<class Addr_t, class Cache_t>
-NoDepsMSHR<Addr_t, Cache_t>::NoDepsMSHR(const char *name, int size, int lineSize,
-                                        int aPolicy)
+NoDepsMSHR<Addr_t, Cache_t>::NoDepsMSHR(const char *name, int32_t size, int32_t lineSize,
+                                        int32_t aPolicy)
   : MSHR<Addr_t, Cache_t>(name, size, lineSize,aPolicy)
 {
   //nothing to do
@@ -307,7 +307,7 @@ bool NoDepsMSHR<Addr_t, Cache_t>::hasLineReq(Addr_t paddr)
 //
 
 template<class Addr_t, class Cache_t>
-FullMSHR<Addr_t, Cache_t>::FullMSHR(const char *name, int size, int lineSize, int aPolicy)
+FullMSHR<Addr_t, Cache_t>::FullMSHR(const char *name, int32_t size, int32_t lineSize, int32_t aPolicy)
   : MSHR<Addr_t, Cache_t>(name, size, lineSize, aPolicy)
   ,nStallConflict("%s_MSHR:nStallConflict", name)
   ,MSHRSize(roundUpPower2(size)*4)
@@ -319,7 +319,7 @@ FullMSHR<Addr_t, Cache_t>::FullMSHR(const char *name, int size, int lineSize, in
 
   entry = new EntryType[MSHRSize];
 
-  for(int i=0;i<MSHRSize;i++) {
+  for(int32_t i=0;i<MSHRSize;i++) {
     entry[i].inUse = false;
     I(entry[i].cc.empty());
   }
@@ -338,7 +338,7 @@ bool FullMSHR<Addr_t, Cache_t>::issue(Addr_t paddr, MemOperation mo)
   nFreeEntries--;
   I(nFreeEntries>=0);
 
-  int pos = calcEntry(paddr);
+  int32_t pos = calcEntry(paddr);
   if (entry[pos].inUse)
     return false;
 
@@ -371,7 +371,7 @@ void FullMSHR<Addr_t, Cache_t>::addEntry(Addr_t paddr, CallbackBase *c, Callback
 
   nStallConflict.inc();
 
-  int pos = calcEntry(paddr);
+  int32_t pos = calcEntry(paddr);
 
   I(entry[pos].inUse);
 
@@ -389,7 +389,7 @@ bool FullMSHR<Addr_t, Cache_t>::retire(Addr_t paddr)
     overflow.pop_front();
     overflowing = !overflow.empty();
 
-    int opos = calcEntry(f.paddr);
+    int32_t opos = calcEntry(f.paddr);
     if (entry[opos].inUse) {
       entry[opos].cc.add(f.cb);
       // we did not need the overflow callback here, since there was a
@@ -411,7 +411,7 @@ bool FullMSHR<Addr_t, Cache_t>::retire(Addr_t paddr)
   I(nFreeEntries>=0);
   I(nFreeEntries <= nEntries);
 
-  int pos = calcEntry(paddr);
+  int32_t pos = calcEntry(paddr);
 
   I(entry[pos].inUse);
 
@@ -437,9 +437,9 @@ bool FullMSHR<Addr_t, Cache_t>::hasLineReq(Addr_t paddr)
 //
 
 template<class Addr_t, class Cache_t>
-SingleMSHR<Addr_t, Cache_t>::SingleMSHR(const char *name, int size,
-                                        int lineSize, int nrd, int nwr,
-                                        int aPolicy)
+SingleMSHR<Addr_t, Cache_t>::SingleMSHR(const char *name, int32_t size,
+                                        int32_t lineSize, int32_t nrd, int32_t nwr,
+                                        int32_t aPolicy)
   : MSHR<Addr_t, Cache_t>(name, size, lineSize, aPolicy),
     nReads(nrd),
     nWrites(nwr),
@@ -564,7 +564,7 @@ void SingleMSHR<Addr_t, Cache_t>::checkOverflow()
 
   checkingOverflow = true;
 
-  int nConsumed = 0;
+  int32_t nConsumed = 0;
 
   do {
     OverflowField f = overflow.front();
@@ -946,8 +946,8 @@ void SingleMSHR<Addr_t, Cache_t>::putEntry(MSHRentry<Addr_t> &me)
 //
 
 template<class Addr_t, class Cache_t>
-BankedMSHR<Addr_t, Cache_t>::BankedMSHR(const char *name, int size, int lineSize,
-                                        int nb, int nrd, int nwr, int aPolicy)
+BankedMSHR<Addr_t, Cache_t>::BankedMSHR(const char *name, int32_t size, int32_t lineSize,
+                                        int32_t nb, int32_t nrd, int32_t nwr, int32_t aPolicy)
   : MSHR<Addr_t, Cache_t>(name, size, lineSize, aPolicy),
     nBanks(nb),
     maxOutsReqs("%s_MSHR_maxOutsReqs", name),
@@ -956,7 +956,7 @@ BankedMSHR<Addr_t, Cache_t>::BankedMSHR(const char *name, int size, int lineSize
   mshrBank = (SingleMSHR<Addr_t, Cache_t> **)
     malloc(sizeof(SingleMSHR<Addr_t, Cache_t> *) * nBanks);
   
-  for(int i = 0; i < nBanks; i++) {
+  for(int32_t i = 0; i < nBanks; i++) {
     char mName[512];
     sprintf(mName, "%s_set%d", name, i);
     mshrBank[i] =
@@ -972,7 +972,7 @@ template<class Addr_t, class Cache_t>
 bool BankedMSHR<Addr_t, Cache_t>::canAllocateEntry()
 {
   bool can=true;
-  for(int i=0;i<nBanks;i++) {
+  for(int32_t i=0;i<nBanks;i++) {
     can = (can && mshrBank[i]->canAllocateEntry());
   }
   return can;
@@ -981,7 +981,7 @@ bool BankedMSHR<Addr_t, Cache_t>::canAllocateEntry()
 template<class Addr_t, class Cache_t>
 bool BankedMSHR<Addr_t, Cache_t>::readSEntryFull()
 { 
-  for(int i=0;i<nBanks;i++) {
+  for(int32_t i=0;i<nBanks;i++) {
     if(mshrBank[i]->readSEntryFull())
       return true;
   }
@@ -991,7 +991,7 @@ bool BankedMSHR<Addr_t, Cache_t>::readSEntryFull()
 template<class Addr_t, class Cache_t>
 bool BankedMSHR<Addr_t, Cache_t>::writeSEntryFull()
 { 
-  for(int i=0;i<nBanks;i++) {
+  for(int32_t i=0;i<nBanks;i++) {
     if(mshrBank[i]->writeSEntryFull())
       return true;
   }
@@ -1099,7 +1099,7 @@ void BankedMSHR<Addr_t, Cache_t>::checkOverflow()
 
   checkingOverflow = true;
 
-  int nConsumed = 0;
+  int32_t nConsumed = 0;
 
   do {
     OverflowField f = overflow.front();
@@ -1133,7 +1133,7 @@ void BankedMSHR<Addr_t, Cache_t>::checkOverflow()
 template<class Addr_t, class Cache_t>
 void BankedMSHR<Addr_t, Cache_t>::setLowerCache(Cache_t *lCache)
 {
-  for(int i=0; i<nBanks; i++) {
+  for(int32_t i=0; i<nBanks; i++) {
     mshrBank[i]->setLowerCache(lCache);
   }
 }
@@ -1181,7 +1181,7 @@ template<class Addr_t, class Cache_t>
 void BankedMSHR<Addr_t, Cache_t>::attach( MSHR<Addr_t,Cache_t> *mshr )
 {
   MSHR<Addr_t,Cache_t>::attach(mshr);
-  for(int i=0;i<nBanks;i++) {
+  for(int32_t i=0;i<nBanks;i++) {
     mshrBank[i]->attach(mshr);
   }
 }

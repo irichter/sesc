@@ -27,18 +27,19 @@
 #include "event.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 
 /* The maximum number of processes that can be simulated. This is used
  * to allocate space. This value can be changed with the "-p" command
  * line option up to a maximum of MAXPROC.
  */
-extern int Max_nprocs;
+extern int32_t Max_nprocs;
 
 /* The absolute maximum number of processes that can be simulated. */
 #define MAXPROC 256
 
 /* the maximum process id ever used (process ids start at zero) */
-extern int Maxpid;
+extern int32_t Maxpid;
 
 /* The file descriptor used by MINT for its output. Can be assigned by
  * the user program. Defaults to stderr. If NULL, no output from MINT

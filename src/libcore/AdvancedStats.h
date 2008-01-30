@@ -11,7 +11,7 @@ using namespace std;
 
 namespace Stats{
   
-  typedef long long unsigned int LargeCount;
+  typedef long long uint32_t LargeCount;
 
   class Group{
   protected:

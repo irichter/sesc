@@ -42,26 +42,26 @@ class ValueTable {
   //TODO: move it to configuration file
   class PredEntry {
   protected:
-    const int id;
+    const int32_t id;
 
     GStatsCntr goodCntr;
     GStatsCntr badCntr;
 
     // Use a hash_map because the compiler does not provide the
     // maximum prediction ID generated.
-    typedef HASH_MAP<int, PredEntry*> VTable;
+    typedef HASH_MAP<int32_t, PredEntry*> VTable;
     static VTable table;
 
-    PredEntry(int i);
+    PredEntry(int32_t i);
 
   public:
-    static const int MaxValue = (1<<2)-1;
-    int curr;
-    int pred;
-    int stride;
-    int confidence;
+    static const int32_t MaxValue = (1<<2)-1;
+    int32_t curr;
+    int32_t pred;
+    int32_t stride;
+    int32_t confidence;
 
-    static PredEntry *getEntry(int i);
+    static PredEntry *getEntry(int32_t i);
 
     void good() {
       goodCntr.inc();
@@ -86,22 +86,22 @@ class ValueTable {
   /* Last Value Predictor:
    *   1 entry used: curr, confidence
    */
-  static int readLVPredictor(int id);
-  static void updateLVPredictor(int id, int value);
+  static int32_t readLVPredictor(int32_t id);
+  static void updateLVPredictor(int32_t id, int32_t value);
 
   /* Stride Value Predictor:
    *   3 entries used: curr, stride, confidence
    */
-  static int readSVPredictor(int id);
-  static void updateSVPredictor(int id, int value);
+  static int32_t readSVPredictor(int32_t id);
+  static void updateSVPredictor(int32_t id, int32_t value);
 
   /* Increment Predictor:
    *   2 entries used: stride, confidence
    */
-  static int readIncrPredictor(int id, int lvalue);
-  static void updateIncrPredictor(int id, int value);
+  static int32_t readIncrPredictor(int32_t id, int32_t lvalue);
+  static void updateIncrPredictor(int32_t id, int32_t value);
 
-  static void verifyValue(int rval, int pval);
+  static void verifyValue(int32_t rval, int32_t pval);
 };
 
 #endif

@@ -16,14 +16,14 @@ typedef struct shape_t_st
    * the position of the orientations
    * in the contributing shape curve
    */
-  int *left_pos;
-  int *right_pos;
+  int32_t *left_pos;
+  int32_t *right_pos;
   /*
    * the position of the demarcation
    * in the combined shape curve
    */
   double *median;
-  int size;
+  int32_t size;
 }shape_t;
 
 /* slicing tree node	*/
@@ -31,8 +31,8 @@ typedef struct tree_node_t_st
 {
 	shape_t *curve;
 	union {
-		int cut_type;
-		int unit;
+		int32_t cut_type;
+		int32_t unit;
 	}label;	
 	struct tree_node_t_st *left;
 	struct tree_node_t_st *right;
@@ -42,7 +42,7 @@ typedef struct tree_node_t_st
 typedef struct tree_node_stack_t_st
 {
 	tree_node_t *array[MAX_STACK];
-	int top;
+	int32_t top;
 }tree_node_stack_t;
 
 /* 
@@ -50,14 +50,14 @@ typedef struct tree_node_stack_t_st
  * - allocates memory internally
  */
 shape_t *shape_from_aspect(double area, double min, 
-                           double max, int rotable,
-						   int n_orients);
+                           double max, int32_t rotable,
+						   int32_t n_orients);
 /* shape curve arithmetic	*/
-shape_t *shape_add(shape_t *shape1, shape_t *shape2, int cut_type);
+shape_t *shape_add(shape_t *shape1, shape_t *shape2, int32_t cut_type);
 /* uninitialization	*/
 void free_shape(shape_t *shape); 
 /* position in the shape curve with minimum area	*/
-int min_area_pos(shape_t *curve);
+int32_t min_area_pos(shape_t *curve);
 /* debug print	*/
 void print_shape(shape_t *shape);
 
@@ -65,8 +65,8 @@ void print_shape(shape_t *shape);
 tree_node_stack_t *new_tree_node_stack(void);
 void tree_node_stack_push(tree_node_stack_t *stack, tree_node_t *node);
 tree_node_t *tree_node_stack_pop(tree_node_stack_t *stack);
-int tree_node_stack_isfull(tree_node_stack_t *stack);
-int tree_node_stack_isempty(tree_node_stack_t *stack);
+int32_t tree_node_stack_isfull(tree_node_stack_t *stack);
+int32_t tree_node_stack_isempty(tree_node_stack_t *stack);
 void free_tree_node_stack(tree_node_stack_t *stack);
 void tree_node_stack_clear(tree_node_stack_t *stack);
 
@@ -78,14 +78,14 @@ tree_node_t *tree_from_NPE(flp_desc_t *flp_desc,
 void free_tree(tree_node_t *root);
 void print_tree(tree_node_t *root, flp_desc_t *flp_desc);
 /* 
- * print only the portion of the shape curves 
+ * print32_t only the portion of the shape curves 
  * corresponding to the `pos'th entry of root->curve
  */
-void print_tree_relevant(tree_node_t *root, int pos, flp_desc_t *flp_desc);
+void print_tree_relevant(tree_node_t *root, int32_t pos, flp_desc_t *flp_desc);
 /* 
  * convert slicing tree into actual floorplan
  * returns the number of dead blocks compacted
  */
-int tree_to_flp(tree_node_t *root, flp_t *flp, int compact_dead, 
+int32_t tree_to_flp(tree_node_t *root, flp_t *flp, int32_t compact_dead, 
 				double compact_ratio);
 #endif

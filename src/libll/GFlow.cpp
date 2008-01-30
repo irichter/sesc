@@ -29,7 +29,7 @@ long long GFlow::nExec  = 0;
 bool GFlow::goingRabbit = true; // Until everything boots, it is in running mode
 MemObj *GFlow::trainCache = 0;
 
-GFlow::GFlow(int i, int cId, GMemorySystem *gmem) 
+GFlow::GFlow(int32_t i, int32_t cId, GMemorySystem *gmem) 
   : fid(i), 
     cpuId(cId), 
     gms(gmem), 

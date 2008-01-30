@@ -38,12 +38,12 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 #define IS_IMM (insn & (1<<13))
 
-void disas_sparc_insn(unsigned int insn,
+void disas_sparc_insn(uint32_t insn,
 		      InstType    &type, 
 		      InstSubType &subType,
-		      unsigned int &rd,
-		      unsigned int &rs1,
-		      unsigned int &rs2
+		      uint8_t &rd,
+		      uint8_t &rs1,
+		      uint8_t &rs2
 		      )
 {
   type    = iOpInvalid;
@@ -52,17 +52,17 @@ void disas_sparc_insn(unsigned int insn,
   rs2 =0;
   rd  = GET_FIELD(insn, 2, 6);
 
-  unsigned int cc;
-  unsigned int opc = GET_FIELD(insn, 0, 1);
+  uint32_t cc;
+  uint32_t opc = GET_FIELD(insn, 0, 1);
 
   switch (opc) {
   case 0: {  /* branches/sethi */           
-    unsigned int xop = GET_FIELD(insn, 7, 9);
+    uint32_t xop = GET_FIELD(insn, 7, 9);
     //nprintf(" xop in hex is %0x", xop);
     type = iBJ;
     switch (xop) {
     case 0x1: { /* V9 BPcc */
-      int cc = GET_FIELD_SP(insn, 20, 21);
+      int32_t cc = GET_FIELD_SP(insn, 20, 21);
       if (cc == 0)
 	subType = BJUncond;
       else if (cc == 2)
@@ -110,7 +110,7 @@ void disas_sparc_insn(unsigned int insn,
   }
     return; // jmp_insn;
   case 2: {                    /* FPU & Logical Operations */
-    unsigned int xop = GET_FIELD(insn, 7, 12);
+    uint32_t xop = GET_FIELD(insn, 7, 12);
    
     if (xop == 0x3a) {  /* generate trap */
       rs1 = GET_FIELD(insn, 13, 17);
@@ -147,9 +147,9 @@ void disas_sparc_insn(unsigned int insn,
       case 0x11: /* Performance Instrumentation Counter */
       case 0x12: /* Dispatch Control */
       case 0x13: /* Graphics Status */
-      case 0x14: /* Softint set, WO */
-      case 0x15: /* Softint clear, WO */
-      case 0x16: /* Softint write */
+      case 0x14: /* Softint32_t set, WO */
+      case 0x15: /* Softint32_t clear, WO */
+      case 0x16: /* Softint32_t write */
 	type    = iALU;
 	subType = iSubInvalid;
 	break;
@@ -238,7 +238,7 @@ void disas_sparc_insn(unsigned int insn,
 	return; // illegal_insn;
       }
     } else if (xop == 0x35) {   /* FPU Operations */
-      int cond;
+      int32_t cond;
       rs1 = GET_FIELD(insn, 13, 17);
       rs2 = GET_FIELD(insn, 27, 31);
  
@@ -256,7 +256,7 @@ void disas_sparc_insn(unsigned int insn,
 	rs2 = GET_FIELD(insn, 27, 31);
       }
 
-      type    = fpALU;
+      type    = iALU;
       subType = iSubInvalid;
     } else if (xop == 0x25     /* sll, V9 sllx ( == sll) */
 	       || xop == 0x26  /* srl, V9 srlx */
@@ -270,7 +270,7 @@ void disas_sparc_insn(unsigned int insn,
 	rs2 = GET_FIELD(insn, 27, 31);
       }
 
-      type    = fpALU;
+      type    = iALU;
       subType = iSubInvalid;
 
     } else if (xop < 0x38) {
@@ -283,7 +283,7 @@ void disas_sparc_insn(unsigned int insn,
       }
       
       if (xop < 0x20) {
-	type    = fpALU;
+	type    = iALU;
 	subType = iSubInvalid;
       } else {
 
@@ -341,7 +341,7 @@ void disas_sparc_insn(unsigned int insn,
 	  break;
 	}
 	case 0x2f: { /* V9 movr */
-	  int cond = GET_FIELD_SP(insn, 10, 12);
+	  int32_t cond = GET_FIELD_SP(insn, 10, 12);
 	  rs1 = GET_FIELD(insn, 13, 17);
 	  if (IS_IMM) {       /* immediate */
 	    rs2 =0;
@@ -413,7 +413,7 @@ void disas_sparc_insn(unsigned int insn,
     break;
   case 3: {                     /* load/store instructions */
              
-    unsigned int xop = GET_FIELD(insn, 7, 12);
+    uint32_t xop = GET_FIELD(insn, 7, 12);
     rs1 = GET_FIELD(insn, 13, 17);
 
     if (IS_IMM) {       /* immediate */
@@ -496,3 +496,4 @@ void disas_sparc_insn(unsigned int insn,
     break;
   }
 }
+

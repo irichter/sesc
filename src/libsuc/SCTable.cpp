@@ -23,7 +23,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 #include "SCTable.h"
 
-SCTable::SCTable(int id, const char *str, size_t size, uchar bits)
+SCTable::SCTable(int32_t id, const char *str, size_t size, uchar bits)
   : sizeMask(size - 1)
   ,Saturate(bits > 1 ? (1<<(bits-1)) : 1)
   ,MaxValue((1<<bits)-1) 

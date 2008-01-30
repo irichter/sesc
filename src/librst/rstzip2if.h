@@ -75,8 +75,8 @@ class Rstzip2if {
   // DESCRIPTION
   // Returns integers corresponding to the major and minor versions of the
   // compressor library.
-  int getMajorVersion();
-  int getMinorVersion();
+  int32_t getMajorVersion();
+  int32_t getMinorVersion();
 
   // ==== Compression routines ====
 
@@ -96,8 +96,8 @@ class Rstzip2if {
   //
   // The argument 'stats' indicates whether compression statistics should
   // be printed to stderr after compression ends.
-  //   stats = 1    Print compression stats
-  //   stats = 0    Do no print compression stats.
+  //   stats = 1    Print32_t compression stats
+  //   stats = 0    Do no print32_t compression stats.
   //
   // The argument 'numcpus' indicates whether the input trace is a 
   // multi-processor trace or not.
@@ -109,7 +109,7 @@ class Rstzip2if {
   //
   // RETURN VALUES
   // None.
-  int openRstzip(const char* outfile, int buffersize, int gzip, int stats, int numcpus);
+  int32_t openRstzip(const char* outfile, int32_t buffersize, int32_t gzip, int32_t stats, int32_t numcpus);
 
   // DESCRIPTION
   // Compresses exactly 'nrecs' RST records from 'rstbuf', and writes
@@ -122,7 +122,7 @@ class Rstzip2if {
   // RETURN VALUES
   // The number of RST records compressed is returned; this value
   // should be equal to 'nrecs'.
-  int compress(rstf_unionT* rstbuf, int nrecs);
+  int32_t compress(rstf_unionT* rstbuf, int32_t nrecs);
 
   // DESCRIPTION
   // Flushes all internal compression buffers, writes compression statistics
@@ -152,12 +152,12 @@ class Rstzip2if {
   //
   // The argument 'stats' indicates whether compression statistics should
   // be printed to stderr after decompression ends.
-  //   stats = 1   Print compression stats
-  //   stats = 0   Do no print compression stats
+  //   stats = 1   Print32_t compression stats
+  //   stats = 0   Do no print32_t compression stats
   //
   // RETURN VALUES
   // None.
-  int openRstunzip(const char* infile, int buffersize, int gzip, int stats);
+  int32_t openRstunzip(const char* infile, int32_t buffersize, int32_t gzip, int32_t stats);
 
   // DESCRIPTION
   // Decompresses up to 'nrecs' records from the file opened by
@@ -170,7 +170,7 @@ class Rstzip2if {
   // RETURN VALUES
   // The number of RST records decompressed is returned; this value
   // should be equal to 'nrecs'.
-  int decompress(rstf_unionT* rstbuf, int nrecs);
+  int32_t decompress(rstf_unionT* rstbuf, int32_t nrecs);
 
   // DESCRIPTION
   // Flushes all internal decompression buffers, reads and compares
@@ -226,8 +226,8 @@ extern "C" {
   // DESCRIPTION
   // Returns integers corresponding to the major and minor versions of the
   // compressor library.
-  int rz2_getMajorVersion(Rstzip2if* rstzip);
-  int rz2_getMinorVersion(Rstzip2if* rstzip);
+  int32_t rz2_getMajorVersion(Rstzip2if* rstzip);
+  int32_t rz2_getMinorVersion(Rstzip2if* rstzip);
 
   // ==== Compression routines ====
 
@@ -247,8 +247,8 @@ extern "C" {
   //
   // The argument 'stats' indicates whether compression statistics should
   // be printed to stderr after compression ends.
-  //   stats = 1    Print compression stats
-  //   stats = 0    Do no print compression stats.
+  //   stats = 1    Print32_t compression stats
+  //   stats = 0    Do no print32_t compression stats.
   //
   // The argument 'numcpus' indicates whether the input trace is a 
   // multi-processor trace or not.
@@ -260,13 +260,13 @@ extern "C" {
   //
   // RETURN VALUES
   // A pointer to the allocated Rstzip2if object is returned.
-  Rstzip2if* rz2_openRstzip(const char* outfile, int buffersize, int gzip, int stats, int numcpus);
+  Rstzip2if* rz2_openRstzip(const char* outfile, int32_t buffersize, int32_t gzip, int32_t stats, int32_t numcpus);
 
   // DESCRIPTION
   // Compresses exactly 'nrecs' RST records from 'rstbuf', and writes
   // the compressed data to the file opened by rz2_openRstzip().
   //
-  // The argument 'rstzip' must point to an Rstzip2if object
+  // The argument 'rstzip' must point32_t to an Rstzip2if object
   // previously allocated by calling rz2_openRstzip().
   //
   // The argument 'nrecs' must be less than or equal to the
@@ -276,7 +276,7 @@ extern "C" {
   // RETURN VALUES
   // The number of RST records compressed is returned; this value
   // should be equal to 'nrecs'.
-  int rz2_compress(Rstzip2if* rstzip, rstf_unionT* rstbuf, int nrecs);
+  int32_t rz2_compress(Rstzip2if* rstzip, rstf_unionT* rstbuf, int32_t nrecs);
 
   // DESCRIPTION
   // Flushes all internal compression buffers, writes compression statistics
@@ -306,12 +306,12 @@ extern "C" {
   //
   // The argument 'stats' indicates whether compression statistics should
   // be printed to stderr after decompression ends.
-  //   stats = 1   Print compression stats
-  //   stats = 0   Do no print compression stats
+  //   stats = 1   Print32_t compression stats
+  //   stats = 0   Do no print32_t compression stats
   //
   // RETURN VALUES
   // A pointer to the allocated Rstzip2if object is returned.
-  Rstzip2if* rz2_openRstunzip(const char* infile, int buffersize, int gzip, int stats);
+  Rstzip2if* rz2_openRstunzip(const char* infile, int32_t buffersize, int32_t gzip, int32_t stats);
 
   // DESCRIPTION
   // Decompresses up to 'nrecs' records from the file opened by
@@ -324,7 +324,7 @@ extern "C" {
   // RETURN VALUES
   // The number of RST records decompressed is returned; this value
   // should be equal to 'nrecs'.
-  int rz2_decompress(Rstzip2if* rstzip, rstf_unionT* rstbuf, int nrecs);
+  int32_t rz2_decompress(Rstzip2if* rstzip, rstf_unionT* rstbuf, int32_t nrecs);
 
   // DESCRIPTION
   // Flushes all internal decompression buffers, reads and compares

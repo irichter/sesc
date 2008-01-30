@@ -22,12 +22,12 @@
 
 const char usage[] = "rstexample <input-trace-file>";
 
-int main(int argc, char **argv)
+int32_t main(int32_t argc, char **argv)
 {
   // argv[1] must be input file
   const char * ifname = NULL;
 
-  int i=1;
+  int32_t i=1;
   while(i<argc) {
     const char * arg = argv[i++];
     if (strcmp(arg, "-h") == 0) {
@@ -48,33 +48,33 @@ int main(int argc, char **argv)
 
   // create an rstzip instance
   Rstzip * rz = new Rstzip;
-  int rv=rz->open(ifname, "r", "verbose=0");
+  int32_t rv=rz->open(ifname, "r", "verbose=0");
   if (rv != RSTZIP_OK) {
     fprintf(stderr, "ERROR: rstexample: Rstzip error opening input file %s\n", ifname);
     exit(1);
   }
 
-  const int max_ncpu=1<<10; // RST supports 10-bit cpuids
+  const int32_t max_ncpu=1<<10; // RST supports 10-bit cpuids
   int64_t icounts[max_ncpu]; 
   memset(icounts, 0, max_ncpu*sizeof(int64_t));
   int64_t total_icount = 0;
 
-  int nrecs;
+  int32_t nrecs;
   rstf_unionT buf[rstzip_opt_buffersize];
   while((nrecs = rz->decompress(buf, rstzip_opt_buffersize)) != 0) {
-    int i;
+    int32_t i;
     for (i=0; i<nrecs; i++) {
       rstf_unionT * rp = buf+i;
       if (rp->proto.rtype == INSTR_T) {
 	total_icount++;
-	int cpuid = rstf_instrT_get_cpuid(&(rp->instr));
+	int32_t cpuid = rstf_instrT_get_cpuid(&(rp->instr));
 	icounts[cpuid]++;
 	
 	InstType     type;
 	InstSubType  subType;
-	unsigned int rd;
-	unsigned int rs1;
-	unsigned int rs2;
+	uint32_t rd;
+	uint32_t rs1;
+	uint32_t rs2;
 	disas_sparc_insn(rp->instr.instr,
 			 type, 
 			 subType,
@@ -87,7 +87,7 @@ int main(int argc, char **argv)
 	       );
 #if 0
       }else if(rp->proto.rtype == REGVAL_T) {
-	int cpuid = rstf_regvalT_get_cpuid(&(rp->regval));
+	int32_t cpuid = rstf_regvalT_get_cpuid(&(rp->regval));
 	printf("cpu=%d src1(%d,%d) src2(%d,%d)\n", cpuid
 	       ,rp->regval.regtype[0], rp->regval.regid[0]
 	       ,rp->regval.regtype[1], rp->regval.regid[1]

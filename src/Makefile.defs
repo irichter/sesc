@@ -231,10 +231,12 @@ endif
 ################################################
 # QEMU 
 ifdef QEMU_DRIVEN
-CXX     =g++34
-CC      =gcc34
-DEFS   += -DQEMU_DRIVEN -I$(SRC_DIR)/../../qemu/sesc/
-LIBS   += $(SRC_DIR)/../../qemu/sparc-softmmu/*.o $(SRC_DIR)/../../qemu/sparc-softmmu/slirp/*.o $(SRC_DIR)/../../qemu/sparc-softmmu/libqemu.a -lSDL -lrt -lutil -lz
+CXX	:=g++34
+CC	:=gcc34
+DEFS	+= -DQEMU_DRIVEN -I$(SRC_DIR)/../../qemu/sesc/
+QLIBS	+= $(SRC_DIR)/../../qemu/sparc-*/*.o $(SRC_DIR)/../../qemu/sparc-*/*/*.o $(SRC_DIR)/../../qemu/sparc-*/libqemu.a -lSDL -lrt -lutil -lz
+else
+QLIBS	:=
 endif
 
 ################################################

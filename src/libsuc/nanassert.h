@@ -47,10 +47,10 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 /*
  * Example:
- *  int a[100];
- *      ID(int i;)  // See that the ; is inside. Required only in C, not C++ 
- *      ID(int j;)
- *      int k;
+ *  int32_t a[100];
+ *      ID(int32_t i;)  // See that the ; is inside. Required only in C, not C++ 
+ *      ID(int32_t j;)
+ *      int32_t k;
  *      
  *      for(k=0;k<100;k++)
  *              a[k]=k;
@@ -116,7 +116,7 @@ void nanassertexit();
 
 #define foralln(asstFor,asstCond)\
     do {                         \
-      int result=1;              \
+      int32_t result=1;              \
           for asstFor {              \
           asstCond;              \
                   if( !aRes ){     \
@@ -129,7 +129,7 @@ void nanassertexit();
 
 #define existsn(asstFor,asstCond)\
     do {                         \
-      int result=0;              \
+      int32_t result=0;              \
           for asstFor {              \
           asstCond;              \
                   if( aRes ){      \
@@ -168,10 +168,10 @@ extern const char *NanassertID;
 
 /* The following prototipes are defined in nanassert.c */
 void NoGCCMSG(const char *format, ...);
-void NoGCCGMSG(int g, const char *format, ...);
+void NoGCCGMSG(int32_t g, const char *format, ...);
 
 void VoidNoGCCMSG(const char *format, ...);
-void VoidNoGCCGMSG(int g, const char *format, ...);
+void VoidNoGCCGMSG(int32_t g, const char *format, ...);
 
 #define MSG   NoGCCMSG
 #define GMSG  NoGCCGMSG
@@ -186,7 +186,7 @@ void VoidNoGCCGMSG(int g, const char *format, ...);
 #define PREN(aC)                /* NDEBUG */
 #define PRE(aC)                 /* NDEBUG */
 #else    /* !NDEBUG */
-#define PREN(aC)   do{ int aRes=0; aC; if(!aRes) doassert(); }while(0)
+#define PREN(aC)   do{ int32_t aRes=0; aC; if(!aRes) doassert(); }while(0)
 #define PRE(aC)    do{                 if(!(aC)) doassert(); }while(0)
 #endif   /* NDEBUG */
 
@@ -195,7 +195,7 @@ void VoidNoGCCGMSG(int g, const char *format, ...);
  */
 
 #ifdef DEBUG
-#define IN(aC)   do{ int aRes=0; aC; if(!aRes) doassert(); }while(0)
+#define IN(aC)   do{ int32_t aRes=0; aC; if(!aRes) doassert(); }while(0)
 #define I(aC)    do{                 if(!(aC)) doassert(); }while(0)
 #define GIN(g,e) do{ if(g) IN(e); }while(0)
 #define GI(g,e)  do{ if(g)  I(e); }while(0)

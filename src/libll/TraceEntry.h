@@ -29,18 +29,18 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 class TraceEntry {
  public:
-  uint  rawInst;
+  uint32_t  rawInst;
   VAddr iAddr;
   VAddr dAddr;
 
   VAddr nextIAddr;
 
-  uint  cid; // cpu number
-  uint  pid;
-  uint  ppid;
-  int   barrNProcs;
+  uint32_t  cid; // cpu number
+  uint32_t  pid;
+  uint32_t  ppid;
+  int32_t   barrNProcs;
   
-  int dataSize;
+  int32_t dataSize;
   unsigned long long value;
 
   bool eot;

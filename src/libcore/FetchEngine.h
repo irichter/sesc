@@ -54,8 +54,8 @@ private:
   static long long nInst2Sim;
   static long long totalnInst;
   
-  const int Id;
-  const int cpuId;
+  const int32_t Id;
+  const int32_t cpuId;
 
   GMemorySystem *gms;
   GProcessor *gproc;
@@ -131,25 +131,25 @@ protected:
   // *******************
 
 public:
-  FetchEngine(int cId, int i
+  FetchEngine(int32_t cId, int32_t i
               ,GMemorySystem *gms
               ,GProcessor *gp
               ,FetchEngine *fe = 0);
   ~FetchEngine();
 
-  void addEvent(EventType ev, CallbackBase *cb, int vaddr) {
+  void addEvent(EventType ev, CallbackBase *cb, int32_t vaddr) {
     flow.addEvent(ev,cb,vaddr);
   }
  
  
   // Fills the current fetch buffer.
   //  Always fetches at most fetchWidth instructions
-  void fetch(IBucket *buffer, int fetchMax = -1);
+  void fetch(IBucket *buffer, int32_t fetchMax = -1);
 
   // Fake fetch. Fills the buffer with fake (mispredicted) instructions
   // Only active is SESC_MISPATH def'd
-  void fakeFetch(IBucket *buffer, int fetchMax = -1);
-  void realFetch(IBucket *buffer, int fetchMax = -1);
+  void fakeFetch(IBucket *buffer, int32_t fetchMax = -1);
+  void realFetch(IBucket *buffer, int32_t fetchMax = -1);
 
 #if !(defined MIPS_EMUL)
   ThreadContext *getThreadContext(void){
@@ -198,7 +198,7 @@ public:
     return tmp;
   }
 
-  int getCPUId() const { return cpuId; }
+  int32_t getCPUId() const { return cpuId; }
   GProcessor* getGProcessor() { return gproc; }
 
   BPredictor *getBPred() const { return bpred; }

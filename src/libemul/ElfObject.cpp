@@ -30,7 +30,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "EmulInit.h"
 
 template<>
-void cvtEndian(Elf32_Ehdr &ehdr, int byteOrder){
+void cvtEndian(Elf32_Ehdr &ehdr, int32_t byteOrder){
   // Array e_ident is all chars and need no endian conversion
   cvtEndian(ehdr.e_type,byteOrder);
   cvtEndian(ehdr.e_machine,byteOrder);
@@ -48,7 +48,7 @@ void cvtEndian(Elf32_Ehdr &ehdr, int byteOrder){
 }
 
 template<>
-void cvtEndian(Elf32_Phdr &phdr, int byteOrder){
+void cvtEndian(Elf32_Phdr &phdr, int32_t byteOrder){
   cvtEndian(phdr.p_type,byteOrder);
   cvtEndian(phdr.p_offset,byteOrder);
   cvtEndian(phdr.p_vaddr,byteOrder);
@@ -59,7 +59,7 @@ void cvtEndian(Elf32_Phdr &phdr, int byteOrder){
   cvtEndian(phdr.p_align,byteOrder);
 }
 
-void cvtEndian(Elf32_Shdr &shdr, int byteOrder){
+void cvtEndian(Elf32_Shdr &shdr, int32_t byteOrder){
   cvtEndian(shdr.sh_name,byteOrder);
   cvtEndian(shdr.sh_type,byteOrder);
   cvtEndian(shdr.sh_flags,byteOrder);
@@ -72,7 +72,7 @@ void cvtEndian(Elf32_Shdr &shdr, int byteOrder){
   cvtEndian(shdr.sh_entsize,byteOrder);
 }
 
-void cvtEndian(Elf32_Sym &sym, int byteOrder){
+void cvtEndian(Elf32_Sym &sym, int32_t byteOrder){
   cvtEndian(sym.st_name,byteOrder);
   cvtEndian(sym.st_value,byteOrder);
   cvtEndian(sym.st_size,byteOrder);
@@ -83,15 +83,15 @@ void cvtEndian(Elf32_Sym &sym, int byteOrder){
 
 void cvtEndianBig(Elf32_RegInfo &info){
   cvtEndianBig(info.ri_gprmask);
-  for(int i=0;i<4;i++)
+  for(int32_t i=0;i<4;i++)
     cvtEndianBig(info.ri_cprmask[i]);
   cvtEndianBig(info.ri_gp_value);
 }
 
-int  checkElfObject(const char *fname){
+int32_t  checkElfObject(const char *fname){
   char *myfname=(char *)(alloca(strlen(fname)+strlen(".Sesc")+1));
   strcpy(myfname,fname);
-  int fd=open(myfname,O_RDONLY);
+  int32_t fd=open(myfname,O_RDONLY);
   if(fd==-1){
     strcpy(myfname+strlen(fname),".Sesc");
     fd==open(myfname,O_RDONLY);
@@ -105,7 +105,7 @@ int  checkElfObject(const char *fname){
   char elfMag[]= {ELFMAG0, ELFMAG1, ELFMAG2, ELFMAG3 };
   if(memcmp(myElfHdr.e_ident,elfMag,sizeof(elfMag)))
     return ENOEXEC;
-  int byteOrder=0;
+  int32_t byteOrder=0;
   if(myElfHdr.e_ident[EI_DATA]==ELFDATA2MSB)
     byteOrder=__BIG_ENDIAN;
   else if(myElfHdr.e_ident[EI_DATA]==ELFDATA2LSB)
@@ -127,7 +127,7 @@ int  checkElfObject(const char *fname){
   }
   if(myElfHdr.e_type!=ET_EXEC)
     return ENOEXEC;
-  int mipsArch;
+  int32_t mipsArch;
   switch(myElfHdr.e_flags&EF_MIPS_ARCH){
   case EF_MIPS_ARCH_1: mipsArch=1; break;    
   case EF_MIPS_ARCH_2: mipsArch=2; break;
@@ -165,7 +165,7 @@ void loadElfObject(const char *fname, ThreadContext *threadContext){
   char elfMag[]= {ELFMAG0, ELFMAG1, ELFMAG2, ELFMAG3 };
   if(memcmp(myElfHdr.e_ident,elfMag,sizeof(elfMag)))
     fail("Not an ELF file: %s",myfname);
-  int byteOrder=0;
+  int32_t byteOrder=0;
   if(myElfHdr.e_ident[EI_DATA]==ELFDATA2MSB)
     byteOrder=__BIG_ENDIAN;
   else if(myElfHdr.e_ident[EI_DATA]==ELFDATA2LSB)
@@ -181,7 +181,7 @@ void loadElfObject(const char *fname, ThreadContext *threadContext){
   if(myElfHdr.e_type!=ET_EXEC)
     fail("Not an executable file %s",myfname);
   if(myElfHdr.e_machine==EM_MIPS){
-    int mipsArch;
+    int32_t mipsArch;
     switch(myElfHdr.e_flags&EF_MIPS_ARCH){
     case EF_MIPS_ARCH_1: mipsArch=1; break;    
     case EF_MIPS_ARCH_2: mipsArch=2; break;

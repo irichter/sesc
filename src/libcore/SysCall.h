@@ -87,22 +87,22 @@ class SysCallMunmap : public SysCall{
 
 #define MAX_FILENAME_LENGTH 64
 
-int conv_flags_to_native(int flags);
+int32_t conv_flags_to_native(int32_t flags);
 
 class SysCallFileIO : public SysCall{
  protected:
   struct OpenFileInfo{
     // Real file descriptor that corresponds to this file
-    int fdesc;
+    int32_t fdesc;
     // Flags with which it was open
-    int flags;
+    int32_t flags;
     // Mode (if any) with which it was open
     mode_t mode;
     // Actual name of the file
     char pathname[MAX_FILENAME_LENGTH];
     // Current offset in this file
     off_t offset;
-    OpenFileInfo(char *name, int fdesc, int flags, mode_t mode, off_t offset)
+    OpenFileInfo(char *name, int32_t fdesc, int32_t flags, mode_t mode, off_t offset)
       : fdesc(fdesc), flags(flags), mode(mode), offset(offset){
       I(strlen(name)<MAX_FILENAME_LENGTH);
       strcpy(pathname,name);
@@ -123,7 +123,7 @@ class SysCallFileIO : public SysCall{
 class SysCallOpen : public SysCallFileIO{
  private:
   // Simulated file descriptor for the opened file, -1 if open failed
-  int myFd;
+  int32_t myFd;
  public: 
   ID(SysCallOpen(void){type="SysCallOpen";});
   void exec(ThreadContext *context,icode_ptr picode);
@@ -132,7 +132,7 @@ class SysCallOpen : public SysCallFileIO{
 class SysCallClose : public SysCallFileIO{
  private:
   // Simulated file descriptor for the closed file, -1 if open failed
-  int myFd;
+  int32_t myFd;
   // Null if close fails, otherwise points to info needed to reopen the file
   OpenFileInfo *myInfo;
  public:
@@ -144,7 +144,7 @@ class SysCallClose : public SysCallFileIO{
 class SysCallRead : public SysCallFileIO {
  private:
   // Descriptor of the file to be read 
-  int myFd;
+  int32_t myFd;
   // Return value of call to read (no of bytes actualy read, -1 if error)
   ssize_t bytesRead;
   // Remember other params for debugging
@@ -159,7 +159,7 @@ class SysCallRead : public SysCallFileIO {
 class SysCallWrite : public SysCallFileIO {
  private:
   // Descriptor of the file to be written
-  int myFd;
+  int32_t myFd;
   // Return value of call to write (no of bytes actually written, -1 if error)
   ssize_t bytesWritten;
   // Buffered data for non-seekable devices

@@ -35,11 +35,11 @@ private:
 
   CacheType *cache;
 
-  typedef std::vector<unsigned int> dirEntryType;
+  typedef std::vector<uint32_t> dirEntryType;
 
   dirEntryType presenceBits;
 
-  static unsigned int linesPerEntry; // number of lines for each we are keeping presence info in a directory line
+  static uint32_t linesPerEntry; // number of lines for each we are keeping presence info in a directory line
   
   PAddr tag;
   bool invalid;
@@ -62,46 +62,46 @@ public:
 
   void invalidate();
 
-  void setBit(const unsigned int cacheId, const PAddr addr) {
+  void setBit(const uint32_t cacheId, const PAddr addr) {
     I(cacheId < 32);
-    unsigned int index = addr & (linesPerEntry - 1);
+    uint32_t index = addr & (linesPerEntry - 1);
     presenceBits[index] |= (1 << cacheId);
   }
 
-  void resetBit(const unsigned int cacheId, const PAddr addr) {
+  void resetBit(const uint32_t cacheId, const PAddr addr) {
     I(cacheId < 32);
-    unsigned int index = addr & (linesPerEntry - 1);
+    uint32_t index = addr & (linesPerEntry - 1);
     presenceBits[index] &= ~(1 << cacheId);
   }
 
   void setAllEntryBits() {
-    for(unsigned int i = 0; i < linesPerEntry; i++)
-      presenceBits[i] = (unsigned int) -1;
+    for(uint32_t i = 0; i < linesPerEntry; i++)
+      presenceBits[i] = (uint32_t) -1;
   }
 
   void setAllLineBits(const PAddr addr) {
-    unsigned int index = addr & (linesPerEntry - 1);
-    presenceBits[index] = (unsigned int) -1;
+    uint32_t index = addr & (linesPerEntry - 1);
+    presenceBits[index] = (uint32_t) -1;
   }
 
   void resetAllEntryBits() {
-    for(unsigned int i = 0; i < linesPerEntry; i++)
+    for(uint32_t i = 0; i < linesPerEntry; i++)
       presenceBits[i] = 0;
   }
   
   void resetAllLineBits(const PAddr addr) {
-    unsigned int index = addr & (linesPerEntry - 1);
+    uint32_t index = addr & (linesPerEntry - 1);
     presenceBits[index] = 0;
   }
 
-  bool isPresent(const unsigned int cacheId, const PAddr addr) {
+  bool isPresent(const uint32_t cacheId, const PAddr addr) {
     I(cacheId < 32);
-    unsigned int index = addr & (linesPerEntry - 1);
+    uint32_t index = addr & (linesPerEntry - 1);
     return (presenceBits[index] & (1 << cacheId));
   }
 
-  unsigned int whereIsPresent(const PAddr addr) {
-    unsigned int index = addr & (linesPerEntry - 1);
+  uint32_t whereIsPresent(const PAddr addr) {
+    uint32_t index = addr & (linesPerEntry - 1);
     return presenceBits[index];
   }
 

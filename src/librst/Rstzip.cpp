@@ -92,8 +92,8 @@ struct Rstzip_impl {
     }
   }
 
-  int getMajorVersion();
-  int getMinorVersion();
+  int32_t getMajorVersion();
+  int32_t getMinorVersion();
   const char * getVersionStr();
 
   void Log(uint64_t traceid);
@@ -104,7 +104,7 @@ struct Rstzip_impl {
   bool verbose;
   bool stats;
   bool done_logging;
-  int records_checked_for_traceid;
+  int32_t records_checked_for_traceid;
 
   struct rstzip3 * rz3obj;
   Rstzip2if * rz2obj;
@@ -112,7 +112,7 @@ struct Rstzip_impl {
 }; // struct Rstzip_impl
 
 
-int Rstzip_impl::getMajorVersion()
+int32_t Rstzip_impl::getMajorVersion()
 {
   switch(agent) {
   case rstzip1_agent:
@@ -125,12 +125,12 @@ int Rstzip_impl::getMajorVersion()
   default:
     return rz3obj->getMajorVersion();
   }
-} // int Rstzip::getMajorVersion()
+} // int32_t Rstzip::getMajorVersion()
 
 
 
 
-int Rstzip_impl::getMinorVersion()
+int32_t Rstzip_impl::getMinorVersion()
 {
   switch(agent) {
   case rstzip1_agent:
@@ -143,7 +143,7 @@ int Rstzip_impl::getMinorVersion()
   default:
     return rz3obj->getMinorVersion();
   }
-} // int Rstzip_impl::getMinorVersion()
+} // int32_t Rstzip_impl::getMinorVersion()
 
 
 
@@ -191,14 +191,14 @@ Rstzip::~Rstzip()
 } // Rstzip::~Rstzip()
 
 
-int Rstzip::getMajorVersion()
+int32_t Rstzip::getMajorVersion()
 {
   return impl->getMajorVersion();
 }
 
 
 
-int Rstzip::getMinorVersion()
+int32_t Rstzip::getMinorVersion()
 {
   return impl->getMinorVersion();
 }
@@ -213,7 +213,7 @@ const char * Rstzip::getVersionStr()
 
 
 
-int Rstzip::open(const char * filename, const char * mode, const char *opts)
+int32_t Rstzip::open(const char * filename, const char * mode, const char *opts)
 {
 
   if (filename != NULL) {
@@ -273,7 +273,7 @@ int Rstzip::open(const char * filename, const char * mode, const char *opts)
 
       // read the first 24 bytes to check version
       uint8_t b24[24];
-      int rv = gzread(gzf, b24, 24);
+      int32_t rv = gzread(gzf, b24, 24);
       if (rv != 24) {
         return RSTZIP_ERROR;
       }
@@ -281,7 +281,7 @@ int Rstzip::open(const char * filename, const char * mode, const char *opts)
 
       // check version string
       if ((b24[0] == 'R') && (b24[1] == 'Z')) {
-        int ver = b24[2]-'0';
+        int32_t ver = b24[2]-'0';
         if (ver == 3) {
           agent = Rstzip_impl::rstzip3_agent;
         } else if (ver == 2) {
@@ -307,7 +307,7 @@ int Rstzip::open(const char * filename, const char * mode, const char *opts)
         }
       } // RZ or uncompressed rstzip?
 
-      // at this point, we have either determined version information from the file, or it was specified using the option string.
+      // at this point32_t, we have either determined version information from the file, or it was specified using the option string.
       // if neither of these two cases is true, or if the two don't match, signal an error
       if (impl->agent == Rstzip_impl::agent_NIL) {
         if (agent == Rstzip_impl::agent_NIL) {
@@ -367,13 +367,13 @@ int Rstzip::open(const char * filename, const char * mode, const char *opts)
   } // compress/decompress?
 
   return RSTZIP_OK;
-} // int Rstzip::open(const char * filename, const char * mode, const char *obs)
+} // int32_t Rstzip::open(const char * filename, const char * mode, const char *obs)
 
 
 
 
 // the compress and decompress code also opens a connection to the archperf logging server
-int Rstzip::compress(rstf_unionT * rstbuf, int nrecs)
+int32_t Rstzip::compress(rstf_unionT * rstbuf, int32_t nrecs)
 {
   if (! impl->c_nd) {
     fprintf(stderr, "ERROR: Rstzip::compress() - cannot compress in \"r\" (decompress) mode\n");
@@ -381,18 +381,18 @@ int Rstzip::compress(rstf_unionT * rstbuf, int nrecs)
   }
 
   return impl->rz3obj->compress(rstbuf, nrecs);
-} // int Rstzip::compress(rstf_unionT * rstbuf, int nrecs)
+} // int32_t Rstzip::compress(rstf_unionT * rstbuf, int32_t nrecs)
 
 
 // the compress and decompress code also opens a connection to the archperf logging server
-int Rstzip::decompress(rstf_unionT * rstbuf, int nrecs)
+int32_t Rstzip::decompress(rstf_unionT * rstbuf, int32_t nrecs)
 {
   if (impl->c_nd) {
     fprintf(stderr, "ERROR: Rstzip::decompress() - cannot decompress in \"w\" (compress) mode\n");
     return 0;
   }
 
-  int rv;
+  int32_t rv;
   switch(impl->agent) {
   case Rstzip_impl::rstzip3_agent:
     rv = impl->rz3obj->decompress(rstbuf, nrecs);
@@ -416,8 +416,8 @@ int Rstzip::decompress(rstf_unionT * rstbuf, int nrecs)
     // search for trace id string record within the first 16 records. Ideally this must be the 2nd or 3rd record subject to trace spec
     // the trace id record is a 23-byte string with the syntax:
     // AADTraceID<id12>\0 where id12 is a 12-byte hex string.
-    // thus, id12 represents a 48-bit unsigned integer trace id number.
-    int i = 0;
+    // thus, id12 represents a 48-bit uint32_teger trace id number.
+    int32_t i = 0;
     while((impl->records_checked_for_traceid < 16) && (i < rv)) {
       if ( (rstbuf[i].proto.rtype == STRDESC_T) && 
            (rstbuf[i].string.string[0] != 0) &&
@@ -435,7 +435,7 @@ int Rstzip::decompress(rstf_unionT * rstbuf, int nrecs)
   }
 
   return rv;
-} // int Rstzip::decompress(rstf_unionT * rstbuf, int nrecs)
+} // int32_t Rstzip::decompress(rstf_unionT * rstbuf, int32_t nrecs)
 
 
 void Rstzip::close()
@@ -469,12 +469,12 @@ Rstzip * rzMakeRstzip()
   return new Rstzip;
 }
 
-int rzGetMajorVersion(Rstzip* rz)
+int32_t rzGetMajorVersion(Rstzip* rz)
 {
   return rz->getMajorVersion();
 }
 
-int GetMinorVersion(Rstzip * rz)
+int32_t GetMinorVersion(Rstzip * rz)
 {
   return rz->getMinorVersion();
 }
@@ -485,17 +485,17 @@ const char * rzGetVersionStr(Rstzip * rz)
 }
 
 
-int rzOpen(Rstzip * rz, const char * file, const char * md, const char * options)
+int32_t rzOpen(Rstzip * rz, const char * file, const char * md, const char * options)
 {
   return rz->open(file, md, options);
 }
 
-int rzCompress(Rstzip * rz, rstf_unionT * rstbuf, int nrecs)
+int32_t rzCompress(Rstzip * rz, rstf_unionT * rstbuf, int32_t nrecs)
 {
   return rz->compress(rstbuf, nrecs);
 }
 
-int rzDecompress(Rstzip * rz, rstf_unionT * rstbuf, int nrecs)
+int32_t rzDecompress(Rstzip * rz, rstf_unionT * rstbuf, int32_t nrecs)
 {
   return rz->decompress(rstbuf, nrecs);
 }

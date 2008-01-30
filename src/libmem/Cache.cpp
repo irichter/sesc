@@ -85,7 +85,7 @@ Cache::Cache(MemorySystem *gms, const char *section, const char *name)
   else
     nBanks = 1;
 
-  int nMSHRsharers = 1;
+  int32_t nMSHRsharers = 1;
   if(SescConf->checkInt(section, "nMSHRsharers"))
     nMSHRsharers = SescConf->getInt(section, "nMSHRsharers");
 
@@ -100,7 +100,7 @@ Cache::Cache(MemorySystem *gms, const char *section, const char *name)
   bankMSHRs[0] = MSHR<PAddr,Cache>::create(tmpName, mshrSection);
   nAccesses[0] = new GStatsCntr("%s_B%d:nAccesses", name, 0);
   
-  for(int b = 1; b < nBanks; b++) {
+  for(int32_t b = 1; b < nBanks; b++) {
     sprintf(tmpName, "%s_B%d", name, b);
     cacheBanks[b] = CacheType::create(section, "", tmpName);
 
@@ -122,15 +122,15 @@ Cache::Cache(MemorySystem *gms, const char *section, const char *name)
     const char *cName = SescConf->getCharPtr(section,"l2cache");
     Cache *temp = dynamic_cast<Cache*>(gms->searchMemoryObj(true,cName));
 
-    for(int b = 0; b < nBanks; b++) {
+    for(int32_t b = 0; b < nBanks; b++) {
       bankMSHRs[b]->setLowerCache(temp);
     }
   }
 
-  int cacheNumPorts = SescConf->getInt(section, k_numPorts);
-  int cachePortOccp = SescConf->getInt(section, k_portOccp);
-  int bankNumPorts = cacheNumPorts;
-  int bankPortOccp = cachePortOccp;
+  int32_t cacheNumPorts = SescConf->getInt(section, k_numPorts);
+  int32_t cachePortOccp = SescConf->getInt(section, k_portOccp);
+  int32_t bankNumPorts = cacheNumPorts;
+  int32_t bankPortOccp = cachePortOccp;
 
   if(SescConf->checkInt(section, "bankNumPorts")) {
     bankNumPorts = SescConf->getInt(section, "bankNumPorts");
@@ -139,8 +139,8 @@ Cache::Cache(MemorySystem *gms, const char *section, const char *name)
     bankPortOccp = SescConf->getInt(section, "bankPortOccp");
   }
 
-  int mshrNumPorts = bankNumPorts;
-  int mshrPortOccp = bankPortOccp;
+  int32_t mshrNumPorts = bankNumPorts;
+  int32_t mshrPortOccp = bankPortOccp;
 
   if(SescConf->checkInt(section, "mshrNumPorts")) {
     mshrNumPorts = SescConf->getInt(section, "mshrNumPorts");
@@ -153,7 +153,7 @@ Cache::Cache(MemorySystem *gms, const char *section, const char *name)
   bankPorts = new PortGeneric *[nBanks];
   mshrPorts = new PortGeneric *[nBanks];
 
-  for(int b = 0; b < nBanks; b++) {
+  for(int32_t b = 0; b < nBanks; b++) {
     sprintf(tmpName, "%s_B%d", name, b);
     bankPorts[b] = PortGeneric::create(tmpName, bankNumPorts, bankPortOccp);
     if((b % nMSHRsharers) == 0) {
@@ -204,7 +204,7 @@ Cache::Cache(MemorySystem *gms, const char *section, const char *name)
 Cache::~Cache()
 {
   delete [] nAccesses;
-  for(int b = 0; b < nBanks; b++)
+  for(int32_t b = 0; b < nBanks; b++)
     cacheBanks[b]->destroy();
   delete [] cacheBanks;
   delete [] bankMSHRs;
@@ -214,17 +214,6 @@ Cache::~Cache()
 
 void Cache::access(MemRequest *mreq) 
 {
-  I(mreq->getPAddr() > 1024 || mreq->getPAddr() == 0);
-  // this is printed when an iFetch event for an inexistent instruction
-  // is performed. no need to print it, it is annoying
-  //  GMSG(mreq->getPAddr() <= 1024
-  //     ,"mreq dinst=%p paddr=0x%x vaddr=0x%x memOp=%d ignored"
-  //     ,mreq->getDInst()
-  //     ,(uint) mreq->getPAddr()
-  //     ,(uint) mreq->getVaddr()
-  //     ,mreq->getMemOperation()
-  //     );
-
   mreq->setClockStamp((Time_t) - 1);
   if(mreq->getPAddr() <= 1024) { // TODO: need to implement support for fences
     mreq->goUp(0); 
@@ -450,8 +439,8 @@ void Cache::returnAccess(MemRequest *mreq)
 
   // extra BW usage of MSHR for each pending write
   // this does NOT hold for WT caches, so it is under an ifdef for now
-  int nPendWrites = getBankMSHR(addr)->getUsedWrites(addr);
-  for(int iw = 0; iw < nPendWrites; iw++) {
+  int32_t nPendWrites = getBankMSHR(addr)->getUsedWrites(addr);
+  for(int32_t iw = 0; iw < nPendWrites; iw++) {
     mshrBWHist.inc();
     nextMSHRSlot(addr);
   }
@@ -486,14 +475,14 @@ void Cache::preReturnAccess(MemRequest *mreq)
     }
   }
 
-  int nPendReads = getBankMSHR(addr)->getUsedReads(addr);
+  int32_t nPendReads = getBankMSHR(addr)->getUsedReads(addr);
 
 #ifdef MSHR_BWSTATS
   mshrBWHist.inc();
 
   // extra BW usage of MSHR for each 4 pending reads
   // this does NOT hold for WT caches, so it is under an ifdef for now
-  for(int ir = 0; ir < (nPendReads/4); ir++) {
+  for(int32_t ir = 0; ir < (nPendReads/4); ir++) {
     mshrBWHist.inc();
     nextMSHRSlot(addr);
   }
@@ -611,11 +600,11 @@ bool Cache::canAcceptLoad(PAddr addr)
 
 bool Cache::isInCache(PAddr addr) const
 {
-  unsigned int index = getCacheBank(addr)->calcIndex4Addr(addr);
-  unsigned int tag = getCacheBank(addr)->calcTag(addr);
+  uint32_t index = getCacheBank(addr)->calcIndex4Addr(addr);
+  uint32_t tag = getCacheBank(addr)->calcTag(addr);
 
   // check the cache not affecting the LRU state
-  for(unsigned int i = 0; i < cacheBanks[0]->getAssoc(); i++) {
+  for(uint32_t i = 0; i < cacheBanks[0]->getAssoc(); i++) {
     Line *l = getCacheBank(addr)->getPLine(index+i);
     if(l->getTag() == tag)
       return true;
@@ -652,7 +641,7 @@ void Cache::doInvalidate(PAddr addr, ushort size)
      pendInvTable.erase(addr);
   }
 
-  signed int leftSize = size; // use signed because cacheline can be bigger
+  int32_t leftSize = size; // use signed because cacheline can be bigger
   while (leftSize > 0) {
     Line *l = getCacheBank(addr)->readLine(addr);
     
@@ -996,10 +985,10 @@ void SVCache::preReturnAccess(MemRequest *mreq)
 
   if (mreq->getMemOperation() != MemPush) {
     // checking if the whole set is locked. 
-    unsigned int index = getCacheBank(addr)->calcIndex4Addr(addr);
+    uint32_t index = getCacheBank(addr)->calcIndex4Addr(addr);
     bool allLocked = true;
     Line *lastLine = 0;
-    for(unsigned int i = 0; i < getCacheBank(addr)->getAssoc(); i++) {
+    for(uint32_t i = 0; i < getCacheBank(addr)->getAssoc(); i++) {
       Line *l = getCacheBank(addr)->getPLine(index+i);
       if(l->isValid() && l->isSpec()) {
         I(l->isLocked());
@@ -1020,10 +1009,10 @@ void SVCache::preReturnAccess(MemRequest *mreq)
 
   WBCache::preReturnAccess(mreq);
 }
-void SVCache::ckpRestart(unsigned int ckpId)
+void SVCache::ckpRestart(uint32_t ckpId)
 {
-  for(int b = 0; b < nBanks; b++) {
-         for(uint i = 0; i < cacheBanks[b]->getNumLines(); i++) {
+  for(int32_t b = 0; b < nBanks; b++) {
+         for(uint32_t i = 0; i < cacheBanks[b]->getNumLines(); i++) {
       Line *l = cacheBanks[b]->getPLine(i);
       if(l->isValid() && l->isSpec()) {
         I(l->isLocked());
@@ -1036,10 +1025,10 @@ void SVCache::ckpRestart(unsigned int ckpId)
   }
 }
 
-void SVCache::ckpCommit(unsigned int ckpId)
+void SVCache::ckpCommit(uint32_t ckpId)
 {
-  for(int b = 0; b < nBanks; b++) {
-         for(uint i = 0; i < cacheBanks[b]->getNumLines(); i++) {
+  for(int32_t b = 0; b < nBanks; b++) {
+         for(uint32_t i = 0; i < cacheBanks[b]->getNumLines(); i++) {
       Line *l = cacheBanks[b]->getPLine(i);
       if(l->isValid() && l->isSpec()) {
         I(l->isLocked());

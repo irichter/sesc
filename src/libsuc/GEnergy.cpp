@@ -45,12 +45,12 @@ void GStatsEnergyNull::inc()
 {
 }
 
-void GStatsEnergyNull::add(int v)
+void GStatsEnergyNull::add(int32_t v)
 {
 }
 
 GStatsEnergy::GStatsEnergy(const char *field, const char *blk
-			   ,int procId, PowerGroup grp
+			   ,int32_t procId, PowerGroup grp
 			   ,double energy)
   :StepEnergy(energy)
   ,steps(0)
@@ -73,9 +73,9 @@ GStatsEnergy::GStatsEnergy(const char *field, const char *blk
 
 
 #ifdef SESC_THERM
-void GStatsEnergy::setupDump(int procId) 
+void GStatsEnergy::setupDump(int32_t procId) 
 {
-  I((unsigned int)procId < eProcStore.size());
+  I((uint32_t)procId < eProcStore.size());
   
   for (size_t i = 0; i < eProcStore[procId].size(); i++) {
     GStatsEnergy *e = eProcStore[procId][i];
@@ -95,9 +95,9 @@ void GStatsEnergy::setupDump(int procId)
 #endif
 }
 
-void GStatsEnergy::printDump(int procId) 
+void GStatsEnergy::printDump(int32_t procId) 
 {
-  I((unsigned int)procId < eProcStore.size());
+  I((uint32_t)procId < eProcStore.size());
 
   // dump values
   for(size_t i=0;i<eProcStore[procId].size();i++) {
@@ -118,13 +118,13 @@ void GStatsEnergy::reportValueDump() const
 }
 #endif
 
-void GStatsEnergy::dump(int procId)
+void GStatsEnergy::dump(int32_t procId)
 {
   double pVals[MaxPowerGroup];
-  for(int c=0; c < MaxPowerGroup; c++) 
+  for(int32_t c=0; c < MaxPowerGroup; c++) 
     pVals[c] = 0.0;
    
-  I((unsigned int)procId < eProcStore.size());
+  I((uint32_t)procId < eProcStore.size());
 
   // calculate the values
   for(size_t i=0;i<eProcStore[procId].size();i++) {
@@ -134,14 +134,14 @@ void GStatsEnergy::dump(int procId)
   }
 
   // dump the values
-  for(int j=1; j < ClockPower;j++)
+  for(int32_t j=1; j < ClockPower;j++)
     Report::field("Proc(%d):%s=%g",procId, EnergyStore::getStr(static_cast<PowerGroup>(j)), pVals[j]);
 }
 
 void GStatsEnergy::dump()
 {
   double pVals[MaxPowerGroup];
-  for(int i=0; i < MaxPowerGroup; i++) 
+  for(int32_t i=0; i < MaxPowerGroup; i++) 
     pVals[i] = 0.0;
 
   // calculate the values
@@ -153,9 +153,9 @@ void GStatsEnergy::dump()
   }
 
   // dump the values
-  for(int j=1; j < MaxPowerGroup;j++)
+  for(int32_t j=1; j < MaxPowerGroup;j++)
     Report::field("PowerMgr:%s=%g",EnergyStore::getStr(static_cast<PowerGroup>(j)),pVals[j]);
-  for(int j=1; j < MaxPowerGroup;j++)
+  for(int32_t j=1; j < MaxPowerGroup;j++)
     Report::field("EnergyMgr:%s=%g",EnergyStore::getEnergyStr(static_cast<PowerGroup>(j)),EnergyMgr::ptoe(pVals[j]));
 
 }
@@ -165,7 +165,7 @@ double GStatsEnergy::getTotalEnergy()
   double totalEnergy = 0.0;
 
   double pVals[MaxPowerGroup];
-  for(int i=0; i < MaxPowerGroup; i++) 
+  for(int32_t i=0; i < MaxPowerGroup; i++) 
     pVals[i] = 0.0;
 
   // calculate the values
@@ -177,7 +177,7 @@ double GStatsEnergy::getTotalEnergy()
   }
 
   // dump the values
-  for(int j=1; j < MaxPowerGroup;j++)
+  for(int32_t j=1; j < MaxPowerGroup;j++)
     totalEnergy += EnergyMgr::ptoe(pVals[j]);
 
   // printf("E:%f\n", totalEnergy);
@@ -190,11 +190,11 @@ void GStatsEnergy::reportValue() const
 }
 
 
-double GStatsEnergy::getTotalProc(int procId)
+double GStatsEnergy::getTotalProc(int32_t procId)
 {
   double total=0;
 
-  I((unsigned int)procId < eProcStore.size());
+  I((uint32_t)procId < eProcStore.size());
 
   for(size_t i=0;i<eProcStore[procId].size();i++) {
     GStatsEnergy *e = eProcStore[procId][i];
@@ -232,7 +232,7 @@ void GStatsEnergy::inc()
   steps++;
 }
 
-void GStatsEnergy::add(int v)
+void GStatsEnergy::add(int32_t v)
 {
   I(v >= 0);
   steps += v;
@@ -242,7 +242,7 @@ void GStatsEnergy::add(int v)
   *           GStatsEnergyCGBase
   ****************************************************/
 
-GStatsEnergyCGBase::GStatsEnergyCGBase(const char* str,int procId)
+GStatsEnergyCGBase::GStatsEnergyCGBase(const char* str,int32_t procId)
   : lastCycleUsed(0) 
   ,numCycles(0)
 {
@@ -263,7 +263,7 @@ void GStatsEnergyCGBase::use()
   ****************************************************/
 GStatsEnergyCG::GStatsEnergyCG(const char *name, 
 			       const char* block, 
-			       int procId, 
+			       int32_t procId, 
 			       PowerGroup grp, 
 			       double energy, 
 			       GStatsEnergyCGBase *b)
@@ -289,7 +289,7 @@ void GStatsEnergyCG::inc()
   eb->use();
 }
 
-void GStatsEnergyCG::add(int v)
+void GStatsEnergyCG::add(int32_t v)
 {
   I(v >= 0);
   steps += v;
@@ -302,12 +302,12 @@ EnergyStore::EnergyStore()
   proc = SescConf->getCharPtr("","cpucore",0) ;
 }
 
-double EnergyStore::get(const char *name, int procId)
+double EnergyStore::get(const char *name, int32_t procId)
 {
   return get(proc, name, procId);
 }
 
-double EnergyStore::get(const char *block, const char *name, int procId)
+double EnergyStore::get(const char *block, const char *name, int32_t procId)
 {
   return SescConf->getDouble(block, name);
 }

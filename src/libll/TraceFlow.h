@@ -53,7 +53,7 @@ class TraceFlow : public GFlow {
   
  protected:
  public:
-  TraceFlow(int cId, int i, GMemorySystem *gms);
+  TraceFlow(int32_t cId, int32_t i, GMemorySystem *gms);
 
   static void setTraceFile(const char* tf) { traceFile = strdup(tf); }
   static const char* getTraceFile() { return traceFile; }
@@ -62,22 +62,22 @@ class TraceFlow : public GFlow {
     return nextPC;
   }
 
-  void addEvent(EventType e, CallbackBase *cb, int addr) {
+  void addEvent(EventType e, CallbackBase *cb, int32_t addr) {
     I(0);
   }
         
   // context-switch not supported in TraceFlow
   ThreadContext *getThreadContext(void) { I(0); return 0; }
-  void saveThreadContext(int pid) { I(0); }
-  void loadThreadContext(int pid) { I(0); }
+  void saveThreadContext(int32_t pid) { I(0); }
+  void loadThreadContext(int32_t pid) { I(0); }
   icode_ptr getInstructionPointer(void) { I(0); return 0; }
   void setInstructionPointer(icode_ptr picode) { I(0); }
-  void switchIn(int i)  { I(0); }
-  void switchOut(int i) { I(0); }
+  void switchIn(int32_t i)  { I(0); }
+  void switchOut(int32_t i) { I(0); }
 
   // lets make the pid the same as the processor id
   // ideally we shold decouple Pid from the flow and sesc from ossim... but fine.
-  int currentPid(void) { return cpuId; }
+  int32_t currentPid(void) { return cpuId; }
 
   DInst *executePC();
 

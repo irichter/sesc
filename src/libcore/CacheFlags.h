@@ -4,25 +4,25 @@
 namespace tls{
 	class Epoch;
 	
-	typedef long int ClockValue;
+	typedef long int32_t ClockValue;
 	//Template disabled because of vector object container problems
-	//template <unsigned int blksize=32, unsigned int wordsize=4>
+	//template <uint32_t blksize=32, uint32_t wordsize=4>
 	class CacheFlags
 	{
-	  static const int blksize=32;
-	  static const int wordsize=4;
+	  static const int32_t blksize=32;
+	  static const int32_t wordsize=4;
 	  protected:
-	   unsigned short int wmFlags[blksize/wordsize];
-	   unsigned short int erFlags[blksize/wordsize];
-	   unsigned char oeFlags;
+	   uint16_t int32_t wmFlags[blksize/wordsize];
+	   uint16_t int32_t erFlags[blksize/wordsize];
+	   uint8_t oeFlags;
 	   Epoch *epoch; 
 	public:
 		CacheFlags() 
 		{
-			int allocsize=(blksize/wordsize);
+			int32_t allocsize=(blksize/wordsize);
 			epoch=0;
 			oeFlags=0;
-			for (int i=0;i<allocsize;i++)
+			for (int32_t i=0;i<allocsize;i++)
 			{
 				wmFlags[i]=0;
 				erFlags[i]=0;
@@ -31,10 +31,10 @@ namespace tls{
 		//Copy Constructor
 		CacheFlags(const CacheFlags &cp)
 		{
-			int allocsize=(blksize/wordsize);
+			int32_t allocsize=(blksize/wordsize);
 			epoch=cp.getEpoch();
 			oeFlags=cp.getOE();
-			for (int i=0;i<allocsize;i++)
+			for (int32_t i=0;i<allocsize;i++)
 			{
 				wmFlags[i]=cp.getWordWM(i);
 				erFlags[i]=cp.getWordER(i);
@@ -42,10 +42,10 @@ namespace tls{
 		}
 		CacheFlags& operator=(const CacheFlags& cf) 
 		{
-			int allocsize=(blksize/wordsize);
+			int32_t allocsize=(blksize/wordsize);
 			epoch=cf.getEpoch();
 			oeFlags=cf.getOE();
-			for (int i=0;i<allocsize;i++)
+			for (int32_t i=0;i<allocsize;i++)
 			{
 				wmFlags[i]=cf.getWordWM(i);
 				erFlags[i]=cf.getWordER(i);
@@ -54,10 +54,10 @@ namespace tls{
 		}
 		bool operator==(const CacheFlags& cf) const
 		{
-			int allocsize=(blksize/wordsize);
+			int32_t allocsize=(blksize/wordsize);
 			if (epoch!=cf.getEpoch() || oeFlags!=cf.getOE())
 				return false;
-			for (int i=0;i<allocsize;i++)
+			for (int32_t i=0;i<allocsize;i++)
 			{
 				if (wmFlags[i]!=cf.getWordWM(i) ||erFlags[i]!=cf.getWordER(i))
 					return false;
@@ -66,10 +66,10 @@ namespace tls{
 		}
 		bool operator!=(const CacheFlags& cf) const
 		{
-			int allocsize=(blksize/wordsize);
+			int32_t allocsize=(blksize/wordsize);
 			if (epoch!=cf.getEpoch() || oeFlags!=cf.getOE())
 				return true;
-			for (int i=0;i<allocsize;i++)
+			for (int32_t i=0;i<allocsize;i++)
 			{
 				if (wmFlags[i]!=cf.getWordWM(i) ||erFlags[i]!=cf.getWordER(i))
 					return true;
@@ -85,19 +85,19 @@ namespace tls{
 			I(myepoch);
 			epoch=myepoch;
 			}
-		void setWordER(long int pos)
+		void setWordER(long int32_t pos)
 		{
 			//pos is assumed to be byte offset from 1st byte of line
-			long int pos1=pos/(long)wordsize;
+			long int32_t pos1=pos/(long)wordsize;
 			if (wmFlags[pos1]!=1)
 			{
 				erFlags[pos1]=1;
 			}
 		}
 		
-		void setWordWM(long int pos)
+		void setWordWM(long int32_t pos)
 		{
-			long int pos1=pos/(long)wordsize;
+			long int32_t pos1=pos/(long)wordsize;
 			wmFlags[pos]=1;
 		}
 		
@@ -112,19 +112,19 @@ namespace tls{
 			oeFlags=0;
 		}
 		
-		unsigned int getWordER(int pos) const
+		uint32_t getWordER(int32_t pos) const
 		{
-			long int pos1=pos/(long)wordsize;
+			long int32_t pos1=pos/(long)wordsize;
 			return  erFlags[pos1];
 		}
 		
-		unsigned int getWordWM(int pos) const
+		uint32_t getWordWM(int32_t pos) const
 		{
-			long int pos1=pos/(long)wordsize;
+			long int32_t pos1=pos/(long)wordsize;
 			return wmFlags[pos1];
 		}
 		
-		unsigned int getOE(void) const
+		uint32_t getOE(void) const
 		{
 			return oeFlags;
 		}

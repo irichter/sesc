@@ -89,7 +89,7 @@ void AlwaysPrefetch::access(MemRequest *mreq)
 
 void AlwaysPrefetch::read(MemRequest *mreq)
 {
-  uint paddr = mreq->getPAddr() & defaultMask;
+  uint32_t paddr = mreq->getPAddr() & defaultMask;
   bLine *l = buff->readLine(paddr);
 
   if(l) { //hit
@@ -130,7 +130,7 @@ void AlwaysPrefetch::read(MemRequest *mreq)
 
 void AlwaysPrefetch::prefetch(PAddr prefAddr, Time_t lat)
 {
-  uint paddr = prefAddr & defaultMask;
+  uint32_t paddr = prefAddr & defaultMask;
     if(!buff->readLine(paddr)) { // it is not in the buff
       penFetchSet::iterator it = pendingFetches.find(prefAddr);
       if(it == pendingFetches.end()) {
@@ -148,7 +148,7 @@ void AlwaysPrefetch::prefetch(PAddr prefAddr, Time_t lat)
 
 void AlwaysPrefetch::returnAccess(MemRequest *mreq)
 {
-  uint paddr = mreq->getPAddr();
+  uint32_t paddr = mreq->getPAddr();
   LOG("NLAP: returnAccess [%08lx]", paddr);
   mreq->goUp(0);
 }
@@ -169,7 +169,7 @@ Time_t AlwaysPrefetch::getNextFreeCycle() const
 
 void AlwaysPrefetch::processAck(PAddr addr)
 {
-  uint paddr = addr & defaultMask;
+  uint32_t paddr = addr & defaultMask;
 
   penFetchSet::iterator itF = pendingFetches.find(paddr);
   if(itF == pendingFetches.end()) 

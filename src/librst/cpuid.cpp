@@ -23,8 +23,8 @@
 
 #include "cpuid.h"
 
-int getRstCpuID(rstf_unionT* rst) {
-  int cpuid = -1;
+int32_t getRstCpuID(rstf_unionT* rst) {
+  int32_t cpuid = -1;
 
   switch (rst->proto.rtype) {
   case INSTR_T:
@@ -59,7 +59,7 @@ int getRstCpuID(rstf_unionT* rst) {
 }
 
 // use the set cpuid function from rstf.h instead of accessing the cpuid field directly
-rstf_unionT* setRstCpuID(rstf_unionT* rst, int cpuid) {
+rstf_unionT* setRstCpuID(rstf_unionT* rst, int32_t cpuid) {
   switch (rst->proto.rtype) {
   case INSTR_T:
     // rst->instr.cpuid = cpuid;

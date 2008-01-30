@@ -26,7 +26,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "GMemorySystem.h"
 
 ushort GMemorySystem::Log2PageSize=0;
-unsigned int GMemorySystem::PageMask;
+uint32_t GMemorySystem::PageMask;
 
 MemoryObjContainer GMemorySystem::sharedMemoryObjContainer;
 GMemorySystem::StrCounterType  GMemorySystem::usedNames;
@@ -85,7 +85,7 @@ void MemoryObjContainer::clear()
 //////////////////////////////////////////////
 // GMemorySystem
 
-GMemorySystem::GMemorySystem(int processorId) 
+GMemorySystem::GMemorySystem(int32_t processorId) 
   :Id(processorId) 
 {
   localMemoryObjContainer = new MemoryObjContainer();
@@ -94,7 +94,7 @@ GMemorySystem::GMemorySystem(int processorId)
     SescConf->isPower2("", "pageSize");
     SescConf->isGT("", "pageSize", 2048);
 
-	 uint page_size = SescConf->getInt("", "pageSize");
+	 uint32_t page_size = SescConf->getInt("", "pageSize");
     Log2PageSize = log2i(page_size);
     PageMask = (1 << Log2PageSize) - 1;
   }
@@ -163,7 +163,7 @@ void GMemorySystem::buildMemorySystem()
 
 char *GMemorySystem::buildUniqueName(const char *device_type)
 { 
-  int num;
+  int32_t num;
 
   StrCounterType::iterator it = usedNames.find(device_type);
   if (it == usedNames.end()) {
@@ -181,7 +181,7 @@ char *GMemorySystem::buildUniqueName(const char *device_type)
   return ret;
 }
 
-char *GMemorySystem::privatizeDeviceName(char *given_name, int num)
+char *GMemorySystem::privatizeDeviceName(char *given_name, int32_t num)
 { 
   char *ret=new char[strlen(given_name) + 8 + (int)log10((float)num+10)];
 
@@ -231,13 +231,13 @@ MemObj *GMemorySystem::declareMemoryObj(const char *block, const char *field)
     } else if (strcasecmp(vPars[2], "sharedBy") == 0) {
 
       I(vPars.size() == 4);
-      int sharedBy = atoi(vPars[3]);
+      int32_t sharedBy = atoi(vPars[3]);
       delete[] vPars[3];
       GMSG(sharedBy <= 0,
 	   "SharedBy should be bigger than zero (field %s)",
 	   device_name);
 
-      int nId = Id / sharedBy;
+      int32_t nId = Id / sharedBy;
       device_name = privatizeDeviceName(device_name, nId);
       shared = true;
     }
@@ -290,7 +290,7 @@ MemObj *GMemorySystem::declareMemoryObj(const char *block, const char *field)
   return newMem;
 }
 
-int GMemorySystem::getId() const
+int32_t GMemorySystem::getId() const
 { 
   return Id;
 }
@@ -310,7 +310,7 @@ GMemoryOS *GMemorySystem::getMemoryOS() const
   return memoryOS;
 }
 
-DummyMemorySystem::DummyMemorySystem(int id) 
+DummyMemorySystem::DummyMemorySystem(int32_t id) 
   : GMemorySystem(id) 
 {
   // Do nothing

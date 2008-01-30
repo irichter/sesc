@@ -66,8 +66,8 @@ class HVersionDomain {
   static HVersionDomain *create();
   static void tryPropagateSafeTokenAll();
 
-  static int getNDomains() { return vdVec.size(); }
-  static HVersionDomain* getVDomain(int id) { return vdVec[id]; }
+  static int32_t getNDomains() { return vdVec.size(); }
+  static HVersionDomain* getVDomain(int32_t id) { return vdVec[id]; }
 
   void setMemBufferDomain(MemBufferDomain *m) {
     I(m);
@@ -98,7 +98,7 @@ class HVersion {
     static GStatsCntr **correct;
     static GStatsCntr **incorrect;
     
-	 typedef unsigned int PredEntryTag;
+	 typedef uint32_t PredEntryTag;
     
     class PredEntry {
     private:
@@ -140,7 +140,7 @@ class HVersion {
   public:
     static void boot();
     static void executed(Pid_t pid, PAddr addr, size_t nChild);
-	 static int predict(Pid_t pid, PAddr addr);
+	 static int32_t predict(Pid_t pid, PAddr addr);
     static bool deactivated() { return nChildMax == 0; }
   };
 
@@ -155,14 +155,14 @@ class HVersion {
   /************* Instance Data ***************/
 
 #ifdef TS_TIMELINE
-  static int gID;
-  int id;
+  static int32_t gID;
+  int32_t id;
 #endif
 
   size_t nChild;
 
   // A node can be duplicated.
-  int nUsers;
+  int32_t nUsers;
 
   HVersion *next;
   HVersion *prev;
@@ -184,7 +184,7 @@ class HVersion {
 		 // still needs to be enforced)
   bool killed;
 
-  int nOutsReqs;  // both outs instructions and mem requests
+  int32_t nOutsReqs;  // both outs instructions and mem requests
 
 
   void shiftAllVersions();
@@ -224,9 +224,9 @@ class HVersion {
   }
 
 #ifdef TS_TIMELINE
-  int getId() const { return id; }
+  int32_t getId() const { return id; }
 #else
-  int getId() const { return 0; }
+  int32_t getId() const { return 0; }
 #endif
   HVersion *duplicate() {
     nUsers++;
@@ -248,7 +248,7 @@ class HVersion {
   // Safe token can not be propagate while previous instructions have
   // hasOutsReqs()
   bool hasOutsReqs()  const { return (nOutsReqs > 0); }
-  int  getnOutsReqs() const { return nOutsReqs; }
+  int32_t  getnOutsReqs() const { return nOutsReqs; }
   void incOutsReqs() { nOutsReqs++; }
   void decOutsReqs();
 
@@ -310,7 +310,7 @@ class HVersion {
   void dump(const char *str, bool shortVersion = false) const;
   void dumpAll() const;
 
-  int  getPrio() const { 
+  int32_t  getPrio() const { 
     I(vDomain->oldest);
     return (int)(base - vDomain->oldest->base);
   }

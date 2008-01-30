@@ -40,7 +40,7 @@ protected:
   GStatsEnergy *busEnergy;
 #endif
 
-  typedef HASH_MAP<MemRequest *, int, SMPMemReqHashFunc> PendReqsTable;
+  typedef HASH_MAP<MemRequest *, int32_t, SMPMemReqHashFunc> PendReqsTable;
 
   PendReqsTable pendReqsTable;
 

@@ -8,21 +8,21 @@
 #include "pool.h"
 
 class DummyObjTest {
-  int c;
+  int32_t c;
   void *a;
   char x;
 public:
   char get() const { return c+x;
   };
   
-  void put(int c_, char x_) {
+  void put(int32_t c_, char x_) {
     c = c_;
     x = c_;
   };
 };
 
 
-int main()
+int32_t main()
 {
   pool<DummyObjTest> pool1(16);
 
@@ -35,7 +35,7 @@ int main()
   timeval stTime;
   gettimeofday(&stTime, 0);
   
-  for(int i=0;i<612333;i++) {
+  for(int32_t i=0;i<612333;i++) {
     for(char j=0;j<12;j++ ){
       DummyObjTest *o = pool1.out();
       pooled++;
@@ -51,7 +51,7 @@ int main()
     }
   }
 
-  for(int i=0;i<752333;i++) {
+  for(int32_t i=0;i<752333;i++) {
     for(char j=0;j<20;j++ ){
       DummyObjTest *o = pool1.out();
       pooled++;
@@ -67,7 +67,7 @@ int main()
     }
   }
 
-  for(int i=0;i<20552333;i++) {
+  for(int32_t i=0;i<20552333;i++) {
     DummyObjTest *o = pool1.out();
     pooled++;
     o->put(i-1952333,2);

@@ -88,7 +88,7 @@ void InterConnection::registerProtocol(ProtocolCBBase *pcb
   routers[rID]->registerProtocol(pcb,pID,PMessage::getUniqueProtID(msgType,netID));
 }
 
-unsigned int InterConnection::getNextFreeRouter(const char *section) 
+uint32_t InterConnection::getNextFreeRouter(const char *section) 
 {
   ValHash::iterator it = routersCtr.find(section);
   
@@ -150,7 +150,7 @@ void InterConnection::updateAvgMsgLatency(Time_t launchTime)
 class TestMessage : public Message {
   void garbageCollect();
   void trace(const char *format,...) {};
-  int getUniqueProtID() const {return 0;}
+  int32_t getUniqueProtID() const {return 0;}
 };
 pool<TestMessage> tmpool;
 

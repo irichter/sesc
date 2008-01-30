@@ -33,7 +33,7 @@ private:
 
   CacheType *cache;
 
-  unsigned int corrShift; // if info can be kept in less than 1 byte 
+  uint32_t corrShift; // if info can be kept in less than 1 byte 
                           // (only 2 and 4 bits allowed), there needs 
                           // to be corrections in the addressing 
                           // (cache granularity is 1 byte)
@@ -45,22 +45,22 @@ public:
   ~Directory();
   
   // marks addr as present in cacheId
-  void setPresentIn(const unsigned int cacheId, PAddr addr);   
+  void setPresentIn(const uint32_t cacheId, PAddr addr);   
 
   // marks addr as not present in cacheId
-  void resetPresentIn(const unsigned int cacheId, PAddr addr); 
+  void resetPresentIn(const uint32_t cacheId, PAddr addr); 
 
   void setAllPresent(PAddr addr);   // marks addr as present in all caches
   void resetAllPresent(PAddr addr); // marks addr as not present in any cache
 
   // retrieves information for a certain address from directory
-  bool getInfoForLine(PAddr addr, unsigned int *info) const;
+  bool getInfoForLine(PAddr addr, uint32_t *info) const;
 
   // checks if line may be present in cache 
-  bool isPresent(const unsigned int cacheId, unsigned int info); 
+  bool isPresent(const uint32_t cacheId, uint32_t info); 
 
   // returns a mask with caches in which line is present
-  unsigned int whereIsPresent(PAddr addr); 
+  uint32_t whereIsPresent(PAddr addr); 
   
 };
 

@@ -52,7 +52,7 @@
 #define ORIENTS_N	8		/* total no. of orientations	*/
 
 /* type for holding the above flags	*/
-typedef unsigned char orient_t;
+typedef uint8_t orient_t;
 
 /* forward declarations	*/
 struct RC_model_t_st;	/* see temperature.h	*/
@@ -62,12 +62,12 @@ struct shape_t_st;		/* see shape.h	*/
 typedef struct flp_config_t_st
 {
 	/* wrap around L2?	*/
-	int wrap_l2;
+	int32_t wrap_l2;
 	/* name of L2 to look for	*/
 	char l2_label[STR_SIZE];
 
 	/* model dead space around the rim of the chip? */
-	int model_rim;
+	int32_t model_rim;
 	double rim_thickness;
 
 	/* area ratio below which to ignore dead space	*/
@@ -77,15 +77,15 @@ typedef struct flp_config_t_st
 	 * no. of discrete orientations for a shape curve.
 	 * should be an even number greater than 1
 	 */
-	int n_orients;
+	int32_t n_orients;
 	
 	/* annealing parameters	*/
 	double P0;		/* initial acceptance probability	*/
 	double Davg;	/* average change (delta) in cost	*/
-	int Kmoves;		/* no. of moves to try in each step	*/
+	int32_t Kmoves;		/* no. of moves to try in each step	*/
 	double Rcool;	/* ratio for the cooling schedule */
 	double Rreject;	/* ratio of rejects at which to stop annealing */
-	int Nmax;		/* absolute max no. of annealing steps	*/
+	int32_t Nmax;		/* absolute max no. of annealing steps	*/
 
 	/* weights for the metric: lambdaA * A + lambdaT * T + lambdaW * W	*/
 	double lambdaA;
@@ -98,7 +98,7 @@ typedef struct unplaced_t_st
 {
   char name[STR_SIZE];
   /* can be rotated?	*/
-  int rotable;
+  int32_t rotable;
   double area;
   /* minimum and maximum aspect ratios	*/
   double min_aspect;
@@ -115,7 +115,7 @@ typedef struct flp_desc_t_st
   double **wire_density;
   /* configuration parameters	*/
   flp_config_t config;
-  int n_units;
+  int32_t n_units;
 }flp_desc_t;
 
 /* placed functional unit */
@@ -132,7 +132,7 @@ typedef struct unit_t_st
 typedef struct flp_t_st
 {
 	unit_t *units;
-	int n_units;
+	int32_t n_units;
   	/* density of wires between units	*/
   	double **wire_density;
 } flp_t;
@@ -145,12 +145,12 @@ flp_config_t default_flp_config(void);
  * parse a table of name-value string pairs and add the configuration
  * parameters to 'config'
  */
-void flp_config_add_from_strs(flp_config_t *config, str_pair *table, int size);
+void flp_config_add_from_strs(flp_config_t *config, str_pair *table, int32_t size);
 /* 
  * convert config into a table of name-value pairs. returns the no.
  * of parameters converted
  */
-int flp_config_to_strs(flp_config_t *config, str_pair *table, int max_entries);
+int32_t flp_config_to_strs(flp_config_t *config, str_pair *table, int32_t max_entries);
 
 /* flp_desc routines	*/
 
@@ -166,30 +166,30 @@ void print_flp_desc(flp_desc_t *flp_desc);
 /* create a floorplan placeholder from description	*/
 flp_t *flp_placeholder(flp_desc_t *flp_desc);
 /* skip floorplanning and read floorplan directly from file */
-flp_t *read_flp(char *file, int read_connects);
+flp_t *read_flp(char *file, int32_t read_connects);
 /* 
  * main flooplanning routine - allocates 
  * memory internally. returns the number
  * of compacted blocks
  */ 
-int floorplan(flp_t *flp, flp_desc_t *flp_desc,
+int32_t floorplan(flp_t *flp, flp_desc_t *flp_desc,
 			  struct RC_model_t_st *model, double *power);
 /* 
- * print the floorplan in a FIG like format 
+ * print32_t the floorplan in a FIG like format 
  * that can be read by tofig.pl to produce 
  * an xfig output 
  */
 void print_flp_fig (flp_t *flp);
 /* debug print	*/
 void print_flp (flp_t *flp);
-/* print the statistics about this floorplan	*/
+/* print32_t the statistics about this floorplan	*/
 void print_flp_stats(flp_t *flp, struct RC_model_t_st *model,
 					 char *l2_label, char *power_file, 
 					 char *connects_file);
 /* wrap the L2 around this floorplan	*/			   
 void flp_wrap_l2(flp_t *flp, flp_desc_t *flp_desc);
 /* wrap the rim blocks around - returns the no. of blocks	*/
-int flp_wrap_rim(flp_t *flp, double rim_thickness);
+int32_t flp_wrap_rim(flp_t *flp, double rim_thickness);
 /* translate the floorplan to new origin (x,y)	*/
 void flp_translate(flp_t *flp, double x, double y);
 /* scale the floorplan by a factor 'factor'	*/
@@ -221,21 +221,21 @@ flp_t *flp_create_grid(flp_t *flp);
 double flp_evaluate_metric(flp_t *flp, struct RC_model_t_st *model, double *power, 
 						   double lambdaA, double lambdaT, double lambdaW);
 /* dump the floorplan onto a file	*/
-void dump_flp(flp_t *flp, char *file, int dump_connects);
+void dump_flp(flp_t *flp, char *file, int32_t dump_connects);
 /* memory uninitialization	*/
-void free_flp(flp_t *flp, int compacted);
+void free_flp(flp_t *flp, int32_t compacted);
 
 
 /* placed floorplan access routines	*/
 
 /* get unit index from its name	*/
-int get_blk_index(flp_t *flp, char *name);
+int32_t get_blk_index(flp_t *flp, char *name);
 /* are the units horizontally adjacent?	*/
-int is_horiz_adj(flp_t *flp, int i, int j);
+int32_t is_horiz_adj(flp_t *flp, int32_t i, int32_t j);
 /* are the units vertically adjacent?	*/
-int is_vert_adj (flp_t *flp, int i, int j);
+int32_t is_vert_adj (flp_t *flp, int32_t i, int32_t j);
 /* shared length between units	*/
-double get_shared_len(flp_t *flp, int i, int j);
+double get_shared_len(flp_t *flp, int32_t i, int32_t j);
 /* total chip width	*/
 double get_total_width(flp_t *flp);
 /* total chip height */
@@ -248,7 +248,7 @@ double get_core_width(flp_t *flp, char *l2_label);
 /* precondition: L2 should have been wrapped around	*/
 double get_core_height(flp_t *flp, char *l2_label);
 /* other queries	*/
-double get_manhattan_dist(flp_t *flp, int i, int j);
+double get_manhattan_dist(flp_t *flp, int32_t i, int32_t j);
 double get_total_area(flp_t *flp);
 double get_core_area(flp_t *flp, char *l2_label);
 double get_core_occupied_area(flp_t *flp, char *l2_label);

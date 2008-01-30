@@ -20,7 +20,7 @@ namespace tls{
 
   // A record of the execution sequence of one thread
   class Checkpoint::ExeOrder::ThreadExeOrder{
-    // Context of this thread just before checkpoint time
+    // Context of this thread just before checkpoint32_t time
     ThreadContext *initialContext;
     // Sequence of epochs in this thread
     ExeOrderList orderList;
@@ -288,12 +288,12 @@ namespace tls{
     size_t cpAllBlocks=0;
     size_t cpMostBlocks=0;
     while(!allCheckpoints.empty()){
-      Checkpoint *cp=allCheckpoints.back();
+      Checkpoint32_t *cp=allCheckpoints.back();
       cpCount++;
       cpAllBlocks+=cp->myBlocks.size();
       if(cp->myBlocks.size()>cpMostBlocks)
 	cpMostBlocks=cp->myBlocks.size();
-      // Destructor for a checkpoint removes it from allCheckpoints
+      // Destructor for a checkpoint32_t removes it from allCheckpoints
       delete cp;
     }
     printf("Checkpoints %d, buffer size: largest %d all %d\n",
@@ -318,7 +318,7 @@ namespace tls{
     }
   }
   
-  Checkpoint *Checkpoint::getCheckpoint(ClockValue epochClock){
+  Checkpoint32_t *Checkpoint::getCheckpoint(ClockValue epochClock){
     I(!allCheckpoints.empty());
     CheckpointList::iterator ckpIt=allCheckpoints.begin();
     while((*ckpIt)->myClock>epochClock){
@@ -328,8 +328,8 @@ namespace tls{
     return *ckpIt;
   }
 
-  Checkpoint *Checkpoint::mergeInit(Epoch *epoch){
-    Checkpoint *retVal=getCheckpoint(epoch->getClock());
+  Checkpoint32_t *Checkpoint::mergeInit(Epoch *epoch){
+    Checkpoint32_t *retVal=getCheckpoint(epoch->getClock());
     I(epoch->getClock()>=retVal->myClock);
     retVal->exeOrder.mergeEpochInit(epoch->getTid(),
 				    epoch->parentClock,epoch->getClock(),
@@ -356,7 +356,7 @@ namespace tls{
     CheckpointList::iterator predPos=myPos;
     predPos++;
     I(predPos!=allCheckpoints.end());
-    Checkpoint *pred=*predPos;
+    Checkpoint32_t *pred=*predPos;
     I(!mergingEpochs&&!pred->mergingEpochs);
     I(pred->myClock<myClock);
     // Destroy my blocks, merging those pred doesn't have already
@@ -371,7 +371,7 @@ namespace tls{
     myBlocks.clear();
     // Splice my execution order into the previous one
     exeOrder.spliceIntoPrevious(pred->exeOrder);
-    // This checkpoint is no more
+    // This checkpoint32_t is no more
     delete this;
   }
   
@@ -384,12 +384,12 @@ namespace tls{
       (*cpIt)->rewind();
       currClock=(*cpIt)->myClock;
     }while(currClock>targClock);
-    // Restore threads to checkpoint state
+    // Restore threads to checkpoint32_t state
     // TODO
   }
 
   void Checkpoint::rewind(void){
-    // Restore memory to checkpoint state
+    // Restore memory to checkpoint32_t state
     for(BlocksMap::iterator blocksIt=myBlocks.begin();
 	blocksIt!=myBlocks.end();blocksIt++)
       blocksIt->second->restore(blocksIt->first);

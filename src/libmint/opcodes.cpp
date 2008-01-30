@@ -205,7 +205,7 @@ opnum_t tls_opnums[] = {
  */
 struct op_desc desc_table[] = {
     /* char *opname; PFPI func; char regflags[4];
-     * int iflags; short opflags; short cycles;
+     * int32_t iflags; short opflags; short cycles;
      */
     { "reserved", reserved_op, { 0, 0, 0, 0 }, 0, 0, 1 },
     { "regimm", NULL, { 0, 0, 0, 0 }, 0, 0, 1 },

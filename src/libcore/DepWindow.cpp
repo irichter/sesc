@@ -34,7 +34,6 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 DepWindow::DepWindow(GProcessor *gp, const char *clusterName)
   :gproc(gp)
   ,Id(gp->getId())
-  ,InOrderCore(SescConf->getBool("cpucore","inorder",gp->getId()))
   ,InterClusterLat(SescConf->getInt("cpucore", "interClusterLat",gp->getId()))
   ,WakeUpDelay(SescConf->getInt(clusterName, "wakeupDelay"))
   ,SchedDelay(SescConf->getInt(clusterName, "schedDelay"))
@@ -204,8 +203,6 @@ void DepWindow::executed(DInst *dinst)
   if (dinst->isStallOnLoad())
     wakeUpDeps(dinst);
 
-  I(!InOrderCore);
-
   I(dinst->getResource());
   const Cluster *srcCluster = dinst->getResource()->getCluster();
 
@@ -271,10 +268,12 @@ void DepWindow::executed(DInst *dinst)
       const Cluster *dstCluster = dstReady->getResource()->getCluster();
       I(dstCluster);
 
-      if (dstCluster != srcCluster)
+      Time_t when = wakeUpPort->nextSlot();
+      if (dstCluster != srcCluster) {
         forwardBusEnergy->inc();
+	when += InterClusterLat;
+      }
 
-      Time_t when = wakeUpPort->nextSlot() + InterClusterLat;
       dstReady->setWakeUpTime(when);
 
       preSelect(dstReady);

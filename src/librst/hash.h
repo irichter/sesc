@@ -78,7 +78,7 @@ public:
   }
 
   void hash_close() {
-    int i, j;
+    int32_t i, j;
 
     for (i = 0; i < HASH_TBL_ASSOC; i++) {
       for (j = 0; j < HASH_TBL_SIZE; j++) {
@@ -93,9 +93,9 @@ public:
     }
   }
 
-  int search(uint64_t pc_start, int num_instr,
-             uint32_t instr_buf[], int hashval) {
-    int i, j;
+  int32_t search(uint64_t pc_start, int32_t num_instr,
+             uint32_t instr_buf[], int32_t hashval) {
+    int32_t i, j;
 
     for (i = 0; i < HASH_TBL_ASSOC; i++) {
       if (table[i][hashval].pc_start == pc_start) {
@@ -118,15 +118,15 @@ public:
     return NOT_FOUND;
   }  // RstzipHash::search()
 
-  hash_table_t* read(int set, int hashval) {
+  hash_table_t* read(int32_t set, int32_t hashval) {
     return &table[set][hashval];
   }  // RstzipHash::read()
 
   void write(uint64_t pc_start,
              uint16_t num_instr, uint32_t instr_buf[],
              uint16_t num_ea, uint64_t ea_buf[],
-             int hashval) {
-    int set = replace(pc_start, hashval);
+             int32_t hashval) {
+    int32_t set = replace(pc_start, hashval);
     hash_table_t* tbl = &table[set][hashval];
 
     copy_instr_buf(tbl, instr_buf, num_instr);
@@ -142,9 +142,9 @@ public:
     }
   }  // RstzipHash::write()
 
-  void update(int num_ea, uint64_t ea_buf[],
-              int hashval, int index = NOT_FOUND) {
-    int i;
+  void update(int32_t num_ea, uint64_t ea_buf[],
+              int32_t hashval, int32_t index = NOT_FOUND) {
+    int32_t i;
     uint8_t prev_timestamp;
 
     if (index == NOT_FOUND) {
@@ -165,7 +165,7 @@ public:
     }
   }  // RstzipHash::update()
 
-  int hash(uint64_t pc) {
+  int32_t hash(uint64_t pc) {
     return (int) (((pc >> 2) * 47) % HASH_TBL_SIZE);
   }  // RstzipHash::hash()
 
@@ -176,7 +176,7 @@ public:
   }
 
   void print_table(hash_table_t* tbl) {
-    int i;
+    int32_t i;
 
     fprintf(stdout, "Hash Table [%d]:\n", tbl->timestamp);
     fprintf(stdout, "  pc_start=0x%llx\n", tbl->pc_start);
@@ -197,8 +197,8 @@ public:
     fflush(stdout);
   }  // RstzipHash::print_table()
 
-  void print_set(int hashval) {
-    int i;
+  void print_set(int32_t hashval) {
+    int32_t i;
 
     fprintf(stdout, "hashval=%d\n", hashval);
     for (i = 0; i < HASH_TBL_ASSOC; i++) {
@@ -207,7 +207,7 @@ public:
   }
 
   void print() {
-    int i, j;
+    int32_t i, j;
 
     for (i = 0; i < HASH_TBL_ASSOC; i++) {
       for (j = 0; j < HASH_TBL_SIZE; j++) {
@@ -242,7 +242,7 @@ public:
     }
 
 #ifdef _DEBUG0
-    for (int i = 0; i < size / 4; i++) {
+    for (int32_t i = 0; i < size / 4; i++) {
       ptr[i] = MALLOC_WORD;
     }
 #endif
@@ -264,7 +264,7 @@ public:
       }
 
 #ifdef _DEBUG0
-      for (int i = 0; i < size / 4; i++) {
+      for (int32_t i = 0; i < size / 4; i++) {
         int_ptr[i] = FREE_WORD;
       }
 #endif
@@ -297,8 +297,8 @@ protected:
     tbl->num_instr = 0;
   }
 
-  int replace(uint64_t pc_start, int hashval) {
-    int i;
+  int32_t replace(uint64_t pc_start, int32_t hashval) {
+    int32_t i;
 
     for (i = 0; i < HASH_TBL_ASSOC; i++) {
       if (table[i][hashval].timestamp == 0) {
@@ -312,7 +312,7 @@ protected:
     exit(2);
   }  // RstzipHash::replace()
 
-  void copy_instr_buf(hash_table_t* tbl, uint32_t instr_buf[], int num_instr) {
+  void copy_instr_buf(hash_table_t* tbl, uint32_t instr_buf[], int32_t num_instr) {
     size_t old_segment_size, new_segment_size;
 
     old_segment_size = get_segment_size(tbl->num_instr, sizeof(uint32_t));
@@ -338,7 +338,7 @@ protected:
     memcpy(tbl->instr_buf, instr_buf, num_instr * sizeof(uint32_t));
   }  // RstzipHash::copy_instr_buf()
 
-  void copy_ea_buf(hash_table_t* tbl, uint64_t ea_buf[], int num_ea) {
+  void copy_ea_buf(hash_table_t* tbl, uint64_t ea_buf[], int32_t num_ea) {
     size_t old_segment_size, new_segment_size;
 
     old_segment_size = get_segment_size(tbl->num_ea, sizeof(uint64_t));
@@ -384,8 +384,8 @@ public:
     memset(table, 0, PAVADIFF_CACHESIZE * sizeof(pavadiff_table_t));
   }
 
-  int search(rstf_pavadiffT* rst) {
-    int i;
+  int32_t search(rstf_pavadiffT* rst) {
+    int32_t i;
 
     for (i = 0; i < PAVADIFF_CACHESIZE; i++) {
       if (memcmp(&table[i].rst, rst, sizeof(rstf_pavadiffT)) == 0) {
@@ -400,12 +400,12 @@ public:
     return NOT_FOUND;
   }
 
-  rstf_pavadiffT* read(int index) {
+  rstf_pavadiffT* read(int32_t index) {
     return &table[index].rst;
   }
 
   void write(rstf_pavadiffT* rst) {
-    int index = replace();
+    int32_t index = replace();
 
     table[index].rst = *rst;
 
@@ -414,8 +414,8 @@ public:
     }
   }
 
-  void update(int index = NOT_FOUND) {
-    int i;
+  void update(int32_t index = NOT_FOUND) {
+    int32_t i;
     uint8_t prev_timestamp;
 
     if (index == NOT_FOUND) {
@@ -438,8 +438,8 @@ public:
 protected:
   pavadiff_table_t table[PAVADIFF_CACHESIZE];
 
-  int replace() {
-    int i;
+  int32_t replace() {
+    int32_t i;
 
     for (i = 0; i < PAVADIFF_CACHESIZE; i++) {
       if (table[i].timestamp == 0) {

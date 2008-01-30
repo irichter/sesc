@@ -86,7 +86,7 @@ Time_t PortUnlimited::nextSlot()
   return globalClock;
 }
 
-Time_t PortUnlimited::occupySlots(int nSlots) 
+Time_t PortUnlimited::occupySlots(int32_t nSlots) 
 {
   return globalClock;
 }
@@ -122,7 +122,7 @@ Time_t PortFullyPipe::nextSlot()
   return lTime++;
 }
 
-Time_t PortFullyPipe::occupySlots(int nSlots) 
+Time_t PortFullyPipe::occupySlots(int32_t nSlots) 
 {
   if(lTime < globalClock)
     lTime = globalClock;
@@ -177,7 +177,7 @@ Time_t PortFullyNPipe::nextSlot()
   return lTime;
 }
 
-Time_t PortFullyNPipe::occupySlots(int nSlots)
+Time_t PortFullyNPipe::occupySlots(int32_t nSlots)
 {
   if(lTime < globalClock)
     lTime = globalClock;
@@ -224,7 +224,7 @@ Time_t PortPipe::nextSlot()
   return st;
 }
 
-Time_t PortPipe::occupySlots(int nSlots)
+Time_t PortPipe::occupySlots(int32_t nSlots)
 {
   if(lTime < globalClock)
     lTime = globalClock;
@@ -258,7 +258,7 @@ PortNPipe::PortNPipe(const char *name, NumUnits_t nFU, TimeDelta_t occ)
 {
   portBusyUntil = (Time_t *)malloc(sizeof(Time_t)*nFU);
 
-  for(int i=0;i<nFU;i++)
+  for(int32_t i=0;i<nFU;i++)
     portBusyUntil[i]= globalClock;
 
   doStats = true;
@@ -275,7 +275,7 @@ Time_t PortNPipe::nextSlot()
   return nextSlot(ocp);
 }
 
-Time_t PortNPipe::nextSlot(int occupancy) 
+Time_t PortNPipe::nextSlot(int32_t occupancy) 
 {
   ID(Time_t cns      = calcNextSlot());
   Time_t bufTime     = portBusyUntil[0];
@@ -312,7 +312,7 @@ Time_t PortNPipe::nextSlot(int occupancy)
   return bufTime;
 }
 
-Time_t PortNPipe::occupySlots(int nSlots)
+Time_t PortNPipe::occupySlots(int32_t nSlots)
 {
   // How to optimize this function (ala PortFullyPipe::occupySlots)?
   // Can someone do it?
@@ -322,7 +322,7 @@ Time_t PortNPipe::occupySlots(int nSlots)
   doStats = false;
   
   Time_t t = nextSlot();
-  for(int i=1;i<nSlots;i++)
+  for(int32_t i=1;i<nSlots;i++)
     nextSlot();
 
   doStats = true;

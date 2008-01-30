@@ -49,7 +49,7 @@ private:
 
 protected:
   
-  uint nUpperCaches;
+  uint32_t nUpperCaches;
   LevelType upperLevel;
   LevelType lowerLevel;
 
@@ -70,7 +70,7 @@ protected:
 
     I(oc);
     
-	 for(uint i=0; i<upperLevel.size(); i++)
+	 for(uint32_t i=0; i<upperLevel.size(); i++)
       upperLevel[i]->invalidate(addr, size, oc);    
   }
 
@@ -92,17 +92,17 @@ public:
   const LevelType *getLowerLevel() const { return &lowerLevel; }
   const LevelType *getUpperLevel() const { return &upperLevel; }
 
-  const uint getUpperLevelSize() const { return upperLevel.size(); }
+  const uint32_t getUpperLevelSize() const { return upperLevel.size(); }
 
   virtual const bool isCache() const { return false; }
 
-  const uint getNumCachesInUpperLevels() const {
+  const uint32_t getNumCachesInUpperLevels() const {
     return nUpperCaches;
   }
 
   void computenUpperCaches();
 
-  //This assumes single entry point for object, which I do not like,
+  //This assumes single entry point32_t for object, which I do not like,
   //but it is still something that is worthwhile.
   virtual Time_t getNextFreeCycle() const = 0;
 
@@ -119,7 +119,7 @@ public:
   virtual bool canAcceptStore(PAddr addr) = 0;
   virtual bool canAcceptLoad(PAddr addr) { return true; }
 
-  // Print stats
+  // Print32_t stats
   virtual void dump() const;
 };
 

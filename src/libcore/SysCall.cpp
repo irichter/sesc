@@ -79,11 +79,11 @@ void SysCallMmap::exec(ThreadContext *context, icode_ptr picode){
   // Size of block to mmap
   size_t size=args.getInt32();
   // Protection flags for mmap
-  int prot=args.getInt32();
+  int32_t prot=args.getInt32();
   // PROT_READ and PROT_WRITE should be set, and nothing else
   I(prot==0x3);
   // Flags for mmap
-  int flag=args.getInt32();
+  int32_t flag=args.getInt32();
   // MAP_ANONYMOUS and MAP_PRIVATE should be set, and nothing else
   I(flag==0x802);
   I((!executed)||(mySize==size));
@@ -149,10 +149,10 @@ struct GlibcStat64{
   unsigned long st_dev;
   unsigned long st_pad0[3];     /* Reserved for st_dev expansion  */
   unsigned long long    st_ino;
-  unsigned int  st_mode;
-  int           st_nlink;
-  int           st_uid;
-  int           st_gid;
+  uint32_t  st_mode;
+  int32_t           st_nlink;
+  int32_t           st_uid;
+  int32_t           st_gid;
   unsigned long st_rdev;
   unsigned long st_pad1[3];     /* Reserved for st_rdev expansion  */
   long long     st_size;
@@ -196,13 +196,13 @@ void SysCallFileIO::staticConstructor(void){
   openFiles.resize(3,0);
   openFiles[0]=new OpenFileInfo("",0,O_RDONLY,0,0);
   char outName[]="stdout.XXXXXX";
-  int outFile=mkstemp(outName);
+  int32_t outFile=mkstemp(outName);
   I(outFile!=-1);
   Report::field("SysCall::stdout=%s",outName);
   I(!lseek(outFile,0,SEEK_END));
   openFiles[1]=new OpenFileInfo(outName,outFile,O_WRONLY,0,0);
   char errName[]="stderr.XXXXXX";
-  int errFile=mkstemp(errName);
+  int32_t errFile=mkstemp(errName);
   I(errFile!=-1);
   Report::field("SysCall::stderr=%s",errName);
   I(!lseek(errFile,0,SEEK_END));
@@ -213,12 +213,12 @@ void SysCallFileIO::execFXStat64(ThreadContext *context,icode_ptr picode){
   MintFuncArgs args(context, picode);
   // We will completely ignore the glibc stat_ver parameter
   long statVer=args.getInt32();
-  int myFd=args.getInt32();
+  int32_t myFd=args.getInt32();
   VAddr addr=args.getVAddr();
   I(addr);
   struct stat statNative;
   fstat(myFd,&statNative);
-  int retVal=fstat(openFiles[myFd]->fdesc,&statNative);
+  int32_t retVal=fstat(openFiles[myFd]->fdesc,&statNative);
   context->setRetVal(retVal);
   if(retVal==-1){   
     context->setErrno(errno);
@@ -241,13 +241,13 @@ void SysCallFileIO::execFXStat64(ThreadContext *context,icode_ptr picode){
 void SysCallOpen::exec(ThreadContext *context,icode_ptr picode){
   MintFuncArgs args(context, picode);
   VAddr pathnameAddr=args.getVAddr();
-  int flags=conv_flags_to_native(args.getInt32());
+  int32_t flags=conv_flags_to_native(args.getInt32());
   mode_t mode=(mode_t)args.getInt32();
   // Get the file name from versioned memory
   char pathname[MAX_FILENAME_LENGTH];
   rsesc_OS_read_string(context->getPid(), picode->addr, pathname, 
 		       pathnameAddr, MAX_FILENAME_LENGTH);
-  int realFd=open(pathname,flags,mode);
+  int32_t realFd=open(pathname,flags,mode);
   if(realFd==-1){
     // Open failed, simulated fd is 0 and errno is set
     myFd=-1;
@@ -271,7 +271,7 @@ void SysCallOpen::undo(bool expectRedo){
   I(executed);
   if(myFd!=-1){
     // Close file and remove from vector of open files
-    int err=close(openFiles[myFd]->fdesc);
+    int32_t err=close(openFiles[myFd]->fdesc);
     I(!err);
     delete openFiles[myFd];
     openFiles[myFd]=0;
@@ -280,7 +280,7 @@ void SysCallOpen::undo(bool expectRedo){
 
 void SysCallClose::exec(ThreadContext *context, icode_ptr picode){
   MintFuncArgs args(context, picode);
-  int fd=args.getInt32();
+  int32_t fd=args.getInt32();
   I((!executed)||(fd==myFd));
   myFd=fd;
   if((myFd<=2)||(openFiles.size()<=(size_t)myFd)||!openFiles[myFd]){
@@ -289,7 +289,7 @@ void SysCallClose::exec(ThreadContext *context, icode_ptr picode){
     myInfo=0;
     context->setErrno(EBADF);
   }else{  
-    int err=close(openFiles[myFd]->fdesc);
+    int32_t err=close(openFiles[myFd]->fdesc);
     if(err==0){
       if(executed){
 	I(strcmp(myInfo->pathname,openFiles[myFd]->pathname)==0);
@@ -316,7 +316,7 @@ void SysCallClose::undo(bool expectRedo){
   I(executed);
   if(myInfo){
     // Reopen the file and update things accordingly 
-    int realFd=open(myInfo->pathname,myInfo->flags&~(O_TRUNC|O_APPEND),myInfo->mode);
+    int32_t realFd=open(myInfo->pathname,myInfo->flags&~(O_TRUNC|O_APPEND),myInfo->mode);
     myInfo->fdesc=realFd;
     I((openFiles.size()>(size_t)myFd)&&(!openFiles[myFd]));
     openFiles[myFd]=myInfo;
@@ -335,7 +335,7 @@ void SysCallClose::done(){
 
 void SysCallRead::exec(ThreadContext *context,icode_ptr picode){
   MintFuncArgs args(context, picode);
-  int fd=args.getInt32();
+  int32_t fd=args.getInt32();
   VAddr buf=args.getVAddr();
   size_t count=args.getInt32();
   I((!executed)||(fd==myFd));
@@ -376,7 +376,7 @@ void SysCallRead::undo(bool expectRedo){
 
 void SysCallWrite::exec(ThreadContext *context,icode_ptr picode){
   MintFuncArgs args(context, picode);
-  int fd=args.getInt32();
+  int32_t fd=args.getInt32();
   VAddr buf=args.getVAddr();
   size_t count=args.getInt32();
   I((!executed)||(fd==myFd));
@@ -458,7 +458,7 @@ void SysCallWrite::undo(bool expectRedo){
     I((openFiles.size()>(size_t)myFd)&&openFiles[myFd]);
     off_t currOffs=lseek(openFiles[myFd]->fdesc,-bytesWritten,SEEK_END);
     I(currOffs==oldOffs);
-    int err=ftruncate(openFiles[myFd]->fdesc,currOffs);
+    int32_t err=ftruncate(openFiles[myFd]->fdesc,currOffs);
     I(!err);
     I(oldOffs==lseek(openFiles[myFd]->fdesc,0,SEEK_END));
     I(oldOffs==lseek(openFiles[myFd]->fdesc,0,SEEK_CUR));
@@ -483,7 +483,7 @@ void SysCallSescSpawn::exec(ThreadContext *context,icode_ptr picode){
   MintFuncArgs args(context, picode);
   VAddr entry = args.getVAddr();
   VAddr arg   = args.getVAddr();
-  int   flags = args.getInt32();
+  int32_t   flags = args.getInt32();
   // Get parent thread and spawning epoch
   tls::Epoch *oldEpoch=context->getEpoch();
   I(oldEpoch==tls::Epoch::getEpoch(context->getPid()));
@@ -512,7 +512,7 @@ void SysCallSescSpawn::exec(ThreadContext *context,icode_ptr picode){
     // Eerything is shared, stack is not copied
     childContext->shareAddrSpace(context,PR_SADDR,false);
     childContext->init();
-    // The first instruction for the child is the entry point passed in
+    // The first instruction for the child is the entry point32_t passed in
     childContext->setPCIcode(addr2icode(entry));
     childContext->setIntReg(IntArg1Reg,arg);
     childContext->setIntReg(IntArg2Reg,Stack_size); /* for sprocsp() */

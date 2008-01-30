@@ -26,7 +26,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 #include "qemu_sesc.h"
 
-QEMUFlow::QEMUFlow(int cId, int i, GMemorySystem *gms) 
+QEMUFlow::QEMUFlow(int32_t cId, int32_t i, GMemorySystem *gms) 
   : GFlow(i, cId, gms)
 {
 #if (defined(TASKSCALAR) || defined(SESC_MISPATH))
@@ -49,41 +49,27 @@ DInst *QEMUFlow::executePC()
     return dinst;
   }
 
-  // FIXME: instead of dumping trace create a DInst
-#if 1
   static struct qemu_sesc_te te[QEMU_SESC_INST_SIZE+1];
 
-  int cpuid = 0;
+  int32_t cpuid = 0; // FIXME:
 
   if (index_te >= n_te) {
     n_te = sesc_cmd_advance_pc(te, cpuid); //cpuid =0
     index_te =0;
-    
-    for(int i=0;i<n_te;i++) {
-      if (te[i].finalize)
-	sesc_client_finish();
-
-#if 0
-      MSG("i = %d PC 0x%x [0x%x] type[%d:%d] rd[%d] rs1[%d] rs2[%d]\n"
-	  ,i, te[i].predec.pc, te[i].predec.inst, te[i].predec.type, te[i].predec.subType
-	  ,te[i].predec.rd, te[i].predec.rs1, te[i].predec.rs2
-	  );
- 
-      MSG("VALUES: rd[%x] newbb[%d]\n", te[i].rd, te[i].new_bb);
-      if (te[i].predec.type == 0){fflush(stderr);exit(1);};
-#endif
-    }
   }
-#endif
-
-  Instruction *instr = new Instruction();
+  
+  Instruction *instr = new Instruction(); // FIXME: it would be good to use a pool
   if(instr == 0)
     return 0;
 
+  if (te[index_te].finalize)
+    sesc_client_finish();
+  
   Instruction::QemuSparcDecodeInstruction(instr, &(te[index_te].predec));
+  DInst *dinst=DInst::createDInst(instr, te[index_te].dAddr ,0); // FIXME: cpuId=0
   index_te++;
-  DInst *dinst=DInst::createDInst(instr, 0 ,0); //te.dAddr =0, cpuId=0
   if(dinst == 0) { // end of trace
+    MSG("This was the end of the trace!!!!!!");
     return 0;
   }
 

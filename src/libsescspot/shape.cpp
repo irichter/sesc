@@ -10,12 +10,12 @@
 
 /* make a shape curve from area and aspect ratios	*/
 shape_t *shape_from_aspect(double area, double min, 
-                           double max, int rotable,
-						   int n_orients)
+                           double max, int32_t rotable,
+						   int32_t n_orients)
 {
 	shape_t *shape;
 	double r=1, minx, maxx, tmin, tmax;
-	int i, overlap = 0;
+	int32_t i, overlap = 0;
 
 	/* rotatable blocks have 2n no. of orients	*/
 	if (n_orients <= 1 || (n_orients & 1))
@@ -54,7 +54,7 @@ shape_t *shape_from_aspect(double area, double min,
 		}
 	/* rotable but no overlap, hence two sets of orientations	*/		
 	} else {
-		int n = shape->size / 2;
+		int32_t n = shape->size / 2;
 		/* orientations with aspect ratios < 1	*/
 		tmin = MIN(min, 1.0/min);
 		tmax = MIN(max, 1.0/max);
@@ -93,7 +93,7 @@ void free_shape(shape_t *shape)
 	free(shape);
 }
 
-void print_shape_entry(shape_t *shape, int i)
+void print_shape_entry(shape_t *shape, int32_t i)
 {
 	fprintf(stdout, "%.5f\t%.5f", shape->x[i], shape->y[i]);
 	if (shape->left_pos)
@@ -102,10 +102,10 @@ void print_shape_entry(shape_t *shape, int i)
 	fprintf(stdout, "\n");
 }
 
-/* debug print  */
+/* debug print32_t  */
 void print_shape(shape_t *shape)
 {
-	int i;
+	int32_t i;
 	if (!shape) {
 		fprintf(stdout, "printing shape curve: NULL\n");
 		return;
@@ -117,9 +117,9 @@ void print_shape(shape_t *shape)
 }
 
 /* shape curve arithmetic	*/
-shape_t *shape_add(shape_t *shape1, shape_t *shape2, int cut_type)
+shape_t *shape_add(shape_t *shape1, shape_t *shape2, int32_t cut_type)
 {
-	int i=0, j=0, k=0, total=0, m, n;
+	int32_t i=0, j=0, k=0, total=0, m, n;
 	shape_t *sum;
 
 	sum = (shape_t *) calloc(1, sizeof(shape_t));
@@ -148,8 +148,8 @@ shape_t *shape_add(shape_t *shape1, shape_t *shape2, int cut_type)
 
 	sum->x = (double *) calloc(total, sizeof(double));
 	sum->y = (double *) calloc(total, sizeof(double));
-	sum->left_pos = (int *) calloc(total, sizeof(int));
-	sum->right_pos = (int *) calloc(total, sizeof(int));
+	sum->left_pos = (int32_t *) calloc(total, sizeof(int));
+	sum->right_pos = (int32_t *) calloc(total, sizeof(int));
 	sum->median = (double *) calloc(total, sizeof(double));
 	if (!sum->x || !sum->y || !sum->left_pos || 
 	    !sum->right_pos || !sum->median)
@@ -196,7 +196,7 @@ shape_t *shape_add(shape_t *shape1, shape_t *shape2, int cut_type)
 shape_t *shape_duplicate(shape_t *shape)
 {
 	shape_t *copy;
-	int i;
+	int32_t i;
 	copy = (shape_t *) calloc(1, sizeof(shape_t));
 	if (!copy)
 		fatal("memory allocation error\n");
@@ -206,8 +206,8 @@ shape_t *shape_duplicate(shape_t *shape)
 	if (!copy->x || !copy->y)
 		fatal("memory allocation error\n");
 	if (shape->left_pos) {
-		copy->left_pos = (int *) calloc(copy->size, sizeof(int));
-		copy->right_pos = (int *) calloc(copy->size, sizeof(int));
+		copy->left_pos = (int32_t *) calloc(copy->size, sizeof(int));
+		copy->right_pos = (int32_t *) calloc(copy->size, sizeof(int));
 		copy->median = (double *) calloc(copy->size, sizeof(double));
 		if(!copy->left_pos || !copy->right_pos || !copy->median)
 			fatal("memory allocation error\n");
@@ -245,7 +245,7 @@ void free_tree_node_stack(tree_node_stack_t *stack)
 }
 
 /* is empty?	*/
-int tree_node_stack_isempty(tree_node_stack_t *stack)
+int32_t tree_node_stack_isempty(tree_node_stack_t *stack)
 {
 	if (stack->top <= 0)
 		return TRUE;
@@ -253,7 +253,7 @@ int tree_node_stack_isempty(tree_node_stack_t *stack)
 }
 
 /* is full?	*/
-int tree_node_stack_isfull(tree_node_stack_t *stack)
+int32_t tree_node_stack_isfull(tree_node_stack_t *stack)
 {
 	if (stack->top >= MAX_STACK)
 		return TRUE;
@@ -295,7 +295,7 @@ tree_node_t *tree_from_NPE(flp_desc_t *flp_desc,
 						   tree_node_stack_t *stack,
 						   NPE_t *expr)
 {
-	int i;
+	int32_t i;
 	tree_node_t *node = NULL, *left, *right;
 	
 	if (!tree_node_stack_isempty(stack))
@@ -357,10 +357,10 @@ void print_tree(tree_node_t *root, flp_desc_t *flp_desc)
 }
 
 /* 
- * print only the portion of the shape curves 
+ * print32_t only the portion of the shape curves 
  * corresponding to the `pos'th entry of root->curve
  */
-void print_tree_relevant(tree_node_t *root, int pos, flp_desc_t *flp_desc)
+void print_tree_relevant(tree_node_t *root, int32_t pos, flp_desc_t *flp_desc)
 {
 	if(root->left != NULL)
 		print_tree_relevant(root->left, root->curve->left_pos[pos], flp_desc);
@@ -379,9 +379,9 @@ void print_tree_relevant(tree_node_t *root, int pos, flp_desc_t *flp_desc)
 	print_shape_entry(root->curve, pos);
 }
 
-int min_area_pos(shape_t *curve)
+int32_t min_area_pos(shape_t *curve)
 {
-	int i = 1, pos = 0;
+	int32_t i = 1, pos = 0;
 	double min = curve->x[0] * curve->y[0];
 	for (; i < curve->size; i++)
 		if (min > curve->x[i] * curve->y[i]) {
@@ -397,9 +397,9 @@ int min_area_pos(shape_t *curve)
  * added up orientation. 'leftx' & 'bottomy' denote the
  * left and bottom ends of the current bounding rectangle
  */
-int recursive_sizing (tree_node_t *node, int pos, 
+int32_t recursive_sizing (tree_node_t *node, int32_t pos, 
 					   double leftx, double bottomy,
-					   int dead_count, int compact_dead,
+					   int32_t dead_count, int32_t compact_dead,
 					   double compact_ratio,
 #if VERBOSE > 1					   
 					   double *compacted_area, 
@@ -417,7 +417,7 @@ int recursive_sizing (tree_node_t *node, int pos,
 		flp->units[node->label.unit].bottomy = bottomy;
 	} else {
 		/* shortcuts */
-		int idx;
+		int32_t idx;
 		double x1, x2, y1, y2;
 		shape_t *left = node->left->curve;
 		shape_t *right = node->right->curve;
@@ -529,25 +529,25 @@ int recursive_sizing (tree_node_t *node, int pos,
  * convert slicing tree into actual floorplan
  * returns the number of dead blocks compacted
  */
-int tree_to_flp(tree_node_t *root, flp_t *flp, int compact_dead, 
+int32_t tree_to_flp(tree_node_t *root, flp_t *flp, int32_t compact_dead, 
 				double compact_ratio)
 {
 	/* for now, only choose the floorplan with
 	 * the minimum area regardless of the overall
 	 * aspect ratio
 	 */
-	int pos = min_area_pos(root->curve);
+	int32_t pos = min_area_pos(root->curve);
 	#if VERBOSE > 1									  
 	double compacted_area = 0.0;
 	#endif								  
-	int dead_count = recursive_sizing(root, pos, 0.0, 0.0, 0, 
+	int32_t dead_count = recursive_sizing(root, pos, 0.0, 0.0, 0, 
 					 				  compact_dead, compact_ratio,
 	#if VERBOSE > 1									  
 									  &compacted_area,
 	#endif								  
 									  flp);
 					 
-	int compacted = (flp->n_units - 1) / 2 - dead_count;
+	int32_t compacted = (flp->n_units - 1) / 2 - dead_count;
 	flp->n_units -= compacted;
 	#if VERBOSE > 1
 	fprintf(stdout, "%d dead blocks, %.2f%% of the core compacted\n", compacted, 

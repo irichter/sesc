@@ -25,7 +25,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "nanassert.h"
 #include "TaskHandler.h"
 
-// Entry point for all kills and restarts
+// Entry point32_t for all kills and restarts
 class VTaskHandler : public TaskHandler {
 public:
   void kill(const HVersion *ver, bool inv);

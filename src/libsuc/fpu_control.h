@@ -89,7 +89,7 @@
 #define _FPU_IEEE     0x037f
 
 /* Type of the control word.  */
-typedef unsigned int fpu_control_t __attribute__ ((__mode__ (__HI__)));
+typedef uint32_t fpu_control_t __attribute__ ((__mode__ (__HI__)));
 
 /* Macros for accessing the hardware control word.  */
 #define _FPU_GETCW(cw) __asm__ ("fnstcw %0" : "=m" (*&cw))

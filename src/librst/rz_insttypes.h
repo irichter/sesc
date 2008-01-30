@@ -72,7 +72,7 @@
 #define sign_ext_2(x, n) ((x) & sign_ext_lo_mask(n))
 
 //#define sign_ext(x, n) (sign_ext_1((x), (n)) | sign_ext_2((x), (n)))
-static inline int64_t sign_ext(int64_t imm, int sz) {
+static inline int64_t sign_ext(int64_t imm, int32_t sz) {
   int64_t rv = (imm << (64 - sz));
   rv = (rv >> (64-sz));
   return rv;

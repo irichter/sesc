@@ -22,14 +22,16 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #ifndef SPARCINSTRUCTION_H
 #define SPARCINSTRUCTION_H
 
+#include <stdint.h>
 #include "InstType.h"
 
-void disas_sparc_insn(unsigned int insn,
-		      InstType    &type, 
-		      InstSubType &subType,
-		      unsigned int &rd,
-		      unsigned int &rs1,
-		      unsigned int &rs2
-		      );
+void disas_sparc_insn(uint32_t insn,
+                     InstType    &type, 
+                     InstSubType &subType,
+                     uint8_t &rd,
+                     uint8_t &rs1,
+                     uint8_t &rs2
+                     );
 
 #endif
+

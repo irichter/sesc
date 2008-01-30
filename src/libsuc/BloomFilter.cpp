@@ -24,9 +24,9 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include <stdarg.h>
 #include <string.h>
 
-int BloomFilter::numDumps = 0;
+int32_t BloomFilter::numDumps = 0;
 
-BloomFilter::BloomFilter(int nv, ...)
+BloomFilter::BloomFilter(int32_t nv, ...)
 {
   va_list argL;
   va_start(argL, nv);
@@ -39,12 +39,12 @@ BloomFilter::BloomFilter(int nv, ...)
   countVec = new int*[nVectors];
   nonZeroCount = new int[nVectors];
 
-  for(int i = 0; i < nVectors; i++) {
+  for(int32_t i = 0; i < nVectors; i++) {
     vBits[i] = va_arg(argL, int); // # of bits from the address
     vSize[i] = va_arg(argL, int); // # of entries in the corresponding vector
 
     countVec[i] = new int[vSize[i]];
-    for(int j = 0; j < vSize[i]; j++) {
+    for(int32_t j = 0; j < vSize[i]; j++) {
       countVec[i][j] = 0;
     }
 
@@ -55,7 +55,7 @@ BloomFilter::BloomFilter(int nv, ...)
 
   desc = new char[128];
   desc[0] = 0;
-  for(int i = 0; i < nVectors; i++) 
+  for(int32_t i = 0; i < nVectors; i++) 
     sprintf(desc + strlen(desc), "[%d, %d]", vBits[i], vSize[i]);
 
   timingHistVec = 0;
@@ -77,7 +77,7 @@ BloomFilter::~BloomFilter()
   delete [] rShift;
   delete [] nonZeroCount;
   
-  for(int i = 0; i < nVectors; i++) {
+  for(int32_t i = 0; i < nVectors; i++) {
     delete [] countVec[i];
 
     if(timingHistVec != 0)
@@ -113,7 +113,7 @@ BloomFilter::BloomFilter(const BloomFilter& bf)
 
   timingHistVec = 0;
 
-  for(int i = 0; i < nVectors; i++) {
+  for(int32_t i = 0; i < nVectors; i++) {
     vSize[i] = bf.vSize[i];
     vBits[i] = bf.vBits[i];
     vMask[i] = bf.vMask[i];
@@ -122,7 +122,7 @@ BloomFilter::BloomFilter(const BloomFilter& bf)
   
     countVec[i] = new int[vSize[i]];
 
-    for(int j = 0; j < vSize[i]; j++) {
+    for(int32_t j = 0; j < vSize[i]; j++) {
       countVec[i][j] = bf.countVec[i][j];
     }
   }
@@ -143,19 +143,19 @@ BloomFilter& BloomFilter::operator=(const BloomFilter &bf)
 
   I(nVectors == bf.nVectors);
 #ifdef DEBUG
-  for(int i = 0; i < nVectors; i++) {
+  for(int32_t i = 0; i < nVectors; i++) {
     I(vSize[i] == bf.vSize[i]);
   }
 #endif
 
   nVectors = bf.nVectors;
-  for(int i = 0; i < nVectors; i++) {
+  for(int32_t i = 0; i < nVectors; i++) {
     vSize[i] = bf.vSize[i];
     vBits[i] = bf.vBits[i];
     vMask[i] = bf.vMask[i];
     rShift[i] = bf.rShift[i];
     nonZeroCount[i] = bf.nonZeroCount[i];
-    for(int j = 0; j < vSize[i]; j++) {
+    for(int32_t j = 0; j < vSize[i]; j++) {
       countVec[i][j] = bf.countVec[i][j];
     }
   }
@@ -165,7 +165,7 @@ BloomFilter& BloomFilter::operator=(const BloomFilter &bf)
   return *this;
 }
 
-void BloomFilter::init(bool build, int nv, ...)
+void BloomFilter::init(bool build, int32_t nv, ...)
 {
   if( BFBuild ) {
     return;
@@ -182,7 +182,7 @@ void BloomFilter::init(bool build, int nv, ...)
   vSize = new int[nVectors];
   vBits = new int[nVectors];
 
-  for(int i = 0; i < nVectors; i++) {
+  for(int32_t i = 0; i < nVectors; i++) {
     vBits[i] = va_arg(argL, int); // # of bits from the address
     vSize[i] = va_arg(argL, int); // # of entries in the corresponding vector
   }
@@ -194,10 +194,10 @@ void BloomFilter::init(bool build, int nv, ...)
   countVec = new int*[nVectors];
   nonZeroCount = new int[nVectors];
   
-  for(int i = 0; i < nVectors; i++) {
+  for(int32_t i = 0; i < nVectors; i++) {
     
     countVec[i] = new int[vSize[i]];
-    for(int j = 0; j < vSize[i]; j++) {
+    for(int32_t j = 0; j < vSize[i]; j++) {
       countVec[i][j] = 0;
     }
     
@@ -211,17 +211,17 @@ void BloomFilter::init(bool build, int nv, ...)
   
   desc = new char[128];
   desc[0] = 0;
-  for(int i = 0; i < nVectors; i++) 
+  for(int32_t i = 0; i < nVectors; i++) 
     sprintf(desc + strlen(desc), "[%d, %d]", vBits[i], vSize[i]);
 }
 
 void BloomFilter::initMasks()
 {
   // now preparing masks, bit shifts etc...
-  int totShift = 0;
-  for(int i = 0; i < nVectors; i++) {
+  int32_t totShift = 0;
+  for(int32_t i = 0; i < nVectors; i++) {
     unsigned mask = 0;
-    for(int m = 0; m < vBits[i]; m++)
+    for(int32_t m = 0; m < vBits[i]; m++)
       mask = mask | 1 << m;
 
     mask = mask << totShift;
@@ -232,10 +232,10 @@ void BloomFilter::initMasks()
   }
 }
 
-int BloomFilter::getIndex(unsigned val, int chunkPos)
+int32_t BloomFilter::getIndex(unsigned val, int32_t chunkPos)
 {
   unsigned uidx;
-  int ret;
+  int32_t ret;
 
   //val = val ^ SWAP_WORD(val);
 
@@ -258,8 +258,8 @@ void BloomFilter::insert(unsigned e)
   if( !BFBuild )
     return;
 
-  for(int i = 0; i < nVectors; i++) {
-    int idx = getIndex(e, i);
+  for(int32_t i = 0; i < nVectors; i++) {
+    int32_t idx = getIndex(e, i);
 
     if(countVec[i][idx] == 0) { // it won't be zero anymore
       nonZeroCount[i]++;
@@ -276,8 +276,8 @@ void BloomFilter::remove(unsigned e)
   if( !BFBuild )
     return;
 
-  for(int i = 0; i < nVectors; i++) {
-    int idx = getIndex(e, i);
+  for(int32_t i = 0; i < nVectors; i++) {
+    int32_t idx = getIndex(e, i);
 
     countVec[i][idx]--;
     I(countVec[i][idx] >= 0);
@@ -297,8 +297,8 @@ void BloomFilter::clear()
   if( !BFBuild )
     return;
 
-  for(int i = 0; i < nVectors; i++) {
-    for(int j = 0; j < vSize[i]; j++) {
+  for(int32_t i = 0; i < nVectors; i++) {
+    for(int32_t j = 0; j < vSize[i]; j++) {
       countVec[i][j] = 0;
     }
     nonZeroCount[i] = 0;
@@ -312,8 +312,8 @@ bool BloomFilter::mayExist(unsigned e)
   if( !BFBuild )
     return true;
 
-  for(int i = 0; i < nVectors; i++) {
-    int idx = getIndex(e, i);
+  for(int32_t i = 0; i < nVectors; i++) {
+    int32_t idx = getIndex(e, i);
     if(countVec[i][idx] == 0)
       return false;
   }
@@ -332,11 +332,11 @@ void BloomFilter::initHistogram(char *name)
 
   timingHistVec = new GStatsTimingHist*[nVectors];
 
-  for(int i = 0; i < nVectors; i++) 
+  for(int32_t i = 0; i < nVectors; i++) 
     timingHistVec[i] = new GStatsTimingHist("%s_vec%d", name, i);
 }
 
-void BloomFilter::updateHistogram(int vec)
+void BloomFilter::updateHistogram(int32_t vec)
 {
   if( !BFBuild )
     return;
@@ -355,14 +355,14 @@ bool BloomFilter::mayIntersect(BloomFilter &otherbf)
 
   I(nVectors == otherbf.nVectors);
 #ifdef DEBUG
-  for(int i = 0; i < nVectors; i++) {
+  for(int32_t i = 0; i < nVectors; i++) {
     I(vSize[i] == otherbf.vSize[i]);
   }
 #endif  
 
-  for(int v = 0; v < nVectors; v++) {
+  for(int32_t v = 0; v < nVectors; v++) {
     bool vectorInt = false;
-    for(int e = 0; e < vSize[v]; e++) {
+    for(int32_t e = 0; e < vSize[v]; e++) {
       if((countVec[v][e] > 0) && (otherbf.countVec[v][e] > 0)) {
 	vectorInt = true;
 	break;
@@ -384,14 +384,14 @@ void BloomFilter::mergeWith(BloomFilter &otherbf)
 
   I(nVectors == otherbf.nVectors);
 #ifdef DEBUG
-  for(int i = 0; i < nVectors; i++) {
+  for(int32_t i = 0; i < nVectors; i++) {
     I(vSize[i] == otherbf.vSize[i]);
   }
 #endif  
 
-  for(int v = 0; v < nVectors; v++) {
+  for(int32_t v = 0; v < nVectors; v++) {
     nonZeroCount[v] = 0;
-    for(int e = 0; e < vSize[v]; e++) {
+    for(int32_t e = 0; e < vSize[v]; e++) {
       countVec[v][e] += otherbf.countVec[v][e];
       if(countVec[v][e] != 0)
 	nonZeroCount[v]++;
@@ -406,14 +406,14 @@ void BloomFilter::subtract(BloomFilter &otherbf)
 
   I(nVectors == otherbf.nVectors);
 #ifdef DEBUG
-  for(int i = 0; i < nVectors; i++) {
+  for(int32_t i = 0; i < nVectors; i++) {
     I(vSize[i] == otherbf.vSize[i]);
   }
 #endif  
 
-  for(int v = 0; v < nVectors; v++) {
+  for(int32_t v = 0; v < nVectors; v++) {
     nonZeroCount[v] = 0;
-    for(int e = 0; e < vSize[v]; e++) {
+    for(int32_t e = 0; e < vSize[v]; e++) {
       countVec[v][e] -= otherbf.countVec[v][e];
       I(countVec[v][e] >= 0);
       if(countVec[v][e] != 0)
@@ -431,41 +431,41 @@ void BloomFilter::dump(const char *msg)
     return;
   }
 
-  for(int i = 0; i < nVectors; i++) {
+  for(int32_t i = 0; i < nVectors; i++) {
     printf("\t[%d, %d]", nonZeroCount[i], vSize[i]);
   }
   printf("\t%d \t%d\n", getSize(), getSizeRLE(0, 7));
 }
 
-int BloomFilter::getSize() 
+int32_t BloomFilter::getSize() 
 {
   if( !BFBuild ) {
     return 0;
   }
 
-  int size = 0;
+  int32_t size = 0;
 
-  for(int i = 0; i < nVectors; i++)
+  for(int32_t i = 0; i < nVectors; i++)
     size += vSize[i];
 
   return size;
 }
 
-int BloomFilter::getSizeRLE(int base, int runBits) 
+int32_t BloomFilter::getSizeRLE(int32_t base, int32_t runBits) 
 {
   if( !BFBuild ) {
     return 0;
   }
 
-  int rleSize = 0;
-  int runSize = 0;
-  int maxRun = (1 << runBits) - 1;
+  int32_t rleSize = 0;
+  int32_t runSize = 0;
+  int32_t maxRun = (1 << runBits) - 1;
 
-  for(int i = 0; i < nVectors; i++) {
-    for(int j = 0; j < vSize[i]; j++) {
+  for(int32_t i = 0; i < nVectors; i++) {
+    for(int32_t j = 0; j < vSize[i]; j++) {
       if(countVec[i][j] != base) {
 	if(runSize != 0) {
-	  int nRuns = (runSize / maxRun) + ((runSize % maxRun) > 0 ? 1 : 0);
+	  int32_t nRuns = (runSize / maxRun) + ((runSize % maxRun) > 0 ? 1 : 0);
 	  rleSize += (1 + runBits) * nRuns;
 	}
 	rleSize++;
@@ -486,13 +486,13 @@ bool BloomFilter::isSubsetOf(BloomFilter &otherbf)
 
   I(nVectors == otherbf.nVectors);
 #ifdef DEBUG
-  for(int i = 0; i < nVectors; i++) {
+  for(int32_t i = 0; i < nVectors; i++) {
     I(vSize[i] == otherbf.vSize[i]);
   }
 #endif  
 
-  for(int v = 0; v < nVectors; v++) {
-    for(int e = 0; e < vSize[v]; e++) {
+  for(int32_t v = 0; v < nVectors; v++) {
+    for(int32_t e = 0; e < vSize[v]; e++) {
       if(countVec[v][e] > otherbf.countVec[v][e]) {
 	return false;
       }
@@ -547,8 +547,8 @@ void BloomFilter::add_dump_line(unsigned e)
   fprintf(dumpPtr,
 	  "ar.add_plot(line_plot.T(data=[ ");
 
-  for(int i = 0; i < nVectors; i++) {
-    int idx = getIndex(e, i);
+  for(int32_t i = 0; i < nVectors; i++) {
+    int32_t idx = getIndex(e, i);
 
     if( i==2 )
       idx *= 32;
@@ -564,12 +564,12 @@ void BloomFilter::add_dump_line(unsigned e)
   fprintf(dumpPtr, " ]))\n\n");
 }
 
-int BloomFilter::countAlias(unsigned e)
+int32_t BloomFilter::countAlias(unsigned e)
 {
-  int a = 0;
+  int32_t a = 0;
 
-  for(int i = 0; i < nVectors; i++) {
-    int idx = getIndex(e, i);
+  for(int32_t i = 0; i < nVectors; i++) {
+    int32_t idx = getIndex(e, i);
     if(countVec[i][idx] != 0)
       a++;
   }
@@ -579,8 +579,8 @@ int BloomFilter::countAlias(unsigned e)
 
 void BloomFilter::intersectionWith(BloomFilter &otherbf, BloomFilter &inter)
 {
-  for(int v = 0; v < nVectors; v++) {
-    for(int e = 0; e < vSize[v]; e++) {
+  for(int32_t v = 0; v < nVectors; v++) {
+    for(int32_t e = 0; e < vSize[v]; e++) {
       if(countVec[v][e] != 0 && otherbf.countVec[v][e] != 0) {
 	inter.countVec[v][e] = 1;
       }

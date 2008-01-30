@@ -14,7 +14,7 @@ using namespace std;
 // for functional blocks and grid cells.
 
 //Constructor
-FBlocks::FBlocks (double xcord1, double ycord1, double xcord2, double ycord2, double pow, int n) {
+FBlocks::FBlocks (double xcord1, double ycord1, double xcord2, double ycord2, double pow, int32_t n) {
 
 	index_ = n;
 
@@ -92,14 +92,14 @@ double FBlocks::gy2() const {
 	return gy_2;
 }
 
-int FBlocks::index() const {
+int32_t FBlocks::index() const {
 
 	return index_;
 }
 
-bool FBlocks::IsGridPresent(int n) const {
+bool FBlocks::IsGridPresent(int32_t n) const {
 
-	for (int i = 0; i < (int) grids.size(); i++) {
+	for (int32_t i = 0; i < (int) grids.size(); i++) {
 
 		if (grids[i].number == n) {
 			return true;
@@ -114,7 +114,7 @@ void FBlocks::ListGrids() const {
 		cout << "No grids for this block!" << endl;
 	}
 	else {
-		for (int i = 0; i < (int) grids.size(); i++) {
+		for (int32_t i = 0; i < (int) grids.size(); i++) {
 			cout << grids[i].number << "," << grids[i].area << " ";
 		}
 		cout << endl;
@@ -146,12 +146,12 @@ void FBlocks::y2 (double ycord2) {
 	y_2 = ycord2;
 }
 
-void FBlocks::add_index (int n) {
+void FBlocks::add_index (int32_t n) {
 	index_ = n;
 }
 
 // Get the co-ordinates in terms of grid cells
-void FBlocks::updateGridcoord (int row, int column, double chip_length, double chip_height) 
+void FBlocks::updateGridcoord (int32_t row, int32_t column, double chip_length, double chip_height) 
 {
 	gx_1 = x_1 / (chip_length / column);
 	gy_1 = y_1 / (chip_height / row);
@@ -161,7 +161,7 @@ void FBlocks::updateGridcoord (int row, int column, double chip_length, double c
 }
 
 // Add a grid cell to the list of grid cells that a functional block (partially) occupies
-void FBlocks::AddGrid(int n, double gridarea) 
+void FBlocks::AddGrid(int32_t n, double gridarea) 
 {
 	if (GridsUpdated == false) {
 		GridDetails temp;
@@ -174,15 +174,15 @@ void FBlocks::AddGrid(int n, double gridarea)
 }
 
 // Area weighted power partition
-void FBlocks::PartPower(int col, vector<Grids> &G) 
+void FBlocks::PartPower(int32_t col, vector<Grids> &G) 
 {	
 	double x = gx_1;
 	double y = gy_1;
-	int intx1, inty1, intx2, inty2;
+	int32_t intx1, inty1, intx2, inty2;
 	double dx1, dy1, dx2, dy2;
 	double p = 0.0;
-	int grid, i, j;
-	int wholex, wholey;
+	int32_t grid, i, j;
+	int32_t wholex, wholey;
 	
 	double length, height;
 
@@ -312,7 +312,7 @@ void FBlocks::PartPower(int col, vector<Grids> &G)
 	}
 }
 
-double FBlocks::CalculateTemp (vector<double> &grid_t, int offset, int mode, int g_col) 
+double FBlocks::CalculateTemp (vector<double> &grid_t, int32_t offset, int32_t mode, int32_t g_col) 
 {
 	double temp = 0.0;
 	if ( (int) grids.size() <=1) {
@@ -322,16 +322,16 @@ double FBlocks::CalculateTemp (vector<double> &grid_t, int offset, int mode, int
 	else {
 		double min, max; 
 		min = max = grid_t[grids[0].number - 1 + offset];
-		for (int i = 0; i < (int) grids.size(); i++) {
+		for (int32_t i = 0; i < (int) grids.size(); i++) {
 			temp = temp + ((grids[i].area / garea_) * grid_t[grids[i].number - 1 + offset]);
 			if (max < grid_t[grids[i].number - 1 + offset])
 				max = grid_t[grids[i].number - 1 + offset];
 			if (min > grid_t[grids[i].number - 1 + offset])
 				min = grid_t[grids[i].number - 1 + offset];
 		}
-		int g_cent_x = (int) (gx_1 + gx_2) / 2;
-		int g_cent_y =(int) (gy_1 + gy_2) / 2;
-		int cent_grid = g_cent_x + (g_col * g_cent_y);
+		int32_t g_cent_x = (int) (gx_1 + gx_2) / 2;
+		int32_t g_cent_y =(int) (gy_1 + gy_2) / 2;
+		int32_t cent_grid = g_cent_x + (g_col * g_cent_y);
 		switch(mode) {
 			case GRID_AVG:
 					return temp;
@@ -350,7 +350,7 @@ double FBlocks::CalculateTemp (vector<double> &grid_t, int offset, int mode, int
 
 void FBlocks::CalculateGridTemp(vector<Grids> &G) 
 {
-	int i = 0;
+	int32_t i = 0;
 	for (i = 0; i < (int) grids.size(); i++) {
 		G[grids[i].number].temp(grids[i].area * temperature);
 	}

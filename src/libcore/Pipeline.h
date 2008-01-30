@@ -86,8 +86,8 @@ class Pipeline {
 private:
   const size_t PipeLength;
   const size_t bucketPoolMaxSize;
-  const int MaxIRequests;
-  int nIRequests;
+  const int32_t MaxIRequests;
+  int32_t nIRequests;
   FastQueue<IBucket *> buffer;
 
   typedef std::vector<IBucket *> IBucketCont;
@@ -99,12 +99,12 @@ private:
   Time_t maxItemCntr;
   Time_t minItemCntr;
   
-  int nCleanMarks;
+  int32_t nCleanMarks;
   
 protected:
   void clearItems();
 public:
-  Pipeline(size_t s, size_t fetch, int maxReqs);
+  Pipeline(size_t s, size_t fetch, int32_t maxReqs);
   virtual ~Pipeline();
  
   void cleanMark();

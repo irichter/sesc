@@ -47,7 +47,7 @@ class MarkovTState : public StateGeneric<> {
   PAddr predAddr1;
   PAddr predAddr2;
   PAddr predAddr3;
-  int tag;
+  int32_t tag;
   };*/
 
 class MarkovPrefetcher : public MemObj {
@@ -71,9 +71,9 @@ protected:
 
   void read(MemRequest *mreq);
 
-  int defaultMask;
+  int32_t defaultMask;
   
-  int lineSize;
+  int32_t lineSize;
 
   BuffType *buff;
   MarkovTable *table;
@@ -81,16 +81,16 @@ protected:
   PortGeneric *buffPort;
   PortGeneric *tablePort;
 
-  int numBuffPorts;
-  int numTablePorts;
-  int buffPortOccp;
-  int tablePortOccp;
-  int hitDelay;
-  int missDelay;
-  int depth;
-  int width;
-  int ptr;
-  int age;
+  int32_t numBuffPorts;
+  int32_t numTablePorts;
+  int32_t buffPortOccp;
+  int32_t tablePortOccp;
+  int32_t hitDelay;
+  int32_t missDelay;
+  int32_t depth;
+  int32_t width;
+  int32_t ptr;
+  int32_t age;
 
   GStatsCntr halfMiss;
   GStatsCntr miss;
@@ -98,7 +98,7 @@ protected:
   GStatsCntr predictions;
   GStatsCntr accesses;
 
-  static const int tEntrySize = 8; // size of an entry in the prefetching table
+  static const int32_t tEntrySize = 8; // size of an entry in the prefetching table
 
 public:
   MarkovPrefetcher(MemorySystem* current, const char *device_descr_section,

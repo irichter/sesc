@@ -96,9 +96,9 @@ public:
     long long nGradInsts;       // Graduated instructions
     long long nWPathInsts;      // wrong path instructions
 #ifdef TASKSCALAR
-	 int nRestarts;
-	 int niKills;
-	 int nrKills;
+	 int32_t nRestarts;
+	 int32_t niKills;
+	 int32_t nrKills;
     long long niKillGradInsts;
     long long niKillWPathInsts;
     long long nrKillGradInsts;
@@ -122,19 +122,19 @@ private:
   ProcessIdState state;
 
   // The priority of the process (lower is better, 0 by default)
-  int priority;
+  int32_t priority;
 
   // Position of the process in the process queue, if it is in there
   ProcessQueue::iterator queuePosition;
 
-  int suspendedCounter;
+  int32_t suspendedCounter;
   
   CPU_t   cpu;
-  int     myId;
-  int     parentId;
+  int32_t     myId;
+  int32_t     parentId;
   Pid_t   ppid; // Parent pid
   Pid_t   pid;
-  uint   nChilds;
+  uint32_t   nChilds;
 
   Time_t  spawnTime;
   Time_t  startTime;
@@ -197,22 +197,22 @@ public:
   // Returns the highest-priority process that can run on a given processor
   static ProcessId *queueGet(const CPU_t cpu);
 
-  bool sysconf(int flags);
-  int getconf(void);
+  bool sysconf(int32_t flags);
+  int32_t getconf(void);
 
-  static ProcessId *create(Pid_t ppid, Pid_t id, int flags);
+  static ProcessId *create(Pid_t ppid, Pid_t id, int32_t flags);
   void destroy();
   static void destroyAll();
 
   void incSuspendedCounter() { suspendedCounter++; }
   void decSuspendedCounter();
-  int getSuspendedCounter() const  { return suspendedCounter; }
+  int32_t getSuspendedCounter() const  { return suspendedCounter; }
 
   static ProcessId *getProcessId(Pid_t pid) ;
   static bool isSafeId(Pid_t pid);
 
-  static unsigned int getNumRunningThreads() { return processQueue.size();  }
-  static unsigned int getNumThreads();
+  static uint32_t getNumRunningThreads() { return processQueue.size();  }
+  static uint32_t getNumThreads();
 
   static void report(const char *str);
   void reportId();
@@ -223,7 +223,7 @@ public:
   CPU_t getCPU() const     { return cpu;  }
   void setCPU(CPU_t nCPU)  { cpu = nCPU;  }
 
-  uint getNChilds() const { return nChilds; }
+  uint32_t getNChilds() const { return nChilds; }
 
   Pid_t getPid()  const    { return pid;  }
   Pid_t getPPid() const    { return ppid; }
@@ -315,11 +315,11 @@ public:
     state=ReadyState;
   }
   
-  int getPriority(void) const { return priority; }
-  ProcessId *setPriority(int newPriority) {
+  int32_t getPriority(void) const { return priority; }
+  ProcessId *setPriority(int32_t newPriority) {
     // By default, return nothing
     ProcessId *retVal=0;
-    int oldPriority=priority;
+    int32_t oldPriority=priority;
     priority=newPriority;
     // If in the process queue
     if(queuePosition!=processQueue.end()){

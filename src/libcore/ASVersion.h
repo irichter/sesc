@@ -56,7 +56,7 @@ class HVersion {
   size_t nChild;
 
   // A node can be duplicated.
-  int nUsers;
+  int32_t nUsers;
 #if 0
   HVersion *next;
   HVersion *prev;
@@ -78,7 +78,7 @@ class HVersion {
 
   TaskContext *tc;
 
-  int nOutsReqs;  // both outs instructions and mem requests                                                                  
+  int32_t nOutsReqs;  // both outs instructions and mem requests                                                                  
   void spawn(HVersion *child, VType skip, bool atomic);
   void claim();
   void release();
@@ -149,7 +149,7 @@ class HVersion {
   void dump(const char *str, bool shortVersion = false) const;
   void dumpAll() const;
 
-  int  getPrio() const { 
+  int32_t  getPrio() const { 
     I(oldest);
     return (int)(base - oldest->base);
   }

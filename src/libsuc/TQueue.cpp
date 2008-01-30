@@ -27,7 +27,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "TQueue.h"
 
 exportTemplate template < class Data, class Time> TQueue < Data, Time >
-::TQueue(unsigned int MaxTimeDiff)
+::TQueue(uint32_t MaxTimeDiff)
   :AccessSize(MaxTimeDiff)
   ,AccessMask(AccessSize - 1)
 {
@@ -68,8 +68,8 @@ exportTemplate template < class Data, class Time > void TQueue < Data, Time >
 {
     MSG("TQueue dump: size=%d",size());
 
-    int pos = minPos;
-    int conta = nNodes;
+    int32_t pos = minPos;
+    int32_t conta = nNodes;
     
     Data node = access[pos];
     

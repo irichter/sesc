@@ -97,7 +97,7 @@ class DInstNext {
 class DInst {
  public:
   // In a typical RISC processor MAX_PENDING_SOURCES should be 2
-  static const int MAX_PENDING_SOURCES=2;
+  static const int32_t MAX_PENDING_SOURCES=2;
 
 private:
 
@@ -107,7 +107,7 @@ private:
   DInstNext *last;
   DInstNext *first;
   
-  int cId;
+  int32_t cId;
 
   // BEGIN Boolean flags
   bool loadForwarded;
@@ -135,12 +135,12 @@ private:
   ushort preg;
 #endif
 #ifdef SESC_BAAD
-  static int fetch1QSize;
-  static int fetch2QSize;
-  static int issueQSize;
-  static int schedQSize;
-  static int exeQSize;
-  static int retireQSize;
+  static int32_t fetch1QSize;
+  static int32_t fetch2QSize;
+  static int32_t issueQSize;
+  static int32_t schedQSize;
+  static int32_t exeQSize;
+  static int32_t retireQSize;
 
   static GStatsTimingHist *fetch1QHist1;
   static GStatsTimingHist *fetch2QHist1;
@@ -199,7 +199,7 @@ private:
   FetchEngine *fetch;
 
 #ifdef TASKSCALAR
-  int         dataDepViolationID;
+  int32_t         dataDepViolationID;
   HVersion   *restartVer;
   HVersion   *lvidVersion;
   GLVID      *lvid;
@@ -219,8 +219,8 @@ private:
 
 #ifdef DEBUG
  public:
-  static int currentID;
-  int ID; // static ID, increased every create (currentID). pointer to the
+  static int32_t currentID;
+  int32_t ID; // static ID, increased every create (currentID). pointer to the
   // DInst may not be a valid ID because the instruction gets recycled
 #endif
 #if (defined MIPS_EMUL)
@@ -243,15 +243,15 @@ private:
   StaticCallbackMember0<DInst,&DInst::doAtExecuted> doAtExecutedCB;
 
 #if (defined MIPS_EMUL)
-  static DInst *createInst(InstID pc, VAddr va, int cId, ThreadContext *context);
-  static DInst *createDInst(const Instruction *inst, VAddr va, int cId, ThreadContext *context);
+  static DInst *createInst(InstID pc, VAddr va, int32_t cId, ThreadContext *context);
+  static DInst *createDInst(const Instruction *inst, VAddr va, int32_t cId, ThreadContext *context);
 #else
 #if (defined TLS)
-  static DInst *createInst(InstID pc, VAddr va, int cId, tls::Epoch *epoch);
-  static DInst *createDInst(const Instruction *inst, VAddr va, int cId, tls::Epoch *epoch);
+  static DInst *createInst(InstID pc, VAddr va, int32_t cId, tls::Epoch *epoch);
+  static DInst *createDInst(const Instruction *inst, VAddr va, int32_t cId, tls::Epoch *epoch);
 #else
-  static DInst *createInst(InstID pc, VAddr va, int cId);
-  static DInst *createDInst(const Instruction *inst, VAddr va, int cId);
+  static DInst *createInst(InstID pc, VAddr va, int32_t cId);
+  static DInst *createDInst(const Instruction *inst, VAddr va, int32_t cId);
 #endif // Else of (defined TLS)
 #endif // Else of (defined MIPS_EMUL)
   void killSilently();
@@ -454,7 +454,7 @@ private:
 
   VAddr getVaddr() const { return vaddr;  }
 
-  int getContextId() const { return cId; }
+  int32_t getContextId() const { return cId; }
 
   void dump(const char *id);
 
@@ -538,7 +538,7 @@ private:
 #endif
 
 #ifdef DEBUG
-  int getID() const { return ID; }
+  int32_t getID() const { return ID; }
 #endif
 };
 

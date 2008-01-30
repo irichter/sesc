@@ -64,7 +64,7 @@ protected:
 
   void recycleAllCache(const HVersion *exeVer);
 
-  int countLinesInSet(PAddr paddr);
+  int32_t countLinesInSet(PAddr paddr);
 
   CacheLine *getSafeLine(PAddr paddr);
   CacheLine *getLineMoreSpecThan(const HVersion *ver, PAddr paddr);

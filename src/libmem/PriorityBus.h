@@ -65,13 +65,13 @@ class PriorityBus: public MemObj {
   bool allQueuesEmpty() {
     bool ret = true;;
     
-    for(int q = 0; q < LastQ; q++)
+    for(int32_t q = 0; q < LastQ; q++)
       ret &= reqQs[q].empty();
 
     return ret;
   }
 
-  void pushBack(int q, MemRequest *mreq) {
+  void pushBack(int32_t q, MemRequest *mreq) {
     I(q >= 0 && q < LastQ);
     reqQs[q].push_back(mreq);
     timeQs[q].push_back(globalClock);

@@ -31,24 +31,24 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 class RSTReader {
  private:
-  const int Max_Num_Recs;
-  const int Max_Head_Size;
+  const int32_t Max_Num_Recs;
+  const int32_t Max_Head_Size;
 
   Rstzip *rz;
   
-  int nFlows;
+  int32_t nFlows;
   DInst *head;
   char *head_size;
 
   // Decompressed buffer
   bool end_of_trace;
-  int  buf_pos;
-  int  buf_end;
+  int32_t  buf_pos;
+  int32_t  buf_end;
   rstf_unionT *buf;
 
   void addInstruction(const rstf_unionT *rp);
 
-  void advancePC(int fid);
+  void advancePC(int32_t fid);
 
  public:
   RSTReader();
@@ -56,14 +56,14 @@ class RSTReader {
   void openTrace(const char* basename);
   void closeTrace();
 
-  DInst *executePC(int fid);
-  VAddr currentPC(int fid) const {
+  DInst *executePC(int32_t fid);
+  VAddr currentPC(int32_t fid) const {
     return head_size[fid] ? 
       head[fid].getFirstPending()->getInst()->getAddr(): 
       0xffffffff ;
   }
 
-  bool hasWork(int fid) const { return head_size[fid] != 0; }
+  bool hasWork(int32_t fid) const { return head_size[fid] != 0; }
 };
 
 #endif

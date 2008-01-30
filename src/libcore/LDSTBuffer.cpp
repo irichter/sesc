@@ -77,7 +77,7 @@ void LDSTBuffer::getFenceEntry(DInst *dinst)
    */
 
   const Instruction *inst = dinst->getInst();
-  int cid = dinst->getContextId();  // FIXME: Is contextId correct?
+  int32_t cid = dinst->getContextId();  // FIXME: Is contextId correct?
 
   I(inst->isFence());
 
@@ -90,7 +90,7 @@ void LDSTBuffer::getFenceEntry(DInst *dinst)
 
 void LDSTBuffer::fenceLocallyPerformed(DInst *dinst)
 {
-  int cid = dinst->getContextId();
+  int32_t cid = dinst->getContextId();
   FenceEntryType::iterator it = fences.find(cid);
 
   if (it->second == dinst)

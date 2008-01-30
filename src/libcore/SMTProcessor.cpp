@@ -29,7 +29,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "FetchEngine.h"
 #include "ExecutionFlow.h"
 
-SMTProcessor::Fetch::Fetch(GMemorySystem *gm, CPU_t cpuID, int cid, GProcessor *gproc, FetchEngine *fe)
+SMTProcessor::Fetch::Fetch(GMemorySystem *gm, CPU_t cpuID, int32_t cid, GProcessor *gproc, FetchEngine *fe)
   : IFID(cpuID, cid, gm, gproc, fe)
   ,pipeQ(cpuID)
 {
@@ -70,11 +70,11 @@ SMTProcessor::SMTProcessor(GMemorySystem *gm, CPU_t i)
   flow[0] = f;
   gRAT = (DInst ***) malloc(sizeof(DInst ***) * smtContexts);
 
-  for(int i = 1; i < smtContexts; i++) {
+  for(int32_t i = 1; i < smtContexts; i++) {
     flow[i] = new Fetch(gm, Id,Id*smtContexts+i, this, &(f->IFID));
   }
 
-  for(int i = 0; i < smtContexts; i++) {
+  for(int32_t i = 0; i < smtContexts; i++) {
     gRAT[i] = (DInst **) malloc(sizeof(DInst **) * NumArchRegs);
     bzero(gRAT[i],sizeof(DInst*)*NumArchRegs);
   }
@@ -107,7 +107,7 @@ SMTProcessor::Fetch *SMTProcessor::findFetch(Pid_t pid) const
   return 0;
 }
 
-DInst **SMTProcessor::getRAT(const int contextId)
+DInst **SMTProcessor::getRAT(const int32_t contextId)
 {
   I(firstContext >= contextId);
   I(contextId <= firstContext+smtContexts);
@@ -233,7 +233,7 @@ void SMTProcessor::goRabbitMode(long long n2Skip)
 void SMTProcessor::selectFetchFlow()
 {
   // ROUND-ROBIN POLICY
-  for(int i=0;i<smtContexts;i++){
+  for(int32_t i=0;i<smtContexts;i++){
     cFetchId = (cFetchId+1) % smtContexts;
     if( flow[cFetchId]->IFID.getPid() >= 0 )
       return;
@@ -260,16 +260,16 @@ void SMTProcessor::advanceClock()
   clockTicks++;
   
   // Fetch Stage
-  int nFetched = 0;
-  int fetchMax = FetchWidth;
+  int32_t nFetched = 0;
+  int32_t fetchMax = FetchWidth;
 #ifdef TASKSCALAR
-  int safeFetched = 0;
-  int specFetched = 0;
+  int32_t safeFetched = 0;
+  int32_t specFetched = 0;
   bool firstThreadFetched = true;
-  int tries = 0;
+  int32_t tries = 0;
 #endif
 
-  for(int i = 0; i < smtContexts && nFetched < FetchWidth; i++) {
+  for(int32_t i = 0; i < smtContexts && nFetched < FetchWidth; i++) {
     selectFetchFlow();
     if (cFetchId >=0) {
       I(flow[cFetchId]->IFID.hasWork());
@@ -279,7 +279,7 @@ void SMTProcessor::advanceClock()
       TaskContext *tc = TaskContext::getTaskContext(flow[cFetchId]->IFID.getPid());
       I(tc);
 
-      //in the first fetch of the cycle,  make cFetchId point to the safe thread
+      //in the first fetch of the cycle,  make cFetchId point32_t to the safe thread
       while(firstThreadFetched && !tc->getVersionRef()->isSafe()) {
 	selectFetchFlow();
 	tries++;
@@ -330,7 +330,7 @@ void SMTProcessor::advanceClock()
 #endif
 
   // ID Stage (insert to instQueue)
-  for(int i=0;i<smtContexts && spaceInInstQueue >= FetchWidth ;i++) {
+  for(int32_t i=0;i<smtContexts && spaceInInstQueue >= FetchWidth ;i++) {
     selectDecodeFlow();
     
     IBucket *bucket = flow[cDecodeId]->pipeQ.pipeLine.nextItem();
@@ -344,14 +344,14 @@ void SMTProcessor::advanceClock()
   }
 
   // RENAME Stage
-  int totalIssuedInsts=0;
-  for(int i = 0; i < smtContexts && totalIssuedInsts < IssueWidth; i++) {
+  int32_t totalIssuedInsts=0;
+  for(int32_t i = 0; i < smtContexts && totalIssuedInsts < IssueWidth; i++) {
     selectIssueFlow();
     
     if( flow[cIssueId]->pipeQ.instQueue.empty() )
       continue;
     
-    int issuedInsts = issue(flow[cIssueId]->pipeQ);
+    int32_t issuedInsts = issue(flow[cIssueId]->pipeQ);
     
     totalIssuedInsts += issuedInsts;
   }

@@ -9,7 +9,7 @@
 #include "wattch/wattch_setup.h"
 // #include "orion/orion_setup.h"
 
-int main(int argc, char **argv)
+int32_t main(int32_t argc, char **argv)
 {
   if (argc<3) {
     fprintf(stderr,"Usage:\n\t%s [-v] <sesc.conf> <tmp.conf>\n",argv[0]);

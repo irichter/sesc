@@ -35,7 +35,7 @@ GStatsCntr *ValueTable::verifyGoodCntr=0;
 GStatsCntr *ValueTable::verifyBadCntr =0;
 
 
-ValueTable::PredEntry::PredEntry(int i) 
+ValueTable::PredEntry::PredEntry(int32_t i) 
   : id(i)
   ,goodCntr("ValueTable:good_%d",i)
   ,badCntr("ValueTable:bad_%d" ,i)
@@ -46,7 +46,7 @@ ValueTable::PredEntry::PredEntry(int i)
   confidence = 0;
 }
 
-ValueTable::PredEntry *ValueTable::PredEntry::getEntry(int i)
+ValueTable::PredEntry *ValueTable::PredEntry::getEntry(int32_t i)
 {
   VTable::iterator it = table.find(i);
 
@@ -78,7 +78,7 @@ void ValueTable::boot()
   verifyBadCntr  = new GStatsCntr("ValueTable:verifyBad");
 }
 
-int ValueTable::readLVPredictor(int id) 
+int32_t ValueTable::readLVPredictor(int32_t id) 
 {
   getCntr->inc();
 
@@ -88,7 +88,7 @@ int ValueTable::readLVPredictor(int id)
   return e->curr;
 }
 
-void ValueTable::updateLVPredictor(int id, int value) 
+void ValueTable::updateLVPredictor(int32_t id, int32_t value) 
 {
   putCntr->inc();
 
@@ -112,7 +112,7 @@ void ValueTable::updateLVPredictor(int id, int value)
   }
 }
 
-int ValueTable::readSVPredictor(int id) 
+int32_t ValueTable::readSVPredictor(int32_t id) 
 {
   getCntr->inc();
 
@@ -122,7 +122,7 @@ int ValueTable::readSVPredictor(int id)
   return pe->pred;
 }
 
-void ValueTable::updateSVPredictor(int id, int value)
+void ValueTable::updateSVPredictor(int32_t id, int32_t value)
 {
   putCntr->inc();
 
@@ -151,7 +151,7 @@ void ValueTable::updateSVPredictor(int id, int value)
   }
 }
 
-int ValueTable::readIncrPredictor(int id, int lvalue) 
+int32_t ValueTable::readIncrPredictor(int32_t id, int32_t lvalue) 
 {
   getCntr->inc();
 
@@ -160,7 +160,7 @@ int ValueTable::readIncrPredictor(int id, int lvalue)
   return pe->stride + lvalue;
 }
 
-void ValueTable::updateIncrPredictor(int id, int value) 
+void ValueTable::updateIncrPredictor(int32_t id, int32_t value) 
 {
   putCntr->inc();
 
@@ -186,7 +186,7 @@ void ValueTable::updateIncrPredictor(int id, int value)
     pe->stride = value;
 }
 
-void ValueTable::verifyValue(int rval, int pval)
+void ValueTable::verifyValue(int32_t rval, int32_t pval)
 {
   if (rval == pval)
     goodCntr->inc();

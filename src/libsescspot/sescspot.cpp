@@ -67,7 +67,7 @@ void dump_tempAppend1(flp_t *flp, double *temp, char *file) {
   fprintf(fp, "%-12d", (int)curcycle);
 
   // on chip temperatures	
-  for (int i=0; i < flp->n_units; i++)
+  for (int32_t i=0; i < flp->n_units; i++)
     fprintf(fp, "%-12f", temp[i]-273.15);
 
   fclose(fp);   
@@ -85,7 +85,7 @@ void dump_tempTitles(flp_t *flp, char *file) {
 
   fprintf(fp, "%-12s", "Cycle");
 
-  for (int i = 0; i < flp->n_units; i++) {
+  for (int32_t i = 0; i < flp->n_units; i++) {
     fprintf(fp, "%-12s", flp->units[i].name);
   }
 
@@ -133,20 +133,20 @@ void parseConfigFile() {
   SescConf->lock();
 }
 
-int process_trace(const char *input_file
+int32_t process_trace(const char *input_file
 		  ,double power_timestep
-		  ,int power_samples_per_therm_sample
+		  ,int32_t power_samples_per_therm_sample
 		  ,bool rabbit
-		  ,int cyclesPerSample
+		  ,int32_t cyclesPerSample
 		  ) {
 
-  int num_computations = 0;
+  int32_t num_computations = 0;
   // ----------------------------------------------------------------
   // READ trace
   ThermTrace trace(input_file);
   
-  static int pending_power_samples_from_prev_trace = 0;
-  static int samples=0;
+  static int32_t pending_power_samples_from_prev_trace = 0;
+  static int32_t samples=0;
 
   while(trace.read_energy()) {
     //-------------------------------------
@@ -206,7 +206,7 @@ int process_trace(const char *input_file
       else
 	cout << "T " << cur_time << " ";
       
-      for (int i=0; i < flp->n_units; i++)
+      for (int32_t i=0; i < flp->n_units; i++)
 	cout << temp[i] - 273.15 << "\t";
     
       cout << endl;
@@ -249,10 +249,10 @@ void showUsage()
   printf("\t-f <--floorplan> Floorplan file      - Set to the floorplan you wish to use.  Default is 'ev6.flp'\n");
 }
 
-int main(int argc, char **argv)
+int32_t main(int32_t argc, char **argv)
 {
-  int i, n, num,x, longindex, lines = 0;
-  int opt;
+  int32_t i, n, num,x, longindex, lines = 0;
+  int32_t opt;
   //FILE *pin, *tout;	/* trace file pointers	*/
   char names[MAX_UNITS][STR_SIZE];
   double vals[MAX_UNITS];
@@ -314,10 +314,10 @@ int main(int argc, char **argv)
 
   const char *modelSec= SescConf->getCharPtr("thermal","model");
 
-  int cyclesPerSample = SescConf->getInt(modelSec,"CyclesPerSample");
+  int32_t cyclesPerSample = SescConf->getInt(modelSec,"CyclesPerSample");
   double frequency    = SescConf->getDouble("technology","Frequency");
 
-  int power_samples_per_therm_sample = SescConf->getInt(modelSec,"PowerSamplesPerThermSample");
+  int32_t power_samples_per_therm_sample = SescConf->getInt(modelSec,"PowerSamplesPerThermSample");
   double power_timestep = cyclesPerSample/frequency;
   double time_step = power_timestep * power_samples_per_therm_sample;
 
@@ -335,7 +335,7 @@ int main(int argc, char **argv)
 #if 0
   printf("%-20s\t%-15s\n","Unit","Steady-State Temperatures Without Warmup");
 
-  for (int i=0; i < flp->n_units; i++)
+  for (int32_t i=0; i < flp->n_units; i++)
     printf("%-20s\t%.2f\n", flp->units[i].name, temp[i]-273.15);
 #endif
 
@@ -344,7 +344,7 @@ int main(int argc, char **argv)
     if (!(p_hotfile = fopen(hotfile, "w")))
       fatal("Unable to open hotfile file\n");
 
-    for (int i=0; i < flp->n_units; i++)
+    for (int32_t i=0; i < flp->n_units; i++)
       fprintf(p_hotfile,"%-20s ", flp->units[i].name);
     fprintf(p_hotfile,"\n");
     // FIXME: read hot file
@@ -359,12 +359,12 @@ int main(int argc, char **argv)
   cout << "MODEL INITIALIZATION TIME IS " << elapsed << "SECONDS" << endl;
 
   double total;
-  int num_computations = 0;
+  int32_t num_computations = 0;
 
   if (argc>7) {
     num_computations = 0;
     
-    for(int i=7;i<argc;i++) {
+    for(int32_t i=7;i<argc;i++) {
       cout << "Processing trace " << argv[i] << endl;
       start = clock();
       

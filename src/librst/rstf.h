@@ -116,8 +116,8 @@
  *    ... read or write into rstbuff ...
  *    rstf_instrT * instrPtr = & rstbuff[3].instr;  // good = NO TYPE CASTING
  *    rstf_instrT * instrPtr = (rstf_instrT*) &rstbuff[3];  // avoid, bad, ugly
- *    int pc = instrPtr->pc_va;
- *    int iContext = rstbuff[89].pavadiff.icontext;
+ *    int32_t pc = instrPtr->pc_va;
+ *    int32_t iContext = rstbuff[89].pavadiff.icontext;
  *    rstf_tlbT * tlb = & rstbuff[234].tlb;     // no type casting (!!)
  * 
  * HISTORY: 
@@ -169,7 +169,7 @@ extern "C" {
   //   0 = version match
   //   2 = semi compatible versions
   //   4 = version mismatch
-int rstf_version_check_fn (const char* compile_time_version);
+int32_t rstf_version_check_fn (const char* compile_time_version);
 
   // Convenience macro for version checking
 #define RSTF_CHECK_VERSION()   rstf_version_check_fn(RSTF_VERSION_STR)
@@ -365,8 +365,8 @@ typedef struct {
   uint64_t    pc_va;            /* VA */
   uint64_t    ea_va;            /* VA: Eff addr of ld/st; Eff targ of CTI */
 } rstf_instrT;
-static void rstf_instrT_set_cpuid(rstf_instrT * tr, int cpuid) { tr->cpuid = cpuid & 0x3f; tr->cpuid9_6 = ((cpuid>>6) & 0xf); }
-static int rstf_instrT_get_cpuid(const rstf_instrT * tr) { return (tr->cpuid9_6<<6)|tr->cpuid; }
+static void rstf_instrT_set_cpuid(rstf_instrT * tr, int32_t cpuid) { tr->cpuid = cpuid & 0x3f; tr->cpuid9_6 = ((cpuid>>6) & 0xf); }
+static int32_t rstf_instrT_get_cpuid(const rstf_instrT * tr) { return (tr->cpuid9_6<<6)|tr->cpuid; }
 
 class rstf_pavadiffT{
  public:
@@ -400,11 +400,11 @@ class rstf_pavadiffT{
   uint16_t    dcontext; /* only valid if ea_valid is true (!) */
   uint64_t    pc_pa_va; /* (PA-VA) of PC */
   uint64_t    ea_pa_va; /* (PA-VA) of EA for ld/st (not branches), if ea_valid is true */
-  void set_cpuid(int id) { 
+  void set_cpuid(int32_t id) { 
     cpuid = id & 0x7f; 
     cpuid9_7 = (id>>7)&0x7; 
   }
-  int get_cpuid() const { return (cpuid9_7 << 7)|cpuid; }
+  int32_t get_cpuid() const { return (cpuid9_7 << 7)|cpuid; }
 };
 
     // subtypes for records with a rtype2 field
@@ -470,8 +470,8 @@ typedef struct {
   //    rstf_tte_dataT * xp = (rst_tte_data_T *) & tlbp->tte_data;
   uint64_t    tte_data;         /* data for a TTE */
 } rstf_tlbT;
-static void rstf_tlbT_set_cpuid(rstf_tlbT * tr, int cpuid) { tr->cpuid = cpuid & 0x3f; tr->cpuid9_6 = (cpuid>>6)&0xf; }
-static int rstf_tlbT_get_cpuid(const rstf_tlbT * tr) { return (tr->cpuid9_6<<6)|tr->cpuid; }
+static void rstf_tlbT_set_cpuid(rstf_tlbT * tr, int32_t cpuid) { tr->cpuid = cpuid & 0x3f; tr->cpuid9_6 = (cpuid>>6)&0xf; }
+static int32_t rstf_tlbT_get_cpuid(const rstf_tlbT * tr) { return (tr->cpuid9_6<<6)|tr->cpuid; }
 
 typedef struct {                /* not done yet */
     uint8_t     rtype;          /* value = THREAD_T */
@@ -543,8 +543,8 @@ class rstf_pregT {
   uint16_t    primD;            /* primary DMMU context register */
   uint16_t    secD;             /* secondary DMMU context register */
 
-  void set_cpuid(int id) { cpuid = id & 0xff; cpuid9_8 = (id>>8) & 3; }
-  int get_cpuid() const { return (cpuid9_8<<8)|cpuid; }
+  void set_cpuid(int32_t id) { cpuid = id & 0xff; cpuid9_8 = (id>>8) & 3; }
+  int32_t get_cpuid() const { return (cpuid9_8<<8)|cpuid; }
 };
 
 typedef struct {
@@ -564,8 +564,8 @@ typedef struct {
   uint64_t    pc;               /* PC before the trap (= post-trap TPC[TL]) */
   uint64_t    npc;              /* NPC before   trap (= post-trap TNPC[TL]) */
 } rstf_trapT;
-static void rstf_trapT_set_cpuid(rstf_trapT * tr, int cpuid) { tr->cpuid = cpuid & 0x3f; tr->cpuid9_6 = (cpuid>>6) & 0xf; }
-static int rstf_trapT_get_cpuid(const rstf_trapT * tr) { return (tr->cpuid9_6 << 6) | tr->cpuid; }
+static void rstf_trapT_set_cpuid(rstf_trapT * tr, int32_t cpuid) { tr->cpuid = cpuid & 0x3f; tr->cpuid9_6 = (cpuid>>6) & 0xf; }
+static int32_t rstf_trapT_get_cpuid(const rstf_trapT * tr) { return (tr->cpuid9_6 << 6) | tr->cpuid; }
 
 typedef struct {
   uint8_t     rtype;            /* value = TRAPEXIT_T */
@@ -578,8 +578,8 @@ typedef struct {
   uint64_t    unused64;         /* used to be pc */
   uint64_t    unused64b;        /* used to be npc */
 } rstf_trapexitT;
-static void rstf_trapexitT_set_cpuid(rstf_trapexitT * tr, int cpuid) { tr->cpuid = cpuid & 0x3f; tr->cpuid9_6 = (cpuid>>6) & 0xf; }
-static int rstf_trapexitT_get_cpuid(const rstf_trapexitT * tr) { return (tr->cpuid9_6 << 6) | tr->cpuid; }
+static void rstf_trapexitT_set_cpuid(rstf_trapexitT * tr, int32_t cpuid) { tr->cpuid = cpuid & 0x3f; tr->cpuid9_6 = (cpuid>>6) & 0xf; }
+static int32_t rstf_trapexitT_get_cpuid(const rstf_trapexitT * tr) { return (tr->cpuid9_6 << 6) | tr->cpuid; }
 
 
 typedef struct {
@@ -612,8 +612,8 @@ typedef struct {
   uint64_t    pa;               /* physical address of TSB access */
   uint64_t    va;               /* virtual address of TSB access */
 } rstf_tsb_accessT;
-static void rstf_tsb_accessT_set_cpuid(rstf_tsb_accessT * tr, int cpuid) { tr->cpuid = cpuid; }
-static int rstf_tsb_accessT_get_cpuid(const rstf_tsb_accessT * tr) { return tr->cpuid; }
+static void rstf_tsb_accessT_set_cpuid(rstf_tsb_accessT * tr, int32_t cpuid) { tr->cpuid = cpuid; }
+static int32_t rstf_tsb_accessT_get_cpuid(const rstf_tsb_accessT * tr) { return tr->cpuid; }
 
 
 /* A rstf_trapping_instrT record is output before a synchronous trap record to provide
@@ -645,8 +645,8 @@ typedef struct {
   uint64_t ea_va; // only if ea_va_valid
 
 } rstf_trapping_instrT;
-static void rstf_trapping_instrT_set_cpuid(rstf_trapping_instrT * tr, int cpuid) { tr->cpuid = cpuid; }
-static int rstf_trapping_instrT_get_cpuid(const rstf_trapping_instrT * tr) { return tr->cpuid; }
+static void rstf_trapping_instrT_set_cpuid(rstf_trapping_instrT * tr, int32_t cpuid) { tr->cpuid = cpuid; }
+static int32_t rstf_trapping_instrT_get_cpuid(const rstf_trapping_instrT * tr) { return tr->cpuid; }
 
   //
   // RST Bus trace format philosophy.
@@ -785,7 +785,7 @@ enum {
   // register ID's
   // 
 
-    // int registers, %g0=0,%g7=7,%o0=8,%o7=15,%l0=16,%l7=23,%i0=24,%i7=31
+    // int32_t registers, %g0=0,%g7=7,%o0=8,%o7=15,%l0=16,%l7=23,%i0=24,%i7=31
     RSTREG_iGLOBAL_R = 0,    
     RSTREG_iOUT_R = 8,    
     RSTREG_iLOCAL_R = 16,    
@@ -862,8 +862,8 @@ typedef struct {
 
   uint64_t    reg64[2]; /* reg64[i] described by regtype[i]/regid[i]*/
 } rstf_regvalT;
-static void rstf_regvalT_set_cpuid(rstf_regvalT * tr, int cpuid) { tr->cpuid = cpuid & 0x7f; tr->cpuid9_7 = (cpuid>>7) & 0x7; }
-static int rstf_regvalT_get_cpuid(const rstf_regvalT * tr) { return (tr->cpuid9_7 << 7) | tr->cpuid; }
+static void rstf_regvalT_set_cpuid(rstf_regvalT * tr, int32_t cpuid) { tr->cpuid = cpuid & 0x7f; tr->cpuid9_7 = (cpuid>>7) & 0x7; }
+static int32_t rstf_regvalT_get_cpuid(const rstf_regvalT * tr) { return (tr->cpuid9_7 << 7) | tr->cpuid; }
 
 // A memory value record can be either a memval128T or memval64T
 // memval128T = 128 bits of aligned data.
@@ -887,8 +887,8 @@ typedef struct {
     uint32_t    addr04_35;      // addr = (long long) (addr04_35 << 4);
     uint64_t    val[2];         // must be ALIGNED 128 bits=16 bytes data
 } rstf_memval128T;
-static void rstf_memval128T_set_cpuid(rstf_memval128T * tr, int cpuid) { tr->cpuid = cpuid & 0xff; tr->cpuid9_8 = (cpuid>>8) & 3; }
-static int rstf_memval128T_get_cpuid(const rstf_memval128T * tr) { return (tr->cpuid9_8<<8)|tr->cpuid; }
+static void rstf_memval128T_set_cpuid(rstf_memval128T * tr, int32_t cpuid) { tr->cpuid = cpuid & 0xff; tr->cpuid9_8 = (cpuid>>8) & 3; }
+static int32_t rstf_memval128T_get_cpuid(const rstf_memval128T * tr) { return (tr->cpuid9_8<<8)|tr->cpuid; }
 
 typedef struct {
     uint8_t     rtype;          /* value = MEMVAL_T */
@@ -906,8 +906,8 @@ typedef struct {
     uint64_t    val;            // 64 bits = 8 bytes of data
 } rstf_memval64T;
 // cpuid accessor fns same as memval128
-static void rstf_memval64T_set_cpuid(rstf_memval64T * tr, int cpuid) { tr->cpuid = cpuid & 0xff; tr->cpuid9_8 = (cpuid>>8) & 3; }
-static int rstf_memval64T_get_cpuid(const rstf_memval64T * tr) { return (tr->cpuid9_8<<8)|tr->cpuid; }
+static void rstf_memval64T_set_cpuid(rstf_memval64T * tr, int32_t cpuid) { tr->cpuid = cpuid & 0xff; tr->cpuid9_8 = (cpuid>>8) & 3; }
+static int32_t rstf_memval64T_get_cpuid(const rstf_memval64T * tr) { return (tr->cpuid9_8<<8)|tr->cpuid; }
 
 typedef struct {
     uint8_t     rtype;          /* value = LEFTDELIM_T, RIGHTDELIM_T */
@@ -929,8 +929,8 @@ typedef struct {
     uint64_t    pc_pa;
     uint64_t    ea_pa;
 } rstf_physaddrT;
-static void rstf_physaddrT_set_cpuid(rstf_physaddrT * tr, int cpuid) { tr->cpuid = cpuid & 0x7f; tr->cpuid9_7 = (cpuid>>7) & 0x7; }
-static int rstf_physaddrT_get_cpuid(const rstf_physaddrT * tr) { return (tr->cpuid9_7 << 7) | tr->cpuid; }
+static void rstf_physaddrT_set_cpuid(rstf_physaddrT * tr, int32_t cpuid) { tr->cpuid = cpuid & 0x7f; tr->cpuid9_7 = (cpuid>>7) & 0x7; }
+static int32_t rstf_physaddrT_get_cpuid(const rstf_physaddrT * tr) { return (tr->cpuid9_7 << 7) | tr->cpuid; }
 
    /* tell record #, before/after processing level LEV */
 typedef struct {                
@@ -944,8 +944,8 @@ typedef struct {
     uint64_t    incount;        /* input record # */
     uint64_t    outcount;       /* output record # (not used in recnum_T) */
 } rstf_filemarkerT;
-static void rstf_filemarkerT_set_cpuid(rstf_filemarkerT * tr, int cpuid) { tr->cpuID = cpuid & 0xff; tr->cpuid9_8 = (cpuid>>8) & 3; }
-static int rstf_filemarkerT_get_cpuid(const rstf_filemarkerT * tr) { return (tr->cpuid9_8<<8)|tr->cpuID; }
+static void rstf_filemarkerT_set_cpuid(rstf_filemarkerT * tr, int32_t cpuid) { tr->cpuID = cpuid & 0xff; tr->cpuid9_8 = (cpuid>>8) & 3; }
+static int32_t rstf_filemarkerT_get_cpuid(const rstf_filemarkerT * tr) { return (tr->cpuid9_8<<8)|tr->cpuID; }
 
 
 // reset record number counter.
@@ -1109,12 +1109,12 @@ typedef struct {
  * IMPORTANT: Since it is possible for the record-count for
  * the RST section to be unknown,
  * there can be only one RST section in a snap, and it MUST be the last section
- * FIXME: this constraint can be relaxed at the cost of slowing down
+ * FIXME: this constraint32_t can be relaxed at the cost of slowing down
  * the compressor/analyzers etc
  */
 
-static const int rfs_major_version = 1;
-static const int rfs_minor_version = 0;
+static const int32_t rfs_major_version = 1;
+static const int32_t rfs_minor_version = 0;
 
 // all "reserved" fields in rfs structures should be initialized
 // to 0 for consistency.
@@ -1154,8 +1154,8 @@ typedef struct {
   uint64_t      pc_va;  // branch pc
   uint64_t      npc_va; // fall-through addr if branch not taken
 } rstf_bpwarmingT;
-static void rstf_bpwarmingT_set_cpuid(rstf_bpwarmingT * tr, int cpuid) { tr->cpuid = cpuid; }
-static int rstf_bpwarmingT_get_cpuid(const rstf_bpwarmingT * tr) { return tr->cpuid; }
+static void rstf_bpwarmingT_set_cpuid(rstf_bpwarmingT * tr, int32_t cpuid) { tr->cpuid = cpuid; }
+static int32_t rstf_bpwarmingT_get_cpuid(const rstf_bpwarmingT * tr) { return tr->cpuid; }
 
 enum cw_reftype_e {
   cw_reftype_NIL = 0,
@@ -1203,8 +1203,8 @@ typedef struct {
 
   uint64_t      pa;
 } rstf_cachewarmingT;
-static void rstf_cachewarmingT_set_cpuid(rstf_cachewarmingT * tr, int cpuid) { tr->cpuid = cpuid; }
-static int rstf_cachewarmingT_get_cpuid(const rstf_cachewarmingT * tr) { return tr->cpuid; }
+static void rstf_cachewarmingT_set_cpuid(rstf_cachewarmingT * tr, int32_t cpuid) { tr->cpuid = cpuid; }
+static int32_t rstf_cachewarmingT_get_cpuid(const rstf_cachewarmingT * tr) { return tr->cpuid; }
 
 /******************END OF RFS SUB-TRACE STUFF ***************************/
 
@@ -1270,7 +1270,7 @@ typedef union {
 // 
 
   // Do a compile-time vs run-time check on a record from a trace
-int rstf_checkheader (const char* compile_time_ver, rstf_headerT *rec);
+int32_t rstf_checkheader (const char* compile_time_ver, rstf_headerT *rec);
 
   // Open a RST file for reading.
   // If the file is compressed (rstzip/rstzip2), automatically decompress
@@ -1280,18 +1280,18 @@ int rstf_checkheader (const char* compile_time_ver, rstf_headerT *rec);
   //   
 FILE* openRST (const char* filename);
 void closeRST (FILE* f);        // pclose(f); if compressed
-int  isPipeRST (FILE* f);       // 1 if f is a pipe, as in from popen().
+int32_t  isPipeRST (FILE* f);       // 1 if f is a pipe, as in from popen().
 
   // initialize a header record with the current RST major/minor number.
   // The string 
-int init_rstf_header (rstf_headerT * headerp);
+int32_t init_rstf_header (rstf_headerT * headerp);
 
   // initialize a header record with the current RST major/minor number.
-int init_rstf_traceinfo_level (rstf_traceinfo_levelT * ti, int level);
+int32_t init_rstf_traceinfo_level (rstf_traceinfo_levelT * ti, int32_t level);
 
   // Initialize a single STR_DESC RST record STRP with the string STR
   // takes the last 22 chars if STR will not fully fit.
-int init_rstf_string (rstf_stringT * strp, const char *str);
+int32_t init_rstf_string (rstf_stringT * strp, const char *str);
 
   // Note: In most cases, rstf_snprintf() is easier to use.
   // Initialize upto MAXREC records with the string STR, using
@@ -1301,12 +1301,12 @@ int init_rstf_string (rstf_stringT * strp, const char *str);
   // 
   // Ex:
   //   rstf_unionT buff[128];
-  //   int currIdx = 37 ;
+  //   int32_t currIdx = 37 ;
   //   char charbuff [8192];
   //   sprintf(charbuff, "A long bunch of data %s %d ...", ... );
   //   rstf_sprintf( &buff[currIdx] , charbuff, 128-37-1 );
   // 
-int init_rstf_strbuff (rstf_stringT * strp, const char *str, int maxrec);
+int32_t init_rstf_strbuff (rstf_stringT * strp, const char *str, int32_t maxrec);
 
   // Convenience fns:
   // rstf_sprintf():
@@ -1326,8 +1326,8 @@ int init_rstf_strbuff (rstf_stringT * strp, const char *str, int maxrec);
   //   nr = rstf_sprintf( currRec, "Collected by user %s", pp->pw_name);
   //   nr = rstf_snprintf( currRec+1, 4, "Some big long string %s", stringval);
   // 
-int rstf_sprintf (rstf_stringT * strp, const char* fmt, ...);
-int rstf_snprintf (rstf_stringT * strp, int maxrec, const char* fmt, ...);
+int32_t rstf_sprintf (rstf_stringT * strp, const char* fmt, ...);
+int32_t rstf_snprintf (rstf_stringT * strp, int32_t maxrec, const char* fmt, ...);
 
   // Given a multi-record string, read it.
   // STRP points to the first of NREC consecutive (in an array) RST records.
@@ -1335,7 +1335,7 @@ int rstf_snprintf (rstf_stringT * strp, int maxrec, const char* fmt, ...);
   // Returns the string in a static buffer.
   // If NRREAD != NULL, we return the number of RST records we skipped over.
   // Internally we use a 2048 char buffer.
-const char* get_rstf_longstr (const rstf_stringT * strp, int nrec, int *nrread);
+const char* get_rstf_longstr (const rstf_stringT * strp, int32_t nrec, int32_t *nrread);
 
   // 1) Return the result of running command COMMAND
   // The result is returned in a static buffer of size at least 4K.
@@ -1343,17 +1343,17 @@ const char* get_rstf_longstr (const rstf_stringT * strp, int nrec, int *nrread);
   // 2) Store the exit status at *EXIT_STATUS, if this addr is non-NULL
   // 3) Get at most MAXLINE lines of output from the COMMAND.
   // 
-char* unixcommand (const char * command, int MAXLINE, int* exit_status);
+char* unixcommand (const char * command, int32_t MAXLINE, int* exit_status);
 
   // returns a pointer to a statically allocated buffer
   // Ex: rstf_btTxtype2str (RST_BTTX_RTSA) ==> "RTSA"
-const char* rstf_btTxtype2str (int txType);
+const char* rstf_btTxtype2str (int32_t txType);
 
 
   // the set cpuid function must be called *after* initializing the rtype field
   // the get cpuid function returns 0xffff if the cpuid field is not present in
   // the record type being queried.
-static void rstf_set_cpuid(rstf_unionT * rec, int cpuid) {
+static void rstf_set_cpuid(rstf_unionT * rec, int32_t cpuid) {
   switch(rec->proto.rtype) {
   case INSTR_T:
     rstf_instrT_set_cpuid(&rec->instr, cpuid);

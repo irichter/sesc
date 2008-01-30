@@ -28,7 +28,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "globals.h"
 
 // TODO: Make this a parameter in sesc.conf
-uint MemoryOS::numPhysicalPages;
+uint32_t MemoryOS::numPhysicalPages;
 PageTable *StdMemoryOS::PT=0;
 
 /** Note: bit field distribution according to PageSize:
@@ -53,17 +53,17 @@ MemoryOS::MemoryOS(GMemorySystem *ms, const char *section)
   numPhysicalPages = 65536;
 }
 
-int MemoryOS::TLBTranslate(VAddr vAddr)
+int32_t MemoryOS::TLBTranslate(VAddr vAddr)
 {
-  int phPage = DTLB.translate(vAddr);
+  int32_t phPage = DTLB.translate(vAddr);
   if (phPage == -1)
     return -1;
   return GMemorySystem::calcPAddr(phPage, vAddr);
 }
 
-int MemoryOS::ITLBTranslate(VAddr vAddr)
+int32_t MemoryOS::ITLBTranslate(VAddr vAddr)
 {
-  int phPage = ITLB.translate(vAddr);
+  int32_t phPage = ITLB.translate(vAddr);
   if (phPage == -1)
     return -1;
   return GMemorySystem::calcPAddr(phPage, vAddr);
@@ -75,23 +75,23 @@ PageTable::PageTable()
 {
   invertedPT = new IntlPTEntry[MemoryOS::numPhysicalPages];
 
-  uint tmp_numEntriesPage = GMemorySystem::getPageSize() / BytesPerEntry;
+  uint32_t tmp_numEntriesPage = GMemorySystem::getPageSize() / BytesPerEntry;
 
   maskEntriesPage = tmp_numEntriesPage - 1;
   log2EntriesPage = log2i(tmp_numEntriesPage);
 
   /* We assume a 32 bit virtual address */
-  int numL1PTEntries = GMemorySystem::calcPage(0x80000000) >> (log2EntriesPage-1);
+  int32_t numL1PTEntries = GMemorySystem::calcPage(0x80000000) >> (log2EntriesPage-1);
 
   L1PT = new L1IntlPTEntry[numL1PTEntries];
 
   // L1 Page Table
   invertedPT[0].status = SystemPageStatus | ValidPageStatus; 
 
-  for (uint i = 1; i < MemoryOS::numPhysicalPages; i++)
+  for (uint32_t i = 1; i < MemoryOS::numPhysicalPages; i++)
     invertedPT[i].status = 0;
 
-  for (int i = 0; i < numL1PTEntries; i++)
+  for (int32_t i = 0; i < numL1PTEntries; i++)
     L1PT[i].status = 0;
 }
 
@@ -101,7 +101,7 @@ PageTable::~PageTable()
   delete L1PT;
 }
 
-void PageTable::assignL1Entry(unsigned int vPage, unsigned int pPage)
+void PageTable::assignL1Entry(uint32_t vPage, uint32_t pPage)
 {
   L1IntlPTEntry *pL1 = L1PT + getL1EntryNum(vPage);
 
@@ -113,7 +113,7 @@ void PageTable::assignL1Entry(unsigned int vPage, unsigned int pPage)
   numOSPages.inc();
 }
 
-void PageTable::assignL2Entry(unsigned int vPage, unsigned int pPage)
+void PageTable::assignL2Entry(uint32_t vPage, uint32_t pPage)
 {
   vToPMap[vPage] = pPage;
   invertedPT[pPage].virtualPage = vPage;
@@ -126,14 +126,14 @@ void PageTable::assignL2Entry(unsigned int vPage, unsigned int pPage)
   the TLB it may be chosen for replacement. The StdMemoryOS takes care
   of this.  Besides we do not check if the page has been modified or
   not; and one should avoid to write back the written pages */ 
-PageTable::IntlPTEntry *PageTable::getReplCandidate(unsigned short int first_bank, unsigned short int search_step)
+PageTable::IntlPTEntry *PageTable::getReplCandidate(uint16_t first_bank, uint16_t search_step)
 { 
   Time_t minTime = globalClock;
   PageTable::IntlPTEntry *pend = invertedPT + MemoryOS::numPhysicalPages;
   PageTable::IntlPTEntry *q = 0;
 
   for(PageTable::IntlPTEntry *p = invertedPT + first_bank; p < pend; p += search_step) {
-    int status = p->status;
+    int32_t status = p->status;
     if (!(status & ValidPageStatus))
       return p;
     else
@@ -189,7 +189,7 @@ void StdMemoryOS::boot()
 PageTable::IntlPTEntry *StdMemoryOS::getReplPTEntry()
 { 
   PageTable::IntlPTEntry *p;
-  int tmp;
+  int32_t tmp;
 
   do {
     p = PT->getReplPhPageL2Entry();
@@ -206,7 +206,7 @@ PageTable::IntlPTEntry *StdMemoryOS::getReplPTEntry()
     return p;
   }
 
-unsigned int StdMemoryOS::getFreePhysicalPage()
+uint32_t StdMemoryOS::getFreePhysicalPage()
 {
   if (nextPhysicalPage < MemoryOS::numPhysicalPages)
     return nextPhysicalPage++;
@@ -221,7 +221,7 @@ unsigned int StdMemoryOS::getFreePhysicalPage()
 		       ,PT->getL2PTEntryPhysicalAddress(p->virtualPage)
 		       ,0);
 
-  uint tmp = PT->L2PTEntryToPhPage(p);
+  uint32_t tmp = PT->L2PTEntryToPhPage(p);
   
   PT->evictL2Entry(p);
   
@@ -240,7 +240,7 @@ void StdMemoryOS::serviceRequest(MemRequest *mreq)
     missesITLB.inc();
   }
 
-  int phAddrL1 = PT->getL1PTEntryPhysicalAddress(GMemorySystem::calcPage(mreq->getVaddr()));
+  int32_t phAddrL1 = PT->getL1PTEntryPhysicalAddress(GMemorySystem::calcPage(mreq->getVaddr()));
 
   //  MSG("1.TLB Miss 0x%x page L1PT[0x%x] @%lld", mreq->getVaddr(), phAddrL1, globalClock);
 
@@ -252,9 +252,9 @@ void StdMemoryOS::serviceRequest(MemRequest *mreq)
 
  void StdMemoryOS::accessL1PT(MemRequest *origReq, PAddr paddr)
 {
-  uint vPage = GMemorySystem::calcPage(origReq->getVaddr());
+  uint32_t vPage = GMemorySystem::calcPage(origReq->getVaddr());
 
-  int l2addr = PT->getL2PTEntryPhysicalAddress(vPage);
+  int32_t l2addr = PT->getL2PTEntryPhysicalAddress(vPage);
 
   if (l2addr == -1) {
     PT->assignL1Entry(vPage, getFreePhysicalPage());
@@ -273,8 +273,8 @@ void StdMemoryOS::accessL2PT(MemRequest *origReq, PAddr paddr)
 {
   VAddr vaddr = origReq->getVaddr();
   
-  uint vPage = GMemorySystem::calcPage(vaddr);
-  int phPage = PT->translate(vPage);
+  uint32_t vPage = GMemorySystem::calcPage(vaddr);
+  int32_t phPage = PT->translate(vPage);
   
   if (phPage == -1) {
     PT->assignL2Entry(vPage, getFreePhysicalPage());
@@ -289,15 +289,15 @@ void StdMemoryOS::accessL2PT(MemRequest *origReq, PAddr paddr)
   attemptToEmptyQueue(vaddr, vPage);
 }
 
-void StdMemoryOS::attemptToEmptyQueue(uint vaddr, uint phPage)
+void StdMemoryOS::attemptToEmptyQueue(uint32_t vaddr, uint32_t phPage)
 {
   // attempt a bypass
-  int vPage = GMemorySystem::calcPage(vaddr);
+  int32_t vPage = GMemorySystem::calcPage(vaddr);
 
   std::vector<MemRequest *>::iterator it = pendingReqs.begin();
   if(it != pendingReqs.end()) {
     MemRequest *mm  = *it;
-    int tmpPage  = GMemorySystem::calcPage(mm->getVaddr());
+    int32_t tmpPage  = GMemorySystem::calcPage(mm->getVaddr());
     if(vPage == tmpPage) {
       launchReq(mm, GMemorySystem::calcPAddr(GMemorySystem::calcFullPage(vPage), mm->getVaddr()));
       it = pendingReqs.erase(it);

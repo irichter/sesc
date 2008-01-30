@@ -49,19 +49,19 @@ protected:
 
   void read(MemRequest *mreq);
 
-  int defaultMask;
+  int32_t defaultMask;
   
-  int lineSize;
+  int32_t lineSize;
 
   BuffType *buff;
   PortGeneric *buffPort;
   PortGeneric *tablePort;
   
-  int numBuffPorts;
-  int numTablePorts;
+  int32_t numBuffPorts;
+  int32_t numTablePorts;
   
-  int buffPortOccp;
-  int tablePortOccp;
+  int32_t buffPortOccp;
+  int32_t tablePortOccp;
 
   GStatsCntr halfMiss;
   GStatsCntr miss;

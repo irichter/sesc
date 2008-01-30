@@ -29,7 +29,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "SPARCInstruction.h"
 
 
-const Instruction *Instruction::getRSTInstByPC(unsigned int addr, uint rawInst) {
+const Instruction *Instruction::getRSTInstByPC(uint32_t addr, uint32_t rawInst) {
   InstHash::iterator it = instHash.find(addr); 
   I(it == instHash.end());
   
@@ -37,9 +37,9 @@ const Instruction *Instruction::getRSTInstByPC(unsigned int addr, uint rawInst) 
       
   InstType     type;
   InstSubType  subType;
-  unsigned int rd;
-  unsigned int rs1;
-  unsigned int rs2;
+  uint8_t rd;
+  uint8_t rs1;
+  uint8_t rs2;
 
   disas_sparc_insn(rawInst, type, subType, rd, rs1, rs2);
 

@@ -29,7 +29,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 char *RSTFlow::traceFile = 0;
 RSTReader *RSTFlow::trace = 0;
 
-RSTFlow::RSTFlow(int cId, int i, GMemorySystem *gms) 
+RSTFlow::RSTFlow(int32_t cId, int32_t i, GMemorySystem *gms) 
   : GFlow(i, cId, gms)
 {
 #if (defined(TASKSCALAR) || defined(SESC_MISPATH))

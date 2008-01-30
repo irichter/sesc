@@ -36,7 +36,7 @@ SConfig *SescConf=0;
 
 /* Aux func */
 
-static char *auxstrndup(const char *source, int len)
+static char *auxstrndup(const char *source, int32_t len)
 { 
   char *q;
 
@@ -68,7 +68,7 @@ const char *SConfig::getEnvVar(const char *block,
 
 const SConfig::Record * SConfig::getRecord(const char *block,
                                            const char *name,
-					   int vectorPos)
+					   int32_t vectorPos)
 {
   const Record *rec = Config::getRecord(block, name, vectorPos);
   if(rec)
@@ -93,7 +93,7 @@ const SConfig::Record * SConfig::getRecord(const char *block,
 
 std::vector<char *> SConfig::getSplitCharPtr(const char *block,
                                              const char *name,
-                                             int vectorPos)
+                                             int32_t vectorPos)
 { 
   std::vector<char *> vRes;
   const char *q;

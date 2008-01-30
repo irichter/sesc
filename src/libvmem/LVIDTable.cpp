@@ -488,7 +488,7 @@ void LVIDTable::dump()
 {
   LVIDList::iterator it;
 
-  int conta=0;
+  int32_t conta=0;
   for(it=origLVIDs.begin() ; it != origLVIDs.end() ; it++) {
     LVID *lvid = *it;
     const HVersion *ver = lvid->getVersionRef();

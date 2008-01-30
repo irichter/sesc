@@ -46,7 +46,7 @@ namespace Mips {
     RegTmp,  // Temporary GPR for implementing multi-uop non-branches
     RegBTmp, // Temporary GPR for implementing multi-uop branches
     GprNameUb,
-    // Floating-point registers
+    // Floating-point32_t registers
     FprNameLb = RegTypeFpr,
     RegF0     = FprNameLb,
     RegF1,
@@ -113,7 +113,7 @@ namespace Mips {
       I(sizeof(T)==sizeof(uint32_t));
       const uint32_t *ptr=static_cast<const uint32_t *>(context->getReg(static_cast<RegName>(RegFCSR)));
       uint32_t retVal=(*ptr)&0x17FFFFFF;
-      for(int fcc=FccNameLb;fcc!=FccNameUb;fcc++)
+      for(int32_t fcc=FccNameLb;fcc!=FccNameUb;fcc++)
         if(*static_cast<const bool *>(context->getReg(static_cast<RegName>(fcc))))
           retVal|=(1<<(23+(fcc-FccNameLb)+(fcc!=FccNameLb)));
       if(retVal!=*ptr)
@@ -140,7 +140,7 @@ namespace Mips {
       I(sizeof(T)==sizeof(uint32_t));
       uint32_t *ptr=static_cast<uint32_t *>(context->getReg(name));
       *ptr=uint32_t(val);
-      for(int fcc=FccNameLb;fcc!=FccNameUb;fcc++){
+      for(int32_t fcc=FccNameLb;fcc!=FccNameUb;fcc++){
         bool *fccptr=static_cast<bool *>(context->getReg(static_cast<RegName>(fcc)));
         *fccptr=(uint32_t(val)&(1<<(23+(fcc-FccNameLb)+(fcc!=FccNameLb))));
       }

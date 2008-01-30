@@ -63,7 +63,7 @@ OP(mint_sesc_simulation_mark)
 
 OP(mint_sesc_simulation_mark_id)
 {
-  int id = pthread->getIntReg(IntArg1Reg);
+  int32_t id = pthread->getIntReg(IntArg1Reg);
   // Do the actual call (should not context-switch)
   ID(Pid_t thePid=pthread->getPid());
   rsesc_simulation_mark_id(pthread->getPid(),id);
@@ -139,8 +139,8 @@ OP(mint_sesc_preevent)
   // Set things up for the return to from this call
   pthread->setPCIcode(pthread->getRetIcode());
   // Get arguments for this call (sptr is a real address)
-  int  vaddr=pthread->getIntReg(IntArg1Reg);
-  int  type=pthread->getIntReg(IntArg2Reg);
+  int32_t  vaddr=pthread->getIntReg(IntArg1Reg);
+  int32_t  type=pthread->getIntReg(IntArg2Reg);
   void *sptr=(void *)(pthread->virt2real(pthread->getIntReg(IntArg3Reg)));
   // Do the actual call 
   rsesc_preevent(pthread->getPid(),vaddr,type,sptr);
@@ -151,8 +151,8 @@ OP(mint_sesc_preevent)
 OP(mint_sesc_postevent)
 {
   // Get arguments for this call (sptr is a real address)
-  int  vaddr=pthread->getIntReg(IntArg1Reg);
-  int  type=pthread->getIntReg(IntArg2Reg);
+  int32_t  vaddr=pthread->getIntReg(IntArg1Reg);
+  int32_t  type=pthread->getIntReg(IntArg2Reg);
   void *sptr=(void *)(pthread->virt2real(pthread->getIntReg(IntArg3Reg)));
   // Do the actual call (should not context-switch)
   ID(Pid_t thePid=pthread->getPid());

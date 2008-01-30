@@ -9,7 +9,7 @@
 #define __FLOAT_WORD_ORDER __BYTE_ORDER
 #endif
 
-template<typename T, int __SRC_BYTE_ORDER, int __DST_BYTE_ORDER>
+template<typename T, int32_t __SRC_BYTE_ORDER, int32_t __DST_BYTE_ORDER>
 inline void cvtEndian(T &val){
   switch(__SRC_BYTE_ORDER){
   case __BIG_ENDIAN:
@@ -56,7 +56,7 @@ inline void cvtEndian(T &val){
 }
 
 template<typename T>
-inline void cvtEndian(T &val, int byteOrder){
+inline void cvtEndian(T &val, int32_t byteOrder){
   if(byteOrder==__BIG_ENDIAN)
     cvtEndian<T,__BIG_ENDIAN,__BYTE_ORDER>(val);
   else if(byteOrder==__LITTLE_ENDIAN)

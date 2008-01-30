@@ -73,7 +73,7 @@ RetOutcome Resource::retire(DInst *dinst)
 MemResource::MemResource(Cluster *cls
                          ,PortGeneric *aGen
                          ,GMemorySystem *ms
-                         ,int id
+                         ,int32_t id
                          ,const char *cad)
   : Resource(cls, aGen)
   ,L1DCache(ms->getDataSource())
@@ -109,7 +109,7 @@ MemResource::MemResource(Cluster *cls
 
 /***********************************************/
 
-FUMemory::FUMemory(Cluster *cls, GMemorySystem *ms, int id)
+FUMemory::FUMemory(Cluster *cls, GMemorySystem *ms, int32_t id)
   : MemResource(cls, 0, ms, id, "FUMemory")
 {
   I(ms);
@@ -189,7 +189,7 @@ FULoad::FULoad(Cluster *cls, PortGeneric *aGen
                ,TimeDelta_t lsdelay
                ,GMemorySystem *ms
                ,size_t maxLoads
-               ,int id)
+               ,int32_t id)
   : MemResource(cls, aGen, ms, id, "FULoad")
   ,ldqNotUsed("FULoad(%d)_ldqNotUsed", id)
   ,nForwarded("FULoad(%d):nForwarded", id)
@@ -207,7 +207,7 @@ FULoad::FULoad(Cluster *cls, PortGeneric *aGen
 
 StallCause FULoad::canIssue(DInst *dinst)
 {
-  int freeEntries = freeLoads;
+  int32_t freeEntries = freeLoads;
 #ifdef SESC_MISPATH
   freeEntries -= misLoads;
 #endif
@@ -273,7 +273,6 @@ void FULoad::cacheDispatched(DInst *dinst)
     return;
   }
 
-
   I( !dinst->isLoadForwarded() );
   // LOG("[0x%p] %lld 0x%lx read", dinst, globalClock, dinst->getVaddr());
   if(!L1DCache->canAcceptLoad(static_cast<PAddr>(dinst->getVaddr()))) {
@@ -318,7 +317,7 @@ FUStore::FUStore(Cluster *cls, PortGeneric *aGen
                  ,TimeDelta_t l
                  ,GMemorySystem *ms
                  ,size_t maxStores
-                 ,int id)
+                 ,int32_t id)
   : MemResource(cls, aGen, ms, id, "FUStore")
   ,stqNotUsed("FUStore(%d)_stqNotUsed", id)
   ,nDeadStore("FUStore(%d):nDeadStore", id)
@@ -336,7 +335,7 @@ FUStore::FUStore(Cluster *cls, PortGeneric *aGen
 
 StallCause FUStore::canIssue(DInst *dinst)
 {
-  int freeEntries = freeStores;
+  int32_t freeEntries = freeStores;
 #ifdef SESC_MISPATH
   freeEntries -= misStores;
 #endif
@@ -421,7 +420,7 @@ RetOutcome FUStore::retire(DInst *dinst)
 
   gen->nextSlot();
 
-  // used for updating mint on unlock
+  // used for updating mint32_t on unlock
   if (dinst->getPendEvent())
     dinst->getPendEvent()->call();
   if (waitingOnFence() == true)
@@ -491,7 +490,7 @@ void FUGeneric::executed(DInst *dinst)
 
 /***********************************************/
 
-FUBranch::FUBranch(Cluster *cls, PortGeneric *aGen, TimeDelta_t l, int mb)
+FUBranch::FUBranch(Cluster *cls, PortGeneric *aGen, TimeDelta_t l, int32_t mb)
   :Resource(cls, aGen)
    ,lat(l)
    ,freeBranches(mb)

@@ -28,37 +28,37 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 class BloomFilter {
  private:
-  int *vSize;
-  int *vBits;
+  int32_t *vSize;
+  int32_t *vBits;
   unsigned *vMask;
-  int *rShift;
-  int **countVec;
-  int nVectors;
-  int *nonZeroCount;
+  int32_t *rShift;
+  int32_t **countVec;
+  int32_t nVectors;
+  int32_t *nonZeroCount;
   char *desc;
-  int nElements;
+  int32_t nElements;
 
   bool BFBuild;
 
   GStatsTimingHist **timingHistVec;
-  void updateHistogram(int vec);
+  void updateHistogram(int32_t vec);
 
   void initMasks();
-  int getIndex(unsigned val, int chunkPos);
+  int32_t getIndex(unsigned val, int32_t chunkPos);
   
  public:
   ~BloomFilter();
 
   //the chunk parameters are from the least significant to 
   //the most significant portion of the address
-  BloomFilter(int nv, ...);
+  BloomFilter(int32_t nv, ...);
   BloomFilter(): BFBuild(false) {}
 
   BloomFilter(const BloomFilter& bf);
 
   BloomFilter& operator=(const BloomFilter &bf);
 
-  void init(bool build, int nv, ...);
+  void init(bool build, int32_t nv, ...);
 
   void insert(unsigned e);
   void remove(unsigned e);
@@ -75,23 +75,23 @@ class BloomFilter {
 
   bool isSubsetOf(BloomFilter &otherbf);
 
-  int countAlias(unsigned e);
+  int32_t countAlias(unsigned e);
 
   void initHistogram(char *name);
 
   void dump(const char *msg);
   const char *getDesc() { return desc; }
 
-  int size() {  //# of elements encoded
+  int32_t size() {  //# of elements encoded
     return nElements;
   }
 
-  int getSize(); // size of the vectors in bits
-  int getSizeRLE(int base = 0, int runBits = 7);
+  int32_t getSize(); // size of the vectors in bits
+  int32_t getSizeRLE(int32_t base = 0, int32_t runBits = 7);
 
 
   FILE *dumpPtr;
-  static int  numDumps;
+  static int32_t  numDumps;
   void begin_dump_pychart(const char *bname = "bf");
   void end_dump_pychart();
   void add_dump_line(unsigned e);
@@ -99,30 +99,30 @@ class BloomFilter {
 
 class BitSelection {
  private:
-  int nBits;
-  int bits[32];
+  int32_t nBits;
+  int32_t bits[32];
   unsigned mask[32];
 
  public:
 
   BitSelection() {
     nBits = 0;
-    for(int i = 0; i < 32; i++) {
+    for(int32_t i = 0; i < 32; i++) {
       bits[i] = 0;
     }
   }
 
-  BitSelection(int *bitPos, int n) {
+  BitSelection(int32_t *bitPos, int32_t n) {
     nBits = 0;
-    for(int i = 0; i < n; i++) 
+    for(int32_t i = 0; i < n; i++) 
       addBit(bitPos[i]);
   }
 
   ~BitSelection() {}
 
-  int getNBits() { return nBits; }
+  int32_t getNBits() { return nBits; }
 
-  void addBit(int b) {
+  void addBit(int32_t b) {
     bits[nBits] = b;
     mask[nBits] = 1 << b;
     nBits++;
@@ -130,7 +130,7 @@ class BitSelection {
 
   unsigned permute(unsigned val) {
     unsigned res = 0;
-    for(int i = 0; i < nBits; i++) {
+    for(int32_t i = 0; i < nBits; i++) {
       unsigned bit = (val & mask[i]) ? 1 : 0;
       res = res | (bit << i);
     }
@@ -139,7 +139,7 @@ class BitSelection {
   
   void dump(const char *msg) {
     printf("%s:", msg);
-    for(int i = 0; i < nBits; i++) {
+    for(int32_t i = 0; i < nBits; i++) {
       printf(" %d", bits[i]);
     }
     printf("\n");

@@ -5,7 +5,7 @@
 #include "ThreadContext.h"
 
 void loadElfObject(const char *fname, ThreadContext *threadContext){
-  int fd=open(fname,O_RDONLY);
+  int32_t fd=open(fname,O_RDONLY);
   if(fd==-1)
       fatal("Could not open ELF file %s",fname);
 
@@ -56,7 +56,7 @@ void loadElfObject(const char *fname, ThreadContext *threadContext){
   if(lseek(fd,prgTabOff,SEEK_SET)!=prgTabOff)
     fatal("Couldn't seek to ELF program table in %s",fname);
   else{
-    for(int prgTabIdx=0;prgTabIdx<prgTabCnt;prgTabIdx++){
+    for(int32_t prgTabIdx=0;prgTabIdx<prgTabCnt;prgTabIdx++){
       Elf32_Phdr myPrgHdr;
       if(read(fd,&myPrgHdr,sizeof(myPrgHdr))!=sizeof(myPrgHdr))
 	fatal("Could not read ELF program table entry in %s",fname);
@@ -82,7 +82,7 @@ void loadElfObject(const char *fname, ThreadContext *threadContext){
 
   {
     off_t currFilePtr=prgTabOff;
-    for(int prgTabIdx=0;prgTabIdx<prgTabCnt;prgTabIdx++){
+    for(int32_t prgTabIdx=0;prgTabIdx<prgTabCnt;prgTabIdx++){
       if(lseek(fd,currFilePtr,SEEK_SET)!=currFilePtr)
 	fatal("Couldn't seek to current ELF program table position in %s",fname);
       Elf32_Phdr myPrgHdr;
@@ -174,7 +174,7 @@ void loadElfObject(const char *fname, ThreadContext *threadContext){
   // Read symbol tables and their string tables
   {
     off_t secTabPos=secTabOff;
-    for(int secTabIdx=0;secTabIdx<secTabCnt;secTabIdx++){
+    for(int32_t secTabIdx=0;secTabIdx<secTabCnt;secTabIdx++){
       Elf32_Shdr mySecHdr;
       if(lseek(fd,secTabPos,SEEK_SET)!=secTabPos)
 	fatal("Couldn't seek to current ELF section table position in %s",fname);
@@ -204,7 +204,7 @@ void loadElfObject(const char *fname, ThreadContext *threadContext){
 	  fatal("Could not read string table for SYMTAB section %d in ELF file %s",secTabIdx,fname);
 	if(lseek(fd,symTabOffs,SEEK_SET)!=symTabOffs)
 	  fatal("Could not seek to symbol table for section %d in ELF file %s",secTabIdx,fname);
-	for(int symTabIdx=0;symTabIdx<symTabSize/sizeof(Elf32_Sym);symTabIdx++){
+	for(int32_t symTabIdx=0;symTabIdx<symTabSize/sizeof(Elf32_Sym);symTabIdx++){
 	  Elf32_Sym mySym;
 	  if(read(fd,&mySym,sizeof(mySym))!=sizeof(mySym))
 	    fatal("Could not read symbol in ELF file %s",fname);
@@ -238,7 +238,7 @@ void loadElfObject(const char *fname, ThreadContext *threadContext){
   // also, check for unsupported section types
   {
     off_t secTabPos=secTabOff;
-    for(int secTabIdx=0;secTabIdx<secTabCnt;secTabIdx++){
+    for(int32_t secTabIdx=0;secTabIdx<secTabCnt;secTabIdx++){
       Elf32_Shdr mySecHdr;
       if(lseek(fd,secTabPos,SEEK_SET)!=secTabPos)
 	fatal("Couldn't seek to current ELF section table position in %s",fname);

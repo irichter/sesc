@@ -49,7 +49,7 @@ class SMPCacheState : public StateGeneric<> {
 
 private:
 protected:
-  uint state;
+  uint32_t state;
 public:
   SMPCacheState() 
       : StateGeneric<>() {

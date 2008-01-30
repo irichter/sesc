@@ -26,7 +26,7 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 #include "TMDebug.h" // debugging defines
 
-SMemorySystem::SMemorySystem(int processorId)
+SMemorySystem::SMemorySystem(int32_t processorId)
   : MemorySystem(processorId)
 {
   // nothing to do

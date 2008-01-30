@@ -6,7 +6,7 @@
 
 class SampleState : public StateGeneric<long> {
 public:
-  int id;
+  int32_t id;
 
   SampleState() {
     id = 0;
@@ -57,8 +57,8 @@ void benchMatrix(const char *str)
 
   MyCacheType::CacheLine *line;
 
-  for(int i=0;i<MSIZE;i++) {
-    for(int j=0;j<MSIZE;j++) {
+  for(int32_t i=0;i<MSIZE;i++) {
+    for(int32_t j=0;j<MSIZE;j++) {
       // A[i][j]=0;
 
       // A[i][j]=...
@@ -69,7 +69,7 @@ void benchMatrix(const char *str)
 	nAccess++;
       }
 
-      for(int k=0;k<MSIZE;k++) {
+      for(int32_t k=0;k<MSIZE;k++) {
 	// A[i][j] += B[i][j]*C[j][k];
 
 	// = ... A[i][j]
@@ -110,7 +110,7 @@ void benchMatrix(const char *str)
   endBench(str);
 }
 
-int main(int argc, char **argv)
+int32_t main(int32_t argc, char **argv)
 {
   if( argc != 2 ){
     MSG("use: CacheSample <cfg_file>");
@@ -124,8 +124,8 @@ int main(int argc, char **argv)
 
   cache = MyCacheType::create("tst1","","tst1");
 
-  int assoc = SescConf->getInt("tst1","assoc");
-  for(int i=0;i<assoc;i++) {
+  int32_t assoc = SescConf->getInt("tst1","assoc");
+  for(int32_t i=0;i<assoc;i++) {
     ulong addr = (i<<8)+0xfa;
 
     MyCacheType::CacheLine *line = cache->findLine(addr);
@@ -139,7 +139,7 @@ int main(int argc, char **argv)
     line->id = i;
   }
 
-  for(int i=0;i<assoc;i++) {
+  for(int32_t i=0;i<assoc;i++) {
     ulong addr = (i<<8)+0xFa;
 
     MyCacheType::CacheLine *line = cache->findLine(addr);

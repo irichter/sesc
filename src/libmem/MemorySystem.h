@@ -41,12 +41,12 @@ protected:
   virtual MemObj *buildMemoryObj(const char *type, const char *section, const char *name);
   virtual GMemoryOS *buildMemoryOS(const char *descr_section);
 
-  uint procsPerNode;
-  uint pID;
+  uint32_t procsPerNode;
+  uint32_t pID;
 
 public:
   // old Intf. MemorySystem(const char *descr_section = "memHierarchy");
-  MemorySystem(int processorId);
+  MemorySystem(int32_t processorId);
 
 #ifdef TASKSCALAR
   GLVID *findCreateLVID(HVersion *ver);

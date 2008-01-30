@@ -34,13 +34,13 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 class QemuSescReader : public TraceReader {
  private:
   FILE* trace;
-  unsigned int  PC;
+  uint32_t  PC;
   
   bool tracEof;
   void readPC();
   void readInst();
 
-  unsigned int  getCurrentPC() { return PC; }
+  uint32_t  getCurrentPC() { return PC; }
   void advancePC();
 
   QemuSescTrace *qst;
@@ -51,7 +51,7 @@ class QemuSescReader : public TraceReader {
   void openTrace(const char* basename);
   void closeTrace();
 
-  void fillTraceEntry(TraceEntry *te, int id);
+  void fillTraceEntry(TraceEntry *te, int32_t id);
 
 };
 

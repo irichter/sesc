@@ -40,7 +40,7 @@ using std::endl;
 
 namespace FileSys {
 
-  BaseStatus::BaseStatus(FileType type, int fd, int flags)
+  BaseStatus::BaseStatus(FileType type, int32_t fd, int32_t flags)
     : type(type), fd(fd), flags(flags){
   }
   BaseStatus::~BaseStatus(void){
@@ -70,27 +70,27 @@ namespace FileSys {
     size_t _readBlockPids, _writeBlockPids;
     in >> " Flags " >> flags >> " Rd Blocked " >> _readBlockPids >> " WrBlocked " >> _writeBlockPids;
     while(_readBlockPids){
-      int _pid;
+      int32_t _pid;
       in >> " " >> _pid;
       readBlockPids.push_back(_pid);
       _readBlockPids--;
     }
     while(_writeBlockPids){
-      int _pid;
+      int32_t _pid;
       in >> " " >> _pid;
       writeBlockPids.push_back(_pid);
       _writeBlockPids--;
     }
     in >> endl;
   }
-  FileStatus::FileStatus(const char *name, int fd, int flags, mode_t mode)
+  FileStatus::FileStatus(const char *name, int32_t fd, int32_t flags, mode_t mode)
     : BaseStatus(Disk,fd,flags), name(strdup(name)), mode(mode){
   }
   FileStatus::~FileStatus(void){
     free(const_cast<char *>(name));
   }
-  FileStatus *FileStatus::open(const char *name, int flags, mode_t mode){
-    int fd=::open(name,flags,mode);
+  FileStatus *FileStatus::open(const char *name, int32_t flags, mode_t mode){
+    int32_t fd=::open(name,flags,mode);
     if(fd==-1)
       return 0;
     FileStatus *retVal=new FileStatus(name,fd,flags,mode);
@@ -105,7 +105,7 @@ namespace FileSys {
     in >> "Mode " >> mode >> " Pos " >> _pos >> " NameLen " >> _nameLen;
     name=static_cast<char *>(malloc(_nameLen+1));
     in >> name >> endl;
-    int fd=::open(name,flags,mode);
+    int32_t fd=::open(name,flags,mode);
     I(fd!=-1);
     ::lseek(fd,_pos,SEEK_SET);
   }
@@ -159,10 +159,10 @@ namespace FileSys {
     otherEnd=oe;
   }
   PipeStatus *PipeStatus::pipe(void){
-    int fdescs[2];
+    int32_t fdescs[2];
     if(::pipe(fdescs))
       return 0;
-    int fflags[2];
+    int32_t fflags[2];
     fflags[0]=fcntl(fdescs[0],F_GETFL);
     fcntl(fdescs[0],F_SETFL,fflags[0]|O_NONBLOCK);
     fflags[1]=fcntl(fdescs[1],F_GETFL);
@@ -181,7 +181,7 @@ namespace FileSys {
     if(!otherEnd)
       return;
     while(!otherEnd->readBlockPids.empty()){
-      int pid=otherEnd->readBlockPids.back();
+      int32_t pid=otherEnd->readBlockPids.back();
       otherEnd->readBlockPids.pop_back();
       ThreadContext *context=osSim->getContext(pid);
       if(context){
@@ -196,7 +196,7 @@ namespace FileSys {
     if(!otherEnd)
       return;
     while(!otherEnd->writeBlockPids.empty()){
-      int pid=otherEnd->writeBlockPids.back();
+      int32_t pid=otherEnd->writeBlockPids.back();
       otherEnd->writeBlockPids.pop_back();
       ThreadContext *context=osSim->getContext(pid);
       if(context){
@@ -216,9 +216,9 @@ namespace FileSys {
     out << endl;
     if(!isWrite){
       I(otherEnd);
-      std::vector<unsigned char> cv;
+      std::vector<uint8_t> cv;
       while(true){
-	unsigned char c;
+	uint8_t c;
 	ssize_t rdRet=::read(fd,&c,sizeof(c));
 	if(rdRet==-1)
 	  break;
@@ -254,7 +254,7 @@ namespace FileSys {
         otherFd=otherEnd->fd;
       }
     }else{
-      int fdescs[2];
+      int32_t fdescs[2];
       ::pipe(fdescs);
       if(isWrite){
         fd=fdescs[1];
@@ -284,21 +284,21 @@ namespace FileSys {
     }
   }
 
-  StreamStatus::StreamStatus(int fd, int flags)
+  StreamStatus::StreamStatus(int32_t fd, int32_t flags)
     : BaseStatus(Stream,fd,flags){
   }
   StreamStatus::~StreamStatus(void){
   }
-  StreamStatus *StreamStatus::wrap(int fd){
-    int newfd=dup(fd);
+  StreamStatus *StreamStatus::wrap(int32_t fd){
+    int32_t newfd=dup(fd);
     if(newfd==-1)
       return 0;
-    int flags=fcntl(newfd,F_GETFL);
+    int32_t flags=fcntl(newfd,F_GETFL);
     if(flags==-1){
       close(fd);
       return 0;
     }
-    int rest=flags^(flags&(O_ACCMODE|O_CREAT|O_EXCL|O_NOCTTY|O_TRUNC|O_APPEND|
+    int32_t rest=flags^(flags&(O_ACCMODE|O_CREAT|O_EXCL|O_NOCTTY|O_TRUNC|O_APPEND|
 			   O_NONBLOCK|O_SYNC|O_NOFOLLOW|O_DIRECT
 #ifdef O_DIRECTORY
 			   |O_DIRECTORY
@@ -368,11 +368,11 @@ namespace FileSys {
     for(size_t i=0;i<fds.size();i++)
       fds[i].setStatus(0);
   }
-  int OpenFiles::error(int err){
+  int32_t OpenFiles::error(int32_t err){
     errno=err;
     return -1;
   }
-  bool OpenFiles::isOpen(int fd) const{
+  bool OpenFiles::isOpen(int32_t fd) const{
     I(fd>=0);
     if(fds.size()<=(size_t)fd)
       return false;
@@ -380,14 +380,14 @@ namespace FileSys {
       return false;
     return true;      
   }
-  FileDesc *OpenFiles::getDesc(int fd){
+  FileDesc *OpenFiles::getDesc(int32_t fd){
     I(fd>=0);
     if(fds.size()<=(size_t)fd)
       fds.resize(fd+1);
     return &(fds[fd]);
   }
-  int OpenFiles::open(const char *name, int flags, mode_t mode){
-    int newfd=findNextFree(0);
+  int32_t OpenFiles::open(const char *name, int32_t flags, mode_t mode){
+    int32_t newfd=findNextFree(0);
     FileDesc *fileDesc=getDesc(newfd);
     FileStatus *fileStat=FileStatus::open(name,flags,mode);
     if(!fileStat)
@@ -396,11 +396,11 @@ namespace FileSys {
     fileDesc->setCloexec(false);
     return newfd;
   }
-  int OpenFiles::dup(int oldfd){
-    int newfd=findNextFree(0);
+  int32_t OpenFiles::dup(int32_t oldfd){
+    int32_t newfd=findNextFree(0);
     return dup2(oldfd,newfd);
   }
-  int OpenFiles::dup2(int oldfd, int newfd){
+  int32_t OpenFiles::dup2(int32_t oldfd, int32_t newfd){
     if(!isOpen(oldfd))
       return error(EBADF);
     if(newfd==oldfd)
@@ -417,18 +417,18 @@ namespace FileSys {
     I(isOpen(newfd));
     return newfd;
   }
-  int OpenFiles::dupfd(int oldfd, int minfd){
-    int newfd=findNextFree(minfd);
+  int32_t OpenFiles::dupfd(int32_t oldfd, int32_t minfd){
+    int32_t newfd=findNextFree(minfd);
     return dup2(oldfd,newfd);
   }
-  int OpenFiles::pipe(int fds[2]){
+  int32_t OpenFiles::pipe(int32_t fds[2]){
     PipeStatus *newStat[2];
     newStat[0]=PipeStatus::pipe();
     if(!newStat[0])
       return -1;
     newStat[1]=newStat[0]->otherEnd;
     I(newStat[1]&&(newStat[1]->otherEnd==newStat[0]));
-    for(int i=0;i<2;i++){
+    for(int32_t i=0;i<2;i++){
       fds[i]=findNextFree(3);
       FileDesc *desc=getDesc(fds[i]);
       desc->setStatus(newStat[i]);
@@ -436,37 +436,37 @@ namespace FileSys {
     }
     return 0;
   }
-  bool OpenFiles::isLastOpen(int oldfd){
+  bool OpenFiles::isLastOpen(int32_t oldfd){
     if(!isOpen(oldfd))
       return false;
     return (getDesc(oldfd)->getStatus()->getRefCount()==1);
   }
-  int OpenFiles::close(int oldfd){
+  int32_t OpenFiles::close(int32_t oldfd){
     if(!isOpen(oldfd))
       return error(EBADF);
     getDesc(oldfd)->setStatus(0);
     return 0;
   }
-  int OpenFiles::getfd(int fd){
+  int32_t OpenFiles::getfd(int32_t fd){
     if(!isOpen(fd))
       return error(EBADF);
     FileDesc *desc=getDesc(fd);
     return desc->getCloexec()?FD_CLOEXEC:0;
   }
-  int OpenFiles::setfd(int fd, int cloex){
+  int32_t OpenFiles::setfd(int32_t fd, int32_t cloex){
     if(!isOpen(fd))
       return error(EBADF);
     FileDesc *desc=getDesc(fd);
     desc->setCloexec((cloex&FD_CLOEXEC)==FD_CLOEXEC);
     return 0;
   }
-  int OpenFiles::getfl(int fd){
+  int32_t OpenFiles::getfl(int32_t fd){
     if(!isOpen(fd))
       return error(EBADF);
     FileDesc *desc=getDesc(fd);
     return desc->getStatus()->flags;
   }
-  ssize_t OpenFiles::read(int fd, void *buf, size_t count){
+  ssize_t OpenFiles::read(int32_t fd, void *buf, size_t count){
     if(!isOpen(fd))
       return error(EBADF);
     FileDesc *desc=getDesc(fd);
@@ -476,7 +476,7 @@ namespace FileSys {
       status->endWriteBlock();
     return retVal;
   }
-  ssize_t OpenFiles::pread(int fd, void *buf, size_t count, off_t offs){
+  ssize_t OpenFiles::pread(int32_t fd, void *buf, size_t count, off_t offs){
     if(!isOpen(fd))
       return error(EBADF);
     FileDesc *desc=getDesc(fd);
@@ -486,7 +486,7 @@ namespace FileSys {
       status->endWriteBlock();
     return retVal;
   }
-  ssize_t OpenFiles::write(int fd, const void *buf, size_t count){
+  ssize_t OpenFiles::write(int32_t fd, const void *buf, size_t count){
     if(!isOpen(fd))
       return error(EBADF);
     FileDesc *desc=getDesc(fd);
@@ -496,7 +496,7 @@ namespace FileSys {
       status->endReadBlock();
     return retVal;
   }
-  ssize_t OpenFiles::pwrite(int fd, void *buf, size_t count, off_t offs){
+  ssize_t OpenFiles::pwrite(int32_t fd, void *buf, size_t count, off_t offs){
     if(!isOpen(fd))
       return error(EBADF);
     FileDesc *desc=getDesc(fd);
@@ -506,14 +506,14 @@ namespace FileSys {
       status->endReadBlock();
     return retVal;
   }
-  bool OpenFiles::willReadBlock(int fd){
+  bool OpenFiles::willReadBlock(int32_t fd){
     I(isOpen(fd));
     FileDesc *desc=getDesc(fd);
     BaseStatus *status=desc->getStatus();
     struct pollfd pollFd;
     pollFd.fd=status->fd;
     pollFd.events=POLLIN;
-    int res=poll(&pollFd,1,0);
+    int32_t res=poll(&pollFd,1,0);
 //    I((res<=0)==((::read(status->fd,0,1)==-1)&&(errno==EAGAIN)));
     return (res<=0);
 //    if((::read(status->fd,0,1)==-1)&&(errno==EAGAIN)){
@@ -522,7 +522,7 @@ namespace FileSys {
 //    }
 //    return false;
   }
-  bool OpenFiles::willWriteBlock(int fd){
+  bool OpenFiles::willWriteBlock(int32_t fd){
     I(isOpen(fd));
     FileDesc *desc=getDesc(fd);
     BaseStatus *status=desc->getStatus();
@@ -532,19 +532,19 @@ namespace FileSys {
     }
     return false;
   }
-  void OpenFiles::addReadBlock(int fd, int pid){
+  void OpenFiles::addReadBlock(int32_t fd, int32_t pid){
     I(isOpen(fd));
     FileDesc *desc=getDesc(fd);
     BaseStatus *status=desc->getStatus();
     status->addReadBlock(pid);
   }
-  void OpenFiles::addWriteBlock(int fd, int pid){
+  void OpenFiles::addWriteBlock(int32_t fd, int32_t pid){
     I(isOpen(fd));
     FileDesc *desc=getDesc(fd);
     BaseStatus *status=desc->getStatus();
     status->addWriteBlock(pid);
   }
-  off_t OpenFiles::seek(int fd, off_t offset, int whence){
+  off_t OpenFiles::seek(int32_t fd, off_t offset, int32_t whence){
     if(!isOpen(fd))
       return (off_t)(error(EBADF));
     FileDesc *desc=getDesc(fd);

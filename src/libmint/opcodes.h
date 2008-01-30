@@ -34,7 +34,7 @@ struct op_desc {
   const char *opname;
   PFPI *func;
   char regflags[4];
-  int iflags;           /* extra instruction flags */
+  int32_t iflags;           /* extra instruction flags */
   short opflags;        /* opcode flags passed through to the event type */
   short cycles;
 };
@@ -120,7 +120,7 @@ typedef enum opnum_e {
     c_sf_d_opn, c_ngle_d_opn, c_seq_d_opn, c_ngl_d_opn,
     c_lt_d_opn, c_nge_d_opn, c_le_d_opn, c_ngt_d_opn,
 
-    /* fixed-point precision ops */
+    /* fixed-point32_t precision ops */
     cvt_s_w_opn, cvt_d_w_opn,
 
     mfc0_opn, mfc1_opn, mfc2_opn, mfc3_opn,
@@ -252,7 +252,7 @@ extern PPFPI
   c1_c_olt_d, c1_c_ult_d, c1_c_ole_d, c1_c_ule_d,
   c1_c_sf_d, c1_c_ngle_d, c1_c_seq_d, c1_c_ngl_d,
   c1_c_lt_d, c1_c_nge_d, c1_c_le_d, c1_c_ngt_d,
-  /* fixed-point precision */
+  /* fixed-point32_t precision */
   c1_cvt_s_w, c1_cvt_d_w,
   /* coprocessor opcodes */
   mfc0_op, mfc1_op, mfc2_op, mfc3_op,

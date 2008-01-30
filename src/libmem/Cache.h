@@ -48,9 +48,9 @@ private:
   bool dirty;
   bool locked;
   bool spec;
-  unsigned int ckpId;
-  int nReadMisses; // number of pending read ops when the line was brought to the cache
-  int nReadAccesses;
+  uint32_t ckpId;
+  int32_t nReadMisses; // number of pending read ops when the line was brought to the cache
+  int32_t nReadAccesses;
 public:
   CState() {
     valid = false;
@@ -106,21 +106,21 @@ public:
   void incReadAccesses() {
     nReadAccesses++;
   }
-  int getReadAccesses() {
+  int32_t getReadAccesses() {
     return nReadAccesses;
   }
 
-  void setReadMisses(int n) {
+  void setReadMisses(int32_t n) {
     nReadMisses = n;
   }
-  int getReadMisses() {
+  int32_t getReadMisses() {
     return nReadMisses;
   }
 
   void setCkpId(unsigned ci) {
     ckpId = ci;
   }
-  unsigned int getCkpId() {
+  uint32_t getCkpId() {
     return ckpId;
   }
 };
@@ -132,7 +132,7 @@ protected:
   typedef CacheGeneric<CState,PAddr>::CacheLine Line;
 
   const bool inclusiveCache;
-  int nBanks;
+  int32_t nBanks;
 
 
   CacheType **cacheBanks;
@@ -141,12 +141,12 @@ protected:
   typedef HASH_MAP<PAddr, int> WBuff; 
 
   WBuff wbuff;  // write buffer
-  int maxPendingWrites;
-  int pendingWrites;
+  int32_t maxPendingWrites;
+  int32_t pendingWrites;
 
   class Entry {
   public:
-    int outsResps;        // outstanding responses: number of caches 
+    int32_t outsResps;        // outstanding responses: number of caches 
                           // that still need to acknowledge invalidates
     CallbackBase *cb;
     Entry() {
@@ -163,7 +163,7 @@ protected:
   PortGeneric **bankPorts;
   PortGeneric **mshrPorts;
 
-  int defaultMask;
+  int32_t defaultMask;
   TimeDelta_t missDelay;
   TimeDelta_t hitDelay;
   TimeDelta_t fwdDelay;
@@ -195,7 +195,7 @@ protected:
   bool parallelMSHR;
 #endif
 
-  int getBankId(PAddr addr) const {
+  int32_t getBankId(PAddr addr) const {
     // FIXME: perhaps we should make this more efficient
     // by allowing only power of 2 nBanks
     return ((calcTag(addr)) % nBanks);
@@ -316,8 +316,8 @@ public:
 
 
   //used by SVCache
-  virtual void ckpRestart(unsigned int ckpId) {}
-  virtual void ckpCommit(unsigned int ckpId) {}
+  virtual void ckpRestart(uint32_t ckpId) {}
+  virtual void ckpCommit(uint32_t ckpId) {}
 };
 
 class WBCache : public Cache {
@@ -380,8 +380,8 @@ class SVCache : public WBCache {
   virtual void doWrite(MemRequest *mreq);
   virtual void preReturnAccess(MemRequest *mreq);
   virtual void doReturnAccess(MemRequest *mreq);
-  virtual void ckpRestart(unsigned int ckpId);
-  virtual void ckpCommit(unsigned int ckpId);
+  virtual void ckpRestart(uint32_t ckpId);
+  virtual void ckpCommit(uint32_t ckpId);
 };
 
 class NICECache : public Cache

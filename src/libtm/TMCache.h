@@ -52,7 +52,7 @@ protected:
 
   class Entry {
   public:
-    int outsResps;        // outstanding responses: number of caches 
+    int32_t outsResps;        // outstanding responses: number of caches 
                           // that still need to acknowledge invalidates
     bool invalidate;
     CallbackBase *cb;
@@ -147,7 +147,7 @@ protected:
   void doWriteBack(MemRequest *mreq);
   void invalidateLineTLS(MemRequest *mreq);
   void doInvalidateLineTLS(MemRequest *mreq);
-  int SMPCache::squash(tls::Epoch *epoch);
+  int32_t SMPCache::squash(tls::Epoch *epoch);
   void SMPCache::doBlockRemoved(MemRequest *mreq);
   typedef CallbackMember1<SMPCache, MemRequest *,
                          &SMPCache::doepochRead> doepochReadCB;
@@ -218,7 +218,7 @@ public:
     bool isLineExposedRead(Line *l)
     {
     	bool temp=false;
-    	for (unsigned int i=0;i<cache->getLineSize();i++)
+    	for (uint32_t i=0;i<cache->getLineSize();i++)
     	{
 	    	if (l->getCacheFlags()->getWordER(getOffsetInLine(i))==1)
 	    	{
@@ -228,7 +228,7 @@ public:
     	}
     	return temp;
     }
-    bool isWordWriteModified(Line *l,uint addr)
+    bool isWordWriteModified(Line *l,uint32_t addr)
     {
     	return (bool)l->getCacheFlags()->getWordWM(getOffsetInLine(addr));
     }
@@ -253,7 +253,7 @@ public:
   void epochAccess(MemRequest *mreq);
     void sendUp(MemRequest *mreq);
   void realInvalidateTLS(PAddr addr, ushort size);
-  unsigned int SMPCache::getOffsetInLine(PAddr addr);
+  uint32_t SMPCache::getOffsetInLine(PAddr addr);
   void sendBelowUp(SMPMemRequest *sreq, MemRequest *mreq);
   typedef CallbackMember2<SMPCache, PAddr, ushort,
                          &SMPCache::realInvalidate> realInvalidateCB;

@@ -38,7 +38,7 @@
 
 
 
-int rstzip3::decompress_buffer(rstf_unionT * rstbuf, int rstbufsize)
+int32_t rstzip3::decompress_buffer(rstf_unionT * rstbuf, int32_t rstbufsize)
 {
   if (verbose) fprintf(stderr, "Section %d\n", nsections);
 
@@ -64,7 +64,7 @@ int rstzip3::decompress_buffer(rstf_unionT * rstbuf, int rstbufsize)
     return 0;
   }
 
-  int i;
+  int32_t i;
   uint64_t v;
   for (i=0; i<shdr->nrecords; i++) {
     if (rfs_phase) {
@@ -187,12 +187,12 @@ int rstzip3::decompress_buffer(rstf_unionT * rstbuf, int rstbufsize)
 
 
   return shdr->nrecords;
-} // int rstzip3::decompress_buffer(rstf_unionT * rstbuf, int nrec)
+} // int32_t rstzip3::decompress_buffer(rstf_unionT * rstbuf, int32_t nrec)
 
 
 
 
-void rstzip3::decompress_inst(rstf_unionT * rstbuf, int idx)
+void rstzip3::decompress_inst(rstf_unionT * rstbuf, int32_t idx)
 {
   uint64_t v;
 
@@ -363,10 +363,10 @@ void rstzip3::decompress_inst(rstf_unionT * rstbuf, int idx)
 
   // fwrite(rstbuf+idx, sizeof(rstf_unionT), 1, testfp); fflush(testfp);
 
-} // void rstzip3::decompress_inst(rstf_unionT * rstbuf, int idx)
+} // void rstzip3::decompress_inst(rstf_unionT * rstbuf, int32_t idx)
 
 
-void rstzip3::decompress_pavadiff(rstf_unionT * rstbuf, int idx)
+void rstzip3::decompress_pavadiff(rstf_unionT * rstbuf, int32_t idx)
 {
   if (0 && idx == 102577) {
     printf("debug: decompress_pavadiff idx %d\n", idx);
@@ -377,7 +377,7 @@ void rstzip3::decompress_pavadiff(rstf_unionT * rstbuf, int idx)
   rstf_pavadiffT * dr = &(rstbuf[idx].pavadiff);
 
   // cpuid
-  int cpuid;
+  int32_t cpuid;
   sdata->bitarrays[cpuid_pred_array]->GetNext(v);
   if (v) {
     dr->set_cpuid(pred_cpuid); // dr->cpuid = pred_cpuid;
@@ -424,7 +424,7 @@ void rstzip3::decompress_pavadiff(rstf_unionT * rstbuf, int idx)
   // if the prediction was successful. Otherwise, we read those values from
   // the raw arrays
   sdata->bitarrays[pavadiff_pc_pa_va_pred_array]->GetNext(v);
-  int pc_pa_va_hit = v;
+  int32_t pc_pa_va_hit = v;
   if (pc_pa_va_hit) {
     tdata[cpuid]->pending_pavadiff_pc_pa_va_pred = 1;
   } else {
@@ -432,7 +432,7 @@ void rstzip3::decompress_pavadiff(rstf_unionT * rstbuf, int idx)
     dr->pc_pa_va = v;
   }
 
-  int ea_pa_va_hit = 0;
+  int32_t ea_pa_va_hit = 0;
   if (dr->ea_valid) {
     sdata->bitarrays[pavadiff_ea_pa_va_pred_array]->GetNext(v);
     ea_pa_va_hit = v;
@@ -461,7 +461,7 @@ void rstzip3::decompress_pavadiff(rstf_unionT * rstbuf, int idx)
 } // rstzip3::decompress_pavadiff()
 
 
-void rstzip3::decompress_pavadiff_pass2(rstf_unionT * rstbuf, int instr_idx)
+void rstzip3::decompress_pavadiff_pass2(rstf_unionT * rstbuf, int32_t instr_idx)
 {
   if (header->minor_version <= 15) {
     decompress_pavadiff_pass2_v315(rstbuf, instr_idx);
@@ -470,9 +470,9 @@ void rstzip3::decompress_pavadiff_pass2(rstf_unionT * rstbuf, int instr_idx)
 
   rstf_instrT * ir = &(rstbuf[instr_idx].instr);
 
-  int cpuid = rstf_instrT_get_cpuid(ir);
+  int32_t cpuid = rstf_instrT_get_cpuid(ir);
 
-  int idx = tdata[cpuid]->pending_pavadiff_idx;
+  int32_t idx = tdata[cpuid]->pending_pavadiff_idx;
   rstf_pavadiffT * dr = &(rstbuf[idx].pavadiff);
 
   if (tdata[cpuid]->pending_pavadiff_pc_pa_va_pred) {
@@ -497,13 +497,13 @@ void rstzip3::decompress_pavadiff_pass2(rstf_unionT * rstbuf, int instr_idx)
 
 }
 
-void rstzip3::decompress_pavadiff_pass2_v315(rstf_unionT * rstbuf, int instr_idx)
+void rstzip3::decompress_pavadiff_pass2_v315(rstf_unionT * rstbuf, int32_t instr_idx)
 {
   rstf_instrT * ir = &(rstbuf[instr_idx].instr);
 
-  int cpuid = rstf_instrT_get_cpuid(ir);
+  int32_t cpuid = rstf_instrT_get_cpuid(ir);
 
-  int idx = tdata[cpuid]->pending_pavadiff_idx;
+  int32_t idx = tdata[cpuid]->pending_pavadiff_idx;
   rstf_pavadiffT * dr = &(rstbuf[idx].pavadiff);
 
   if (tdata[cpuid]->pending_pavadiff_pc_pa_va_pred) {
@@ -532,19 +532,19 @@ void rstzip3::decompress_pavadiff_pass2_v315(rstf_unionT * rstbuf, int instr_idx
 
   // fwrite(rstbuf+idx, sizeof(rstf_unionT), 1, testfp); fflush(testfp);
 
-} // void decompress_pavadiff_pass2_v315(rstf_unionT * outbuf, int instr_idx)
+} // void decompress_pavadiff_pass2_v315(rstf_unionT * outbuf, int32_t instr_idx)
 
 
 // predict bt, ea_valid, ea_va, NEXT-instr an for a dcti instr. also set pred_npc
-void rstzip3::decompress_dcti(rstf_unionT * rstbuf, int idx, rz3iu_icache_data * icdata)
+void rstzip3::decompress_dcti(rstf_unionT * rstbuf, int32_t idx, rz3iu_icache_data * icdata)
 {
   uint64_t v;
 
   rstf_instrT * ir = &(rstbuf[idx].instr);
-  int cpuid = rstf_instrT_get_cpuid(ir);
+  int32_t cpuid = rstf_instrT_get_cpuid(ir);
   uint64_t pc = ir->pc_va;
 
-  int bt_pred_hit = (instr_preds & instr_pred_bt) ? 1 : 0;
+  int32_t bt_pred_hit = (instr_preds & instr_pred_bt) ? 1 : 0;
 
   // ea_valid pred: predict ea_valid is true
   ir->ea_valid = (instr_preds & instr_pred_ea_valid) ? 1 : 0;
@@ -553,7 +553,7 @@ void rstzip3::decompress_dcti(rstf_unionT * rstbuf, int idx, rz3iu_icache_data *
   }
 
   sdata->bitarrays[dcti_ea_va_pred_array]->GetNext(v);
-  int ea_pred_hit = v;
+  int32_t ea_pred_hit = v;
   if (!ea_pred_hit) {
     sdata->bitarrays[raw_value64_array]->GetNext(v);
     ir->ea_va = v;
@@ -654,27 +654,27 @@ void rstzip3::decompress_dcti(rstf_unionT * rstbuf, int idx, rz3iu_icache_data *
 } // rstzip3::compress_dcti()
 
 
-void rstzip3::decompress_ea_va(rstf_unionT * rstbuf, int idx)
+void rstzip3::decompress_ea_va(rstf_unionT * rstbuf, int32_t idx)
 {
   uint64_t v;
   rstf_instrT * ir = &(rstbuf[idx].instr);
-  int cpuid = rstf_instrT_get_cpuid(ir);
+  int32_t cpuid = rstf_instrT_get_cpuid(ir);
 
   decompress_value(cpuid, v);
   ir->ea_va = v;
-} // void rstzip3::decompress_ea_va(rstf_unionT * rstbuf, int idx)
+} // void rstzip3::decompress_ea_va(rstf_unionT * rstbuf, int32_t idx)
 
 
 
 
-void rstzip3::decompress_regval(rstf_unionT * rstbuf, int idx)
+void rstzip3::decompress_regval(rstf_unionT * rstbuf, int32_t idx)
 {
   uint64_t v;
 
   rstf_regvalT * vr = &(rstbuf[idx].regval);
 
   // cpuid
-  int cpuid;
+  int32_t cpuid;
   sdata->bitarrays[cpuid_pred_array]->GetNext(v);
   if (v) {
     cpuid =  last_instr_cpuid;
@@ -695,10 +695,10 @@ void rstzip3::decompress_regval(rstf_unionT * rstbuf, int idx)
 
   // regtype, regid
   uint64_t prev_pc = tdata[cpuid]->prev_pc;
-  int regtype_tbl_idx = (prev_pc >> 2) & (rz3_percpu_data::rz3_tdata_regval_regtype_tbl_size-1);
-  int regid_tbl_idx = (prev_pc >> 2) & (rz3_percpu_data::rz3_tdata_regval_regid_tbl_size-1);
+  int32_t regtype_tbl_idx = (prev_pc >> 2) & (rz3_percpu_data::rz3_tdata_regval_regtype_tbl_size-1);
+  int32_t regid_tbl_idx = (prev_pc >> 2) & (rz3_percpu_data::rz3_tdata_regval_regid_tbl_size-1);
 
-  int k;
+  int32_t k;
   for (k=0; k<2; k++) {
 
     // predict regtype: use prev_instr
@@ -750,10 +750,10 @@ void rstzip3::decompress_regval(rstf_unionT * rstbuf, int idx)
 
   // fwrite(rstbuf+idx, sizeof(rstf_unionT), 1, testfp); fflush(testfp);
 
-} // void rstzip3::decompress_regval(rstf_unionT * rstbuf, int idx)
+} // void rstzip3::decompress_regval(rstf_unionT * rstbuf, int32_t idx)
 
 
-void rstzip3::decompress_memval(rstf_unionT * rstbuf, int idx)
+void rstzip3::decompress_memval(rstf_unionT * rstbuf, int32_t idx)
 {
   uint64_t v;
 
@@ -767,7 +767,7 @@ void rstzip3::decompress_memval(rstf_unionT * rstbuf, int idx)
   m128->addrisVA = ! v;
 
   // cpuid
-  int cpuid;
+  int32_t cpuid;
   sdata->bitarrays[cpuid_pred_array]->GetNext(v);
   if (v) {
     cpuid = pred_cpuid;
@@ -808,14 +808,14 @@ void rstzip3::decompress_memval(rstf_unionT * rstbuf, int idx)
     m64->val = v;
 
   }
-} // void rstzip3::decompress_memval(rstf_unionT * rstbuf, int idx)
+} // void rstzip3::decompress_memval(rstf_unionT * rstbuf, int32_t idx)
 
-void rstzip3::decompress_trap(rstf_unionT * rstbuf, int idx)
+void rstzip3::decompress_trap(rstf_unionT * rstbuf, int32_t idx)
 {
   uint64_t v;
   rstf_trapT * tr = &(rstbuf[idx].trap);
   sdata->bitarrays[cpuid_pred_array]->GetNext(v);
-  int cpuid;
+  int32_t cpuid;
   if (v) {
     cpuid = pred_cpuid;
   } else {
@@ -852,10 +852,10 @@ void rstzip3::decompress_trap(rstf_unionT * rstbuf, int idx)
     sdata->bitarrays[raw_value64_array]->GetNext(npc);
     tr->npc = npc;
   }
-} // void rstzip3::decompress_trap(rstf_unionT * rstbuf, int idx)
+} // void rstzip3::decompress_trap(rstf_unionT * rstbuf, int32_t idx)
 
 
-void rstzip3::decompress_tlb(rstf_unionT * rstbuf, int idx)
+void rstzip3::decompress_tlb(rstf_unionT * rstbuf, int32_t idx)
 {
   rstf_tlbT * tr = &(rstbuf[idx].tlb);
   uint64_t tlb_info;
@@ -865,14 +865,14 @@ void rstzip3::decompress_tlb(rstf_unionT * rstbuf, int idx)
     tr->tlb_index = (tlb_info >> 9) & 0xffff;
     tr->tlb_type = (tlb_info >> 8) & 1;
     tr->tlb_no = (tlb_info >> 6) & 3;
-    int cpuid = (tlb_info) & 0x3f;
+    int32_t cpuid = (tlb_info) & 0x3f;
     rstf_tlbT_set_cpuid(tr, cpuid);
   } else {
     tr->demap = (tlb_info>>29) & 0x1;
     tr->tlb_index = (tlb_info >> 13) & 0xffff;
     tr->tlb_type = (tlb_info >> 12) & 1;
     tr->tlb_no = (tlb_info >> 10) & 3;
-    int cpuid = (tlb_info) & 0x3ff;
+    int32_t cpuid = (tlb_info) & 0x3ff;
     rstf_tlbT_set_cpuid(tr, cpuid);
   }
 
@@ -881,17 +881,17 @@ void rstzip3::decompress_tlb(rstf_unionT * rstbuf, int idx)
   tr->tte_tag = v;
   sdata->bitarrays[raw_value64_array]->GetNext(v);
   tr->tte_data = v;
-} // void rstzip3::decompress_tlb(rstf_unionT * rstbuf, int idx)
+} // void rstzip3::decompress_tlb(rstf_unionT * rstbuf, int32_t idx)
 
 
-void rstzip3::decompress_preg(rstf_unionT * rstbuf, int idx)
+void rstzip3::decompress_preg(rstf_unionT * rstbuf, int32_t idx)
 {
   rstf_pregT * pr = &(rstbuf[idx].preg);
 
   uint64_t preg_info;
   sdata->bitarrays[raw_value64_array]->GetNext(preg_info);
 
-  int cpuid;
+  int32_t cpuid;
   if ((preg_info>>61) & 1) {
     cpuid = pred_cpuid;
   } else {
@@ -910,10 +910,10 @@ void rstzip3::decompress_preg(rstf_unionT * rstbuf, int idx)
   pr->traptype = (preg_info >> 16) & 0xff;
   pr->pstate = preg_info & 0xffff;
 
-} // void rstzip3::decompress_preg(rstf_unionT * rstbuf, int idx)
+} // void rstzip3::decompress_preg(rstf_unionT * rstbuf, int32_t idx)
 
 
-void rstzip3::decompress_dma(rstf_unionT * rstbuf, int idx)
+void rstzip3::decompress_dma(rstf_unionT * rstbuf, int32_t idx)
 {
   uint64_t v;
   rstf_dmaT * dr = &(rstbuf[idx].dma);
@@ -926,11 +926,11 @@ void rstzip3::decompress_dma(rstf_unionT * rstbuf, int idx)
 
   sdata->bitarrays[raw_value64_array]->GetNext(v);
   dr->start_pa = v;
-} // void rstzip3::decompress_dma(rstf_unionT * rstbuf, int idx)
+} // void rstzip3::decompress_dma(rstf_unionT * rstbuf, int32_t idx)
 
 
 
-void rstzip3::decompress_rfs_cw(rstf_unionT * rstbuf, int idx)
+void rstzip3::decompress_rfs_cw(rstf_unionT * rstbuf, int32_t idx)
 {
   uint64_t v;
 
@@ -940,7 +940,7 @@ void rstzip3::decompress_rfs_cw(rstf_unionT * rstbuf, int idx)
   cw->reftype = v;
 
   sdata->bitarrays[rfs_raw_cpuid_array]->GetNext(v);
-  int cpuid;
+  int32_t cpuid;
   if ((cw->reftype != cw_reftype_DMA_R) && (cw->reftype != cw_reftype_DMA_W)) {
     rstf_cachewarmingT_set_cpuid(cw, v);
     cpuid = v;
@@ -998,19 +998,19 @@ void rstzip3::decompress_rfs_cw(rstf_unionT * rstbuf, int idx)
       sdata->bitarrays[raw_value64_array]->GetNext(v); cw->pa = v;
     }
   } // DMA?
-} // void rstzip3::decompress_rfs_cw(rstf_unionT * rstbuf, int idx)
+} // void rstzip3::decompress_rfs_cw(rstf_unionT * rstbuf, int32_t idx)
 
 
 
 
-void rstzip3::decompress_rfs_bt(rstf_unionT * rstbuf, int idx)
+void rstzip3::decompress_rfs_bt(rstf_unionT * rstbuf, int32_t idx)
 {
   uint64_t v;
 
   rstf_bpwarmingT * bt = &(rstbuf[idx].bpwarming);
 
   // cpuid
-  int cpuid;
+  int32_t cpuid;
   sdata->bitarrays[rfs_raw_cpuid_array]->GetNext(v);
   if (v) {
     cpuid = pred_cpuid;
@@ -1047,7 +1047,7 @@ void rstzip3::decompress_rfs_bt(rstf_unionT * rstbuf, int idx)
 
   // bt
   sdata->bitarrays[rfs_bt_pred_array]->GetNext(v);
-  int bt_pred_hit = v;
+  int32_t bt_pred_hit = v;
   if (icdata->dinfo.flags.iscbranch) {
     bt->taken = tdata[cpuid]->bp->actual_outcome(bt->pc_va, bt_pred_hit);
   } else if (icdata->dinfo.flags.isubranch && icdata->dinfo.flags.isubranch_nottaken) {
@@ -1067,10 +1067,10 @@ void rstzip3::decompress_rfs_bt(rstf_unionT * rstbuf, int idx)
   tdata[cpuid]->rfs_prev_npc = bt->npc_va;
 
   tdata[cpuid]->pred_pc = tdata[cpuid]->rfs_pc_pred_table->get(bt->npc_va);
-} // void rstzip3::decompress_rfs_bt(rstf_unionT * rstbuf, int idx)
+} // void rstzip3::decompress_rfs_bt(rstf_unionT * rstbuf, int32_t idx)
 
 
-bool rstzip3::decompress_value(int cpuid, uint64_t & v64)
+bool rstzip3::decompress_value(int32_t cpuid, uint64_t & v64)
 {
   uint64_t key;
   uint64_t level;

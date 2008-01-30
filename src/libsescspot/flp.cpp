@@ -91,9 +91,9 @@ flp_config_t default_flp_config(void)
  * parse a table of name-value string pairs and add the configuration
  * parameters to 'config'
  */
-void flp_config_add_from_strs(flp_config_t *config, str_pair *table, int size)
+void flp_config_add_from_strs(flp_config_t *config, str_pair *table, int32_t size)
 {
-	int idx;
+	int32_t idx;
 	if ((idx = get_str_index(table, size, "wrap_l2")) >= 0)
 		if(sscanf(table[idx].value, "%d", &config->wrap_l2) != 1)
 			fatal("invalid format for configuration  parameter wrap_l2");
@@ -162,7 +162,7 @@ void flp_config_add_from_strs(flp_config_t *config, str_pair *table, int size)
  * convert config into a table of name-value pairs. returns the no.
  * of parameters converted
  */
-int flp_config_to_strs(flp_config_t *config, str_pair *table, int max_entries)
+int32_t flp_config_to_strs(flp_config_t *config, str_pair *table, int32_t max_entries)
 {
 	if (max_entries < 15)
 		fatal("not enough entries in table\n");
@@ -207,9 +207,9 @@ int flp_config_to_strs(flp_config_t *config, str_pair *table, int max_entries)
  * of flp. 'size' elements are copied. the arms are not 
  * connected amidst themselves or with L2 base block
  */
-void copy_l2_info (flp_t *flp, int to, flp_desc_t *flp_desc, int from, int size)
+void copy_l2_info (flp_t *flp, int32_t to, flp_desc_t *flp_desc, int32_t from, int32_t size)
 {
-	int j, count;
+	int32_t j, count;
 
 	for(count=0; count < L2_ARMS + 1; count++, to++) {
 		/* copy names */
@@ -230,11 +230,11 @@ void copy_l2_info (flp_t *flp, int to, flp_desc_t *flp_desc, int from, int size)
 /* create a floorplan placeholder from description	*/
 flp_t *flp_placeholder(flp_desc_t *flp_desc)
 {
-	int i, j, count, n_dead;
+	int32_t i, j, count, n_dead;
 	flp_t *flp;
 
 	/* wrap L2 around?	*/
-	int wrap_l2 = FALSE;
+	int32_t wrap_l2 = FALSE;
 	if (flp_desc->config.wrap_l2 && 
 		!strcasecmp(flp_desc->units[flp_desc->n_units-1].name, flp_desc->config.l2_label))
 		wrap_l2 = TRUE;
@@ -298,10 +298,10 @@ flp_t *flp_placeholder(flp_desc_t *flp_desc)
  * but flp contains it within its boundaries.
  */
 void restore_dead_blocks(flp_t *flp, flp_desc_t *flp_desc, 
-						 int compacted, int wrap_l2, 
-						 int model_rim, int rim_blocks)
+						 int32_t compacted, int32_t wrap_l2, 
+						 int32_t model_rim, int32_t rim_blocks)
 {
-	int i, j, idx=0;
+	int32_t i, j, idx=0;
 	/* remove L2 and rim blocks and restore the compacted blocks */
 	if(model_rim)
 		flp->n_units -= rim_blocks;
@@ -323,7 +323,7 @@ void restore_dead_blocks(flp_t *flp, flp_desc_t *flp_desc,
 /* translate the floorplan to new origin (x,y)	*/
 void flp_translate(flp_t *flp, double x, double y)
 {
-	int i;
+	int32_t i;
 	double minx = flp->units[0].leftx;
 	double miny = flp->units[0].bottomy;
 
@@ -342,7 +342,7 @@ void flp_translate(flp_t *flp, double x, double y)
 /* scale the floorplan by a factor 'factor'	*/
 void flp_scale(flp_t *flp, double factor)
 {
-	int i;
+	int32_t i;
 	double minx = flp->units[0].leftx;
 	double miny = flp->units[0].bottomy;
 
@@ -369,7 +369,7 @@ void flp_scale(flp_t *flp, double factor)
 void flp_change_orient(flp_t *flp, double xorig, double yorig,
 					   double width, double height, orient_t target)
 {
-	int i;
+	int32_t i;
 
 	for(i=0; i < flp->n_units; i++) {
 		double leftx, bottomy, rightx, topy;
@@ -455,9 +455,9 @@ flp_t *flp_create_grid(flp_t *flp)
 	double x[MAX_UNITS], y[MAX_UNITS];
 	double rightx = flp->units[0].leftx + flp->units[0].width;
 	double topy = flp->units[0].bottomy + flp->units[0].height;
-	int i, j, xsize=0, ysize=0, count=0;
+	int32_t i, j, xsize=0, ysize=0, count=0;
 	flp_t *grid;
-	int **map;
+	int32_t **map;
 
 	/* sort the units' leftx and bottomy	*/
 	for(i=0; i < flp->n_units; i++) {
@@ -493,7 +493,7 @@ flp_t *flp_create_grid(flp_t *flp)
 	  	fatal("memory allocation error\n");
 	}
 	/* mapping between blocks of 'flp' to those of 'grid'	*/
-	map = (int **) calloc(flp->n_units, sizeof(int *));
+	map = (int32_t **) calloc(flp->n_units, sizeof(int32_t *));
 	if (!map)
 		fatal("memory allocation error\n");
 	/* 
@@ -504,7 +504,7 @@ flp_t *flp_create_grid(flp_t *flp)
 	 * it maps to.
 	 */
 	for(i=0; i < flp->n_units; i++) {
-		map[i] = (int *) calloc(grid->n_units+1, sizeof(int));
+		map[i] = (int32_t *) calloc(grid->n_units+1, sizeof(int));
 		if(!map[i])
 	  		fatal("memory allocation error\n");
 	}
@@ -519,7 +519,7 @@ flp_t *flp_create_grid(flp_t *flp)
 	for(i=0; i < flp->n_units; i++) {
 		double *xstart, *xend, *ystart, *yend;
 		double *ptr1, *ptr2;
-		int grid_num=0;
+		int32_t grid_num=0;
 		if (!bsearch_double(x, xsize, flp->units[i].leftx, &xstart))
 			fatal("invalid sorted arrays\n");
 		if (!bsearch_double(x, xsize, flp->units[i].leftx+flp->units[i].width, &xend))
@@ -549,7 +549,7 @@ flp_t *flp_create_grid(flp_t *flp)
 	/* fill-in the wire densities	*/
 	for(i=0; i < flp->n_units; i++)
 		for(j=0; j < flp->n_units; j++) {
-			int p, q;
+			int32_t p, q;
 			for(p=1; p <= map[i][0]; p++)
 				for(q=1; q <= map[j][0]; q++)
 					grid->wire_density[map[i][p]][map[j][q]] = flp->wire_density[i][j];
@@ -606,7 +606,7 @@ void flp_wrap_l2(flp_t *flp, flp_desc_t *flp_desc)
 	 * aspect ratio. i.e., we constrain kx = y (or
 	 * ky = x  depending on the aspect ratio of the 
 	 * core) where k = WRAP_L2_RATIO. solving the equation 
-	 * with this constraint, we get the following
+	 * with this constraint32_t, we get the following
 	 */
 	if ( x <= 0 || y <= 0.0) {
 		double sum;
@@ -661,10 +661,10 @@ void flp_wrap_l2(flp_t *flp, flp_desc_t *flp_desc)
  * the four corners, the rim blocks are extended by the
  * rim thickness in a clockwise fashion
  */
-int flp_wrap_rim(flp_t *flp, double rim_thickness)
+int32_t flp_wrap_rim(flp_t *flp, double rim_thickness)
 {
 	double width, height;
-	int i, j = 0, k, n = flp->n_units;
+	int32_t i, j = 0, k, n = flp->n_units;
 
 	width = get_total_width(flp) + 2 * rim_thickness;
 	height = get_total_height(flp) + 2 * rim_thickness;
@@ -751,15 +751,15 @@ int flp_wrap_rim(flp_t *flp, double rim_thickness)
  * returns the number of compacted blocks in the selected
  * floorplan
  */
-int floorplan(flp_t *flp, flp_desc_t *flp_desc, 
+int32_t floorplan(flp_t *flp, flp_desc_t *flp_desc, 
 			  RC_model_t *model, double *power)
 {
 	NPE_t *expr, *next, *best;	/* Normalized Polish Expressions */
 	tree_node_stack_t *stack;	/* for NPE evaluation	*/
 	tree_node_t *root;			/* shape curve tree	*/
 	double cost, new_cost, best_cost, sum_cost, T, Tcold;
-	int i, steps, downs, n, rejects, compacted, rim_blocks = 0;
-	int original_n = flp->n_units;
+	int32_t i, steps, downs, n, rejects, compacted, rim_blocks = 0;
+	int32_t original_n = flp->n_units;
 
 	/* to maintain the order of power values during
 	 * the compaction/shifting around of blocks
@@ -777,7 +777,7 @@ int floorplan(flp_t *flp, flp_desc_t *flp_desc,
 		flp->n_units = (flp->n_units - 2) / 3;
 
 	/* wrap L2 around?	*/
-	int wrap_l2 = FALSE;
+	int32_t wrap_l2 = FALSE;
 	if (cfg.wrap_l2 && 
 		!strcasecmp(flp_desc->units[flp_desc->n_units-1].name, cfg.l2_label)) {
 		wrap_l2 = TRUE;
@@ -919,7 +919,7 @@ int floorplan(flp_t *flp, flp_desc_t *flp_desc,
 	root = tree_from_NPE(flp_desc, stack, best);
 	#if VERBOSE > 0
 	{
-		int pos = min_area_pos(root->curve);
+		int32_t pos = min_area_pos(root->curve);
 		print_tree_relevant(root, pos, flp_desc);
 	}	
 	#endif
@@ -957,13 +957,13 @@ int floorplan(flp_t *flp, flp_desc_t *flp_desc,
  * find the number of units from the 
  * floorplan file
  */
-int flp_count_units(FILE *fp)
+int32_t flp_count_units(FILE *fp)
 {
     char str1[STR_SIZE], str2[STR_SIZE];
 	char name[STR_SIZE];
 	double leftx, bottomy, width, height;
 	char *ptr;
-    int count = 0;
+    int32_t count = 0;
 
 	fseek(fp, 0, SEEK_SET);
 	while(!feof(fp)) {
@@ -983,9 +983,9 @@ int flp_count_units(FILE *fp)
 	return count;
 }
 
-flp_t *flp_alloc_init_mem(int count)
+flp_t *flp_alloc_init_mem(int32_t count)
 {
-	int i;
+	int32_t i;
 	flp_t *flp;
 	flp = (flp_t *) calloc (1, sizeof(flp_t));
 	if(!flp)
@@ -1007,7 +1007,7 @@ flp_t *flp_alloc_init_mem(int count)
 /* populate block information	*/
 void flp_populate_blks(flp_t *flp, FILE *fp)
 {
-	int i=0;
+	int32_t i=0;
 	char str[STR_SIZE], copy[STR_SIZE]; 
 	char name1[STR_SIZE], name2[STR_SIZE];
 	double width, height, leftx, bottomy;
@@ -1048,7 +1048,7 @@ void flp_populate_connects(flp_t *flp, FILE *fp)
 	double f1, f2, f3, f4, f5, f6;
 	double wire_density;
 	char *ptr;
-	int x, y;
+	int32_t x, y;
 
 	/* initialize wire_density	*/
 	for(x=0; x < flp->n_units; x++)
@@ -1064,7 +1064,7 @@ void flp_populate_connects(flp_t *flp, FILE *fp)
 
 		ptr = strtok(str1, " \t\n");
 		if (ptr && ptr[0] != '#') {	/* ignore comments and empty lines	*/
-		  int temp;
+		  int32_t temp;
 		 /* lines with unit positions	*/
 		  if (sscanf(str2, "%s%lf%lf%lf%lf%lf%lf", name1, &f1, &f2, &f3, &f4, &f5, &f6) == 7 ||
 		  	  /* flp_desc like lines. ignore them	*/
@@ -1092,12 +1092,12 @@ void flp_populate_connects(flp_t *flp, FILE *fp)
 	} /* end while	*/
 }
 
-flp_t *read_flp(char *file, int read_connects)
+flp_t *read_flp(char *file, int32_t read_connects)
 {
 	char str[STR_SIZE];
 	FILE *fp;
 	flp_t *flp;
-	int count, i, j;
+	int32_t count, i, j;
 
 	if (!strcasecmp(file, "stdin"))
 		fp = stdin;
@@ -1133,10 +1133,10 @@ flp_t *read_flp(char *file, int read_connects)
 	return flp;
 }
 
-void dump_flp(flp_t *flp, char *file, int dump_connects)
+void dump_flp(flp_t *flp, char *file, int32_t dump_connects)
 {
 	char str[STR_SIZE];
-	int i, j;
+	int32_t i, j;
 	FILE *fp;
 
 	if (!strcasecmp(file, "stdout"))
@@ -1171,9 +1171,9 @@ void dump_flp(flp_t *flp, char *file, int dump_connects)
 		fclose(fp);
 }
 
-void free_flp(flp_t *flp, int compacted)
+void free_flp(flp_t *flp, int32_t compacted)
 {
-	int i;
+	int32_t i;
 	for (i=0; i < flp->n_units + compacted; i++) {
 		free(flp->wire_density[i]);
 	}
@@ -1184,7 +1184,7 @@ void free_flp(flp_t *flp, int compacted)
 
 void print_flp_fig (flp_t *flp)
 {
-	int i;
+	int32_t i;
 	double leftx, bottomy, rightx, topy;
 
 	fprintf(stdout, "FIG starts\n");
@@ -1204,7 +1204,7 @@ void print_flp_fig (flp_t *flp)
 /* debug print	*/
 void print_flp (flp_t *flp)
 {
-	int i, j;
+	int32_t i, j;
 
 	fprintf(stdout, "printing floorplan information for %d blocks\n", flp->n_units);
 	fprintf(stdout, "name\tarea\twidth\theight\tleftx\tbottomy\trightx\ttopy\n");
@@ -1230,7 +1230,7 @@ void print_flp (flp_t *flp)
 						flp->units[j].name, flp->wire_density[i][j]);
 }
 
-/* print the statistics about this floorplan.
+/* print32_t the statistics about this floorplan.
  * note that connects_file is NULL if wire 
  * information is already populated	
  */
@@ -1289,9 +1289,9 @@ void print_flp_stats(flp_t *flp, RC_model_t *model,
 	fclose(fp);
 }
 
-int get_blk_index(flp_t *flp, char *name)
+int32_t get_blk_index(flp_t *flp, char *name)
 {
-	int i;
+	int32_t i;
 	char msg[STR_SIZE];
 
 	if (!flp)
@@ -1308,7 +1308,7 @@ int get_blk_index(flp_t *flp, char *name)
 	return -1;
 }
 
-int is_horiz_adj(flp_t *flp, int i, int j)
+int32_t is_horiz_adj(flp_t *flp, int32_t i, int32_t j)
 {
 	double x1, x2, x3, x4;
 	double y1, y2, y3, y4;
@@ -1344,7 +1344,7 @@ int is_horiz_adj(flp_t *flp, int i, int j)
 	return FALSE;
 }
 
-int is_vert_adj (flp_t *flp, int i, int j)
+int32_t is_vert_adj (flp_t *flp, int32_t i, int32_t j)
 {
 	double x1, x2, x3, x4;
 	double y1, y2, y3, y4;
@@ -1380,7 +1380,7 @@ int is_vert_adj (flp_t *flp, int i, int j)
 	return FALSE;
 }
 
-double get_shared_len(flp_t *flp, int i, int j)
+double get_shared_len(flp_t *flp, int32_t i, int32_t j)
 {
 	double p11, p12, p21, p22;
 	p11 = p12 = p21 = p22 = 0.0;
@@ -1407,7 +1407,7 @@ double get_shared_len(flp_t *flp, int i, int j)
 
 double get_total_width(flp_t *flp)
 {	
-	int i;
+	int32_t i;
 	double min_x = flp->units[0].leftx;
 	double max_x = flp->units[0].leftx + flp->units[0].width;
 	
@@ -1423,7 +1423,7 @@ double get_total_width(flp_t *flp)
 
 double get_total_height(flp_t *flp)
 {	
-	int i;
+	int32_t i;
 	double min_y = flp->units[0].bottomy;
 	double max_y = flp->units[0].bottomy + flp->units[0].height;
 	
@@ -1439,7 +1439,7 @@ double get_total_height(flp_t *flp)
 
 double get_minx(flp_t *flp)
 {
-	int i;
+	int32_t i;
 	double min_x = flp->units[0].leftx;
 	
 	for (i=1; i < flp->n_units; i++)
@@ -1451,7 +1451,7 @@ double get_minx(flp_t *flp)
 
 double get_miny(flp_t *flp)
 {
-	int i;
+	int32_t i;
 	double min_y = flp->units[0].bottomy;
 	
 	for (i=1; i < flp->n_units; i++)
@@ -1464,7 +1464,7 @@ double get_miny(flp_t *flp)
 /* precondition: L2 should have been wrapped around	*/
 double get_core_width(flp_t *flp, char *l2_label)
 {
-	int i, j = get_blk_index(flp, l2_label);
+	int32_t i, j = get_blk_index(flp, l2_label);
 	double min_x = flp->units[j].leftx + flp->units[j].width; 
 	double max_x = flp->units[j].leftx;
 	
@@ -1485,7 +1485,7 @@ double get_core_width(flp_t *flp, char *l2_label)
 /* precondition: L2 should have been wrapped around	*/
 double get_core_height(flp_t *flp, char *l2_label)
 {	
-	int i, j = get_blk_index(flp, l2_label);
+	int32_t i, j = get_blk_index(flp, l2_label);
 	double min_y = flp->units[j].bottomy + flp->units[j].height;
 	double max_y = flp->units[j].bottomy;
 	
@@ -1505,7 +1505,7 @@ double get_core_height(flp_t *flp, char *l2_label)
 
 double get_total_area(flp_t *flp)
 {
-	int i;
+	int32_t i;
 	double area = 0.0;
 	for(i=0; i < flp->n_units; i++)
 		area += flp->units[i].width * flp->units[i].height;
@@ -1514,7 +1514,7 @@ double get_total_area(flp_t *flp)
 
 double get_core_area(flp_t *flp, char *l2_label)
 {
-	int i;
+	int32_t i;
 	double area = 0.0;
 	for(i=0; i < flp->n_units; i++)
 		if (strstr(flp->units[i].name, l2_label) != flp->units[i].name &&
@@ -1526,7 +1526,7 @@ double get_core_area(flp_t *flp, char *l2_label)
 /* excluding the dead blocks	*/
 double get_core_occupied_area(flp_t *flp, char *l2_label)
 {
-	int i, num;
+	int32_t i, num;
 	double dead_area = 0.0;
 	for(i=0; i < flp->n_units; i++) {
 		/* 
@@ -1544,7 +1544,7 @@ double get_core_occupied_area(flp_t *flp, char *l2_label)
 
 double get_wire_metric(flp_t *flp)
 {
-	int i, j;
+	int32_t i, j;
 	double w = 0.0, dist;
 
 	for (i=0; i < flp->n_units; i++)
@@ -1556,7 +1556,7 @@ double get_wire_metric(flp_t *flp)
 	return w;		
 }
 
-double get_manhattan_dist(flp_t *flp, int i, int j)
+double get_manhattan_dist(flp_t *flp, int32_t i, int32_t j)
 {
 	double x1 = flp->units[i].leftx + flp->units[i].width / 2.0;
 	double y1 = flp->units[i].bottomy + flp->units[i].height / 2.0;

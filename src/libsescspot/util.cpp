@@ -7,31 +7,31 @@
 
 #include "util.h"
 
-int eq(float x, float y)
+int32_t eq(float x, float y)
 {
 	return (fabs(x-y) <  DELTA);
 }
 
-int le(float x, float y)
+int32_t le(float x, float y)
 {
 	return ((x < y) || eq(x,y));
 }
 
-int ge(float x, float y)
+int32_t ge(float x, float y)
 {
 	return ((x > y) || eq(x,y));
 }
 
-int fatal(char *s)
+int32_t fatal(char *s)
 {
 	fprintf(stderr, s);
 	exit(1);
 	return 1;
 }
 
-void swap_ival (int *a, int *b)
+void swap_ival (int32_t *a, int32_t *b)
 {
-	int t = *a;
+	int32_t t = *a;
 	*a = *b;
 	*b = t;
 }
@@ -43,7 +43,7 @@ void swap_dval (double *a, double *b)
 	*b = t;
 }
 
-double *dvector(int n)
+double *dvector(int32_t n)
 {
 	double *v;
    
@@ -58,53 +58,53 @@ void free_dvector(double *v)
 	free(v);
 }
 
-void dump_dvector (double *v, int n)
+void dump_dvector (double *v, int32_t n)
 {
-	int i;
+	int32_t i;
 	for (i=0; i < n; i++)
 		fprintf(stdout, "%.5f\t", v[i]);
 	fprintf(stdout, "\n");
 }	
 
-void copy_dvector (double *dst, double *src, int n)
+void copy_dvector (double *dst, double *src, int32_t n)
 {
 	memmove(dst, src, sizeof(double) * n);
 }
 
-void zero_dvector (double *v, int n)
+void zero_dvector (double *v, int32_t n)
 {
 	memset(v, 0, sizeof(double) * n);
 }
 
-int *ivector(int n)
+int32_t *ivector(int32_t n)
 {
-	int *v;
+	int32_t *v;
    
-	v = (int *)calloc(n, sizeof(int));
+	v = (int32_t *)calloc(n, sizeof(int));
 	if (!v) fatal("allocation failure in ivector()");
 
 	return v;
 }
 
-void free_ivector(int *v)
+void free_ivector(int32_t *v)
 {
 	free(v);
 }
 
-void dump_ivector (int *v, int n)
+void dump_ivector (int32_t *v, int32_t n)
 {
-	int i;
+	int32_t i;
 	for (i=0; i < n; i++)
 		fprintf(stdout, "%d\t", v[i]);
 	fprintf(stdout, "\n\n");
 }
 
-void copy_ivector (int *dst, int *src, int n)
+void copy_ivector (int32_t *dst, int32_t *src, int32_t n)
 {
 	memmove(dst, src, sizeof(int) * n);
 }
 
-void zero_ivector (int *v, int n)
+void zero_ivector (int32_t *v, int32_t n)
 {
 	memset(v, 0, sizeof(int) * n);
 }
@@ -113,9 +113,9 @@ void zero_ivector (int *v, int n)
  * Thanks to Greg Link from Penn State University 
  * for these memory allocators/deallocators	
  */
-double **dmatrix(int nr, int nc)
+double **dmatrix(int32_t nr, int32_t nc)
 {
-	int i;
+	int32_t i;
 	double **m;
 
 	m = (double **) calloc (nr, sizeof(double *));
@@ -135,14 +135,14 @@ void free_dmatrix(double **m)
 	free(m);
 }
 
-int **imatrix(int nr, int nc)
+int32_t **imatrix(int32_t nr, int32_t nc)
 {
-	int i;
-	int **m;
+	int32_t i;
+	int32_t **m;
 
-	m = (int **) calloc (nr, sizeof(int *));
+	m = (int32_t **) calloc (nr, sizeof(int32_t *));
 	assert(m != NULL);
-	m[0] = (int *) calloc (nr * nc, sizeof(int));
+	m[0] = (int32_t *) calloc (nr * nc, sizeof(int));
 	assert(m[0] != NULL);
 
 	for (i = 1; i < nr; i++)
@@ -151,62 +151,62 @@ int **imatrix(int nr, int nc)
 	return m;
 }
 
-void free_imatrix(int **m)
+void free_imatrix(int32_t **m)
 {
 	free(m[0]);
 	free(m);
 }
 
-void dump_dmatrix (double **m, int nr, int nc)
+void dump_dmatrix (double **m, int32_t nr, int32_t nc)
 {
-	int i;
+	int32_t i;
 	for (i=0; i < nr; i++)
 		dump_dvector(m[i], nc);
 	fprintf(stdout, "\n");
 }	
 
-void copy_dmatrix (double **dst, double **src, int nr, int nc)
+void copy_dmatrix (double **dst, double **src, int32_t nr, int32_t nc)
 {
 	memmove(dst[0], src[0], sizeof(double) * nr * nc);
 }
 
-void zero_dmatrix(double **m, int nr, int nc)
+void zero_dmatrix(double **m, int32_t nr, int32_t nc)
 {
 	memset(m[0], 0, sizeof(double) * nr * nc);
 }
 
-void resize_dmatrix(double **m, int nr, int nc)
+void resize_dmatrix(double **m, int32_t nr, int32_t nc)
 {
-	int i;
+	int32_t i;
 	for (i = 1; i < nr; i++)
 		m[i] = m[0] + nc * i;
 }
 
 /* mirror the lower triangle to make 'm' fully symmetric	*/
-void mirror_dmatrix(double **m, int n)
+void mirror_dmatrix(double **m, int32_t n)
 {
-	int i, j;
+	int32_t i, j;
 	for(i=0; i < n; i++)
 		for(j=0; j < i; j++)
 			m[j][i] = m[i][j];
 }
 
-void dump_imatrix (int **m, int nr, int nc)
+void dump_imatrix (int32_t **m, int32_t nr, int32_t nc)
 {
-	int i;
+	int32_t i;
 	for (i=0; i < nr; i++)
 		dump_ivector(m[i], nc);
 	fprintf(stdout, "\n");
 }	
 
-void copy_imatrix (int **dst, int **src, int nr, int nc)
+void copy_imatrix (int32_t **dst, int32_t **src, int32_t nr, int32_t nc)
 {
 	memmove(dst[0], src[0], sizeof(int) * nr * nc);
 }
 
-void resize_imatrix(int **m, int nr, int nc)
+void resize_imatrix(int32_t **m, int32_t nr, int32_t nc)
 {
-	int i;
+	int32_t i;
 	for (i = 1; i < nr; i++)
 		m[i] = m[0] + nc * i;
 }
@@ -218,7 +218,7 @@ void init_rand(void)
 }
 
 /* random number within the range [0, max-1]	*/
-int rand_upto(int max)
+int32_t rand_upto(int32_t max)
 {
 	return (int) (max * (double) rand() / (RAND_MAX+1.0));
 }
@@ -234,9 +234,9 @@ double rand_fraction(void)
  * a table of size max_entries and returns the number 
  * of entries read successfully
  */
-int read_str_pairs(str_pair *table, int max_entries, char *file)
+int32_t read_str_pairs(str_pair *table, int32_t max_entries, char *file)
 {
-	int i=0;
+	int32_t i=0;
 	char str[MAX_STR], copy[MAX_STR];
 	char name[MAX_STR];
 	char *ptr;
@@ -268,9 +268,9 @@ int read_str_pairs(str_pair *table, int max_entries, char *file)
  * line is of the form <prog_name> <name-value pairs> where
  * <name-value pairs> is of the form -<variable> <value>
  */
-int parse_cmdline(str_pair *table, int max_entries, int argc, char **argv)
+int32_t parse_cmdline(str_pair *table, int32_t max_entries, int32_t argc, char **argv)
 {
-	int i, count;
+	int32_t i, count;
 	for (i=1, count=0; i < argc && count < max_entries; i++) {
 		if (i % 2) {	/* variable name	*/
 			if (argv[i][0] != '-')
@@ -288,9 +288,9 @@ int parse_cmdline(str_pair *table, int max_entries, int argc, char **argv)
 }
 
 /* append the table onto a file	*/
-void dump_str_pairs(str_pair *table, int size, char *file, char *prefix)
+void dump_str_pairs(str_pair *table, int32_t size, char *file, char *prefix)
 {
-	int i; 
+	int32_t i; 
 	char str[MAX_STR];
 	FILE *fp = fopen (file, "w");
 	if (!fp) {
@@ -303,9 +303,9 @@ void dump_str_pairs(str_pair *table, int size, char *file, char *prefix)
 }
 
 /* table lookup	for a name */
-int get_str_index(str_pair *table, int size, char *str)
+int32_t get_str_index(str_pair *table, int32_t size, char *str)
 {
-	int i;
+	int32_t i;
 
 	if (!table)
 		fatal("null pointer in get_str_index\n");
@@ -317,9 +317,9 @@ int get_str_index(str_pair *table, int size, char *str)
 }
 
 /* delete entry at 'at'	*/
-void delete_entry(str_pair *table, int size, int at)
+void delete_entry(str_pair *table, int32_t size, int32_t at)
 {
-	int i;
+	int32_t i;
 	/* 
 	 * overwrite this entry using the next and 
 	 * shift all later entries once
@@ -335,9 +335,9 @@ void delete_entry(str_pair *table, int size, int at)
  * in the table are discarded. returns the new size of the
  * table
  */
-int str_pairs_remove_duplicates(str_pair *table, int size)
+int32_t str_pairs_remove_duplicates(str_pair *table, int32_t size)
 {
-	int i, j;
+	int32_t i, j;
 
 	for(i=0; i < size-1; i++)
 		for(j=i+1; j < size; j++)
@@ -350,9 +350,9 @@ int str_pairs_remove_duplicates(str_pair *table, int size)
 }
 
 /* debug	*/
-void print_str_pairs(str_pair *table, int size)
+void print_str_pairs(str_pair *table, int32_t size)
 {
-	int i;
+	int32_t i;
 	fprintf(stdout, "printing string table\n");
 	for (i=0; i < size; i++)
 		fprintf(stdout, "%s\t%s\n", table[i].name, table[i].value);
@@ -364,7 +364,7 @@ void print_str_pairs(str_pair *table, int size)
  * value is TRUE. otherwise, the return value is FALSE and 'loc' 
  * points to the 'should have been' location
  */
-int bsearch_double(double *arr, int n, double ele, double **loc)
+int32_t bsearch_double(double *arr, int32_t n, double ele, double **loc)
 {
 	if(n < 0)
 		fatal("wrong index in binary search\n");
@@ -388,10 +388,10 @@ int bsearch_double(double *arr, int n, double ele, double **loc)
  * binary search and insert an element into a partially sorted
  * double array if not already present. returns FALSE if present
  */
-int bsearch_insert_double(double *arr, int n, double ele)
+int32_t bsearch_insert_double(double *arr, int32_t n, double ele)
 {
 	double *loc;
-	int i;
+	int32_t i;
 
 	/* element found - nothing more left to do	*/
 	if (bsearch_double(arr, n, ele, &loc))
@@ -408,7 +408,7 @@ int bsearch_insert_double(double *arr, int n, double ele)
  * population count of an 8-bit integer - using pointers from 
  * http://aggregate.org/MAGIC/
  */
-unsigned int ones8(register unsigned char n)
+uint32_t ones8(register uint8_t n)
 {
 	/* group the bits in two and compute the no. of 1's within a group
 	 * this works because 00->00, 01->01, 10->01, 11->10 or 

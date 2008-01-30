@@ -35,16 +35,16 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 pool<DInst> DInst::dInstPool(256, "DInst");
 
 #ifdef DEBUG
-int DInst::currentID=0;
+int32_t DInst::currentID=0;
 #endif
 
 #ifdef SESC_BAAD
-int DInst::fetch1QSize = 0;
-int DInst::fetch2QSize = 0;
-int DInst::issueQSize  = 0;
-int DInst::schedQSize  = 0;
-int DInst::exeQSize    = 0;
-int DInst::retireQSize = 0;
+int32_t DInst::fetch1QSize = 0;
+int32_t DInst::fetch2QSize = 0;
+int32_t DInst::issueQSize  = 0;
+int32_t DInst::schedQSize  = 0;
+int32_t DInst::exeQSize    = 0;
+int32_t DInst::retireQSize = 0;
 
 GStatsTimingHist *DInst::fetch1QHist1= 0;
 GStatsTimingHist *DInst::fetch2QHist1= 0;
@@ -101,14 +101,14 @@ DInst::DInst()
   
 #ifdef SESC_BAAD
   if (avgFetch1QTime == 0) {
-    int maxType = static_cast<int>(MaxInstType);
+    int32_t maxType = static_cast<int>(MaxInstType);
     avgFetch1QTime = (GStatsHist **)malloc(sizeof(GStatsHist *)*maxType);
     avgFetch2QTime = (GStatsHist **)malloc(sizeof(GStatsHist *)*maxType);
     avgIssueQTime  = (GStatsHist **)malloc(sizeof(GStatsHist *)*maxType);
     avgSchedQTime  = (GStatsHist **)malloc(sizeof(GStatsHist *)*maxType);
     avgExeQTime    = (GStatsHist **)malloc(sizeof(GStatsHist *)*maxType);
     avgRetireQTime = (GStatsHist **)malloc(sizeof(GStatsHist *)*maxType);
-    for(int i = 1; i < maxType ; i++) {
+    for(int32_t i = 1; i < maxType ; i++) {
       avgFetch1QTime[i] = new GStatsHist("BAAD_%sFetch1QTime",Instruction::opcode2Name(static_cast<InstType>(i)));
       avgFetch2QTime[i] = new GStatsHist("BAAD_%sFetch2QTime",Instruction::opcode2Name(static_cast<InstType>(i)));
       avgIssueQTime[i]  = new GStatsHist("BAAD_%sDepQTime"   ,Instruction::opcode2Name(static_cast<InstType>(i)));
@@ -206,12 +206,12 @@ void DInst::doAtExecuted()
 
 
 #if (defined MIPS_EMUL)
-DInst *DInst::createDInst(const Instruction *inst, VAddr va, int cId, ThreadContext *context)
+DInst *DInst::createDInst(const Instruction *inst, VAddr va, int32_t cId, ThreadContext *context)
 #else
 #if (defined TLS)
-DInst *DInst::createDInst(const Instruction *inst, VAddr va, int cId, tls::Epoch *epoch)
+DInst *DInst::createDInst(const Instruction *inst, VAddr va, int32_t cId, tls::Epoch *epoch)
 #else
-DInst *DInst::createDInst(const Instruction *inst, VAddr va, int cId)
+DInst *DInst::createDInst(const Instruction *inst, VAddr va, int32_t cId)
 #endif // Else of (defined TLS)
 #endif // Else of (defined MIPS_EMUL)
 {
@@ -292,12 +292,12 @@ DInst *DInst::createDInst(const Instruction *inst, VAddr va, int cId)
 }
 
 #if (defined MIPS_EMUL)
-DInst *DInst::createInst(InstID pc, VAddr va, int cId, ThreadContext *context)
+DInst *DInst::createInst(InstID pc, VAddr va, int32_t cId, ThreadContext *context)
 #else
 #if (defined TLS)
-DInst *DInst::createInst(InstID pc, VAddr va, int cId, tls::Epoch *epoch)
+DInst *DInst::createInst(InstID pc, VAddr va, int32_t cId, tls::Epoch *epoch)
 #else
-DInst *DInst::createInst(InstID pc, VAddr va, int cId)
+DInst *DInst::createInst(InstID pc, VAddr va, int32_t cId)
 #endif // Else of (defined TLS)
 #endif // Else of (defined MIPS_EMUL)
 {
@@ -468,6 +468,12 @@ void DInst::scrap()
   context->delDInst();
   context=0;
 #endif
+
+#ifdef QEMU_DRIVEN
+  // FIXME: use a pool instead
+  delete inst;
+#endif
+
   dInstPool.in(this);
 }
 
@@ -666,7 +672,7 @@ void DInst::setRetireTime()
   retireQSize--;
 
 
-  static int nInsts = 0;
+  static int32_t nInsts = 0;
   nInsts++;
   if (getFetch()) {
     // Instruction that triggered a branch miss
@@ -675,26 +681,25 @@ void DInst::setRetireTime()
   }
 
 #if 0
-  int pc = inst->getAddr();
+  int32_t pc = inst->getAddr();
   if (pc) {
-#ifdef BAAD
-    printf("BAAD: fetch1T=%lld fetch2T=%lld renameT=%lld exeT=%lld retireT=%lld wp=%d pc=0x%x op=%d src1=%d src2=%d dest=%u "
+#ifdef SESC_BAAD
+    printf("BAAD: f1T=%lld f2T=%lld rT=%lld xT=%lld cT=%lld pc=0x%x op=%d:%d s1=%d s2=%d d=%u "
            ,fetch1Time
            ,fetch2Time
            ,renameTime
            ,exeTime
            ,globalClock
-           ,isFake()?1:0
-           ,pc,inst->getOpcode()
+           ,pc,inst->getOpcode(),inst->getSubCode()
            ,inst->getSrc1(), inst->getSrc2(), inst->getDest()
            );
 
     if (inst->isMemory())
-      printf(" noMiss addr=0x%x time=%d", getVaddr(), (int)(exeTime-schedTime));
+      printf(" nmB a=0x%x t=%d", getVaddr(), (int)(exeTime-schedTime));
     else if (getFetch())
-      printf(" missBr");
+      printf(" mB");
     else
-      printf(" noMiss");
+      printf(" nmB");
 #else
     printf("TR: %lld dest=%3d src1=%3d src2=%3d lat=%3d "
 	   ,renameTime

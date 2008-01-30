@@ -92,7 +92,7 @@ void QemuSescReader::readInst() {
       
 }
 
-void QemuSescReader::fillTraceEntry(TraceEntry *te, int id) {
+void QemuSescReader::fillTraceEntry(TraceEntry *te, int32_t id) {
   I(id == 0); // multi-threaded TT6 not supported yet;
 
   if(getCurrentPC() == 0xffffffff) {

@@ -13,7 +13,7 @@ class Grids {
 public:
 
 	//Constructor
-	Grids (int r, int c, int n, double chip_length, double chip_height);
+	Grids (int32_t r, int32_t c, int32_t n, double chip_length, double chip_height);
 
 	//Inspectors
 	double power() const;
@@ -37,11 +37,11 @@ public:
 
 	void ResetTemp();
 	
-	void AddGrid(int n, double gridarea);
+	void AddGrid(int32_t n, double gridarea);
 	
-	double CalculateGridTemp(vector<double> &block_t, int offset);
+	double CalculateGridTemp(vector<double> &block_t, int32_t offset);
 
-	double CalculateGridPower(vector<double> &block_pow, int offset, vector<FBlocks> &F);	
+	double CalculateGridPower(vector<double> &block_pow, int32_t offset, vector<FBlocks> &F);	
 
 //private:
 
@@ -60,7 +60,7 @@ public:
 	double temperature;
 	
 	struct BlkDetails {
-		int number;
+		int32_t number;
 		double area;
 	};
 

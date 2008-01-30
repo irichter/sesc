@@ -95,7 +95,7 @@ namespace Stats{
       printf("Total:\t%lg\n",totalSum);
       indent(level);
       printf("Averg:\t%lg\n",totalSum/totalCount);
-      // Print the percentile points of the distribution
+      // Print32_t the percentile points of the distribution
       indent(level);
       printf("Pcntl:");
       size_t percPoint;

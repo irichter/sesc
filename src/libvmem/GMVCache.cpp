@@ -271,14 +271,14 @@ void GMVCache::recycleAllCache(const HVersion *exeVer)
 
 }
 
-int GMVCache::countLinesInSet(PAddr paddr)
+int32_t GMVCache::countLinesInSet(PAddr paddr)
 {
 #ifdef VMEM_CVBASE_IN_ADDR
   I(0);
   // NOTE: there should be an additional structure to track this. Traversing the
   // set would not be enough to find all the address
 #endif
-  int nLines =0;
+  int32_t nLines =0;
   
   ulong index = calcIndex4PAddr(paddr);
   for(ulong i=0; i < cache->getAssoc(); i++) {

@@ -47,14 +47,14 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "callback.h"
 #include "GStats.h"
 
-typedef unsigned short NumUnits_t;
+typedef uint16_t NumUnits_t;
 
 //! Generic Port used to model contention 
 //! Based on the PortGeneric there are several types of ports. 
 //! Each has a different algorithm, so that is quite fast.
 class PortGeneric {
 private:
-  int nUsers;
+  int32_t nUsers;
 
 protected:
   GStatsAvg avgTime;
@@ -76,11 +76,11 @@ public:
   //!
   //! This function is equivalent to:
   //! Time_t t = nextSlot();
-  //! for(int i=1;i<nSlots;i++) {
+  //! for(int32_t i=1;i<nSlots;i++) {
   //!  nextSlot();
   //! }
   //! return t;
-  virtual Time_t occupySlots(int nSlots) = 0;
+  virtual Time_t occupySlots(int32_t nSlots) = 0;
 
   //! returns when the next slot can be free without occupying any slot
   virtual Time_t calcNextSlot() const =0;
@@ -107,7 +107,7 @@ public:
   PortUnlimited(const char *name);
   
   Time_t nextSlot();
-  Time_t occupySlots(int nSlots);
+  Time_t occupySlots(int32_t nSlots);
   Time_t calcNextSlot() const;
   void lock4nCycles(TimeDelta_t clks);
 };
@@ -121,7 +121,7 @@ public:
   PortFullyPipe(const char *name);
 
   Time_t nextSlot();
-  Time_t occupySlots(int nSlots);
+  Time_t occupySlots(int32_t nSlots);
   Time_t calcNextSlot() const;
   void lock4nCycles(TimeDelta_t clks);
 };
@@ -136,7 +136,7 @@ public:
   PortFullyNPipe(const char *name, NumUnits_t nFU);
 
   Time_t nextSlot();
-  Time_t occupySlots(int nSlots);
+  Time_t occupySlots(int32_t nSlots);
   Time_t calcNextSlot() const;
   void lock4nCycles(TimeDelta_t clks);
 };
@@ -150,7 +150,7 @@ public:
   PortPipe(const char *name, TimeDelta_t occ);
 
   Time_t nextSlot();
-  Time_t occupySlots(int nSlots);
+  Time_t occupySlots(int32_t nSlots);
   Time_t calcNextSlot() const;
   void lock4nCycles(TimeDelta_t clks);
 };
@@ -167,8 +167,8 @@ public:
   virtual ~PortNPipe();
 
   Time_t nextSlot();
-  Time_t nextSlot(int occupancy);
-  Time_t occupySlots(int nSlots);
+  Time_t nextSlot(int32_t occupancy);
+  Time_t occupySlots(int32_t nSlots);
   Time_t calcNextSlot() const;
   void lock4nCycles(TimeDelta_t clks);
 };

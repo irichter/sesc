@@ -50,27 +50,27 @@
 
 // FIXME: to make it portable use #include <ieeefp.h> instead of fpu_control.h
 
-typedef unsigned int NativeFPUControlType; 
-NativeFPUControlType changeFPUControl(unsigned int mipsFlag);
+typedef uint32_t NativeFPUControlType; 
+NativeFPUControlType changeFPUControl(uint32_t mipsFlag);
 void restoreFPUControl(NativeFPUControlType nativeFlag);
-void setFPUControl(unsigned int mipsFlag);
+void setFPUControl(uint32_t mipsFlag);
 
 #endif /* IRIX64 */
 
-unsigned int mips_div(int a, int b, int *lo, int *hi);
-unsigned int mips_divu(unsigned int a, unsigned int b, int *lo, int *hi);
-unsigned int mips_lwlBE(int value, char *addr);
-unsigned int mips_lwlLE(int value, char *addr);
-int mips_lwrBE(int value, char *addr);
-int mips_lwrLE(int value, char *addr);
-int mips_mult(int a, int b, int *lo, int *hi);
-int mips_multu(unsigned int a, unsigned int b, int *lo, int *hi);
-void mips_swlBE(int value, char *addr);
-void mips_swlLE(int value, char *addr);
-void mips_swrBE(int value, char *addr);
-void mips_swrLE(int value, char *addr);
-int mips_cvt_w_s(float pf, int fsr);
-int mips_cvt_w_d(double dval, int fsr);
+uint32_t mips_div(int32_t a, int32_t b, int32_t *lo, int32_t *hi);
+uint32_t mips_divu(uint32_t a, uint32_t b, int32_t *lo, int32_t *hi);
+uint32_t mips_lwlBE(int32_t value, char *addr);
+uint32_t mips_lwlLE(int32_t value, char *addr);
+int32_t mips_lwrBE(int32_t value, char *addr);
+int32_t mips_lwrLE(int32_t value, char *addr);
+int32_t mips_mult(int32_t a, int32_t b, int32_t *lo, int32_t *hi);
+int32_t mips_multu(uint32_t a, uint32_t b, int32_t *lo, int32_t *hi);
+void mips_swlBE(int32_t value, char *addr);
+void mips_swlLE(int32_t value, char *addr);
+void mips_swrBE(int32_t value, char *addr);
+void mips_swrLE(int32_t value, char *addr);
+int32_t mips_cvt_w_s(float pf, int32_t fsr);
+int32_t mips_cvt_w_d(double dval, int32_t fsr);
 
 
 #endif /* NON_MIPS_H */

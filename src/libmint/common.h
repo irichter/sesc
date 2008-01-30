@@ -5,7 +5,7 @@
 #ifndef __common_h
 #define __common_h
 
-typedef int (*PFI)(void *,...);
+typedef int32_t (*PFI)(void *,...);
 typedef void (*PFV)(void *,...);
 
 void fatal(const char *s, ...);

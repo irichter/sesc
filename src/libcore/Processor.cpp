@@ -51,7 +51,7 @@ Processor::~Processor()
   // Nothing to do
 }
 
-DInst **Processor::getRAT(const int contextId)
+DInst **Processor::getRAT(const int32_t contextId)
 {
   I(contextId == Id);
   return RAT;

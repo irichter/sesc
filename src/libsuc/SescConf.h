@@ -40,7 +40,7 @@ protected:
   // Instead of the original Config interface I have something a
   // little bit more specific for the sesc configuration file.  The
   // first section of the configuration file has variables that
-  // point to sections. Example:
+  // point32_t to sections. Example:
   // 
   // bpred = 'myBPredSection'
   // a = 1
@@ -67,14 +67,14 @@ protected:
 
   virtual const Record *getRecord(const char *block,
 				  const char *name,
-				  int vectorPos);
+				  int32_t vectorPos);
 
 public:
   SConfig(const char *name);
 
   std::vector<char *> getSplitCharPtr(const char *block,
 				      const char *name,
-				      int vectorPos=0);
+				      int32_t vectorPos=0);
 };
 
 extern SConfig *SescConf;       // declared in SescConf.cpp

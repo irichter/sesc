@@ -64,7 +64,7 @@ void Message::notifyMsg(Router *router)
   router->notifyMsg(this);
 }
 
-void Message::setSize(unsigned int size) 
+void Message::setSize(uint32_t size) 
 {
   nSize  = size;
 }

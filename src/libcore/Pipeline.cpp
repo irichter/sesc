@@ -51,7 +51,7 @@ bool PipeIBucketLess::operator()(const IBucket *x, const IBucket *y) const
   return x->getPipelineId() > y->getPipelineId();
 }
 
-Pipeline::Pipeline(size_t s, size_t fetch, int maxReqs)
+Pipeline::Pipeline(size_t s, size_t fetch, int32_t maxReqs)
   : PipeLength(s)
   ,bucketPoolMaxSize(s+1+maxReqs)
   ,MaxIRequests(maxReqs)

@@ -62,16 +62,16 @@
  * newlines inside the double quotes in the following macro.
  */
 #define USAGE \
-"\nUsage: %s [mint options] [-- simulator options] objfile [objfile options]\n\
+"\nUsage: %s [mint32_t options] [-- simulator options] objfile [objfile options]\n\
 \n\
-mint options:\n\
+mint32_t options:\n\
 	[-h heap_size]		heap size in bytes, default: %d (0x%x)\n\
 	[-k stack_size]		stack size in bytes, default: %d (0x%x)\n\
 	[-n nice_value]	        \'nice\' MINT process, default: 0 if 'nice' used, 4 if not\n\
 	[-p procs]		number of per-process regions, default: %d\n"
 
 FILE *Fobj=0;		/* file descriptor for object file */
-static int Nicode=0;	/* number of free icodes left */
+static int32_t Nicode=0;	/* number of free icodes left */
 
 /* imported functions */
 void init_main_thread();
@@ -80,12 +80,12 @@ void subst_init();
 void subst_functions();
 
 /* exported functions */
-void mint_init(int argc, char **argv, char **envp);
-void allocate_fixed(int addr, int nbytes);
+void mint_init(int32_t argc, char **argv, char **envp);
+void allocate_fixed(int32_t addr, int32_t nbytes);
 
 /* private functions */
-static void parse_args(int argc, char **argv);
-static void copy_argv(int argc, char **argv, char **envp);
+static void parse_args(int32_t argc, char **argv);
+static void copy_argv(int32_t argc, char **argv, char **envp);
 static void mint_stats();
 #if !(defined ADDRESS_SPACES)
 static void create_addr_space();
@@ -98,10 +98,10 @@ static void usage();
 #include "ElfObject.h"
 #endif // (defined ADDRESS_SPACES)
 
-void mint_init(int argc, char **argv, char **envp)
+void mint_init(int32_t argc, char **argv, char **envp)
 {
-  extern int optind;
-  int next_arg;
+  extern int32_t optind;
+  int32_t next_arg;
   FILE *fd;
   
   Mint_output = stderr;
@@ -156,14 +156,14 @@ static void usage()
 }
 
 /* parse the command line arguments */
-static void parse_args(int argc, char **argv)
+static void parse_args(int32_t argc, char **argv)
 {
-  int errflag;
-  int c;
+  int32_t errflag;
+  int32_t c;
   extern char *optarg;
 
   /* Value of command line option -n, -321 means 'not specified' */
-  int NiceValue=-321;
+  int32_t NiceValue=-321;
   
   /* set up the default values */
   Stack_size = STACK_SIZE;
@@ -211,10 +211,10 @@ static void parse_args(int argc, char **argv)
 }
 
 /* Copy application args onto the simulated stack for the main process */
-static void copy_argv(int argc, char **argv, char **envp){
+static void copy_argv(int32_t argc, char **argv, char **envp){
   ThreadContext *context=ThreadContext::getMainThreadContext();
   // Count the environment variables
-  int envc=0;
+  int32_t envc=0;
   while(envp[envc])
     envc++;
   // We will need to know where on the simulated stack
@@ -223,7 +223,7 @@ static void copy_argv(int argc, char **argv, char **envp){
   VAddr *envVAddrs = (VAddr *)alloca(sizeof(VAddr)*envc);
   // Put the env strings on the stack
   if(envc){
-    for(int envIdx=envc-1;envIdx>=0;envIdx--){
+    for(int32_t envIdx=envc-1;envIdx>=0;envIdx--){
       size_t strSize=alignUp(strlen(envp[envIdx])+1,32);
       context->setStkPtr(context->getStkPtr()-strSize);
       strcpy((char *)(context->virt2real(context->getStkPtr())),envp[envIdx]);
@@ -232,7 +232,7 @@ static void copy_argv(int argc, char **argv, char **envp){
   }
   // Put the arg string on the stack
   if(argc){
-    for(int argIdx=argc-1;argIdx>=0;argIdx--){
+    for(int32_t argIdx=argc-1;argIdx>=0;argIdx--){
       size_t strSize=alignUp(strlen(argv[argIdx])+1,32);
       context->setStkPtr(context->getStkPtr()-strSize);
       strcpy((char *)(context->virt2real(context->getStkPtr())),argv[argIdx]);
@@ -244,7 +244,7 @@ static void copy_argv(int argc, char **argv, char **envp){
   *((VAddr *)(context->virt2real(context->getStkPtr())))=
     SWAP_WORD((VAddr)0);
   if(envc){
-    for(int envIdx=envc-1;envIdx>=0;envIdx--){
+    for(int32_t envIdx=envc-1;envIdx>=0;envIdx--){
       context->setStkPtr(context->getStkPtr()-sizeof(VAddr));
       *((VAddr *)(context->virt2real(context->getStkPtr())))=
 	SWAP_WORD(envVAddrs[envIdx]);
@@ -255,7 +255,7 @@ static void copy_argv(int argc, char **argv, char **envp){
   *((VAddr *)(context->virt2real(context->getStkPtr())))=
     SWAP_WORD((VAddr)0);
   if(argc){
-    for(int argIdx=argc-1;argIdx>=0;argIdx--){
+    for(int32_t argIdx=argc-1;argIdx>=0;argIdx--){
       context->setStkPtr(context->getStkPtr()-sizeof(VAddr));
       *((VAddr *)(context->virt2real(context->getStkPtr())))=
 	SWAP_WORD(argVAddrs[argIdx]);
@@ -273,10 +273,10 @@ static void copy_argv(int argc, char **argv, char **envp){
  * It also rounds up its argument to the next higher power of 2.
  */
 static int
-logbase2(int *pnum)
+logbase2(int32_t *pnum)
 {
-    unsigned int logsize;
-	 int exp;
+    uint32_t logsize;
+	 int32_t exp;
 
     for (logsize = 0, exp = 1; exp < *pnum; logsize++)
         exp *= 2;
@@ -287,11 +287,11 @@ logbase2(int *pnum)
     return logsize;
 }
 
-void *allocate2(int nbytes)
+void *allocate2(int32_t nbytes)
 {
   void *ptr;
-  int size2;
-  int status = 0;
+  int32_t size2;
+  int32_t status = 0;
   /* round nbytes up to the next power of 2 */
   size2 = nbytes;
   logbase2(&size2);
@@ -328,7 +328,7 @@ static void create_addr_space()
   size_t size, multiples;
   unsigned i;
   unsigned dwords;
-  unsigned int *addr;
+  uint32_t *addr;
   thread_ptr pthread;
   size_t min_seek, total_size;
   MINTAddrType heap_start;
@@ -397,7 +397,7 @@ static void create_addr_space()
   MINTAddrType addrSpace = Private_start;
   MINTAddrType rdataMap  = Private_start - Rdata_start;
 
-  addr = (unsigned int *) addrSpace;
+  addr = (uint32_t *) addrSpace;
 
   if (Rdata_start < Data_start) {
     /* Read in the .rdata section first since the .rdata section is not
@@ -412,7 +412,7 @@ static void create_addr_space()
 	fatal("create_addr_space: end-of-file reading rdata section\n");
 
       /* move "addr" to prepare for reading in the data and bss */
-      addr = (unsigned int *) (Private_start + Rsize_round);
+      addr = (uint32_t *) (Private_start + Rsize_round);
       addrSpace = (MINTAddrType) addr;
     }
     rdataMap = Private_start - Data_start;
@@ -440,7 +440,7 @@ static void create_addr_space()
     fatal("create_addr_space: end-of-file reading data section\n");
 
   /* zero out the bss section */
-  addr = (unsigned int *) (addrSpace + Bss_start - Data_start);
+  addr = (uint32_t *) (addrSpace + Bss_start - Data_start);
   dwords = Bss_size / 4;
   for (i = 0; i < dwords; i++)
     *addr++ = 0;
@@ -459,7 +459,7 @@ static void create_addr_space()
   pthread->setHeapManager(HeapManager::create(heap_start,heap_size));
   // malloc_init(pthread, heap_start, heap_size);
 
-  /* point the sp to the top of the allocated space */
+  /* point32_t the sp to the top of the allocated space */
   /* (The stack grows down toward lower memory addresses.) */
   Stack_start = dataAddrLb + Stack_start_rel;
   Stack_end   = dataAddrUb;
@@ -484,7 +484,7 @@ static void create_addr_space()
 
 /* create a new copy of an icode */
 icode_ptr newcopy_icode(icode_ptr picode){
-  int i;
+  int32_t i;
   icode_ptr inew;
   static icode_ptr Icode_free;
   
@@ -527,26 +527,26 @@ size_t    icodeArraySize;
 static void
 read_text()
 {
-  int make_copy, voffset, err;
+  int32_t make_copy, voffset, err;
   unsigned i;
   unsigned num_pointers;
-  int instr, opflags, iflags;
+  int32_t instr, opflags, iflags;
   icode_ptr picode, prev_picode, dslot, pcopy, *pitext, pcopy2;
   struct op_desc *pdesc;
-  unsigned int addr;
-  int opnum;
-  int regfield[4], target;
-  int prev_was_branch;
+  uint32_t addr;
+  int32_t opnum;
+  int32_t regfield[4], target;
+  int32_t prev_was_branch;
   signed short immed;	/* immed must be a signed short */
   PFPI *pfunc;
 #ifdef DEBUG_READ_TEXT
-  static int Debug_addr = 0;
+  static int32_t Debug_addr = 0;
 #endif
-  int ud_defined=0;
-  int ud_params[MAX_UD_PARAMS];
-  int ud_size=0;
-  int ud_i;
-  unsigned int ud_addr;
+  int32_t ud_defined=0;
+  int32_t ud_params[MAX_UD_PARAMS];
+  int32_t ud_size=0;
+  int32_t ud_i;
+  uint32_t ud_addr;
   icode_ptr ud_picode;
 
 
@@ -570,7 +570,7 @@ read_text()
 	  num_pointers * sizeof(struct icode));
 
   /* Assign each pointer to its corresponding icode, and link each
-   * icode to point to the next one in the array.
+   * icode to point32_t to the next one in the array.
    */
   pitext = Itext;
   for (i = 0; i < num_pointers; i++) {
@@ -814,13 +814,13 @@ read_text()
  * Returns: opnum, the index into the opcode description table.
  */
 int
-decode_instr(icode_ptr picode, int instr)
+decode_instr(icode_ptr picode, int32_t instr)
 {
-    int iflags;
+    int32_t iflags;
     struct op_desc *pdesc;
-    int j, opcode, bits31_28, bits20_16, bits5_0, fmt, opnum;
-    int coproc, cofun;
-    int regfield[4];
+    int32_t j, opcode, bits31_28, bits20_16, bits5_0, fmt, opnum;
+    int32_t coproc, cofun;
+    int32_t regfield[4];
     signed short immed;	/* immed must be a signed short */
     
     picode->instr = instr;
@@ -865,7 +865,7 @@ decode_instr(icode_ptr picode, int instr)
                     opnum = cop1func_opnums[0][cofun];
                 else if (fmt == 17)		/* double precision format */
                     opnum = cop1func_opnums[1][cofun];
-                else			/* fixed-point format */
+                else			/* fixed-point32_t format */
                     opnum = cop1func_opnums[2][cofun];
                 
             } else {

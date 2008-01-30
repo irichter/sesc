@@ -365,7 +365,7 @@ void FWPred::putStore(PAddr addr, PAddr iPC, ValueType value)
   VPT[vptIndex] = value;
 }
 
-Selector::Selector(int size, const char *name, GValuePredictor *p1, GValuePredictor *p2) 
+Selector::Selector(int32_t size, const char *name, GValuePredictor *p1, GValuePredictor *p2) 
   :  table(0, name, size)
     ,hit("VPSEL_%s:hit", name)
     ,miss("VPSEL_%s:miss", name)
@@ -433,7 +433,7 @@ void Selector::update(PAddr addr, PAddr iPC, ValueType value, bool updateVP)
   }
 }
 
-ConfidenceEstimator::ConfidenceEstimator(int size, const char *name, bool ubh) 
+ConfidenceEstimator::ConfidenceEstimator(int32_t size, const char *name, bool ubh) 
   : table(0, name, size)
     ,useBH(ubh)
     ,estHit("VPCE_%s:estHit", name)
