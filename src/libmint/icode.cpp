@@ -349,7 +349,7 @@ const char *icode::dis_instr()
             opname, getDPN(ICODEFS), getDPN(ICODEFT));
     break;
     
-    /* fixed-point32_t precision */
+    /* fixed-point precision */
   case cvt_s_w_opn:
     sprintf(str, "%s\t$f%d, $f%d",
             opname, getFPN(ICODEFD), getFPN(ICODEFS));

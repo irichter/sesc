@@ -46,7 +46,7 @@ namespace Mips {
     RegTmp,  // Temporary GPR for implementing multi-uop non-branches
     RegBTmp, // Temporary GPR for implementing multi-uop branches
     GprNameUb,
-    // Floating-point32_t registers
+    // Floating-point registers
     FprNameLb = RegTypeFpr,
     RegF0     = FprNameLb,
     RegF1,

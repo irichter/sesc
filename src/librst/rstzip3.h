@@ -366,7 +366,7 @@ struct rz3_bitarray_descr {
 
 struct rz3_perf_stats_descr {
   const char * name;
-  enum rstzip3::perf_stats_e rel; // print32_t stats relative to this parameters. ps_MAX => none
+  enum rstzip3::perf_stats_e rel; // print stats relative to this parameters. ps_MAX => none
 }; // struct rz3_perf_stats_descr
 
 

@@ -158,7 +158,7 @@ typedef uint8_t Logical;
  *        = ExtraPrec: perform iterative refinement in extra precision
  *
  * PrintStat (yes_no_t)
- *        Specifies whether to print32_t the solver's statistics.
+ *        Specifies whether to print the solver's statistics.
  *
  * DiagPivotThresh (double, in [0.0, 1.0]) (only for sequential SuperLU)
  *        Specifies the threshold used for a diagonal entry to be an
@@ -254,7 +254,7 @@ void    snode_profile (int32_t, int32_t *);
 void    super_stats (int32_t, int32_t *);
 void    PrintSumm (char *, int32_t, int32_t, int);
 void    StatInit(SuperLUStat_t *);
-void    StatPrint32_t (SuperLUStat_t *);
+void    StatPrint (SuperLUStat_t *);
 void    StatFree(SuperLUStat_t *);
 void    print_panel_seg(int32_t, int32_t, int32_t, int32_t, int32_t *, int32_t *);
 void    check_repfnz(int32_t, int32_t, int32_t, int32_t *);

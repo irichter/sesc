@@ -180,7 +180,7 @@ protected:
 
   void setFields(Pid_t tid, HVersion *v);
 
-  // Return a pthread to mint32_t 
+  // Return a pthread to mint 
   static void freeThread(Pid_t pid);
 
   void destroy();

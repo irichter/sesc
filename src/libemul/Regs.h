@@ -9,7 +9,7 @@ enum RegNameEnum{
 
   RegTypeMask = 0xF00, // Mask for determining the type of a register
   RegTypeGpr  = 0x000, // General-purpose (integer) registers
-  RegTypeFpr  = 0x100, // Floating point32_t registers
+  RegTypeFpr  = 0x100, // Floating point registers
   RegTypeCtl  = 0x200, // Control registers
   RegTypeSpc  = 0x300, // Special registers
   // Not a register name, it is the maximum number of all registers

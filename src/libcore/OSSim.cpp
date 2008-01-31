@@ -490,7 +490,7 @@ OSSim::~OSSim()
 
 void OSSim::eventSysconf(Pid_t ppid, Pid_t fid, int32_t flags)
 {
-  LOG("OSSim::sysconf(%d,%d,0x%lx)", ppid, fid, flags);
+  LOG("OSSim::sysconf(%d,%d,0x%x)", ppid, fid, flags);
   ProcessId *myProcessId=ProcessId::getProcessId(fid);
   // Can it be reconfigured on-the-fly?
   if(!myProcessId->sysconf(flags)){
@@ -517,7 +517,7 @@ void OSSim::eventSpawn(Pid_t ppid, Pid_t fid, int32_t flags, bool stopped)
   if (NoMigration)
     flags |= SESC_FLAG_NOMIGRATE;
   
-  LOG("OSSim::spawn(%d,%d,0x%lx,%d)", ppid, fid, flags,stopped);
+  LOG("OSSim::spawn(%d,%d,0x%x,%d)", ppid, fid, flags,stopped);
   ProcessId *procId = ProcessId::create(ppid, fid, flags);
   if(!stopped)
     cpus.makeRunnable(procId);
@@ -1107,7 +1107,7 @@ void OSSim::report(const char *str)
     totPower      += corePower;
     totClockPower += clockPower;
 
-    // print32_t the rest of the report fields
+    // print the rest of the report fields
     GStatsEnergy::dump(i);
     Report::field("Proc(%d):clockPower=%g",i,clockPower);
     Report::field("Proc(%d):totPower=%g",i,corePower);

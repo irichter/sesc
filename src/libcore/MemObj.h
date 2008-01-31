@@ -102,7 +102,7 @@ public:
 
   void computenUpperCaches();
 
-  //This assumes single entry point32_t for object, which I do not like,
+  //This assumes single entry point for object, which I do not like,
   //but it is still something that is worthwhile.
   virtual Time_t getNextFreeCycle() const = 0;
 
@@ -119,7 +119,7 @@ public:
   virtual bool canAcceptStore(PAddr addr) = 0;
   virtual bool canAcceptLoad(PAddr addr) { return true; }
 
-  // Print32_t stats
+  // Print stats
   virtual void dump() const;
 };
 

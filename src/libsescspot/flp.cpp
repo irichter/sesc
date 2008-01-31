@@ -606,7 +606,7 @@ void flp_wrap_l2(flp_t *flp, flp_desc_t *flp_desc)
 	 * aspect ratio. i.e., we constrain kx = y (or
 	 * ky = x  depending on the aspect ratio of the 
 	 * core) where k = WRAP_L2_RATIO. solving the equation 
-	 * with this constraint32_t, we get the following
+	 * with this constraint, we get the following
 	 */
 	if ( x <= 0 || y <= 0.0) {
 		double sum;
@@ -1230,7 +1230,7 @@ void print_flp (flp_t *flp)
 						flp->units[j].name, flp->wire_density[i][j]);
 }
 
-/* print32_t the statistics about this floorplan.
+/* print the statistics about this floorplan.
  * note that connects_file is NULL if wire 
  * information is already populated	
  */

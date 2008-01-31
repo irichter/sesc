@@ -286,7 +286,7 @@ PAddr TaskContext::adjustChildSpawnAddr(PAddr childAddr)
 
 
 //XXX liuwei: actually it gets the jump address following 
-//            a spawn point32_t which is not necessary a new task
+//            a spawn point which is not necessary a new task
 PAddr TaskContext::calcChildSpawnAddr(PAddr childAddr)
 {
   ID(int32_t conta=0);

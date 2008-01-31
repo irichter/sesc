@@ -512,7 +512,7 @@ void SysCallSescSpawn::exec(ThreadContext *context,icode_ptr picode){
     // Eerything is shared, stack is not copied
     childContext->shareAddrSpace(context,PR_SADDR,false);
     childContext->init();
-    // The first instruction for the child is the entry point32_t passed in
+    // The first instruction for the child is the entry point passed in
     childContext->setPCIcode(addr2icode(entry));
     childContext->setIntReg(IntArg1Reg,arg);
     childContext->setIntReg(IntArg2Reg,Stack_size); /* for sprocsp() */

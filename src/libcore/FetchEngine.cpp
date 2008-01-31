@@ -374,7 +374,7 @@ void FetchEngine::fakeFetch(IBucket *bucket, int32_t fetchMax)
     I(dinst);
 
 #ifdef SESC_BAAD
-    dinst->setFetchTime();
+    dinst->setFetch1Time();
 #endif
 
     dinst->setFake();

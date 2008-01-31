@@ -125,7 +125,6 @@ ThreadContext *ThreadContext::newActual(void)
 {
   ThreadContext *context;
   if(actualPool.empty()) {
-    I(nextActualPid<Max_nprocs);
     context=static_cast<ThreadContext *>(calloc(1,sizeof(ThreadContext)));
     // Initialize the actual context for the first time
     context->pid=nextActualPid++;
@@ -269,7 +268,7 @@ void ThreadContext::dump()
   }
   printf("  lo:   0x%08x  hi:   0x%08x\n", lo, hi);
 
-  /* print32_t out floats and doubles */
+  /* print out floats and doubles */
   for (i = 0; i < 32; ) {
     for (j = 0; j < 4; j++, i++)
       printf("  $f%d:%s %10.6f", i, i < 10 ? " " : "", getFPNUM(i));

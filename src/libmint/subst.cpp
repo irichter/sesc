@@ -301,6 +301,7 @@ OP(mint_getrusage);
 OP(mint_getcwd);
 OP(mint_notimplemented);
 OP(mint_assert_fail);
+OP(mint_rmdir); 
 
 /* Calls to these functions execute a Mint32_t function instead of the
  * native function.
@@ -517,6 +518,8 @@ func_desc_t Func_subst[] = {
   {"assert_fail",             mint_assert_fail,                1, OpExposed},
   {"sigaction",               mint_do_nothing,                 1, OpInternal},
   {"ftruncate64",             mint_do_nothing,                 1, OpExposed},
+  {"rmdir",                   mint_rmdir,                      1, OpExposed},
+  {"fxstat",                  mint_fxstat64,                   1, OpExposed},
   { NULL,                     NULL,                            1, OpExposed}
 };
 
@@ -668,7 +671,7 @@ void subst_functions()
     picode->opnum = 0;
     
     /* Set the next field to return to the same routine. If we are
-     * generating events, then this field will be changed to point32_t to
+     * generating events, then this field will be changed to point to
      * the event function.
      */
     picode->next = picode;
@@ -762,7 +765,7 @@ OP(mint_sesc_spawn){
   pthread->newChild(child);
   
   if( entry ) {
-    // The first instruction for the child is the entry point32_t passed in
+    // The first instruction for the child is the entry point passed in
     child->setPCIcode(addr2icode(entry));
     child->setIntReg(IntArg1Reg,arg);
     child->setIntReg(IntArg2Reg,Stack_size);            /* for sprocsp() */
@@ -773,7 +776,7 @@ OP(mint_sesc_spawn){
     // it will go directly to the exit() function
     child->setIntReg(RetAddrReg,Exit_addr);
   }else{
-    // If no entry point32_t is supplied, we have fork-like behavior
+    // If no entry point is supplied, we have fork-like behavior
     // The child will just return from sesc_spawn the same as parent
     child->setPCIcode(pthread->getPCIcode());
   }
@@ -1135,7 +1138,7 @@ OP(mint_sysmp)
 #if 0
 // FIXME: the following code is not ready for 64 bit architectures
 
-/* Please, someone should port mint32_t to execute mint3 and glibc from
+/* Please, someone should port mint to execute mint3 and glibc from
  * gcc. glibc is a fully reentrant library, not like this crap!
  */
 OP(mint_printf)
@@ -2740,7 +2743,7 @@ OP(mint_fstat)
   printf("mint_fstat(%ld, 0x%lx)\n", r4, r5);
 #endif
   if(r5 == 0) {
-    fatal("fstat called with a null pointer\n");
+    fatal("fstat called with a null pointer (ip=0x%x)\n", picode->addr);
   }
 
 #if (defined TLS) || (defined TASKSCALAR)
@@ -2830,7 +2833,7 @@ OP(mint_fxstat64)
   printf("mint_fxstat64(0x%08lx,0x%08lx,0x%08lx)\n", statVer, fd, addr);
 #endif
   if(addr==0)
-    fatal("fstat called with a null pointer\n");
+    fatal("fstat called with a null pointer (ip=0x%x)\n", picode->addr);
   struct stat stat_native;
   retVal=fstat(fd,&stat_native);
   pthread->setRetVal(retVal);
@@ -4235,3 +4238,38 @@ OP(mint_sesc_endlock2)
   return addr2icode(REGNUM(31));
 }
 #endif
+
+/* ARGSUSED */
+OP(mint_rmdir)
+{
+  ID(Pid_t thePid=pthread->getPid());
+
+#if (defined TLS)
+#error TLS not supported
+#endif
+
+  int err;
+
+  MintFuncArgs funcArgs(pthread,picode);
+  VAddr pathname = funcArgs.getVAddr();
+
+#ifdef TASKSCALAR
+  {
+    char cad1[100];
+    rsesc_OS_read_string(pthread->getPid(), picode->addr, cad1, pathname, 100);
+    err = rmdir((const char *) cad1);
+  }
+#else
+  RAddr path = pthread->virt2real(pathname);
+  err = rmdir((const char *) path);
+#endif
+#ifdef DEBUG_VERBOSE
+  fprintf(stderr,"mint_rmdir(%s) ret=%d\n",(const char *) pthread->virt2real(pathname), err);
+#endif
+  //pthread->setRetVal(err);
+  pthread->setRetVal(err);
+  if (err == -1)
+    pthread->setperrno(errno);
+  I(pthread->getPid()==thePid);
+  return pthread->getRetIcode();
+}

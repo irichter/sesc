@@ -175,14 +175,14 @@ flp_t *read_flp(char *file, int32_t read_connects);
 int32_t floorplan(flp_t *flp, flp_desc_t *flp_desc,
 			  struct RC_model_t_st *model, double *power);
 /* 
- * print32_t the floorplan in a FIG like format 
+ * print the floorplan in a FIG like format 
  * that can be read by tofig.pl to produce 
  * an xfig output 
  */
 void print_flp_fig (flp_t *flp);
 /* debug print	*/
 void print_flp (flp_t *flp);
-/* print32_t the statistics about this floorplan	*/
+/* print the statistics about this floorplan	*/
 void print_flp_stats(flp_t *flp, struct RC_model_t_st *model,
 					 char *l2_label, char *power_file, 
 					 char *connects_file);

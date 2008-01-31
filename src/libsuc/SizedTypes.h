@@ -4,7 +4,7 @@
 // Get sized integer types (int32_t, etc.)
 #include <stdint.h>
 
-// Sized types for floating point32_t numbers
+// Sized types for floating point numbers
 typedef float  float32_t;
 typedef double float64_t;
 

@@ -206,11 +206,17 @@ PageTable::IntlPTEntry *StdMemoryOS::getReplPTEntry()
     return p;
   }
 
-uint32_t StdMemoryOS::getFreePhysicalPage()
-{
+uint32_t StdMemoryOS::getNewPhysicalPage() {
   if (nextPhysicalPage < MemoryOS::numPhysicalPages)
     return nextPhysicalPage++;
+  return 0;
+}
 
+uint32_t StdMemoryOS::getFreePhysicalPage()
+{
+  uint32_t ppage = getNewPhysicalPage();
+  if (ppage != 0) 
+    return ppage;
 
   PageTable::IntlPTEntry *p = getReplPTEntry();
 

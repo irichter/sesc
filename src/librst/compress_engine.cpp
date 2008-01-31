@@ -625,7 +625,7 @@ void rstzip3::compress_dcti(rstf_unionT * rstbuf, int32_t idx, rz3iu_icache_data
     sdata->bitarrays[dcti_ea_va_pred_array]->Push(0);
     sdata->bitarrays[raw_value64_array]->Push(ir->ea_va);
 
-    // at this point32_t we know the real ea_va. predict npc=ea_va
+    // at this point we know the real ea_va. predict npc=ea_va
     tdata[cpuid]->pred_npc = ir->ea_va;
   }
 

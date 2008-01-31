@@ -1990,7 +1990,7 @@ namespace tls{
     }
     // Now my state is LazyMerge
     myState=State::LazyMerge;
-    // Find the checkpoint32_t to merge into and start the merging process
+    // Find the checkpoint to merge into and start the merging process
     myCheckpoint=Checkpoint::mergeInit(this);
     I(pidToEpoch[myPidTmp]==this);
     if(blockRemovalEnabled)
@@ -2229,7 +2229,7 @@ namespace tls{
       BufferBlockList::iterator currWrPos=block->writersPos;
       BufferBlockList::iterator newAcPos=block->accessorsPos;
       BufferBlockList::iterator newWrPos=block->writersPos;
-      // This is a write block. Because read blocks point32_t to the
+      // This is a write block. Because read blocks point to the
       // first predecessor writer block, when we advance this
       // block we must adjust the write position of read blocks
       // we pass. We do this until we either reach our new position

@@ -279,7 +279,7 @@ void SMTProcessor::advanceClock()
       TaskContext *tc = TaskContext::getTaskContext(flow[cFetchId]->IFID.getPid());
       I(tc);
 
-      //in the first fetch of the cycle,  make cFetchId point32_t to the safe thread
+      //in the first fetch of the cycle,  make cFetchId point to the safe thread
       while(firstThreadFetched && !tc->getVersionRef()->isSafe()) {
 	selectFetchFlow();
 	tries++;

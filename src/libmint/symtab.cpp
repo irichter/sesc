@@ -540,7 +540,7 @@ int32_t namelist(char *objname, namelist_ptr pnlist)
 	psym = base[next];
       } while (noun_strcmp(pnmlist->n_name, psym->n_name) == 0);
 
-      /* at this point32_t, the psym name is greater than the pnmlist
+      /* at this point, the psym name is greater than the pnmlist
        * name, so advance the pnmlist pointer
        */
       pnmlist++;
@@ -595,7 +595,7 @@ read_linenum()
  * Parameters:
  *   iaddr	the instruction address
  *   fname	if not NULL, the address of a character pointer that
- * 		will be set to point32_t to the file name containing iaddr
+ * 		will be set to point to the file name containing iaddr
  *   linenum	if not NULL, the address of an integer that will be
  * 		set to the source line number for the given iaddr
  *   buf	if not NULL, a buffer that will contain the source

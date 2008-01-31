@@ -61,7 +61,7 @@ void Instruction::initializeMINT(int32_t argc,
 
   mint_init(argc, argv, envp);
   
-  Mint_output = 0;            // == /dev/null mint32_t reports
+  Mint_output = 0;            // == /dev/null mint reports
 
   I(MaxEvent < SESC_MAXEVENT);
   
@@ -193,7 +193,7 @@ void Instruction::initializeMINT(int32_t argc,
   // field.
 
   // Fake entry for PreEvent
-  // Useless picode field. The only requirement is not to point32_t to Itext[0]
+  // Useless picode field. The only requirement is not to point to Itext[0]
   InstTable[codeSize + PreEvent].opcode = iEvent;
   InstTable[codeSize + PreEvent].subCode= iSubInvalid;  // Not used
   InstTable[codeSize + PreEvent].src1   = NoDependence;
@@ -712,7 +712,7 @@ void Instruction::MIPSDecodeInstruction(size_t        index
     break;
 
     /*
-     * fixed-point32_t precision 
+     * fixed-point precision 
      */
   case cvt_s_w_opn:
     opcode = fpALU;

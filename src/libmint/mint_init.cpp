@@ -62,9 +62,9 @@
  * newlines inside the double quotes in the following macro.
  */
 #define USAGE \
-"\nUsage: %s [mint32_t options] [-- simulator options] objfile [objfile options]\n\
+"\nUsage: %s [mint options] [-- simulator options] objfile [objfile options]\n\
 \n\
-mint32_t options:\n\
+mint options:\n\
 	[-h heap_size]		heap size in bytes, default: %d (0x%x)\n\
 	[-k stack_size]		stack size in bytes, default: %d (0x%x)\n\
 	[-n nice_value]	        \'nice\' MINT process, default: 0 if 'nice' used, 4 if not\n\
@@ -276,7 +276,7 @@ static int
 logbase2(int32_t *pnum)
 {
     uint32_t logsize;
-	 int32_t exp;
+    uint32_t exp;
 
     for (logsize = 0, exp = 1; exp < *pnum; logsize++)
         exp *= 2;
@@ -459,7 +459,7 @@ static void create_addr_space()
   pthread->setHeapManager(HeapManager::create(heap_start,heap_size));
   // malloc_init(pthread, heap_start, heap_size);
 
-  /* point32_t the sp to the top of the allocated space */
+  /* point the sp to the top of the allocated space */
   /* (The stack grows down toward lower memory addresses.) */
   Stack_start = dataAddrLb + Stack_start_rel;
   Stack_end   = dataAddrUb;
@@ -570,7 +570,7 @@ read_text()
 	  num_pointers * sizeof(struct icode));
 
   /* Assign each pointer to its corresponding icode, and link each
-   * icode to point32_t to the next one in the array.
+   * icode to point to the next one in the array.
    */
   pitext = Itext;
   for (i = 0; i < num_pointers; i++) {
@@ -865,7 +865,7 @@ decode_instr(icode_ptr picode, int32_t instr)
                     opnum = cop1func_opnums[0][cofun];
                 else if (fmt == 17)		/* double precision format */
                     opnum = cop1func_opnums[1][cofun];
-                else			/* fixed-point32_t format */
+                else			/* fixed-point format */
                     opnum = cop1func_opnums[2][cofun];
                 
             } else {

@@ -55,7 +55,7 @@ VMemObj::VMemObj(MemorySystem *gms, const char *section, const char *name)
 
 void VMemObj::access(MemRequest *mreq) 
 {
-  // Main entry point32_t for the Version Memory System
+  // Main entry point for the Version Memory System
 
   I(isHighestLevel());
   I(mreq->getLVID());

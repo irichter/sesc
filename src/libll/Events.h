@@ -62,6 +62,7 @@ static const int32_t EvSimStart = 2;
  */
 static const int32_t EvMinType  = 10;
 
+void mint_termination_err(int32_t pid, int err);
 void mint_termination(int32_t pid);
 
 #include "mintapi.h"

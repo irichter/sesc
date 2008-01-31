@@ -69,7 +69,7 @@ protected:
   }
 
   void completeReq(MemRequest *mreq, int32_t vAddr, int32_t phPage) {
-    GLOG(DEBUGCONDITION,"[C %llu] %li. %lu -> %lu", globalClock, mreq->getVaddr(), GMemorySystem::calcPage(vAddr), phPage);
+    GLOG(DEBUGCONDITION,"[C %llu] %u. %i -> %i", globalClock, mreq->getVaddr(), GMemorySystem::calcPage(vAddr), phPage);
     if(mreq->isDataReq()) 
       fillDTLB(vAddr, phPage);
     else 
@@ -188,6 +188,7 @@ class StdMemoryOS : public MemoryOS {
   StaticCBMemRequest accessL1PTReq;
   StaticCBMemRequest accessL2PTReq;
 
+  uint32_t getNewPhysicalPage();
 protected:
   static PageTable *PT; // Shared by all the MemoryOS
 

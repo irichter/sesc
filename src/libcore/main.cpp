@@ -71,7 +71,7 @@ int32_t main(int32_t argc, char **argv, char **envp)
 
   osSim->boot();
 
-  // Reaches this point32_t only when all the active threads have finished.
+  // Reaches this point only when all the active threads have finished.
 
   for(int32_t i = 0; i < nProcs; i ++) { 
     delete pr[i];

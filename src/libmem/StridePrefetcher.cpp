@@ -139,7 +139,7 @@ void StridePrefetcher::read(MemRequest *mreq)
     I(itR != pendingRequests.end());
     
     (*itR).second->push(mreq);
-    learnHit(paddr); // half-miss is a hit from the learning point32_t of view
+    learnHit(paddr); // half-miss is a hit from the learning point of view
     return;
   }
 

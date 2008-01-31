@@ -46,7 +46,7 @@ enum PowerGroup {
   ****************************************************/
 
 /*
- * Right now this class is designed as entry point32_t to get the energy
+ * Right now this class is designed as entry point to get the energy
  * for processor 0. The idea is also to use it for implementing
  * dynamic voltage scaling.
  */

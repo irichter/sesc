@@ -120,7 +120,7 @@ PredType BPRas::predict(const Instruction *inst, InstID oracleID, bool doUpdate)
     if(stack == 0)
       return CorrectPrediction;
 
-    I(oracleID);
+    //    I(oracleID);
     if (doUpdate) {
       index--;
       if( index < 0 )

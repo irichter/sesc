@@ -420,7 +420,7 @@ RetOutcome FUStore::retire(DInst *dinst)
 
   gen->nextSlot();
 
-  // used for updating mint32_t on unlock
+  // used for updating mint on unlock
   if (dinst->getPendEvent())
     dinst->getPendEvent()->call();
   if (waitingOnFence() == true)

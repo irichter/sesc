@@ -360,7 +360,7 @@ extern "C" {
 #if (defined ASPECT)
     aspectAtomicBegin();
 #else
-    typedef volatile int32_t volint;
+    typedef volatile int32_t volint32_t;
     register volint32_t *spinptr=&(lock_ptr->spin);
     aspectAcquireBegin();
     if(*spinptr!=UNLOCKED)
@@ -374,7 +374,7 @@ extern "C" {
 #if (defined ASPECT)
     aspectAtomicEnd();
 #else
-    typedef volatile int32_t volint;
+    typedef volatile int32_t volint32_t;
     register volint32_t *spinptr=&(lock_ptr->spin);
     aspectReleaseBegin();
     *spinptr=UNLOCKED;
@@ -386,7 +386,7 @@ extern "C" {
     barr_ptr->gsense=0;
   }
   static inline void tls_barrier(sbarrier_t *barr_ptr, int32_t num_proc){
-    typedef volatile int32_t volint;
+    typedef volatile int32_t volint32_t;
     register volint32_t *gsenseptr=&(barr_ptr->gsense);
     register int32_t  lsense=!(*gsenseptr);
     register volint32_t *countptr=&(barr_ptr->count);
@@ -413,14 +413,14 @@ extern "C" {
     flag_ptr->flag=LOCKED;
   }
   static inline void tls_flag_set(sflag_t *flag_ptr){
-    typedef volatile int32_t volint;
+    typedef volatile int32_t volint32_t;
     register volint32_t *flagptr=&(flag_ptr->flag);
     aspectReleaseBegin();
     *(flagptr)=UNLOCKED;
     aspectAtomicEnd();
   }
   static inline void tls_flag_wait(sflag_t *flag_ptr){
-    typedef volatile int32_t volint;
+    typedef volatile int32_t volint32_t;
     register volint32_t *flagptr=&(flag_ptr->flag);
     aspectAcquireBegin();
     if((*flagptr)!=UNLOCKED)

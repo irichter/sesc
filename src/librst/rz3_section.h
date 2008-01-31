@@ -82,7 +82,7 @@ struct rz3_section_data {
 
   void update_counts();
 
-  void print(); // print32_t stats
+  void print(); // print stats
 
   void print_totals();
 

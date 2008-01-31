@@ -50,7 +50,7 @@ class FetchEngine;
 class FReg;
 class BPredictor;
 
-#define DINST_TRACK_PHYS 1
+//#define DINST_TRACK_PHYS 1
 
 // FIXME: do a nice class. Not so public
 class DInstNext {

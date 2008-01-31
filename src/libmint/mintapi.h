@@ -81,7 +81,7 @@ void rsesc_OS_write_block(int32_t pid, int32_t iAddr, VAddr dstStart, const void
 
 icode_ptr mint_exit(icode_ptr picode, thread_ptr pthread);
 
-// Functions exported by mint32_t for use in sesc
+// Functions exported by mint for use in sesc
 
 int32_t mint_sesc_create_clone(thread_ptr pthread);
 void mint_sesc_die(thread_ptr pthread);

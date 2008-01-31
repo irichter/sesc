@@ -234,7 +234,10 @@ ifdef QEMU_DRIVEN
 CXX	:=g++34
 CC	:=gcc34
 DEFS	+= -DQEMU_DRIVEN -I$(SRC_DIR)/../../qemu/sesc/
-QLIBS	+= $(SRC_DIR)/../../qemu/sparc-*/*.o $(SRC_DIR)/../../qemu/sparc-*/*/*.o $(SRC_DIR)/../../qemu/sparc-*/libqemu.a -lSDL -lrt -lutil -lz
+#QLIBS	+= $(SRC_DIR)/../../qemu/sparc-*/*.o $(SRC_DIR)/../../qemu/*.o $(SRC_DIR)/../../qemu/sparc-*/*/*.o $(SRC_DIR)/../../qemu/sparc-*/libqemu.a -lSDL -lrt -lutil -lz
+QOBJS   :=vl.o osdep.o monitor.o pci.o loader.o isa_mmio.o block-raw-posix.o lsi53c895a.o usb-ohci.o eeprom93xx.o eepro100.o ne2000.o pcnet.o rtl8139.o sun4m.o tcx.o iommu.o m48t59.o slavio_intctl.o slavio_timer.o slavio_serial.o slavio_misc.o fdc.o esp.o sparc32_dma.o cs4231.o ptimer.o eccmemctl.o sbi.o sun4c_intctl.o gdbstub.o
+QLIBS   += -m64 -Wl,-T,$(SRC_DIR)/../../qemu/x86_64.ld $(patsubst %,$(SRC_DIR)/../../qemu/sparc-softmmu/%,$(QOBJS))
+QLIBS	+= $(SRC_DIR)/../../qemu/libqemu_common.a $(SRC_DIR)/../../qemu/sparc-softmmu/libqemu.a -lSDL -lrt -lutil -lz
 else
 QLIBS	:=
 endif

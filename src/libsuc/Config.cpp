@@ -663,7 +663,7 @@ void Config::dump(bool showAll)
     block = 0;
     hiter = hashRecord.begin();
 
-    // First print32_t the records with empty section
+    // First print the records with empty section
     for(; hiter != hashRecord.end(); hiter++) {
       if (!(showAll || hiter->second->isUsed()))
         continue;
@@ -683,7 +683,7 @@ void Config::dump(bool showAll)
 
     }
 
-    // Print32_t the other sections
+    // Print the other sections
     block = 0;
     hiter = hashRecord.begin();
     for(; hiter != hashRecord.end(); hiter++) {
@@ -727,7 +727,7 @@ void Config::notCorrect()
 {
   errorFound = true;
   if(locked) {
-    MSG("Config::Constraint32_t not meet while configuration already locked??");
+    MSG("Config::Constraint not meet while configuration already locked??");
     exit(-2);
   }
 }

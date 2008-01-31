@@ -36,9 +36,9 @@ enum InstType {
   iBJ,                //!< branches, calls, and jumps
   iLoad,              //!< Load
   iStore,             //!< Store
-  fpALU,              //!< coprocessor 1 floating point32_t adds, converts, etc
-  fpMult,             //!< floating point32_t multiplies
-  fpDiv,              //!< floating point32_t division and sqrt
+  fpALU,              //!< coprocessor 1 floating point adds, converts, etc
+  fpMult,             //!< floating point multiplies
+  fpDiv,              //!< floating point division and sqrt
   iFence,             //!< Fetch&Op, iMemFence, iAcquire, iRelease (Not iLoad or iStore)
   iEvent,             //!< Fake user event instruction
   MaxInstType

@@ -81,7 +81,7 @@ void debugAccess();
 // 
 // My two cents: 
 //
-// ONLY use prefetch when you are very certaint32_t that there is a cache miss,
+// ONLY use prefetch when you are very certaint that there is a cache miss,
 // and you can't reorganize the code so that the structure has more
 // locality.
 //

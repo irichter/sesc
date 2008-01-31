@@ -290,10 +290,10 @@ void populate_C_model_block(block_model_t *model, flp_t *flp)
 				* (l_chip + 0.88 * t_interface) * t_interface / ( w_chip * l_chip * t_chip) + 1);
 
 	/* fitting factor for interface	 - same rationale as above */
-	model->factor_int32_t = C_FACTOR * ((SPEC_HEAT_CU / SPEC_HEAT_INT) * (w_chip + 0.88 * t_spreader) \
+	model->factor_inter = C_FACTOR * ((SPEC_HEAT_CU / SPEC_HEAT_INT) * (w_chip + 0.88 * t_spreader) \
 				* (l_chip + 0.88 * t_spreader) * t_spreader / ( w_chip * l_chip * t_interface) + 1);
 
-	/*fprintf(stdout, "fitting factors : %f, %f\n", factor_chip, factor_int);	*/
+	/*fprintf(stdout, "fitting factors : %f, %f\n", factor_chip, factor_inter);	*/
 
 	/* vertical C's of spreader and sink */
 	c_sp_per = model->factor_pack * SPEC_HEAT_CU * t_spreader * (s_spreader * s_spreader - w_chip*l_chip) / 4.0;
@@ -306,7 +306,7 @@ void populate_C_model_block(block_model_t *model, flp_t *flp)
 		/* C's from functional units to ground	*/
 		a[i] = model->factor_chip * SPEC_HEAT_SI * t_chip * area;
 		/* C's from interface portion of the functional units to ground	*/
-		a[IFACE*n+i] = model->factor_int32_t * SPEC_HEAT_INT * t_interface * area;
+		a[IFACE*n+i] = model->factor_inter * SPEC_HEAT_INT * t_interface * area;
 		/* C's from spreader portion of the functional units to ground	*/
 		a[HSP*n+i] = model->factor_pack * SPEC_HEAT_CU * t_spreader * area;
 	}

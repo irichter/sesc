@@ -96,7 +96,7 @@ DInst::DInst()
 #ifdef DINST_TRACK_PHYS
   static ushort max_preg = 1;
   preg = max_preg++;
-  GMSG(max_preg>1024,"WARNING: Too many physical register created [%d]",max_preg);
+  GMSG(max_preg>10240,"WARNING: Too many physical register created [%d]",max_preg);
 #endif
   
 #ifdef SESC_BAAD

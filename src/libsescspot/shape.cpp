@@ -102,7 +102,7 @@ void print_shape_entry(shape_t *shape, int32_t i)
 	fprintf(stdout, "\n");
 }
 
-/* debug print32_t  */
+/* debug print  */
 void print_shape(shape_t *shape)
 {
 	int32_t i;
@@ -357,7 +357,7 @@ void print_tree(tree_node_t *root, flp_desc_t *flp_desc)
 }
 
 /* 
- * print32_t only the portion of the shape curves 
+ * print only the portion of the shape curves 
  * corresponding to the `pos'th entry of root->curve
  */
 void print_tree_relevant(tree_node_t *root, int32_t pos, flp_desc_t *flp_desc)

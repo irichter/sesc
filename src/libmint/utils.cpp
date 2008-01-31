@@ -3,6 +3,8 @@
 
 #include <stdarg.h>
 
+#include "Events.h"
+
 /* The default maximum number of error and warning messages. If these limits
  * are reached, then the program will exit. This prevents long-running
  * programs from generating so many messages that an output file fills
@@ -38,7 +40,7 @@ void fatal(const char *fmt, ...)
     va_end(ap);
 
     /* should be passed the pid of the thread that generated the fatal, but... */
-    mint_termination(0); 
+    mint_termination_err(0,-1); 
 }
 
 /*

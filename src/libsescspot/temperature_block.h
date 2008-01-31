@@ -28,7 +28,7 @@ typedef struct block_model_t_st
 	/* thermal capacitance fitting factors	*/
 	double factor_pack;	/* for package 	*/
 	double factor_chip;	/* for silicon	*/
-	double factor_int;	/* for interface	*/
+	double factor_inter;	/* for interface	*/
 
 	/* intermediate vectors and matrices	*/
 	double *gx, *gy, *gx_sp, *gy_sp, *t_vector;

@@ -122,7 +122,7 @@ rz3_bitarray_descr rstzip3::bitarray_descr[] = {
 
 
 
-// the rel field is a parameter relative to which to print32_t stats
+// the rel field is a parameter relative to which to print stats
 // (in addition to per record and per instr). eg raw-regvals per regval.
 // ps_max => none
 struct rz3_perf_stats_descr rstzip3::perf_stats_descr[] = {
@@ -383,13 +383,13 @@ int32_t rstzip3::compress(rstf_unionT * buf, int32_t nrec)
     }
   }
 
-  // at this point32_t, there are no records waiting to be compressed in the buffer
+  // at this point, there are no records waiting to be compressed in the buffer
   while((nrec-done) >= rz3_bufsize) {
     compress_buffer(buf+done, rz3_bufsize);
     done += rz3_bufsize;
   }
 
-  // at this point32_t, the buffer is empty; there may be some records left to be
+  // at this point, the buffer is empty; there may be some records left to be
   // compressed, but not enough to fill the buffer
   if (done < nrec) {
     memcpy(interface_buffer, buf+done, (nrec-done)*sizeof(rstf_unionT));
@@ -415,7 +415,7 @@ int32_t rstzip3::decompress(rstf_unionT * buf, int32_t nrec)
     if (done == nrec) return nrec;
   }
 
-  // at this point32_t, if we haven't returned, done < nrec and interface_buffer_count == 0
+  // at this point, if we haven't returned, done < nrec and interface_buffer_count == 0
   // decompress the next section.
   while((nrec-done) >= rz3_bufsize) {
     int32_t n = decompress_buffer(buf+done, rz3_bufsize); // returns the actual number of records decmopressed
@@ -424,7 +424,7 @@ int32_t rstzip3::decompress(rstf_unionT * buf, int32_t nrec)
     done += n;
   }
 
-  // at this point32_t, the number of records that can be copied to the caller is < rz3_bufsize.
+  // at this point, the number of records that can be copied to the caller is < rz3_bufsize.
   // to avoid buffer overflow, we use the interface buffer once again
   while(done < nrec) {
     interface_buffer_size = decompress_buffer(interface_buffer, rz3_bufsize);
@@ -441,7 +441,7 @@ int32_t rstzip3::decompress(rstf_unionT * buf, int32_t nrec)
     done += n;
     interface_buffer_count -= n;
   }
-  // at this point32_t done = nrec.
+  // at this point done = nrec.
   return nrec;
 
 } // rstzip3::decompress(rstf_unionT * buf, int32_t nrec)

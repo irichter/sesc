@@ -82,7 +82,15 @@ QString {QString1}|{QString2}
 [-]    return CFMINUS;
 [*]    return CFMULT;
 [/]    return CFDIV;
-[\^]    return CFEXP;
+[\\]   return CFDIVC;
+[\^]   return CFEXP;
+
+"<="   return LE;
+"<"    return LT;
+">="   return GE;
+">"    return GT;
+
+"?"    return TRICASE;
 
 
 

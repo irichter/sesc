@@ -96,8 +96,8 @@ class Rstzip2if {
   //
   // The argument 'stats' indicates whether compression statistics should
   // be printed to stderr after compression ends.
-  //   stats = 1    Print32_t compression stats
-  //   stats = 0    Do no print32_t compression stats.
+  //   stats = 1    Print compression stats
+  //   stats = 0    Do no print compression stats.
   //
   // The argument 'numcpus' indicates whether the input trace is a 
   // multi-processor trace or not.
@@ -152,8 +152,8 @@ class Rstzip2if {
   //
   // The argument 'stats' indicates whether compression statistics should
   // be printed to stderr after decompression ends.
-  //   stats = 1   Print32_t compression stats
-  //   stats = 0   Do no print32_t compression stats
+  //   stats = 1   Print compression stats
+  //   stats = 0   Do no print compression stats
   //
   // RETURN VALUES
   // None.
@@ -247,8 +247,8 @@ extern "C" {
   //
   // The argument 'stats' indicates whether compression statistics should
   // be printed to stderr after compression ends.
-  //   stats = 1    Print32_t compression stats
-  //   stats = 0    Do no print32_t compression stats.
+  //   stats = 1    Print compression stats
+  //   stats = 0    Do no print compression stats.
   //
   // The argument 'numcpus' indicates whether the input trace is a 
   // multi-processor trace or not.
@@ -266,7 +266,7 @@ extern "C" {
   // Compresses exactly 'nrecs' RST records from 'rstbuf', and writes
   // the compressed data to the file opened by rz2_openRstzip().
   //
-  // The argument 'rstzip' must point32_t to an Rstzip2if object
+  // The argument 'rstzip' must point to an Rstzip2if object
   // previously allocated by calling rz2_openRstzip().
   //
   // The argument 'nrecs' must be less than or equal to the
@@ -306,8 +306,8 @@ extern "C" {
   //
   // The argument 'stats' indicates whether compression statistics should
   // be printed to stderr after decompression ends.
-  //   stats = 1   Print32_t compression stats
-  //   stats = 0   Do no print32_t compression stats
+  //   stats = 1   Print compression stats
+  //   stats = 0   Do no print compression stats
   //
   // RETURN VALUES
   // A pointer to the allocated Rstzip2if object is returned.

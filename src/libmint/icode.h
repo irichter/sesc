@@ -133,7 +133,7 @@ inline Address icode2addr(icode_ptr picode) {
 }
 
 // An icode that should not be executed. Unused, free, and inactive
-// thread contexts can point32_t to this icode to catch buggy execution
+// thread contexts can point to this icode to catch buggy execution
 extern icode_t invalidIcode;
 
 #endif /* ICODE_H */

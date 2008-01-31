@@ -17,7 +17,7 @@ class Message {
 public:
   enum DeliveryType_t {PT_TO_PT, RCV_AND_PASS, RCV};
   /*
-    PT_TO_PT is a normal point-to-point32_t message
+    PT_TO_PT is a normal point-to-point message
     RCV_AND_PASS is for broadcast messages -- Router sends message up
       to cache and to neighbor
     RCV -- Router sends message to subsequent processor (ask Karin)

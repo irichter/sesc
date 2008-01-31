@@ -307,7 +307,7 @@ int32_t Rstzip::open(const char * filename, const char * mode, const char *opts)
         }
       } // RZ or uncompressed rstzip?
 
-      // at this point32_t, we have either determined version information from the file, or it was specified using the option string.
+      // at this point, we have either determined version information from the file, or it was specified using the option string.
       // if neither of these two cases is true, or if the two don't match, signal an error
       if (impl->agent == Rstzip_impl::agent_NIL) {
         if (agent == Rstzip_impl::agent_NIL) {
@@ -416,7 +416,7 @@ int32_t Rstzip::decompress(rstf_unionT * rstbuf, int32_t nrecs)
     // search for trace id string record within the first 16 records. Ideally this must be the 2nd or 3rd record subject to trace spec
     // the trace id record is a 23-byte string with the syntax:
     // AADTraceID<id12>\0 where id12 is a 12-byte hex string.
-    // thus, id12 represents a 48-bit uint32_teger trace id number.
+    // thus, id12 represents a 48-bit integer trace id number.
     int32_t i = 0;
     while((impl->records_checked_for_traceid < 16) && (i < rv)) {
       if ( (rstbuf[i].proto.rtype == STRDESC_T) && 

@@ -136,7 +136,7 @@ void rsesc_release(int32_t pid, int32_t vaddr)
 }
 
 /**************************************************
- * Called each time that mint32_t has created a new thread. Currently only
+ * Called each time that mint has created a new thread. Currently only
  * spawn is supported.
  *
  * pid is the Thread[pid] where the new context have been created.ExecutionFlow
@@ -155,25 +155,18 @@ int32_t rsesc_exit(int32_t cpid, int32_t err)
 }
 #endif
 
-void rsesc_finish(int32_t pid)
+void rsesc_finish_err(int32_t pid, int err)
 {
-
-#if 0
-  ProcessId *proc = ProcessId::getProcessId(pid);
-  if (proc) {
-    if (proc->getState() == RunningState) {
-      osSim->stop(pid);
-      proc->destroy();
-    }
-  }
-#else
   ProcessId::destroyAll();
-#endif
 
   osSim->stopSimulation();
   osSim->simFinish();
 
-  exit(0);
+  exit(err);
+}
+
+void rsesc_finish(int32_t pid) {
+  rsesc_finish_err(pid,0);
 }
 
 /* Same as rsesc_spawn, except that the new thread does not become ready */
@@ -232,7 +225,7 @@ void rsesc_fast_sim_begin(int32_t pid)
   osSim->pid2GProcessor(pid)->addEvent(FastSimBeginEvent, 0, 0);
 }
 
-void mint_termination(int32_t pid)
+void mint_termination_err(int32_t pid, int err)
 {
   LOG("mint_termination(%d) received (NES=%lld)\n", pid, NES);
 
@@ -244,9 +237,13 @@ void mint_termination(int32_t pid)
     Report::field("OSSim:rabbit2=%lld", ExecutionFlow::getnExecRabbit());
     osSim->report("Rabbit--Final");
   }else
-    rsesc_finish(pid);
+    rsesc_finish_err(pid, err);
 
   exit(0);
+}
+
+void mint_termination(int32_t pid) {
+  mint_termination_err(pid,0);
 }
 
 void rsesc_simulation_mark(int32_t pid)
@@ -534,7 +531,7 @@ void  rsesc_verify_value(int32_t pid, int32_t rval, int32_t pval)
 #endif
 
 #if (defined TASKSCALAR) || (defined TLS)
-// Memory protection subroutines. Those are invoqued by mint32_t (mainly subst.c) to
+// Memory protection subroutines. Those are invoqued by mint (mainly subst.c) to
 // access/update data that has been versioned
 
 // Copy data from srcStart (real) to version memory (logical can generate squash/restart)

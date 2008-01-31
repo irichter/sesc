@@ -58,10 +58,17 @@
 %token CFMINUS
 %token CFMULT
 %token CFDIV
+%token CFDIVC
 %token CFEXP
+%token LE
+%token LT
+%token GE
+%token GT
+%token TRICASE
 
 %left CFMINUS CFPLUS
-%left CFMULT CFDIV
+%left CFMULT CFDIV CFDIVC
+%left LE LT GE GT
 %right CFEXP    /* exponentiation        */
 
 %%
@@ -113,9 +120,14 @@ lexp:     CFLONG               { $$ = $1; }
         | lexp CFMINUS lexp    { $$ = $1 - $3;    }
         | lexp CFMULT  lexp    { $$ = $1 * $3;    }
         | lexp CFDIV   lexp    { $$ = $1 / $3;    }
+        | lexp CFDIVC  lexp    { $$ = (int)ceil((double)$1 / (double)$3); }
         | lexp CFEXP   lexp    { $$ = static_cast<int>(pow((double)$1, (double)$3)); }
         | CFOP lexp CFCP       { $$ = $2; }
         | CFMINUS lexp  %prec CFMINUS { $$ = -$2; }
+        | lexp LE lexp TRICASE lexp CFDDOT lexp { $1<=$3 ? $$=$5 : $$=$7; }
+        | lexp LT lexp TRICASE lexp CFDDOT lexp { $1< $3 ? $$=$5 : $$=$7; }
+        | lexp GE lexp TRICASE lexp CFDDOT lexp { $1>=$3 ? $$=$5 : $$=$7; }
+        | lexp GT lexp TRICASE lexp CFDDOT lexp { $1> $3 ? $$=$5 : $$=$7; }
 ;
 
 dexp:      CFDOUBLE        { $$ = $1; }

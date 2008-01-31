@@ -620,7 +620,7 @@ class Rstunzip : public RstzipBase {
   int32_t rstz_decompress_fbytes;         // number of bytes of compressed data fread() 
   // Decompress up to nrecs RST records from *infp into buf[].
   // Returns number of records decompressed.  Upon return, *infp will
-  // point32_t to the start of the next compressed record.
+  // point to the start of the next compressed record.
   int32_t rstz_decompress(uint8_t** zbufptr, rstf_unionT* rstbuf, int32_t nrecs) {
     int32_t total_recs = 0;        // total recs copied to buf[]
     rstf_instrT* buf_ptr = &rstbuf[0].instr;

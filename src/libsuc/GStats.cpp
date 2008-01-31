@@ -506,7 +506,7 @@ void GStatsEventTimingHist::begin_sample(unsigned long long id)
   // Add another request pending on this begin point
   (*it_now).second = (*it_now).second + 1;
 
-  // Make sure begin point32_t is included in begin-timeline
+  // Make sure begin point is included in begin-timeline
   beginT.insert(globalClock);
 
   evPending[id].start = globalClock;

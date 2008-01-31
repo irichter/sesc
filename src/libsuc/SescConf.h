@@ -40,7 +40,7 @@ protected:
   // Instead of the original Config interface I have something a
   // little bit more specific for the sesc configuration file.  The
   // first section of the configuration file has variables that
-  // point32_t to sections. Example:
+  // point to sections. Example:
   // 
   // bpred = 'myBPredSection'
   // a = 1

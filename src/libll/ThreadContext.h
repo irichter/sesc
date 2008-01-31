@@ -111,9 +111,9 @@ class ThreadContext {
 #endif
  private:
 #if !(defined MIPS_EMUL)
-  uint32_t fcr0;	// floating point32_t control register 0
-  float fp[32];	        // floating point32_t (and double) registers
-  uint32_t fcr31;	// floating point32_t control register 31
+  uint32_t fcr0;	// floating point control register 0
+  float fp[32];	        // floating point (and double) registers
+  uint32_t fcr31;	// floating point control register 31
   icode_ptr picode;	// pointer to the next instruction (the "pc")
 #endif
   int32_t pid;		// process id

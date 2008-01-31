@@ -554,7 +554,7 @@ namespace tls{
     LClock     myLClock;
     ClockValue getCheckClock(void) const{ return myCheckClock; }
     
-    class Checkpoint32_t *myCheckpoint;
+    class Checkpoint *myCheckpoint;
 
     // Position of this epoch in the allEpochs list
     EpochList::iterator myAllEpochsPos;

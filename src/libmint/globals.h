@@ -229,7 +229,7 @@ EXTERN int32_t Section_start[];
 #endif
 
 /* The minimum value of a function symbol in the list of names looked up.
- * Anything after this point32_t is assumed to be library code.
+ * Anything after this point is assumed to be library code.
  */
 EXTERN uint32_t Min_lib_value;
 

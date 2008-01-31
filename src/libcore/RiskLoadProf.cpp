@@ -42,7 +42,7 @@ void RiskLoadProf::insert(uint32_t ldInst)
 
 void RiskLoadProf::finalize() 
 {
-  // print32_t out the risk load list
+  // print out the risk load list
   for (HashType::const_iterator it = riskLoads.begin();
        it != riskLoads.end(); it++ )
     fprintf(fout, "0x%08lx %d\n", (*it).first, (*it).second);

@@ -116,7 +116,7 @@ public:
   // Unrecognized options will be discarded. Recognized options are:
   //
   // verbose=0|1        <= produce verbose output while compressing/decompressing
-  // stats=0|1          <= print32_t compression statistics
+  // stats=0|1          <= print compression statistics
   // ver=0|1|2|3        <= for decompression only: specify version of incoming file
   //
   //     when opening a disk file, rstzip detects its version automatically.

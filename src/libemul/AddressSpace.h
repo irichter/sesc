@@ -535,7 +535,7 @@ class AddressSpace : public GCObject{
   VAddr getFuncAddr(VAddr addr) const;
   // Given a code address, return the function size (best guess)
   size_t getFuncSize(VAddr addr) const;
-  // Print32_t name(s) of function(s) with given entry point
+  // Print name(s) of function(s) with given entry point
   void printFuncName(VAddr addr);
   //
   // Interception of function calls

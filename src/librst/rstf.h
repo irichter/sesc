@@ -1109,7 +1109,7 @@ typedef struct {
  * IMPORTANT: Since it is possible for the record-count for
  * the RST section to be unknown,
  * there can be only one RST section in a snap, and it MUST be the last section
- * FIXME: this constraint32_t can be relaxed at the cost of slowing down
+ * FIXME: this constraint can be relaxed at the cost of slowing down
  * the compressor/analyzers etc
  */
 
