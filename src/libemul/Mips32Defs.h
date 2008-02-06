@@ -98,6 +98,7 @@ public:
       case LinuxSys::ErrNoMem:       val=/*ENOMEM*/0xc; break;
       case LinuxSys::ErrInval:       val=/*EINVAL*/0x16; break;
       case LinuxSys::ErrNoEnt:       val=/*ENOENT*/0x2; break;
+      case LinuxSys::ErrSrch:        val=/*ESRCH*/0x3; break;
       case LinuxSys::ErrIntr:        val=/*EINTR*/0x4; break;
       case LinuxSys::ErrBadf:        val=/*EINTR*/0x9; break;
       case LinuxSys::ErrSpipe:       val=/*ESPIPE*/0x1d; break;

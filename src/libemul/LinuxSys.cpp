@@ -648,6 +648,74 @@ void LinuxSys::sysKill(ThreadContext *context, InstDesc *inst){
 }
 
 template<class defs>
+void LinuxSys::sysTgKill(ThreadContext *context, InstDesc *inst){
+  typedef typename defs::Tpid_t Tpid_t;
+  typedef typename defs::Tuint Tuint;
+  typedef typename defs::SigNum SigNum;
+  FuncArgs args(context);
+  Tpid_t tgid(args.get<Tpid_t>());
+  Tpid_t pid(args.get<Tpid_t>());
+  SigNum sig(args.get<Tuint>());
+  if(pid<=0)
+    fail("sysKill with pid=%d\n",pid);
+  ThreadContext *kcontext=osSim->getContext(pid-BaseSimTid);
+  if(!kcontext)
+    return setSysErr(context,ErrSrch);
+  if(kcontext->gettgid()!=tgid)
+    return setSysErr(context,ErrSrch);
+  SigInfo *sigInfo=new SigInfo(sig,SigCodeUser);
+  sigInfo->pid=context->gettid();
+  kcontext->signal(sigInfo);
+#if (defined DEBUG_SIGNALS)
+  printf("sysCall32_tgkill: signal %d sent from process %d to thread %d in %d\n",sig.val,context->gettid(),pid,tgid);
+#endif
+  setSysRet(context,0);
+}
+
+template<class defs>
+void LinuxSys::sysSchedSetAffinity(ThreadContext *context, InstDesc *inst){
+  typedef typename defs::Tpid_t Tpid_t;
+  typedef typename defs::Tuint Tuint;
+  typedef typename defs::Tintptr_t Tintptr_t;
+  FuncArgs args(context);
+  Tpid_t    pid(args.get<Tpid_t>());
+  Tuint     len(args.get<Tuint>());
+  Tintptr_t mask(args.get<Tuint>());;
+  if(!context->canRead(mask,len))
+    return setSysRet(context,ErrFault);
+  ThreadContext *kcontext=pid?osSim->getContext(pid-BaseSimTid):context;
+  if(!kcontext)
+    return setSysErr(context,ErrSrch);
+  // TODO: We need to look at the affinity mask here
+  setSysRet(context,0);
+}
+
+template<class defs>
+void LinuxSys::sysSchedGetAffinity(ThreadContext *context, InstDesc *inst){
+  typedef typename defs::Tpid_t Tpid_t;
+  typedef typename defs::Tuint Tuint;
+  typedef typename defs::Tintptr_t Tintptr_t;
+  FuncArgs args(context);
+  Tpid_t    pid(args.get<Tpid_t>());
+  Tuint     len(args.get<Tuint>());
+  Tintptr_t mask(args.get<Tuint>());
+  // TODO: Use the real number of CPUs instead of 1024
+  if(len<1024/sizeof(uint8_t))
+    return setSysRet(context,ErrInval);
+  if(!context->canWrite(mask,len))
+    return setSysRet(context,ErrFault);
+  ThreadContext *kcontext=pid?osSim->getContext(pid-BaseSimTid):context;
+  if(!kcontext)
+    return setSysErr(context,ErrSrch);
+  // TODO: We need to look at the affinity mask here
+  // for now, we just return an all-ones mask
+  uint8_t buf[len];
+  memset(buf,0,len);
+  context->writeMemFromBuf(mask,len,buf);
+  setSysRet(context,0);
+}
+
+template<class defs>
 void LinuxSys::sysAlarm(ThreadContext *context, InstDesc *inst){
   typedef typename defs::Tuint Tuint;
   FuncArgs args(context);
@@ -2228,8 +2296,8 @@ InstDesc *Mips32LinuxSys::sysCall(ThreadContext *context, InstDesc *inst){
 //#define __NR_tkill                      (__NR_Linux + 236)
 //#define __NR_sendfile64                 (__NR_Linux + 237)
   case 4238: sysFutex<Mips32Defs>(context,inst); break;
-//#define __NR_sched_setaffinity          (__NR_Linux + 239)
-//#define __NR_sched_getaffinity          (__NR_Linux + 240)
+  case 4239: sysSchedSetAffinity<Mips32Defs>(context,inst); break;
+  case 4240: sysSchedGetAffinity<Mips32Defs>(context,inst); break;
 //#define __NR_io_setup                   (__NR_Linux + 241)
 //#define __NR_io_destroy                 (__NR_Linux + 242)
 //#define __NR_io_getevents               (__NR_Linux + 243)
@@ -2255,7 +2323,7 @@ InstDesc *Mips32LinuxSys::sysCall(ThreadContext *context, InstDesc *inst){
 //#define __NR_clock_gettime              (__NR_Linux + 263)
 //#define __NR_clock_getres               (__NR_Linux + 264)
 //#define __NR_clock_nanosleep            (__NR_Linux + 265)
-//#define __NR_tgkill                     (__NR_Linux + 266)
+  case 4266: sysTgKill<Mips32Defs>(context,inst); break;
 //#define __NR_utimes                     (__NR_Linux + 267)
 //#define __NR_mbind                      (__NR_Linux + 268)
 //#define __NR_get_mempolicy              (__NR_Linux + 269)

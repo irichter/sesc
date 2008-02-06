@@ -60,6 +60,7 @@ class LinuxSys{
     ErrNoMem,
     ErrInval,
     ErrNoEnt,
+    ErrSrch,
     ErrIntr,
     ErrBadf,
     ErrSpipe,
@@ -132,6 +133,12 @@ class LinuxSys{
   void sysRtSigSuspend(ThreadContext *context, InstDesc *inst);
   template<class defs>
   void sysKill(ThreadContext *context, InstDesc *inst);
+  template<class defs>
+  void sysTgKill(ThreadContext *context, InstDesc *inst);
+  template<class defs>
+  void sysSchedSetAffinity(ThreadContext *context, InstDesc *inst);
+  template<class defs>
+  void sysSchedGetAffinity(ThreadContext *context, InstDesc *inst);
   template<class defs>
   void sysAlarm(ThreadContext *context, InstDesc *inst);
   template<class defs>
