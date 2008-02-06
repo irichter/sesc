@@ -134,13 +134,33 @@ class LinuxSys{
   template<class defs>
   void sysKill(ThreadContext *context, InstDesc *inst);
   template<class defs>
+  void sysTKill(ThreadContext *context, InstDesc *inst);
+  template<class defs>
   void sysTgKill(ThreadContext *context, InstDesc *inst);
+  template<class defs>
+  void sysGetPriority(ThreadContext *context, InstDesc *inst);
+  template<class defs>
+  void sysSchedGetParam(ThreadContext *context, InstDesc *inst);  
+  template<class defs>
+  void sysSchedSetScheduler(ThreadContext *context, InstDesc *inst);  
+  template<class defs>
+  void sysSchedGetScheduler(ThreadContext *context, InstDesc *inst);  
+  template<class defs>
+  void sysSchedYield(ThreadContext *context, InstDesc *inst);  
+  template<class defs>
+  void sysSchedGetPriorityMax(ThreadContext *context, InstDesc *inst);  
+  template<class defs>
+  void sysSchedGetPriorityMin(ThreadContext *context, InstDesc *inst);  
   template<class defs>
   void sysSchedSetAffinity(ThreadContext *context, InstDesc *inst);
   template<class defs>
   void sysSchedGetAffinity(ThreadContext *context, InstDesc *inst);
   template<class defs>
   void sysAlarm(ThreadContext *context, InstDesc *inst);
+  template<class defs>
+  void sysSetITimer(ThreadContext *context, InstDesc *inst);
+  template<class defs>
+  void sysClockGetRes(ThreadContext *context, InstDesc *inst);
   template<class defs>
   void sysNanoSleep(ThreadContext *context, InstDesc *inst);
   template<class defs>
@@ -175,7 +195,7 @@ class LinuxSys{
   void sysGetPPid(ThreadContext *context, InstDesc *inst);
   template<class defs>
   void sysBrk(ThreadContext *context, InstDesc *inst);
-  template<class defs>
+  template<class defs, off_t offsmul>
   void sysMMap(ThreadContext *context, InstDesc *inst);
   template<class defs>
   void sysMReMap(ThreadContext *context, InstDesc *inst);
@@ -220,6 +240,8 @@ class LinuxSys{
   template<class defs, class Tstat>
   void sysFStat(ThreadContext *context, InstDesc *inst);
   template<class defs>
+  void sysFStatFS(ThreadContext *context, InstDesc *inst);
+  template<class defs>
   void sysUnlink(ThreadContext *context, InstDesc *inst);
   template<class defs>
   void sysRename(ThreadContext *context, InstDesc *inst);
@@ -228,7 +250,7 @@ class LinuxSys{
   template<class defs>
   void sysAccess(ThreadContext *context, InstDesc *inst);
   template<class defs>
-  void sysGetcwd(ThreadContext *context, InstDesc *inst);
+  void sysGetCWD(ThreadContext *context, InstDesc *inst);
   template<class defs>
   void sysMkdir(ThreadContext *context, InstDesc *inst);
   template<class defs>
@@ -243,6 +265,10 @@ class LinuxSys{
   void sysSysCtl(ThreadContext *context, InstDesc *inst);
   template<class defs>
   void sysSocket(ThreadContext *context, InstDesc *inst);
+  template<class defs>
+  void sysConnect(ThreadContext *context, InstDesc *inst);
+  template<class defs>
+  void sysSend(ThreadContext *context, InstDesc *inst);
 };
 
 class Mips32LinuxSys : public LinuxSys{

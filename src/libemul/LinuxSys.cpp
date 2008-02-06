@@ -648,6 +648,27 @@ void LinuxSys::sysKill(ThreadContext *context, InstDesc *inst){
 }
 
 template<class defs>
+void LinuxSys::sysTKill(ThreadContext *context, InstDesc *inst){
+  typedef typename defs::Tpid_t Tpid_t;
+  typedef typename defs::Tuint Tuint;
+  typedef typename defs::SigNum SigNum;
+  FuncArgs args(context);
+  Tpid_t tid(args.get<Tpid_t>());
+  SigNum sig(args.get<Tuint>());
+  if(tid<=0)
+    fail("sysTgKill with tid=%d\n",tid);
+  ThreadContext *kcontext=osSim->getContext(tid-BaseSimTid);
+  if(!kcontext)
+    return setSysErr(context,ErrSrch);
+  SigInfo *sigInfo=new SigInfo(sig,SigCodeUser);
+  sigInfo->pid=context->gettid();
+  kcontext->signal(sigInfo);
+#if (defined DEBUG_SIGNALS)
+  printf("sysCall32_tkill: signal %d sent from process %d to thread %d\n",sig.val,context->gettid(),tid);
+#endif
+  setSysRet(context,0);
+}
+template<class defs>
 void LinuxSys::sysTgKill(ThreadContext *context, InstDesc *inst){
   typedef typename defs::Tpid_t Tpid_t;
   typedef typename defs::Tuint Tuint;
@@ -657,7 +678,7 @@ void LinuxSys::sysTgKill(ThreadContext *context, InstDesc *inst){
   Tpid_t pid(args.get<Tpid_t>());
   SigNum sig(args.get<Tuint>());
   if(pid<=0)
-    fail("sysKill with pid=%d\n",pid);
+    fail("sysTgKill with pid=%d\n",pid);
   ThreadContext *kcontext=osSim->getContext(pid-BaseSimTid);
   if(!kcontext)
     return setSysErr(context,ErrSrch);
@@ -670,6 +691,78 @@ void LinuxSys::sysTgKill(ThreadContext *context, InstDesc *inst){
   printf("sysCall32_tgkill: signal %d sent from process %d to thread %d in %d\n",sig.val,context->gettid(),pid,tgid);
 #endif
   setSysRet(context,0);
+}
+
+template<class defs>
+void LinuxSys::sysGetPriority(ThreadContext *context, InstDesc *inst){
+  typedef typename defs::Tint Tint;
+  FuncArgs args(context);
+  Tint which(args.get<Tint>());
+  Tint who(args.get<Tint>());
+  printf("sysGetPriority(%d,%d) called (continuing).\n",which,who);
+  setSysRet(context,0);
+}
+
+template<class defs>
+void LinuxSys::sysSchedGetParam(ThreadContext *context, InstDesc *inst){
+  typedef typename defs::Tpid_t Tpid_t;
+  typedef typename defs::Tintptr_t Tintptr_t;
+  FuncArgs args(context);
+  Tpid_t    pid(args.get<Tpid_t>());
+  Tintptr_t param(args.get<Tintptr_t>());;
+  printf("sysSchedGetParam(%d,%d) called (continuing with EINVAL).\n",pid,param);
+  ThreadContext *kcontext=pid?osSim->getContext(pid-BaseSimTid):context;
+  if(!kcontext)
+    return setSysErr(context,ErrSrch);
+  // TODO: Check if we can write to param
+  // TODO: Return a meaningful value. for now, we just reject the call
+  setSysErr(context,ErrInval);
+}
+
+template<class defs>
+void LinuxSys::sysSchedSetScheduler(ThreadContext *context, InstDesc *inst){
+  typedef typename defs::Tpid_t Tpid_t;
+  typedef typename defs::Tint Tint;
+  typedef typename defs::Tintptr_t Tintptr_t;
+  FuncArgs  args(context);
+  Tpid_t    pid(args.get<Tpid_t>());
+  Tint      policy(args.get<Tint>());
+  Tintptr_t param(args.get<Tintptr_t>());;
+  printf("sysSchedSetScheduler(%d,%d,%d) called (continuing).\n",pid,policy,param);
+  // TODO: Set the actual scheduling policy
+  setSysRet(context,0);
+}
+template<class defs>
+void LinuxSys::sysSchedGetScheduler(ThreadContext *context, InstDesc *inst){
+  typedef typename defs::Tpid_t Tpid_t;
+  FuncArgs args(context);
+  Tpid_t    pid(args.get<Tpid_t>());
+  printf("sysSchedGetScheduler(%d) called (continuing).\n",pid);
+   // TODO: Get the actual scheduling policy, we just return zero now
+  setSysRet(context,0); 
+}
+template<class defs>
+void LinuxSys::sysSchedYield(ThreadContext *context, InstDesc *inst){
+  osSim->eventYield(context->gettid(),-1);
+  return setSysRet(context,0);
+}
+
+template<class defs>
+void LinuxSys::sysSchedGetPriorityMax(ThreadContext *context, InstDesc *inst){
+  typedef typename defs::Tint Tint;
+  FuncArgs args(context);
+  Tint policy(args.get<Tint>());
+  printf("sysSchedGetPriorityMax(%d) called (continuing with 0).\n",policy);
+  return setSysRet(context,0);
+}
+
+template<class defs>
+void LinuxSys::sysSchedGetPriorityMin(ThreadContext *context, InstDesc *inst){
+  typedef typename defs::Tint Tint;
+  FuncArgs args(context);
+  Tint policy(args.get<Tint>());
+  printf("sysSchedGetPriorityMin(%d) called (continuing with 0).\n",policy);
+  return setSysRet(context,0); 
 }
 
 template<class defs>
@@ -735,6 +828,21 @@ static time_t wallClock=(time_t)-1;
 // We need a real user/system time estimator
 static uint64_t myUsrUsecs=0;
 static uint64_t mySysUsecs=0;
+
+template<class defs>
+void LinuxSys::sysClockGetRes(ThreadContext *context, InstDesc *inst){
+  // TODO: Read the actual parameters
+  // for now, we just reject the call
+  printf("sysClockGetRes called (continuing with EINVAL).\n");
+  setSysErr(context,ErrInval);
+}
+template<class defs>
+void LinuxSys::sysSetITimer(ThreadContext *context, InstDesc *inst){
+   // TODO: Read the actual parameters
+  // for now, we just reject the call
+  printf("sysSetITimer called (continuing with EINVAL).\n");
+  setSysErr(context,ErrInval);
+}
 
 template<class defs>
 void LinuxSys::sysNanoSleep(ThreadContext *context, InstDesc *inst){
@@ -1104,7 +1212,7 @@ void LinuxSys::sysBrk(ThreadContext *context, InstDesc *inst){
   }
   return setSysErr(context,ErrNoMem);
 }
-template<class defs>
+template<class defs, off_t offsmul>
 void LinuxSys::sysMMap(ThreadContext *context, InstDesc *inst){
   typedef typename defs::Tintptr_t Tintptr_t;
   typedef typename defs::Tsize_t Tsize_t;
@@ -1142,7 +1250,7 @@ void LinuxSys::sysMMap(ThreadContext *context, InstDesc *inst){
   Tsize_t initPos=0;
   if(!flags.hasMAP_ANONYMOUS()){
     I(flags.hasMAP_PRIVATE());
-    Tssize_t readRet=context->writeMemFromFile(rv,length,fd,false,true,offset);
+    Tssize_t readRet=context->writeMemFromFile(rv,length,fd,false,true,offset*offsmul);
     if(readRet==-1)
       fail("MMap could not read from underlying file\n");
     I(readRet>=0);
@@ -1292,6 +1400,8 @@ void LinuxSys::sysDup2(ThreadContext *context, InstDesc *inst){
 
 template<class defs>
 void LinuxSys::sysFCntl(ThreadContext *context, InstDesc *inst){
+  // We implement both fcntl and fcntl64 here. the only difference is that
+  // fcntl64 also handles F_GETLK64, F_SETLK64, and F_SETLKW64 and fcntl does not
   typedef typename defs::Tint Tint;
   typedef typename defs::FcntlCmd FcntlCmd;
   typedef typename defs::FcntlFlags FcntlFlags;
@@ -1753,6 +1863,16 @@ void LinuxSys::sysFStat(ThreadContext *context, InstDesc *inst){
   setSysRet(context,0);
 }
 template<class defs>
+void LinuxSys::sysFStatFS(ThreadContext *context, InstDesc *inst){
+  typedef typename defs::Tint Tint;
+  typedef typename defs::Tintptr_t Tintptr_t;
+  FuncArgs args(context);
+  Tint fd=args.get<Tint>();
+  Tintptr_t buf=args.get<Tintptr_t>();
+  printf("sysFStatFS(%d,%d) called (continuing with ENOSYS).\n",fd,buf);
+  setSysErr(context,ErrNoSys); 
+}
+template<class defs>
 void LinuxSys::sysUnlink(ThreadContext *context, InstDesc *inst){
   typedef typename defs::Tintptr_t Tintptr_t;
   FuncArgs args(context);
@@ -1803,7 +1923,7 @@ void LinuxSys::sysAccess(ThreadContext *context, InstDesc *inst){
   setSysRet(context,0);
 }
 template<class defs>
-void LinuxSys::sysGetcwd(ThreadContext *context, InstDesc *inst){
+void LinuxSys::sysGetCWD(ThreadContext *context, InstDesc *inst){
   typedef typename defs::Tintptr_t Tintptr_t;
   typedef typename defs::Tsize_t Tsize_t;
   FuncArgs args(context);
@@ -1980,6 +2100,17 @@ void LinuxSys::sysSocket(ThreadContext *context, InstDesc *inst){
 #endif
   setSysErr(context,ErrAfNoSupport);
 }
+template<class defs>
+void LinuxSys::sysConnect(ThreadContext *context, InstDesc *inst){
+  printf("sysConnect called (continuing with EAFNOSUPPORT)\n");
+  setSysErr(context,ErrAfNoSupport);
+}
+template<class defs>
+void LinuxSys::sysSend(ThreadContext *context, InstDesc *inst){
+  printf("sysSend called (continuing with EAFNOSUPPORT)\n");
+  setSysErr(context,ErrAfNoSupport);
+}
+
 
 uint32_t Mips32LinuxSys::getArgI32(ThreadContext *context, size_t &pos) const{
   I((pos%sizeof(uint32_t))==0);
@@ -2111,7 +2242,7 @@ InstDesc *Mips32LinuxSys::sysCall(ThreadContext *context, InstDesc *inst){
 //  case 4052: Mips::sysCall32_umount2(inst,context); break;
 //  case 4053: Mips::sysCall32_lock(inst,context); break;
   case 4054: sysIOCtl<Mips32Defs>(context,inst); break;
-//  case 4055: Mips::sysCall32_fcntl(inst,context); break;
+  case 4055: /* Untested */ sysFCntl<Mips32Defs>(context,inst); break;
 //  case 4056: Mips::sysCall32_mpx(inst,context); break;
 //  case 4057: Mips::sysCall32_setpgid(inst,context); break;
 //  case 4058: Mips::sysCall32_ulimit(inst,context); break;
@@ -2146,21 +2277,21 @@ InstDesc *Mips32LinuxSys::sysCall(ThreadContext *context, InstDesc *inst){
 //  case 4087: Mips::sysCall32_swapon(inst,context); break;
 //  case 4088: Mips::sysCall32_reboot(inst,context); break;
 //  case 4089: Mips::sysCall32_readdir(inst,context); break;
-  case 4090: sysMMap<Mips32Defs>(context,inst); break;
+  case 4090: sysMMap<Mips32Defs,1>(context,inst); break;
   case 4091: sysMUnMap<Mips32Defs>(context,inst); break;
   case 4092: /*Untested*/ sysTruncate<Mips32Defs,Mips32Defs::Toff_t>(context,inst); break;
   case 4093: /*Untested*/ sysFTruncate<Mips32Defs,Mips32Defs::Toff_t>(context,inst); break;
 //  case 4094: Mips::sysCall32_fchmod(inst,context); break;
 //  case 4095: Mips::sysCall32_fchown(inst,context); break;
-//  case 4096: Mips::sysCall32_getpriority(inst,context); break;
+  case 4096: sysGetPriority<Mips32Defs>(context,inst); break;
 //  case 4097: Mips::sysCall32_setpriority(inst,context); break;
 //  case 4098: Mips::sysCall32_profil(inst,context); break;
 //  case 4099: Mips::sysCall32_statfs(inst,context); break;
-//  case 4100: Mips::sysCall32_fstatfs(inst,context); break;
+  case 4100: sysFStatFS<Mips32Defs>(context,inst); break;
 //  case 4101: Mips::sysCall32_ioperm(inst,context); break;
 //  case 4102: Mips::sysCall32_socketcall(inst,context); break;
 //  case 4103: Mips::sysCall32_syslog(inst,context); break;
-//  case 4104: Mips::sysCall32_setitimer(inst,context); break;
+  case 4104: sysSetITimer<Mips32Defs>(context,inst); break;
 //  case 4105: Mips::sysCall32_getitimer(inst,context); break;
   case 4106: sysStat<Mips32Defs,false,Mips32Defs::Tstat>(context,inst); break;
   case 4107: /*Untested*/ system->sysStat<Mips32Defs,true,Mips32Defs::Tstat>(context,inst); break;
@@ -2216,18 +2347,18 @@ InstDesc *Mips32LinuxSys::sysCall(ThreadContext *context, InstDesc *inst){
 //  case 4156: Mips::sysCall32_mlockall(inst,context); break;
 //  case 4157: Mips::sysCall32_munlockall(inst,context); break;
 //  case 4158: Mips::sysCall32_sched_setparam(inst,context); break;
-//  case 4159: Mips::sysCall32_sched_getparam(inst,context); break;
-//  case 4160: Mips::sysCall32_sched_setscheduler(inst,context); break;
-//  case 4161: Mips::sysCall32_sched_getscheduler(inst,context); break;
-//  case 4162: Mips::sysCall32_sched_yield(inst,context); break;
-//  case 4163: Mips::sysCall32_sched_get_priority_max(inst,context); break;
-//  case 4164: Mips::sysCall32_sched_get_priority_min(inst,context); break;
+  case 4159: sysSchedGetParam<Mips32Defs>(context,inst); break;
+  case 4160: sysSchedSetScheduler<Mips32Defs>(context,inst); break;
+  case 4161: sysSchedGetScheduler<Mips32Defs>(context,inst); break;
+  case 4162: sysSchedYield<Mips32Defs>(context,inst); break;
+  case 4163: sysSchedGetPriorityMax<Mips32Defs>(context,inst); break;
+  case 4164: sysSchedGetPriorityMin<Mips32Defs>(context,inst); break;
 //  case 4165: Mips::sysCall32_sched_rr_get_interval(inst,context); break;
   case 4166: sysNanoSleep<Mips32Defs>(context,inst); break;
   case 4167: sysMReMap<Mips32Defs>(context,inst); break;
 //  case 4168: Mips::sysCall32_accept(inst,context); break;
 //  case 4169: Mips::sysCall32_bind(inst,context); break;
-//  case 4170: Mips::sysCall32_connect(inst,context); break;
+  case 4170: sysConnect<Mips32Defs>(context,inst); break;
 //  case 4171: Mips::sysCall32_getpeername(inst,context); break;
 //  case 4172: Mips::sysCall32_getsockname(inst,context); break;
 //  case 4173: Mips::sysCall32_getsockopt(inst,context); break;
@@ -2235,7 +2366,7 @@ InstDesc *Mips32LinuxSys::sysCall(ThreadContext *context, InstDesc *inst){
 //  case 4175: Mips::sysCall32_recv(inst,context); break;
 //  case 4176: Mips::sysCall32_recvfrom(inst,context); break;
 //  case 4177: Mips::sysCall32_recvmsg(inst,context); break;
-//  case 4178: Mips::sysCall32_send(inst,context); break;
+  case 4178: sysSend<Mips32Defs>(context,inst); break;
 //  case 4179: Mips::sysCall32_sendmsg(inst,context); break;
 //  case 4180: Mips::sysCall32_sendto(inst,context); break;
 //  case 4181: Mips::sysCall32_setsockopt(inst,context); break;
@@ -2260,14 +2391,14 @@ InstDesc *Mips32LinuxSys::sysCall(ThreadContext *context, InstDesc *inst){
 //  case 4200: Mips::sysCall32_pread64(inst,context); break;
 //  case 4201: Mips::sysCall32_pwrite64(inst,context); break;
 //  case 4202: Mips::sysCall32_chown(inst,context); break;
-  case 4203: /*Untested*/ sysGetcwd<Mips32Defs>(context,inst); break;
+  case 4203: /*Untested*/ sysGetCWD<Mips32Defs>(context,inst); break;
 //  case 4204: Mips::sysCall32_capget(inst,context); break;
 //  case 4205: Mips::sysCall32_capset(inst,context); break;
 //  case 4206: Mips::sysCall32_sigaltstack(inst,context); break;
 //  case 4207: Mips::sysCall32_sendfile(inst,context); break;
 //  case 4208: Mips::sysCall32_getpmsg(inst,context); break;
 //  case 4209: Mips::sysCall32_putpmsg(inst,context); break;
-//  case 4210: Mips::sysCall32_mmap2(inst,context); break;
+  case 4210: sysMMap<Mips32Defs,4096>(context,inst); break; // This is mmap2 (offset multiplied by 4096)
   case 4211: /*Untested*/ sysTruncate<Mips32Defs,Mips32Defs::Tloff_t>(context,inst); break;
   case 4212: sysFTruncate<Mips32Defs,Mips32Defs::Tloff_t>(context,inst); break;
   case 4213: sysStat<Mips32Defs,false,Mips32Defs::Tstat64>(context,inst); break;
@@ -2293,7 +2424,7 @@ InstDesc *Mips32LinuxSys::sysCall(ThreadContext *context, InstDesc *inst){
 //#define __NR_removexattr                (__NR_Linux + 233)
 //#define __NR_lremovexattr               (__NR_Linux + 234)
 //#define __NR_fremovexattr               (__NR_Linux + 235)
-//#define __NR_tkill                      (__NR_Linux + 236)
+  case 4236: sysTKill<Mips32Defs>(context,inst); break;
 //#define __NR_sendfile64                 (__NR_Linux + 237)
   case 4238: sysFutex<Mips32Defs>(context,inst); break;
   case 4239: sysSchedSetAffinity<Mips32Defs>(context,inst); break;
@@ -2321,7 +2452,7 @@ InstDesc *Mips32LinuxSys::sysCall(ThreadContext *context, InstDesc *inst){
 //#define __NR_timer_delete               (__NR_Linux + 261)
 //#define __NR_clock_settime              (__NR_Linux + 262)
 //#define __NR_clock_gettime              (__NR_Linux + 263)
-//#define __NR_clock_getres               (__NR_Linux + 264)
+  case 4264: sysClockGetRes<Mips32Defs>(context,inst); break;
 //#define __NR_clock_nanosleep            (__NR_Linux + 265)
   case 4266: sysTgKill<Mips32Defs>(context,inst); break;
 //#define __NR_utimes                     (__NR_Linux + 267)
