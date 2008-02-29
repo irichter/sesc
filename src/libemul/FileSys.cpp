@@ -114,6 +114,7 @@ namespace FileSys {
     out << "Mode " << mode << " Pos " << ::lseek(fd,0,SEEK_CUR) << " NameLen " << strlen(name) << " Name " << name << endl;
   }
   void FileStatus::mmap(MemSys::FrameDesc *frame, void *data, size_t size, off_t offs){
+    I(0);
     off_t curoff=::lseek(fd,0,SEEK_CUR);
     I(curoff!=(off_t)-1);
     off_t endoff=::lseek(fd,0,SEEK_END);

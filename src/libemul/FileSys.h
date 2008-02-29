@@ -65,6 +65,7 @@ namespace FileSys {
 
   class FileStatus : public BaseStatus{
   public:
+    typedef SmartPtr<FileStatus> pointer;
     // Name of the file that was **intended** to be opened
     const char *name;
     // Mode with which the file was **intended** to be opened

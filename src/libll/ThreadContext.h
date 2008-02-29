@@ -630,7 +630,17 @@ public:
   }
   template<class T>
   inline bool writeMemRaw(VAddr addr, const T &val){
-    if(sizeof(T)>sizeof(MemAlignType)){
+    //   if((addr>=0x4d565c)&&(addr<0x4d565c+12)){
+    //     I(0);
+    //     I(iAddr!=0x004bb428);
+    //     I(iAddr!=0x004c8604);
+    //     const char *fname="Unknown";
+    //     if(iAddr)
+    //       fname=getAddressSpace()->getFuncName(getAddressSpace()->getFuncAddr(iAddr));
+    //     printf("Write 0x%08x to 0x%08x at 0x%08x in %s\n",
+    //       val,addr,iAddr,fname);
+    //   }
+   if(sizeof(T)>sizeof(MemAlignType)){
       if(!canWrite(addr,sizeof(val)))
 	return false;
       writeMemFromBuf(addr,sizeof(val),&val);
@@ -647,6 +657,9 @@ public:
     cvtEndianBig(tmp);
     return tmp;
   }
+#if (defined DEBUG_BENCH)
+  VAddr readMemWord(VAddr addr);
+#endif
   template<class T>
   inline bool writeMem(VAddr addr, const T &val){
     T tmp=val;

@@ -34,13 +34,7 @@ typedef uint64_t MemAlignType;
 
 namespace MemSys{
 
-  typedef enum{
-    MemPrivate = 0,
-    MemShared  = 1,
-    MemDirty   = 2
-  } MemFlags;
-  
-  // Information about pages of physical memory
+ // Information about pages of physical memory
   class FrameDesc : public GCObject{
   public:
     typedef SmartPtr<FrameDesc> pointer;
@@ -63,7 +57,8 @@ namespace MemSys{
       return retVal;
     }
     PAddr    basePAddr;
-    MemFlags memFlags;
+    bool     shared;
+    bool     dirty;
     FileSys::FileStatus::pointer filePtr;
     off_t               fileOff;
     MemAlignType data[AddrSpacPageSize/sizeof(MemAlignType)];
@@ -72,7 +67,7 @@ namespace MemSys{
 #endif
   public:
     FrameDesc();
-    FrameDesc(FileSys::FileStatus *fst, off_t ofs);
+    FrameDesc(FileSys::FileStatus *fs, off_t ofs);
     FrameDesc(FrameDesc &src);
     ~FrameDesc();
     int8_t *getData(VAddr addr){
@@ -130,8 +125,10 @@ class AddressSpace : public GCObject{
     bool growDown;
     // Does this segment correspond to a shared mapping
     bool shared;
-    // Is this segment a file mapping (mmap)
-    bool fileMap;
+    // Points to the FileStatus from which this segment is mapped
+    FileSys::FileStatus::pointer fileStatus;
+    // If mapped from a file, this is the offset in the file from which the mapping came
+    off_t fileOffset;
     SegmentDesc &operator=(const SegmentDesc &src){
       addr=src.addr;
       len=src.len;
@@ -141,7 +138,8 @@ class AddressSpace : public GCObject{
       autoGrow=src.autoGrow;
       growDown=src.growDown;
       shared=src.shared;
-      fileMap=src.fileMap;
+      fileStatus=src.fileStatus;
+      fileOffset=src.fileOffset;
       return *this;
     }
     // Page number (not address) of the first page that overlaps with this segment
@@ -168,7 +166,8 @@ class AddressSpace : public GCObject{
   };
   typedef std::map<VAddr, TraceDesc, std::greater<VAddr> > TraceMap;
   TraceMap traceMap;
-  typedef std::map<VAddr, InstDesc *, std::greater<VAddr> > InstMap;
+  // The InstMap is sorted by virtual address from lowest to highest
+  typedef std::map<VAddr, InstDesc *> InstMap;
   InstMap  instMap;
   // Information about pages of virtual memory (in each AddressSpace)
   class PageDesc
@@ -268,6 +267,12 @@ class AddressSpace : public GCObject{
   static inline size_t getPageSize(void){
     return AddrSpacPageSize;
   }
+  static inline VAddr pageAlignDown(VAddr addr){
+    return alignDown(addr,AddrSpacPageSize);    
+  }
+  static inline VAddr pageAlignUp(VAddr addr){
+    return alignUp(addr,AddrSpacPageSize);    
+  }
   // Returns true iff the specified block does not ovelap with any allocated segment
   // and can be used to allocate a new segment or extend an existing one
   bool isNoSegment(VAddr addr, size_t len) const{
@@ -299,6 +304,8 @@ class AddressSpace : public GCObject{
       if(segIt==segmentMap.end())
 	return false;
       VAddr endAddr=segIt->second.addr+segIt->second.len;
+      if(endAddr<=addr)
+        return false;
       if(endAddr>=addr+len)
 	return true;
       len-=(endAddr-addr);
@@ -306,13 +313,13 @@ class AddressSpace : public GCObject{
     }
   }
   void setBrkBase(VAddr addr){
-    while(addr%sizeof(MemAlignType))
-      addr++;
-    I(isNoSegment(addr,sizeof(MemAlignType)));
+    //    while(addr%sizeof(MemAlignType))
+    //      addr++;
+    //    I(isNoSegment(addr,sizeof(MemAlignType)));
     brkBase=addr;
-    newSegment(brkBase,sizeof(MemAlignType),true,true,false);
-    MemAlignType val=0;
-    writeMemRaw(brkBase,val);
+    //    newSegment(brkBase,sizeof(MemAlignType),true,true,false);
+    //    MemAlignType val=0;
+    //    writeMemRaw(brkBase,val);
   }
   VAddr getBrkBase(void) const{
     I(brkBase);
@@ -330,7 +337,7 @@ class AddressSpace : public GCObject{
   // Splits a segment into two, one that ends at the pivot and one that begins there
   // The pivot must be within an existing segment
   void splitSegment(VAddr pivot);
-  void newSegment(VAddr addr, size_t len, bool canRead, bool canWrite, bool canExec, bool shared=false, bool fileMap=false);
+  void newSegment(VAddr addr, size_t len, bool canRead, bool canWrite, bool canExec, bool shared=false, FileSys::FileStatus *fs=0, off_t offs=0);
   void protectSegment(VAddr addr, size_t len, bool canRead, bool canWrite, bool canExec);
   VAddr newSegmentAddr(size_t len);
   void deleteSegment(VAddr addr, size_t len);
@@ -405,24 +412,8 @@ class AddressSpace : public GCObject{
       return 0;
     return frame->getPAddr(addr);
   }
-  void createTrace(ThreadContext *context, VAddr addr){
-    I((!isMappedInst(addr))||!instMap[addr]);
-    instMap[addr]=0;
-    //    TraceMap::iterator cur=traceMap.upper_bound(addr);
-    //    if((cur!=traceMap.end())&&(cur->second.eaddr>addr))
-    //      addr=cur->second.baddr;
-    VAddr segBegAddr=getSegmentAddr(addr);
-    VAddr segEndAddr=segBegAddr+getSegmentSize(segBegAddr);
-    VAddr funcBegAddr=getFuncAddr(addr);
-    VAddr funcEndAddr=funcBegAddr+getFuncSize(funcBegAddr);
-    if((addr<segBegAddr)||(addr>=segEndAddr))
-      fail("createTrace: addr not within its segment\n");
-    if((addr<funcBegAddr)||(addr>=funcEndAddr))
-      fail("createTrace: addr not within its function\n");
-    if((segBegAddr>funcBegAddr)||(segEndAddr<funcEndAddr))
-      fail("createTrace: func not within its segment\n");
-    decodeTrace(context,getFuncAddr(addr),getFuncSize(addr));
-  }
+  void createTrace(ThreadContext *context, VAddr addr);
+  void delMapInsts(VAddr begAddr, VAddr endAddr);
   bool reqMapInst(VAddr addr){
     if(instMap.find(addr)!=instMap.end())
       return false;

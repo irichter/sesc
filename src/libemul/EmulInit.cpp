@@ -79,7 +79,17 @@ void emulInit(int32_t argc, char **argv, char **envp){
     appEnvc++;
   
   ThreadContext *mainThread=new ThreadContext();
-  loadElfObject(appArgv[0],mainThread);
+  size_t realNameLen=FileSys::FileNames::getFileNames()->getReal(appArgv[0],0,0);
+  char realName[realNameLen];
+  FileSys::FileNames::getFileNames()->getReal(appArgv[0],realNameLen,realName);
+  FileSys::FileStatus::pointer fs(FileSys::FileStatus::open(realName,O_RDONLY,0));
+  if(!fs)
+    fail("Could not open executable %s\n",appArgv[0]);
+  ExecMode emode=getExecMode(fs);
+  if(emode!=ExecModeMips32)
+    fail("Executable %s is not Mips32\n",appArgv[0]);
+  // TODO: Use ELF_ET_DYN_BASE instead of a constant here
+  loadElfObject(mainThread,fs,0x200000,emode);
   mainThread->getSystem()->initSystem(mainThread);
   mainThread->getSystem()->createStack(mainThread);
   mainThread->getSystem()->setProgArgs(mainThread,appArgc,appArgv,appEnvc,appEnvp);

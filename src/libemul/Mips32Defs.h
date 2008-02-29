@@ -32,6 +32,9 @@ public:
   typedef Tint           /*timer_t*/Ttimer_t;
   typedef Tint         /*clockid_t*/Tclockid_t;
   typedef Tllong          /*loff_t*/Tloff_t;
+  static const Tintptr_t TTASK_SIZE        = /*TASK_SIZE*/0x7fff8000UL;
+  static const Tintptr_t TELF_ET_DYN_BASE = /*ELF_ET_DYN_BASE*/(TTASK_SIZE / 3 * 2);
+  static const Tintptr_t TTASK_UNMAPPED_BASE = /*TASK_UNMAPPED_BASE*/(TTASK_SIZE/3);
   class SigNum{
     public:
     Tuint val;
@@ -91,21 +94,23 @@ public:
     Tuint val;
     ErrCode(LinuxSys::ErrCode err){
       switch(err){
+      case LinuxSys::ErrPerm:        val=/*EPERM*/0x1; break;
+      case LinuxSys::ErrNoEnt:       val=/*ENOENT*/0x2; break;
+      case LinuxSys::ErrSrch:        val=/*ESRCH*/0x3; break;
+      case LinuxSys::ErrIntr:        val=/*EINTR*/0x4; break;
+      case LinuxSys::ErrNXIO:        val=/*ENXIO*/0x6; break;
       case LinuxSys::ErrAgain:       val=/*EAGAIN*/0xb; break;
       case LinuxSys::ErrNoSys:       val=/*ENOSYS*/89; break;
       case LinuxSys::ErrFault:       val=/*EFAULT*/0xe; break;
       case LinuxSys::ErrChild:       val=/*ECHILD*/0xa; break;
       case LinuxSys::ErrNoMem:       val=/*ENOMEM*/0xc; break;
       case LinuxSys::ErrInval:       val=/*EINVAL*/0x16; break;
-      case LinuxSys::ErrNoEnt:       val=/*ENOENT*/0x2; break;
-      case LinuxSys::ErrSrch:        val=/*ESRCH*/0x3; break;
-      case LinuxSys::ErrIntr:        val=/*EINTR*/0x4; break;
       case LinuxSys::ErrBadf:        val=/*EINTR*/0x9; break;
-      case LinuxSys::ErrSpipe:       val=/*ESPIPE*/0x1d; break;
+      case LinuxSys::ErrSPipe:       val=/*ESPIPE*/0x1d; break;
       case LinuxSys::ErrNoTTY:       val=/*ENOTTY*/0x19; break;
       case LinuxSys::ErrAfNoSupport: val=/*EAFNOSUPPORT*/0x7c; break;
       case LinuxSys::ErrNotDir:      val=/*ENOTDIR*/0x14; break;
-      case LinuxSys::ErrPerm:        val=/*EPERM*/0x1; break;
+      case LinuxSys::ErrAccess:      val=/*EACCESS*/13; break;
       default: fail("Mips32Def::ErrCode::ErrCode(LinuxSys::ErrCode err) with unknown ErrCode %d\n",err);
       }
     }

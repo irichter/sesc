@@ -10,6 +10,9 @@
 
 #include <map>
 
+//#define DEBUG_FILES
+//#define DEBUG_VMEM
+//#define DEBUG_SOCKET
 enum{
   BaseSimTid = 1000
 };
@@ -43,15 +46,18 @@ static VAddr  sysCodeAddr=AddrSpacPageSize;
 static size_t sysCodeSize=6*sizeof(uint32_t);
 
 LinuxSys::ErrCode LinuxSys::getErrCode(int err){
-  if(err==EAGAIN) return ErrAgain;
-  if(err==ENOSYS) return ErrNoSys;
-  if(err==EFAULT) return ErrFault;
-  if(err==ECHILD) return ErrChild;
-  if(err==ENOMEM) return ErrNoMem;
-  if(err==EINVAL) return ErrInval;
-  if(err==ENOENT) return ErrNoEnt;
-  if(err==ESPIPE) return ErrSpipe;
-  if(err==ENOTTY) return ErrNoTTY;
+  if(err==ENOENT)  return ErrNoEnt;
+  if(err==ENXIO)   return ErrNXIO;
+  if(err==ENOEXEC) return ErrNoExec;
+  if(err==ECHILD)  return ErrChild;
+  if(err==EAGAIN)  return ErrAgain;
+  if(err==ENOMEM)  return ErrNoMem;
+  if(err==EACCES)  return ErrAccess;
+  if(err==EFAULT)  return ErrFault;
+  if(err==EINVAL)  return ErrInval;
+  if(err==ENOTTY)  return ErrNoTTY;
+  if(err==ESPIPE)  return ErrSPipe;
+  if(err==ENOSYS)  return ErrNoSys;
   fail("LinuxSys::getErrCode with unsupported native error code %d\n",err);
 }
 
@@ -220,6 +226,8 @@ SignalAction Mips32LinuxSys::handleSignal(ThreadContext *context, SigInfo *sigIn
 
 void Mips32LinuxSys::initSystem(ThreadContext *context) const{
   AddressSpace *addrSpace=context->getAddressSpace();
+  sysCodeSize=6*sizeof(uint32_t);
+  sysCodeAddr=addrSpace->newSegmentAddr(sysCodeSize);
   addrSpace->newSegment(sysCodeAddr,sysCodeSize,false,true,false,false,false);
   addrSpace->addFuncName("sysCode",sysCodeAddr);
   addrSpace->addFuncName("End of sysCode",sysCodeAddr+sysCodeSize);
@@ -290,8 +298,10 @@ void LinuxSys::setProgArgs_(ThreadContext *context, int argc, char **argv, int e
   // Push aux vector elements
   pushStruct(context,Tauxv_t(AT_NULL,0));
   pushStruct(context,Tauxv_t(AT_PHNUM,context->getAddressSpace()->getFuncAddr("PrgHdrNum")));
+  pushStruct(context,Tauxv_t(AT_PHENT,context->getAddressSpace()->getFuncAddr("PrgHdrEnt")));
   pushStruct(context,Tauxv_t(AT_PHDR,context->getAddressSpace()->getFuncAddr("PrgHdrAddr")));
   pushStruct(context,Tauxv_t(AT_PAGESZ,AddrSpacPageSize));
+  pushStruct(context,Tauxv_t(AT_ENTRY,context->getAddressSpace()->getFuncAddr("UserEntry")));
   // Put the envp array (with NULL at the end) on the stack
   for(int envi=envc;envi>=0;envi--)
     pushScalar(context,envVAddrs[envi]);
@@ -656,7 +666,7 @@ void LinuxSys::sysTKill(ThreadContext *context, InstDesc *inst){
   Tpid_t tid(args.get<Tpid_t>());
   SigNum sig(args.get<Tuint>());
   if(tid<=0)
-    fail("sysTgKill with tid=%d\n",tid);
+    fail("sysTKill with tid=%d\n",tid);
   ThreadContext *kcontext=osSim->getContext(tid-BaseSimTid);
   if(!kcontext)
     return setSysErr(context,ErrSrch);
@@ -837,6 +847,13 @@ void LinuxSys::sysClockGetRes(ThreadContext *context, InstDesc *inst){
   setSysErr(context,ErrInval);
 }
 template<class defs>
+void LinuxSys::sysClockGetTime(ThreadContext *context, InstDesc *inst){
+  // TODO: Read the actual parameters
+  // for now, we just reject the call
+  printf("sysClockGettime called (continuing with EINVAL).\n");
+  setSysErr(context,ErrInval);
+}
+template<class defs>
 void LinuxSys::sysSetITimer(ThreadContext *context, InstDesc *inst){
    // TODO: Read the actual parameters
   // for now, we just reject the call
@@ -849,6 +866,32 @@ void LinuxSys::sysNanoSleep(ThreadContext *context, InstDesc *inst){
   typedef typename defs::Tintptr_t Tintptr_t;
   typedef typename defs::Ttimespec Ttimespec;
   FuncArgs args(context);
+  Tintptr_t req=args.get<Tintptr_t>();
+  Tintptr_t rem=args.get<Tintptr_t>();
+  if(!context->canRead(req,sizeof(Ttimespec)))
+    return setSysErr(context,ErrFault);
+  if(rem&&(!context->canWrite(rem,sizeof(Ttimespec))))
+    return setSysErr(context,ErrFault);
+  Ttimespec ts(context,req);
+  // TODO: We need to actually suspend this thread for the specified time
+  wallClock+=ts.tv_sec;
+  if(rem){
+    ts.tv_sec=0;
+    ts.tv_nsec=0;
+    ts.write(context,rem);
+  }
+  setSysRet(context,0);
+}
+template<class defs>
+void LinuxSys::sysClockNanoSleep(ThreadContext *context, InstDesc *inst){
+  typedef typename defs::Tintptr_t Tintptr_t;
+  typedef typename defs::Ttimespec Ttimespec;
+  typedef typename defs::Tuint Tuint;
+  typedef typename defs::Tint Tint;
+  FuncArgs args(context);
+  // TODO: the type for this should be clockid_t
+  Tuint clock_id=args.get<Tuint>();
+  Tint  flags=args.get<Tint>();
   Tintptr_t req=args.get<Tintptr_t>();
   Tintptr_t rem=args.get<Tintptr_t>();
   if(!context->canRead(req,sizeof(Ttimespec)))
@@ -1063,9 +1106,14 @@ InstDesc *LinuxSys::sysExecVe(ThreadContext *context, InstDesc *inst){
   size_t realNameLen=FileSys::FileNames::getFileNames()->getReal(fname,0,0);
   char realName[realNameLen];
   FileSys::FileNames::getFileNames()->getReal(fname,realNameLen,realName);
-  int elfErr=checkElfObject(realName);
-  if(elfErr){
-    setSysErr(context,getErrCode(elfErr));
+  FileSys::FileStatus::pointer fs(FileSys::FileStatus::open(realName,O_RDONLY,0));
+  if(!fs){
+    setSysErr(context,getErrCode(errno));
+    return inst;
+  }
+  ExecMode emode=getExecMode(fs);
+  if(emode!=ExecModeMips32){
+    setSysErr(context,ErrNoExec);
     return inst;
   }
   // Pipeline flush to avoid mixing old and new InstDesc's in the pipeline
@@ -1132,7 +1180,9 @@ InstDesc *LinuxSys::sysExecVe(ThreadContext *context, InstDesc *inst){
   context->getOpenFiles()->exec();
   // Clear up the address space and load the new object file
   context->getAddressSpace()->clear(true);
-  loadElfObject(realName,context);
+  //  loadElfObject(realName,context);
+  // TODO: Use ELF_ET_DYN_BASE instead of a constant here
+  loadElfObject(context,fs,0x200000,emode);
   I(context->getMode()==Mips32);
   initSystem(context);
   createStack(context);
@@ -1197,20 +1247,32 @@ void LinuxSys::sysBrk(ThreadContext *context, InstDesc *inst){
   FuncArgs args(context);
   Tintptr_t addr=args.get<Tintptr_t>();
   Tintptr_t brkBase=context->getAddressSpace()->getBrkBase();
-  Tsize_t brkSize=context->getAddressSpace()->getSegmentSize(brkBase);
+  Tintptr_t segStart=context->getAddressSpace()->getSegmentAddr(brkBase-1);
+  Tsize_t   oldSegSize=context->getAddressSpace()->getSegmentSize(segStart);
   if(!addr)
-    return setSysRet(context,brkBase+brkSize);
-  if(addr<=brkBase+brkSize){
-    if(addr<=brkBase)
-      fail("sysCall32_brk: new break 0x%08x below brkBase 0x%08x\n",addr,brkBase);
-    context->getAddressSpace()->resizeSegment(brkBase,addr-brkBase);
-    return setSysRet(context,addr);
-  }
-  if(context->getAddressSpace()->isNoSegment(brkBase+brkSize,addr-(brkBase+brkSize))){
-    context->getAddressSpace()->resizeSegment(brkBase,addr-brkBase);
+    return setSysRet(context,segStart+oldSegSize);
+  if(addr<brkBase)
+    fail("sysCall32_brk: new break 0x%08x below brkBase 0x%08x\n",addr,brkBase);
+  Tsize_t   newSegSize=addr-segStart;
+  if((newSegSize<=oldSegSize)||context->getAddressSpace()->isNoSegment(segStart+oldSegSize,newSegSize-oldSegSize)){
+    context->getAddressSpace()->resizeSegment(segStart,newSegSize);
     return setSysRet(context,addr);
   }
   return setSysErr(context,ErrNoMem);
+//   Tsize_t brkSize=context->getAddressSpace()->getSegmentSize(brkBase);
+//   if(!addr)
+//     return setSysRet(context,brkBase+brkSize);
+//   if(addr<=brkBase+brkSize){
+//     if(addr<=brkBase)
+//       fail("sysCall32_brk: new break 0x%08x below brkBase 0x%08x\n",addr,brkBase);
+//     context->getAddressSpace()->resizeSegment(brkBase,addr-brkBase);
+//     return setSysRet(context,addr);
+//   }
+//   if(context->getAddressSpace()->isNoSegment(brkBase+brkSize,addr-(brkBase+brkSize))){
+//     context->getAddressSpace()->resizeSegment(brkBase,addr-brkBase);
+//     return setSysRet(context,addr);
+//   }
+//   return setSysErr(context,ErrNoMem);
 }
 template<class defs, off_t offsmul>
 void LinuxSys::sysMMap(ThreadContext *context, InstDesc *inst){
@@ -1231,8 +1293,8 @@ void LinuxSys::sysMMap(ThreadContext *context, InstDesc *inst){
   Toff_t offset(args.get<Toff_t>());
   I(flags.hasMAP_SHARED()||flags.hasMAP_PRIVATE());
   I(!(flags.hasMAP_SHARED()&&flags.hasMAP_PRIVATE()));
-  if(!flags.hasMAP_ANONYMOUS()&&!flags.hasMAP_PRIVATE())
-    fail("sysCall32Mmap: Can't map real files without MAP_PRIVATE yet\n");
+  if(!flags.hasMAP_ANONYMOUS()&&!flags.hasMAP_PRIVATE()&&prot.hasPROT_WRITE())
+    fail("sysCall32Mmap: TODO: Mapping of real files supported only without PROT_WRITE or with MAP_PRIVATE\n");
   Tintptr_t rv=0;
   if(flags.hasMAP_FIXED()&&start&&!context->getAddressSpace()->isNoSegment(start,length))
     context->getAddressSpace()->deleteSegment(start,length);
@@ -1249,11 +1311,15 @@ void LinuxSys::sysMMap(ThreadContext *context, InstDesc *inst){
   context->getAddressSpace()->newSegment(rv,length,false,true,false,flags.hasMAP_SHARED());
   Tsize_t initPos=0;
   if(!flags.hasMAP_ANONYMOUS()){
-    I(flags.hasMAP_PRIVATE());
     Tssize_t readRet=context->writeMemFromFile(rv,length,fd,false,true,offset*offsmul);
     if(readRet==-1)
       fail("MMap could not read from underlying file\n");
     I(readRet>=0);
+    FileSys::BaseStatus *bs=context->getOpenFiles()->getDesc(fd)->getStatus();
+    FileSys::FileStatus *fs=static_cast<FileSys::FileStatus *>(bs);
+    ExecMode exmode=getExecMode(fs);
+    if(exmode)
+      mapFuncNames(context,fs,exmode,rv,readRet,offset*offsmul);
     initPos=readRet;
   }
   if(initPos!=length)
@@ -1266,6 +1332,12 @@ void LinuxSys::sysMMap(ThreadContext *context, InstDesc *inst){
 	 prot.hasPROT_WRITE(),
 	 prot.hasPROT_EXEC(),
 	 flags.hasMAP_SHARED());
+#endif
+#if (defined DEBUG_FILES) || (defined DEBUG_VMEM)
+  printf("[%d] mmap %d start 0x%08x len 0x%08x offset 0x%08x prot %c%c%c load 0x%08x to 0x%08x\n",
+	 context->gettid(),fd,(uint32_t)start,(uint32_t)length,(uint32_t)offset,
+         prot.hasPROT_READ()?'R':' ',prot.hasPROT_WRITE()?'W':' ',prot.hasPROT_EXEC()?'E':' ',
+	 (uint32_t)initPos,(uint32_t)rv);
 #endif
   return setSysRet(context,rv);
 }
@@ -1313,6 +1385,11 @@ void LinuxSys::sysMUnMap(ThreadContext *context, InstDesc *inst){
 #if (defined DEBUG_MEMORY)
   printf("sysCall32_munmap addr 0x%08x len 0x%08lx\n",             
          addr,(unsigned long)len);
+
+#endif
+#if (defined DEBUG_VMEM)
+  printf("[%d] munmap addr 0x%08x len 0x%08x\n",
+         context->gettid(),(uint32_t)addr,(uint32_t)len);
 #endif
   setSysRet(context,0);
 }
@@ -1330,6 +1407,13 @@ void LinuxSys::sysMProtect(ThreadContext *context, InstDesc *inst){
   printf("sysCall32_mprotect addr 0x%08x len 0x%08lx R%d W%d X%d\n",
          (unsigned long)addr,(unsigned long)len,
          prot.hasPROT_READ(),prot.hasPROT_WRITE(),prot.hasPROT_EXEC());
+#endif
+#if (defined DEBUG_VMEM)
+  printf("[%d] mprotect addr 0x%08x len 0x%08x prot %c%c%c\n",
+         context->gettid(),(uint32_t)addr,(uint32_t)len,
+         prot.hasPROT_READ()?'R':' ',prot.hasPROT_WRITE()?'W':' ',
+         prot.hasPROT_EXEC()?'E':' '
+        );
 #endif
   if(!context->getAddressSpace()->isMapped(addr,len))
     return setSysErr(context,ErrNoMem);
@@ -1352,11 +1436,11 @@ void LinuxSys::sysOpen(ThreadContext *context, InstDesc *inst){
   Tmode_t mode = args.get<Tuint>();
   // Do the actual call
   int newfd=context->getOpenFiles()->open(path,flags.toNat(),mode);
+#ifdef DEBUG_FILES
+  printf("(%d) open %s as %d\n",context->gettid(),(const char *)path,newfd);
+#endif
   if(newfd==-1)
     return setSysErr(context,getErrCode(errno));
-#ifdef DEBUG_FILES
-  printf("[%d] open %s as %d\n",context->gettid(),path,newfd);
-#endif
   setSysRet(context,newfd);
 }
 template<class defs>
@@ -1438,7 +1522,7 @@ void LinuxSys::sysFCntl(ThreadContext *context, InstDesc *inst){
   if(cmd.isF_SETFD()){
     FcntlFlags cloex(args.get<typeof(cloex.val)>());
 #ifdef DEBUG_FILES
-    printf("[%d] setfd %d to %d called\n",context->gettid(),fd,cloex);
+    printf("[%d] setfd %d to %d called\n",context->gettid(),fd,cloex.val);
 #endif
     if(context->getOpenFiles()->setfd(fd,cloex.toNat())==-1)
       return setSysErr(context,getErrCode(errno));
@@ -1504,7 +1588,7 @@ void LinuxSys::sysRead(ThreadContext *context, InstDesc *inst){
     return;
   }
 #ifdef DEBUG_FILES
-  printf("[%d] read %d wants %ld gets %ld bytes\n",context->gettid(),fd,count,rv);
+  printf("[%d] read %d wants %ld gets %ld bytes\n",context->gettid(),fd,(long)count,(long)rv);
 #endif
   if(rv==-1)
     return setSysErr(context,getErrCode(errno));
@@ -1552,7 +1636,7 @@ void LinuxSys::sysWrite(ThreadContext *context, InstDesc *inst){
     return;
   }
 #ifdef DEBUG_FILES
-  printf("[%d] write %d wants %ld gets %ld bytes\n",context->gettid(),fd,count,retVal);
+  printf("[%d] write %d wants %ld gets %ld bytes\n",context->gettid(),fd,(long)count,(long)rv);
 #endif
   if(rv==-1)
     return setSysErr(context,getErrCode(errno));
@@ -1635,7 +1719,10 @@ void LinuxSys::sysGetDEnts(ThreadContext *context, InstDesc *inst){
   Tsize_t count(args.get<Tsize_t>());
   if(!context->getOpenFiles()->isOpen(fd))
     return setSysErr(context,ErrBadf);
-  FileSys::FileDesc *desc=context->getOpenFiles()->getDesc(fd);
+ #ifdef DEBUG_FILES
+  printf("[%d] getdents from %d (%d entries to 0x%08x)\n",context->gettid(),fd,count,dirp);
+#endif
+ FileSys::FileDesc *desc=context->getOpenFiles()->getDesc(fd);
   int realfd=desc->getStatus()->fd;
   // How many bytes have been read so far
   Tsize_t rv=0;
@@ -1650,6 +1737,9 @@ void LinuxSys::sysGetDEnts(ThreadContext *context, InstDesc *inst){
       return setSysErr(context,getErrCode(errno));
     if(rdBytes==0)
       break;
+#ifdef DEBUG_FILES
+    printf("  d_type %d d_name %s\n",natDent.d_type,natDent.d_name);
+#endif
     Tdirent simDent(natDent);
     if(rv+simDent.d_reclen>count){
       lseek(realfd,dirPos,SEEK_SET);
@@ -1660,10 +1750,8 @@ void LinuxSys::sysGetDEnts(ThreadContext *context, InstDesc *inst){
     if(!context->canWrite(dirp+rv,simDent.d_reclen))
       return setSysErr(context,ErrFault);
     simDent.write(context,dirp+rv);
-    //    context->writeMemFromBuf(dirp+retVal,simRecLen,&simDent);
     dirPos=lseek(realfd,natDent.d_off,SEEK_SET);
     rv+=simDent.d_reclen;
-    //      printf("Entry: %s type %d\n",natDent.d_name,natDent.d_type);
   }
   setSysRet(context,rv);
 }
@@ -1798,6 +1886,9 @@ void LinuxSys::sysTruncate(ThreadContext *context, InstDesc *inst){
   if(!path)
     return;
   Toff_t length=args.get<Toff_t>();
+#ifdef DEBUG_FILES
+  printf("[%d] truncate %s to %ld\n",context->gettid(),(const char *)path,(long)length);
+#endif
   if(truncate(path,(off_t)length)==-1)
     return setSysErr(context,getErrCode(errno));
   setSysRet(context,0);
@@ -1809,11 +1900,31 @@ void LinuxSys::sysFTruncate(ThreadContext *context, InstDesc *inst){
   FuncArgs args(context);
   Tint fd=args.get<Tint>();
   Toff_t length=args.get<Toff_t>();
+#ifdef DEBUG_FILES
+  printf("[%d] ftruncate %d to %ld\n",context->gettid(),fd,(long)length);
+#endif
   if(!context->getOpenFiles()->isOpen(fd))
     return setSysErr(context,ErrBadf);
   FileSys::FileDesc *desc=context->getOpenFiles()->getDesc(fd);
   int realfd=desc->getStatus()->fd;
   if(ftruncate(realfd,(off_t)length)==-1)
+    return setSysErr(context,getErrCode(errno));
+  setSysRet(context,0);
+}
+template<class defs>
+void LinuxSys::sysChMod(ThreadContext *context, InstDesc *inst){
+  typedef typename defs::Tintptr_t Tintptr_t;
+  typedef typename defs::Tuint Tuint;
+  typedef typename defs::Tmode_t Tmode_t;
+  FuncArgs args(context);
+  Tstr path(context,args.get<Tintptr_t>());
+  if(!path)
+    return;
+  Tmode_t mode(args.get<Tuint>());
+#ifdef DEBUG_FILES
+  printf("[%d] chmod %s to %d\n",context->gettid(),(const char *)path,mode.val);
+#endif
+  if(chmod(path,mode)==-1)
     return setSysErr(context,getErrCode(errno));
   setSysRet(context,0);
 }
@@ -1825,6 +1936,9 @@ void LinuxSys::sysStat(ThreadContext *context, InstDesc *inst){
   if(!path)
     return;
   Tintptr_t buf=args.get<Tintptr_t>();
+#ifdef DEBUG_FILES
+  printf("[%d] %cstat %s\n",context->gettid(),link?'l':' ',(const char *)path);
+#endif
   if(!context->canWrite(buf,sizeof(Tstat)))
     return setSysErr(context,ErrFault);
   struct stat natStat;
@@ -1879,7 +1993,25 @@ void LinuxSys::sysUnlink(ThreadContext *context, InstDesc *inst){
   Tstr pathname(context,args.get<Tintptr_t>());
   if(!pathname)
     return;
+#ifdef DEBUG_FILES
+  printf("[%d] unlink %s\n",context->gettid(),(const char *)pathname);
+#endif
   if(unlink(pathname)==-1)
+    return setSysErr(context,getErrCode(errno));
+  setSysRet(context,0);
+}
+template<class defs>
+void LinuxSys::sysSymLink(ThreadContext *context, InstDesc *inst){
+  typedef typename defs::Tintptr_t Tintptr_t;
+  FuncArgs args(context);
+  Tstr path1(context,args.get<Tintptr_t>());
+  Tstr path2(context,args.get<Tintptr_t>());
+  if(!path2)
+    return;
+#ifdef DEBUG_FILES
+  printf("[%d] symlink %s to %s\n",context->gettid(),(const char *)path2,(const char *)path1);
+#endif
+  if(symlink(path1,path2)==-1)
     return setSysErr(context,getErrCode(errno));
   setSysRet(context,0);
 }
@@ -1893,6 +2025,9 @@ void LinuxSys::sysRename(ThreadContext *context, InstDesc *inst){
   Tstr newpath(context,args.get<Tintptr_t>());
   if(!oldpath)
     return;
+#ifdef DEBUG_FILES
+  printf("[%d] rename %s to %s\n",context->gettid(),(const char *)oldpath,(const char *)newpath);
+#endif
   if(rename(oldpath,newpath)==-1)
     return setSysErr(context,getErrCode(errno));
   setSysRet(context,0);
@@ -1904,6 +2039,9 @@ void LinuxSys::sysChdir(ThreadContext *context, InstDesc *inst){
   Tstr path(context,args.get<Tintptr_t>());
   if(!path)
     return;
+#ifdef DEBUG_FILES
+  printf("[%d] chdir %s\n",context->gettid(),(const char *)path);
+#endif
   if(chdir(path)==-1)
     return setSysErr(context,getErrCode(errno));
   setSysRet(context,0);
@@ -1916,7 +2054,11 @@ void LinuxSys::sysAccess(ThreadContext *context, InstDesc *inst){
   FuncArgs args(context);
   Tstr fname(context,args.get<Tintptr_t>());
   if(!fname)
-    return;  
+    return;
+  // TODO: Translate file name using mount info
+#ifdef DEBUG_FILES
+  printf("[%d] access %s\n",context->gettid(),(const char *)fname);
+#endif
   AMode mode(args.get<Tuint>());
   if(access(fname,mode.toNat())==-1)
     return setSysErr(context,getErrCode(errno));
@@ -1931,7 +2073,8 @@ void LinuxSys::sysGetCWD(ThreadContext *context, InstDesc *inst){
   Tsize_t size(args.get<Tsize_t>());
   char realBuf[size];
   if(!getcwd(realBuf,size))
-    return setSysErr(context,getErrCode(errno));   
+    return setSysErr(context,getErrCode(errno));
+  // TODO: Translate directory name using mount info
   int rv=strlen(realBuf)+1;
   if(!context->canWrite(buf,rv))
     return setSysErr(context,ErrFault);
@@ -1976,19 +2119,23 @@ void LinuxSys::sysUmask(ThreadContext *context, InstDesc *inst){
   setSysRet(context,0);
 }
 template<class defs>
-void LinuxSys::sysReadlink(ThreadContext *context, InstDesc *inst){
+void LinuxSys::sysReadLink(ThreadContext *context, InstDesc *inst){
   typedef typename defs::Tintptr_t Tintptr_t;
   typedef typename defs::Tsize_t Tsize_t;
+  typedef typename defs::Tssize_t Tssize_t;
   FuncArgs args(context);
   Tstr path(context,args.get<Tintptr_t>());
   if(!path)
     return;
+#ifdef DEBUG_FILES
+  printf("[%d] readlink %s\n",context->gettid(),(const char *)path);
+#endif
   Tintptr_t buf=args.get<Tintptr_t>();
   Tsize_t bufsiz=args.get<Tsize_t>();
   char bufBuf[bufsiz];
-  if(readlink(path,bufBuf,bufsiz)==-1)
+  Tssize_t bufLen=readlink(path,bufBuf,bufsiz);
+  if(bufLen==-1)
     return setSysErr(context,getErrCode(errno));
-  Tsize_t bufLen=strlen(bufBuf)+1;
   if(!context->canWrite(buf,bufLen))
     return setSysErr(context,ErrFault);
   context->writeMemFromBuf(buf,bufLen,bufBuf);
@@ -2095,19 +2242,30 @@ void LinuxSys::sysGetGroups(ThreadContext *context, InstDesc *inst){
 
 template<class defs>
 void LinuxSys::sysSocket(ThreadContext *context, InstDesc *inst){
-#if (defined DEBUG_BENCH)
+#if (defined DEBUG_BENCH) || (defined DEBUG_SOCKET)
   printf("sysCall32_socket: not implemented at 0x%08x\n",context->getIAddr());
 #endif
   setSysErr(context,ErrAfNoSupport);
 }
 template<class defs>
 void LinuxSys::sysConnect(ThreadContext *context, InstDesc *inst){
+#if (defined DEBUG_BENCH) || (defined DEBUG_SOCKET)
   printf("sysConnect called (continuing with EAFNOSUPPORT)\n");
+#endif
   setSysErr(context,ErrAfNoSupport);
 }
 template<class defs>
 void LinuxSys::sysSend(ThreadContext *context, InstDesc *inst){
+#if (defined DEBUG_BENCH) || (defined DEBUG_SOCKET)
   printf("sysSend called (continuing with EAFNOSUPPORT)\n");
+#endif
+  setSysErr(context,ErrAfNoSupport);
+}
+template<class defs>
+void LinuxSys::sysBind(ThreadContext *context, InstDesc *inst){
+#if (defined DEBUG_BENCH) || (defined DEBUG_SOCKET)
+  printf("sysBind called (continuing with EAFNOSUPPORT)\n");
+#endif
   setSysErr(context,ErrAfNoSupport);
 }
 
@@ -2174,12 +2332,13 @@ InstDesc *Mips32LinuxSys::sysCall(ThreadContext *context, InstDesc *inst){
   switch(sysCallNum){
   case 4001: case 4003: case 4004: case 4005: case 4006: case 4007: case 4010: 
   case 4011: case 4013: case 4019:
-  case 4020: case 4024: case 4038: case 4041: case 4042: case 4043: case 4045: case 4047: case 4049: 
+  case 4020: case 4024: case 4033: case 4038: case 4041: case 4042: case 4043: case 4045: case 4047: case 4049: 
   case 4050:
   case 4054: case 4060:
   case 4063: case 4064: case 4075: case 4076: case 4077: case 4080: case 4090: case 4091: case 4106: 
   case 4108: case 4114: case 4120: case 4122: 
-  case 4125: case 4140: case 4153: case 4166: case 4167: case 4183: case 4194: case 4195:
+  case 4125: case 4140: case 4146: case 4153: case 4166: case 4167: case 4169: case 4183: case 4194: case 4195:
+  case 4203: case 4210:
   case 4212: case 4213: case 4214: case 4215: case 4219: case 4220: case 4238: case 4246: case 4252:
   case 4283: case 4309:
     break;
@@ -2202,7 +2361,7 @@ InstDesc *Mips32LinuxSys::sysCall(ThreadContext *context, InstDesc *inst){
   case 4012: /*Untested*/ sysChdir<Mips32Defs>(context,inst); break;
   case 4013: sysTime<Mips32Defs>(context,inst); break;
 //  case 4014: Mips::sysCall32_mknod(inst,context); break;
-//  case 4015: Mips::sysCall32_chmod(inst,context); break;
+  case 4015: /*Untested*/sysChMod<Mips32Defs>(context,inst); break;
 //  case 4016: Mips::sysCall32_lchown(inst,context); break;
 //  case 4017: Mips::sysCall32_break(inst,context); break;
 //  case 4018: Mips::sysCall32_oldstat(inst,context); break;
@@ -2220,7 +2379,7 @@ InstDesc *Mips32LinuxSys::sysCall(ThreadContext *context, InstDesc *inst){
 //  case 4030: Mips::sysCall32_utime(inst,context); break;
 //  case 4031: Mips::sysCall32_stty(inst,context); break;
 //  case 4032: Mips::sysCall32_gtty(inst,context); break;
-  case 4033: /*Untested*/ sysAccess<Mips32Defs>(context,inst); break;
+  case 4033: sysAccess<Mips32Defs>(context,inst); break;
 //  case 4034: Mips::sysCall32_nice(inst,context); break;
 //  case 4035: Mips::sysCall32_ftime(inst,context); break;
 //  case 4036: Mips::sysCall32_sync(inst,context); break;
@@ -2270,9 +2429,9 @@ InstDesc *Mips32LinuxSys::sysCall(ThreadContext *context, InstDesc *inst){
   case 4080: sysGetGroups<Mips32Defs>(context,inst); break;
 //  case 4081: Mips::sysCall32_setgroups(inst,context); break;
 //  case 4082: Mips::sysCall32_reserved82(inst,context); break;
-//  case 4083: Mips::sysCall32_symlink(inst,context); break;
+  case 4083: /* Untested*/ sysSymLink<Mips32Defs>(context,inst); break;
 //  case 4084: Mips::sysCall32_oldlstat(inst,context); break;
-  case 4085: /*Untested*/ sysReadlink<Mips32Defs>(context,inst); break;
+  case 4085: /*Untested*/ sysReadLink<Mips32Defs>(context,inst); break;
 //  case 4086: Mips::sysCall32_uselib(inst,context); break;
 //  case 4087: Mips::sysCall32_swapon(inst,context); break;
 //  case 4088: Mips::sysCall32_reboot(inst,context); break;
@@ -2334,7 +2493,7 @@ InstDesc *Mips32LinuxSys::sysCall(ThreadContext *context, InstDesc *inst){
 //  case 4143: Mips::sysCall32_flock(inst,context); break;
 //  case 4144: Mips::sysCall32_msync(inst,context); break;
 //  case 4145: Mips::sysCall32_readv(inst,context); break;
-  case 4146: /*Untested*/ sysWriteV<Mips32Defs>(context,inst); break;
+  case 4146: sysWriteV<Mips32Defs>(context,inst); break;
 //  case 4147: Mips::sysCall32_cacheflush(inst,context); break;
 //  case 4148: Mips::sysCall32_cachectl(inst,context); break;
 //  case 4149: Mips::sysCall32_sysmips(inst,context); break;
@@ -2357,7 +2516,7 @@ InstDesc *Mips32LinuxSys::sysCall(ThreadContext *context, InstDesc *inst){
   case 4166: sysNanoSleep<Mips32Defs>(context,inst); break;
   case 4167: sysMReMap<Mips32Defs>(context,inst); break;
 //  case 4168: Mips::sysCall32_accept(inst,context); break;
-//  case 4169: Mips::sysCall32_bind(inst,context); break;
+  case 4169: sysBind<Mips32Defs>(context,inst); break;
   case 4170: sysConnect<Mips32Defs>(context,inst); break;
 //  case 4171: Mips::sysCall32_getpeername(inst,context); break;
 //  case 4172: Mips::sysCall32_getsockname(inst,context); break;
@@ -2391,7 +2550,7 @@ InstDesc *Mips32LinuxSys::sysCall(ThreadContext *context, InstDesc *inst){
 //  case 4200: Mips::sysCall32_pread64(inst,context); break;
 //  case 4201: Mips::sysCall32_pwrite64(inst,context); break;
 //  case 4202: Mips::sysCall32_chown(inst,context); break;
-  case 4203: /*Untested*/ sysGetCWD<Mips32Defs>(context,inst); break;
+  case 4203: sysGetCWD<Mips32Defs>(context,inst); break;
 //  case 4204: Mips::sysCall32_capget(inst,context); break;
 //  case 4205: Mips::sysCall32_capset(inst,context); break;
 //  case 4206: Mips::sysCall32_sigaltstack(inst,context); break;
@@ -2451,9 +2610,9 @@ InstDesc *Mips32LinuxSys::sysCall(ThreadContext *context, InstDesc *inst){
 //#define __NR_timer_getoverrun           (__NR_Linux + 260)
 //#define __NR_timer_delete               (__NR_Linux + 261)
 //#define __NR_clock_settime              (__NR_Linux + 262)
-//#define __NR_clock_gettime              (__NR_Linux + 263)
+  case 4263: sysClockGetTime<Mips32Defs>(context,inst); break;
   case 4264: sysClockGetRes<Mips32Defs>(context,inst); break;
-//#define __NR_clock_nanosleep            (__NR_Linux + 265)
+  case 4265: /*Untested*/sysClockNanoSleep<Mips32Defs>(context,inst); break;
   case 4266: sysTgKill<Mips32Defs>(context,inst); break;
 //#define __NR_utimes                     (__NR_Linux + 267)
 //#define __NR_mbind                      (__NR_Linux + 268)

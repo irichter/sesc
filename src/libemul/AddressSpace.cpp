@@ -8,15 +8,16 @@ namespace MemSys{
 
   FrameDesc::PAddrSet FrameDesc::freePAddrs;
 
-  FrameDesc::FrameDesc() : GCObject(), basePAddr(newPAddr()), memFlags(MemPrivate){
+  FrameDesc::FrameDesc() : GCObject(), basePAddr(newPAddr()), shared(false), dirty(false){
     memset(data,0,AddrSpacPageSize);
   }
-  FrameDesc::FrameDesc(FileSys::FileStatus *fst, off_t ofs)
+  FrameDesc::FrameDesc(FileSys::FileStatus *fs, off_t offs)
     : GCObject()
     , basePAddr(newPAddr())
-    , memFlags(MemShared)
-    , filePtr(fst)
-    , fileOff(ofs){
+    , shared(true)
+    , dirty(false)
+    , filePtr(fs)
+    , fileOff(offs){
     filePtr->mmap(this,data,AddrSpacPageSize,fileOff);
 #if (defined HAS_MEM_STATE)
     for(size_t s=0;s<AddrSpacPageSize/MemState::Granularity;s++)
@@ -26,7 +27,8 @@ namespace MemSys{
   FrameDesc::FrameDesc(FrameDesc &src)
     : GCObject()
     ,basePAddr(newPAddr())
-    ,memFlags(MemPrivate)
+    ,shared(false)
+    ,dirty(false)
   {
     memcpy(data,src.data,AddrSpacPageSize);
 #if (defined HAS_MEM_STATE)
@@ -36,7 +38,7 @@ namespace MemSys{
   }
   FrameDesc::~FrameDesc(){
     if(filePtr){
-      if((memFlags&MemDirty)&&(memFlags&MemShared))
+      if(dirty&&shared)
 	filePtr->msync(this,data,AddrSpacPageSize,fileOff);
       filePtr->munmap(this,data,AddrSpacPageSize,fileOff);
       filePtr=0;
@@ -67,10 +69,11 @@ void AddressSpace::SegmentDesc::save(ChkWriter &out) const{
   out << "R" << canRead;
   out << "W" << canWrite;
   out << "X" << canExec;
-  out << "S" << shared;
-  out << "F" << fileMap;
   out << "G" << autoGrow;
   out << "D" << growDown;
+  out << "S" << shared;
+  fileStatus->save(out);
+  out << "Offs " << fileOffset;
   out << endl;
 }
 ChkReader &AddressSpace::SegmentDesc::operator=(ChkReader &in){
@@ -78,10 +81,11 @@ ChkReader &AddressSpace::SegmentDesc::operator=(ChkReader &in){
   in >> "R" >> canRead;
   in >> "W" >> canWrite;
   in >> "X" >> canExec;
-  in >> "S" >> shared;
-  in >> "F" >> fileMap;
   in >> "G" >> autoGrow;
   in >> "D" >> growDown;  
+  in >> "S" >> shared;
+  fileStatus=new FileSys::FileStatus(in);
+  in >> "Offs " >> fileOffset;
   in >> endl;
   return in;
 }
@@ -124,6 +128,36 @@ ChkReader &AddressSpace::PageDesc::operator=(ChkReader &in){
   return in;
 }
 
+void AddressSpace::createTrace(ThreadContext *context, VAddr addr){
+  I((!isMappedInst(addr))||!instMap[addr]);
+  //  instMap[addr]=0;
+  //    TraceMap::iterator cur=traceMap.upper_bound(addr);
+  //    if((cur!=traceMap.end())&&(cur->second.eaddr>addr))
+  //      addr=cur->second.baddr;
+  VAddr segAddr=getSegmentAddr(addr);
+  VAddr segSize=getSegmentSize(segAddr);
+  VAddr funcAddr=getFuncAddr(addr);
+  VAddr funcSize;
+  if(funcAddr){
+    funcSize=getFuncSize(funcAddr);
+    if((addr<funcAddr)||(addr>=funcAddr+funcSize))
+      fail("createTrace: addr not within its function\n");
+    if((segAddr>funcAddr)||(segAddr+segSize<funcAddr+funcSize))
+      fail("createTrace: func not within its segment\n");
+  }else{
+    funcAddr=addr;
+    funcSize=0;
+  }
+  if((addr<segAddr)||(addr>=segAddr+segSize))
+    fail("createTrace: addr not within its segment\n");
+  decodeTrace(context,funcAddr,funcSize);
+}
+void AddressSpace::delMapInsts(VAddr begAddr, VAddr endAddr){
+  // TODO: Check if any thread is pointing to one of these insts (should never happen, but we should check)
+  InstMap::iterator begIt=instMap.lower_bound(begAddr);
+  InstMap::iterator endIt=instMap.lower_bound(endAddr);
+  instMap.erase(begIt,endIt);
+}
 void AddressSpace::mapTrace(InstDesc *binst, InstDesc *einst, VAddr baddr, VAddr eaddr){
   while(true){              
     TraceMap::iterator cur=traceMap.upper_bound(eaddr);
@@ -137,8 +171,8 @@ void AddressSpace::mapTrace(InstDesc *binst, InstDesc *einst, VAddr baddr, VAddr
     I(cur->second.eaddr<=eaddr);
     ID(cur->second.baddr=0);       
     ID(cur->second.eaddr=0);
-    printf("Deleting a trace to map another!\n");
-    exit(1);
+//     printf("Deleting a trace to map another!\n");
+//     exit(1);
     delete [] cur->second.binst;       
     traceMap.erase(cur);
   }               
@@ -146,7 +180,7 @@ void AddressSpace::mapTrace(InstDesc *binst, InstDesc *einst, VAddr baddr, VAddr
   InstMap::iterator endit=instMap.lower_bound(baddr);
   InstMap::iterator begit1=instMap.begin();
   InstMap::iterator endit1=instMap.end();
-  for(InstMap::iterator instit=instMap.upper_bound(eaddr);instit!=instMap.upper_bound(baddr);instit++)
+  for(InstMap::iterator instit=instMap.lower_bound(baddr);instit!=instMap.lower_bound(eaddr);instit++)
     I((instit->second>=binst)&&(instit->second<einst));
   TraceDesc &tdesc=traceMap[baddr];
   tdesc.binst=binst;
@@ -284,7 +318,7 @@ AddressSpace::AddressSpace(ChkReader &in){
   for(size_t i=0;i<_segCount;i++){
     SegmentDesc seg;
     seg=in;
-    newSegment(seg.addr,seg.len,seg.canRead,seg.canWrite,seg.canExec,seg.shared,seg.fileMap);
+    newSegment(seg.addr,seg.len,seg.canRead,seg.canWrite,seg.canExec,seg.shared,seg.fileStatus,seg.fileOffset);
     setGrowth(seg.addr,seg.autoGrow,seg.growDown);
   }
   // Load function name mappings
@@ -431,7 +465,8 @@ bool AddressSpace::getRetHandlers(VAddr addr, HandlerSet &set) const{
 }
 
 VAddr AddressSpace::newSegmentAddr(size_t len){
-  VAddr retVal=alignDown((VAddr)-1,AddrSpacPageSize);
+  //  VAddr retVal=alignDown((VAddr)-1,AddrSpacPageSize);
+  VAddr retVal=alignDown((VAddr)0x7fffffff,AddrSpacPageSize);
   retVal=alignDown(retVal-len,AddrSpacPageSize);
   for(SegmentMap::const_iterator segIt=segmentMap.begin();segIt!=segmentMap.end();segIt++){
     const SegmentDesc &curSeg=segIt->second;
@@ -455,16 +490,20 @@ void AddressSpace::splitSegment(VAddr pivot){
   // If segment ends at or below pivot, no split needed
   if(oldSeg.addr+oldSeg.len<=pivot)
     return;
+  I(!(pivot%AddrSpacPageSize));
   SegmentDesc &newSeg=segmentMap[pivot];
   newSeg=oldSeg;
   newSeg.addr=pivot;
   newSeg.len=oldSeg.addr+oldSeg.len-newSeg.addr;
   oldSeg.len=oldSeg.len-newSeg.len;
+  if(oldSeg.fileStatus)
+    newSeg.fileOffset=oldSeg.fileOffset+oldSeg.len;
   I((newSeg.pageNumLb()+1==oldSeg.pageNumUb())||(newSeg.pageNumLb()==oldSeg.pageNumUb()));
   if(newSeg.pageNumLb()!=oldSeg.pageNumUb())
     getPageDesc(newSeg.pageNumLb()).map(newSeg.canRead,newSeg.canWrite,newSeg.canExec);
 }
 void AddressSpace::growSegmentDown(VAddr oldaddr, VAddr newaddr){
+  I(!(newaddr%AddrSpacPageSize));
   I(segmentMap.find(oldaddr)!=segmentMap.end());
   I(newaddr<oldaddr);
   SegmentDesc &oldSeg=segmentMap[oldaddr];
@@ -473,6 +512,7 @@ void AddressSpace::growSegmentDown(VAddr oldaddr, VAddr newaddr){
   newSeg=oldSeg;
   newSeg.addr=newaddr;
   newSeg.len=oldaddr+oldSeg.len-newaddr;
+  I(!oldSeg.fileStatus);
   I(newSeg.pageNumUb()==oldSeg.pageNumUb());
   for(size_t pageNum=newSeg.pageNumLb();pageNum<oldSeg.pageNumLb();pageNum++)
     getPageDesc(pageNum).map(newSeg.canRead,newSeg.canWrite,newSeg.canExec);
@@ -483,6 +523,7 @@ void AddressSpace::resizeSegment(VAddr addr, size_t newlen){
   I(newlen>0);
   SegmentDesc &mySeg=segmentMap[addr];
   I(mySeg.addr==addr);
+  I(!mySeg.fileStatus);
   size_t oldPageNumUb=mySeg.pageNumUb();
   mySeg.len=newlen;
   size_t newPageNumUb=mySeg.pageNumUb();
@@ -495,8 +536,10 @@ void AddressSpace::resizeSegment(VAddr addr, size_t newlen){
   }
 }
 void AddressSpace::moveSegment(VAddr oldaddr, VAddr newaddr){
+  I(!(newaddr%AddrSpacPageSize));
   I(segmentMap.find(oldaddr)!=segmentMap.end());
   SegmentDesc &oldSeg=segmentMap[oldaddr];
+  I(!oldSeg.fileStatus);
   I(isNoSegment(newaddr,oldSeg.len));
   SegmentDesc &newSeg=segmentMap[newaddr];
   newSeg=oldSeg;
@@ -549,6 +592,7 @@ void AddressSpace::deleteSegment(VAddr addr, size_t len){
   I((endIt==segmentMap.end())||(endIt->second.addr+endIt->second.len<=addr));
   for(SegmentMap::iterator segIt=begIt;segIt!=endIt;segIt++){
     SegmentDesc &seg=segIt->second;
+    I(!seg.fileStatus);
     I((seg.addr>=addr)&&(seg.addr+seg.len<=addr+len));
     for(size_t pageNum=seg.pageNumLb();pageNum<seg.pageNumUb();pageNum++)
       getPageDesc(pageNum).unmap(seg.canRead,seg.canWrite,seg.canExec);
@@ -603,7 +647,8 @@ void AddressSpace::deleteSegment(VAddr addr, size_t len){
 //     segmentMap.erase(segIt);
 //   }
 }
-void AddressSpace::newSegment(VAddr addr, size_t len, bool canRead, bool canWrite, bool canExec, bool shared, bool fileMap){
+void AddressSpace::newSegment(VAddr addr, size_t len, bool canRead, bool canWrite, bool canExec, bool shared, FileSys::FileStatus *fs, off_t offs){
+  I(!(addr%AddrSpacPageSize));
   I(len>0);
   I(isNoSegment(addr,len));
   SegmentDesc &newSeg=segmentMap[addr];
@@ -616,8 +661,8 @@ void AddressSpace::newSegment(VAddr addr, size_t len, bool canRead, bool canWrit
   newSeg.growDown=false;
   I(!shared);
   newSeg.shared=shared;
-  newSeg.fileMap=fileMap;
-  I(!fileMap);
+  newSeg.fileStatus=fs;
+  newSeg.fileOffset=offs;
   for(size_t pageNum=newSeg.pageNumLb();pageNum<newSeg.pageNumUb();pageNum++)
     getPageDesc(pageNum).map(canRead,canWrite,canExec);
 }
@@ -628,7 +673,7 @@ void AddressSpace::protectSegment(VAddr addr, size_t len, bool canRead, bool can
   SegmentDesc &mySeg=segmentMap[addr];
   I(mySeg.addr==addr);
   I(mySeg.len==len);
-
+  I(!mySeg.fileStatus);
   for(size_t pageNum=mySeg.pageNumLb();pageNum<mySeg.pageNumUb();pageNum++){
     getPageDesc(pageNum).allow(canRead&&!mySeg.canRead,canWrite&&!mySeg.canWrite,canExec&&!mySeg.canExec);
     getPageDesc(pageNum).deny(mySeg.canRead&&!canRead,mySeg.canWrite&&!canWrite,mySeg.canExec&&!canExec);

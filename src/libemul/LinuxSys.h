@@ -53,21 +53,51 @@ class LinuxSys{
   // Returns a 64-bit integer argument at position pos, moves pos to next arg
   virtual uint64_t getArgI64(ThreadContext *context, size_t &pos) const = 0;
   typedef enum{
-    ErrAgain,
-    ErrNoSys,
-    ErrFault,
-    ErrChild,
-    ErrNoMem,
-    ErrInval,
+    ErrNone,
+    ErrPerm,
     ErrNoEnt,
     ErrSrch,
     ErrIntr,
+    ErrIO,
+    ErrNXIO,
+    Err2Big,
+    ErrNoExec,
     ErrBadf,
-    ErrSpipe,
-    ErrNoTTY,
-    ErrAfNoSupport,
+    ErrChild,
+    ErrAgain,
+    ErrNoMem,
+    ErrAccess,
+    ErrFault,
+    ErrNotBlk,
+    ErrBusy,
+    ErrExist,
+    ErrXDev,
+    ErrNoDev,
     ErrNotDir,
-    ErrPerm,
+    ErrIsDir,
+    ErrInval,
+    ErrNFile,
+    ErrMFile,
+    ErrNoTTY,
+    ErrTxtBsy,
+    ErrFBig,
+    ErrNoSpc,
+    ErrSPipe,
+    ErrROFS,
+    ErrMLink,
+    ErrPipe,
+    ErrDom,
+    ErrRange,
+    ErrDeadlk,
+    ErrNameTooLong,
+    ErrNoLck,
+    ErrNoSys,
+    ErrNotEmpty,
+    ErrLoop,
+    ErrNoMsg,
+    ErrIDRm,
+
+    ErrAfNoSupport,
   } ErrCode;
   static ErrCode getErrCode(int err);
   // System call return with error code
@@ -160,7 +190,11 @@ class LinuxSys{
   template<class defs>
   void sysSetITimer(ThreadContext *context, InstDesc *inst);
   template<class defs>
+  void sysClockGetTime(ThreadContext *context, InstDesc *inst);
+  template<class defs>
   void sysClockGetRes(ThreadContext *context, InstDesc *inst);
+  template<class defs>
+  void sysClockNanoSleep(ThreadContext *context, InstDesc *inst);
   template<class defs>
   void sysNanoSleep(ThreadContext *context, InstDesc *inst);
   template<class defs>
@@ -235,12 +269,16 @@ class LinuxSys{
   void sysTruncate(ThreadContext *context, InstDesc *inst);  
   template<class defs, typename Toff_t>
   void sysFTruncate(ThreadContext *context, InstDesc *inst);  
+  template<class defs>
+  void sysChMod(ThreadContext *context, InstDesc *inst);
   template<class defs, bool link, class Tstat>
   void sysStat(ThreadContext *context, InstDesc *inst);
   template<class defs, class Tstat>
   void sysFStat(ThreadContext *context, InstDesc *inst);
   template<class defs>
   void sysFStatFS(ThreadContext *context, InstDesc *inst);
+  template<class defs>
+  void sysSymLink(ThreadContext *context, InstDesc *inst);
   template<class defs>
   void sysUnlink(ThreadContext *context, InstDesc *inst);
   template<class defs>
@@ -258,7 +296,7 @@ class LinuxSys{
   template<class defs>
   void sysUmask(ThreadContext *context, InstDesc *inst);
   template<class defs>
-  void sysReadlink(ThreadContext *context, InstDesc *inst);
+  void sysReadLink(ThreadContext *context, InstDesc *inst);
   template<class defs>
   void sysUname(ThreadContext *context, InstDesc *inst);
   template<class defs>
@@ -269,6 +307,8 @@ class LinuxSys{
   void sysConnect(ThreadContext *context, InstDesc *inst);
   template<class defs>
   void sysSend(ThreadContext *context, InstDesc *inst);
+  template<class defs>
+  void sysBind(ThreadContext *context, InstDesc *inst);
 };
 
 class Mips32LinuxSys : public LinuxSys{

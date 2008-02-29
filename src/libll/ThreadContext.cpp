@@ -1010,7 +1010,7 @@ ssize_t ThreadContext::writeMemFromFile(VAddr addr, size_t len, int32_t fd, bool
       ioSiz=len;
     ssize_t nowRet;
     if(usePread){
-      nowRet=(natFile?(pread(fd,buf,ioSiz,offs)):(openFiles->pread(fd,buf,ioSiz,offs)));
+      nowRet=(natFile?(pread(fd,buf,ioSiz,offs+retVal)):(openFiles->pread(fd,buf,ioSiz,offs+retVal)));
     }else{
       nowRet=(natFile?(read(fd,buf,ioSiz)):(openFiles->read(fd,buf,ioSiz)));
     }
@@ -1103,6 +1103,11 @@ ssize_t ThreadContext::readMemString(VAddr stringVAddr, size_t maxSize, char *ds
   }
   return i;
 }
+#if (defined DEBUG_BENCH)
+VAddr ThreadContext::readMemWord(VAddr addr){
+  return readMem<VAddr>(addr);
+}
+#endif
 
 void ThreadContext::execCall(VAddr entry, VAddr  ra, VAddr sp){
   I(entry!=0x418968);

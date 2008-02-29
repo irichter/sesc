@@ -632,7 +632,7 @@ namespace Mips {
 
   template<Opcode op, CpuMode mode>
   InstDesc *emulBreak(InstDesc *inst, ThreadContext *context){
-    fail("emulBreak: BREAK instruction not supported yet\n");
+    fail("emulBreak: BREAK instruction not supported yet at 0x%08x\n",context->getIAddr());
     return inst;
   }
 
@@ -644,11 +644,11 @@ namespace Mips {
 enum InstCtlInfoEnum{
   CtlInv  = 0x0000,   // No instruction should have CtlInfo of zero (should at least have length)
 
-  CtlNorm = 0x0001, // Regular (non-branch) instruction
-  CtlBran = 0x0002, // Branch instruction
-  CtlLkly = 0x0004, // ISA indicates that branch/jump is likely
-  CtlTarg = 0x0008, // Branch/jump has a fixed target
-  CtlAdDS = 0x0010, // Decode the delay slot after this but don't map it
+  CtlNorm = 0x0001,   // Regular (non-branch) instruction
+  CtlBran = 0x0002,   // Branch instruction
+  CtlLkly = 0x0004,   // ISA indicates that branch/jump is likely
+  CtlTarg = 0x0008,   // Branch/jump has a fixed target
+  CtlAdDS = 0x0010,   // Decode the delay slot after this but don't map it
   CtlMpDS = 0x0020,   // Can map the delay slot after this (decode only if mapping needed)
 
   CtlBr   = CtlBran + CtlMpDS,
@@ -944,7 +944,7 @@ Instruction *createSescInst(const InstDesc *inst, VAddr iaddr, size_t deltaAddr,
       const OpData &data=op2Data[op];
       return (data.typ==TypNop)&&(data.next==OpInvalid);
     }
-    void decodeInstSize(ThreadContext *context, VAddr funcAddr, VAddr &curAddr, VAddr endAddr, size_t &tsize, bool domap){
+    bool decodeInstSize(ThreadContext *context, VAddr funcAddr, VAddr &curAddr, VAddr endAddr, size_t &tsize, bool domap){
       // This is a handler set for calls/returns 
       AddressSpace::HandlerSet hset;
       // Function entry point may need to call a handler
@@ -953,7 +953,7 @@ Instruction *createSescInst(const InstDesc *inst, VAddr iaddr, size_t deltaAddr,
         tsize+=hset.size();
 	hset.clear();
       }
-      I(!context->getAddressSpace()->isMappedInst(curAddr));
+      //      I(!context->getAddressSpace()->isMappedInst(curAddr));
       RawInst raw=context->readMem<RawInst>(curAddr);
       curAddr+=sizeof(RawInst);
       Opcode op=decodeOp(raw);
@@ -986,14 +986,16 @@ Instruction *createSescInst(const InstDesc *inst, VAddr iaddr, size_t deltaAddr,
 	op=data.next;
 	if(op==OpInvalid){
 	  // Is this the end of this trace?
-	  if(domap&&(curAddr==endAddr)){
-	    // Unconditional jumps, calls, and returns don't continue directly to next instruction
+	  if(domap&&(curAddr>=endAddr)){
+	    // Unconditional jumps, calls, and returns allow clean trace breaks
+	    if((typ==BrOpJump)||(typ==BrOpCall)||(typ==BrOpRet))
+	      return false;
 	    // Everything else needs an OpCut to link to the continuation in another trace
-	    if((typ!=BrOpJump)&&(typ!=BrOpCall)&&(typ!=BrOpRet))
+	    if(endAddr)
 	      tsize++;
 	  }
 	  // Exit the decoding loop
-	  break;
+	  return true;
 	}
       }
     }
@@ -1798,72 +1800,66 @@ Instruction *createSescInst(const InstDesc *inst, VAddr iaddr, size_t deltaAddr,
 
 } // End of namespace Mips
 
+typedef void HandlerFunc(InstDesc *inst, ThreadContext *context);
+
+template<HandlerFunc f>
+InstDesc *WrapHandler(InstDesc *inst, ThreadContext *context){
+  f(inst,context);
+  context->updIDesc(1);
+  return (*(inst+1))(context);
+}
+
+
 #if (defined INTERCEPT_HEAP_CALLS)
-InstDesc *handleMallocCall(InstDesc *inst, ThreadContext *context){
+void handleMallocCall(InstDesc *inst, ThreadContext *context){
   uint32_t siz=Mips::getRegAny<Mips32,uint32_t,RegTypeGpr>(context,static_cast<RegName>(Mips::RegA0));
   printf("Malloc call with size=0x%08x\n",siz);
-  context->updIDesc(1);
-  return (*(inst+1))(context);
 }
-InstDesc *handleMallocRet(InstDesc *inst, ThreadContext *context){
+void handleMallocRet(InstDesc *inst, ThreadContext *context){
   uint32_t addr=Mips::getRegAny<Mips32,uint32_t,RegTypeGpr>(context,static_cast<RegName>(Mips::RegV0));
   printf("Malloc ret  with addr=0x%08x\n",addr);
-  context->updIDesc(1);
-  return (*(inst+1))(context);
 }
-InstDesc *handleCallocCall(InstDesc *inst, ThreadContext *context){
+void handleCallocCall(InstDesc *inst, ThreadContext *context){
   uint32_t nmemb=Mips::getRegAny<Mips32,uint32_t,RegTypeGpr>(context,static_cast<RegName>(Mips::RegA0));
   uint32_t siz  =Mips::getRegAny<Mips32,uint32_t,RegTypeGpr>(context,static_cast<RegName>(Mips::RegA1));
   printf("Calloc call with nmemb=0x%08x size=0x%08x\n",nmemb,siz);
-  context->updIDesc(1);
-  return (*(inst+1))(context);
 }
-InstDesc *handleCallocRet(InstDesc *inst, ThreadContext *context){
+void handleCallocRet(InstDesc *inst, ThreadContext *context){
   uint32_t addr=Mips::getRegAny<Mips32,uint32_t,RegTypeGpr>(context,static_cast<RegName>(Mips::RegV0));
   printf("Calloc ret  with addr=0x%08x\n",addr);
-  context->updIDesc(1);
-  return (*(inst+1))(context);
 }
-InstDesc *handleReallocCall(InstDesc *inst, ThreadContext *context){
+void handleReallocCall(InstDesc *inst, ThreadContext *context){
   uint32_t addr=Mips::getRegAny<Mips32,uint32_t,RegTypeGpr>(context,static_cast<RegName>(Mips::RegA0));
   uint32_t siz =Mips::getRegAny<Mips32,uint32_t,RegTypeGpr>(context,static_cast<RegName>(Mips::RegA1));
   printf("Realloc call with addr=0x%08x size=0x%08x\n",addr,siz);
-  context->updIDesc(1);
-  return (*(inst+1))(context);
 }
-InstDesc *handleReallocRet(InstDesc *inst, ThreadContext *context){
+void handleReallocRet(InstDesc *inst, ThreadContext *context){
   uint32_t addr=Mips::getRegAny<Mips32,uint32_t,RegTypeGpr>(context,static_cast<RegName>(Mips::RegV0));
   printf("Realloc ret  with addr=0x%08x\n",addr);
-  context->updIDesc(1);
-  return (*(inst+1))(context);
 }
-InstDesc *handleFreeCall(InstDesc *inst, ThreadContext *context){
+void handleFreeCall(InstDesc *inst, ThreadContext *context){
   uint32_t addr=Mips::getRegAny<Mips32,uint32_t,RegTypeGpr>(context,static_cast<RegName>(Mips::RegA0));
   printf("Free call with addr=0x%08x\n",addr);
-  context->updIDesc(1);
-  return (*(inst+1))(context);
 }
 #endif
 
 #if (defined DEBUG_BENCH)
-InstDesc *handleEveryCall(InstDesc *inst, ThreadContext *context){
+void handleEveryCall(InstDesc *inst, ThreadContext *context){
+  I(context->getIAddr()!=0x00400368);
+  I(context->getIAddr()!=0x00424e50);
+  I(context->getIAddr()!=0x004c3480);
   I(context->getIAddr()==context->getAddressSpace()->getFuncAddr(context->getIAddr()));
   context->execCall(context->getIAddr(),
 		    Mips::getRegAny<Mips32,VAddr,RegTypeGpr>(context,static_cast<RegName>(Mips::RegRA)),
 		    Mips::getRegAny<Mips32,uint32_t,RegTypeGpr>(context,static_cast<RegName>(Mips::RegSP))
 		    );
-  context->updIDesc(1);
-  return (*(inst+1))(context);
 }
-InstDesc *handleEveryRet(InstDesc *inst, ThreadContext *context){
+void handleEveryRet(InstDesc *inst, ThreadContext *context){
   context->execRet(context->getAddressSpace()->getFuncAddr(context->getIAddr()),
 		   Mips::getRegAny<Mips32,VAddr,RegTypeGpr>(context,static_cast<RegName>(Mips::RegRA)),
 		   Mips::getRegAny<Mips32,uint32_t,RegTypeGpr>(context,static_cast<RegName>(Mips::RegSP))
 		   );
-  context->updIDesc(1);
-  return (*(inst+1))(context);
 }
-
 #endif
 
 #include "X86InstDesc.h"
@@ -1873,43 +1869,51 @@ void decodeTrace(ThreadContext *context, VAddr addr, size_t len){
   if(!didThis){
 #if (defined INTERCEPT_HEAP_CALLS)
     // This should not be here, but it's added for testing
-    AddressSpace::addCallHandler("malloc",handleMallocCall);
-    AddressSpace::addRetHandler("malloc",handleMallocRet);
-    AddressSpace::addCallHandler("calloc",handleCallocCall);
-    AddressSpace::addRetHandler("calloc",handleCallocRet);
-    AddressSpace::addCallHandler("realloc",handleReallocCall);
-    AddressSpace::addRetHandler("realloc",handleReallocRet);
-    AddressSpace::addCallHandler("free",handleFreeCall);
+    AddressSpace::addCallHandler("malloc",WrapHandler<handleMallocCall>);
+    AddressSpace::addRetHandler("malloc",WrapHandler<handleMallocRet>);
+    AddressSpace::addCallHandler("calloc",WrapHandler<handleCallocCall>);
+    AddressSpace::addRetHandler("calloc",WrapHandler<handleCallocRet>);
+    AddressSpace::addCallHandler("realloc",WrapHandler<handleReallocCall>);
+    AddressSpace::addRetHandler("realloc",WrapHandler<handleReallocRet>);
+    AddressSpace::addCallHandler("free",WrapHandler<handleFreeCall>);
 #endif
 #if (defined DEBUG_BENCH)
-    AddressSpace::addCallHandler("",handleEveryCall);
-    AddressSpace::addRetHandler("",handleEveryRet);
+    AddressSpace::addCallHandler("",WrapHandler<handleEveryCall>);
+    AddressSpace::addRetHandler("",WrapHandler<handleEveryRet>);
 #endif
     didThis=true;
   }
   VAddr funcAddr=context->getAddressSpace()->getFuncAddr(addr);
-  I(addr+len<=funcAddr+context->getAddressSpace()->getFuncSize(funcAddr));
-  VAddr endAddr=addr+len;
+  I((!funcAddr)||(addr+len<=funcAddr+context->getAddressSpace()->getFuncSize(funcAddr)));
+  VAddr endAddr=len?(addr+len):0;
   size_t tsize=0;
   VAddr sizaddr=addr;
   switch(context->getMode()){
-    case Mips32: case Mips64:
-      while(sizaddr!=endAddr)
-        Mips::dcdInst.decodeInstSize(context,funcAddr,sizaddr,endAddr,tsize,true);
-      break;
-    case x86_32:
-//       while(sizaddr!=endAddr)
-//         X86::decodeInstSize(context,funcAddr,sizaddr,endAddr,tsize,true);
-      break;
-    default:
-      fail("decodeTrace called in unsupported CPU mode\n");
+  case Mips32: case Mips64: {
+    if(!endAddr){
+      I(0);
+      while(Mips::dcdInst.decodeInstSize(context,funcAddr,sizaddr,endAddr,tsize,true));
+      endAddr=sizaddr;
+      sizaddr=addr;
+      tsize=0;
+    }
+    while(sizaddr<endAddr)
+      Mips::dcdInst.decodeInstSize(context,funcAddr,sizaddr,endAddr,tsize,true);
+  } break;
+  case x86_32:
+    //       while(sizaddr!=endAddr)
+    //         X86::decodeInstSize(context,funcAddr,sizaddr,endAddr,tsize,true);
+    break;
+  default:
+    fail("decodeTrace called in unsupported CPU mode\n");
   }
+  context->getAddressSpace()->delMapInsts(addr,endAddr);
   InstDesc *trace=new InstDesc[tsize];
   InstDesc *curtrace=trace;
   VAddr trcaddr=addr;
   switch(context->getMode()){
     case Mips32: case Mips64:
-      while(trcaddr!=endAddr)
+      while(trcaddr<endAddr)
         Mips::dcdInst.decodeInst(context,funcAddr,trcaddr,endAddr,curtrace,true);
       break;
     case x86_32:

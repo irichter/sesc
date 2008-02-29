@@ -1,20 +1,52 @@
 #if !(defined ELF_OBJECT_H)
 #define ELF_OBJECT_H
 
+// To get VAddr
+#include "Addressing.h"
+// To get size_t
+#include <stddef.h>
+// To get off_t
+#include <unistd.h>
+
 #include <elf.h>
 
-// Define MIPS-specific stuff if it is missing
-#if !(defined EF_MIPS_ARCH)
-/* Legal values for e_flags field of Elf32_Ehdr.  */
+/* Flags in the e_flags field of the header */
+#ifndef EF_MIPS_NOREORDER
+#define EF_MIPS_NOREORDER       0x00000001
+#endif
+#ifndef EF_MIPS_PIC
+#define EF_MIPS_PIC             0x00000002
+#endif
+#ifndef EF_MIPS_CPIC
+#define EF_MIPS_CPIC            0x00000004
+#endif
+#ifndef EF_MIPS_ABI2
+#define EF_MIPS_ABI2            0x00000020
+#endif
+#ifndef EF_MIPS_OPTIONS_FIRST
+#define EF_MIPS_OPTIONS_FIRST   0x00000080
+#endif
+#ifndef EF_MIPS_32BITMODE
+#define EF_MIPS_32BITMODE       0x00000100
+#endif
+#ifndef EF_MIPS_ABI
+#define EF_MIPS_ABI             0x0000f000
+#endif
+#ifndef EF_MIPS_ARCH
+#define EF_MIPS_ARCH            0xf0000000
+#endif
 
-#define EF_MIPS_NOREORDER   1           /* A .noreorder directive was used */
-#define EF_MIPS_PIC         2           /* Contains PIC code */
-#define EF_MIPS_CPIC        4           /* Uses PIC calling sequence */
-#define EF_MIPS_XGOT        8
-#define EF_MIPS_64BIT_WHIRL 16
-#define EF_MIPS_ABI2        32
-#define EF_MIPS_ABI_ON32    64
-#define EF_MIPS_ARCH        0xf0000000  /* MIPS architecture level */
+/* The ABI of a file (e_flags mask EF_MIPS_ABI). */
+#ifndef EF_MIPS_ABI_O32
+#define EF_MIPS_ABI_O32         0x00001000      /* O32 ABI.  */
+#endif
+#ifndef EF_MIPS_ABI_O64
+#define EF_MIPS_ABI_O64         0x00002000      /* O32 extended for 64 bit.  */
+#endif
+
+// Define MIPS-specific stuff if it is missing
+#if !(defined EF_MIPS_ARCH_1)
+/* Legal values for e_flags field of Elf32_Ehdr.  */
 
 /* Legal values for MIPS architecture level.  */
 
@@ -82,5 +114,36 @@ class ThreadContext;
 
 int32_t  checkElfObject(const char *fname);
 void loadElfObject(const char *fname, ThreadContext *threadContext);
+
+namespace FileSys{
+  class FileStatus;
+}
+
+typedef enum{
+  ExecModeNone=0,
+  ExecModeArchMask=1,
+  ExecModeArchUnit=1,
+  ExecModeArchMips=1*ExecModeArchUnit,
+  // We can have a little- or big-endian execution
+  ExecModeEndianMask=16,
+  ExecModeEndianUnit=16,
+  ExecModeEndianBig   =0*ExecModeEndianUnit,
+  ExecModeEndianLittle=1*ExecModeEndianUnit,                            
+  // We can have a 32- or 64-bit execution
+  ExecModeBitsMask=32,
+  ExecModeBitsUnit=32,
+  ExecModeBits32=0*ExecModeBitsUnit,
+  ExecModeBits64=1*ExecModeBitsUnit,
+
+  ExecModeMips32=ExecModeArchMips|ExecModeEndianBig|ExecModeBits32,
+} ExecMode;
+
+ExecMode getExecMode(FileSys::FileStatus *fs);
+
+void mapFuncNames(ThreadContext *context, FileSys::FileStatus *fs, ExecMode mode, VAddr addr, size_t len, off_t off);
+
+VAddr loadElfObject(ThreadContext *context, char *fname);
+VAddr loadElfObject(ThreadContext *context, FileSys::FileStatus *fs,
+                    VAddr addr, ExecMode mode, bool isInterpreter=false);
 
 #endif
