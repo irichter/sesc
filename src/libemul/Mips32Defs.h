@@ -100,6 +100,7 @@ public:
       case LinuxSys::ErrIntr:        val=/*EINTR*/0x4; break;
       case LinuxSys::ErrNXIO:        val=/*ENXIO*/0x6; break;
       case LinuxSys::ErrAgain:       val=/*EAGAIN*/0xb; break;
+      case LinuxSys::ErrExist:       val=/*EEXIST*/0x11; break;
       case LinuxSys::ErrNoSys:       val=/*ENOSYS*/89; break;
       case LinuxSys::ErrFault:       val=/*EFAULT*/0xe; break;
       case LinuxSys::ErrChild:       val=/*ECHILD*/0xa; break;

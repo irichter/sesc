@@ -54,6 +54,7 @@ LinuxSys::ErrCode LinuxSys::getErrCode(int err){
   if(err==ENOMEM)  return ErrNoMem;
   if(err==EACCES)  return ErrAccess;
   if(err==EFAULT)  return ErrFault;
+  if(err==EEXIST)  return ErrExist;
   if(err==EINVAL)  return ErrInval;
   if(err==ENOTTY)  return ErrNoTTY;
   if(err==ESPIPE)  return ErrSPipe;
@@ -1001,6 +1002,7 @@ void LinuxSys::sysSetRLimit(ThreadContext *context, InstDesc *inst){
     return setSysErr(context,ErrFault); 
   Trlimit buf(context,rlim);
   if(resource.isRLIMIT_STACK()){
+  }else if(resource.isRLIMIT_DATA()){
     // Limit is already RLIM_INFINITY, so we don't care what the new size is
   }else
     fail("sysCall32_setrlimit called for resource %d at 0x%08x\n",resource.val,context->getIAddr());
