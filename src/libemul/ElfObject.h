@@ -112,9 +112,6 @@ typedef struct
 
 class ThreadContext;
 
-int32_t  checkElfObject(const char *fname);
-void loadElfObject(const char *fname, ThreadContext *threadContext);
-
 namespace FileSys{
   class FileStatus;
 }

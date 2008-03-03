@@ -204,7 +204,8 @@ AddressSpace::AddressSpace(AddressSpace &src) :
   GCObject(),
   segmentMap(src.segmentMap),
   brkBase(src.brkBase),
-  funcAddrToName(src.funcAddrToName)
+  funcAddrToName(src.funcAddrToName),
+  funcAddrToFile(src.funcAddrToFile)
 {
   // Copy page map and pages
 #if (defined SPLIT_PAGE_TABLE)
@@ -219,17 +220,23 @@ AddressSpace::AddressSpace(AddressSpace &src) :
 #endif
   // Copy function name mappings
   for(AddrToNameMap::iterator addrIt=funcAddrToName.begin();
-      addrIt!=funcAddrToName.end();addrIt++){
+      addrIt!=funcAddrToName.end();addrIt++)
     addrIt->second=strdup(addrIt->second);
-  }
+  for(AddrToNameMap::iterator addrIt=funcAddrToFile.begin();
+      addrIt!=funcAddrToFile.end();addrIt++)
+    addrIt->second=strdup(addrIt->second);
 }
 
 void AddressSpace::clear(bool isExec){
   // Clear function name mappings
-  while(!funcAddrToName.empty()){
-    free(const_cast<char *>(funcAddrToName.begin()->second));
-    funcAddrToName.erase(funcAddrToName.begin());
-  }
+  for(AddrToNameMap::iterator addrIt=funcAddrToName.begin();
+      addrIt!=funcAddrToName.end();addrIt++)
+    free(const_cast<char *>(addrIt->second));
+  funcAddrToName.clear();
+  for(AddrToNameMap::iterator addrIt=funcAddrToFile.begin();
+      addrIt!=funcAddrToFile.end();addrIt++)
+    free(const_cast<char *>(addrIt->second));
+  funcAddrToFile.clear();
   // Clear instruction decodings
   instMap.clear();
   for(TraceMap::iterator traceit=traceMap.begin();traceit!=traceMap.end();traceit++)
@@ -298,8 +305,13 @@ void AddressSpace::save(ChkWriter &out) const{
   // Dump function name mappings
   out << "FuncNames " << funcAddrToName.size() << endl;
   for(AddrToNameMap::const_iterator addrIt=funcAddrToName.begin();
-      addrIt!=funcAddrToName.end();addrIt++)
-    out << addrIt->first << " -> " << strlen(addrIt->second) << " " << addrIt->second << endl;
+      addrIt!=funcAddrToName.end();addrIt++){
+    const char *file=getFuncFile(addrIt->first);
+    I(file);
+    out << addrIt->first << 
+           " -> " << strlen(addrIt->second) << " " << addrIt->second <<
+           " : " << strlen(file) << " " << file << endl;
+  }
 }
 
 AddressSpace::AddressSpace(ChkReader &in){
@@ -327,17 +339,21 @@ AddressSpace::AddressSpace(ChkReader &in){
   for(size_t i=0;i<_funcAddrToName;i++){
     VAddr _addr; size_t _strlen;
     in >> _addr >> " -> " >> _strlen >> " ";
-    char buf[_strlen+1];
-    in >> buf >> endl;
-    addFuncName(buf,_addr);
+    char func[_strlen+1];
+    in >> func >> " : " >> _strlen >> " ";
+    char file[_strlen+1];
+    in >> file >> endl;
+    addFuncName(_addr,func,file);
   }
 }
 
 // Add a new function name-address mapping
-void AddressSpace::addFuncName(const char *name, VAddr addr){
-  char *myName=strdup(name);
+void AddressSpace::addFuncName(VAddr addr, const char *func, const char *file){
+  char *myName=strdup(func);
+  char *myFile=strdup(file);
   I(myName);
   funcAddrToName.insert(AddrToNameMap::value_type(addr,myName));
+  funcAddrToFile.insert(AddrToNameMap::value_type(addr,myFile));
   funcNameToAddr.insert(NameToAddrMap::value_type(myName,addr));
 }
 
@@ -345,6 +361,16 @@ void AddressSpace::addFuncName(const char *name, VAddr addr){
 const char *AddressSpace::getFuncName(VAddr addr) const{
   AddrToNameMap::const_iterator it=funcAddrToName.lower_bound(addr);
   if(it==funcAddrToName.end())
+    return 0;
+  if(it->first!=addr)
+    return 0;
+  return it->second;
+}
+
+// Return name of the ELF file in which the function is, given the entry point
+const char *AddressSpace::getFuncFile(VAddr addr) const{
+  AddrToNameMap::const_iterator it=funcAddrToFile.lower_bound(addr);
+  if(it==funcAddrToFile.end())
     return 0;
   if(it->first!=addr)
     return 0;
@@ -393,6 +419,15 @@ void AddressSpace::printFuncName(VAddr addr){
     printf("%s",nameBegIt->second);
     nameBegIt++;
     if(nameBegIt!=nameEndIt)
+      printf(", ");
+  }
+  printf(" in ");
+  AddrToNameMap::iterator fileBegIt=funcAddrToFile.lower_bound(addr);
+  AddrToNameMap::iterator fileEndIt=funcAddrToFile.upper_bound(addr);
+  while(fileBegIt!=fileEndIt){
+    printf("%s",fileBegIt->second);
+    fileBegIt++;
+    if(fileBegIt!=fileEndIt)
       printf(", ");
   }
 }

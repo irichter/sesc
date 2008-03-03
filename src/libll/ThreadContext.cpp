@@ -1150,9 +1150,10 @@ void ThreadContext::execRet(VAddr entry, VAddr ra, VAddr sp){
 void ThreadContext::dumpCallStack(void){
   printf("Call stack dump for thread %d begins\n",pid);
   for(size_t i=0;i<callStack.size();i++)
-    printf("  Entry 0x%08x from 0x%08x with sp 0x%08x tail %d Name %s\n",
+    printf("  Entry 0x%08x from 0x%08x with sp 0x%08x tail %d Name %s File %s\n",
 	   callStack[i].entry,callStack[i].ra,callStack[i].sp,callStack[i].tailr,
-	   addressSpace->getFuncName(callStack[i].entry));
+	   addressSpace->getFuncName(callStack[i].entry),
+	   addressSpace->getFuncFile(callStack[i].entry));
   printf("Call stack dump for thread %d ends\n",pid);
 }
 

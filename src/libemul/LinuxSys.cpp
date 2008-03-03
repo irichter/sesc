@@ -230,8 +230,8 @@ void Mips32LinuxSys::initSystem(ThreadContext *context) const{
   sysCodeSize=6*sizeof(uint32_t);
   sysCodeAddr=addrSpace->newSegmentAddr(sysCodeSize);
   addrSpace->newSegment(sysCodeAddr,sysCodeSize,false,true,false,false,false);
-  addrSpace->addFuncName("sysCode",sysCodeAddr);
-  addrSpace->addFuncName("End of sysCode",sysCodeAddr+sysCodeSize);
+  addrSpace->addFuncName(sysCodeAddr,"sysCode","");
+  addrSpace->addFuncName(sysCodeAddr+sysCodeSize,"End of sysCode","");
   // jalr t9
   context->writeMem<uint32_t>(sysCodeAddr+0*sizeof(uint32_t),0x0320f809);
   // nop

@@ -513,13 +513,16 @@ class AddressSpace : public GCObject{
   };
   typedef std::multimap<VAddr,const char *,std::greater<VAddr> > AddrToNameMap;
   AddrToNameMap funcAddrToName;
+  AddrToNameMap funcAddrToFile;
   typedef std::multimap<const char *,VAddr,ltstr> NameToAddrMap;
   NameToAddrMap funcNameToAddr;
  public:
   // Add a new function name-address mapping
-  void addFuncName(const char *name, VAddr addr);
+  void addFuncName(VAddr addr, const char *func, const char *file);
   // Return name of the function with given entry point
   const char *getFuncName(VAddr addr) const;
+  // Return name of the ELF file in which the function is
+  const char *getFuncFile(VAddr addr) const;
   // Given the name, return where the function begins
   VAddr getFuncAddr(const char *name) const;
   // Given a code address, return where the function begins (best guess)
