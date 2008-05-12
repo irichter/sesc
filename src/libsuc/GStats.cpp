@@ -223,23 +223,26 @@ void GStats::subscribe()
 {
   if( store == 0 )
     store = new Container;
-  store->push_back(this);
+  cpos=store->insert(store->end(),this);
 }
 
 void GStats::unsubscribe()
 {
-  bool found = false;
   I(store);
+  I(*cpos==this);
+  store->erase(cpos);
+//   bool found = false;
+//   I(store);
   
-  for(ContainerIter i = store->begin(); i != store->end(); i++) {
-    if(*i == this) {
-      found = true;
-      store->erase(i);
-      break;
-    }
-  }
+//   for(ContainerIter i = store->begin(); i != store->end(); i++) {
+//     if(*i == this) {
+//       found = true;
+//       store->erase(i);
+//       break;
+//     }
+//   }
 
-  GMSG(!found, "GStats::unsubscribe It should be in the list");
+//   GMSG(!found, "GStats::unsubscribe It should be in the list");
 }
 
 void GStats::report(const char *str)

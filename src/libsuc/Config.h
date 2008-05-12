@@ -49,9 +49,15 @@ protected:
     KeyIndex(const char *cstr1, const char *cstr2) : s1(cstr1), s2(cstr2){
     }
     bool operator==(const KeyIndex &a) const {
-      if(strcasecmp(a.s1.c_str(),s1.c_str()))
+      if(a.s1.size()!=s1.size())
         return false;
-      return (strcasecmp(a.s2.c_str(),s2.c_str()) == 0);
+      if(strncasecmp(a.s1.data(),s1.data(),s1.size()))
+        return false;
+      if(a.s2.size()!=s2.size())
+        return false;
+      if(strncasecmp(a.s2.data(),s2.data(),s2.size()))
+        return false;
+      return true;
     }
   };
 
@@ -202,20 +208,20 @@ protected:
   // function.
   class HashColin {
   private:
-    size_t hash(const char *s, size_t hval) const {
-      while (*s) {
-        hval += tolower(*s++);
+    size_t hash(const string &s, size_t hval) const{
+      for(size_t i=0;i<s.size();i++){
+        hval += tolower(s[i]);
         hval += (hval << 10);
         hval ^= (hval >> 6);
-      } hval += (hval << 3);
+      }
+      hval += (hval << 3);
       hval ^= (hval >> 11);
       hval += (hval << 15);
       return hval;
-    };
-
+    }
   public:
     size_t operator()(const KeyIndex & k)const {
-      return hash(k.s2.c_str(),hash(k.s1.c_str(),0));
+      return hash(k.s2,hash(k.s1,0));
     }
   };
 

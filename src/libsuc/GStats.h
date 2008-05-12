@@ -52,7 +52,8 @@ private:
   typedef std::list < GStats * >Container;
   typedef std::list < GStats * >::iterator ContainerIter;
   static Container *store;
-
+  // Points to this GStats object's position in the GStats store
+  ContainerIter cpos;
 protected:
   char *name;
   char *getText(const char *format,
