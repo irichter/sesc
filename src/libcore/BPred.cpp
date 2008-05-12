@@ -105,7 +105,7 @@ BPRas::BPRas(int32_t i, int32_t fetchWidth, const char *section)
 BPRas::~BPRas()
 {
   delete rasEnergy;
-  delete stack;
+  delete [] stack;
 }
 
 PredType BPRas::predict(const Instruction *inst, InstID oracleID, bool doUpdate)
