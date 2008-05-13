@@ -16,10 +16,10 @@ enum RegNameEnum{
   NumOfRegs   = RegTypeSpc+RegNumMask+1,
   // Placeholder for when the instruction has no register operand
   // Note that there is no actual register with this name
-  RegNone     = NumOfRegs,
+  RegNone,
   // Used when we don't know the type of the register and must check
   // Note that there are no actual registers of this type
-  RegTypeDyn  = 0x400,
+  RegDyn
 };
 typedef uint16_t RegName;
 
@@ -27,7 +27,7 @@ inline bool isGprName(RegName reg){ return (reg&RegTypeMask)==RegTypeGpr; }
 inline bool isFprName(RegName reg){ return (reg&RegTypeMask)==RegTypeFpr; }
 inline bool isCtlName(RegName reg){ return (reg&RegTypeMask)==RegTypeCtl; }
 inline bool isSpcName(RegName reg){ return (reg&RegTypeMask)==RegTypeSpc; }
-inline bool isDynName(RegName reg){ return (reg&RegTypeMask)==RegTypeDyn; }
+inline bool isNotName(RegName reg){ return (reg&RegTypeMask)>=NumOfRegs;  }
 
 inline size_t  getRegNum(RegName reg){ return (reg&RegNumMask); }
 inline RegName getRegType(RegName reg){ return (RegName)(reg&RegTypeMask); }

@@ -59,8 +59,10 @@ enum InstTypInfoEnum{
   MemOpSt2    = TypMemSt+2,
   MemOpSt4    = TypMemSt+4,
   MemOpSt8    = TypMemSt+8,
-  MemOpLl     = TypSynLd+4,
-  MemOpSc     = TypSynSt+4
+  MemOpLl4    = TypSynLd+4,
+  MemOpSc4    = TypSynSt+4,
+  MemOpLl8    = TypSynLd+8,
+  MemOpSc8    = TypSynSt+8
 };
 typedef InstTypInfoEnum InstTypInfo;
 
@@ -71,36 +73,48 @@ inline bool isSync(InstTypInfo typ){
 class InstImm{
  public:
   union{
-    VAddr     a;
-    int32_t   s;
-    uint32_t  u;
+    int64_t   s;
+    uint64_t  u;
     InstDesc *i;
   };
   InstImm(void){}
+  InstImm(int64_t   s) : s(s){}
+  InstImm(uint64_t  u) : u(u){}
   InstImm(int32_t   s) : s(s){}
   InstImm(uint32_t  u) : u(u){}
-  InstImm(InstDesc *i) : i(i){}
-  inline operator int32_t(){
-    return s;
+  InstImm(int16_t   s) : s(s){}
+  InstImm(uint16_t  u) : u(u){}
+  InstImm(int8_t   s) : s(s){}
+  InstImm(uint8_t  u) : u(u){}
+    //  InstImm(InstDesc *i) : i(i){}
+  inline operator int8_t() const{
+    return int8_t(s);
   }
-  inline operator int64_t(){
+  inline operator uint8_t() const{
+    return uint8_t(u);
+  }
+  inline operator int32_t() const{
+    return int32_t(s);
+  }
+  inline operator int64_t() const{
     return int64_t(s);
   }
-  inline operator uint32_t(){
-    return u;
+  inline operator uint32_t() const{
+    return uint32_t(u);
   }
-  inline operator uint64_t(){
+  inline operator uint64_t() const{
     return uint64_t(u);
   }
-  inline operator float32_t(){
+  inline operator float32_t() const{
     fail("InstImm float32_t conversion\n");
     return float32_t(s);
   }
-  inline operator float64_t(){
+  inline operator float64_t() const{
     fail("InstImm float64_t conversion\n");
     return float64_t(s);
   }
-  inline operator bool(){
+  inline operator bool() const{
+    fail("InstImm bool conversion\n");
     return bool(u);
   }
 };
@@ -125,6 +139,7 @@ class InstDesc{
   InstTypInfo  typ;
   VAddr        addr;
   Opcode       op;
+  const char  *name;
 #endif
  public:
   InstDesc(void) : sescInst(0){

@@ -139,7 +139,7 @@ namespace X86{
   }
   template<SegReg segReg>
   void decodeInstSize1(ThreadContext *context, VAddr funcAddr, VAddr &curAddr, VAddr endAddr, size_t &tsize, bool domap){
-    uint8_t opbyte=context->readMem<uint8_t>(curAddr);
+    uint8_t opbyte=context->readMemRaw<uint8_t>(curAddr);
     curAddr+=sizeof(uint8_t);
     switch(opbyte){
     case 0x26: // Prefix SEG=ES
@@ -165,12 +165,12 @@ namespace X86{
     uint8_t exbyte=0;
     // If 2-byte escape, read second byte
     if(opbyte==0x0F){
-      opbyte=context->readMem<uint8_t>(curAddr);
+      opbyte=context->readMemRaw<uint8_t>(curAddr);
       curAddr+=sizeof(uint8_t);
       exbyte++;
       // If one of 3-byte escapes, read third byte
       if((opbyte==0x38)||(opbyte==0x3A)){
-        opbyte=context->readMem<uint8_t>(curAddr);
+        opbyte=context->readMemRaw<uint8_t>(curAddr);
         curAddr+=sizeof(uint8_t);
         exbyte++;
         if(opbyte==0x3A)

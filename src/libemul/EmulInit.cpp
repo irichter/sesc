@@ -1,9 +1,10 @@
 #include <unistd.h>
 #include <fcntl.h>
+#include "SescConf.h"
 #include "ThreadContext.h"
 #include "ElfObject.h"
 //#include "MipsSysCalls.h"
-#include "MipsRegs.h" 
+//#include "MipsRegs.h" 
 #include "EmulInit.h"
 #include "FileSys.h"
 
@@ -77,19 +78,18 @@ void emulInit(int32_t argc, char **argv, char **envp){
   int32_t    appEnvc=0;
   while(appEnvp[appEnvc])
     appEnvc++;
+
   
-  ThreadContext *mainThread=new ThreadContext();
-  size_t realNameLen=FileSys::FileNames::getFileNames()->getReal(appArgv[0],0,0);
-  char realName[realNameLen];
-  FileSys::FileNames::getFileNames()->getReal(appArgv[0],realNameLen,realName);
-  FileSys::FileStatus::pointer fs(FileSys::FileStatus::open(realName,O_RDONLY,0));
+  FileSys::NameSpace::pointer nameSpace(new FileSys::NameSpace(SescConf->getCharPtr("FileSys","mount")));
+  char cwd[PATH_MAX];
+  FileSys::FileSys::pointer fileSys(new FileSys::FileSys(nameSpace,getcwd(cwd,PATH_MAX)));
+  const string exeRealName(fileSys->toNative(appArgv[0]));
+  FileSys::FileStatus::pointer fs(FileSys::FileStatus::open(exeRealName.c_str(),O_RDONLY,0));
   if(!fs)
     fail("Could not open executable %s\n",appArgv[0]);
-  ExecMode emode=getExecMode(fs);
-  if(emode!=ExecModeMips32)
-    fail("Executable %s is not Mips32\n",appArgv[0]);
+  ThreadContext *mainThread=new ThreadContext(fileSys);
   // TODO: Use ELF_ET_DYN_BASE instead of a constant here
-  loadElfObject(mainThread,fs,0x200000,emode);
+  loadElfObject(mainThread,fs,0x200000);
   mainThread->getSystem()->initSystem(mainThread);
   mainThread->getSystem()->createStack(mainThread);
   mainThread->getSystem()->setProgArgs(mainThread,appArgc,appArgv,appEnvc,appEnvp);

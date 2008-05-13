@@ -3,7 +3,7 @@
 
 #include "Regs.h"
 #include "ThreadContext.h"
-
+#error Obsolete!
 namespace Mips {
   
   enum MipsRegName{
@@ -94,9 +94,6 @@ namespace Mips {
     SpcNameLb = RegTypeSpc,
     RegHi     = SpcNameLb,
     RegLo,
-    // Some instructions modify both Reghi and RegLo
-    // We use RegLo as a target to create a dependence
-    RegHL=RegLo,
     RegCond, // Condition register for implementing micro-ops
     RegLink, // Link register for implementing LL/SC
     RegSys,  // Register used in system implementation
@@ -106,7 +103,7 @@ namespace Mips {
     HwrNameUb = HwrNameLb+32,
   };
 
-  template<CpuMode mode,typename T>
+  template<ExecMode mode,typename T>
   inline T getRegCtl(const ThreadContext *context, RegName name){
     I(isCtlName(name));
     if(name==static_cast<RegName>(RegFCSR)){
@@ -133,7 +130,7 @@ namespace Mips {
     return *ptr;
   }
 
-  template<CpuMode mode,typename T>
+  template<ExecMode mode,typename T>
   inline void setRegCtl(ThreadContext *context, RegName name, T val){
     I(isCtlName(name));
     if(name==static_cast<RegName>(RegFCSR)){
@@ -160,20 +157,20 @@ namespace Mips {
     }
   }
   
-  template<CpuMode mode,typename T>
+  template<ExecMode mode,typename T>
   inline T getRegGpr(const ThreadContext *context, RegName name){
     const T *ptr=static_cast<const T *>(context->getReg(name));
     return *(ptr+(sizeof(RegVal)/sizeof(T)-1)*(__BYTE_ORDER==__BIG_ENDIAN));
   }
   
-  template<CpuMode mode,typename T>
+  template<ExecMode mode,typename T>
   inline void setRegGpr(ThreadContext *context, RegName name, T val){
     I(!isFprName(name));
     I(static_cast<MipsRegName>(name)!=RegZero);
     T *ptr=static_cast<T *>(context->getReg(name));
     switch(sizeof(T)){
     case 8:
-      I(context->getMode()==Mips64);
+      I(context->getMode()==ExecModeMips64);
       *ptr=val;
       break;
     case 4: {
@@ -194,7 +191,7 @@ namespace Mips {
     }
   }
   
-  template<CpuMode mode, typename T>
+  template<ExecMode mode, typename T>
   inline T getRegFpr(const ThreadContext *context, RegName name){
     I(isFprName(name));
     switch(sizeof(T)){
@@ -202,23 +199,25 @@ namespace Mips {
       const T *ptr=static_cast<const T *>(context->getReg(name));
       return *ptr;
     } break;
-    case 4:
+    case 4: {
       I(__FLOAT_WORD_ORDER==__BYTE_ORDER);
       switch(mode){
-      case Mips64: {
+      case ExecModeMips64: {
 	const T *ptr=static_cast<const T *>(context->getReg(name));
         return *(ptr+(__BYTE_ORDER==__BIG_ENDIAN));
       } break;
-      case Mips32: {
+      case ExecModeMips32: {
         bool isOdd=static_cast<bool>(name&1);
 	const T *ptr=static_cast<const T *>(context->getReg(static_cast<RegName>(name^isOdd)));
         return *(ptr+(isOdd^(__BYTE_ORDER==__BIG_ENDIAN)));
       } break;
       }
+    } break;
+    default: fail("getRegFpr with unsuppoerted operand size\n");
     }
   }
   
-  template<CpuMode mode, typename T>
+  template<ExecMode mode, typename T>
   inline void setRegFpr(ThreadContext *context, RegName name, T val){
     I(isFprName(name));
     switch(sizeof(T)){
@@ -229,11 +228,11 @@ namespace Mips {
     case 4:
       I(__FLOAT_WORD_ORDER==__BYTE_ORDER);
       switch(mode){
-      case Mips64: {
+      case ExecModeMips64: {
 	T *ptr=static_cast<T *>(context->getReg(name));
         *(ptr+(__BYTE_ORDER==__BIG_ENDIAN))=val;
       } break;
-      case Mips32: {
+      case ExecModeMips32: {
         bool isOdd=static_cast<bool>(name&1);
 	T *ptr=static_cast<T *>(context->getReg(static_cast<RegName>(name^isOdd)));
         *(ptr+(isOdd^(__BYTE_ORDER==__BIG_ENDIAN)))=val;
@@ -242,19 +241,22 @@ namespace Mips {
     }
   }
   
-  template<CpuMode mode, typename T, RegName RTyp>
+  template<ExecMode mode, typename T, RegName RTyp>
   inline void setRegAny(ThreadContext *context, RegName name, T val){
-    if((RTyp!=RegTypeDyn)&&(getRegType(RTyp)!=getRegType(name)))
-      fail("RTyp and name mismatch in getRegAny\n");
-    I((RTyp==RegTypeDyn)||(getRegType(RTyp)==getRegType(name)));
     if(isGprName(RTyp)||isSpcName(RTyp)){
+      if((!isGprName(name))&&(!isSpcName(name)))
+	fail("RTyp is Gpr or Spc, but name is 0x%x in setRegAny\n",name);
       return setRegGpr<mode,T>(context,name,val);
     }else if(isFprName(RTyp)){
+      if(!isFprName(name))
+	fail("RTyp is Fpr, but name is 0x%x in setRegAny\n",name);
       return setRegFpr<mode,T>(context,name,val);
     }else if(isCtlName(RTyp)){
+      if(!isCtlName(name))
+	fail("RTyp is Ctl, but name is 0x%x in setRegAny\n",name);
       return setRegCtl<mode,T>(context,name,val);
     }
-    I(RTyp==RegTypeDyn);
+    I(RTyp==RegDyn);
     if(isGprName(name)||isSpcName(name)){
       return setRegGpr<mode,T>(context,name,val);
     }else if(isFprName(name)){
@@ -262,22 +264,25 @@ namespace Mips {
     }else if(isCtlName(name)){
       return setRegCtl<mode,T>(context,name,val);
     }else{
-      fail("RTyp is Dyn and name is unknown in getRegAny\n");
+      fail("RTyp is Dyn and name is unknown in setRegAny\n");
     }
   }
-  template<CpuMode mode, typename T, RegName RTyp>
+  template<ExecMode mode, typename T, RegName RTyp>
   inline T getRegAny(const ThreadContext *context, RegName name){
-    if((RTyp!=RegTypeDyn)&&(getRegType(RTyp)!=getRegType(name)))
-      fail("RTyp (0x%03x) and name (0x%03x) mismatch in getRegAny\n",RTyp,name);
-    I((RTyp==RegTypeDyn)||(getRegType(RTyp)==getRegType(name)));
     if(isGprName(RTyp)||isSpcName(RTyp)){
+      if((!isGprName(name))&&(!isSpcName(name)))
+	fail("RTyp is Gpr or Spc, but name is 0x%x in getRegAny\n",name);
       return getRegGpr<mode,T>(context,name);
     }else if(isFprName(RTyp)){
+      if(!isFprName(name))
+	fail("RTyp is Fpr, but name is 0x%x in getRegAny\n",name);
       return getRegFpr<mode,T>(context,name);
     }else if(isCtlName(RTyp)){
+      if(!isCtlName(name))
+	fail("RTyp is Ctl, but name is 0x%x in getRegAny\n",name);
       return getRegCtl<mode,T>(context,name);
     }
-    I(RTyp==RegTypeDyn);
+    I(RTyp==RegDyn);
     if(isGprName(name)||isSpcName(name)){
       return getRegGpr<mode,T>(context,name);
     }else if(isFprName(name)){

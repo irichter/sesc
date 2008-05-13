@@ -565,89 +565,73 @@ namespace FileSys {
       fds.push_back(FileDesc(in));
   }
 
-  FileNames *FileNames::fileNames=0;
-
-  FileNames* FileNames::getFileNames(void){
-    if(!fileNames){
-      fileNames=new FileNames();
-      fileNames->cwd=getcwd(0,0);
-      I(fileNames->getCwd());
-      const char *mnts=SescConf->getCharPtr("FileSys","mount");
-      while(*mnts){
-	const char *mend=strchr(mnts,':');
-	size_t mlen=(mend?(mend-mnts):strlen(mnts));
-	char buf[mlen+1];
-	strncpy(buf,mnts,mlen);
-	buf[mlen]=0;
-	char *beql=strchr(buf,'=');
-	if(!beql)
-	  fail("No '=' in section FileSys entry mount for %s\n",buf);
-	*beql++=0;
-	fileNames->mount(buf,beql);
-        if(!mnts[mlen])
-          break;
-	mnts+=(mlen+1);
-      }
+  NameSpace::NameSpace(const string &mtlist) : GCObject(), mounts() {
+    string::size_type bpos=0;
+    while(bpos!=string::npos){
+      string::size_type mpos=mtlist.find('=',bpos);
+      string::size_type epos=mtlist.find(':',bpos);
+      mounts[string(mtlist,bpos,mpos-bpos)]=string(mtlist,mpos+1,epos-mpos-1);
+      bpos=epos+((epos==string::npos)?0:1);
     }
-    return fileNames;
+  }
+  NameSpace::NameSpace(const NameSpace &src) : GCObject(), mounts() {
+    fail("FileSys::NameSpace copying not supported!\n");
+  }
+  const string NameSpace::toNative(const string &fname) const{
+    Mounts::const_iterator it=mounts.lower_bound(fname);
+    if(it==mounts.end())
+      return fname;
+    const string &simmap=it->first;
+    if(fname.compare(0,simmap.length(),simmap)!=0)
+      return fname;
+    if(fname.length()==simmap.length())
+      return it->second;
+    if(string(fname,simmap.length(),1)!="/")
+      return fname;
+    return it->second + string(fname,simmap.length());
+  }
+  FileSys::FileSys(NameSpace *ns, const string &cwd)
+    : GCObject()
+    , nameSpace(ns)
+    , cwd(cwd){
+  }
+  FileSys::FileSys(const FileSys &src, bool newNameSpace)
+    : GCObject()
+    , nameSpace(newNameSpace?(NameSpace *)(new NameSpace(*(src.nameSpace))):(NameSpace *)(src.nameSpace))
+    , cwd(src.cwd){
+  }
+  void FileSys::setCwd(const string &newCwd){
+    cwd=normalize(newCwd);
+  }
+  const string FileSys::normalize(const string &fname) const{
+    string rv(fname);
+    if(string(fname,0,1)!="/")
+      rv=cwd+"/"+rv;
+    while(true){
+      string::size_type pos=rv.find("//");
+      if(pos==string::npos)
+        break;
+      rv.erase(pos,1);
+    }
+    while(true){
+      string::size_type pos=rv.find("/./");
+      if(pos==string::npos)
+        break;
+      rv.erase(pos,2);
+    }
+    while(true){
+      string::size_type epos=rv.find("/../");
+      if(epos==string::npos)
+        break;
+      string::size_type bpos=(epos==0)?0:rv.rfind('/',epos-1);
+      if(bpos==string::npos)
+        fail("Found /../ with no /dir before it\n"); 
+      rv.erase(bpos,epos-bpos+3);
+    }
+    return rv;
+  }
+  const string FileSys::toNative(const string &fname) const{
+    return nameSpace->toNative(normalize(fname));
   }
 
-  bool FileNames::setCwd(const char *newcwd){
-    char *mycwd=strdup(newcwd);
-    if(!mycwd)
-      return false;
-    I(cwd);
-    free(cwd);
-    cwd=mycwd;
-    return true;
-  }
-  
-  bool FileNames::mount(const char *sim, const char *real){
-    char *simCopy=strdup(sim);
-    if(!simCopy)
-      return false;
-    char *realCopy=strdup(real);
-    if(!realCopy){
-      free(simCopy);
-      return false;
-    }
-    if(!simToReal.insert(StringMap::value_type(simCopy,realCopy)).second){
-      free(simCopy);
-      free(realCopy);
-      return false;
-    }
-    return true;
-  }
-
-  size_t FileNames::getReal(const char *sim, size_t len, char *real){
-    char  *buf=strcpy((char *)(alloca(strlen(sim)+1)),sim);
-    if(buf[0]!='/'){
-      char *tmp=(char *)(alloca(strlen(cwd)+1+strlen(buf)+1));
-      strcpy(tmp,cwd);
-      strcat(tmp,"/");
-      if(strncmp(buf,"./",2)==0)
-	buf+=2;
-      buf=strcat(tmp,buf);
-    }
-    char *curslash=strrchr(buf,'/');
-    while(curslash!=0){
-      *curslash=(char)0;
-      if(simToReal.find(buf)!=simToReal.end()){
-	const char *mnt=simToReal[buf];
-	*curslash='/';
-	buf=(char *)(alloca(strlen(mnt)+strlen(curslash)+1));
-	strcpy(buf,mnt);
-	strcat(buf,curslash);
-	break;
-      }
-      char *nextslash=strrchr(buf,'/');
-      *curslash='/';
-      curslash=nextslash;
-    }
-    size_t buflen=strlen(buf)+1;
-    if(len>=buflen)
-      strcpy(real,buf);
-    return buflen;
-  }
-  
 }

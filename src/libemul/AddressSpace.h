@@ -5,8 +5,9 @@
 #include <vector>
 #include <set>
 #include <map>
+#include <list>
 #include "Addressing.h"
-#include "CvtEndian.h"
+//#include "CvtEndian.h"
 #include "InstDesc.h"
 #include "common.h"
 #include "nanassert.h"
@@ -16,19 +17,14 @@
 #include "FileSys.h"
 #include "MemState.h"
 
+#define MAP_PAGE_TABLE
+//#define NEW_PAGE_TABLE
+
+typedef size_t PageNum;
+
 #define AddrSpacPageOffsBits (12)
 #define AddrSpacPageSize     (1<<AddrSpacPageOffsBits)
 #define AddrSpacPageOffsMask (AddrSpacPageSize-1)
-#define AddrSpacPageNumBits  (sizeof(VAddr)*8-AddrSpacPageOffsBits)
-#define AddrSpacPageNumCount (1<<AddrSpacPageNumBits)
-//#define SPLIT_PAGE_TABLE
-#if (defined SPLIT_PAGE_TABLE)
-#define AddrSpacRootBits (AddrSpacPageNumBits/2)
-#define AddrSpacRootSize (1<<AddrSpacRootBits)
-#define AddrSpacLeafBits (AddrSpacPageNumBits-AddrSpacRootBits)
-#define AddrSpacLeafSize (1<<AddrSpacLeafBits)
-#define AddrSpacLeafMask (AddrSpacLeafSize-1)
-#endif
 
 typedef uint64_t MemAlignType;
 
@@ -191,6 +187,8 @@ class AddressSpace : public GCObject{
     // This page needs a copy-on-write
     bool copyOnWrite;
     PageDesc(void);
+    PageDesc(PageDesc &src);
+    PageDesc(const PageDesc &src);
     PageDesc &operator=(PageDesc &src);
     void map(bool r, bool w, bool x){
       if(!mapCount){
@@ -229,38 +227,114 @@ class AddressSpace : public GCObject{
     void save(ChkWriter &out) const;
     ChkReader &operator=(ChkReader &in);
   };
-#if (defined SPLIT_PAGE_TABLE)
-  typedef PageDesc *PageMapLeaf;
-  PageMapLeaf pageMapRoot[AddrSpacRootSize];
-#else
-  PageDesc pageMap[AddrSpacPageNumCount];
+  class PageTable{
+#if (defined MAP_PAGE_TABLE)
+    typedef std::map<size_t,PageDesc> PageMap;
+    PageMap map;
 #endif
+#if (defined NEW_PAGE_TABLE)
+    static const PageNum PageBlockBits=16;
+    static const PageNum PageBlockSize=1<<PageBlockBits;
+    static const PageNum PageBlockMask=PageBlockSize-1;
+    typedef PageDesc *PageBlock;
+    typedef std::vector<PageBlock> PageBlocks;
+    PageBlocks pageBlocks;
+#endif
+    class Cache{
+    public:
+      struct Entry{
+	PageNum   pageNum;
+	PageDesc *pageDesc;
+	Entry(void) : pageNum(0), pageDesc(0){
+	}
+      };
+    private:
+      static const PageNum AddrSpaceCacheSize=(1<<16);
+      Entry cache[AddrSpaceCacheSize];
+    public:
+      inline Entry &operator[](PageNum pageNum){
+	return cache[pageNum%AddrSpaceCacheSize];
+      }
+      inline void clear(void){
+	for(size_t i=0;i<AddrSpaceCacheSize;i++)
+	  cache[i].pageNum=0;
+      }
+    };
+    Cache cache;
+  public:
+    PageTable(void){
+    }
+    PageTable(PageTable &src){
+#if (defined MAP_PAGE_TABLE)
+      for(PageMap::iterator it=src.map.begin();it!=src.map.end();it++)
+	map[it->first]=it->second;
+#endif
+#if (defined NEW_PAGE_TABLE)
+      for(PageNum b=0;b<src.pageBlocks.size();b++){
+	if(src.pageBlocks[b]){
+	  pageBlocks.push_back(new PageDesc[PageBlockSize]);
+	  for(PageNum p=0;p<PageBlockSize;p++)
+	    pageBlocks[b][p]=src.pageBlocks[b][p];
+	}else{
+	  pageBlocks.push_back(0);
+	}
+      }
+#endif
+    }
+    inline PageDesc &operator[](PageNum pageNum){
+      Cache::Entry &centry=cache[pageNum];
+      if(centry.pageNum==pageNum)
+	return *(centry.pageDesc);
+#if (defined MAP_PAGE_TABLE)
+      PageDesc &entry=map[pageNum];
+#endif
+#if (defined NEW_PAGE_TABLE)
+      PageNum block=(pageNum&PageBlockMask);
+      PageNum bitem=(pageNum>>PageBlockBits);
+      while(pageBlocks.size()<=block)
+	pageBlocks.push_back(0);
+      if(!pageBlocks[block])
+	pageBlocks[block]=new PageDesc[PageBlockSize];
+      PageDesc &entry=pageBlock[block][bitem];
+#endif
+      centry.pageNum=pageNum;
+      centry.pageDesc=&entry;
+      return entry;
+    }
+    inline MemSys::FrameDesc *getFrameDesc(PageNum pageNum) const{
+#if (defined MAP_PAGE_TABLE)
+      PageMap::const_iterator it=map.find(pageNum);
+      I(it!=map.begin());
+      return it->second.frame;
+#endif
+#if (defined NEW_PAGE_TABLE)
+      PageNum block=(pageNum&PageBlockMask);
+      PageNum bitem=(pageNum>>PageBlockBits);
+      if(pageBlocks.size()<=block)
+	return 0;
+      if(!pageBlocks[block])
+	return 0;
+      return pageBlocks[block][bitem].frame;
+#endif
+    }
+    inline void clear(void){
+#if (defined MAP_PAGE_TABLE)
+      map.clear();
+#endif
+#if (defined NEW_PAGE_TABLE)
+      for(PageNum b=0;b<pageBlocks.size();b++)
+	if(pageBlocks[b])
+	  delete [] pageBlocks[b];
+#endif
+      cache.clear();
+    }
+  };
+  PageTable pageTable;
   static inline size_t getPageNum(VAddr addr){
     return (addr>>AddrSpacPageOffsBits);
   }
   static inline size_t getPageOff(VAddr addr){
     return (addr&AddrSpacPageOffsMask);
-  }
-  inline const PageDesc &getPageDesc(size_t pageNum) const{
-#if (defined SPLIT_PAGE_TABLE)
-    size_t rootNum=(pageNum>>AddrSpacLeafBits);
-    PageMapLeaf pageMap=pageMapRoot[rootNum];
-    I(pageMap);
-    pageNum=(pageNum&AddrSpacLeafMask);
-#endif
-    return pageMap[pageNum];
-  }
-  inline PageDesc &getPageDesc(size_t pageNum){
-#if (defined SPLIT_PAGE_TABLE)
-    size_t rootNum=(pageNum>>AddrSpacLeafBits);
-    PageMapLeaf pageMap=pageMapRoot[rootNum];
-    if(!pageMap){
-      pageMap=new PageDesc[AddrSpacLeafSize];
-      pageMapRoot[rootNum]=pageMap;
-    }
-    pageNum=(pageNum&AddrSpacLeafMask);
-#endif
-    return pageMap[pageNum];
   }
   VAddr brkBase;
  public:
@@ -313,13 +387,7 @@ class AddressSpace : public GCObject{
     }
   }
   void setBrkBase(VAddr addr){
-    //    while(addr%sizeof(MemAlignType))
-    //      addr++;
-    //    I(isNoSegment(addr,sizeof(MemAlignType)));
     brkBase=addr;
-    //    newSegment(brkBase,sizeof(MemAlignType),true,true,false);
-    //    MemAlignType val=0;
-    //    writeMemRaw(brkBase,val);
   }
   VAddr getBrkBase(void) const{
     I(brkBase);
@@ -377,37 +445,19 @@ class AddressSpace : public GCObject{
     return (mySeg.addr+mySeg.len>=addr+len)&&mySeg.canExec;
   }
   inline RAddr virtToReal(VAddr addr) const{
+    I(0);
     size_t pageOffs=(addr&AddrSpacPageOffsMask);
     size_t pageNum=(addr>>AddrSpacPageOffsBits);
-    //    I(addr==pageNum*PageSize+pageOffs);
-#if (defined SPLIT_PAGE_TABLE)
-    size_t rootNum=(pageNum>>AddrSpacLeafBits);
-    size_t leafNum=(pageNum&AddrSpacLeafMask);
-    PageMapLeaf leafTable=pageMapRoot[rootNum];
-    if(!leafTable)
-      return 0;
-    MemSys::FrameDesc *frame=leafTable[leafNum].frame;
-#else
-    MemSys::FrameDesc *frame=pageMap[pageNum].frame;
-#endif
+    MemSys::FrameDesc *frame=pageTable.getFrameDesc(pageNum);
     if(!frame)
       return 0;
     return (RAddr)(frame->getData(addr));
   }
   inline PAddr virtToPhys(VAddr addr) const{
+    I(0);
     size_t pageOffs=(addr&AddrSpacPageOffsMask);
     size_t pageNum=(addr>>AddrSpacPageOffsBits);
-    //    I(addr==pageNum*PageSize+pageOffs);
-#if (defined SPLIT_PAGE_TABLE)
-    size_t rootNum=(pageNum>>AddrSpacLeafBits);
-    size_t leafNum=(pageNum&AddrSpacLeafMask);
-    PageMapLeaf leafTable=pageMapRoot[rootNum];
-    if(!leafTable)
-      return 0;
-    MemSys::FrameDesc *frame=leafTable[leafNum].frame;
-#else
-    MemSys::FrameDesc *frame=pageMap[pageNum].frame;
-#endif
+    MemSys::FrameDesc *frame=pageTable.getFrameDesc(pageNum);
     if(!frame)
       return 0;
     return frame->getPAddr(addr);
@@ -454,25 +504,35 @@ class AddressSpace : public GCObject{
   inline T readMemRaw(VAddr addr){
     size_t pageNum=getPageNum(addr);
     I(addr+sizeof(T)<=(pageNum+1)*AddrSpacPageSize);
-    PageDesc &myPage=getPageDesc(pageNum);
+    PageDesc &myPage=pageTable[pageNum];
     I(myPage.canRead);
+#if (defined EMUL_VALGRIND)
+    if(*(reinterpret_cast<T *>(myPage.frame->getData(addr)))==0)
+      if(addr==0)
+	printf("Never\n");
+#endif
     return *(reinterpret_cast<T *>(myPage.frame->getData(addr)));
   }
   template<class T>
   inline bool readMemRaw(VAddr addr, T &val){
     size_t pageNum=getPageNum(addr);
     I(addr+sizeof(T)<=(pageNum+1)*AddrSpacPageSize);
-    PageDesc &myPage=getPageDesc(pageNum);
+    PageDesc &myPage=pageTable[pageNum];
     if(!myPage.canRead)
       return false;
+#if (defined EMUL_VALGRIND)
+    if(*(reinterpret_cast<T *>(myPage.frame->getData(addr)))==0)
+      if(addr==0)
+	printf("Never\n");
+#endif
     val=*(reinterpret_cast<T *>(myPage.frame->getData(addr)));
     return true;
   }
   template<class T>
-  inline bool writeMemRaw(VAddr addr, const T &val){
+  inline bool writeMemRaw(VAddr addr, T val){
     size_t pageNum=getPageNum(addr);
     I(addr+sizeof(T)<=(pageNum+1)*AddrSpacPageSize);
-    PageDesc &myPage=getPageDesc(pageNum);
+    PageDesc &myPage=pageTable[pageNum];
     if(!myPage.canWrite)
       return false;
     if(myPage.copyOnWrite){
@@ -480,16 +540,21 @@ class AddressSpace : public GCObject{
       if(myPage.frame->getRefCount()>1)
 	myPage.frame=new MemSys::FrameDesc(*myPage.frame);
     }
+#if (defined EMUL_VALGRIND)
+    if(val==0)
+      if(addr==0)
+	printf("Never\n");
+#endif
     *(reinterpret_cast<T *>(myPage.frame->getData(addr)))=val;
     return true;
   }
 #if (defined HAS_MEM_STATE)
-  inline const MemState &getState(VAddr addr) const{
-    size_t pageNum=getPageNum(addr);
-    I(addr<(pageNum+1)*AddrSpacPageSize);
-    const PageDesc &myPage=getPageDesc(pageNum);
-    return myPage.frame->getState(addr);
-  }
+/*   inline const MemState &getState(VAddr addr) const{ */
+/*     size_t pageNum=getPageNum(addr); */
+/*     I(addr<(pageNum+1)*AddrSpacPageSize); */
+/*     const PageDesc &myPage=getPageDesc(pageNum); */
+/*     return myPage.frame->getState(addr); */
+/*   } */
   inline MemState &getState(VAddr addr){
     size_t pageNum=getPageNum(addr);             
     I(addr<(pageNum+1)*AddrSpacPageSize);                         
@@ -506,44 +571,78 @@ class AddressSpace : public GCObject{
   // Mapping of function names to code addresses
   //
  private:
-  struct ltstr{
-    bool operator()(const char *s1, const char *s2) const{
-      return (strcmp(s1,s2)<0);
+  struct NameEntry{
+    VAddr       addr;
+    std::string func;
+    std::string file;
+    NameEntry(VAddr addr) : addr(addr), func(), file(){
     }
+    NameEntry(VAddr addr, const std::string &func, const std::string &file) : addr(addr), func(func), file(file){
+    }
+    struct ByAddr{
+      bool operator()(const NameEntry &e1, const NameEntry &e2) const{
+	if(e1.addr!=e2.addr)
+	  return (e1.addr>e2.addr);
+	if(e1.func!=e2.func)
+	  return (e1.func<e2.func);
+	return (e1.file<e2.file);
+      }
+    };
+    struct ByName{
+      bool operator()(const NameEntry *e1, const NameEntry *e2) const{
+	if(e1->func!=e2->func)
+	  return (e1->func<e2->func);
+	if(e1->file!=e2->file)
+	  return (e1->file<e2->file);
+	return (e1->addr<e2->addr);
+      }
+    };
   };
-  typedef std::multimap<VAddr,const char *,std::greater<VAddr> > AddrToNameMap;
-  AddrToNameMap funcAddrToName;
-  AddrToNameMap funcAddrToFile;
-  typedef std::multimap<const char *,VAddr,ltstr> NameToAddrMap;
-  NameToAddrMap funcNameToAddr;
+  typedef std::set< NameEntry, NameEntry::ByAddr >   NamesByAddr;
+  NamesByAddr namesByAddr;
+  typedef std::set< const NameEntry *, NameEntry::ByName > NamesByName;
+  NamesByName namesByName;
  public:
   // Add a new function name-address mapping
-  void addFuncName(VAddr addr, const char *func, const char *file);
+  void addFuncName(VAddr addr, const std::string &func, const std::string &file);
+  // Removes all existing function name mappings in a given address range
+  void delFuncNames(VAddr begAddr, VAddr endAddr);
   // Return name of the function with given entry point
-  const char *getFuncName(VAddr addr) const;
+  const std::string &getFuncName(VAddr addr) const;
   // Return name of the ELF file in which the function is
-  const char *getFuncFile(VAddr addr) const;
+  const std::string &getFuncFile(VAddr addr) const;
   // Given the name, return where the function begins
-  VAddr getFuncAddr(const char *name) const;
+  VAddr getFuncAddr(const std::string &name) const;
   // Given a code address, return where the function begins (best guess)
   VAddr getFuncAddr(VAddr addr) const;
   // Given a code address, return the function size (best guess)
   size_t getFuncSize(VAddr addr) const;
   // Print name(s) of function(s) with given entry point
-  void printFuncName(VAddr addr);
+  void printFuncName(VAddr addr) const;
   //
   // Interception of function calls
   //
+ public:
+  typedef std::list<EmulFunc *> HandlerSet;
+  //  typedef std::set<EmulFunc *> HandlerSet;
  private:
-  typedef std::multimap<const char *,EmulFunc *,ltstr> NameToFuncMap;
+/*   struct ltstr{ */
+/*     bool operator()(const char *s1, const char *s2) const{ */
+/*       return (strcmp(s1,s2)<0); */
+/*     } */
+/*   }; */
+/*   typedef std::multimap<const char *,EmulFunc *,ltstr> NameToFuncMap; */
+  typedef std::map<std::string,HandlerSet> NameToFuncMap;
   static NameToFuncMap nameToCallHandler;
   static NameToFuncMap nameToRetHandler;
+  static void addHandler(const std::string &name, NameToFuncMap &map, EmulFunc *func);
+  static void delHandler(const std::string &name, NameToFuncMap &map, EmulFunc *func);
+  static bool getHandlers(const std::string &name, const NameToFuncMap &map, HandlerSet &set);
  public:
-  static void addCallHandler(const char *name,EmulFunc *func);
-  static void addRetHandler(const char *name,EmulFunc *func);
-  static void delCallHandler(const char *name,EmulFunc *func);
-  static void delRetHandler(const char *name,EmulFunc *func);
-  typedef std::set<EmulFunc *> HandlerSet;
+  static void addCallHandler(const std::string &name,EmulFunc *func);
+  static void addRetHandler(const std::string &name,EmulFunc *func);
+  static void delCallHandler(const std::string &name,EmulFunc *func);
+  static void delRetHandler(const std::string &name,EmulFunc *func);
   bool getCallHandlers(VAddr addr, HandlerSet &set) const;
   bool getRetHandlers(VAddr addr, HandlerSet &set) const;
 };

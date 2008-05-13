@@ -10,7 +10,11 @@ typedef uintptr_t RAddr;
 // Type for Physical addresses (in simulated machine)
 typedef uint32_t PAddr;
 // Type for Virtual addresses (in simulated application)
+#if (defined MIPS_EMUL)
+typedef uint64_t VAddr;
+#else
 typedef uint32_t VAddr;
+#endif
 
 // These are the native types for the target (simulated) machine
 typedef uint16_t targUShort;

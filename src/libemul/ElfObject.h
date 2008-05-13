@@ -1,6 +1,8 @@
 #if !(defined ELF_OBJECT_H)
 #define ELF_OBJECT_H
 
+#include "ExecMode.h"
+
 // To get VAddr
 #include "Addressing.h"
 // To get size_t
@@ -116,31 +118,46 @@ namespace FileSys{
   class FileStatus;
 }
 
-typedef enum{
-  ExecModeNone=0,
-  ExecModeArchMask=1,
-  ExecModeArchUnit=1,
-  ExecModeArchMips=1*ExecModeArchUnit,
-  // We can have a little- or big-endian execution
-  ExecModeEndianMask=16,
-  ExecModeEndianUnit=16,
-  ExecModeEndianBig   =0*ExecModeEndianUnit,
-  ExecModeEndianLittle=1*ExecModeEndianUnit,                            
-  // We can have a 32- or 64-bit execution
-  ExecModeBitsMask=32,
-  ExecModeBitsUnit=32,
-  ExecModeBits32=0*ExecModeBitsUnit,
-  ExecModeBits64=1*ExecModeBitsUnit,
-
-  ExecModeMips32=ExecModeArchMips|ExecModeEndianBig|ExecModeBits32,
-} ExecMode;
+template<ExecMode mode>
+class ElfDefs : public ElfDefs<ExecMode(mode&ExecModeBitsMask)>{
+};
+template<>
+class ElfDefs<ExecModeBits32>{
+ public:
+  typedef Elf32_Ehdr Elf_Ehdr;
+  typedef Elf32_Phdr Elf_Phdr;
+  typedef Elf32_Shdr Elf_Shdr;
+  typedef Elf32_Sym  Elf_Sym;
+  class Tauxv_t{
+  public:
+    static const size_t Size_All=8;
+    typedef uint32_t Type_a_type;
+    static const size_t Offs_a_type=0;
+    typedef uint32_t Type_a_val;
+    static const size_t Offs_a_val=4;
+  };
+};
+template<>
+class ElfDefs<ExecModeBits64>{
+ public:
+  typedef Elf64_Ehdr Elf_Ehdr;
+  typedef Elf64_Phdr Elf_Phdr;
+  typedef Elf64_Shdr Elf_Shdr;
+  typedef Elf64_Sym  Elf_Sym;
+  class Tauxv_t{
+  public:
+    static const size_t Size_All=16;
+    typedef uint64_t Type_a_type;
+    static const size_t Offs_a_type=0;
+    typedef uint64_t Type_a_val;
+    static const size_t Offs_a_val=8;
+  };
+};
 
 ExecMode getExecMode(FileSys::FileStatus *fs);
 
 void mapFuncNames(ThreadContext *context, FileSys::FileStatus *fs, ExecMode mode, VAddr addr, size_t len, off_t off);
 
-VAddr loadElfObject(ThreadContext *context, char *fname);
-VAddr loadElfObject(ThreadContext *context, FileSys::FileStatus *fs,
-                    VAddr addr, ExecMode mode, bool isInterpreter=false);
+VAddr loadElfObject(ThreadContext *context, FileSys::FileStatus *fs, VAddr addr);
 
 #endif

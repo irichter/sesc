@@ -5,151 +5,1511 @@
 #include "OSSim.h"
 #include "ElfObject.h"
 
-#include "MipsRegs.h"
-#include "Mips32Defs.h"
+//#include "MipsRegs.h"
+
+#include "ABIDefs.h"
+
+#include "ArchDefs.h"
+
+// Get definition of endian conversions
+#include "EndianDefs.h"
 
 #include <map>
+
+// Get definitions of native file operations and flags
+#include <fcntl.h>
+// Get definition of native types
+#include <linux/types.h>
+// Get definition of native getdirentries(), dirent64, etc.
+#include <dirent.h>
+// Get native ioctl() and data type definitions for it
+#include <sys/ioctl.h>
+// Get error number and errno definitions
+#include <errno.h>
 
 //#define DEBUG_FILES
 //#define DEBUG_VMEM
 //#define DEBUG_SOCKET
-enum{
-  BaseSimTid = 1000
-};
 
-class Tstr{
- private:
-  char *s;
- public:
-  Tstr(ThreadContext *context, VAddr addr) : s(0){
-    ssize_t len=context->readMemString(addr,0,0);
-    if(len==-1){
-      context->getSystem()->setSysErr(context,LinuxSys::ErrFault);
-    }else{
-      s=new char[len];
-      ssize_t chklen=context->readMemString(addr,len,s);
-      I(chklen==len);
+template<ExecMode mode>
+class RealLinuxSys : public LinuxSys, public ArchDefs<mode>{
+  template<typename T, RegName RTyp>
+  static inline T getReg(const ThreadContext *context, RegName name){
+    return ArchDefs<mode>::template getReg<T,RTyp>(context,name);
+  }
+  template<typename T, RegName RTyp>
+  static inline void setReg(ThreadContext *context, RegName name, T val){
+    return ArchDefs<mode>::template setReg<T,RTyp>(context,name,val);
+  }
+  template<typename T>
+  inline static T fixEndian(T val){
+    return EndianDefs<mode>::fixEndian(val);
+  }
+  static const ExecMode execMode=mode;
+  typedef ABIDefs<mode>    Base;
+  typedef ElfDefs<mode>    ElfBase;
+  // Basic types
+  typedef typename Base::Tint       Tint;
+  typedef typename Base::Tuint      Tuint;
+  typedef typename Base::Tlong      Tlong;
+  typedef typename Base::Tulong     Tulong;
+  typedef typename Base::Tpointer_t Tpointer_t;
+  typedef typename Base::Tsize_t    Tsize_t;
+  typedef typename Base::Tssize_t   Tssize_t;
+  typedef typename Base::Tpid_t     Tpid_t;
+  class Tstr{
+   private:
+    char *s;
+   public:
+    Tstr(ThreadContext *context, Tpointer_t addr) : s(0){
+      ssize_t len=context->readMemString(addr,0,0);
+      if(len==-1){
+        setSysErr(context,VEFAULT);
+      }else{
+        s=new char[len];
+        ssize_t chklen=context->readMemString(addr,len,s);
+        I(chklen==len);
+      }
+    }
+    ~Tstr(void){
+      if(s!=0)
+        delete [] s;
+    }
+    operator const char *() const{
+      return s;
+    }
+    operator bool() const{
+      return (s!=0);
+    }
+  };
+  // Error codes
+  const static typeof(Base::VEPERM       ) VEPERM        = Base::VEPERM;
+  const static typeof(Base::VENOENT      ) VENOENT       = Base::VENOENT;
+  const static typeof(Base::VESRCH       ) VESRCH        = Base::VESRCH;
+  const static typeof(Base::VEINTR       ) VEINTR        = Base::VEINTR;
+  const static typeof(Base::VEIO         ) VEIO          = Base::VEIO;
+  const static typeof(Base::VENXIO       ) VENXIO        = Base::VENXIO;
+  const static typeof(Base::VE2BIG       ) VE2BIG        = Base::VE2BIG;
+  const static typeof(Base::VENOEXEC     ) VENOEXEC      = Base::VENOEXEC;
+  const static typeof(Base::VEBADF       ) VEBADF        = Base::VEBADF;
+  const static typeof(Base::VECHILD      ) VECHILD       = Base::VECHILD;
+  const static typeof(Base::VEAGAIN      ) VEAGAIN       = Base::VEAGAIN;
+  const static typeof(Base::VENOMEM      ) VENOMEM       = Base::VENOMEM;
+  const static typeof(Base::VEACCES      ) VEACCES       = Base::VEACCES;
+  const static typeof(Base::VEFAULT      ) VEFAULT       = Base::VEFAULT;
+  const static typeof(Base::VENOTBLK     ) VENOTBLK      = Base::VENOTBLK;
+  const static typeof(Base::VEBUSY       ) VEBUSY        = Base::VEBUSY;
+  const static typeof(Base::VEEXIST      ) VEEXIST       = Base::VEEXIST;
+  const static typeof(Base::VEXDEV       ) VEXDEV        = Base::VEXDEV;
+  const static typeof(Base::VENODEV      ) VENODEV       = Base::VENODEV;
+  const static typeof(Base::VENOTDIR     ) VENOTDIR      = Base::VENOTDIR;
+  const static typeof(Base::VEISDIR      ) VEISDIR       = Base::VEISDIR;
+  const static typeof(Base::VEINVAL      ) VEINVAL       = Base::VEINVAL;
+  const static typeof(Base::VENFILE      ) VENFILE       = Base::VENFILE;
+  const static typeof(Base::VEMFILE      ) VEMFILE       = Base::VEMFILE;
+  const static typeof(Base::VENOTTY      ) VENOTTY       = Base::VENOTTY;
+  const static typeof(Base::VETXTBSY     ) VETXTBSY      = Base::VETXTBSY;
+  const static typeof(Base::VEFBIG       ) VEFBIG        = Base::VEFBIG;
+  const static typeof(Base::VENOSPC      ) VENOSPC       = Base::VENOSPC;
+  const static typeof(Base::VESPIPE      ) VESPIPE       = Base::VESPIPE;
+  const static typeof(Base::VEROFS       ) VEROFS        = Base::VEROFS;
+  const static typeof(Base::VEMLINK      ) VEMLINK       = Base::VEMLINK;
+  const static typeof(Base::VEPIPE       ) VEPIPE        = Base::VEPIPE;
+  const static typeof(Base::VEDOM        ) VEDOM         = Base::VEDOM;
+  const static typeof(Base::VERANGE      ) VERANGE       = Base::VERANGE;
+  const static typeof(Base::VENOSYS      ) VENOSYS       = Base::VENOSYS;
+  const static typeof(Base::VEAFNOSUPPORT) VEAFNOSUPPORT = Base::VEAFNOSUPPORT;
+  static Tint errorFromNative(int err=errno){
+    switch(err){
+    case EPERM:        return VEPERM;
+    case ENOENT:       return VENOENT;
+    case ESRCH:        return VESRCH;
+    case EINTR:        return VEINTR;
+    case EIO:          return VEIO;
+    case ENXIO:        return VENXIO;
+    case E2BIG:        return VE2BIG;
+    case ENOEXEC:      return VENOEXEC;
+    case EBADF:        return VEBADF;
+    case ECHILD:       return VECHILD;
+    case EAGAIN:       return VEAGAIN;
+    case ENOMEM:       return VENOMEM;
+    case EACCES:       return VEACCES;
+    case EFAULT:       return VEFAULT;
+    case ENOTBLK:      return VENOTBLK;
+    case EBUSY:        return VEBUSY;
+    case EEXIST:       return VEEXIST;
+    case EXDEV:        return VEXDEV;
+    case ENODEV:       return VENODEV;
+    case ENOTDIR:      return VENOTDIR;
+    case EISDIR:       return VEISDIR;
+    case EINVAL:       return VEINVAL;
+    case ENFILE:       return VENFILE;
+    case EMFILE:       return VEMFILE;
+    case ENOTTY:       return VENOTTY;
+    case ETXTBSY:      return VETXTBSY;
+    case EFBIG:        return VEFBIG;
+    case ENOSPC:       return VENOSPC;
+    case ESPIPE:       return VESPIPE;
+    case EROFS:        return VEROFS;
+    case EMLINK:       return VEMLINK;
+    case EPIPE:        return VEPIPE;
+    case EDOM :        return VEDOM;
+    case ERANGE:       return VERANGE;
+    case ENOSYS:       return VENOSYS;
+    case EAFNOSUPPORT: return VEAFNOSUPPORT;
+    default:
+      fail("errorFromNative(%d) with unsupported native error code\n");
     }
   }
-  ~Tstr(void){
-    delete [] s;
+  // Signal numbers
+  const static typeof(Base::VSIGHUP ) VSIGHUP  = Base::VSIGHUP;
+  const static typeof(Base::VSIGINT ) VSIGINT  = Base::VSIGINT;
+  const static typeof(Base::VSIGQUIT) VSIGQUIT = Base::VSIGQUIT;
+  const static typeof(Base::VSIGILL ) VSIGILL  = Base::VSIGILL;
+  const static typeof(Base::VSIGTRAP) VSIGTRAP = Base::VSIGTRAP;
+  const static typeof(Base::VSIGABRT) VSIGABRT = Base::VSIGABRT;
+  const static typeof(Base::VSIGFPE ) VSIGFPE  = Base::VSIGFPE;
+  const static typeof(Base::VSIGKILL) VSIGKILL = Base::VSIGKILL;
+  const static typeof(Base::VSIGBUS ) VSIGBUS  = Base::VSIGBUS;
+  const static typeof(Base::VSIGSEGV) VSIGSEGV = Base::VSIGSEGV;
+  const static typeof(Base::VSIGPIPE) VSIGPIPE = Base::VSIGPIPE;
+  const static typeof(Base::VSIGALRM) VSIGALRM = Base::VSIGALRM;
+  const static typeof(Base::VSIGTERM) VSIGTERM = Base::VSIGTERM;
+  const static typeof(Base::VSIGUSR1) VSIGUSR1 = Base::VSIGUSR1;
+  const static typeof(Base::VSIGUSR2) VSIGUSR2 = Base::VSIGUSR2;
+  const static typeof(Base::VSIGCHLD) VSIGCHLD = Base::VSIGCHLD;
+  const static typeof(Base::VSIGSTOP) VSIGSTOP = Base::VSIGSTOP;
+  const static typeof(Base::VSIGTSTP) VSIGTSTP = Base::VSIGTSTP;
+  const static typeof(Base::VSIGCONT) VSIGCONT = Base::VSIGCONT;
+  static SignalID sigNumToLocal(Tint sig){
+    switch(sig){
+    case VSIGCHLD: return SigChld;
+    default:
+      if(sig<=SigNMax)
+	return static_cast<SignalID>(sig);
+    }
+    fail("RealLinuxSys::sigNumToLocal(%d) not supported\n",sig);
+    return SigNone;
   }
-  operator const char *() const{
-    return s;
+  static Tint localToSigNum(SignalID sig){
+    switch(sig){
+    case SigChld: return VSIGCHLD;
+    default:
+      return static_cast<Tint>(sig);
+    }
   }
-  operator bool() const{
-    return (s!=0);
+  // Thread/process creation and destruction
+  class Tauxv_t{
+    typedef typename ElfBase::Tauxv_t This;
+  public:
+    static const size_t getSize(void){ return This::Size_All; }
+    typename This::Type_a_type a_type;
+    typename This::Type_a_val  a_val;
+    Tauxv_t(typename This::Type_a_type a_type, typename This::Type_a_val a_val)
+      : a_type(a_type), a_val(a_val)
+    {
+    }
+    void write(ThreadContext *context, VAddr addr) const{
+      context->writeMemRaw(addr+This::Offs_a_type,fixEndian(a_type));
+      context->writeMemRaw(addr+This::Offs_a_val,fixEndian(a_val));
+    }
+  };
+  const static typeof(Base::VCSIGNAL) VCSIGNAL = Base::VCSIGNAL;
+  const static typeof(Base::VCLONE_VM) VCLONE_VM = Base::VCLONE_VM;
+  const static typeof(Base::VCLONE_FS) VCLONE_FS = Base::VCLONE_FS;
+  const static typeof(Base::VCLONE_FILES) VCLONE_FILES = Base::VCLONE_FILES;
+  const static typeof(Base::VCLONE_SIGHAND) VCLONE_SIGHAND = Base::VCLONE_SIGHAND;
+  const static typeof(Base::VCLONE_VFORK) VCLONE_VFORK = Base::VCLONE_VFORK;
+  const static typeof(Base::VCLONE_PARENT) VCLONE_PARENT = Base::VCLONE_PARENT;
+  const static typeof(Base::VCLONE_THREAD) VCLONE_THREAD = Base::VCLONE_THREAD;
+  const static typeof(Base::VCLONE_NEWNS) VCLONE_NEWNS = Base::VCLONE_NEWNS;
+  const static typeof(Base::VCLONE_SYSVSEM) VCLONE_SYSVSEM = Base::VCLONE_SYSVSEM;
+  const static typeof(Base::VCLONE_SETTLS) VCLONE_SETTLS = Base::VCLONE_SETTLS;
+  const static typeof(Base::VCLONE_PARENT_SETTID) VCLONE_PARENT_SETTID = Base::VCLONE_PARENT_SETTID;
+  const static typeof(Base::VCLONE_CHILD_CLEARTID) VCLONE_CHILD_CLEARTID = Base::VCLONE_CHILD_CLEARTID;
+  const static typeof(Base::VCLONE_DETACHED) VCLONE_DETACHED = Base::VCLONE_DETACHED;
+  const static typeof(Base::VCLONE_UNTRACED) VCLONE_UNTRACED = Base::VCLONE_UNTRACED;
+  const static typeof(Base::VCLONE_CHILD_SETTID) VCLONE_CHILD_SETTID = Base::VCLONE_CHILD_SETTID;
+  const static typeof(Base::VCLONE_STOPPED) VCLONE_STOPPED = Base::VCLONE_STOPPED;
+  const static typeof(Base::V__NR_clone) V__NR_clone = Base::V__NR_clone;
+  void sysClone(ThreadContext *context, InstDesc *inst);
+  const static typeof(Base::V__NR_fork) V__NR_fork = Base::V__NR_fork;
+  void sysFork(ThreadContext *context, InstDesc *inst);
+  const static typeof(Base::V__NR_execve) V__NR_execve = Base::V__NR_execve;
+  InstDesc *sysExecVe(ThreadContext *context, InstDesc *inst);
+  const static typeof(Base::V__NR_exit) V__NR_exit = Base::V__NR_exit;
+  InstDesc *sysExit(ThreadContext *context, InstDesc *inst);
+  const static typeof(Base::V__NR_exit_group) V__NR_exit_group = Base::V__NR_exit_group;
+  InstDesc *sysExitGroup(ThreadContext *context, InstDesc *inst);
+  const static typeof(Base::VWNOHANG  ) VWNOHANG   = Base::VWNOHANG;
+  const static typeof(Base::VWUNTRACED) VWUNTRACED = Base::VWUNTRACED;
+  void doWait4(ThreadContext *context, InstDesc *inst,
+               Tpid_t cpid, Tpointer_t status,
+               Tuint options, Tpointer_t rusage);
+  const static typeof(Base::V__NR_waitpid) V__NR_waitpid = Base::V__NR_waitpid;
+  void sysWaitpid(ThreadContext *context, InstDesc *inst);
+  const static typeof(Base::V__NR_wait4) V__NR_wait4 = Base::V__NR_wait4;
+  void sysWait4(ThreadContext *context, InstDesc *inst);
+  // Thread/Process relationships functionality
+  const static typeof(Base::V__NR_getpid) V__NR_getpid = Base::V__NR_getpid;
+  void sysGetPid(ThreadContext *context, InstDesc *inst);
+  const static typeof(Base::V__NR_gettid) V__NR_gettid = Base::V__NR_gettid;
+  void sysGetTid(ThreadContext *context, InstDesc *inst);
+  const static typeof(Base::V__NR_getppid) V__NR_getppid = Base::V__NR_getppid;
+  void sysGetPPid(ThreadContext *context, InstDesc *inst);
+  const static typeof(Base::V__NR_setpgid) V__NR_setpgid = Base::V__NR_setpgid;
+  const static typeof(Base::V__NR_getpgid) V__NR_getpgid = Base::V__NR_getpgid;
+  const static typeof(Base::V__NR_getpgrp) V__NR_getpgrp = Base::V__NR_getpgrp;
+  const static typeof(Base::V__NR_setsid) V__NR_setsid = Base::V__NR_setsid;
+  const static typeof(Base::V__NR_getsid) V__NR_getsid = Base::V__NR_getsid;
+  // Futex functionality
+  const static typeof(Base::VFUTEX_PRIVATE_FLAG) VFUTEX_PRIVATE_FLAG = Base::VFUTEX_PRIVATE_FLAG;
+  const static typeof(Base::VFUTEX_CMD_MASK) VFUTEX_CMD_MASK = Base::VFUTEX_CMD_MASK;
+  const static typeof(Base::VFUTEX_WAIT) VFUTEX_WAIT = Base::VFUTEX_WAIT;
+  const static typeof(Base::VFUTEX_WAKE) VFUTEX_WAKE = Base::VFUTEX_WAKE;
+  const static typeof(Base::VFUTEX_FD) VFUTEX_FD = Base::VFUTEX_FD;
+  const static typeof(Base::VFUTEX_REQUEUE) VFUTEX_REQUEUE = Base::VFUTEX_REQUEUE;
+  const static typeof(Base::VFUTEX_CMP_REQUEUE) VFUTEX_CMP_REQUEUE = Base::VFUTEX_CMP_REQUEUE;
+  const static typeof(Base::VFUTEX_WAKE_OP) VFUTEX_WAKE_OP = Base::VFUTEX_WAKE_OP;
+  const static typeof(Base::VFUTEX_OP_OPARG_SHIFT) VFUTEX_OP_OPARG_SHIFT = Base::VFUTEX_OP_OPARG_SHIFT;
+  const static typeof(Base::VFUTEX_OP_SET) VFUTEX_OP_SET = Base::VFUTEX_OP_SET;
+  const static typeof(Base::VFUTEX_OP_ADD) VFUTEX_OP_ADD = Base::VFUTEX_OP_ADD;
+  const static typeof(Base::VFUTEX_OP_OR) VFUTEX_OP_OR = Base::VFUTEX_OP_OR;
+  const static typeof(Base::VFUTEX_OP_ANDN) VFUTEX_OP_ANDN = Base::VFUTEX_OP_ANDN;
+  const static typeof(Base::VFUTEX_OP_XOR) VFUTEX_OP_XOR = Base::VFUTEX_OP_XOR;
+  const static typeof(Base::VFUTEX_OP_CMP_EQ) VFUTEX_OP_CMP_EQ = Base::VFUTEX_OP_CMP_EQ;
+  const static typeof(Base::VFUTEX_OP_CMP_NE) VFUTEX_OP_CMP_NE = Base::VFUTEX_OP_CMP_NE;
+  const static typeof(Base::VFUTEX_OP_CMP_LT) VFUTEX_OP_CMP_LT = Base::VFUTEX_OP_CMP_LT;
+  const static typeof(Base::VFUTEX_OP_CMP_LE) VFUTEX_OP_CMP_LE = Base::VFUTEX_OP_CMP_LE;
+  const static typeof(Base::VFUTEX_OP_CMP_GT) VFUTEX_OP_CMP_GT = Base::VFUTEX_OP_CMP_GT;
+  const static typeof(Base::VFUTEX_OP_CMP_GE) VFUTEX_OP_CMP_GE = Base::VFUTEX_OP_CMP_GE;
+  const static typeof(Base::V__NR_futex) V__NR_futex = Base::V__NR_futex;
+  bool futexCheck(ThreadContext *context, Tpointer_t futex, Tint val);
+  void futexWait(ThreadContext *context, Tpointer_t futex);
+  int futexWake(ThreadContext *context, Tpointer_t futex, int nr_wake);
+  int futexMove(ThreadContext *context, Tpointer_t srcFutex, Tpointer_t dstFutex, int nr_move);
+  void sysFutex(ThreadContext *context, InstDesc *inst);
+  // Robust list functionality
+  class Trobust_list{
+    typedef typename Base::Trobust_list This;
+  public:
+    static const size_t getSize(void){ return This::Size_All; }
+    typename This::Type_next next;
+    Trobust_list(ThreadContext *context, VAddr addr)
+      :
+      next(fixEndian(context->readMemRaw<typeof(next)>(addr+This::Offs_next)))
+    {
+    }
+  };
+  class Trobust_list_head{
+    typedef typename Base::Trobust_list_head This;
+   public:
+    static const size_t getSize(void){ return This::Size_All; }
+    Trobust_list                        list;
+    typename This::Type_futex_offset    futex_offset;
+    typename This::Type_list_op_pending list_op_pending;
+    Trobust_list_head(ThreadContext *context, VAddr addr)
+      :
+      list(context,addr+This::Offs_list),
+      futex_offset(fixEndian(context->readMemRaw<typeof(futex_offset)>(addr+This::Offs_futex_offset))),
+      list_op_pending(fixEndian(context->readMemRaw<typeof(list_op_pending)>(addr+This::Offs_list_op_pending)))
+    {
+    }
+  };
+  const static typeof(Base::V__NR_set_robust_list) V__NR_set_robust_list = Base::V__NR_set_robust_list;
+  void sysSetRobustList(ThreadContext *context, InstDesc *inst);
+  const static typeof(Base::V__NR_get_robust_list) V__NR_get_robust_list = Base::V__NR_get_robust_list;
+  const static typeof(Base::V__NR_set_tid_address) V__NR_set_tid_address = Base::V__NR_set_tid_address;
+  void sysSetTidAddress(ThreadContext *context, InstDesc *inst);
+  // Signal-related functionality
+  const static typeof(Base::V__NR_kill) V__NR_kill = Base::V__NR_kill;
+  void sysKill(ThreadContext *context, InstDesc *inst);
+  const static typeof(Base::V__NR_tkill) V__NR_tkill = Base::V__NR_tkill;
+  void sysTKill(ThreadContext *context, InstDesc *inst);
+  const static typeof(Base::V__NR_tgkill) V__NR_tgkill = Base::V__NR_tgkill;
+  void sysTgKill(ThreadContext *context, InstDesc *inst);
+  const static typeof(Base::V__NR_rt_sigqueueinfo) V__NR_rt_sigqueueinfo = Base::V__NR_rt_sigqueueinfo;
+  class Tsigset_t{
+    typedef typename Base::Tsigset_t This;
+   public:
+    static const size_t getSize(void){ return This::Size_All; }
+    typename This::Type_sig sig[This::Size_sig];
+    Tsigset_t(ThreadContext *context, VAddr addr){
+      for(size_t i=0;i<This::Size_sig;i++)
+        sig[i]=fixEndian(context->readMemRaw<typename This::Type_sig>(addr+This::Offs_sig+i*This::Step_sig));
+    }
+    Tsigset_t(const SignalSet &sset){
+      for(size_t i=0;i<This::Size_sig;i++){
+        sig[i]=0;
+        for(size_t b=0;b<8*sizeof(typename This::Type_sig);b++){
+          SignalID lsig=sigNumToLocal(Tint(i*8*sizeof(typename This::Type_sig)+b+1));
+          if((lsig!=SigNone)&&(sset.test(lsig)))
+            sig[i]|=(1<<b);
+        }
+      }
+    }
+    void write(ThreadContext *context, VAddr addr) const{
+      for(size_t i=0;i<This::Size_sig;i++)
+        context->writeMemRaw(addr+This::Offs_sig+i*This::Step_sig,fixEndian(sig[i]));
+    }
+    operator SignalSet(){
+      SignalSet rv(0);
+      for(size_t i=0;i<This::Size_sig;i++){
+        for(size_t b=0;b<8*sizeof(typename This::Type_sig);b++){
+          if(sig[i]&(1<<b)){
+	    SignalID lsig=sigNumToLocal(Tint(i*8*sizeof(typename This::Type_sig)+b+1));
+            if(lsig!=SigNone)
+              rv.set(lsig);
+          }
+        }
+      }
+      return rv;
+    } 
+  };
+  class Tsigaction{
+    typedef typename Base::Tsigaction This;
+   public:
+    static const size_t getSize(void){ return This::Size_All; }
+    // Can't call this sa_handler because of conflict with a native define 
+    typename This::Type_sa_handler sa_hand;
+    typename This::Type_sa_flags   sa_flags;
+    Tsigset_t                      sa_mask;
+    Tsigaction(ThreadContext *context, VAddr addr)
+      :
+      sa_hand(fixEndian(context->readMemRaw<typeof(sa_hand)>(addr+This::Offs_sa_handler))),
+      sa_flags(fixEndian(context->readMemRaw<typeof(sa_flags)>(addr+This::Offs_sa_flags))),
+      sa_mask(context,addr+This::Offs_sa_mask)
+    {
+    }
+    Tsigaction(SignalDesc &sdesc)
+      :
+      sa_hand(saHandlerFromLocal(sdesc.handler)),
+      sa_flags(saFlagsFromLocal(sdesc.flags)),
+      sa_mask(sdesc.mask)
+    {
+    }
+    operator SignalDesc(){
+      return SignalDesc(saHandlerToLocal(sa_hand),sa_mask,saFlagsToLocal(sa_flags));
+    }
+    void write(ThreadContext *context, VAddr addr) const{
+      context->writeMemRaw(addr+This::Offs_sa_handler,fixEndian(sa_hand));
+      context->writeMemRaw(addr+This::Offs_sa_flags,fixEndian(sa_flags));
+      sa_mask.write(context,addr+This::Offs_sa_mask);
+    }
+  };
+  const static typeof(Base::VSA_NOCLDSTOP) VSA_NOCLDSTOP = Base::VSA_NOCLDSTOP;
+  const static typeof(Base::VSA_NOCLDWAIT) VSA_NOCLDWAIT = Base::VSA_NOCLDWAIT;
+  const static typeof(Base::VSA_RESETHAND) VSA_RESETHAND = Base::VSA_RESETHAND;
+  const static typeof(Base::VSA_ONSTACK) VSA_ONSTACK = Base::VSA_ONSTACK;
+  const static typeof(Base::VSA_SIGINFO) VSA_SIGINFO = Base::VSA_SIGINFO;
+  const static typeof(Base::VSA_RESTART) VSA_RESTART = Base::VSA_RESTART;
+  const static typeof(Base::VSA_NODEFER) VSA_NODEFER = Base::VSA_NODEFER;
+  const static typeof(Base::VSA_INTERRUPT) VSA_INTERRUPT = Base::VSA_INTERRUPT;
+  static SaSigFlags saFlagsToLocal(Tuint flags){
+    SaSigFlags rv(static_cast<SaSigFlags>(0));
+    if(flags&VSA_NODEFER) rv=static_cast<SaSigFlags>(rv|SaNoDefer);
+    if(flags&VSA_SIGINFO) rv=static_cast<SaSigFlags>(rv|SaSigInfo);
+    if(flags&VSA_RESTART) rv=static_cast<SaSigFlags>(rv|SaRestart);
+    if(flags&~(VSA_NODEFER|VSA_SIGINFO|VSA_RESTART))
+      fail("saFlagsToLocal(%lx) with unsupported flags\n",(unsigned long)flags);
+    return rv;
   }
+  static Tuint saFlagsFromLocal(SaSigFlags flags){
+    Tuint rv(0);
+    if(flags&SaNoDefer) rv|=VSA_NODEFER;
+    if(flags&SaSigInfo) rv|=VSA_SIGINFO;
+    if(flags&SaRestart) rv|=VSA_RESTART;
+    if(flags&~(SaNoDefer|SaSigInfo|SaRestart))
+      fail("saFlagsFromLocal(%lx) with unsupported flags\n",(unsigned long)flags);
+    return rv;
+  }
+  const static typeof(Base::VSIG_DFL) VSIG_DFL = Base::VSIG_DFL;
+  const static typeof(Base::VSIG_IGN) VSIG_IGN = Base::VSIG_IGN;
+  static VAddr saHandlerToLocal(Tpointer_t hnd){
+    switch(hnd){
+    case VSIG_DFL: return static_cast<VAddr>(SigActDefault);
+    case VSIG_IGN: return static_cast<VAddr>(SigActIgnore);
+    }
+    return static_cast<VAddr>(hnd);
+  }
+  static Tpointer_t saHandlerFromLocal(VAddr hnd){
+    switch(hnd){
+    case static_cast<VAddr>(SigActDefault): return VSIG_DFL;
+    case static_cast<VAddr>(SigActIgnore):  return VSIG_IGN;
+    }
+    return static_cast<Tpointer_t>(hnd);
+  }
+  const static typeof(Base::V__NR_sigaction) V__NR_sigaction = Base::V__NR_sigaction;
+  const static typeof(Base::V__NR_rt_sigaction) V__NR_rt_sigaction = Base::V__NR_rt_sigaction;
+  void sysRtSigAction(ThreadContext *context, InstDesc *inst);
+  const static typeof(Base::VSIG_BLOCK) VSIG_BLOCK = Base::VSIG_BLOCK;
+  const static typeof(Base::VSIG_UNBLOCK) VSIG_UNBLOCK = Base::VSIG_UNBLOCK;
+  const static typeof(Base::VSIG_SETMASK) VSIG_SETMASK = Base::VSIG_SETMASK;
+  const static typeof(Base::V__NR_sigprocmask) V__NR_sigprocmask = Base::V__NR_sigprocmask;
+  const static typeof(Base::V__NR_rt_sigprocmask) V__NR_rt_sigprocmask = Base::V__NR_rt_sigprocmask;
+  void sysRtSigProcMask(ThreadContext *context, InstDesc *inst);
+  const static typeof(Base::V__NR_sigpending) V__NR_sigpending = Base::V__NR_sigpending;
+  const static typeof(Base::V__NR_rt_sigpending) V__NR_rt_sigpending = Base::V__NR_rt_sigpending;
+  const static typeof(Base::V__NR_sigsuspend) V__NR_sigsuspend = Base::V__NR_sigsuspend;
+  const static typeof(Base::V__NR_rt_sigsuspend) V__NR_rt_sigsuspend = Base::V__NR_rt_sigsuspend;
+  void sysRtSigSuspend(ThreadContext *context, InstDesc *inst);
+  const static typeof(Base::V__NR_rt_sigtimedwait) V__NR_rt_sigtimedwait = Base::V__NR_rt_sigtimedwait;
+  const static typeof(Base::V__NR_signal) V__NR_signal = Base::V__NR_signal;
+  const static typeof(Base::V__NR_signalfd) V__NR_signalfd = Base::V__NR_signalfd;
+  const static typeof(Base::V__NR_sigaltstack) V__NR_sigaltstack = Base::V__NR_sigaltstack;
+  const static typeof(Base::V__NR_sigreturn) V__NR_sigreturn = Base::V__NR_sigreturn;
+  const static typeof(Base::V__NR_rt_sigreturn) V__NR_rt_sigreturn = Base::V__NR_rt_sigreturn;
+  void sysRtSigReturn(ThreadContext *context, InstDesc *inst);
+  // Time-related functionality
+  typedef typename Base::Tclock_t Tclock_t;
+  class Ttms{
+    typedef typename Base::Ttms This;
+  public:
+    static const size_t getSize(void){ return This::Size_All; }
+    typename This::Type_tms_utime tms_utime;
+    typename This::Type_tms_cutime tms_cutime;
+    typename This::Type_tms_cstime tms_cstime;
+    typename This::Type_tms_stime tms_stime;
+    void write(ThreadContext *context, VAddr addr) const{
+      context->writeMemRaw(addr+This::Offs_tms_utime,fixEndian(tms_utime));
+      context->writeMemRaw(addr+This::Offs_tms_cutime,fixEndian(tms_cutime));
+      context->writeMemRaw(addr+This::Offs_tms_cstime,fixEndian(tms_cstime));
+      context->writeMemRaw(addr+This::Offs_tms_stime,fixEndian(tms_stime));
+    }
+  };
+  const static typeof(Base::V__NR_times) V__NR_times = Base::V__NR_times;
+  void sysTimes(ThreadContext *context, InstDesc *inst);
+  typedef typename Base::Ttime_t Ttime_t;
+  const static typeof(Base::V__NR_time) V__NR_time = Base::V__NR_time;
+  void sysTime(ThreadContext *context, InstDesc *inst);
+  typedef typename Base::Tsuseconds_t Tsuseconds_t;
+  class Ttimeval{
+    typedef typename Base::Ttimeval This;
+   public:
+    static const size_t getSize(void){ return This::Size_All; }
+    typename This::Type_tv_sec  tv_sec;
+    typename This::Type_tv_usec tv_usec;
+    Ttimeval(typename This::Type_tv_sec sec, typename This::Type_tv_usec usec)
+      : tv_sec(sec),
+	tv_usec(usec)
+    {
+    }
+    void write(ThreadContext *context, VAddr addr) const{
+      context->writeMemRaw(addr+This::Offs_tv_usec,fixEndian(tv_usec));
+      context->writeMemRaw(addr+This::Offs_tv_sec,fixEndian(tv_sec));
+    }
+  };
+  class Ttimezone{
+    typedef typename Base::Ttimezone This;
+   public:
+    static const size_t getSize(void){ return This::Size_All; }
+    typename This::Type_tz_minuteswest tz_minuteswest;
+    typename This::Type_tz_dsttime     tz_dsttime;
+    Ttimezone(int minwest, int dsttime)
+      : tz_minuteswest(minwest),
+	tz_dsttime(dsttime)
+    {
+    }
+    void write(ThreadContext *context, VAddr addr) const{
+      context->writeMemRaw(addr+This::Offs_tz_minuteswest,fixEndian(tz_minuteswest));
+      context->writeMemRaw(addr+This::Offs_tz_dsttime,fixEndian(tz_dsttime));
+    }
+  };
+  const static typeof(Base::V__NR_settimeofday) V__NR_settimeofday = Base::V__NR_settimeofday;
+  const static typeof(Base::V__NR_gettimeofday) V__NR_gettimeofday = Base::V__NR_gettimeofday;
+  void sysGetTimeOfDay(ThreadContext *context, InstDesc *inst);
+  const static typeof(Base::V__NR_setitimer) V__NR_setitimer = Base::V__NR_setitimer;
+  void sysSetITimer(ThreadContext *context, InstDesc *inst);
+  const static typeof(Base::V__NR_getitimer) V__NR_getitimer = Base::V__NR_getitimer;
+  typedef typename Base::Tclockid_t Tclockid_t;
+  const static typeof(Base::V__NR_clock_getres) V__NR_clock_getres = Base::V__NR_clock_getres;
+  void sysClockGetRes(ThreadContext *context, InstDesc *inst);
+  const static typeof(Base::V__NR_clock_settime) V__NR_clock_settime = Base::V__NR_clock_settime;
+  const static typeof(Base::V__NR_clock_gettime) V__NR_clock_gettime = Base::V__NR_clock_gettime;
+  void sysClockGetTime(ThreadContext *context, InstDesc *inst);
+  const static typeof(Base::V__NR_alarm) V__NR_alarm = Base::V__NR_alarm;
+  void sysAlarm(ThreadContext *context, InstDesc *inst);
+  class Ttimespec{
+    typedef typename Base::Ttimespec This;
+   public:
+    static const size_t getSize(void){ return This::Size_All; }
+    typename This::Type_tv_sec tv_sec;
+    typename This::Type_tv_nsec tv_nsec;
+    Ttimespec(ThreadContext *context, VAddr addr)
+      :
+      tv_sec(fixEndian(context->readMemRaw<typeof(tv_sec)>(addr+This::Offs_tv_sec))),
+      tv_nsec(fixEndian(context->readMemRaw<typeof(tv_nsec)>(addr+This::Offs_tv_nsec)))
+    {
+    }
+    void write(ThreadContext *context, VAddr addr) const{
+      context->writeMemRaw(addr+This::Offs_tv_sec,fixEndian(tv_sec));
+      context->writeMemRaw(addr+This::Offs_tv_nsec,fixEndian(tv_nsec));
+    }
+  };
+  const static typeof(Base::V__NR_nanosleep) V__NR_nanosleep = Base::V__NR_nanosleep;
+  void sysNanoSleep(ThreadContext *context, InstDesc *inst);
+  const static typeof(Base::V__NR_clock_nanosleep) V__NR_clock_nanosleep = Base::V__NR_clock_nanosleep;
+  void sysClockNanoSleep(ThreadContext *context, InstDesc *inst);
+  // Process/thread scheduling functionality
+  const static typeof(Base::V__NR_sched_yield) V__NR_sched_yield = Base::V__NR_sched_yield;
+  void sysSchedYield(ThreadContext *context, InstDesc *inst);
+  const static typeof(Base::V__NR_setpriority) V__NR_setpriority = Base::V__NR_setpriority;
+  const static typeof(Base::V__NR_getpriority) V__NR_getpriority = Base::V__NR_getpriority;
+  void sysGetPriority(ThreadContext *context, InstDesc *inst);
+  const static typeof(Base::V__NR_sched_getparam) V__NR_sched_getparam = Base::V__NR_sched_getparam;
+  void sysSchedGetParam(ThreadContext *context, InstDesc *inst);
+  const static typeof(Base::V__NR_sched_setparam) V__NR_sched_setparam = Base::V__NR_sched_setparam;
+  const static typeof(Base::V__NR_sched_setscheduler) V__NR_sched_setscheduler = Base::V__NR_sched_setscheduler;
+  void sysSchedSetScheduler(ThreadContext *context, InstDesc *inst);
+  const static typeof(Base::V__NR_sched_getscheduler) V__NR_sched_getscheduler = Base::V__NR_sched_getscheduler;
+  void sysSchedGetScheduler(ThreadContext *context, InstDesc *inst);
+  const static typeof(Base::V__NR_sched_get_priority_max) V__NR_sched_get_priority_max = Base::V__NR_sched_get_priority_max;
+  void sysSchedGetPriorityMax(ThreadContext *context, InstDesc *inst);
+  const static typeof(Base::V__NR_sched_get_priority_min) V__NR_sched_get_priority_min = Base::V__NR_sched_get_priority_min;
+  void sysSchedGetPriorityMin(ThreadContext *context, InstDesc *inst);
+  const static typeof(Base::V__NR_sched_setaffinity) V__NR_sched_setaffinity = Base::V__NR_sched_setaffinity;
+  void sysSchedSetAffinity(ThreadContext *context, InstDesc *inst);
+  const static typeof(Base::V__NR_sched_getaffinity) V__NR_sched_getaffinity = Base::V__NR_sched_getaffinity;
+  void sysSchedGetAffinity(ThreadContext *context, InstDesc *inst);
+  const static typeof(Base::V__NR_sched_rr_get_interval) V__NR_sched_rr_get_interval = Base::V__NR_sched_rr_get_interval;
+  // User info functionality
+  typedef typename Base::Tuid_t     Tuid_t;
+  typedef typename Base::Tgid_t     Tgid_t;
+  const static typeof(Base::V__NR_setuid) V__NR_setuid = Base::V__NR_setuid;
+  const static typeof(Base::V__NR_getuid) V__NR_getuid = Base::V__NR_getuid;
+  void sysGetUid(ThreadContext *context, InstDesc *inst);
+  const static typeof(Base::V__NR_setreuid) V__NR_setreuid = Base::V__NR_setreuid;
+  const static typeof(Base::V__NR_setresuid) V__NR_setresuid = Base::V__NR_setresuid;
+  const static typeof(Base::V__NR_setfsuid) V__NR_setfsuid = Base::V__NR_setfsuid;
+  const static typeof(Base::V__NR_geteuid) V__NR_geteuid = Base::V__NR_geteuid;
+  void sysGetEuid(ThreadContext *context, InstDesc *inst);
+  const static typeof(Base::V__NR_getresuid) V__NR_getresuid = Base::V__NR_getresuid;
+  const static typeof(Base::V__NR_setgid) V__NR_setgid = Base::V__NR_setgid;
+  const static typeof(Base::V__NR_getgid) V__NR_getgid = Base::V__NR_getgid;
+  void sysGetGid(ThreadContext *context, InstDesc *inst);
+  const static typeof(Base::V__NR_setregid) V__NR_setregid = Base::V__NR_setregid;
+  const static typeof(Base::V__NR_setresgid) V__NR_setresgid = Base::V__NR_setresgid;
+  const static typeof(Base::V__NR_setfsgid) V__NR_setfsgid = Base::V__NR_setfsgid;
+  const static typeof(Base::V__NR_getegid) V__NR_getegid = Base::V__NR_getegid;
+  void sysGetEgid(ThreadContext *context, InstDesc *inst);
+  const static typeof(Base::V__NR_getresgid) V__NR_getresgid = Base::V__NR_getresgid;
+  const static typeof(Base::V__NR_setgroups) V__NR_setgroups = Base::V__NR_setgroups;
+  const static typeof(Base::V__NR_getgroups) V__NR_getgroups = Base::V__NR_getgroups;
+  void sysGetGroups(ThreadContext *context, InstDesc *inst);
+  // Memory management functionality
+  const static typeof(Base::V__NR_brk) V__NR_brk = Base::V__NR_brk;
+  void sysBrk(ThreadContext *context, InstDesc *inst);
+  const static typeof(Base::V__NR_set_thread_area) V__NR_set_thread_area = Base::V__NR_set_thread_area;
+  void sysSetThreadArea(ThreadContext *context, InstDesc *inst);
+  const static typeof(Base::VMAP_SHARED) VMAP_SHARED = Base::VMAP_SHARED;
+  const static typeof(Base::VMAP_PRIVATE) VMAP_PRIVATE = Base::VMAP_PRIVATE;
+  const static typeof(Base::VMAP_FIXED) VMAP_FIXED = Base::VMAP_FIXED;
+  const static typeof(Base::VMAP_ANONYMOUS) VMAP_ANONYMOUS = Base::VMAP_ANONYMOUS;
+  const static typeof(Base::VPROT_NONE) VPROT_NONE = Base::VPROT_NONE;
+  const static typeof(Base::VPROT_READ) VPROT_READ = Base::VPROT_READ;
+  const static typeof(Base::VPROT_WRITE) VPROT_WRITE = Base::VPROT_WRITE;
+  const static typeof(Base::VPROT_EXEC) VPROT_EXEC = Base::VPROT_EXEC;
+  const static typeof(Base::V__NR_mmap) V__NR_mmap = Base::V__NR_mmap;
+  const static typeof(Base::V__NR_mmap2) V__NR_mmap2 = Base::V__NR_mmap2;
+  template<size_t offsmul>
+  void sysMMap(ThreadContext *context, InstDesc *inst);
+  const static typeof(Base::VMREMAP_MAYMOVE) VMREMAP_MAYMOVE = Base::VMREMAP_MAYMOVE;
+  const static typeof(Base::VMREMAP_FIXED) VMREMAP_FIXED = Base::VMREMAP_FIXED;
+  const static typeof(Base::V__NR_mremap) V__NR_mremap = Base::V__NR_mremap;
+  void sysMReMap(ThreadContext *context, InstDesc *inst);
+  const static typeof(Base::V__NR_munmap) V__NR_munmap = Base::V__NR_munmap;
+  void sysMUnMap(ThreadContext *context, InstDesc *inst);
+  const static typeof(Base::V__NR_mprotect) V__NR_mprotect = Base::V__NR_mprotect;
+  void sysMProtect(ThreadContext *context, InstDesc *inst);
+  // File-related functionality
+  const static typeof(Base::VO_ACCMODE  ) VO_ACCMODE   = Base::VO_ACCMODE;
+  const static typeof(Base::VO_RDONLY   ) VO_RDONLY    = Base::VO_RDONLY;
+  const static typeof(Base::VO_WRONLY   ) VO_WRONLY    = Base::VO_WRONLY;
+  const static typeof(Base::VO_RDWR     ) VO_RDWR      = Base::VO_RDWR;
+  const static typeof(Base::VO_APPEND   ) VO_APPEND    = Base::VO_APPEND;
+  const static typeof(Base::VO_SYNC     ) VO_SYNC      = Base::VO_SYNC;
+  const static typeof(Base::VO_NONBLOCK ) VO_NONBLOCK  = Base::VO_NONBLOCK;
+  const static typeof(Base::VO_CREAT    ) VO_CREAT     = Base::VO_CREAT;
+  const static typeof(Base::VO_TRUNC    ) VO_TRUNC     = Base::VO_TRUNC;
+  const static typeof(Base::VO_EXCL     ) VO_EXCL      = Base::VO_EXCL;
+  const static typeof(Base::VO_NOCTTY   ) VO_NOCTTY    = Base::VO_NOCTTY;
+  const static typeof(Base::VO_ASYNC    ) VO_ASYNC     = Base::VO_ASYNC;
+  const static typeof(Base::VO_LARGEFILE) VO_LARGEFILE = Base::VO_LARGEFILE;
+  const static typeof(Base::VO_DIRECT   ) VO_DIRECT    = Base::VO_DIRECT;
+  const static typeof(Base::VO_DIRECTORY) VO_DIRECTORY = Base::VO_DIRECTORY;
+  const static typeof(Base::VO_NOFOLLOW ) VO_NOFOLLOW  = Base::VO_NOFOLLOW;
+  static int openFlagsToNative(Tint flags){
+    int retVal;
+    switch(flags&VO_ACCMODE){
+      case VO_RDONLY: retVal=O_RDONLY; break;
+      case VO_WRONLY: retVal=O_WRONLY; break;
+      case VO_RDWR:   retVal=O_RDWR;   break;
+      default: fail("openFlagsToNative(): unknown O_ACCMODE in %0x08\n",flags);
+    }
+    if(flags&VO_APPEND   ) retVal|=O_APPEND;
+    if(flags&VO_SYNC     ) retVal|=O_SYNC;
+    if(flags&VO_NONBLOCK ) retVal|=O_NONBLOCK;
+    if(flags&VO_CREAT    ) retVal|=O_CREAT;
+    if(flags&VO_TRUNC    ) retVal|=O_TRUNC;
+    if(flags&VO_EXCL     ) retVal|=O_EXCL;
+    if(flags&VO_NOCTTY   ) retVal|=O_NOCTTY;
+    if(flags&VO_ASYNC    ) retVal|=O_ASYNC;
+    if(flags&VO_LARGEFILE) retVal|=O_LARGEFILE;
+    if(flags&VO_DIRECT   ) retVal|=O_DIRECT;
+    if(flags&VO_DIRECTORY) retVal|=O_DIRECTORY;
+    if(flags&VO_NOFOLLOW ) retVal|=O_NOFOLLOW;
+    return retVal;
+  }
+  static Tint openFlagsFromNative(int flags){
+    Tint retVal;
+    switch(flags&O_ACCMODE){
+      case O_RDONLY: retVal=VO_RDONLY; break;
+      case O_WRONLY: retVal=VO_WRONLY; break;
+      case O_RDWR:   retVal=VO_RDWR;   break;
+      default: fail("openFlagsFromNative(): unknown O_ACCMODE in %0x08\n",flags);
+    }
+    if(flags&O_APPEND   ) retVal|=VO_APPEND;
+    if(flags&O_SYNC     ) retVal|=VO_SYNC;
+    if(flags&O_NONBLOCK ) retVal|=VO_NONBLOCK;
+    if(flags&O_CREAT    ) retVal|=VO_CREAT;
+    if(flags&O_TRUNC    ) retVal|=VO_TRUNC;
+    if(flags&O_EXCL     ) retVal|=VO_EXCL;
+    if(flags&O_NOCTTY   ) retVal|=VO_NOCTTY;
+    if(flags&O_ASYNC    ) retVal|=VO_ASYNC;
+    if(flags&O_LARGEFILE) retVal|=VO_LARGEFILE;
+    if(flags&O_DIRECT   ) retVal|=VO_DIRECT;
+    if(flags&O_DIRECTORY) retVal|=VO_DIRECTORY;
+    if(flags&O_NOFOLLOW ) retVal|=VO_NOFOLLOW;
+    return retVal;
+  }
+  typedef typename Base::Tmode_t Tmode_t;
+  const static typeof(Base::VS_IRUSR) VS_IRUSR = Base::VS_IRUSR;
+  const static typeof(Base::VS_IWUSR) VS_IWUSR = Base::VS_IWUSR;
+  const static typeof(Base::VS_IXUSR) VS_IXUSR = Base::VS_IXUSR;
+  const static typeof(Base::VS_IRGRP) VS_IRGRP = Base::VS_IRGRP;
+  const static typeof(Base::VS_IWGRP) VS_IWGRP = Base::VS_IWGRP;
+  const static typeof(Base::VS_IXGRP) VS_IXGRP = Base::VS_IXGRP;
+  const static typeof(Base::VS_IROTH) VS_IROTH = Base::VS_IROTH;
+  const static typeof(Base::VS_IWOTH) VS_IWOTH = Base::VS_IWOTH;
+  const static typeof(Base::VS_IXOTH) VS_IXOTH = Base::VS_IXOTH;
+  static mode_t mode_tToNative(Tmode_t fmode){
+    mode_t retVal=0;
+    if(fmode&VS_IRUSR) retVal|=S_IRUSR;
+    if(fmode&VS_IWUSR) retVal|=S_IWUSR;
+    if(fmode&VS_IXUSR) retVal|=S_IXUSR;
+    if(fmode&VS_IRGRP) retVal|=S_IRGRP;
+    if(fmode&VS_IWGRP) retVal|=S_IWGRP;
+    if(fmode&VS_IXGRP) retVal|=S_IXGRP;
+    if(fmode&VS_IROTH) retVal|=S_IROTH;
+    if(fmode&VS_IWOTH) retVal|=S_IWOTH;
+    if(fmode&VS_IXOTH) retVal|=S_IXOTH;
+    return retVal;
+  }
+  const static typeof(Base::V__NR_open) V__NR_open = Base::V__NR_open;
+  void sysOpen(ThreadContext *context, InstDesc *inst);
+  const static typeof(Base::V__NR_pipe) V__NR_pipe = Base::V__NR_pipe;
+  void sysPipe(ThreadContext *context, InstDesc *inst);
+  const static typeof(Base::V__NR_dup) V__NR_dup = Base::V__NR_dup;
+  void sysDup(ThreadContext *context, InstDesc *inst);
+  const static typeof(Base::V__NR_dup2) V__NR_dup2 = Base::V__NR_dup2;
+  void sysDup2(ThreadContext *context, InstDesc *inst);
+  const static typeof(Base::VF_DUPFD) VF_DUPFD = Base::VF_DUPFD;
+  const static typeof(Base::VF_GETFD) VF_GETFD = Base::VF_GETFD;
+  const static typeof(Base::VF_SETFD) VF_SETFD = Base::VF_SETFD;
+  const static typeof(Base::VF_GETFL) VF_GETFL = Base::VF_GETFL;
+  const static typeof(Base::VF_SETFL) VF_SETFL = Base::VF_SETFL;
+  const static typeof(Base::VFD_CLOEXEC) VFD_CLOEXEC = Base::VFD_CLOEXEC;
+  const static typeof(Base::V__NR_fcntl) V__NR_fcntl = Base::V__NR_fcntl;
+  const static typeof(Base::V__NR_fcntl64) V__NR_fcntl64 = Base::V__NR_fcntl64;
+  void sysFCntl(ThreadContext *context, InstDesc *inst);
+  const static typeof(Base::V__NR_read) V__NR_read = Base::V__NR_read;
+  void sysRead(ThreadContext *context, InstDesc *inst);
+  const static typeof(Base::V__NR_write) V__NR_write = Base::V__NR_write;
+  void sysWrite(ThreadContext *context, InstDesc *inst);
+  class Tiovec{
+    typedef typename Base::Tiovec This;
+   public:
+    static const size_t getSize(void){ return This::Size_All; }
+    typename This::Type_iov_base iov_base;
+    typename This::Type_iov_len  iov_len;
+    Tiovec(ThreadContext *context, VAddr addr)
+      :
+      iov_base(fixEndian(context->readMemRaw<typeof(iov_base)>(addr+This::Offs_iov_base))),
+      iov_len(fixEndian(context->readMemRaw<typeof(iov_len)>(addr+This::Offs_iov_len)))
+    {
+    }
+  };
+  const static typeof(Base::V__NR_writev) V__NR_writev = Base::V__NR_writev;
+  void sysWriteV(ThreadContext *context, InstDesc *inst);
+  typedef typename Base::Toff_t  Toff_t;
+  typedef typename Base::Tloff_t Tloff_t;
+  const static typeof(Base::VSEEK_SET) VSEEK_SET = Base::VSEEK_SET;
+  const static typeof(Base::VSEEK_CUR) VSEEK_CUR = Base::VSEEK_CUR;
+  const static typeof(Base::VSEEK_END) VSEEK_END = Base::VSEEK_END;
+  static int whenceToNative(Tint whence){
+    switch(whence){
+      case VSEEK_SET: return SEEK_SET;
+      case VSEEK_CUR: return SEEK_CUR;
+      case VSEEK_END: return SEEK_END;
+      default:
+        fail("whenceToNative(): unknown whence value %d\n",(int)whence);
+    }
+  }
+  const static typeof(Base::V__NR_lseek) V__NR_lseek = Base::V__NR_lseek;
+  void sysLSeek(ThreadContext *context, InstDesc *inst);
+  const static typeof(Base::V__NR__llseek) V__NR__llseek = Base::V__NR__llseek;
+  void sysLLSeek(ThreadContext *context, InstDesc *inst);
+  class Tdirent{
+    typedef typename Base::Tdirent This;
+   public:
+    static const size_t getSize(void){ return This::Size_All; }
+    typename This::Type_d_ino    d_ino;
+    typename This::Type_d_off    d_off;
+    typename This::Type_d_reclen d_reclen;
+    typename This::Type_d_name   d_name[This::Size_d_name];
+    Tdirent(struct dirent64 &src)
+      : d_ino(src.d_ino),
+        d_off(src.d_off)
+    {
+      size_t namelen=strlen(src.d_name)+1;
+      if(namelen>This::Size_d_name)
+        fail("Tdirent() d_name is too long\n");
+      d_reclen=alignUp(This::Offs_d_name+This::Step_d_name*namelen,sizeof(uint64_t));
+      for(size_t i=0;i<(d_reclen-This::Offs_d_name);i++)
+        d_name[i]=(i<namelen)?src.d_name[i]:0;
+    }
+    void write(ThreadContext *context, VAddr addr) const{
+      context->writeMemRaw(addr+This::Offs_d_ino,fixEndian(d_ino));
+      context->writeMemRaw(addr+This::Offs_d_off,fixEndian(d_off));
+      context->writeMemRaw(addr+This::Offs_d_reclen,fixEndian(d_reclen));
+      for(size_t i=0;i<(d_reclen-This::Offs_d_name);i++)
+        context->writeMemRaw(addr+This::Offs_d_name+i*This::Step_d_name,fixEndian(d_name[i]));
+    }
+  };
+  class Tdirent64{
+    typedef typename Base::Tdirent64 This;
+   public:
+    static const size_t getSize(void){ return This::Size_All; }
+    typename This::Type_d_ino    d_ino;
+    typename This::Type_d_off    d_off;
+    typename This::Type_d_reclen d_reclen;
+    typename This::Type_d_type   d_type;
+    typename This::Type_d_name   d_name[This::Size_d_name];
+    Tdirent64(struct dirent64 &src)
+      : d_ino(src.d_ino),
+        d_off(src.d_off),
+        d_type(src.d_type)
+    {
+      size_t namelen=strlen(src.d_name)+1;
+      if(namelen>This::Size_d_name)
+        fail("Tdirent64() d_name is too long\n");
+      d_reclen=alignUp(This::Offs_d_name+This::Step_d_name*namelen,sizeof(uint64_t));
+      for(size_t i=0;i<((d_reclen-This::Offs_d_name)/This::Step_d_name);i++)
+        d_name[i]=(i<namelen)?src.d_name[i]:0;
+      I(src.d_reclen%8==0);
+      I(size_t(src.d_reclen-(src.d_name-(char *)&src))==d_reclen-This::Offs_d_name);
+    }
+    void write(ThreadContext *context, VAddr addr) const{
+      context->writeMemRaw(addr+This::Offs_d_ino,fixEndian(d_ino));
+      context->writeMemRaw(addr+This::Offs_d_off,fixEndian(d_off));
+      context->writeMemRaw(addr+This::Offs_d_reclen,fixEndian(d_reclen));
+      context->writeMemRaw(addr+This::Offs_d_type,fixEndian(d_type));
+      for(size_t i=0;i<((d_reclen-This::Offs_d_name)/This::Step_d_name);i++)
+        context->writeMemRaw(addr+This::Offs_d_name+i*This::Step_d_name,fixEndian(d_name[i]));
+    }
+  };
+  const static typeof(Base::V__NR_getdents) V__NR_getdents = Base::V__NR_getdents;
+  const static typeof(Base::V__NR_getdents64) V__NR_getdents64 = Base::V__NR_getdents64;
+  template<class Tdirent>
+  void sysGetDEnts(ThreadContext *context, InstDesc *inst);
+  const static typeof(Base::VTCGETS    ) VTCGETS     = Base::VTCGETS;
+  const static typeof(Base::VTCSETS    ) VTCSETS     = Base::VTCSETS;
+  const static typeof(Base::VTCSETSW   ) VTCSETSW    = Base::VTCSETSW;
+  const static typeof(Base::VTCSETSF   ) VTCSETSF    = Base::VTCSETSF;
+  const static typeof(Base::VTCGETA    ) VTCGETA     = Base::VTCGETA;
+  const static typeof(Base::VTCSETA    ) VTCSETA     = Base::VTCSETA;
+  const static typeof(Base::VTCSETAW   ) VTCSETAW    = Base::VTCSETAW;
+  const static typeof(Base::VTCSETAF   ) VTCSETAF    = Base::VTCSETAF;
+  const static typeof(Base::VTIOCGWINSZ) VTIOCGWINSZ = Base::VTIOCGWINSZ;
+  class Twinsize{
+    typedef typename Base::Twinsize This;
+   public:
+    static const size_t getSize(void){ return This::Size_All; }
+    typename This::Type_ws_row    ws_row;
+    typename This::Type_ws_col    ws_col;
+    typename This::Type_ws_xpixel ws_xpixel;
+    typename This::Type_ws_ypixel ws_ypixel;
+    Twinsize(const struct winsize &src)
+      : ws_row(src.ws_row),
+        ws_col(src.ws_col),
+        ws_xpixel(src.ws_xpixel),
+        ws_ypixel(src.ws_ypixel)
+    {
+    }
+    void write(ThreadContext *context, VAddr addr) const{
+      context->writeMemRaw(addr+This::Offs_ws_row,fixEndian(ws_row));
+      context->writeMemRaw(addr+This::Offs_ws_col,fixEndian(ws_col));
+      context->writeMemRaw(addr+This::Offs_ws_xpixel,fixEndian(ws_xpixel));
+      context->writeMemRaw(addr+This::Offs_ws_ypixel,fixEndian(ws_ypixel));
+    }
+  };
+  const static typeof(Base::V__NR_ioctl) V__NR_ioctl = Base::V__NR_ioctl;
+  void sysIOCtl(ThreadContext *context, InstDesc *inst);
+  class Tpollfd{
+    typedef typename Base::Tpollfd This;
+   public:
+    static const size_t getSize(void){ return This::Size_All; }
+    typename This::Type_fd      fd;
+    typename This::Type_events  events;
+    typename This::Type_revents revents;
+    Tpollfd(ThreadContext *context, VAddr addr)
+      :
+      fd(fixEndian(context->readMemRaw<typeof(fd)>(addr+This::Offs_fd))),
+      events(fixEndian(context->readMemRaw<typeof(events) >(addr+This::Offs_events ))),
+      revents(fixEndian(context->readMemRaw<typeof(revents)>(addr+This::Offs_revents)))
+    {
+    }
+    void write(ThreadContext *context, VAddr addr) const{
+      context->writeMemRaw(addr+This::Offs_fd,fixEndian(fd));
+      context->writeMemRaw(addr+This::Offs_events,fixEndian(events));
+      context->writeMemRaw(addr+This::Offs_revents,fixEndian(revents));
+    }
+  };
+  const static typeof(Base::VPOLLIN  ) VPOLLIN   = Base::VPOLLIN;
+  const static typeof(Base::VPOLLPRI ) VPOLLPRI  = Base::VPOLLPRI;
+  const static typeof(Base::VPOLLOUT ) VPOLLOUT  = Base::VPOLLOUT;
+  const static typeof(Base::VPOLLERR ) VPOLLERR  = Base::VPOLLERR;
+  const static typeof(Base::VPOLLHUP ) VPOLLHUP  = Base::VPOLLHUP;
+  const static typeof(Base::VPOLLNVAL) VPOLLNVAL = Base::VPOLLNVAL;
+  const static typeof(Base::V__NR_poll) V__NR_poll = Base::V__NR_poll;
+  void sysPoll(ThreadContext *context, InstDesc *inst);
+  const static typeof(Base::V__NR_close) V__NR_close = Base::V__NR_close;
+  void sysClose(ThreadContext *context, InstDesc *inst);
+  const static typeof(Base::V__NR_truncate) V__NR_truncate = Base::V__NR_truncate;
+  const static typeof(Base::V__NR_truncate64) V__NR_truncate64 = Base::V__NR_truncate64;
+  template<class Toffs>
+  void sysTruncate(ThreadContext *context, InstDesc *inst);
+  const static typeof(Base::V__NR_ftruncate) V__NR_ftruncate = Base::V__NR_ftruncate;
+  const static typeof(Base::V__NR_ftruncate64) V__NR_ftruncate64 = Base::V__NR_ftruncate64;
+  template<class Toffs>
+  void sysFTruncate(ThreadContext *context, InstDesc *inst);
+  const static typeof(Base::V__NR_chmod) V__NR_chmod = Base::V__NR_chmod;
+  void sysChMod(ThreadContext *context, InstDesc *inst);
+  typedef typename Base::Tino_t     Tino_t;
+  typedef typename Base::Tnlink_t   Tnlink_t;
+  typedef typename Base::Tblksize_t Tblksize_t;
+  class Tstat{
+    typedef typename Base::Tstat This;
+   public:
+    static const size_t getSize(void){ return This::Size_All; }
+    typename This::Type_st_blksize st_blksize;
+    typename This::Type_st_blocks st_blocks;
+    typename This::Type_st_atime_sec st_atime_sec;
+    typename This::Type_st_gid st_gid;
+    typename This::Type_st_uid st_uid;
+    typename This::Type_st_mode st_mode;
+    typename This::Type_st_ino st_ino;
+    typename This::Type_st_mtime_sec st_mtime_sec;
+    typename This::Type_st_ctime_sec st_ctime_sec;
+    typename This::Type_st_dev st_dev;
+    typename This::Type_st_rdev st_rdev;
+    typename This::Type_st_size st_size;
+    typename This::Type_st_nlink st_nlink;
+    Tstat(struct stat &st)
+      :
+      st_blksize(st.st_blksize),
+      st_blocks(st.st_blocks),
+      st_atime_sec(st.st_atime),
+      st_gid(st.st_gid),
+      st_uid(st.st_uid),
+      st_mode(st.st_mode),
+      st_ino(st.st_ino),
+      st_mtime_sec(st.st_mtime),
+      st_ctime_sec(st.st_ctime),
+      st_dev(st.st_dev),
+      st_rdev(st.st_rdev),
+      st_size(st.st_size),
+      st_nlink(st.st_nlink)
+    {
+    }
+    void write(ThreadContext *context, VAddr addr) const{
+      context->writeMemRaw(addr+This::Offs_st_blksize,fixEndian(st_blksize));
+      context->writeMemRaw(addr+This::Offs_st_blocks,fixEndian(st_blocks));
+      context->writeMemRaw(addr+This::Offs_st_atime_sec,fixEndian(st_atime_sec));
+      context->writeMemRaw(addr+This::Offs_st_gid,fixEndian(st_gid));
+      context->writeMemRaw(addr+This::Offs_st_uid,fixEndian(st_uid));
+      context->writeMemRaw(addr+This::Offs_st_mode,fixEndian(st_mode));
+      context->writeMemRaw(addr+This::Offs_st_ino,fixEndian(st_ino));
+      context->writeMemRaw(addr+This::Offs_st_mtime_sec,fixEndian(st_mtime_sec));
+      context->writeMemRaw(addr+This::Offs_st_ctime_sec,fixEndian(st_ctime_sec));
+      context->writeMemRaw(addr+This::Offs_st_dev,fixEndian(st_dev));
+      context->writeMemRaw(addr+This::Offs_st_rdev,fixEndian(st_rdev));
+      context->writeMemRaw(addr+This::Offs_st_size,fixEndian(st_size));
+      context->writeMemRaw(addr+This::Offs_st_nlink,fixEndian(st_nlink));
+    }
+  };
+  typedef typename Base::Tblkcnt64_t Tblkcnt64_t;
+  class Tstat64{
+    typedef typename Base::Tstat64 This;
+   public:
+    static const size_t getSize(void){ return This::Size_All; }
+    typename This::Type_st_blksize st_blksize;
+    typename This::Type_st_blocks st_blocks;
+    typename This::Type_st_atime st_atim;
+    typename This::Type_st_gid st_gid;
+    typename This::Type_st_uid st_uid;
+    typename This::Type_st_mode st_mode;
+    typename This::Type_st_ino st_ino;
+    typename This::Type_st_mtime st_mtim;
+    typename This::Type_st_ctime st_ctim;
+    typename This::Type_st_dev st_dev;
+    typename This::Type_st_rdev st_rdev;
+    typename This::Type_st_size st_size;
+    typename This::Type_st_nlink st_nlink;
+    Tstat64(struct stat &st)
+      :
+      st_blksize(st.st_blksize),
+      st_blocks(st.st_blocks),
+      st_atim(st.st_atime),
+      st_gid(st.st_gid),
+      st_uid(st.st_uid),
+      st_mode(st.st_mode),
+      st_ino(st.st_ino),
+      st_mtim(st.st_mtime),
+      st_ctim(st.st_ctime),
+      st_dev(st.st_dev),
+      st_rdev(st.st_rdev),
+      st_size(st.st_size),
+      st_nlink(st.st_nlink)
+    {
+    }
+    void write(ThreadContext *context, VAddr addr) const{
+      context->writeMemRaw(addr+This::Offs_st_blksize,fixEndian(st_blksize));
+      context->writeMemRaw(addr+This::Offs_st_blocks,fixEndian(st_blocks));
+      context->writeMemRaw(addr+This::Offs_st_atime,fixEndian(st_atim));
+      context->writeMemRaw(addr+This::Offs_st_gid,fixEndian(st_gid));
+      context->writeMemRaw(addr+This::Offs_st_uid,fixEndian(st_uid));
+      context->writeMemRaw(addr+This::Offs_st_mode,fixEndian(st_mode));
+      context->writeMemRaw(addr+This::Offs_st_ino,fixEndian(st_ino));
+      context->writeMemRaw(addr+This::Offs_st_mtime,fixEndian(st_mtim));
+      context->writeMemRaw(addr+This::Offs_st_ctime,fixEndian(st_ctim));
+      context->writeMemRaw(addr+This::Offs_st_dev,fixEndian(st_dev));
+      context->writeMemRaw(addr+This::Offs_st_rdev,fixEndian(st_rdev));
+      context->writeMemRaw(addr+This::Offs_st_size,fixEndian(st_size));
+      context->writeMemRaw(addr+This::Offs_st_nlink,fixEndian(st_nlink));
+    }
+  };
+  const static typeof(Base::V__NR_stat) V__NR_stat = Base::V__NR_stat;
+  const static typeof(Base::V__NR_stat64) V__NR_stat64 = Base::V__NR_stat64;
+  const static typeof(Base::V__NR_lstat) V__NR_lstat = Base::V__NR_lstat;
+  const static typeof(Base::V__NR_lstat64) V__NR_lstat64 = Base::V__NR_lstat64;
+  template<bool link, class Tstat_t>
+  void sysStat(ThreadContext *context, InstDesc *inst);
+  const static typeof(Base::V__NR_fstat) V__NR_fstat = Base::V__NR_fstat;
+  const static typeof(Base::V__NR_fstat64) V__NR_fstat64 = Base::V__NR_fstat64;
+  template<class Tstat_t>
+  void sysFStat(ThreadContext *context, InstDesc *inst);
+  const static typeof(Base::V__NR_fstatfs) V__NR_fstatfs = Base::V__NR_fstatfs;
+  const static typeof(Base::V__NR_fstatfs64) V__NR_fstatfs64 = Base::V__NR_fstatfs64;
+  void sysFStatFS(ThreadContext *context, InstDesc *inst);
+  const static typeof(Base::V__NR_unlink) V__NR_unlink = Base::V__NR_unlink;
+  void sysUnlink(ThreadContext *context, InstDesc *inst);
+  const static typeof(Base::V__NR_symlink) V__NR_symlink = Base::V__NR_symlink;
+  void sysSymLink(ThreadContext *context, InstDesc *inst);
+  const static typeof(Base::V__NR_rename) V__NR_rename = Base::V__NR_rename;
+  void sysRename(ThreadContext *context, InstDesc *inst);
+  const static typeof(Base::V__NR_chdir) V__NR_chdir = Base::V__NR_chdir;
+  void sysChdir(ThreadContext *context, InstDesc *inst);
+  const static typeof(Base::VF_OK) VF_OK = Base::VF_OK;
+  const static typeof(Base::VR_OK) VR_OK = Base::VR_OK;
+  const static typeof(Base::VW_OK) VW_OK = Base::VW_OK;
+  const static typeof(Base::VX_OK) VX_OK = Base::VX_OK;
+  static int accessModeToNative(int amode){
+    int retVal=F_OK;
+    if(amode&VR_OK) retVal|=R_OK;
+    if(amode&VW_OK) retVal|=W_OK;
+    if(amode&VX_OK) retVal|=X_OK;
+    return retVal;
+  }
+  const static typeof(Base::V__NR_access) V__NR_access = Base::V__NR_access;
+  void sysAccess(ThreadContext *context, InstDesc *inst);
+  const static typeof(Base::V__NR_getcwd) V__NR_getcwd = Base::V__NR_getcwd;
+  void sysGetCWD(ThreadContext *context, InstDesc *inst);
+  const static typeof(Base::V__NR_mkdir) V__NR_mkdir = Base::V__NR_mkdir;
+  void sysMkdir(ThreadContext *context, InstDesc *inst);
+  const static typeof(Base::V__NR_rmdir) V__NR_rmdir = Base::V__NR_rmdir;
+  void sysRmdir(ThreadContext *context, InstDesc *inst);
+  const static typeof(Base::V__NR_umask) V__NR_umask = Base::V__NR_umask;
+  void sysUmask(ThreadContext *context, InstDesc *inst);
+  const static typeof(Base::V__NR_readlink) V__NR_readlink = Base::V__NR_readlink;
+  void sysReadLink(ThreadContext *context, InstDesc *inst);
+  // Network functionality
+  const static typeof(Base::V__NR_socket) V__NR_socket = Base::V__NR_socket;
+  void sysSocket(ThreadContext *context, InstDesc *inst);
+  const static typeof(Base::V__NR_socketpair) V__NR_socketpair = Base::V__NR_socketpair;
+  const static typeof(Base::V__NR_bind) V__NR_bind = Base::V__NR_bind;
+  void sysBind(ThreadContext *context, InstDesc *inst);
+  const static typeof(Base::V__NR_accept) V__NR_accept = Base::V__NR_accept;
+  const static typeof(Base::V__NR_connect) V__NR_connect = Base::V__NR_connect;
+  void sysConnect(ThreadContext *context, InstDesc *inst);
+  const static typeof(Base::V__NR_send) V__NR_send = Base::V__NR_send;
+  void sysSend(ThreadContext *context, InstDesc *inst);
+  // Process info functionality
+  typedef typename Base::Trlim_t Trlim_t;
+  class Trlimit{
+    typedef typename Base::Trlimit This;
+   public:
+    static const size_t getSize(void){ return This::Size_All; }
+    typename This::Type_rlim_cur rlim_cur;
+    typename This::Type_rlim_max rlim_max;
+    Trlimit(Trlim_t cur, Trlim_t max)
+      :
+      rlim_cur(cur),
+      rlim_max(max)
+    {
+    }
+    Trlimit(ThreadContext *context, VAddr addr)
+      :
+      rlim_cur(fixEndian(context->readMemRaw<typeof(rlim_cur)>(addr+This::Offs_rlim_cur))),
+      rlim_max(fixEndian(context->readMemRaw<typeof(rlim_max)>(addr+This::Offs_rlim_max)))
+    {
+    }
+    void write(ThreadContext *context, VAddr addr) const{
+      context->writeMemRaw(addr+This::Offs_rlim_cur,fixEndian(rlim_cur));
+      context->writeMemRaw(addr+This::Offs_rlim_max,fixEndian(rlim_max));
+    }
+  };
+  const static typeof(Base::VRLIMIT_AS     ) VRLIMIT_AS      = Base::VRLIMIT_AS;
+  const static typeof(Base::VRLIMIT_CORE   ) VRLIMIT_CORE    = Base::VRLIMIT_CORE;
+  const static typeof(Base::VRLIMIT_CPU    ) VRLIMIT_CPU     = Base::VRLIMIT_CPU;
+  const static typeof(Base::VRLIMIT_DATA   ) VRLIMIT_DATA    = Base::VRLIMIT_DATA;
+  const static typeof(Base::VRLIMIT_FSIZE  ) VRLIMIT_FSIZE   = Base::VRLIMIT_FSIZE;
+  const static typeof(Base::VRLIMIT_LOCKS  ) VRLIMIT_LOCKS   = Base::VRLIMIT_LOCKS;
+  const static typeof(Base::VRLIMIT_MEMLOCK) VRLIMIT_MEMLOCK = Base::VRLIMIT_MEMLOCK;
+  const static typeof(Base::VRLIMIT_NOFILE ) VRLIMIT_NOFILE  = Base::VRLIMIT_NOFILE;
+  const static typeof(Base::VRLIMIT_NPROC  ) VRLIMIT_NPROC   = Base::VRLIMIT_NPROC;
+  const static typeof(Base::VRLIMIT_RSS    ) VRLIMIT_RSS     = Base::VRLIMIT_RSS;
+  const static typeof(Base::VRLIMIT_STACK  ) VRLIMIT_STACK   = Base::VRLIMIT_STACK;
+  const static typeof(Base::VRLIM_INFINITY ) VRLIM_INFINITY  = Base::VRLIM_INFINITY;
+  const static typeof(Base::V__NR_setrlimit) V__NR_setrlimit = Base::V__NR_setrlimit;
+  void sysSetRLimit(ThreadContext *context, InstDesc *inst);
+  const static typeof(Base::V__NR_getrlimit) V__NR_getrlimit = Base::V__NR_getrlimit;
+  void sysGetRLimit(ThreadContext *context, InstDesc *inst);
+  class Trusage{
+    typedef typename Base::Trusage This;
+   public:
+    static const size_t getSize(void){ return This::Size_All; }
+    Ttimeval ru_utime;
+    Ttimeval ru_stime;
+    typename This::Type_ru_maxrss ru_maxrss;
+    typename This::Type_ru_ixrss ru_ixrss;
+    typename This::Type_ru_idrss ru_idrss;
+    typename This::Type_ru_isrss ru_isrss;
+    typename This::Type_ru_minflt ru_minflt;
+    typename This::Type_ru_majflt ru_majflt;
+    typename This::Type_ru_nswap ru_nswap;
+    typename This::Type_ru_inblock ru_inblock;
+    typename This::Type_ru_oublock ru_oublock;
+    typename This::Type_ru_msgsnd ru_msgsnd;
+    typename This::Type_ru_msgrcv ru_msgrcv;
+    typename This::Type_ru_nsignals ru_nsignals;
+    typename This::Type_ru_nvcsw ru_nvcsw;
+    typename This::Type_ru_nivcsw ru_nivcsw;
+    Trusage(const Ttimeval &utime, const Ttimeval &stime)
+      : ru_utime(utime),
+	ru_stime(stime),
+	ru_maxrss(0), ru_ixrss(0), ru_idrss(0), ru_isrss(0),
+	ru_minflt(0), ru_majflt(0), ru_nswap(0),
+	ru_inblock(0), ru_oublock(0), ru_msgsnd(0), ru_msgrcv(0),
+	ru_nsignals(0), ru_nvcsw(0), ru_nivcsw(0)
+    {
+    }
+    void write(ThreadContext *context, VAddr addr) const{
+      ru_utime.write(context,addr+This::Offs_ru_utime);
+      ru_stime.write(context,addr+This::Offs_ru_stime);
+      context->writeMemRaw(addr+This::Offs_ru_maxrss,fixEndian(ru_maxrss));
+      context->writeMemRaw(addr+This::Offs_ru_ixrss,fixEndian(ru_ixrss));
+      context->writeMemRaw(addr+This::Offs_ru_idrss,fixEndian(ru_idrss));
+      context->writeMemRaw(addr+This::Offs_ru_isrss,fixEndian(ru_isrss));
+      context->writeMemRaw(addr+This::Offs_ru_minflt,fixEndian(ru_minflt));
+      context->writeMemRaw(addr+This::Offs_ru_majflt,fixEndian(ru_majflt));
+      context->writeMemRaw(addr+This::Offs_ru_nswap,fixEndian(ru_nswap));
+      context->writeMemRaw(addr+This::Offs_ru_inblock,fixEndian(ru_inblock));
+      context->writeMemRaw(addr+This::Offs_ru_oublock,fixEndian(ru_oublock));
+      context->writeMemRaw(addr+This::Offs_ru_msgsnd,fixEndian(ru_msgsnd));
+      context->writeMemRaw(addr+This::Offs_ru_msgrcv,fixEndian(ru_msgrcv));
+      context->writeMemRaw(addr+This::Offs_ru_nsignals,fixEndian(ru_nsignals));
+      context->writeMemRaw(addr+This::Offs_ru_nvcsw,fixEndian(ru_nvcsw));
+      context->writeMemRaw(addr+This::Offs_ru_nivcsw,fixEndian(ru_nivcsw));
+    }
+  };
+  const static typeof(Base::VRUSAGE_SELF) VRUSAGE_SELF = Base::VRUSAGE_SELF;
+  const static typeof(Base::VRUSAGE_CHILDREN) VRUSAGE_CHILDREN = Base::VRUSAGE_CHILDREN;
+  const static typeof(Base::V__NR_getrusage) V__NR_getrusage = Base::V__NR_getrusage;
+  void sysGetRUsage(ThreadContext *context, InstDesc *inst);
+  // System info functionality
+  class Tutsname{
+    typedef typename Base::Tutsname This;
+  public:
+    static const size_t getSize(void){ return This::Size_All; }
+    typename This::Type_nodename nodename[This::Size_nodename];
+    typename This::Type_sysname sysname[This::Size_sysname];
+    typename This::Type_version version[This::Size_version];
+    typename This::Type_release release[This::Size_release];
+    typename This::Type_machine machine[This::Size_machine];
+    Tutsname(void){
+      memset(nodename,0,sizeof(nodename));
+      memset(sysname,0,sizeof(sysname));
+      memset(version,0,sizeof(version));
+      memset(release,0,sizeof(release));
+      memset(machine,0,sizeof(machine));
+    }
+    void write(ThreadContext *context, VAddr addr) const{
+      char buf[This::Size_All];
+      memset(buf,0,This::Size_All);
+      context->writeMemFromBuf(addr,This::Size_All,buf);
+      for(size_t i=0;i<This::Size_nodename;i++)
+        context->writeMemRaw(addr+This::Offs_nodename+i*This::Step_nodename,fixEndian(nodename[i]));
+      for(size_t i=0;i<This::Size_sysname;i++)
+        context->writeMemRaw(addr+This::Offs_sysname+i*This::Step_sysname,fixEndian(sysname[i]));
+      for(size_t i=0;i<This::Size_version;i++)
+        context->writeMemRaw(addr+This::Offs_version+i*This::Step_version,fixEndian(version[i]));
+      for(size_t i=0;i<This::Size_release;i++)
+        context->writeMemRaw(addr+This::Offs_release+i*This::Step_release,fixEndian(release[i]));
+      for(size_t i=0;i<This::Size_machine;i++)
+        context->writeMemRaw(addr+This::Offs_machine+i*This::Step_machine,fixEndian(machine[i]));
+    }
+  };
+  const static typeof(Base::V__NR_uname) V__NR_uname = Base::V__NR_uname;
+  void sysUname(ThreadContext *context, InstDesc *inst);
+  class T__sysctl_args{
+    typedef typename Base::T__sysctl_args This;
+   public:
+    typename This::Type_newval newval;
+    typename This::Type_oldval oldval;
+    typename This::Type_name name;
+    typename This::Type_newlen newlen;
+    typename This::Type_nlen nlen;
+    typename This::Type_oldlenp oldlenp;
+    static const size_t getSize(void){ return This::Size_All; }
+    T__sysctl_args(ThreadContext *context, VAddr addr)
+      :
+      newval(fixEndian(context->readMemRaw<typeof(newval)>(addr+This::Offs_newval))),
+      oldval(fixEndian(context->readMemRaw<typeof(oldval)>(addr+This::Offs_oldval))),
+      name(fixEndian(context->readMemRaw<typeof(name)>(addr+This::Offs_name))),
+      newlen(fixEndian(context->readMemRaw<typeof(newlen)>(addr+This::Offs_newlen))),
+      nlen(fixEndian(context->readMemRaw<typeof(nlen)>(addr+This::Offs_nlen))),
+      oldlenp(fixEndian(context->readMemRaw<typeof(oldlenp)>(addr+This::Offs_oldlenp)))
+    {
+    }
+  };
+  const static typeof(Base::VCTL_KERN) VCTL_KERN = Base::VCTL_KERN;
+  const static typeof(Base::VKERN_VERSION) VKERN_VERSION = Base::VKERN_VERSION;
+  const static typeof(Base::V__NR__sysctl) V__NR__sysctl = Base::V__NR__sysctl;
+  void sysSysCtl(ThreadContext *context, InstDesc *inst);
+public:
+  virtual InstDesc *sysCall(ThreadContext *context, InstDesc *inst);
+protected:
+  static int stackGrowthSign(void);
+  static Tpointer_t getStackPointer(const ThreadContext *context);
+  static void setStackPointer(ThreadContext *context, Tpointer_t addr);
+  template<typename T>
+  static void pushScalar(ThreadContext *context, const T &val);
+  template<typename T>
+  static T popScalar(ThreadContext *context);
+  template<typename T>
+  static void pushStruct(ThreadContext *context, const T &val);
+  template<typename T>
+  static T popStruct(ThreadContext *context);
+  class CallArgs{
+  protected:
+    ThreadContext *context;
+    size_t pos;
+  public:
+    CallArgs(ThreadContext *context) : context(context), pos(0){}
+    template<typename T>
+    CallArgs &operator>>(T &ref){ fill<T>(ref); return *this; }
+    template<typename T>
+    void fill(T &ref);
+  };
+  static void setThreadArea(ThreadContext *context, Tpointer_t addr);
+  static void setSysErr(ThreadContext *context, Tint err=errorFromNative());
+  template<typename T>
+  static void setSysRet(ThreadContext *context, T val);
+  static inline void setSysRet(ThreadContext *context){
+    return setSysRet<Tint>(context,0);
+  }
+  static void setSysRet(ThreadContext *context, Tint val1, Tint val2);
+  static Tint getSysCallNum(const ThreadContext *context);
+ public:
+  virtual SignalAction handleSignal(ThreadContext *context, SigInfo *sigInfo) const;
+  virtual void createStack(ThreadContext *context) const;
+  virtual void initSystem(ThreadContext *context) const;
+  virtual void setProgArgs(ThreadContext *context, int argc, char **argv, int envc, char **envp) const;
+  virtual void exitRobustList(ThreadContext *context, VAddr robust_list);
+  virtual void clearChildTid(ThreadContext *context, VAddr &clear_child_tid);
+};
+
+template<>
+RealLinuxSys<ExecModeMips32>::Tpointer_t RealLinuxSys<ExecModeMips32>::getStackPointer(const ThreadContext *context){
+  return getReg<Tpointer_t,RegSP>(context,RegSP);
+}
+template<>
+void RealLinuxSys<ExecModeMips32>::setStackPointer(ThreadContext *context, Tpointer_t addr){
+  setReg<Tpointer_t,RegSP>(context,RegSP,addr);
+}
+
+template<>
+template<typename T>
+void RealLinuxSys<ExecModeMips32>::CallArgs::fill(T &ref){
+  pos=(pos+sizeof(T)-1)&(~(sizeof(T)-1));
+  I((pos%sizeof(T))==0);
+  if(pos<16){
+    uint32_t tmp1=getReg<uint32_t,RegTypeGpr>(context,RegA0+pos/sizeof(uint32_t));
+    switch(sizeof(T)){
+    case sizeof(uint32_t):
+      ref=static_cast<T>(tmp1);
+      break;
+    case sizeof(uint64_t): {
+      uint32_t tmp2=getReg<uint32_t,RegTypeGpr>(context,RegA0+pos/sizeof(uint32_t)+1);
+      ref=static_cast<T>((uint64_t(tmp1)<<32)|uint64_t(tmp2));
+    } break;
+    default:
+      fail("RealLinuxSys::Args::operator>>() for type of size %d unsupported\n",sizeof(T));
+    }
+  }else{
+    ref=fixEndian(context->readMemRaw<T>(getStackPointer(context)+pos));
+  }
+  pos+=sizeof(T);
+}
+
+template<>
+void RealLinuxSys<ExecModeMips32>::setSysErr(ThreadContext *context, Tint err){
+  setReg<Tint,RegTypeGpr>(context,RegA3,Tint(1));
+  setReg<Tint,RegTypeGpr>(context,RegV0,err);
+}
+template<>
+template<typename T>
+void RealLinuxSys<ExecModeMips32>::setSysRet(ThreadContext *context, T val){
+  setReg<Tregv_t,RegTypeGpr>(context,RegA3,Tregv_t(0));
+  setReg<Tregv_t,RegTypeGpr>(context,RegV0,Tregv_t(val));
+}
+template<>
+void RealLinuxSys<ExecModeMips32>::setSysRet(ThreadContext *context, Tint val1, Tint val2){
+  setReg<Tregv_t,RegTypeGpr>(context,RegA3,Tregv_t(0));
+  setReg<Tregv_t,RegTypeGpr>(context,RegV0,Tregv_t(val1));
+  setReg<Tregv_t,RegTypeGpr>(context,RegV1,Tregv_t(val2));
+}
+
+template<>
+RealLinuxSys<ExecModeMipsel32>::Tpointer_t RealLinuxSys<ExecModeMipsel32>::getStackPointer(const ThreadContext *context){
+  return getReg<Tpointer_t,RegSP>(context,RegSP);
+}
+template<>
+void RealLinuxSys<ExecModeMipsel32>::setStackPointer(ThreadContext *context, Tpointer_t addr){
+  setReg<Tpointer_t,RegSP>(context,RegSP,addr);
+}
+
+template<>
+template<typename T>
+void RealLinuxSys<ExecModeMipsel32>::CallArgs::fill(T &ref){
+  pos=(pos+sizeof(T)-1)&(~(sizeof(T)-1));
+  I((pos%sizeof(T))==0);
+  if(pos<16){
+    uint32_t tmp1=getReg<uint32_t,RegTypeGpr>(context,RegA0+pos/sizeof(uint32_t));
+    switch(sizeof(T)){
+    case sizeof(uint32_t):
+      ref=static_cast<T>(tmp1);
+      break;
+    case sizeof(uint64_t): {
+      uint32_t tmp2=getReg<uint32_t,RegTypeGpr>(context,RegA0+pos/sizeof(uint32_t)+1);
+      ref=static_cast<T>((uint64_t(tmp1))|(uint64_t(tmp2)<<32));
+    } break;
+    default:
+      fail("RealLinuxSys::Args::operator>>() for type of size %d unsupported\n",sizeof(T));
+    }
+  }else{
+    ref=fixEndian(context->readMemRaw<T>(getStackPointer(context)+pos));
+  }
+  pos+=sizeof(T);
+}
+
+template<>
+void RealLinuxSys<ExecModeMipsel32>::setSysErr(ThreadContext *context, Tint err){
+  setReg<Tint,RegTypeGpr>(context,RegA3,Tint(1));
+  setReg<Tint,RegTypeGpr>(context,RegV0,err);
+}
+template<>
+template<typename T>
+void RealLinuxSys<ExecModeMipsel32>::setSysRet(ThreadContext *context, T val){
+  setReg<Tregv_t,RegTypeGpr>(context,RegA3,Tregv_t(0));
+  setReg<Tregv_t,RegTypeGpr>(context,RegV0,Tregv_t(val));
+}
+template<>
+void RealLinuxSys<ExecModeMipsel32>::setSysRet(ThreadContext *context, Tint val1, Tint val2){
+  setReg<Tregv_t,RegTypeGpr>(context,RegA3,Tregv_t(0));
+  setReg<Tregv_t,RegTypeGpr>(context,RegV0,Tregv_t(val1));
+  setReg<Tregv_t,RegTypeGpr>(context,RegV1,Tregv_t(val2));
+}
+
+template<>
+RealLinuxSys<ExecModeMips64>::Tpointer_t RealLinuxSys<ExecModeMips64>::getStackPointer(const ThreadContext *context){
+  return getReg<Tpointer_t,RegSP>(context,RegSP);
+}
+template<>
+void RealLinuxSys<ExecModeMips64>::setStackPointer(ThreadContext *context, Tpointer_t addr){
+  setReg<Tpointer_t,RegSP>(context,RegSP,addr);
+}
+
+template<>
+template<typename T>
+void RealLinuxSys<ExecModeMips64>::CallArgs::fill(T &ref){
+  if(pos<64){
+    ref=getReg<T,RegTypeGpr>(context,RegA0+pos/sizeof(uint64_t));
+  }else{
+    ref=fixEndian(context->readMemRaw<T>(getStackPointer(context)+(pos-64)+sizeof(uint64_t)-sizeof(T)));
+  }
+  pos+=sizeof(uint64_t);
+}
+
+template<>
+void RealLinuxSys<ExecModeMips64>::setSysErr(ThreadContext *context, Tint err){
+  setReg<Tint,RegTypeGpr>(context,RegA3,Tint(1));
+  setReg<Tint,RegTypeGpr>(context,RegV0,err);
+}
+template<>
+template<typename T>
+void RealLinuxSys<ExecModeMips64>::setSysRet(ThreadContext *context, T val){
+  setReg<Tregv_t,RegTypeGpr>(context,RegA3,Tregv_t(0));
+  setReg<Tregv_t,RegTypeGpr>(context,RegV0,Tregv_t(val));
+}
+template<>
+void RealLinuxSys<ExecModeMips64>::setSysRet(ThreadContext *context, Tint val1, Tint val2){
+  setReg<Tregv_t,RegTypeGpr>(context,RegA3,Tregv_t(0));
+  setReg<Tregv_t,RegTypeGpr>(context,RegV0,Tregv_t(val1));
+  setReg<Tregv_t,RegTypeGpr>(context,RegV1,Tregv_t(val2));
+}
+
+template<>
+RealLinuxSys<ExecModeMipsel64>::Tpointer_t RealLinuxSys<ExecModeMipsel64>::getStackPointer(const ThreadContext *context){
+  return getReg<Tpointer_t,RegSP>(context,RegSP);
+}
+template<>
+void RealLinuxSys<ExecModeMipsel64>::setStackPointer(ThreadContext *context, Tpointer_t addr){
+  setReg<Tpointer_t,RegSP>(context,RegSP,addr);
+}
+
+template<>
+template<typename T>
+void RealLinuxSys<ExecModeMipsel64>::CallArgs::fill(T &ref){
+  if(pos<64){
+    ref=getReg<T,RegTypeGpr>(context,RegA0+pos/sizeof(uint64_t));
+  }else{
+    ref=fixEndian(context->readMemRaw<T>(getStackPointer(context)+(pos-64)+sizeof(uint64_t)-sizeof(T)));
+  }
+  pos+=sizeof(uint64_t);
+}
+
+template<>
+void RealLinuxSys<ExecModeMipsel64>::setSysErr(ThreadContext *context, Tint err){
+  setReg<Tint,RegTypeGpr>(context,RegA3,Tint(1));
+  setReg<Tint,RegTypeGpr>(context,RegV0,err);
+}
+template<>
+template<typename T>
+void RealLinuxSys<ExecModeMipsel64>::setSysRet(ThreadContext *context, T val){
+  setReg<Tregv_t,RegTypeGpr>(context,RegA3,Tregv_t(0));
+  setReg<Tregv_t,RegTypeGpr>(context,RegV0,Tregv_t(val));
+}
+template<>
+void RealLinuxSys<ExecModeMipsel64>::setSysRet(ThreadContext *context, Tint val1, Tint val2){
+  setReg<Tregv_t,RegTypeGpr>(context,RegA3,Tregv_t(0));
+  setReg<Tregv_t,RegTypeGpr>(context,RegV0,Tregv_t(val1));
+  setReg<Tregv_t,RegTypeGpr>(context,RegV1,Tregv_t(val2));
+}
+enum{
+  BaseSimTid = 1000
 };
 
 static VAddr  sysCodeAddr=AddrSpacPageSize;
 static size_t sysCodeSize=6*sizeof(uint32_t);
 
-LinuxSys::ErrCode LinuxSys::getErrCode(int err){
-  if(err==ENOENT)  return ErrNoEnt;
-  if(err==ENXIO)   return ErrNXIO;
-  if(err==ENOEXEC) return ErrNoExec;
-  if(err==ECHILD)  return ErrChild;
-  if(err==EAGAIN)  return ErrAgain;
-  if(err==ENOMEM)  return ErrNoMem;
-  if(err==EACCES)  return ErrAccess;
-  if(err==EFAULT)  return ErrFault;
-  if(err==EEXIST)  return ErrExist;
-  if(err==EINVAL)  return ErrInval;
-  if(err==ENOTTY)  return ErrNoTTY;
-  if(err==ESPIPE)  return ErrSPipe;
-  if(err==ENOSYS)  return ErrNoSys;
-  fail("LinuxSys::getErrCode with unsupported native error code %d\n",err);
-}
-
-LinuxSys *LinuxSys::create(CpuMode cpuMode){
-  switch(cpuMode){
-  case Mips32:
-    return new Mips32LinuxSys();
+LinuxSys *LinuxSys::create(ExecMode mode){
+  switch(mode){
+  case ExecModeMips32:   return new RealLinuxSys<ExecModeMips32>();
+  case ExecModeMipsel32: return new RealLinuxSys<ExecModeMipsel32>();
+  case ExecModeMips64:   return new RealLinuxSys<ExecModeMips64>();
+  case ExecModeMipsel64: return new RealLinuxSys<ExecModeMipsel64>();
   default:
-    fail("LinuxSys::create with unsupported cpuMode=%d\n",cpuMode);
+    fail("LinuxSys::create with unsupported ExecMode=%d\n",mode);
   }
   return 0;
 }
-  
-LinuxSys::FuncArgs::FuncArgs(ThreadContext *context)
-  : context(context), pos(0)
-{
-}
-
+template<ExecMode mode>
 template<typename T>
-T LinuxSys::FuncArgs::get(void){
-  switch(sizeof(T)){
-  case sizeof(uint32_t):
-    return static_cast<T>(context->getSystem()->getArgI32(context,pos));
-  case sizeof(uint64_t):
-    return static_cast<T>(context->getSystem()->getArgI64(context,pos));
-  default:
-    fail("LinuxSys::FuncArgs::get() for type of size %d unsupported\n",sizeof(T));
-  }
+void RealLinuxSys<mode>::pushScalar(ThreadContext *context, const T &val){
+  Tpointer_t oldsp=getStackPointer(context);
+  Tpointer_t newsp=oldsp+(stackGrowthSign()*sizeof(T));
+  setStackPointer(context,newsp);
+  context->writeMemRaw((stackGrowthSign()>0)?oldsp:newsp,fixEndian(val));
 }
-
+template<ExecMode mode>
 template<typename T>
-void LinuxSys::pushScalar(ThreadContext *context, const T &val) const{
-  VAddr sp=getStackPointer(context);
-  I(stackGrowsDown());
-  sp-=sizeof(T);
-  context->writeMem<T>(sp,val);
-  setStackPointer(context,sp);
+T RealLinuxSys<mode>::popScalar(ThreadContext *context){
+  Tpointer_t oldsp=getStackPointer(context);
+  Tpointer_t newsp=oldsp-(stackGrowthSign()*sizeof(T));
+  setStackPointer(context,newsp);
+  return fixEndian(context->readMemRaw<T>((stackGrowthSign()>0)?newsp:oldsp));
 }
+template<ExecMode mode>
 template<typename T>
-T LinuxSys::popScalar(ThreadContext *context) const{
-  VAddr sp=getStackPointer(context);
-  I(stackGrowsDown());
-  setStackPointer(context,sp+sizeof(T));
-  return context->readMem<T>(sp);
+void RealLinuxSys<mode>::pushStruct(ThreadContext *context, const T &val){
+  Tpointer_t oldsp=getStackPointer(context);
+  Tpointer_t newsp=oldsp+(stackGrowthSign()*T::getSize());
+  setStackPointer(context,newsp);
+  val.write(context,(stackGrowthSign()>0)?oldsp:newsp);
 }
+template<ExecMode mode>
 template<typename T>
-void LinuxSys::pushStruct(ThreadContext *context, const T &val) const{
-  VAddr sp=getStackPointer(context);
-  I(stackGrowsDown());
-  sp-=sizeof(T);
-  val.write(context,sp);
-  setStackPointer(context,sp);
-}
-template<typename T>
-T LinuxSys::popStruct(ThreadContext *context) const{
-  VAddr sp=getStackPointer(context);
-  I(stackGrowsDown());
-  setStackPointer(context,sp+sizeof(T));
-  return T(context,sp);
+T RealLinuxSys<mode>::popStruct(ThreadContext *context){
+  Tpointer_t oldsp=getStackPointer(context);
+  Tpointer_t newsp=oldsp-(stackGrowthSign()*T::getSize());
+  setStackPointer(context,newsp);
+  return T(context,(stackGrowthSign()>0)?newsp:oldsp);
 }
 typedef std::multimap<VAddr,ThreadContext *> ContextMultiMap;
 ContextMultiMap futexContexts;
 
-template<typename val_t>
-bool LinuxSys::futexCheck(ThreadContext *context, VAddr futex, val_t val){
-  bool rv=(context->readMem<val_t>(futex)==val);
+template<ExecMode mode>
+bool RealLinuxSys<mode>::futexCheck(ThreadContext *context, Tpointer_t futex, Tint val){
+  bool rv=(fixEndian(context->readMemRaw<Tint>(futex))==val);
   if(!rv)
-    context->getSystem()->setSysErr(context,ErrAgain);
+    setSysErr(context,VEAGAIN);
   return rv;
 }
-
-void LinuxSys::futexWait(ThreadContext *context, VAddr futex){
+template<ExecMode mode>
+void RealLinuxSys<mode>::futexWait(ThreadContext *context, Tpointer_t futex){
   futexContexts.insert(ContextMultiMap::value_type(futex,context));                
 #if (defined DEBUG_SIGNALS)     
   suspSet.insert(context->gettid());
 #endif
   context->suspend();
 }
-
-int LinuxSys::futexWake(ThreadContext *context, VAddr futex, int nr_wake){
+template<ExecMode mode>
+int RealLinuxSys<mode>::futexWake(ThreadContext *context, Tpointer_t futex, int nr_wake){
   int rv_wake=0;
   while((rv_wake<nr_wake)&&(futexContexts.lower_bound(futex)!=futexContexts.upper_bound(futex))){
     ThreadContext *wcontext=futexContexts.lower_bound(futex)->second;
     futexContexts.erase(futexContexts.lower_bound(futex));
     wcontext->resume();
-    wcontext->getSystem()->setSysRet(wcontext,0);
+    setSysRet(wcontext);
     rv_wake++;
   }
   return rv_wake;
 }
-int LinuxSys::futexMove(ThreadContext *context, VAddr srcFutex, VAddr dstFutex, int nr_move){
+template<ExecMode mode>
+int RealLinuxSys<mode>::futexMove(ThreadContext *context, Tpointer_t srcFutex,
+                                  Tpointer_t dstFutex, int nr_move){
   int rv_move=0;
   while((rv_move<nr_move)&&(futexContexts.lower_bound(srcFutex)!=futexContexts.upper_bound(srcFutex))){
     ThreadContext *wcontext=futexContexts.lower_bound(srcFutex)->second;
@@ -171,16 +1531,17 @@ bool LinuxSys::handleSignals(ThreadContext *context) const{
   return false;
 }
 
-SignalAction Mips32LinuxSys::handleSignal(ThreadContext *context, SigInfo *sigInfo) const{
+template<>
+SignalAction RealLinuxSys<ExecModeMips32>::handleSignal(ThreadContext *context, SigInfo *sigInfo) const{
   // Pop signal mask if it's been saved
-  uint32_t dopop=Mips::getRegAny<Mips32,uint32_t,Mips::RegSys>(context,Mips::RegSys);
+  uint32_t dopop=getReg<uint32_t,RegSys>(context,RegSys);
   if(dopop){
-    Mips::setRegAny<Mips32,uint32_t,Mips::RegSys>(context,Mips::RegSys,0);    
-    context->setSignalMask(popStruct<Mips32Defs::Tk_sigset_t>(context));
+    setReg<uint32_t,RegSys>(context,RegSys,0);
+    context->setSignalMask(popStruct<Tsigset_t>(context));
   }
   SignalDesc &sigDesc=(*(context->getSignalTable()))[sigInfo->signo];
 #if (defined DEBUG_SIGNALS)
-  printf("Mips::handleSignal for pid=%d, signal=%d, action=0x%08x\n",context->gettid(),sigInfo->signo,sigDesc.handler);
+  printf("handleSignal for pid=%d, signal=%d, action=0x%08x\n",context->gettid(),sigInfo->signo,sigDesc.handler);
 #endif
   SignalAction sact((SignalAction)(sigDesc.handler));
   if(sact==SigActDefault)
@@ -205,27 +1566,28 @@ SignalAction Mips32LinuxSys::handleSignal(ThreadContext *context, SigInfo *sigIn
   }
   // Save PC, then registers
   I(context->getIDesc()==context->virt2inst(context->getIAddr()));
-  Mips32Defs::Tintptr_t pc=context->getIAddr();
+  Tpointer_t pc(context->getIAddr());
   pushScalar(context,pc);
-  for(RegName r=Mips::RegZero+1;r<=Mips::RegRA;r++){
-    uint32_t wrVal=Mips::getRegAny<Mips32,uint32_t,RegTypeGpr>(context,r);
+  for(RegName r=RegZero+1;r<=RegRA;r++){
+    uint32_t wrVal=getReg<uint32_t,RegTypeGpr>(context,r);
     pushScalar(context,wrVal);
   }
   // Save the current signal mask and use sigaction's signal mask
-  Mips32Defs::Tk_sigset_t oldMask(context->getSignalMask());
+  Tsigset_t oldMask(context->getSignalMask());
   pushStruct(context,oldMask);
   context->setSignalMask(sigDesc.mask);
   // Set registers and PC for execution of the handler
-  Mips::setRegAny<Mips32,uint32_t,RegTypeGpr>(context,Mips::RegA0,Mips32Defs::SigNum(sigInfo->signo).val);
+  setReg<uint32_t,RegTypeGpr>(context,RegA0,localToSigNum(sigInfo->signo));
   if(sigDesc.flags&SaSigInfo){
-    printf("Mips::handleSignal with SA_SIGINFO not supported yet\n");
+    printf("handleSignal with SA_SIGINFO not supported yet\n");
   }
-  Mips::setRegAny<Mips32,uint32_t,RegTypeGpr>(context,Mips::RegT9,sigDesc.handler);
+  setReg<uint32_t,RegTypeGpr>(context,RegT9,sigDesc.handler);
   context->setIAddr(sysCodeAddr);
   return SigActHandle;
 }
 
-void Mips32LinuxSys::initSystem(ThreadContext *context) const{
+template<>
+void RealLinuxSys<ExecModeMips32>::initSystem(ThreadContext *context) const{
   AddressSpace *addrSpace=context->getAddressSpace();
   sysCodeSize=6*sizeof(uint32_t);
   sysCodeAddr=addrSpace->newSegmentAddr(sysCodeSize);
@@ -233,24 +1595,268 @@ void Mips32LinuxSys::initSystem(ThreadContext *context) const{
   addrSpace->addFuncName(sysCodeAddr,"sysCode","");
   addrSpace->addFuncName(sysCodeAddr+sysCodeSize,"End of sysCode","");
   // jalr t9
-  context->writeMem<uint32_t>(sysCodeAddr+0*sizeof(uint32_t),0x0320f809);
+  context->writeMemRaw(sysCodeAddr+0*sizeof(uint32_t),fixEndian(uint32_t(0x0320f809)));
   // nop
-  context->writeMem<uint32_t>(sysCodeAddr+1*sizeof(uint32_t),0x00000000);
+  context->writeMemRaw(sysCodeAddr+1*sizeof(uint32_t),fixEndian(uint32_t(0x00000000)));
   // li v0,4193 (syscall number for rt_sigreturn)
-  context->writeMem<uint32_t>(sysCodeAddr+2*sizeof(uint32_t),0x24020000+4193);
+  context->writeMemRaw(sysCodeAddr+2*sizeof(uint32_t),fixEndian(uint32_t(0x24020000+4193)));
   // Syscall     
-  context->writeMem<uint32_t>(sysCodeAddr+3*sizeof(uint32_t),0x0000000C);
+  context->writeMemRaw(sysCodeAddr+3*sizeof(uint32_t),fixEndian(uint32_t(0x0000000C)));
   // Unconditional branch to itself
-  context->writeMem<uint32_t>(sysCodeAddr+4*sizeof(uint32_t),0x1000ffff);
+  context->writeMemRaw(sysCodeAddr+4*sizeof(uint32_t),fixEndian(uint32_t(0x1000ffff)));
   // Delay slot nop
-  context->writeMem<uint32_t>(sysCodeAddr+5*sizeof(uint32_t),0x00000000);
+  context->writeMemRaw(sysCodeAddr+5*sizeof(uint32_t),fixEndian(uint32_t(0x00000000)));
   addrSpace->protectSegment(sysCodeAddr,sysCodeSize,true,false,true);
   // Set RegSys to zero. It is used by system call functions to indicate
   // that a signal mask has been already saved to the stack and needs to be restored
-  Mips::setRegAny<Mips32,uint32_t,Mips::RegSys>(context,Mips::RegSys,0);
+  setReg<uint32_t,RegSys>(context,RegSys,0);
 }
 
-void LinuxSys::createStack(ThreadContext *context) const{
+template<>
+SignalAction RealLinuxSys<ExecModeMipsel32>::handleSignal(ThreadContext *context, SigInfo *sigInfo) const{
+  // Pop signal mask if it's been saved
+  uint32_t dopop=getReg<uint32_t,RegSys>(context,RegSys);
+  if(dopop){
+    setReg<uint32_t,RegSys>(context,RegSys,0);
+    context->setSignalMask(popStruct<Tsigset_t>(context));
+  }
+  SignalDesc &sigDesc=(*(context->getSignalTable()))[sigInfo->signo];
+#if (defined DEBUG_SIGNALS)
+  printf("handleSignal for pid=%d, signal=%d, action=0x%08x\n",context->gettid(),sigInfo->signo,sigDesc.handler);
+#endif
+  SignalAction sact((SignalAction)(sigDesc.handler));
+  if(sact==SigActDefault)
+    sact=getDflSigAction(sigInfo->signo);
+  switch(sact){
+  case SigActDefault:
+    fail("Mips32LinuxSys::handleSignal signal %d with SigActDefault\n",sigInfo->signo);
+  case SigActIgnore: 
+    return SigActIgnore;
+  case SigActCore:
+  case SigActTerm:
+    osSim->eventExit(context->gettid(),-1);
+    return SigActTerm;
+  case SigActStop:
+#if (defined DEBUG_SIGNALS)
+    suspSet.insert(context->gettid());
+#endif
+    context->suspend();
+    return SigActStop;
+  default:
+    break;
+  }
+  // Save PC, then registers
+  I(context->getIDesc()==context->virt2inst(context->getIAddr()));
+  Tpointer_t pc(context->getIAddr());
+  pushScalar(context,pc);
+  for(RegName r=RegZero+1;r<=RegRA;r++){
+    uint32_t wrVal=getReg<uint32_t,RegTypeGpr>(context,r);
+    pushScalar(context,wrVal);
+  }
+  // Save the current signal mask and use sigaction's signal mask
+  Tsigset_t oldMask(context->getSignalMask());
+  pushStruct(context,oldMask);
+  context->setSignalMask(sigDesc.mask);
+  // Set registers and PC for execution of the handler
+  setReg<uint32_t,RegTypeGpr>(context,RegA0,localToSigNum(sigInfo->signo));
+  if(sigDesc.flags&SaSigInfo){
+    printf("handleSignal with SA_SIGINFO not supported yet\n");
+  }
+  setReg<uint32_t,RegTypeGpr>(context,RegT9,sigDesc.handler);
+  context->setIAddr(sysCodeAddr);
+  return SigActHandle;
+}
+
+template<>
+void RealLinuxSys<ExecModeMipsel32>::initSystem(ThreadContext *context) const{
+  AddressSpace *addrSpace=context->getAddressSpace();
+  sysCodeSize=6*sizeof(uint32_t);
+  sysCodeAddr=addrSpace->newSegmentAddr(sysCodeSize);
+  addrSpace->newSegment(sysCodeAddr,sysCodeSize,false,true,false,false,false);
+  addrSpace->addFuncName(sysCodeAddr,"sysCode","");
+  addrSpace->addFuncName(sysCodeAddr+sysCodeSize,"End of sysCode","");
+  // jalr t9
+  context->writeMemRaw(sysCodeAddr+0*sizeof(uint32_t),fixEndian(uint32_t(0x0320f809)));
+  // nop
+  context->writeMemRaw(sysCodeAddr+1*sizeof(uint32_t),fixEndian(uint32_t(0x00000000)));
+  // li v0,4193 (syscall number for rt_sigreturn)
+  context->writeMemRaw(sysCodeAddr+2*sizeof(uint32_t),fixEndian(uint32_t(0x24020000+4193)));
+  // Syscall     
+  context->writeMemRaw(sysCodeAddr+3*sizeof(uint32_t),fixEndian(uint32_t(0x0000000C)));
+  // Unconditional branch to itself
+  context->writeMemRaw(sysCodeAddr+4*sizeof(uint32_t),fixEndian(uint32_t(0x1000ffff)));
+  // Delay slot nop
+  context->writeMemRaw(sysCodeAddr+5*sizeof(uint32_t),fixEndian(uint32_t(0x00000000)));
+  addrSpace->protectSegment(sysCodeAddr,sysCodeSize,true,false,true);
+  // Set RegSys to zero. It is used by system call functions to indicate
+  // that a signal mask has been already saved to the stack and needs to be restored
+  setReg<uint32_t,RegSys>(context,RegSys,0);
+}
+
+template<>
+SignalAction RealLinuxSys<ExecModeMips64>::handleSignal(ThreadContext *context, SigInfo *sigInfo) const{
+  // Pop signal mask if it's been saved
+  uint32_t dopop=getReg<uint32_t,RegSys>(context,RegSys);
+  if(dopop){
+    setReg<uint32_t,RegSys>(context,RegSys,0);
+    context->setSignalMask(popStruct<Tsigset_t>(context));
+  }
+  SignalDesc &sigDesc=(*(context->getSignalTable()))[sigInfo->signo];
+#if (defined DEBUG_SIGNALS)
+  printf("handleSignal for pid=%d, signal=%d, action=0x%08x\n",context->gettid(),sigInfo->signo,sigDesc.handler);
+#endif
+  SignalAction sact((SignalAction)(sigDesc.handler));
+  if(sact==SigActDefault)
+    sact=getDflSigAction(sigInfo->signo);
+  switch(sact){
+  case SigActDefault:
+    fail("Mips32LinuxSys::handleSignal signal %d with SigActDefault\n",sigInfo->signo);
+  case SigActIgnore: 
+    return SigActIgnore;
+  case SigActCore:
+  case SigActTerm:
+    osSim->eventExit(context->gettid(),-1);
+    return SigActTerm;
+  case SigActStop:
+#if (defined DEBUG_SIGNALS)
+    suspSet.insert(context->gettid());
+#endif
+    context->suspend();
+    return SigActStop;
+  default:
+    break;
+  }
+  // Save PC, then registers
+  I(context->getIDesc()==context->virt2inst(context->getIAddr()));
+  Tpointer_t pc(context->getIAddr());
+  pushScalar(context,pc);
+  for(RegName r=RegZero+1;r<=RegRA;r++){
+    uint64_t wrVal=getReg<uint64_t,RegTypeGpr>(context,r);
+    pushScalar(context,wrVal);
+  }
+  // Save the current signal mask and use sigaction's signal mask
+  Tsigset_t oldMask(context->getSignalMask());
+  pushStruct(context,oldMask);
+  context->setSignalMask(sigDesc.mask);
+  // Set registers and PC for execution of the handler
+  setReg<Tregv_t,RegTypeGpr>(context,RegA0,localToSigNum(sigInfo->signo));
+  if(sigDesc.flags&SaSigInfo){
+    printf("handleSignal with SA_SIGINFO not supported yet\n");
+  }
+  setReg<Tregv_t,RegTypeGpr>(context,RegT9,sigDesc.handler);
+  context->setIAddr(sysCodeAddr);
+  return SigActHandle;
+}
+
+template<>
+void RealLinuxSys<ExecModeMips64>::initSystem(ThreadContext *context) const{
+  AddressSpace *addrSpace=context->getAddressSpace();
+  sysCodeSize=6*sizeof(uint32_t);
+  sysCodeAddr=addrSpace->newSegmentAddr(sysCodeSize);
+  addrSpace->newSegment(sysCodeAddr,sysCodeSize,false,true,false,false,false);
+  addrSpace->addFuncName(sysCodeAddr,"sysCode","");
+  addrSpace->addFuncName(sysCodeAddr+sysCodeSize,"End of sysCode","");
+  // jalr t9
+  context->writeMemRaw(sysCodeAddr+0*sizeof(uint32_t),fixEndian(uint32_t(0x0320f809)));
+  // nop
+  context->writeMemRaw(sysCodeAddr+1*sizeof(uint32_t),fixEndian(uint32_t(0x00000000)));
+  // li v0,V__NR_rt_sigreturn
+  context->writeMemRaw(sysCodeAddr+2*sizeof(uint32_t),fixEndian(uint32_t(0x24020000+V__NR_rt_sigreturn)));
+  // Syscall     
+  context->writeMemRaw(sysCodeAddr+3*sizeof(uint32_t),fixEndian(uint32_t(0x0000000C)));
+  // Unconditional branch to itself
+  context->writeMemRaw(sysCodeAddr+4*sizeof(uint32_t),fixEndian(uint32_t(0x1000ffff)));
+  // Delay slot nop
+  context->writeMemRaw(sysCodeAddr+5*sizeof(uint32_t),fixEndian(uint32_t(0x00000000)));
+  addrSpace->protectSegment(sysCodeAddr,sysCodeSize,true,false,true);
+  // Set RegSys to zero. It is used by system call functions to indicate
+  // that a signal mask has been already saved to the stack and needs to be restored
+  setReg<Tregv_t,RegSys>(context,RegSys,0);
+}
+
+template<>
+SignalAction RealLinuxSys<ExecModeMipsel64>::handleSignal(ThreadContext *context, SigInfo *sigInfo) const{
+  // Pop signal mask if it's been saved
+  uint32_t dopop=getReg<uint32_t,RegSys>(context,RegSys);
+  if(dopop){
+    setReg<uint32_t,RegSys>(context,RegSys,0);
+    context->setSignalMask(popStruct<Tsigset_t>(context));
+  }
+  SignalDesc &sigDesc=(*(context->getSignalTable()))[sigInfo->signo];
+#if (defined DEBUG_SIGNALS)
+  printf("handleSignal for pid=%d, signal=%d, action=0x%08x\n",context->gettid(),sigInfo->signo,sigDesc.handler);
+#endif
+  SignalAction sact((SignalAction)(sigDesc.handler));
+  if(sact==SigActDefault)
+    sact=getDflSigAction(sigInfo->signo);
+  switch(sact){
+  case SigActDefault:
+    fail("Mips32LinuxSys::handleSignal signal %d with SigActDefault\n",sigInfo->signo);
+  case SigActIgnore: 
+    return SigActIgnore;
+  case SigActCore:
+  case SigActTerm:
+    osSim->eventExit(context->gettid(),-1);
+    return SigActTerm;
+  case SigActStop:
+#if (defined DEBUG_SIGNALS)
+    suspSet.insert(context->gettid());
+#endif
+    context->suspend();
+    return SigActStop;
+  default:
+    break;
+  }
+  // Save PC, then registers
+  I(context->getIDesc()==context->virt2inst(context->getIAddr()));
+  Tpointer_t pc(context->getIAddr());
+  pushScalar(context,pc);
+  for(RegName r=RegZero+1;r<=RegRA;r++){
+    uint64_t wrVal=getReg<uint64_t,RegTypeGpr>(context,r);
+    pushScalar(context,wrVal);
+  }
+  // Save the current signal mask and use sigaction's signal mask
+  Tsigset_t oldMask(context->getSignalMask());
+  pushStruct(context,oldMask);
+  context->setSignalMask(sigDesc.mask);
+  // Set registers and PC for execution of the handler
+  setReg<Tregv_t,RegTypeGpr>(context,RegA0,localToSigNum(sigInfo->signo));
+  if(sigDesc.flags&SaSigInfo){
+    printf("handleSignal with SA_SIGINFO not supported yet\n");
+  }
+  setReg<Tregv_t,RegTypeGpr>(context,RegT9,sigDesc.handler);
+  context->setIAddr(sysCodeAddr);
+  return SigActHandle;
+}
+
+template<>
+void RealLinuxSys<ExecModeMipsel64>::initSystem(ThreadContext *context) const{
+  AddressSpace *addrSpace=context->getAddressSpace();
+  sysCodeSize=6*sizeof(uint32_t);
+  sysCodeAddr=addrSpace->newSegmentAddr(sysCodeSize);
+  addrSpace->newSegment(sysCodeAddr,sysCodeSize,false,true,false,false,false);
+  addrSpace->addFuncName(sysCodeAddr,"sysCode","");
+  addrSpace->addFuncName(sysCodeAddr+sysCodeSize,"End of sysCode","");
+  // jalr t9
+  context->writeMemRaw(sysCodeAddr+0*sizeof(uint32_t),fixEndian(uint32_t(0x0320f809)));
+  // nop
+  context->writeMemRaw(sysCodeAddr+1*sizeof(uint32_t),fixEndian(uint32_t(0x00000000)));
+  // li v0,V__NR_rt_sigreturn
+  context->writeMemRaw(sysCodeAddr+2*sizeof(uint32_t),fixEndian(uint32_t(0x24020000+V__NR_rt_sigreturn)));
+  // Syscall     
+  context->writeMemRaw(sysCodeAddr+3*sizeof(uint32_t),fixEndian(uint32_t(0x0000000C)));
+  // Unconditional branch to itself
+  context->writeMemRaw(sysCodeAddr+4*sizeof(uint32_t),fixEndian(uint32_t(0x1000ffff)));
+  // Delay slot nop
+  context->writeMemRaw(sysCodeAddr+5*sizeof(uint32_t),fixEndian(uint32_t(0x00000000)));
+  addrSpace->protectSegment(sysCodeAddr,sysCodeSize,true,false,true);
+  // Set RegSys to zero. It is used by system call functions to indicate
+  // that a signal mask has been already saved to the stack and needs to be restored
+  setReg<Tregv_t,RegSys>(context,RegSys,0);
+}
+
+template<ExecMode mode>
+void RealLinuxSys<mode>::createStack(ThreadContext *context) const{
   AddressSpace *addrSpace=context->getAddressSpace();
   I(addrSpace);
   // Stack size starts at 16MB, but can autogrow
@@ -262,40 +1868,42 @@ void LinuxSys::createStack(ThreadContext *context) const{
   addrSpace->setGrowth(stackStart,true,true);
   context->writeMemWithByte(stackStart,stackSize,0);
   context->setStack(stackStart,stackStart+stackSize);
-  setStackPointer(context,stackStart+(stackGrowsDown()?stackSize:0));
+  setStackPointer(context,stackStart+((stackGrowthSign()>0)?0:stackSize));
 }
 
-template<class defs>
-void LinuxSys::setProgArgs_(ThreadContext *context, int argc, char **argv, int envc, char **envp) const{
-  I(stackGrowsDown());
-  typedef typename defs::Tintptr_t    Tintptr_t;
-  typedef typename defs::Tsize_t Tsize_t;
-  Tintptr_t regSP=getStackPointer(context);
+template<ExecMode mode>
+void RealLinuxSys<mode>::setProgArgs(ThreadContext *context, int argc, char **argv, int envc, char **envp) const{
   // We will push arg and env string pointer arrays later, with nulls at end
-  Tintptr_t envVAddrs[envc+1];
-  I(sizeof(envVAddrs)==(envc+1)*sizeof(Tintptr_t));
-  Tintptr_t argVAddrs[argc+1];
-  I(sizeof(argVAddrs)==(argc+1)*sizeof(Tintptr_t));
+  Tpointer_t envVAddrs[envc+1];
+  I(sizeof(envVAddrs)==(envc+1)*sizeof(Tpointer_t));
+  Tpointer_t argVAddrs[argc+1];
+  I(sizeof(argVAddrs)==(argc+1)*sizeof(Tpointer_t));
   // Put the env strings on the stack and initialize the envVAddrs array
   for(int envIdx=envc-1;envIdx>=0;envIdx--){
-    Tsize_t strSize=strlen(envp[envIdx])+1;
-    regSP-=alignUp(strSize,Tsize_t(defs::StrArgAlign));
-    context->writeMemFromBuf(regSP,strSize,envp[envIdx]);
-    envVAddrs[envIdx]=regSP;
+    Tsize_t    strSize=strlen(envp[envIdx])+1;
+    Tpointer_t oldsp=getStackPointer(context);
+    Tpointer_t newsp=oldsp+stackGrowthSign()*strSize;
+    setStackPointer(context,newsp);
+    Tpointer_t strAddr=(stackGrowthSign()>0)?oldsp:newsp;
+    context->writeMemFromBuf(strAddr,strSize,envp[envIdx]);
+    envVAddrs[envIdx]=strAddr;
   }
   envVAddrs[envc]=0;
-  // Put the arg string on the stack
+  // Put the arg strings on the stack and initialize the argVAddrs array
   for(int argIdx=argc-1;argIdx>=0;argIdx--){
     Tsize_t strSize=strlen(argv[argIdx])+1;
-    regSP-=alignUp(strSize,Tsize_t(defs::StrArgAlign));
-    context->writeMemFromBuf(regSP,strSize,argv[argIdx]);
-    argVAddrs[argIdx]=regSP;
+    Tpointer_t oldsp=getStackPointer(context);
+    Tpointer_t newsp=oldsp+stackGrowthSign()*strSize;
+    setStackPointer(context,newsp);
+    Tpointer_t strAddr=(stackGrowthSign()>0)?oldsp:newsp;
+    context->writeMemFromBuf(strAddr,strSize,argv[argIdx]);
+    argVAddrs[argIdx]=strAddr;
   }
   argVAddrs[argc]=0;
   // Put the aux vector on the stack
-  typedef typename defs::Tauxv_t Tauxv_t;
-  regSP-=(regSP%sizeof(Tauxv_t)); // Align
-  setStackPointer(context,regSP);
+  // Align stack pointer to Tauxv_t granularity
+  Tpointer_t lomask=Tauxv_t::getSize()-1;
+  setStackPointer(context,(getStackPointer(context)+((stackGrowthSign()>0)?lomask:0))&(~lomask));
   // Push aux vector elements
   pushStruct(context,Tauxv_t(AT_NULL,0));
   pushStruct(context,Tauxv_t(AT_PHNUM,context->getAddressSpace()->getFuncAddr("PrgHdrNum")));
@@ -315,768 +1923,31 @@ void LinuxSys::setProgArgs_(ThreadContext *context, int argc, char **argv, int e
 
 #include "OSSim.h"
 
-template<class defs>
-void LinuxSys::sysFutex(ThreadContext *context, InstDesc *inst){
-  typedef typename defs::Tintptr_t    Tintptr_t;
-  typedef typename defs::Tint    Tint;
-  typedef typename defs::Tuint   Tuint;
-  typedef typename defs::FutexOp FutexOp;
-  typedef typename defs::FutexCmd FutexCmd;
-  FuncArgs args(context);
-  Tintptr_t futex(args.get<Tintptr_t>());
-  FutexOp op(args.get<Tuint>());
-  // Ignore FUTEX_PRIVATE_FLAG
-  FutexCmd cmd(op.getFutexCmd());
-  if(cmd.isFUTEX_WAIT()){
-    Tint val(args.get<Tint>());
-    Tintptr_t timeout(args.get<Tintptr_t>());
-    if(timeout)
-      fail("LinuxSys::sysFutex non-zero timeout unsupported for FUTEX_WAIT");
-    if(futexCheck(context,futex,val))
-      futexWait(context,futex);
-  }else if(cmd.isFUTEX_WAKE()){
-    Tint nr_wake(args.get<Tint>());
-    Tintptr_t timeout(args.get<Tintptr_t>());
-    if(timeout)
-      fail("LinuxSys::sysFutex non-zero timeout unsupported for FUTEX_WAKE");
-    setSysRet(context,futexWake(context,futex,nr_wake));
-  }else if(cmd.isFUTEX_REQUEUE()){
-    Tint nr_wake(args.get<Tint>());
-    Tint nr_move(args.get<Tint>());
-    Tintptr_t futex2 (args.get<Tintptr_t>());
-    setSysRet(context,futexWake(context,futex,nr_wake)+futexMove(context,futex,futex2,nr_move));
-  }else if(cmd.isFUTEX_CMP_REQUEUE()){
-    Tint nr_wake(args.get<Tint>());
-    Tint nr_move(args.get<Tint>());
-    Tintptr_t futex2 (args.get<Tintptr_t>());
-    Tint val(args.get<Tint>());
-    if(futexCheck<uint32_t>(context,futex,val))
-      setSysRet(context,futexWake(context,futex,nr_wake)+futexMove(context,futex,futex2,nr_move));
-  }else if(cmd.isFUTEX_WAKE_OP()){
-    Tint nr_wake (args.get<Tint>());
-    Tint nr_wake2(args.get<Tint>());
-    Tintptr_t futex2  (args.get<Tintptr_t>());
-    typedef typename defs::FutexWakeOp WakeOp;
-    WakeOp wakeop(args.get<Tuint>());
-    if(!context->canRead(futex2,sizeof(Tint))||!context->canWrite(futex2,sizeof(Tint)))
-      return setSysErr(context,ErrFault);
-    typedef typename defs::FutexAtmOp AtmOp;
-    typedef typename defs::FutexCmpOp CmpOp;
-    AtmOp atmop=wakeop.getAtmOp();
-    CmpOp cmpop=wakeop.getCmpOp();
-    Tint atmarg=wakeop.getAtmArg();
-    Tint cmparg=wakeop.getCmpArg();
-    if(wakeop.hasFUTEX_OP_OPARG_SHIFT())
-      atmarg=1<<atmarg;
-    Tint val=context->readMem<Tint>(futex2);
-    bool cond;
-    if(cmpop.isFUTEX_OP_CMP_EQ()){cond=(val==cmparg);}
-    else if(cmpop.isFUTEX_OP_CMP_NE()){ cond=(val!=cmparg);}
-    else if(cmpop.isFUTEX_OP_CMP_LT()){ cond=(val< cmparg);}
-    else if(cmpop.isFUTEX_OP_CMP_LE()){ cond=(val<=cmparg);}
-    else if(cmpop.isFUTEX_OP_CMP_GT()){ cond=(val> cmparg);}
-    else if(cmpop.isFUTEX_OP_CMP_GE()){ cond=(val>=cmparg);}
-    else
-      return setSysErr(context,ErrNoSys);
-    if(atmop.isFUTEX_OP_SET()){ val = atmarg; }
-    else if(atmop.isFUTEX_OP_ADD()){ val+= atmarg; }
-    else if(atmop.isFUTEX_OP_OR()){ val|= atmarg; }
-    else if(atmop.isFUTEX_OP_ANDN()){ val&=~atmarg; }
-    else if(atmop.isFUTEX_OP_XOR()){ val^= atmarg; }
-    else
-      return setSysErr(context,ErrNoSys);
-    context->writeMem(futex2,val);
-    setSysRet(context,futexWake(context,futex,nr_wake)+(cond?futexWake(context,futex2,nr_wake2):0));
-  }else{
-    fail("LinuxSys::sysFutex with unsupported op=%d\n",op.val);
-  }
-}
-
-template<class defs>
-void LinuxSys::sysSetRobustList(ThreadContext *context, InstDesc *inst){
-  typedef typename defs::Tintptr_t    Tintptr_t;
-  typedef typename defs::Tsize_t Tsize_t;
-  typedef typename defs::Trobust_list_head Trobust_list_head;
-  FuncArgs args(context);
-  Tintptr_t    head=args.get<Tintptr_t>();
-  Tsize_t len =args.get<Tsize_t>();
-  if(len!=sizeof(Trobust_list_head))
-    return setSysErr(context,ErrInval);
-  context->setRobustList(head);
-  setSysRet(context,0);
-}
-template<class defs>
-void LinuxSys::exitRobustList_(ThreadContext *context, VAddr robust_list){
-  typedef typename defs::Trobust_list_head Trobust_list_head;
-  // Any errors that occur here are silently ignored
-  if(!context->canRead(robust_list,sizeof(Trobust_list_head)))
-    return;
-  Trobust_list_head head(context,robust_list);
-  if(head.list.next!=robust_list)
-    printf("LinuxSys::exitRobustList called with non-empty robust_list\n");
-}
-template<class defs>
-void LinuxSys::sysSetTidAddress(ThreadContext *context, InstDesc *inst){
-  typedef typename defs::Tintptr_t Tintptr_t;
-  typedef typename defs::Tpid_t Tpid_t;
-  FuncArgs args(context);
-  Tintptr_t tidptr=args.get<Tintptr_t>();
-  context->setTidAddress(tidptr);
-  return setSysRet(context,Tpid_t(context->gettid()+BaseSimTid));
-}
-
-template<class defs>
-void LinuxSys::doWait4(ThreadContext *context, InstDesc *inst,
-		       typename defs::Tpid_t cpid, typename defs::Tintptr_t status,
-		       typename defs::WaitOpts options, typename defs::Tintptr_t rusage){
-  typedef typename defs::Tpid_t Tpid_t;
-  typedef typename defs::Tint Tint;
-  int realCTid=0;
-  if(cpid>0){
-    realCTid=cpid-BaseSimTid;
-    if(!context->isChildID(realCTid))
-      return setSysErr(context,ErrChild);
-    ThreadContext *ccontext=osSim->getContext(realCTid);
-    if((!ccontext->isExited())&&(!ccontext->isKilled()))
-      realCTid=0;
-  }else if(cpid==-1){
-    if(!context->hasChildren())
-      return setSysErr(context,ErrChild);
-    realCTid=context->findZombieChild();
-  }else{
-    fail("LinuxSys::doWait4 Only supported for pid -1 or >0\n");
-  }
-  if(realCTid){
-    ThreadContext *ccontext=osSim->getContext(realCTid);
-    if(status){
-      Tint statVal=0xDEADBEEF;
-      if(ccontext->isExited()){
-	statVal=(ccontext->getExitCode()<<8);
-      }else{
-	I(ccontext->isKilled());
-	fail("LinuxSys::doWait4 for killed child not supported\n");
-      }
-      context->writeMem(status,statVal);
-    }
-    if(rusage)
-      fail("LinuxSys::doWait4 with rusage parameter not supported\n");
-#if (defined DEBUG_SIGNALS)
-    suspSet.erase(pid);
-#endif
-    ccontext->reap();
-    return setSysRet(context,Tpid_t(realCTid+BaseSimTid));
-  }
-  if(options.hasWNOHANG())
-    return setSysRet(context,0);
-  context->updIAddr(-inst->aupdate,-1);
-  I(inst==context->getIDesc());
-  I(inst==context->virt2inst(context->getIAddr()));
-#if (defined DEBUG_SIGNALS)
-  printf("Suspend %d in sysCall32_wait4(pid=%d,status=%x,options=%x)\n",context->gettid(),pid,status,options.val);
-  printf("Also suspended:");
-  for(PidSet::iterator suspIt=suspSet.begin();suspIt!=suspSet.end();suspIt++)
-    printf(" %d",*suspIt);
-  printf("\n");
-  suspSet.insert(context->gettid());
-#endif
-  context->suspend();
-}
-
-template<class defs>
-void LinuxSys::sysWait4(ThreadContext *context, InstDesc *inst){
-  typedef typename defs::Tpid_t Tpid_t;
-  typedef typename defs::Tintptr_t Tintptr_t;
-  typedef typename defs::WaitOpts WaitOpts;
-  typedef typename defs::Tuint Tuint;
-  FuncArgs args(context);
-  Tpid_t pid=args.get<Tpid_t>();
-  Tintptr_t status=args.get<Tintptr_t>();
-  WaitOpts options=args.get<Tuint>();
-  Tintptr_t rusage= args.get<Tintptr_t>();
-  typedef typename defs::Trusage Trusage;
-  doWait4<defs>(context,inst,pid,status,options,rusage);
-}
-
-template<class defs>
-void LinuxSys::sysWaitpid(ThreadContext *context, InstDesc *inst){
-  typedef typename defs::Tpid_t Tpid_t;
-  typedef typename defs::Tintptr_t Tintptr_t;
-  typedef typename defs::WaitOpts WaitOpts;
-  typedef typename defs::Tuint Tuint;
-  FuncArgs args(context);
-  Tpid_t pid=args.get<Tpid_t>();
-  Tintptr_t status=args.get<Tintptr_t>();
-  WaitOpts options=args.get<Tuint>();
-  typedef typename defs::Trusage Trusage;
-  doWait4<defs>(context,inst,pid,status,options,0);
-}
-void Mips32LinuxSys::sysRtSigReturn(ThreadContext *context, InstDesc *inst){
-#if (defined DEBUG_SIGNALS)
-  printf("sysCall32_rt_sigreturn pid %d to ",context->gettid());
-#endif    
-  // Restore old signal mask
-  Mips32Defs::Tk_sigset_t oldMask=popStruct<Mips32Defs::Tk_sigset_t>(context);
-  // Restore registers, then PC
-  for(RegName r=Mips::RegRA;r>Mips::RegZero;r--){
-    uint32_t rdVal=popScalar<uint32_t>(context);
-    Mips::setRegAny<Mips32,uint32_t,RegTypeGpr>(context,r,rdVal);
-  }
-  context->setIAddr(popScalar<Mips32Defs::Tintptr_t>(context));
-  context->setSignalMask(oldMask);
-}
-template<class defs>
-void LinuxSys::sysRtSigAction(ThreadContext *context, InstDesc *inst){
-  typedef typename defs::Tintptr_t Tintptr_t;
-  typedef typename defs::Tsize_t Tsize_t;
-  typedef typename defs::Tuint Tuint;
-  typedef typename defs::SigNum SigNum;
-  typedef typename defs::Tk_sigaction Tk_sigaction;
-  FuncArgs args(context);
-  SigNum sig(args.get<Tuint>());
-  Tintptr_t act =args.get<Tintptr_t>();
-  Tintptr_t oact =args.get<Tintptr_t>();
-  Tsize_t size=args.get<Tsize_t>();
-  if(size!=sizeof(typename defs::Tk_sigset_t))
-    return setSysErr(context,ErrInval);
-  if((act)&&(!context->canRead(act,sizeof(Tk_sigaction))))
-    return setSysErr(context,ErrFault);
-  if((oact)&&!context->canWrite(oact,sizeof(Tk_sigaction)))
-    return setSysErr(context,ErrFault);
-  SignalID localSig(sig);
-  SignalTable *sigTable=context->getSignalTable();
-  SignalDesc  &sigDesc=(*sigTable)[localSig];
-  // Get the existing signal handler into oactBuf
-  if(oact)
-    Tk_sigaction(sigDesc).write(context,oact);
-  if(act){
-    sigDesc=Tk_sigaction(context,act);
-    // Without SA_NODEFER, mask signal out in its own handler
-    if(!(sigDesc.flags&SaNoDefer))
-      sigDesc.mask.set(localSig);
-  }
-  setSysRet(context,0);
-}
-template<class defs>
-void LinuxSys::sysRtSigProcMask(ThreadContext *context, InstDesc *inst){
-  typedef typename defs::Tintptr_t Tintptr_t;
-  typedef typename defs::Tsize_t Tsize_t;
-  typedef typename defs::Tuint Tuint;
-  typedef typename defs::MaskHow MaskHow;
-  typedef typename defs::Tk_sigset_t Tk_sigset_t;
-  FuncArgs args(context);
-  MaskHow how=args.get<Tuint>();
-  Tintptr_t nset=args.get<Tintptr_t>();
-  Tintptr_t oset=args.get<Tintptr_t>();
-  Tsize_t size=args.get<Tsize_t>();
-  if((nset)&&(!context->canRead(nset,size)))      
-    return setSysErr(context,ErrFault);
-  if((oset)&&(!context->canWrite(oset,size)))
-    return setSysErr(context,ErrFault);
-  SignalSet oldMask=context->getSignalMask();
-  if(oset)
-    Tk_sigset_t(oldMask).write(context,oset);
-  if(nset){
-    SignalSet lset(Tk_sigset_t(context,nset));
-    if(how.isSIG_BLOCK()){
-      context->setSignalMask(oldMask|lset);
-    }else if(how.isSIG_UNBLOCK()){
-      context->setSignalMask((oldMask|lset)^lset);
-    }else if(how.isSIG_SETMASK()){
-      context->setSignalMask(lset);
-    }else
-      fail("sysRtSigProcMask: Unsupported value %d of how\n",how.val);
-  }
-  setSysRet(context,0);
-}
-
-template<class defs>
-void LinuxSys::sysRtSigSuspend(ThreadContext *context, InstDesc *inst){
-  typedef typename defs::Tintptr_t Tintptr_t;
-  typedef typename defs::Tk_sigset_t Tk_sigset_t;
-  typedef typename defs::Tsize_t Tsize_t;
-  // If this is a suspend following a wakeup, we need to pop the already-saved mask
-  uint32_t dopop=Mips::getRegAny<Mips32,uint32_t,Mips::RegSys>(context,Mips::RegSys);
-  if(dopop){
-    Mips::setRegAny<Mips32,uint32_t,Mips::RegSys>(context,Mips::RegSys,0);    
-    context->setSignalMask(popStruct<Tk_sigset_t>(context));
-  }
-  FuncArgs args(context);
-  Tintptr_t nset=args.get<Tintptr_t>();
-  Tsize_t size=args.get<Tsize_t>();
-  if(!context->canRead(nset,size))
-    return setSysErr(context,ErrFault);
-  // Change signal mask while suspended
-  SignalSet oldMask=context->getSignalMask();
-  SignalSet newMask(Tk_sigset_t(context,nset));
-  context->setSignalMask(newMask);
-  if(context->hasReadySignal()){
-    SigInfo *sigInfo=context->nextReadySignal();
-    context->setSignalMask(oldMask);
-    handleSignal(context,sigInfo);
-    delete sigInfo;
-    return setSysErr(context,ErrIntr);
-  }
-#if (defined DEBUG_SIGNALS)
-  typedef typename defs::Tpid_t Tpid_t;
-  Tpid_t pid=context->gettid();
-  printf("Suspend %d in sysCall32_rt_sigsuspend\n",pid);
-  context->dumpCallStack();
-  printf("Also suspended:");
-  for(PidSet::iterator suspIt=suspSet.begin();suspIt!=suspSet.end();suspIt++)
-    printf(" %d",*suspIt);
-  printf("\n");
-  suspSet.insert(context->gettid());
-#endif
-  // Save the old signal mask on stack so it can be restored
-  Tk_sigset_t saveMask(oldMask);
-  pushStruct(context,saveMask);
-  Mips::setRegAny<Mips32,uint32_t,Mips::RegSys>(context,Mips::RegSys,1);
-  // Suspend and redo this system call when woken up
-  context->updIAddr(-inst->aupdate,-1);
-  I(inst==context->getIDesc());
-  I(inst==context->virt2inst(context->getIAddr()));
-  context->suspend();
-}
-
-template<class defs>
-void LinuxSys::sysKill(ThreadContext *context, InstDesc *inst){
-  typedef typename defs::Tpid_t Tpid_t;
-  typedef typename defs::Tuint Tuint;
-  typedef typename defs::SigNum SigNum;
-  FuncArgs args(context);
-  Tpid_t pid(args.get<Tpid_t>());
-  SigNum sig(args.get<Tuint>());
-  if(pid<=0)
-    fail("sysKill with pid=%d\n",pid);
-  ThreadContext *kcontext=osSim->getContext(pid-BaseSimTid);
-  SigInfo *sigInfo=new SigInfo(sig,SigCodeUser);
-  sigInfo->pid=context->gettid();
-  kcontext->signal(sigInfo);
-#if (defined DEBUG_SIGNALS)
-  printf("sysCall32_kill: signal %d sent from process %d to %d\n",sig.val,context->gettid(),pid);
-#endif
-  setSysRet(context,0);
-}
-
-template<class defs>
-void LinuxSys::sysTKill(ThreadContext *context, InstDesc *inst){
-  typedef typename defs::Tpid_t Tpid_t;
-  typedef typename defs::Tuint Tuint;
-  typedef typename defs::SigNum SigNum;
-  FuncArgs args(context);
-  Tpid_t tid(args.get<Tpid_t>());
-  SigNum sig(args.get<Tuint>());
-  if(tid<=0)
-    fail("sysTKill with tid=%d\n",tid);
-  ThreadContext *kcontext=osSim->getContext(tid-BaseSimTid);
-  if(!kcontext)
-    return setSysErr(context,ErrSrch);
-  SigInfo *sigInfo=new SigInfo(sig,SigCodeUser);
-  sigInfo->pid=context->gettid();
-  kcontext->signal(sigInfo);
-#if (defined DEBUG_SIGNALS)
-  printf("sysCall32_tkill: signal %d sent from process %d to thread %d\n",sig.val,context->gettid(),tid);
-#endif
-  setSysRet(context,0);
-}
-template<class defs>
-void LinuxSys::sysTgKill(ThreadContext *context, InstDesc *inst){
-  typedef typename defs::Tpid_t Tpid_t;
-  typedef typename defs::Tuint Tuint;
-  typedef typename defs::SigNum SigNum;
-  FuncArgs args(context);
-  Tpid_t tgid(args.get<Tpid_t>());
-  Tpid_t pid(args.get<Tpid_t>());
-  SigNum sig(args.get<Tuint>());
-  if(pid<=0)
-    fail("sysTgKill with pid=%d\n",pid);
-  ThreadContext *kcontext=osSim->getContext(pid-BaseSimTid);
-  if(!kcontext)
-    return setSysErr(context,ErrSrch);
-  if(kcontext->gettgid()!=tgid)
-    return setSysErr(context,ErrSrch);
-  SigInfo *sigInfo=new SigInfo(sig,SigCodeUser);
-  sigInfo->pid=context->gettid();
-  kcontext->signal(sigInfo);
-#if (defined DEBUG_SIGNALS)
-  printf("sysCall32_tgkill: signal %d sent from process %d to thread %d in %d\n",sig.val,context->gettid(),pid,tgid);
-#endif
-  setSysRet(context,0);
-}
-
-template<class defs>
-void LinuxSys::sysGetPriority(ThreadContext *context, InstDesc *inst){
-  typedef typename defs::Tint Tint;
-  FuncArgs args(context);
-  Tint which(args.get<Tint>());
-  Tint who(args.get<Tint>());
-  printf("sysGetPriority(%d,%d) called (continuing).\n",which,who);
-  setSysRet(context,0);
-}
-
-template<class defs>
-void LinuxSys::sysSchedGetParam(ThreadContext *context, InstDesc *inst){
-  typedef typename defs::Tpid_t Tpid_t;
-  typedef typename defs::Tintptr_t Tintptr_t;
-  FuncArgs args(context);
-  Tpid_t    pid(args.get<Tpid_t>());
-  Tintptr_t param(args.get<Tintptr_t>());;
-  printf("sysSchedGetParam(%d,%d) called (continuing with EINVAL).\n",pid,param);
-  ThreadContext *kcontext=pid?osSim->getContext(pid-BaseSimTid):context;
-  if(!kcontext)
-    return setSysErr(context,ErrSrch);
-  // TODO: Check if we can write to param
-  // TODO: Return a meaningful value. for now, we just reject the call
-  setSysErr(context,ErrInval);
-}
-
-template<class defs>
-void LinuxSys::sysSchedSetScheduler(ThreadContext *context, InstDesc *inst){
-  typedef typename defs::Tpid_t Tpid_t;
-  typedef typename defs::Tint Tint;
-  typedef typename defs::Tintptr_t Tintptr_t;
-  FuncArgs  args(context);
-  Tpid_t    pid(args.get<Tpid_t>());
-  Tint      policy(args.get<Tint>());
-  Tintptr_t param(args.get<Tintptr_t>());;
-  printf("sysSchedSetScheduler(%d,%d,%d) called (continuing).\n",pid,policy,param);
-  // TODO: Set the actual scheduling policy
-  setSysRet(context,0);
-}
-template<class defs>
-void LinuxSys::sysSchedGetScheduler(ThreadContext *context, InstDesc *inst){
-  typedef typename defs::Tpid_t Tpid_t;
-  FuncArgs args(context);
-  Tpid_t    pid(args.get<Tpid_t>());
-  printf("sysSchedGetScheduler(%d) called (continuing).\n",pid);
-   // TODO: Get the actual scheduling policy, we just return zero now
-  setSysRet(context,0); 
-}
-template<class defs>
-void LinuxSys::sysSchedYield(ThreadContext *context, InstDesc *inst){
-  osSim->eventYield(context->gettid(),-1);
-  return setSysRet(context,0);
-}
-
-template<class defs>
-void LinuxSys::sysSchedGetPriorityMax(ThreadContext *context, InstDesc *inst){
-  typedef typename defs::Tint Tint;
-  FuncArgs args(context);
-  Tint policy(args.get<Tint>());
-  printf("sysSchedGetPriorityMax(%d) called (continuing with 0).\n",policy);
-  return setSysRet(context,0);
-}
-
-template<class defs>
-void LinuxSys::sysSchedGetPriorityMin(ThreadContext *context, InstDesc *inst){
-  typedef typename defs::Tint Tint;
-  FuncArgs args(context);
-  Tint policy(args.get<Tint>());
-  printf("sysSchedGetPriorityMin(%d) called (continuing with 0).\n",policy);
-  return setSysRet(context,0); 
-}
-
-template<class defs>
-void LinuxSys::sysSchedSetAffinity(ThreadContext *context, InstDesc *inst){
-  typedef typename defs::Tpid_t Tpid_t;
-  typedef typename defs::Tuint Tuint;
-  typedef typename defs::Tintptr_t Tintptr_t;
-  FuncArgs args(context);
-  Tpid_t    pid(args.get<Tpid_t>());
-  Tuint     len(args.get<Tuint>());
-  Tintptr_t mask(args.get<Tuint>());;
-  if(!context->canRead(mask,len))
-    return setSysRet(context,ErrFault);
-  ThreadContext *kcontext=pid?osSim->getContext(pid-BaseSimTid):context;
-  if(!kcontext)
-    return setSysErr(context,ErrSrch);
-  // TODO: We need to look at the affinity mask here
-  setSysRet(context,0);
-}
-
-template<class defs>
-void LinuxSys::sysSchedGetAffinity(ThreadContext *context, InstDesc *inst){
-  typedef typename defs::Tpid_t Tpid_t;
-  typedef typename defs::Tuint Tuint;
-  typedef typename defs::Tintptr_t Tintptr_t;
-  FuncArgs args(context);
-  Tpid_t    pid(args.get<Tpid_t>());
-  Tuint     len(args.get<Tuint>());
-  Tintptr_t mask(args.get<Tuint>());
-  // TODO: Use the real number of CPUs instead of 1024
-  if(len<1024/sizeof(uint8_t))
-    return setSysRet(context,ErrInval);
-  if(!context->canWrite(mask,len))
-    return setSysRet(context,ErrFault);
-  ThreadContext *kcontext=pid?osSim->getContext(pid-BaseSimTid):context;
-  if(!kcontext)
-    return setSysErr(context,ErrSrch);
-  // TODO: We need to look at the affinity mask here
-  // for now, we just return an all-ones mask
-  uint8_t buf[len];
-  memset(buf,0,len);
-  context->writeMemFromBuf(mask,len,buf);
-  setSysRet(context,0);
-}
-
-template<class defs>
-void LinuxSys::sysAlarm(ThreadContext *context, InstDesc *inst){
-  typedef typename defs::Tuint Tuint;
-  FuncArgs args(context);
-  Tuint seconds(args.get<Tuint>());
-  // TODO: Clear existing alarms
-  Tuint oseconds=0;
-  if(seconds){
-    // Set new alarm
-    fail("sysCall32_alarm(%d): not implemented at 0x%08x\n",seconds,context->getIAddr());
-  }
-  setSysRet(context,oseconds);
-}
-
-// Simulated wall clock time (for time() syscall)
-static time_t wallClock=(time_t)-1;
-// TODO: This is a hack to get applications working.
-// We need a real user/system time estimator
-static uint64_t myUsrUsecs=0;
-static uint64_t mySysUsecs=0;
-
-template<class defs>
-void LinuxSys::sysClockGetRes(ThreadContext *context, InstDesc *inst){
-  // TODO: Read the actual parameters
-  // for now, we just reject the call
-  printf("sysClockGetRes called (continuing with EINVAL).\n");
-  setSysErr(context,ErrInval);
-}
-template<class defs>
-void LinuxSys::sysClockGetTime(ThreadContext *context, InstDesc *inst){
-  // TODO: Read the actual parameters
-  // for now, we just reject the call
-  printf("sysClockGettime called (continuing with EINVAL).\n");
-  setSysErr(context,ErrInval);
-}
-template<class defs>
-void LinuxSys::sysSetITimer(ThreadContext *context, InstDesc *inst){
-   // TODO: Read the actual parameters
-  // for now, we just reject the call
-  printf("sysSetITimer called (continuing with EINVAL).\n");
-  setSysErr(context,ErrInval);
-}
-
-template<class defs>
-void LinuxSys::sysNanoSleep(ThreadContext *context, InstDesc *inst){
-  typedef typename defs::Tintptr_t Tintptr_t;
-  typedef typename defs::Ttimespec Ttimespec;
-  FuncArgs args(context);
-  Tintptr_t req=args.get<Tintptr_t>();
-  Tintptr_t rem=args.get<Tintptr_t>();
-  if(!context->canRead(req,sizeof(Ttimespec)))
-    return setSysErr(context,ErrFault);
-  if(rem&&(!context->canWrite(rem,sizeof(Ttimespec))))
-    return setSysErr(context,ErrFault);
-  Ttimespec ts(context,req);
-  // TODO: We need to actually suspend this thread for the specified time
-  wallClock+=ts.tv_sec;
-  if(rem){
-    ts.tv_sec=0;
-    ts.tv_nsec=0;
-    ts.write(context,rem);
-  }
-  setSysRet(context,0);
-}
-template<class defs>
-void LinuxSys::sysClockNanoSleep(ThreadContext *context, InstDesc *inst){
-  typedef typename defs::Tintptr_t Tintptr_t;
-  typedef typename defs::Ttimespec Ttimespec;
-  typedef typename defs::Tuint Tuint;
-  typedef typename defs::Tint Tint;
-  FuncArgs args(context);
-  // TODO: the type for this should be clockid_t
-  Tuint clock_id=args.get<Tuint>();
-  Tint  flags=args.get<Tint>();
-  Tintptr_t req=args.get<Tintptr_t>();
-  Tintptr_t rem=args.get<Tintptr_t>();
-  if(!context->canRead(req,sizeof(Ttimespec)))
-    return setSysErr(context,ErrFault);
-  if(rem&&(!context->canWrite(rem,sizeof(Ttimespec))))
-    return setSysErr(context,ErrFault);
-  Ttimespec ts(context,req);
-  // TODO: We need to actually suspend this thread for the specified time
-  wallClock+=ts.tv_sec;
-  if(rem){
-    ts.tv_sec=0;
-    ts.tv_nsec=0;
-    ts.write(context,rem);
-  }
-  setSysRet(context,0);
-}
-template<class defs>
-void LinuxSys::sysTime(ThreadContext *context, InstDesc *inst){
-  typedef typename defs::Tintptr_t Tintptr_t;
-  typedef typename defs::Ttime_t Ttime_t;
-  FuncArgs args(context);
-  Tintptr_t tloc=args.get<Tintptr_t>();
-  // TODO: This should actually take into account simulated time
-  if(wallClock==(time_t)-1)
-    wallClock=time(0);
-  I(wallClock>0);
-  Ttime_t rv=wallClock;
-  if(tloc!=(VAddr)0){
-    if(!context->canWrite(tloc,sizeof(Ttime_t)))
-      return setSysErr(context,ErrFault);
-    context->writeMem(tloc,rv);
-  }
-  return setSysRet(context,rv);
-}
-template<class defs>
-void LinuxSys::sysTimes(ThreadContext *context, InstDesc *inst){
-  typedef typename defs::Tintptr_t Tintptr_t;
-  typedef typename defs::Tclock_t Tclock_t;
-  typedef typename defs::Ttms Ttms;
-  FuncArgs args(context);
-  Tintptr_t buffer=args.get<Tintptr_t>();
-  if(!context->canWrite(buffer,sizeof(Ttms)))
-    return setSysErr(context,ErrFault);
-  Ttms simTms;
-  // TODO: This is a hack. See above.
-  myUsrUsecs+=100;
-  mySysUsecs+=1;
-  simTms.tms_utime=simTms.tms_cutime=myUsrUsecs/1000;
-  simTms.tms_stime=simTms.tms_cstime=mySysUsecs/1000;
-  Tclock_t rv=(myUsrUsecs+mySysUsecs)/1000;
-  simTms.write(context,buffer);
-  return setSysRet(context,rv);
-}
-template<class defs>
-void LinuxSys::sysGetRUsage(ThreadContext *context, InstDesc *inst){
-  typedef typename defs::Tintptr_t Tintptr_t;
-  typedef typename defs::Tuint Tuint;
-  typedef typename defs::RUsageWho RUsageWho;
-  typedef typename defs::Ttimeval Ttimeval;
-  typedef typename defs::Trusage Trusage;
-  FuncArgs args(context);
-  RUsageWho who(args.get<typeof(who.val)>());
-  Tintptr_t r_usage(args.get<Tintptr_t>());
-  if(!context->canWrite(r_usage,sizeof(Trusage)))
-    return setSysErr(context,ErrFault);
-
-  // TODO: This is a hack. See definition of these vars
-  myUsrUsecs+=100;
-  mySysUsecs+=1;
-  Trusage(Ttimeval(myUsrUsecs/1000000,myUsrUsecs%1000000),
-	  Ttimeval(mySysUsecs/1000000,mySysUsecs%1000000)).write(context,r_usage);
-
-  return setSysRet(context,0);
-}
-template<class defs>
-void LinuxSys::sysGetRLimit(ThreadContext *context, InstDesc *inst){
-  typedef typename defs::Tintptr_t Tintptr_t;
-  typedef typename defs::T__rlimit_resource T__rlimit_resource;
-  typedef typename defs::Trlimit Trlimit;
-  FuncArgs args(context);
-  T__rlimit_resource resource(args.get<typeof(resource.val)>());
-  Tintptr_t rlim(args.get<Tintptr_t>());
-  if(!context->canWrite(rlim,sizeof(T__rlimit_resource)))
-    return setSysErr(context,ErrFault); 
-  Trlimit buf;
-  if(resource.isRLIMIT_STACK()){
-  }else if(resource.isRLIMIT_NOFILE()){
-  }else if(resource.isRLIMIT_DATA()){
-  }else if(resource.isRLIMIT_AS()){
-  }else if(resource.isRLIMIT_CPU()){
-  }else if(resource.isRLIMIT_CORE()){
-    buf.rlim_cur=buf.rlim_max=0;
-  }else
-    printf("sysCall32_getrlimit called for unknown resource %d. Return RLIM_INFINITY.\n",resource.val);
-  buf.write(context,rlim);
-  return setSysRet(context,0);
-}
-template<class defs>
-void LinuxSys::sysSetRLimit(ThreadContext *context, InstDesc *inst){
-  typedef typename defs::Tintptr_t Tintptr_t;
-  typedef typename defs::T__rlimit_resource T__rlimit_resource;
-  typedef typename defs::Trlimit Trlimit;
-  FuncArgs args(context);
-  T__rlimit_resource resource(args.get<typeof(resource.val)>());
-  Tintptr_t rlim(args.get<Tintptr_t>());
-  if(!context->canRead(rlim,sizeof(T__rlimit_resource)))
-    return setSysErr(context,ErrFault); 
-  Trlimit buf(context,rlim);
-  if(resource.isRLIMIT_STACK()){
-  }else if(resource.isRLIMIT_DATA()){
-    // Limit is already RLIM_INFINITY, so we don't care what the new size is
-  }else
-    fail("sysCall32_setrlimit called for resource %d at 0x%08x\n",resource.val,context->getIAddr());
-  return setSysRet(context,0);
-}
-template<class defs>
-void LinuxSys::sysGetTimeOfDay(ThreadContext *context, InstDesc *inst){
-  typedef typename defs::Tintptr_t Tintptr_t;
-  typedef typename defs::Ttimeval Ttimeval;
-  typedef typename defs::Ttimezone Ttimezone;
-  FuncArgs args(context);
-  Tintptr_t tv=args.get<Tintptr_t>();
-  Tintptr_t tz=args.get<Tintptr_t>();
-  if(tv&&!context->canWrite(tv,sizeof(Ttimeval)))
-    return setSysErr(context,ErrFault);
-  if(tz&&!context->canWrite(tz,sizeof(Ttimezone)))
-    return setSysErr(context,ErrFault);
-  if(tv)
-    Ttimeval(15,0).write(context,tv);
-  if(tz)
-    Ttimezone(0,0).write(context,tz);
-  setSysRet(context,0);
-}
-template<class defs>
-void LinuxSys::sysGetPid(ThreadContext *context, InstDesc *inst){
-  setSysRet(context,context->gettgid()+BaseSimTid);
-}
-template<class defs>
-void LinuxSys::sysGetTid(ThreadContext *context, InstDesc *inst){
-  setSysRet(context,context->gettid()+BaseSimTid);
-}
-template<class defs>
-void LinuxSys::sysGetPPid(ThreadContext *context, InstDesc *inst){
-  setSysRet(context,context->getppid()+BaseSimTid);
-}
-template<class defs>
-void LinuxSys::sysFork(ThreadContext *context, InstDesc *inst){
-  ThreadContext *newContext=new ThreadContext(*context,false,false,false,false,false,SigChld,0);
-  I(newContext!=0);
-  // Fork returns an error only if there is no memory, which should not happen here
-  // Set return values for parent and child
-  setSysRet(context,newContext->gettid()+BaseSimTid);
-  setSysRet(newContext,0);
-  // Inform SESC that this process is created
-  osSim->eventSpawn(-1,newContext->gettid(),0);
-}
-template<class defs>
-void LinuxSys::sysClone(ThreadContext *context, InstDesc *inst){
-  typedef typename defs::CloneFlags CloneFlags;
-  typedef typename defs::Tintptr_t Tintptr_t;
-  typedef typename defs::Tpid_t Tpid_t;
-  FuncArgs args(context);
-  CloneFlags flags=args.get<typeof(flags.val)>();
-  Tintptr_t child_stack=args.get<Tintptr_t>();
-  Tintptr_t ptid=args.get<Tintptr_t>();
-  Tintptr_t tarea=args.get<Tintptr_t>();
-  Tintptr_t ctid=args.get<Tintptr_t>();
-  if(flags.hasCLONE_VFORK())
-    fail("sysCall32_clone with CLONE_VFORK not supported yet at 0x%08x, flags=0x%08x\n",context->getIAddr(),flags.val);
-  if(flags.hasCLONE_NEWNS())
-    fail("sysCall32_clone with CLONE_NEWNS not supported yet at 0x%08x, flags=0x%08x\n",context->getIAddr(),flags.val);
-  if(flags.hasCLONE_UNTRACED())
-    fail("sysCall32_clone with CLONE_UNTRACED not supported yet at 0x%08x, flags=0x%08x\n",context->getIAddr(),flags.val);
-  if(flags.hasCLONE_STOPPED())
-    fail("sysCall32_clone with CLONE_STOPPED not supported yet at 0x%08x, flags=0x%08x\n",context->getIAddr(),flags.val);
-  SignalID sig=flags.hasCLONE_DETACHED()?SigDetached:SignalID(flags.getCSIGNAL());
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysClone(ThreadContext *context, InstDesc *inst){
+  Tint       flags;
+  Tpointer_t child_stack;
+  Tpointer_t ptid;
+  Tpointer_t tarea;
+  Tpointer_t ctid;
+  CallArgs(context) >> flags >> child_stack >> ptid >> tarea >> ctid;
+  if(flags&VCLONE_VFORK)
+    fail("sysCall32_clone with CLONE_VFORK not supported yet at 0x%08x, flags=0x%08x\n",context->getIAddr(),flags);
+  if(flags&VCLONE_UNTRACED)
+    fail("sysCall32_clone with CLONE_UNTRACED not supported yet at 0x%08x, flags=0x%08x\n",context->getIAddr(),flags);
+  if(flags&VCLONE_STOPPED)
+    fail("sysCall32_clone with CLONE_STOPPED not supported yet at 0x%08x, flags=0x%08x\n",context->getIAddr(),flags);
+  SignalID sig=(flags&VCLONE_DETACHED)?SigDetached:sigNumToLocal(flags&VCSIGNAL);
   ThreadContext *newContext= new ThreadContext(*context,
-					       flags.hasCLONE_PARENT(),flags.hasCLONE_FILES(),flags.hasCLONE_SIGHAND(),flags.hasCLONE_VM(),
-					       flags.hasCLONE_THREAD(),sig,flags.hasCLONE_CHILD_CLEARTID()?ctid:0);
+					       flags&VCLONE_PARENT,flags&VCLONE_FS,flags&VCLONE_NEWNS,
+					       flags&VCLONE_FILES,flags&VCLONE_SIGHAND,
+					       flags&VCLONE_VM,flags&VCLONE_THREAD,
+					       sig,(flags&VCLONE_CHILD_CLEARTID)?ctid:0);
   I(newContext!=0);
   // Fork returns an error only if there is no memory, which should not happen here
   // Set return values for parent and child
   setSysRet(context,newContext->gettid()+BaseSimTid);
-  setSysRet(newContext,0);
+  setSysRet(newContext);
   if(child_stack){
     newContext->setStack(newContext->getAddressSpace()->getSegmentAddr(child_stack),child_stack);
     setStackPointer(newContext,child_stack);
@@ -1084,38 +1955,49 @@ void LinuxSys::sysClone(ThreadContext *context, InstDesc *inst){
     newContext->clearCallStack();
 #endif
   }else{
-    I(!flags.hasCLONE_VM());
+    I(!(flags&VCLONE_VM));
   }
-  if(flags.hasCLONE_PARENT_SETTID())
-    context->writeMem<Tpid_t>(ptid,newContext->gettid()+BaseSimTid);
-  if(flags.hasCLONE_CHILD_SETTID())
-    newContext->writeMem<Tpid_t>(ctid,newContext->gettid()+BaseSimTid);
-  if(flags.hasCLONE_SETTLS())
+  if(flags&VCLONE_PARENT_SETTID)
+    context->writeMemRaw(ptid,fixEndian(Tpid_t(newContext->gettid()+BaseSimTid)));
+  if(flags&VCLONE_CHILD_SETTID)
+    newContext->writeMemRaw(ctid,fixEndian(Tpid_t(newContext->gettid()+BaseSimTid)));
+  if(flags&VCLONE_SETTLS)
     setThreadArea(newContext,tarea);
   // Inform SESC that this process is created
   osSim->eventSpawn(-1,newContext->gettid(),0);
 }
-template<class defs>
-InstDesc *LinuxSys::sysExecVe(ThreadContext *context, InstDesc *inst){
-  typedef typename defs::Tintptr_t Tintptr_t;
-  FuncArgs args(context);
-  Tstr fname(context,args.get<Tintptr_t>());
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysFork(ThreadContext *context, InstDesc *inst){
+  ThreadContext *newContext=new ThreadContext(*context,false,false,false,false,false,false,false,SigChld,0);
+  I(newContext!=0);
+  // Fork returns an error only if there is no memory, which should not happen here
+  // Set return values for parent and child
+  setSysRet(context,newContext->gettid()+BaseSimTid);
+  setSysRet(newContext);
+  // Inform SESC that this process is created
+  osSim->eventSpawn(-1,newContext->gettid(),0);
+}
+template<ExecMode mode>
+InstDesc *RealLinuxSys<mode>::sysExecVe(ThreadContext *context, InstDesc *inst){
+  Tpointer_t fnamep;
+  Tpointer_t argv;
+  Tpointer_t envp;
+  CallArgs(context) >> fnamep >> argv >> envp;
+  Tstr fname(context,fnamep);
   if(!fname)
     return inst;
-  Tintptr_t argv=args.get<Tintptr_t>();
-  Tintptr_t envp=args.get<Tintptr_t>();
   // Check file for errors
-  size_t realNameLen=FileSys::FileNames::getFileNames()->getReal(fname,0,0);
-  char realName[realNameLen];
-  FileSys::FileNames::getFileNames()->getReal(fname,realNameLen,realName);
-  FileSys::FileStatus::pointer fs(FileSys::FileStatus::open(realName,O_RDONLY,0));
+//   size_t realNameLen=FileSys::FileNames::getFileNames()->getReal(fname,0,0);
+//   char realName[realNameLen];
+//   FileSys::FileNames::getFileNames()->getReal(fname,realNameLen,realName);
+  FileSys::FileStatus::pointer fs(FileSys::FileStatus::open(context->getFileSys()->toNative((const char *)fname).c_str(),O_RDONLY,0));
   if(!fs){
-    setSysErr(context,getErrCode(errno));
+    setSysErr(context);
     return inst;
   }
   ExecMode emode=getExecMode(fs);
-  if(emode!=ExecModeMips32){
-    setSysErr(context,ErrNoExec);
+  if(emode==ExecModeNone){
+    setSysErr(context,VENOEXEC);
     return inst;
   }
   // Pipeline flush to avoid mixing old and new InstDesc's in the pipeline
@@ -1127,7 +2009,7 @@ InstDesc *LinuxSys::sysExecVe(ThreadContext *context, InstDesc *inst){
   size_t argvNum=0;
   size_t argvLen=0;
   while(true){
-    Tintptr_t argAddr=context->readMem<Tintptr_t>(argv+sizeof(Tintptr_t)*argvNum);
+    Tpointer_t argAddr=fixEndian(context->readMemRaw<Tpointer_t>(argv+sizeof(Tpointer_t)*argvNum));
     if(!argAddr)
       break;
     ssize_t argLen=context->readMemString(argAddr,0,0);
@@ -1139,7 +2021,7 @@ InstDesc *LinuxSys::sysExecVe(ThreadContext *context, InstDesc *inst){
   size_t envpNum=0;
   size_t envpLen=0;
   while(true){
-    Tintptr_t envAddr=context->readMem<Tintptr_t>(envp+sizeof(Tintptr_t)*envpNum);
+    Tpointer_t envAddr=fixEndian(context->readMemRaw<Tpointer_t>(envp+sizeof(Tpointer_t)*envpNum));
     if(!envAddr)
       break;
     ssize_t envLen=context->readMemString(envAddr,0,0);
@@ -1151,7 +2033,7 @@ InstDesc *LinuxSys::sysExecVe(ThreadContext *context, InstDesc *inst){
   char argvBuf[argvLen];
   char *argvPtr=argvBuf;
   for(size_t arg=0;arg<argvNum;arg++){
-    Tintptr_t argAddr=context->readMem<Tintptr_t>(argv+sizeof(Tintptr_t)*arg);
+    Tpointer_t argAddr=fixEndian(context->readMemRaw<Tpointer_t>(argv+sizeof(Tpointer_t)*arg));
     ssize_t argLen=context->readMemString(argAddr,0,0);
     I(argLen>=1);
     context->readMemString(argAddr,argLen,argvPtr);
@@ -1162,7 +2044,7 @@ InstDesc *LinuxSys::sysExecVe(ThreadContext *context, InstDesc *inst){
   char envpBuf[envpLen];
   char *envpPtr=envpBuf;
   for(size_t env=0;env<envpNum;env++){
-    Tintptr_t envAddr=context->readMem<Tintptr_t>(envp+sizeof(Tintptr_t)*env);
+    Tpointer_t envAddr=fixEndian(context->readMemRaw<Tpointer_t>(envp+sizeof(Tpointer_t)*env));
     ssize_t envLen=context->readMemString(envAddr,0,0);
     I(envLen>=1);
     context->readMemString(envAddr,envLen,envpPtr);
@@ -1182,33 +2064,22 @@ InstDesc *LinuxSys::sysExecVe(ThreadContext *context, InstDesc *inst){
   context->getOpenFiles()->exec();
   // Clear up the address space and load the new object file
   context->getAddressSpace()->clear(true);
-  //  loadElfObject(realName,context);
   // TODO: Use ELF_ET_DYN_BASE instead of a constant here
-  loadElfObject(context,fs,0x200000,emode);
-  I(context->getMode()==Mips32);
-  initSystem(context);
-  createStack(context);
-  setProgArgs(context,argvNum,argvArr,envpNum,envpArr);
+  loadElfObject(context,fs,0x200000);
+  // We need to go thorugh getSystem() because the execution mode may be different
+  context->getSystem()->initSystem(context);
+  context->getSystem()->createStack(context);
+  context->getSystem()->setProgArgs(context,argvNum,argvArr,envpNum,envpArr);
 #if (defined DEBUG_BENCH)
   context->clearCallStack();
 #endif
   // The InstDesc is gone now and we can't put it through the pipeline
   return 0;
 }
-template<class defs>
-void LinuxSys::sysSetThreadArea(ThreadContext *context, InstDesc *inst){
-  typedef typename defs::Tintptr_t Tintptr_t;
-  FuncArgs args(context);
-  Tintptr_t addr=args.get<Tintptr_t>();
-  setThreadArea(context,addr);
-  setSysRet(context,0);
-}
-
-template<class defs>
-InstDesc *LinuxSys::sysExit(ThreadContext *context, InstDesc *inst){
-  typedef typename defs::Tint Tint;
-  FuncArgs args(context);
-  Tint status=args.get<Tint>();
+template<ExecMode mode>
+InstDesc *RealLinuxSys<mode>::sysExit(ThreadContext *context, InstDesc *inst){
+  Tint status;
+  CallArgs(context) >> status;
   if(context->exit(status))
     return 0;
 #if (defined DEBUG_SIGNALS)
@@ -1235,22 +2106,842 @@ InstDesc *LinuxSys::sysExit(ThreadContext *context, InstDesc *inst){
   }
   return inst;
 }
-template<class defs>
-InstDesc *LinuxSys::sysExitGroup(ThreadContext *context, InstDesc *inst){
+template<ExecMode mode>
+InstDesc *RealLinuxSys<mode>::sysExitGroup(ThreadContext *context, InstDesc *inst){
   if(context->gettgtids(0,0)>0)
-    fail("LinuxSys::sysExitGroup can't handle live thread grup members\n");
-  return sysExit<defs>(context,inst);
+    fail("RealLinuxSys::sysExitGroup can't handle live thread grup members\n");
+  return sysExit(context,inst);
 }
 
-template<class defs>
-void LinuxSys::sysBrk(ThreadContext *context, InstDesc *inst){
-  typedef typename defs::Tintptr_t Tintptr_t;
-  typedef typename defs::Tsize_t Tsize_t;
-  FuncArgs args(context);
-  Tintptr_t addr=args.get<Tintptr_t>();
-  Tintptr_t brkBase=context->getAddressSpace()->getBrkBase();
-  Tintptr_t segStart=context->getAddressSpace()->getSegmentAddr(brkBase-1);
-  Tsize_t   oldSegSize=context->getAddressSpace()->getSegmentSize(segStart);
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysGetPid(ThreadContext *context, InstDesc *inst){
+  setSysRet(context,context->gettgid()+BaseSimTid);
+}
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysGetTid(ThreadContext *context, InstDesc *inst){
+  setSysRet(context,context->gettid()+BaseSimTid);
+}
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysGetPPid(ThreadContext *context, InstDesc *inst){
+  setSysRet(context,context->getppid()+BaseSimTid);
+}
+
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysFutex(ThreadContext *context, InstDesc *inst){
+  Tpointer_t futex;
+  Tuint      op;
+  CallArgs   args(context);
+  args >> futex>> op;
+  // Ignore FUTEX_PRIVATE_FLAG
+  switch(op&VFUTEX_CMD_MASK){
+  case VFUTEX_WAIT: {
+    Tint       val;
+    Tpointer_t timeout;
+    args >> val >> timeout;
+    if(timeout)
+      fail("LinuxSys::sysFutex non-zero timeout unsupported for FUTEX_WAIT");
+    if(futexCheck(context,futex,val))
+      futexWait(context,futex);
+  } break;
+  case VFUTEX_WAKE: {
+    Tint       nr_wake;
+    Tpointer_t timeout;
+    args >> nr_wake >> timeout;
+    if(timeout)
+      fail("LinuxSys::sysFutex non-zero timeout unsupported for FUTEX_WAKE");
+    setSysRet(context,futexWake(context,futex,nr_wake));
+  } break;
+  case VFUTEX_REQUEUE: {
+    Tint       nr_wake;
+    Tint       nr_move;
+    Tpointer_t futex2;
+    args >> nr_wake >> nr_move >> futex2;
+    setSysRet(context,futexWake(context,futex,nr_wake)+futexMove(context,futex,futex2,nr_move));
+  } break;
+  case VFUTEX_CMP_REQUEUE: {
+    Tint       nr_wake;
+    Tint       nr_move;
+    Tpointer_t futex2;
+    Tint       val;
+    args >> nr_wake >> nr_move >> futex2 >> val;
+    if(futexCheck(context,futex,val))
+      setSysRet(context,futexWake(context,futex,nr_wake)+futexMove(context,futex,futex2,nr_move));
+  } break;
+  case VFUTEX_WAKE_OP: {
+    Tint       nr_wake;
+    Tint       nr_wake2;
+    Tpointer_t futex2;
+    Tuint      wakeop;
+    args >> nr_wake >> nr_wake2 >> futex2 >> wakeop;
+    if(!context->canRead(futex2,sizeof(Tint))||!context->canWrite(futex2,sizeof(Tint)))
+      return setSysErr(context,VEFAULT);
+    Tuint atmop=(wakeop>>28)&0x07;
+    Tuint cmpop=(wakeop>>24)&0x0f;
+    Tint  atmarg=((Tint(wakeop)<<8)>>20);
+    Tint  cmparg=((Tint(wakeop)<<20)>>20);
+    if((wakeop>>28)&VFUTEX_OP_OPARG_SHIFT)
+      atmarg=1<<atmarg;
+    Tint val=fixEndian(context->readMemRaw<Tint>(futex2));
+    bool cond;
+    switch(cmpop){
+    case VFUTEX_OP_CMP_EQ: cond=(val==cmparg); break;
+    case VFUTEX_OP_CMP_NE: cond=(val!=cmparg); break;
+    case VFUTEX_OP_CMP_LT: cond=(val< cmparg); break;
+    case VFUTEX_OP_CMP_LE: cond=(val<=cmparg); break;
+    case VFUTEX_OP_CMP_GT: cond=(val> cmparg); break;
+    case VFUTEX_OP_CMP_GE: cond=(val>=cmparg); break;
+    default:
+      return setSysErr(context,VENOSYS);
+    }
+    switch(atmop){
+    case VFUTEX_OP_SET:  val = atmarg; break;
+    case VFUTEX_OP_ADD:  val+= atmarg; break;
+    case VFUTEX_OP_OR:   val|= atmarg; break;
+    case VFUTEX_OP_ANDN: val&=~atmarg; break;
+    case VFUTEX_OP_XOR:  val^= atmarg; break;
+    default:
+      return setSysErr(context,VENOSYS);
+    }
+    context->writeMemRaw(futex2,fixEndian(val));
+    setSysRet(context,futexWake(context,futex,nr_wake)+(cond?futexWake(context,futex2,nr_wake2):0));
+  } break;
+  default:
+    fail("LinuxSys::sysFutex with unsupported op=%d\n",(int)op);
+  }
+}
+
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysSetRobustList(ThreadContext *context, InstDesc *inst){
+  Tpointer_t head;
+  Tsize_t    len;
+  CallArgs(context) >> head >> len;
+  if(len!=Trobust_list_head::getSize())
+    return setSysErr(context,VEINVAL);
+  context->setRobustList(head);
+  setSysRet(context,0);
+}
+template<ExecMode mode>
+void RealLinuxSys<mode>::exitRobustList(ThreadContext *context, VAddr robust_list){
+  // Any errors that occur here are silently ignored
+  if(!context->canRead(robust_list,Trobust_list_head::getSize()))
+    return;
+  Trobust_list_head head(context,robust_list);
+  if(head.list.next!=robust_list)
+    printf("RealLinuxSys::exitRobustList called with non-empty robust_list\n");
+}
+template<ExecMode mode>
+void RealLinuxSys<mode>::clearChildTid(ThreadContext *context, VAddr &clear_child_tid){
+  if(!clear_child_tid)
+    return;
+  context->writeMemRaw(clear_child_tid,fixEndian(Tint(0)));
+  futexWake(context,clear_child_tid,1);
+  clear_child_tid=0;
+}
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysSetTidAddress(ThreadContext *context, InstDesc *inst){
+  Tpointer_t tidptr;
+  CallArgs(context) >> tidptr;
+  context->setTidAddress(tidptr);
+  return setSysRet(context,Tpid_t(context->gettid()+BaseSimTid));
+}
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysGetUid(ThreadContext *context, InstDesc *inst){
+  // TODO: With different users, need to track simulated uid
+  return setSysRet(context,Tuid_t(getuid()));
+}
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysGetEuid(ThreadContext *context, InstDesc *inst){
+  // TODO: With different users, need to track simulated euid
+  return setSysRet(context,Tuid_t(geteuid()));
+}
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysGetGid(ThreadContext *context, InstDesc *inst){
+  // TODO: With different users, need to track simulated gid
+  return setSysRet(context,Tgid_t(getgid()));
+}
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysGetEgid(ThreadContext *context, InstDesc *inst){
+  // TODO: With different users, need to track simulated egid
+  return setSysRet(context,Tgid_t(getegid()));
+}
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysGetGroups(ThreadContext *context, InstDesc *inst){
+  Tsize_t    size;
+  Tpointer_t list;
+  CallArgs(context) >> size >> list;
+#if (defined DEBUG_BENCH)
+  printf("sysCall32_getgroups(%ld,0x%08x)called\n",(long)size,list);
+#endif
+  setSysRet(context);
+}
+
+template<ExecMode mode>
+void RealLinuxSys<mode>::doWait4(ThreadContext *context, InstDesc *inst,
+                                 Tpid_t cpid, Tpointer_t status,
+                                 Tuint options, Tpointer_t rusage){
+  int realCTid=0;
+  if(cpid>0){
+    realCTid=cpid-BaseSimTid;
+    if(!context->isChildID(realCTid))
+      return setSysErr(context,VECHILD);
+    ThreadContext *ccontext=osSim->getContext(realCTid);
+    if((!ccontext->isExited())&&(!ccontext->isKilled()))
+      realCTid=0;
+  }else if(cpid==-1){
+    if(!context->hasChildren())
+      return setSysErr(context,VECHILD);
+    realCTid=context->findZombieChild();
+  }else{
+    fail("LinuxSys::doWait4 Only supported for pid -1 or >0\n");
+  }
+  if(realCTid){
+    ThreadContext *ccontext=osSim->getContext(realCTid);
+    if(status){
+      Tint statVal=0xDEADBEEF;
+      if(ccontext->isExited()){
+        statVal=(ccontext->getExitCode()<<8);
+      }else{
+        I(ccontext->isKilled());
+        fail("LinuxSys::doWait4 for killed child not supported\n");
+      }
+      context->writeMemRaw(status,fixEndian(statVal));
+    }
+    if(rusage)
+      fail("LinuxSys::doWait4 with rusage parameter not supported\n");
+#if (defined DEBUG_SIGNALS)
+    suspSet.erase(pid);
+#endif
+    ccontext->reap();
+    return setSysRet(context,Tpid_t(realCTid+BaseSimTid));
+  }
+  if(options&VWNOHANG)
+    return setSysRet(context);
+  context->updIAddr(-inst->aupdate,-1);
+  I(inst==context->getIDesc());
+  I(inst==context->virt2inst(context->getIAddr()));
+#if (defined DEBUG_SIGNALS)
+  printf("Suspend %d in sysCall32_wait4(pid=%d,status=%x,options=%x)\n",
+         context->gettid(),pid,status,options.val);
+  printf("Also suspended:");
+  for(PidSet::iterator suspIt=suspSet.begin();suspIt!=suspSet.end();suspIt++)
+    printf(" %d",*suspIt);
+  printf("\n");
+  suspSet.insert(context->gettid());
+#endif
+  context->suspend();
+}
+
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysWait4(ThreadContext *context, InstDesc *inst){
+  Tpid_t     pid;
+  Tpointer_t status;
+  Tuint      options;
+  Tpointer_t rusage;
+  CallArgs(context) >> pid >> status >> options >> rusage;
+  doWait4(context,inst,pid,status,options,rusage);
+}
+
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysWaitpid(ThreadContext *context, InstDesc *inst){
+  Tpid_t     pid;
+  Tpointer_t status;
+  Tuint      options;
+  Tpointer_t rusage;
+  CallArgs(context) >> pid >> status >> options;
+  doWait4(context,inst,pid,status,options,0);
+}
+
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysKill(ThreadContext *context, InstDesc *inst){
+  Tpid_t   pid;
+  Tint     sig;
+  CallArgs(context) >> pid >> sig;
+  if(pid<=0)
+    fail("sysKill with pid=%d\n",pid);
+  ThreadContext *kcontext=osSim->getContext(pid-BaseSimTid);
+  if(!kcontext)
+    return setSysErr(context,VESRCH);
+  SigInfo *sigInfo=new SigInfo(sigNumToLocal(sig),SigCodeUser);
+  sigInfo->pid=context->gettid();
+  kcontext->signal(sigInfo);
+#if (defined DEBUG_SIGNALS)
+  printf("sysCall32_kill: signal %d sent from process %d to %d\n",sig,context->gettid(),pid);
+#endif
+  setSysRet(context);
+}
+
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysTKill(ThreadContext *context, InstDesc *inst){
+  Tpid_t   tid;
+  Tint     sig;
+  CallArgs(context) >> tid >> sig;
+  if(tid<=0)
+    fail("sysTKill with tid=%d\n",tid);
+  ThreadContext *kcontext=osSim->getContext(tid-BaseSimTid);
+  if(!kcontext)
+    return setSysErr(context,VESRCH);
+  SigInfo *sigInfo=new SigInfo(sigNumToLocal(sig),SigCodeUser);
+  sigInfo->pid=context->gettid();
+  kcontext->signal(sigInfo);
+#if (defined DEBUG_SIGNALS)
+  printf("sysCall32_tkill: signal %d sent from process %d to thread %d\n",sig.val,context->gettid(),tid);
+#endif
+  setSysRet(context);
+}
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysTgKill(ThreadContext *context, InstDesc *inst){
+  Tpid_t   tgid;
+  Tpid_t   pid;
+  Tint     sig;
+  CallArgs(context) >> tgid >> pid >> sig;
+  if(pid<=0)
+    fail("sysTgKill with pid=%d\n",pid);
+  ThreadContext *kcontext=osSim->getContext(pid-BaseSimTid);
+  if(!kcontext)
+    return setSysErr(context,VESRCH);
+  if(kcontext->gettgid()!=tgid)
+    return setSysErr(context,VESRCH);
+  SigInfo *sigInfo=new SigInfo(sigNumToLocal(sig),SigCodeUser);
+  sigInfo->pid=context->gettid();
+  kcontext->signal(sigInfo);
+#if (defined DEBUG_SIGNALS)
+  printf("sysCall32_tgkill: signal %d sent from process %d to thread %d in %d\n",sig.val,context->gettid(),pid,tgid);
+#endif
+  setSysRet(context);
+}
+
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysRtSigAction(ThreadContext *context, InstDesc *inst){
+  Tint       sig;
+  Tpointer_t act;
+  Tpointer_t oact;
+  Tsize_t    size;
+  CallArgs(context) >> sig >> act >> oact >> size;
+  if(size!=Tsigset_t::getSize())
+    return setSysErr(context,VEINVAL);
+  if((act)&&(!context->canRead(act,Tsigaction::getSize())))
+    return setSysErr(context,VEFAULT);
+  if((oact)&&!context->canWrite(oact,Tsigaction::getSize()))
+    return setSysErr(context,VEFAULT);
+  SignalID localSig(sigNumToLocal(sig));
+  SignalTable *sigTable=context->getSignalTable();
+  SignalDesc  &sigDesc=(*sigTable)[localSig];
+  // Get the existing signal handler into oactBuf
+  if(oact)
+    Tsigaction(sigDesc).write(context,oact);
+  if(act){
+    sigDesc=Tsigaction(context,act);
+    // Without SA_NODEFER, mask signal out in its own handler
+    if(!(sigDesc.flags&SaNoDefer))
+      sigDesc.mask.set(localSig);
+  }
+  setSysRet(context);
+}
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysRtSigProcMask(ThreadContext *context, InstDesc *inst){
+  Tint       how;
+  Tpointer_t nset;
+  Tpointer_t oset;
+  Tsize_t    size;
+  CallArgs(context) >> how >> nset >> oset >> size;
+  if(size!=Tsigset_t::getSize())
+    fail("sysRtSigProcMask: mask size mismatch\n");
+  if((nset)&&(!context->canRead(nset,size)))      
+    return setSysErr(context,VEFAULT);
+  if((oset)&&(!context->canWrite(oset,size)))
+    return setSysErr(context,VEFAULT);
+  SignalSet oldMask=context->getSignalMask();
+  if(oset)
+    Tsigset_t(oldMask).write(context,oset);
+  if(nset){
+    SignalSet lset(Tsigset_t(context,nset));
+    switch(how){
+    case VSIG_BLOCK:   context->setSignalMask(oldMask|lset);        break;
+    case VSIG_UNBLOCK: context->setSignalMask((oldMask|lset)^lset); break;
+    case VSIG_SETMASK: context->setSignalMask(lset);                break;
+    default: fail("sysRtSigProcMask: Unsupported value %d of how\n",how);
+    }
+  }
+  setSysRet(context);
+}
+template<>
+void RealLinuxSys<ExecModeMips32>::sysRtSigSuspend(ThreadContext *context, InstDesc *inst){
+  // If this is a suspend following a wakeup, we need to pop the already-saved mask
+  uint32_t dopop=getReg<uint32_t,RegSys>(context,RegSys);
+  if(dopop){
+    setReg<uint32_t,RegSys>(context,RegSys,0);
+    context->setSignalMask(popStruct<Tsigset_t>(context));
+  }
+  Tpointer_t nset;
+  Tsize_t    size;
+  CallArgs(context) >> nset >> size;
+  if(size!=Tsigset_t::getSize())
+    fail("sysRtSigProcMask: mask size mismatch\n");
+  if(!context->canRead(nset,size))
+    return setSysErr(context,VEFAULT);
+  // Change signal mask while suspended
+  SignalSet oldMask=context->getSignalMask();
+  SignalSet newMask(Tsigset_t(context,nset));
+  context->setSignalMask(newMask);
+  if(context->hasReadySignal()){
+    SigInfo *sigInfo=context->nextReadySignal();
+    context->setSignalMask(oldMask);
+    handleSignal(context,sigInfo);
+    delete sigInfo;
+    return setSysErr(context,VEINTR);
+  }
+#if (defined DEBUG_SIGNALS)
+  Tpid_t pid=context->gettid();
+  printf("Suspend %d in sysCall32_rt_sigsuspend\n",pid);
+  context->dumpCallStack();
+  printf("Also suspended:");
+  for(PidSet::iterator suspIt=suspSet.begin();suspIt!=suspSet.end();suspIt++)
+    printf(" %d",*suspIt);
+  printf("\n");
+  suspSet.insert(context->gettid());
+#endif
+  // Save the old signal mask on stack so it can be restored
+  Tsigset_t saveMask(oldMask);
+  pushStruct(context,saveMask);
+  setReg<uint32_t,RegSys>(context,RegSys,1);
+  // Suspend and redo this system call when woken up
+  context->updIAddr(-inst->aupdate,-1);
+  I(inst==context->getIDesc());
+  I(inst==context->virt2inst(context->getIAddr()));
+  context->suspend();
+}
+
+template<>
+void RealLinuxSys<ExecModeMips32>::sysRtSigReturn(ThreadContext *context, InstDesc *inst){
+#if (defined DEBUG_SIGNALS)
+  printf("sysCall32_rt_sigreturn pid %d to ",context->gettid());
+#endif    
+  // Restore old signal mask
+  Tsigset_t oldMask(popStruct<Tsigset_t>(context));
+  // Restore registers, then PC
+  for(RegName r=RegRA;r>RegZero;r--){
+    uint32_t rdVal=popScalar<uint32_t>(context);
+    setReg<uint32_t,RegTypeGpr>(context,r,rdVal);
+  }
+  context->setIAddr(popScalar<Tpointer_t>(context));
+  context->setSignalMask(oldMask);
+}
+template<>
+void RealLinuxSys<ExecModeMipsel32>::sysRtSigSuspend(ThreadContext *context, InstDesc *inst){
+  // If this is a suspend following a wakeup, we need to pop the already-saved mask
+  uint32_t dopop=getReg<uint32_t,RegSys>(context,RegSys);
+  if(dopop){
+    setReg<uint32_t,RegSys>(context,RegSys,0);
+    context->setSignalMask(popStruct<Tsigset_t>(context));
+  }
+  Tpointer_t nset;
+  Tsize_t    size;
+  CallArgs(context) >> nset >> size;
+  if(size!=Tsigset_t::getSize())
+    fail("sysRtSigProcMask: mask size mismatch\n");
+  if(!context->canRead(nset,size))
+    return setSysErr(context,VEFAULT);
+  // Change signal mask while suspended
+  SignalSet oldMask=context->getSignalMask();
+  SignalSet newMask(Tsigset_t(context,nset));
+  context->setSignalMask(newMask);
+  if(context->hasReadySignal()){
+    SigInfo *sigInfo=context->nextReadySignal();
+    context->setSignalMask(oldMask);
+    handleSignal(context,sigInfo);
+    delete sigInfo;
+    return setSysErr(context,VEINTR);
+  }
+#if (defined DEBUG_SIGNALS)
+  Tpid_t pid=context->gettid();
+  printf("Suspend %d in sysCall32_rt_sigsuspend\n",pid);
+  context->dumpCallStack();
+  printf("Also suspended:");
+  for(PidSet::iterator suspIt=suspSet.begin();suspIt!=suspSet.end();suspIt++)
+    printf(" %d",*suspIt);
+  printf("\n");
+  suspSet.insert(context->gettid());
+#endif
+  // Save the old signal mask on stack so it can be restored
+  Tsigset_t saveMask(oldMask);
+  pushStruct(context,saveMask);
+  setReg<uint32_t,RegSys>(context,RegSys,1);
+  // Suspend and redo this system call when woken up
+  context->updIAddr(-inst->aupdate,-1);
+  I(inst==context->getIDesc());
+  I(inst==context->virt2inst(context->getIAddr()));
+  context->suspend();
+}
+
+template<>
+void RealLinuxSys<ExecModeMipsel32>::sysRtSigReturn(ThreadContext *context, InstDesc *inst){
+#if (defined DEBUG_SIGNALS)
+  printf("sysCall32_rt_sigreturn pid %d to ",context->gettid());
+#endif    
+  // Restore old signal mask
+  Tsigset_t oldMask(popStruct<Tsigset_t>(context));
+  // Restore registers, then PC
+  for(RegName r=RegRA;r>RegZero;r--){
+    uint32_t rdVal=popScalar<uint32_t>(context);
+    setReg<uint32_t,RegTypeGpr>(context,r,rdVal);
+  }
+  context->setIAddr(popScalar<Tpointer_t>(context));
+  context->setSignalMask(oldMask);
+}
+template<>
+void RealLinuxSys<ExecModeMips64>::sysRtSigSuspend(ThreadContext *context, InstDesc *inst){
+  // If this is a suspend following a wakeup, we need to pop the already-saved mask
+  Tregv_t dopop=getReg<Tregv_t,RegSys>(context,RegSys);
+  if(dopop){
+    setReg<Tregv_t,RegSys>(context,RegSys,0);
+    context->setSignalMask(popStruct<Tsigset_t>(context));
+  }
+  Tpointer_t nset;
+  Tsize_t    size;
+  CallArgs(context) >> nset >> size;
+  if(size!=Tsigset_t::getSize())
+    fail("sysRtSigProcMask: mask size mismatch\n");
+  if(!context->canRead(nset,size))
+    return setSysErr(context,VEFAULT);
+  // Change signal mask while suspended
+  SignalSet oldMask=context->getSignalMask();
+  SignalSet newMask(Tsigset_t(context,nset));
+  context->setSignalMask(newMask);
+  if(context->hasReadySignal()){
+    SigInfo *sigInfo=context->nextReadySignal();
+    context->setSignalMask(oldMask);
+    handleSignal(context,sigInfo);
+    delete sigInfo;
+    return setSysErr(context,VEINTR);
+  }
+#if (defined DEBUG_SIGNALS)
+  Tpid_t pid=context->gettid();
+  printf("Suspend %d in sysCall32_rt_sigsuspend\n",pid);
+  context->dumpCallStack();
+  printf("Also suspended:");
+  for(PidSet::iterator suspIt=suspSet.begin();suspIt!=suspSet.end();suspIt++)
+    printf(" %d",*suspIt);
+  printf("\n");
+  suspSet.insert(context->gettid());
+#endif
+  // Save the old signal mask on stack so it can be restored
+  Tsigset_t saveMask(oldMask);
+  pushStruct(context,saveMask);
+  setReg<Tregv_t,RegSys>(context,RegSys,1);
+  // Suspend and redo this system call when woken up
+  context->updIAddr(-inst->aupdate,-1);
+  I(inst==context->getIDesc());
+  I(inst==context->virt2inst(context->getIAddr()));
+  context->suspend();
+}
+
+template<>
+void RealLinuxSys<ExecModeMips64>::sysRtSigReturn(ThreadContext *context, InstDesc *inst){
+#if (defined DEBUG_SIGNALS)
+  printf("sysCall32_rt_sigreturn pid %d to ",context->gettid());
+#endif    
+  // Restore old signal mask
+  Tsigset_t oldMask(popStruct<Tsigset_t>(context));
+  // Restore registers, then PC
+  for(RegName r=RegRA;r>RegZero;r--){
+    Tregv_t rdVal=popScalar<Tregv_t>(context);
+    setReg<Tregv_t,RegTypeGpr>(context,r,rdVal);
+  }
+  context->setIAddr(popScalar<Tpointer_t>(context));
+  context->setSignalMask(oldMask);
+}
+
+template<>
+void RealLinuxSys<ExecModeMipsel64>::sysRtSigSuspend(ThreadContext *context, InstDesc *inst){
+  // If this is a suspend following a wakeup, we need to pop the already-saved mask
+  Tregv_t dopop=getReg<Tregv_t,RegSys>(context,RegSys);
+  if(dopop){
+    setReg<Tregv_t,RegSys>(context,RegSys,0);
+    context->setSignalMask(popStruct<Tsigset_t>(context));
+  }
+  Tpointer_t nset;
+  Tsize_t    size;
+  CallArgs(context) >> nset >> size;
+  if(size!=Tsigset_t::getSize())
+    fail("sysRtSigProcMask: mask size mismatch\n");
+  if(!context->canRead(nset,size))
+    return setSysErr(context,VEFAULT);
+  // Change signal mask while suspended
+  SignalSet oldMask=context->getSignalMask();
+  SignalSet newMask(Tsigset_t(context,nset));
+  context->setSignalMask(newMask);
+  if(context->hasReadySignal()){
+    SigInfo *sigInfo=context->nextReadySignal();
+    context->setSignalMask(oldMask);
+    handleSignal(context,sigInfo);
+    delete sigInfo;
+    return setSysErr(context,VEINTR);
+  }
+#if (defined DEBUG_SIGNALS)
+  Tpid_t pid=context->gettid();
+  printf("Suspend %d in sysCall32_rt_sigsuspend\n",pid);
+  context->dumpCallStack();
+  printf("Also suspended:");
+  for(PidSet::iterator suspIt=suspSet.begin();suspIt!=suspSet.end();suspIt++)
+    printf(" %d",*suspIt);
+  printf("\n");
+  suspSet.insert(context->gettid());
+#endif
+  // Save the old signal mask on stack so it can be restored
+  Tsigset_t saveMask(oldMask);
+  pushStruct(context,saveMask);
+  setReg<Tregv_t,RegSys>(context,RegSys,1);
+  // Suspend and redo this system call when woken up
+  context->updIAddr(-inst->aupdate,-1);
+  I(inst==context->getIDesc());
+  I(inst==context->virt2inst(context->getIAddr()));
+  context->suspend();
+}
+
+template<>
+void RealLinuxSys<ExecModeMipsel64>::sysRtSigReturn(ThreadContext *context, InstDesc *inst){
+#if (defined DEBUG_SIGNALS)
+  printf("sysCall32_rt_sigreturn pid %d to ",context->gettid());
+#endif    
+  // Restore old signal mask
+  Tsigset_t oldMask(popStruct<Tsigset_t>(context));
+  // Restore registers, then PC
+  for(RegName r=RegRA;r>RegZero;r--){
+    Tregv_t rdVal=popScalar<Tregv_t>(context);
+    setReg<Tregv_t,RegTypeGpr>(context,r,rdVal);
+  }
+  context->setIAddr(popScalar<Tpointer_t>(context));
+  context->setSignalMask(oldMask);
+}
+
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysSchedYield(ThreadContext *context, InstDesc *inst){
+  osSim->eventYield(context->gettid(),-1);
+  return setSysRet(context);
+}
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysGetPriority(ThreadContext *context, InstDesc *inst){
+  Tint     which;
+  Tint     who;
+  CallArgs(context) >> which >> who;
+  printf("sysGetPriority(%d,%d) called (continuing).\n",which,who);
+  setSysRet(context);
+}
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysSchedGetParam(ThreadContext *context, InstDesc *inst){
+  Tpid_t     pid;
+  Tpointer_t param;
+  CallArgs(context) >> pid >> param;
+  printf("sysSchedGetParam(%d,%ld) called (continuing with EINVAL).\n",pid,(long)param);
+  ThreadContext *kcontext=pid?osSim->getContext(pid-BaseSimTid):context;
+  if(!kcontext)
+    return setSysErr(context,VESRCH);
+  // TODO: Check if we can write to param
+  // TODO: Return a meaningful value. for now, we just reject the call
+  setSysErr(context,VEINVAL);
+}
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysSchedSetScheduler(ThreadContext *context, InstDesc *inst){
+  Tpid_t     pid;
+  Tint       policy;
+  Tpointer_t param;
+  CallArgs(context) >> pid >> policy >> param;
+  printf("sysSchedSetScheduler(%d,%d,%ld) called (continuing).\n",pid,policy,(long)param);
+  // TODO: Set the actual scheduling policy
+  setSysRet(context);
+}
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysSchedGetScheduler(ThreadContext *context, InstDesc *inst){
+  Tpid_t    pid;
+  CallArgs(context) >> pid;
+  printf("sysSchedGetScheduler(%d) called (continuing).\n",pid);
+   // TODO: Get the actual scheduling policy, we just return zero now
+  setSysRet(context);
+}
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysSchedGetPriorityMax(ThreadContext *context, InstDesc *inst){
+  Tint     policy;
+  CallArgs(context) >> policy;
+  printf("sysSchedGetPriorityMax(%d) called (continuing with 0).\n",policy);
+  return setSysRet(context);
+}
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysSchedGetPriorityMin(ThreadContext *context, InstDesc *inst){
+  Tint     policy;
+  CallArgs(context) >> policy;
+  printf("sysSchedGetPriorityMin(%d) called (continuing with 0).\n",policy);
+  return setSysRet(context);
+}
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysSchedSetAffinity(ThreadContext *context, InstDesc *inst){
+  Tpid_t     pid;
+  Tuint      len;
+  Tpointer_t mask;
+  CallArgs(context) >> pid >> len >> mask;
+  if(!context->canRead(mask,len))
+    return setSysRet(context,VEFAULT);
+  ThreadContext *kcontext=pid?osSim->getContext(pid-BaseSimTid):context;
+  if(!kcontext)
+    return setSysErr(context,VESRCH);
+  // TODO: We need to look at the affinity mask here
+  setSysRet(context);
+}
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysSchedGetAffinity(ThreadContext *context, InstDesc *inst){
+  Tpid_t     pid;
+  Tuint      len;
+  Tpointer_t mask;
+  CallArgs(context) >> pid >> len >> mask;
+  // TODO: Use the real number of CPUs instead of 1024
+  if(len<1024/sizeof(uint8_t))
+    return setSysErr(context,VEINVAL);
+  if(!context->canWrite(mask,len))
+    return setSysErr(context,VEFAULT);
+  ThreadContext *kcontext=pid?osSim->getContext(pid-BaseSimTid):context;
+  if(!kcontext)
+    return setSysErr(context,VESRCH);
+  // TODO: We need to look at the affinity mask here
+  // for now, we just return an all-ones mask
+  uint8_t buf[len];
+  memset(buf,0,len);
+  context->writeMemFromBuf(mask,len,buf);
+  setSysRet(context);
+}
+
+// Simulated wall clock time (for time() syscall)
+static time_t wallClock=(time_t)-1;
+// TODO: This is a hack to get applications working.
+// We need a real user/system time estimator
+static uint64_t myUsrUsecs=0;
+static uint64_t mySysUsecs=0;
+
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysTimes(ThreadContext *context, InstDesc *inst){
+  Tpointer_t buffer;
+  CallArgs(context) >> buffer;
+  if(!context->canWrite(buffer,Ttms::getSize()))
+    return setSysErr(context,VEFAULT);
+  Ttms simTms;
+  // TODO: This is a hack. See above.
+  myUsrUsecs+=100;
+  mySysUsecs+=1;
+  simTms.tms_utime=simTms.tms_cutime=myUsrUsecs/1000;
+  simTms.tms_stime=simTms.tms_cstime=mySysUsecs/1000;
+  Tclock_t rv=(myUsrUsecs+mySysUsecs)/1000;
+  simTms.write(context,buffer);
+  return setSysRet(context,rv);
+}
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysTime(ThreadContext *context, InstDesc *inst){
+  Tpointer_t tloc;
+  CallArgs(context) >> tloc;
+  // TODO: This should actually take into account simulated time
+  if(wallClock==(time_t)-1)
+    wallClock=time(0);
+  I(wallClock>0);
+  Ttime_t rv=wallClock;
+  if(tloc!=(VAddr)0){
+    if(!context->canWrite(tloc,sizeof(Ttime_t)))
+      return setSysErr(context,VEFAULT);
+    context->writeMemRaw(tloc,fixEndian(rv));
+  }
+  return setSysRet(context,rv);
+}
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysGetTimeOfDay(ThreadContext *context, InstDesc *inst){
+  Tpointer_t tv;
+  Tpointer_t tz;
+  CallArgs(context) >> tv >> tz;
+  if(tv&&!context->canWrite(tv,Ttimeval::getSize()))
+    return setSysErr(context,VEFAULT);
+  if(tz&&!context->canWrite(tz,Ttimezone::getSize()))
+    return setSysErr(context,VEFAULT);
+  if(tv)
+    Ttimeval(15,0).write(context,tv);
+  if(tz)
+    Ttimezone(0,0).write(context,tz);
+  setSysRet(context);
+}
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysSetITimer(ThreadContext *context, InstDesc *inst){
+  // TODO: Read the actual parameters
+  // for now, we just reject the call
+  printf("sysSetITimer called (continuing with EINVAL).\n");
+  setSysErr(context,VEINVAL);
+}
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysClockGetRes(ThreadContext *context, InstDesc *inst){
+  // TODO: Read the actual parameters
+  // for now, we just reject the call
+  printf("sysClockGetRes called (continuing with EINVAL).\n");
+  setSysErr(context,VEINVAL);
+}
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysClockGetTime(ThreadContext *context, InstDesc *inst){
+  // TODO: Read the actual parameters
+  // for now, we just reject the call
+  printf("sysClockGettime called (continuing with EINVAL).\n");
+  setSysErr(context,VEINVAL);
+}
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysAlarm(ThreadContext *context, InstDesc *inst){
+  Tuint    seconds;
+  CallArgs(context) >> seconds;
+  // TODO: Clear existing alarms
+  Tuint    oseconds=0;
+  if(seconds){
+    // Set new alarm
+    fail("sysCall32_alarm(%d): not implemented at 0x%08x\n",seconds,context->getIAddr());
+  }
+  setSysRet(context,oseconds);
+}
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysNanoSleep(ThreadContext *context, InstDesc *inst){
+  Tpointer_t req;
+  Tpointer_t rem;
+  CallArgs(context) >> req >> rem;
+  if(!context->canRead(req,Ttimespec::getSize()))
+    return setSysErr(context,VEFAULT);
+  if(rem&&(!context->canWrite(rem,Ttimespec::getSize())))
+    return setSysErr(context,VEFAULT);
+  Ttimespec ts(context,req);
+  // TODO: We need to actually suspend this thread for the specified time
+  wallClock+=ts.tv_sec;
+  if(rem){
+    ts.tv_sec=0;
+    ts.tv_nsec=0;
+    ts.write(context,rem);
+  }
+  setSysRet(context);
+}
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysClockNanoSleep(ThreadContext *context, InstDesc *inst){
+  Tclockid_t clock_id;
+  Tint       flags;
+  Tpointer_t req;
+  Tpointer_t rem;
+  CallArgs(context) >> clock_id >> flags >> req >> rem;
+  if(!context->canRead(req,Ttimespec::getSize()))
+    return setSysErr(context,VEFAULT);
+  if(rem&&(!context->canWrite(rem,Ttimespec::getSize())))
+    return setSysErr(context,VEFAULT);
+  Ttimespec ts(context,req);
+  // TODO: We need to actually suspend this thread for the specified time
+  wallClock+=ts.tv_sec;
+  if(rem){
+    ts.tv_sec=0;
+    ts.tv_nsec=0;
+    ts.write(context,rem);
+  }
+  setSysRet(context);
+}
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysBrk(ThreadContext *context, InstDesc *inst){
+  Tpointer_t addr;
+  CallArgs(context) >> addr;
+  Tpointer_t brkBase(context->getAddressSpace()->getBrkBase());
+  Tpointer_t segStart(context->getAddressSpace()->getSegmentAddr(brkBase-1));
+  Tsize_t    oldSegSize(context->getAddressSpace()->getSegmentSize(segStart));
   if(!addr)
     return setSysRet(context,segStart+oldSegSize);
   if(addr<brkBase)
@@ -1260,59 +2951,45 @@ void LinuxSys::sysBrk(ThreadContext *context, InstDesc *inst){
     context->getAddressSpace()->resizeSegment(segStart,newSegSize);
     return setSysRet(context,addr);
   }
-  return setSysErr(context,ErrNoMem);
-//   Tsize_t brkSize=context->getAddressSpace()->getSegmentSize(brkBase);
-//   if(!addr)
-//     return setSysRet(context,brkBase+brkSize);
-//   if(addr<=brkBase+brkSize){
-//     if(addr<=brkBase)
-//       fail("sysCall32_brk: new break 0x%08x below brkBase 0x%08x\n",addr,brkBase);
-//     context->getAddressSpace()->resizeSegment(brkBase,addr-brkBase);
-//     return setSysRet(context,addr);
-//   }
-//   if(context->getAddressSpace()->isNoSegment(brkBase+brkSize,addr-(brkBase+brkSize))){
-//     context->getAddressSpace()->resizeSegment(brkBase,addr-brkBase);
-//     return setSysRet(context,addr);
-//   }
-//   return setSysErr(context,ErrNoMem);
+  return setSysErr(context,VENOMEM);
 }
-template<class defs, off_t offsmul>
-void LinuxSys::sysMMap(ThreadContext *context, InstDesc *inst){
-  typedef typename defs::Tintptr_t Tintptr_t;
-  typedef typename defs::Tsize_t Tsize_t;
-  typedef typename defs::Tssize_t Tssize_t;
-  typedef typename defs::Tint Tint;
-  typedef typename defs::Tuint Tuint;
-  typedef typename defs::Toff_t Toff_t;
-  typedef typename defs::MemProt MemProt;
-  typedef typename defs::MMapFlags MMapFlags;
-  FuncArgs args(context);
-  Tintptr_t start(args.get<Tintptr_t>());
-  Tsize_t length(args.get<Tsize_t>());
-  MemProt prot(args.get<Tuint>());
-  MMapFlags flags(args.get<Tuint>());
-  Tint fd(args.get<Tint>());
-  Toff_t offset(args.get<Toff_t>());
-  I(flags.hasMAP_SHARED()||flags.hasMAP_PRIVATE());
-  I(!(flags.hasMAP_SHARED()&&flags.hasMAP_PRIVATE()));
-  if(!flags.hasMAP_ANONYMOUS()&&!flags.hasMAP_PRIVATE()&&prot.hasPROT_WRITE())
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysSetThreadArea(ThreadContext *context, InstDesc *inst){
+  Tpointer_t addr;
+  CallArgs(context) >> addr;
+  setThreadArea(context,addr);
+  setSysRet(context);
+}
+template<ExecMode mode>
+template<size_t offsmul>
+void RealLinuxSys<mode>::sysMMap(ThreadContext *context, InstDesc *inst){
+  Tpointer_t start;
+  Tsize_t    length;
+  Tint       prot;
+  Tint       flags;
+  Tint       fd;
+  Toff_t     offset;
+  CallArgs(context) >> start >> length >> prot >> flags >> fd >> offset;
+  I((flags&VMAP_SHARED)||(flags&VMAP_PRIVATE));
+  I(!((flags&VMAP_SHARED)&&(flags&VMAP_PRIVATE)));
+  if(!(flags&VMAP_ANONYMOUS)&&!(flags&VMAP_PRIVATE)&&(prot&VPROT_WRITE))
     fail("sysCall32Mmap: TODO: Mapping of real files supported only without PROT_WRITE or with MAP_PRIVATE\n");
-  Tintptr_t rv=0;
-  if(flags.hasMAP_FIXED()&&start&&!context->getAddressSpace()->isNoSegment(start,length))
+  Tpointer_t rv=0;
+  if((flags&VMAP_FIXED)&&start&&!context->getAddressSpace()->isNoSegment(start,length))
     context->getAddressSpace()->deleteSegment(start,length);
   if(start&&context->getAddressSpace()->isNoSegment(start,length)){
     rv=start;
-  }else if(flags.hasMAP_FIXED()){
-    return setSysErr(context,ErrInval);
+  }else if(flags&VMAP_FIXED){
+    return setSysErr(context,VEINVAL);
   }else{
     rv=context->getAddressSpace()->newSegmentAddr(length);
     if(!rv)
-      return setSysErr(context,ErrNoMem);
+      return setSysErr(context,VENOMEM);
   }
   // Create a write-only segment and initialize memory in it
-  context->getAddressSpace()->newSegment(rv,length,false,true,false,flags.hasMAP_SHARED());
+  context->getAddressSpace()->newSegment(rv,length,false,true,false,flags&VMAP_SHARED);
   Tsize_t initPos=0;
-  if(!flags.hasMAP_ANONYMOUS()){
+  if(!(flags&VMAP_ANONYMOUS)){
     Tssize_t readRet=context->writeMemFromFile(rv,length,fd,false,true,offset*offsmul);
     if(readRet==-1)
       fail("MMap could not read from underlying file\n");
@@ -1326,34 +3003,30 @@ void LinuxSys::sysMMap(ThreadContext *context, InstDesc *inst){
   }
   if(initPos!=length)
     context->writeMemWithByte(rv+initPos,length-initPos,0);
-  context->getAddressSpace()->protectSegment(rv,length,prot.hasPROT_READ(),prot.hasPROT_WRITE(),prot.hasPROT_EXEC());
+  context->getAddressSpace()->protectSegment(rv,length,prot&VPROT_READ,prot&VPROT_WRITE,prot&VPROT_EXEC);
 #if (defined DEBUG_MEMORY)
   printf("sysCall32_mmap addr 0x%08x len 0x%08lx R%d W%d X%d S%d\n",
 	 rv,(unsigned long)length,
-	 prot.hasPROT_READ(),
-	 prot.hasPROT_WRITE(),
-	 prot.hasPROT_EXEC(),
-	 flags.hasMAP_SHARED());
+	 prot&VPROT_READ,
+	 prot&VPROT_WRITE,
+	 prot&VPROT_EXEC,
+	 flags&VMAP_SHARED);
 #endif
 #if (defined DEBUG_FILES) || (defined DEBUG_VMEM)
   printf("[%d] mmap %d start 0x%08x len 0x%08x offset 0x%08x prot %c%c%c load 0x%08x to 0x%08x\n",
 	 context->gettid(),fd,(uint32_t)start,(uint32_t)length,(uint32_t)offset,
-         prot.hasPROT_READ()?'R':' ',prot.hasPROT_WRITE()?'W':' ',prot.hasPROT_EXEC()?'E':' ',
+         (prot&VPROT_READ)?'R':' ',(prot&VPROT_WRITE)?'W':' ',(prot&VPROT_EXEC)?'E':' ',
 	 (uint32_t)initPos,(uint32_t)rv);
 #endif
   return setSysRet(context,rv);
 }
-template<class defs>
-void LinuxSys::sysMReMap(ThreadContext *context, InstDesc *inst){
-  typedef typename defs::Tintptr_t Tintptr_t;
-  typedef typename defs::Tsize_t Tsize_t;
-  typedef typename defs::Tuint Tuint;
-  typedef typename defs::MReMapFlags MReMapFlags;
-  FuncArgs args(context);
-  Tintptr_t oldaddr(args.get<Tintptr_t>());
-  Tsize_t oldsize(args.get<Tsize_t>());
-  Tsize_t newsize(args.get<Tsize_t>());
-  MReMapFlags flags(args.get<Tuint>());
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysMReMap(ThreadContext *context, InstDesc *inst){
+  Tpointer_t  oldaddr;
+  Tsize_t     oldsize;
+  Tsize_t     newsize;
+  Tint        flags;
+  CallArgs(context) >> oldaddr >> oldsize >> newsize >> flags;
   AddressSpace *addrSpace=context->getAddressSpace();
   if(!addrSpace->isSegment(oldaddr,oldsize))
     fail("sysCall32_mremap: old range not a segment\n");
@@ -1362,27 +3035,25 @@ void LinuxSys::sysMReMap(ThreadContext *context, InstDesc *inst){
       addrSpace->resizeSegment(oldaddr,newsize);
     return setSysRet(context,oldaddr);
   }
-  Tintptr_t rv=0;
+  Tpointer_t rv=0;
   if(addrSpace->isNoSegment(oldaddr+oldsize,newsize-oldsize)){
     rv=oldaddr;
-  }else if(flags.hasMREMAP_MAYMOVE()){
+  }else if(flags&VMREMAP_MAYMOVE){
     rv=addrSpace->newSegmentAddr(newsize);
     if(rv)
       addrSpace->moveSegment(oldaddr,rv);
   }
   if(!rv)
-    return setSysErr(context,ErrNoMem);
+    return setSysErr(context,VENOMEM);
   addrSpace->resizeSegment(rv,newsize);
   context->writeMemWithByte(rv+oldsize,newsize-oldsize,0);      
   return setSysRet(context,rv);
 }
-template<class defs>
-void LinuxSys::sysMUnMap(ThreadContext *context, InstDesc *inst){
-  typedef typename defs::Tintptr_t Tintptr_t;
-  typedef typename defs::Tsize_t Tsize_t;
-  FuncArgs args(context);
-  Tintptr_t addr=args.get<Tintptr_t>();
-  Tsize_t len=args.get<Tsize_t>();
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysMUnMap(ThreadContext *context, InstDesc *inst){
+  Tpointer_t addr;
+  Tsize_t    len;
+  CallArgs(context) >> addr >> len;
   context->getAddressSpace()->deleteSegment(addr,len);
 #if (defined DEBUG_MEMORY)
   printf("sysCall32_munmap addr 0x%08x len 0x%08lx\n",             
@@ -1393,169 +3064,158 @@ void LinuxSys::sysMUnMap(ThreadContext *context, InstDesc *inst){
   printf("[%d] munmap addr 0x%08x len 0x%08x\n",
          context->gettid(),(uint32_t)addr,(uint32_t)len);
 #endif
-  setSysRet(context,0);
+  setSysRet(context);
 }
-template<class defs>
-void LinuxSys::sysMProtect(ThreadContext *context, InstDesc *inst){
-  typedef typename defs::Tintptr_t Tintptr_t;
-  typedef typename defs::Tuint Tuint;
-  typedef typename defs::Tsize_t Tsize_t;
-  typedef typename defs::MemProt MemProt;
-  FuncArgs args(context);
-  Tintptr_t addr=args.get<Tintptr_t>();
-  Tsize_t len=args.get<Tsize_t>();
-  MemProt prot=args.get<Tuint>();
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysMProtect(ThreadContext *context, InstDesc *inst){
+  Tpointer_t addr;
+  Tsize_t    len;
+  Tint       prot;
+  CallArgs(context) >> addr >> len >> prot;
 #if (defined DEBUG_MEMORY)
   printf("sysCall32_mprotect addr 0x%08x len 0x%08lx R%d W%d X%d\n",
          (unsigned long)addr,(unsigned long)len,
-         prot.hasPROT_READ(),prot.hasPROT_WRITE(),prot.hasPROT_EXEC());
+         prot&VPROT_READ,prot&VPROT_WRITE,prot&VPROT_EXEC);
 #endif
 #if (defined DEBUG_VMEM)
   printf("[%d] mprotect addr 0x%08x len 0x%08x prot %c%c%c\n",
          context->gettid(),(uint32_t)addr,(uint32_t)len,
-         prot.hasPROT_READ()?'R':' ',prot.hasPROT_WRITE()?'W':' ',
-         prot.hasPROT_EXEC()?'E':' '
-        );
+         (prot&VPROT_READ)?'R':' ',(prot&VPROT_WRITE)?'W':' ',
+         (prot&VPROT_EXEC)?'E':' '
+	 );
 #endif
   if(!context->getAddressSpace()->isMapped(addr,len))
-    return setSysErr(context,ErrNoMem);
+    return setSysErr(context,VENOMEM);
   context->getAddressSpace()->protectSegment(addr,len,
-    prot.hasPROT_READ(),prot.hasPROT_WRITE(),prot.hasPROT_EXEC());
-  setSysRet(context,0);
+					     prot&VPROT_READ,prot&VPROT_WRITE,prot&VPROT_EXEC);
+  setSysRet(context);
 }
 
-template<class defs>
-void LinuxSys::sysOpen(ThreadContext *context, InstDesc *inst){
-  typedef typename defs::Tintptr_t Tintptr_t;
-  typedef typename defs::Tuint Tuint;
-  typedef typename defs::OpenFlags OpenFlags;
-  typedef typename defs::Tmode_t Tmode_t;
-  FuncArgs args(context);
-  Tstr path(context,args.get<Tintptr_t>());
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysOpen(ThreadContext *context, InstDesc *inst){
+  Tpointer_t pathp;
+  Tuint      flags;
+  Tmode_t    fmode;
+  CallArgs(context) >> pathp >> flags >> fmode;
+  Tstr path(context,pathp);
   if(!path)
     return;
-  OpenFlags flags = args.get<Tuint>();
-  Tmode_t mode = args.get<Tuint>();
   // Do the actual call
-  int newfd=context->getOpenFiles()->open(path,flags.toNat(),mode);
+  int newfd=context->getOpenFiles()->open(context->getFileSys()->toNative((const char *)path).c_str(),openFlagsToNative(flags),mode_tToNative(fmode));
 #ifdef DEBUG_FILES
   printf("(%d) open %s as %d\n",context->gettid(),(const char *)path,newfd);
 #endif
   if(newfd==-1)
-    return setSysErr(context,getErrCode(errno));
+    return setSysErr(context);
   setSysRet(context,newfd);
 }
-template<class defs>
-void LinuxSys::sysPipe(ThreadContext *context, InstDesc *inst){
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysPipe(ThreadContext *context, InstDesc *inst){
   int fds[2];
   if(context->getOpenFiles()->pipe(fds)==-1)
-    return setSysErr(context,getErrCode(errno));
+    return setSysErr(context);
 #ifdef DEBUG_FILES
   printf("[%d] pipe rd %d wr %d\n",context->gettid(),fds[0],fds[1]);
 #endif
-  setSysRet(context,fds[0],fds[1]);
+  setSysRet(context,Tint(fds[0]),Tint(fds[1]));
 }
-template<class defs>
-void LinuxSys::sysDup(ThreadContext *context, InstDesc *inst){
-  typedef typename defs::Tint Tint;
-  FuncArgs args(context);
-  Tint oldfd=args.get<Tint>();
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysDup(ThreadContext *context, InstDesc *inst){
+  Tint     oldfd;
+  CallArgs(context) >> oldfd;
   // Do the actual call
   Tint newfd=context->getOpenFiles()->dup(oldfd);
   if(newfd==-1)
-    return setSysErr(context,getErrCode(errno));
+    return setSysErr(context);
 #ifdef DEBUG_FILES
   printf("[%d] dup %d as %d\n",context->gettid(),oldfd,newfd);
 #endif
   setSysRet(context,newfd);
 }
-template<class defs>
-void LinuxSys::sysDup2(ThreadContext *context, InstDesc *inst){
-  typedef typename defs::Tint Tint;
-  FuncArgs args(context);
-  Tint oldfd=args.get<Tint>();
-  Tint newfd=args.get<Tint>();
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysDup2(ThreadContext *context, InstDesc *inst){
+  Tint     oldfd;
+  Tint     newfd;
+  CallArgs(context) >> oldfd >> newfd;
   // Do the actual call
   if(context->getOpenFiles()->dup2(oldfd,newfd)==-1)
-    return setSysErr(context,getErrCode(errno));
+    return setSysErr(context);
 #ifdef DEBUG_FILES
   printf("[%d] dup2 %d as %d\n",context->gettid(),oldfd,newfd);
 #endif
   setSysRet(context,newfd);
 }
-
-template<class defs>
-void LinuxSys::sysFCntl(ThreadContext *context, InstDesc *inst){
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysFCntl(ThreadContext *context, InstDesc *inst){
   // We implement both fcntl and fcntl64 here. the only difference is that
   // fcntl64 also handles F_GETLK64, F_SETLK64, and F_SETLKW64 and fcntl does not
-  typedef typename defs::Tint Tint;
-  typedef typename defs::FcntlCmd FcntlCmd;
-  typedef typename defs::FcntlFlags FcntlFlags;
-  typedef typename defs::OpenFlags OpenFlags;
-  FuncArgs args(context);
-  Tint fd(args.get<Tint>());
-  FcntlCmd cmd(args.get<typeof(cmd.val)>());
-  if(cmd.isF_DUPFD()){
+  Tint     fd;
+  Tint     cmd;
+  CallArgs args(context);
+  args >> fd >> cmd;
+  switch(cmd){
+  case VF_DUPFD: {
 #ifdef DEBUG_FILES
     printf("[%d] dupfd %d called\n",context->gettid(),fd);
 #endif
-    Tint minfd(args.get<Tint>());
+    Tint minfd;
+    args >> minfd;
     int  newfd = context->getOpenFiles()->dupfd(fd,minfd);
     if(newfd==-1)
-      return setSysErr(context,getErrCode(errno));
+      return setSysErr(context);
 #ifdef DEBUG_FILES
     printf("[%d] dupfd %d as %d\n",context->gettid(),fd,newfd);
 #endif
     I(newfd>=minfd);
     I(context->getOpenFiles()->isOpen(fd));
     I(context->getOpenFiles()->isOpen(newfd));
-    I(context->getOpenFiles()->getDesc(fd)->getStatus()==context->getOpenFiles()->getDesc(newfd)->getStatus());
+    I(context->getOpenFiles()->getDesc(fd)->getStatus()==
+      context->getOpenFiles()->getDesc(newfd)->getStatus());
     return setSysRet(context,Tint(newfd));
-  }
-  if(cmd.isF_GETFD()){
+  } break;
+  case VF_GETFD: {
 #ifdef DEBUG_FILES
     printf("[%d] getfd %d called\n",context->gettid(),fd);
 #endif
     int cloex=context->getOpenFiles()->getfd(fd);
     if(cloex==-1)
-      return setSysErr(context,getErrCode(errno));
-    return setSysRet(context,FcntlFlags::fromNat(cloex).val);
-  }
-  if(cmd.isF_SETFD()){
-    FcntlFlags cloex(args.get<typeof(cloex.val)>());
+      return setSysErr(context);
+    return setSysRet(context,cloex?VFD_CLOEXEC:0);
+  } break;
+  case VF_SETFD: {
+    Tint cloex;
+    args >> cloex;
 #ifdef DEBUG_FILES
-    printf("[%d] setfd %d to %d called\n",context->gettid(),fd,cloex.val);
+    printf("[%d] setfd %d to %d called\n",context->gettid(),fd,(int)cloex);
 #endif
-    if(context->getOpenFiles()->setfd(fd,cloex.toNat())==-1)
-      return setSysErr(context,getErrCode(errno));
+    if(context->getOpenFiles()->setfd(fd,cloex?FD_CLOEXEC:0)==-1)
+      return setSysErr(context);
 #ifdef DEBUG_FILES
-    printf("[%d] setfd %d to %d \n",context->gettid(),fd,cloex.val);
+    printf("[%d] setfd %d to %d \n",context->gettid(),fd,cloex);
 #endif
-    return setSysRet(context,0);
-  }
-  if(cmd.isF_GETFL()){
+    return setSysRet(context);
+  } break;
+  case VF_GETFL: {
 #ifdef DEBUG_FILES
     printf("[%d] getfl %d called\n",context->gettid(),fd);
 #endif
     int flags=context->getOpenFiles()->getfl(fd);
     if(flags==-1)
-      return setSysErr(context,getErrCode(errno));
-    return setSysRet(context,OpenFlags::fromNat(flags).val);
+      return setSysErr(context);
+    return setSysRet(context,openFlagsFromNative(flags));
+  } break;
+  default:
+    fail("sysCall32_fcntl64 unknown command %d on file %d\n",cmd,fd);
   }
-  fail("sysCall32_fcntl64 unknown command %d on file %d\n",cmd.val,fd);
 }
-template<class defs>
-void LinuxSys::sysRead(ThreadContext *context, InstDesc *inst){
-  typedef typename defs::Tint    Tint;
-  typedef typename defs::Tintptr_t    Tintptr_t;
-  typedef typename defs::Tsize_t Tsize_t;
-  typedef typename defs::Tssize_t Tssize_t;
-  FuncArgs args(context);
-  Tint fd(args.get<Tint>());
-  Tintptr_t buf(args.get<Tintptr_t>());
-  Tsize_t count(args.get<Tsize_t>());
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysRead(ThreadContext *context, InstDesc *inst){
+  Tint       fd;
+  Tpointer_t buf;
+  Tsize_t    count;
+  CallArgs(context) >> fd >> buf >> count;
   if(!context->canWrite(buf,count))
-    return setSysErr(context,ErrFault);
+    return setSysErr(context,VEFAULT);
   ssize_t rv=context->writeMemFromFile(buf,count,fd,false);
   if((rv==-1)&&(errno==EAGAIN)&&!(context->getOpenFiles()->getfl(fd)&O_NONBLOCK)){
     // Enable SigIO
@@ -1565,7 +3225,7 @@ void LinuxSys::sysRead(ThreadContext *context, InstDesc *inst){
 //       newMask.reset(SigIO);
 //       sstate->pushMask(newMask);
     if(context->hasReadySignal()){
-      setSysErr(context,ErrIntr);
+      setSysErr(context,VEINTR);
       SigInfo *sigInfo=context->nextReadySignal();
 //      sstate->popMask();
       handleSignal(context,sigInfo);
@@ -1593,21 +3253,17 @@ void LinuxSys::sysRead(ThreadContext *context, InstDesc *inst){
   printf("[%d] read %d wants %ld gets %ld bytes\n",context->gettid(),fd,(long)count,(long)rv);
 #endif
   if(rv==-1)
-    return setSysErr(context,getErrCode(errno));
+    return setSysErr(context);
   return setSysRet(context,Tssize_t(rv));
 }
-template<class defs>
-void LinuxSys::sysWrite(ThreadContext *context, InstDesc *inst){
-  typedef typename defs::Tint    Tint;
-  typedef typename defs::Tintptr_t    Tintptr_t;
-  typedef typename defs::Tsize_t Tsize_t;
-  typedef typename defs::Tssize_t Tssize_t;
-  FuncArgs args(context);
-  Tint fd(args.get<Tint>());
-  Tintptr_t buf(args.get<Tintptr_t>());
-  Tsize_t count(args.get<Tsize_t>());
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysWrite(ThreadContext *context, InstDesc *inst){
+  Tint       fd;
+  Tpointer_t buf;
+  Tsize_t    count;
+  CallArgs(context) >> fd >> buf >> count;
   if(!context->canRead(buf,count))
-    return setSysErr(context,ErrFault);
+    return setSysErr(context,VEFAULT);
   ssize_t rv=context->readMemToFile(buf,count,fd,false);
   if((rv==-1)&&(errno==EAGAIN)&&!(context->getOpenFiles()->getfl(fd)&O_NONBLOCK)){
     // Enable SigIO
@@ -1615,7 +3271,7 @@ void LinuxSys::sysWrite(ThreadContext *context, InstDesc *inst){
     if(newMask.test(SigIO))
       fail("LinuxSys::sysWrite_(): SigIO masked out, not supported\n");
     if(context->hasReadySignal()){
-      setSysErr(context,ErrIntr);
+      setSysErr(context,VEINTR);
       SigInfo *sigInfo=context->nextReadySignal();
       handleSignal(context,sigInfo);
       delete sigInfo;
@@ -1641,90 +3297,79 @@ void LinuxSys::sysWrite(ThreadContext *context, InstDesc *inst){
   printf("[%d] write %d wants %ld gets %ld bytes\n",context->gettid(),fd,(long)count,(long)rv);
 #endif
   if(rv==-1)
-    return setSysErr(context,getErrCode(errno));
+    return setSysErr(context);
   return setSysRet(context,Tssize_t(rv));
 }
-template<class defs>
-void LinuxSys::sysWriteV(ThreadContext *context, InstDesc *inst){
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysWriteV(ThreadContext *context, InstDesc *inst){
   I(0);
-  typedef typename defs::Tint Tint;
-  typedef typename defs::Tintptr_t Tintptr_t;
-  typedef typename defs::Tsize_t Tsize_t;
-  typedef typename defs::Tssize_t Tssize_t;
-  typedef typename defs::Tiovec Tiovec;
-  FuncArgs args(context);
-  Tint fd(args.get<Tint>());
-  Tintptr_t vector(args.get<Tintptr_t>());
-  Tsize_t count(args.get<Tsize_t>());
-  if(!context->canRead(vector,count*sizeof(Tiovec)))
-    return setSysErr(context,ErrFault);
+  Tint       fd;
+  Tpointer_t vector;
+  Tsize_t    count;
+  CallArgs(context) >> fd >> vector >> count;
+  if(!context->canRead(vector,count*Tiovec::getSize()))
+    return setSysErr(context,VEFAULT);
   Tssize_t rv=0;
   for(Tssize_t i=0;i<Tssize_t(count);i++){
-    Tiovec iov(context,vector+i*sizeof(Tiovec));
+    Tiovec iov(context,vector+i*Tiovec::getSize());
     if(!context->canRead(iov.iov_base,iov.iov_len))
-      return setSysErr(context,ErrFault);
+      return setSysErr(context,VEFAULT);
     ssize_t nowBytes=context->readMemToFile(iov.iov_base,iov.iov_len,fd,false);
     if(nowBytes==-1)
-      return setSysErr(context,getErrCode(errno));
+      return setSysErr(context);
     rv+=nowBytes;
     if((size_t)nowBytes<iov.iov_len)
       break;
   }
   setSysRet(context,rv);
 }
-template<class defs>
-void LinuxSys::sysLSeek(ThreadContext *context, InstDesc *inst){
-  typedef typename defs::Tint Tint;
-  typedef typename defs::Tuint Tuint;
-  typedef typename defs::Toff_t Toff_t;
-  typedef typename defs::Whence Whence;
-  FuncArgs args(context);
-  Tint fd=args.get<Tint>();
-  Toff_t offset=args.get<Toff_t>();
-  Whence whence=args.get<Tuint>();
-  off_t rv=context->getOpenFiles()->seek(fd,offset,whence.toNat());
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysLSeek(ThreadContext *context, InstDesc *inst){
+  Tint     fd;
+  Toff_t   offset;
+  Tint     whence;
+  CallArgs(context) >> fd >> offset >> whence;
+  off_t rv=context->getOpenFiles()->seek(fd,offset,whenceToNative(whence));
+#ifdef DEBUG_FILES
+  printf("[%d] lseek %d to %ld whence %d returns %ld\n",context->gettid(),fd,(long)offset,(int)whence,(long)rv);
+#endif
   if(rv==(off_t)-1)
-    return setSysErr(context,getErrCode(errno));
+    return setSysErr(context);
   setSysRet(context,Toff_t(rv));
 }
-template<class defs>
-void LinuxSys::sysLLSeek(ThreadContext *context, InstDesc *inst){
-  typedef typename defs::Tintptr_t Tintptr_t;
-  typedef typename defs::Tint Tint;
-  typedef typename defs::Tuint Tuint;
-  typedef typename defs::Tulong Tulong;
-  typedef typename defs::Tloff_t Tloff_t;
-  typedef typename defs::Whence Whence;
-  FuncArgs args(context);
-  Tint fd=args.get<Tint>();
-  Tulong offset_high=args.get<Tulong>();
-  Tulong offset_low=args.get<Tulong>();
-  Tintptr_t result=args.get<Tintptr_t>();
-  Whence whence=args.get<Tuint>();
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysLLSeek(ThreadContext *context, InstDesc *inst){
+  Tint       fd;
+  Tulong     offset_high;
+  Tulong     offset_low;
+  Tpointer_t result;
+  Tint       whence;
+  CallArgs(context) >> fd >> offset_high >> offset_low >> result >> whence;
   if(!context->canWrite(result,sizeof(Tloff_t)))
-    return setSysErr(context,ErrFault);
+    return setSysErr(context,VEFAULT);
   off_t offset=(off_t)((((uint64_t)offset_high)<<32)|((uint64_t)offset_low));
-  off_t rv=context->getOpenFiles()->seek(fd,offset,whence.toNat());
+  off_t rv=context->getOpenFiles()->seek(fd,offset,whenceToNative(whence));
+#ifdef DEBUG_FILES
+  printf("[%d] llseek %d to %ld whence %d returns %ld\n",context->gettid(),fd,(long)offset,(int)whence,(long)rv);
+#endif
   if(rv==(off_t)-1)
-    return setSysErr(context,getErrCode(errno));
-  context->writeMem<Tloff_t>(result,Tloff_t(rv));
-  setSysRet(context,0);
+    return setSysErr(context);
+  context->writeMemRaw(result,fixEndian(Tloff_t(rv)));
+  setSysRet(context);
 }
-template<class defs, class Tdirent>
-void LinuxSys::sysGetDEnts(ThreadContext *context, InstDesc *inst){
-  typedef typename defs::Tint Tint;
-  typedef typename defs::Tintptr_t Tintptr_t;
-  typedef typename defs::Tsize_t Tsize_t;
-  FuncArgs args(context);
-  Tint fd(args.get<Tint>());
-  Tintptr_t dirp(args.get<Tintptr_t>());
-  Tsize_t count(args.get<Tsize_t>());
+template<ExecMode mode>
+template<class Tdirent_t>
+void RealLinuxSys<mode>::sysGetDEnts(ThreadContext *context, InstDesc *inst){
+  Tint       fd;
+  Tpointer_t dirp;
+  Tsize_t    count;
+  CallArgs(context) >> fd >> dirp >> count;
   if(!context->getOpenFiles()->isOpen(fd))
-    return setSysErr(context,ErrBadf);
- #ifdef DEBUG_FILES
+    return setSysErr(context,VEBADF);
+#ifdef DEBUG_FILES 
   printf("[%d] getdents from %d (%d entries to 0x%08x)\n",context->gettid(),fd,count,dirp);
 #endif
- FileSys::FileDesc *desc=context->getOpenFiles()->getDesc(fd);
+  FileSys::FileDesc *desc=context->getOpenFiles()->getDesc(fd);
   int realfd=desc->getStatus()->fd;
   // How many bytes have been read so far
   Tsize_t rv=0;
@@ -1736,41 +3381,39 @@ void LinuxSys::sysGetDEnts(ThreadContext *context, InstDesc *inst){
     __off64_t dummyDirPos=dirPos;
     ssize_t rdBytes=getdirentries64(realfd,(char *)(&natDent),sizeof(natDent),&dummyDirPos);
     if(rdBytes==-1)
-      return setSysErr(context,getErrCode(errno));
+      return setSysErr(context);
     if(rdBytes==0)
       break;
 #ifdef DEBUG_FILES
     printf("  d_type %d d_name %s\n",natDent.d_type,natDent.d_name);
 #endif
-    Tdirent simDent(natDent);
+    Tdirent_t simDent(natDent);
     if(rv+simDent.d_reclen>count){
       lseek(realfd,dirPos,SEEK_SET);
       if(rv==0)
-	return setSysErr(context,ErrInval);
+        return setSysErr(context,VEINVAL);
       break;
     }
     if(!context->canWrite(dirp+rv,simDent.d_reclen))
-      return setSysErr(context,ErrFault);
+      return setSysErr(context,VEFAULT);
     simDent.write(context,dirp+rv);
     dirPos=lseek(realfd,natDent.d_off,SEEK_SET);
     rv+=simDent.d_reclen;
   }
   setSysRet(context,rv);
 }
-template<class defs>
-void LinuxSys::sysIOCtl(ThreadContext *context, InstDesc *inst){
-  typedef typename defs::Tint Tint;
-  typedef typename defs::Tintptr_t Tintptr_t;
-  typedef typename defs::IoctlReq IoctlReq;
-  typedef typename defs::Twinsize Twinsize;
-  FuncArgs args(context);
-  Tint fd=args.get<Tint>();
-  IoctlReq cmd=args.get<typeof(cmd.val)>();
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysIOCtl(ThreadContext *context, InstDesc *inst){
+  Tint     fd;
+  Tint     cmd;
+  CallArgs args(context);
+  args >> fd >> cmd;
   if(!context->getOpenFiles()->isOpen(fd))
-    return setSysErr(context,ErrBadf);
+    return setSysErr(context,VEBADF);
   FileSys::FileDesc *desc=context->getOpenFiles()->getDesc(fd);
   int realfd=desc->getStatus()->fd;
-  if(cmd.isTCGETS()){
+  switch(cmd){
+  case VTCGETS: {
     struct Mips32_kernel_termios{
       uint32_t c_iflag; // Input mode flags
       uint32_t c_oflag; // Output mode flags
@@ -1780,50 +3423,51 @@ void LinuxSys::sysIOCtl(ThreadContext *context, InstDesc *inst){
       unsigned char c_cc[19]; // Control characters
     };
     // TODO: For now, it never succeeds (assume no file is a terminal)
-    return setSysErr(context,ErrNoTTY);
-  }else if(cmd.isTIOCGWINSZ()){
-    Tintptr_t wsiz=args.get<Tintptr_t>();
-    if(!context->canWrite(wsiz,sizeof(Twinsize)))
-      return setSysErr(context,ErrFault);
+    return setSysErr(context,VENOTTY);
+  } break;
+  case VTIOCGWINSZ: {
+    Tpointer_t wsiz;
+    args >> wsiz;
+    if(!context->canWrite(wsiz,Twinsize::getSize()))
+      return setSysErr(context,VEFAULT);
     struct winsize natWinsize;
     int retVal=ioctl(realfd,TIOCGWINSZ,&natWinsize);
     if(retVal==-1)
-      return setSysErr(context,getErrCode(errno));
+      return setSysErr(context);
     Twinsize(natWinsize).write(context,wsiz);
-  }else if(cmd.isTCSETSW()){
+  } break;
+  case VTCSETSW: {
     // TODO: For now, it never succeeds (assume no file is a terminal)
-    return setSysErr(context,ErrNoTTY);
-  }else
-    fail("Mips::sysCall32_ioctl called with fd %d and req 0x%x at 0x%08x\n",
-	 fd,cmd.val,context->getIAddr());
-  setSysRet(context,0);
+    return setSysErr(context,VENOTTY);
+  } break;
+  default:
+    fail("sysCall32_ioctl called with fd %d and req 0x%x at 0x%08x\n",
+         fd,cmd,context->getIAddr());
+  }
+  setSysRet(context);
 }
-template<class defs>
-void LinuxSys::sysPoll(ThreadContext *context, InstDesc *inst){
-  typedef typename defs::Tintptr_t Tintptr_t;
-  typedef typename defs::Tlong Tlong;
-  typedef typename defs::Tuint Tuint;
-  typedef typename defs::Tpollfd Tpollfd;
-  FuncArgs args(context);
-  Tintptr_t fds=args.get<Tintptr_t>();
-  Tuint nfds=args.get<Tuint>();
-  Tlong timeout=args.get<Tlong>();
-  if((!context->canRead(fds,nfds*sizeof(Tpollfd)))||
-     (!context->canWrite(fds,nfds*sizeof(Tpollfd))))
-    return setSysErr(context,ErrFault);
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysPoll(ThreadContext *context, InstDesc *inst){
+  Tpointer_t fds;
+  Tuint      nfds;
+  Tlong      timeout;
+  CallArgs(context) >> fds >> nfds >> timeout;
+  if((!context->canRead(fds,nfds*Tpollfd::getSize()))||
+     (!context->canWrite(fds,nfds*Tpollfd::getSize())))
+    return setSysErr(context,VEFAULT);
   int fdList[nfds];
   Tlong rv=0;
   for(size_t i=0;i<nfds;i++){
-    Tpollfd myFd(context,fds+i*sizeof(Tpollfd));
+    Tpollfd myFd(context,fds+i*Tpollfd::getSize());
     fdList[i]=myFd.fd;
     myFd.revents=0;
     if(!context->getOpenFiles()->isOpen(myFd.fd)){
-      myFd.revents.setPOLLNVAL();
-    }else if((myFd.events.hasPOLLIN())&&(!context->getOpenFiles()->willReadBlock(myFd.fd))){
-      myFd.revents.setPOLLIN();
+      myFd.revents|=VPOLLNVAL;
+    }else if((myFd.events&VPOLLIN)&&(!context->getOpenFiles()->willReadBlock(myFd.fd))){
+      myFd.revents|=VPOLLIN;
     }else
       continue;
-    myFd.write(context,fds+i*sizeof(Tpollfd));
+    myFd.write(context,fds+i*Tpollfd::getSize());
     rv++;
   }
   // If any of the files could be read withut blocking, we're done
@@ -1837,7 +3481,7 @@ void LinuxSys::sysPoll(ThreadContext *context, InstDesc *inst){
   //     newMask.reset(SigIO);
   //     sstate->pushMask(newMask);
   if(context->hasReadySignal()){
-    setSysErr(context,ErrIntr);
+    setSysErr(context,VEINTR);
     SigInfo *sigInfo=context->nextReadySignal();
     //       sstate->popMask();
     handleSignal(context,sigInfo);
@@ -1866,105 +3510,102 @@ void LinuxSys::sysPoll(ThreadContext *context, InstDesc *inst){
 #endif
   context->suspend();
 }
-template<class defs>
-void LinuxSys::sysClose(ThreadContext *context, InstDesc *inst){
-  typedef typename defs::Tint Tint;
-  FuncArgs args(context);
-  Tint fd=args.get<Tint>();
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysClose(ThreadContext *context, InstDesc *inst){
+  Tint     fd;
+  CallArgs(context) >> fd;
   // Do the actual call
   if(context->getOpenFiles()->close(fd)==-1)
-    return setSysErr(context,getErrCode(errno));
+    return setSysErr(context);
 #ifdef DEBUG_FILES
   printf("[%d] close %d\n",context->gettid(),fd);
 #endif
-  setSysRet(context,0);
+  setSysRet(context);
 }
-
-template<class defs, class Toff_t>
-void LinuxSys::sysTruncate(ThreadContext *context, InstDesc *inst){
-  typedef typename defs::Tintptr_t Tintptr_t;
-  FuncArgs args(context);
-  Tstr path(context,args.get<Tintptr_t>());
+template<ExecMode mode>
+template<class Toffs>
+void RealLinuxSys<mode>::sysTruncate(ThreadContext *context, InstDesc *inst){
+  Tpointer_t pathp;
+  Toffs      length;
+  CallArgs(context) >> pathp >> length;
+  Tstr path(context,pathp);
   if(!path)
     return;
-  Toff_t length=args.get<Toff_t>();
 #ifdef DEBUG_FILES
   printf("[%d] truncate %s to %ld\n",context->gettid(),(const char *)path,(long)length);
 #endif
-  if(truncate(path,(off_t)length)==-1)
-    return setSysErr(context,getErrCode(errno));
-  setSysRet(context,0);
+  if(truncate(context->getFileSys()->toNative((const char *)path).c_str(),(off_t)length)==-1)
+    return setSysErr(context);
+  setSysRet(context);
 }
-template<class defs, class Toff_t>
-void LinuxSys::sysFTruncate(ThreadContext *context, InstDesc *inst){
-  I(0);
-  typedef typename defs::Tint Tint;
-  FuncArgs args(context);
-  Tint fd=args.get<Tint>();
-  Toff_t length=args.get<Toff_t>();
+template<ExecMode mode>
+template<class Toffs>
+void RealLinuxSys<mode>::sysFTruncate(ThreadContext *context, InstDesc *inst){
+  Tint  fd;
+  Toffs length;
+  CallArgs(context) >> fd >> length;
 #ifdef DEBUG_FILES
   printf("[%d] ftruncate %d to %ld\n",context->gettid(),fd,(long)length);
 #endif
   if(!context->getOpenFiles()->isOpen(fd))
-    return setSysErr(context,ErrBadf);
+    return setSysErr(context,VEBADF);
   FileSys::FileDesc *desc=context->getOpenFiles()->getDesc(fd);
   int realfd=desc->getStatus()->fd;
   if(ftruncate(realfd,(off_t)length)==-1)
-    return setSysErr(context,getErrCode(errno));
-  setSysRet(context,0);
+    return setSysErr(context);
+  setSysRet(context);
 }
-template<class defs>
-void LinuxSys::sysChMod(ThreadContext *context, InstDesc *inst){
-  typedef typename defs::Tintptr_t Tintptr_t;
-  typedef typename defs::Tuint Tuint;
-  typedef typename defs::Tmode_t Tmode_t;
-  FuncArgs args(context);
-  Tstr path(context,args.get<Tintptr_t>());
-  if(!path)
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysChMod(ThreadContext *context, InstDesc *inst){    
+  Tpointer_t pathp;
+  Tmode_t    fmode;
+  CallArgs(context) >> pathp >> fmode;
+  Tstr path(context,pathp);
+  if(!path)                 
     return;
-  Tmode_t mode(args.get<Tuint>());
 #ifdef DEBUG_FILES
-  printf("[%d] chmod %s to %d\n",context->gettid(),(const char *)path,mode.val);
+  printf("[%d] chmod %s to %d\n",context->gettid(),(const char *)path,fmode);
 #endif
-  if(chmod(path,mode)==-1)
-    return setSysErr(context,getErrCode(errno));
-  setSysRet(context,0);
+  if(chmod(context->getFileSys()->toNative((const char *)path).c_str(),mode_tToNative(fmode))==-1)
+    return setSysErr(context);               
+  setSysRet(context);
 }
-template<class defs, bool link, class Tstat>
-void LinuxSys::sysStat(ThreadContext *context, InstDesc *inst){
-  typedef typename defs::Tintptr_t Tintptr_t;
-  FuncArgs args(context);
-  Tstr path(context,args.get<Tintptr_t>());
+template<ExecMode mode>
+template<bool link, class Tstat_t>
+void RealLinuxSys<mode>::sysStat(ThreadContext *context, InstDesc *inst){
+  Tpointer_t pathp;
+  Tpointer_t buf;
+  CallArgs(context) >> pathp >> buf;
+  Tstr path(context,pathp);
   if(!path)
     return;
-  Tintptr_t buf=args.get<Tintptr_t>();
 #ifdef DEBUG_FILES
   printf("[%d] %cstat %s\n",context->gettid(),link?'l':' ',(const char *)path);
 #endif
-  if(!context->canWrite(buf,sizeof(Tstat)))
-    return setSysErr(context,ErrFault);
+  if(!context->canWrite(buf,Tstat_t::getSize()))
+    return setSysErr(context,VEFAULT);
   struct stat natStat;
-  if(link?lstat(path,&natStat):stat(path,&natStat))
-    return setSysErr(context,getErrCode(errno));
-  Tstat(natStat).write(context,buf);
-  setSysRet(context,0);
+  const std::string natPath=context->getFileSys()->toNative((const char *)path);
+  if(link?lstat(natPath.c_str(),&natStat):stat(natPath.c_str(),&natStat))
+    return setSysErr(context);
+  Tstat_t(natStat).write(context,buf);
+  setSysRet(context);
 }
-template<class defs, class Tstat>
-void LinuxSys::sysFStat(ThreadContext *context, InstDesc *inst){
-  typedef typename defs::Tint Tint;
-  typedef typename defs::Tintptr_t Tintptr_t;
-  FuncArgs args(context);
-  Tint fd=args.get<Tint>();
-  Tintptr_t buf=args.get<Tintptr_t>();
-  if(!context->canWrite(buf,sizeof(Tstat)))
-    return setSysErr(context,ErrFault);
+template<ExecMode mode>      
+template<class Tstat_t>
+void RealLinuxSys<mode>::sysFStat(ThreadContext *context, InstDesc *inst){
+  Tint       fd;
+  Tpointer_t buf;
+  CallArgs(context) >> fd >> buf;
+  if(!context->canWrite(buf,Tstat_t::getSize()))
+    return setSysErr(context,VEFAULT);
   if(!context->getOpenFiles()->isOpen(fd))
-    return setSysErr(context,ErrBadf);
-  FileSys::FileDesc *desc=context->getOpenFiles()->getDesc(fd);
+    return setSysErr(context,VEBADF);
+  FileSys::FileDesc *desc=context->getOpenFiles()->getDesc(fd);             
   int realfd=desc->getStatus()->fd;
-  struct stat natStat;
-  if(fstat(realfd,&natStat)==-1)
-    return setSysErr(context,getErrCode(errno));
+  struct stat natStat;            
+  if(fstat(realfd,&natStat)==-1)         
+    return setSysErr(context);
   // Make standard in, out, and err look like TTY devices
   if(fd<3){
     // Change format to character device
@@ -1975,603 +3616,640 @@ void LinuxSys::sysFStat(ThreadContext *context, InstDesc *inst){
     // We use a major number of 136 (0x88)
     natStat.st_rdev=0x8800;
   }
-  Tstat(natStat).write(context,buf);
-  setSysRet(context,0);
+  Tstat_t(natStat).write(context,buf);
+  setSysRet(context);
 }
-template<class defs>
-void LinuxSys::sysFStatFS(ThreadContext *context, InstDesc *inst){
-  typedef typename defs::Tint Tint;
-  typedef typename defs::Tintptr_t Tintptr_t;
-  FuncArgs args(context);
-  Tint fd=args.get<Tint>();
-  Tintptr_t buf=args.get<Tintptr_t>();
-  printf("sysFStatFS(%d,%d) called (continuing with ENOSYS).\n",fd,buf);
-  setSysErr(context,ErrNoSys); 
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysFStatFS(ThreadContext *context, InstDesc *inst){
+  Tint       fd;
+  Tpointer_t buf;
+  CallArgs(context) >> fd >> buf;
+  printf("sysFStatFS(%d,%ld) called (continuing with ENOSYS).\n",fd,(long)buf);
+  setSysErr(context,VENOSYS);
 }
-template<class defs>
-void LinuxSys::sysUnlink(ThreadContext *context, InstDesc *inst){
-  typedef typename defs::Tintptr_t Tintptr_t;
-  FuncArgs args(context);
-  Tstr pathname(context,args.get<Tintptr_t>());
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysUnlink(ThreadContext *context, InstDesc *inst){
+  Tpointer_t pathp;
+  CallArgs(context) >> pathp;
+  Tstr pathname(context,pathp);
   if(!pathname)
     return;
 #ifdef DEBUG_FILES
   printf("[%d] unlink %s\n",context->gettid(),(const char *)pathname);
 #endif
-  if(unlink(pathname)==-1)
-    return setSysErr(context,getErrCode(errno));
-  setSysRet(context,0);
+  if(unlink(context->getFileSys()->toNative((const char *)pathname).c_str())==-1)
+    return setSysErr(context);
+  setSysRet(context);
 }
-template<class defs>
-void LinuxSys::sysSymLink(ThreadContext *context, InstDesc *inst){
-  typedef typename defs::Tintptr_t Tintptr_t;
-  FuncArgs args(context);
-  Tstr path1(context,args.get<Tintptr_t>());
-  Tstr path2(context,args.get<Tintptr_t>());
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysSymLink(ThreadContext *context, InstDesc *inst){
+  Tpointer_t pathp1;
+  Tpointer_t pathp2;
+  CallArgs(context) >> pathp1 >> pathp2;
+  Tstr     path1(context,pathp1);
+  if(!path1)
+    return;
+  Tstr     path2(context,pathp2);
   if(!path2)
     return;
 #ifdef DEBUG_FILES
   printf("[%d] symlink %s to %s\n",context->gettid(),(const char *)path2,(const char *)path1);
 #endif
-  if(symlink(path1,path2)==-1)
-    return setSysErr(context,getErrCode(errno));
-  setSysRet(context,0);
+  if(symlink(path1,context->getFileSys()->toNative((const char *)path2).c_str())==-1)
+    return setSysErr(context);
+  setSysRet(context);
 }
-template<class defs>
-void LinuxSys::sysRename(ThreadContext *context, InstDesc *inst){
-  typedef typename defs::Tintptr_t Tintptr_t;
-  FuncArgs args(context);
-  Tstr oldpath(context,args.get<Tintptr_t>());
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysRename(ThreadContext *context, InstDesc *inst){
+  Tpointer_t oldpathp;
+  Tpointer_t newpathp;
+  CallArgs(context) >> oldpathp >> newpathp;
+  Tstr     oldpath(context,oldpathp);
   if(!oldpath)
     return;
-  Tstr newpath(context,args.get<Tintptr_t>());
+  Tstr     newpath(context,newpathp);
   if(!oldpath)
     return;
 #ifdef DEBUG_FILES
   printf("[%d] rename %s to %s\n",context->gettid(),(const char *)oldpath,(const char *)newpath);
 #endif
-  if(rename(oldpath,newpath)==-1)
-    return setSysErr(context,getErrCode(errno));
-  setSysRet(context,0);
+  if(rename(context->getFileSys()->toNative((const char *)oldpath).c_str(),
+	    context->getFileSys()->toNative((const char *)newpath).c_str())==-1)
+    return setSysErr(context);
+  setSysRet(context);
 }
-template<class defs>
-void LinuxSys::sysChdir(ThreadContext *context, InstDesc *inst){
-  typedef typename defs::Tintptr_t Tintptr_t;
-  FuncArgs args(context);
-  Tstr path(context,args.get<Tintptr_t>());
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysChdir(ThreadContext *context, InstDesc *inst){
+  Tpointer_t pathp;
+  CallArgs(context) >> pathp;
+  Tstr path(context,pathp);
   if(!path)
     return;
 #ifdef DEBUG_FILES
   printf("[%d] chdir %s\n",context->gettid(),(const char *)path);
 #endif
-  if(chdir(path)==-1)
-    return setSysErr(context,getErrCode(errno));
-  setSysRet(context,0);
+  // Remember current working directory of the simulator
+  char cwd[PATH_MAX];
+  getcwd(cwd,PATH_MAX);
+  // Change to the simulated workign directory to check for errors
+  int res=chdir(context->getFileSys()->toNative((const char *)path).c_str());
+  if(res){
+    setSysErr(context);
+  }else{
+    context->getFileSys()->setCwd((const char *)path);
+    setSysRet(context);
+  }
+  // Restore current working directory of the simulator
+  chdir(cwd);
 }
-template<class defs>
-void LinuxSys::sysAccess(ThreadContext *context, InstDesc *inst){
-  typedef typename defs::Tintptr_t Tintptr_t;
-  typedef typename defs::Tuint Tuint;
-  typedef typename defs::AMode AMode;
-  FuncArgs args(context);
-  Tstr fname(context,args.get<Tintptr_t>());
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysAccess(ThreadContext *context, InstDesc *inst){
+  Tpointer_t fnamep;
+  Tint       amode;
+  CallArgs(context) >> fnamep >> amode;
+  Tstr fname(context,fnamep);
   if(!fname)
     return;
   // TODO: Translate file name using mount info
 #ifdef DEBUG_FILES
   printf("[%d] access %s\n",context->gettid(),(const char *)fname);
 #endif
-  AMode mode(args.get<Tuint>());
-  if(access(fname,mode.toNat())==-1)
-    return setSysErr(context,getErrCode(errno));
-  setSysRet(context,0);
+  if(access(context->getFileSys()->toNative((const char *)fname).c_str(),accessModeToNative(amode))==-1)
+    return setSysErr(context);
+  setSysRet(context);
 }
-template<class defs>
-void LinuxSys::sysGetCWD(ThreadContext *context, InstDesc *inst){
-  typedef typename defs::Tintptr_t Tintptr_t;
-  typedef typename defs::Tsize_t Tsize_t;
-  FuncArgs args(context);
-  Tintptr_t buf(args.get<Tintptr_t>());
-  Tsize_t size(args.get<Tsize_t>());
-  char realBuf[size];
-  if(!getcwd(realBuf,size))
-    return setSysErr(context,getErrCode(errno));
-  // TODO: Translate directory name using mount info
-  int rv=strlen(realBuf)+1;
-  if(!context->canWrite(buf,rv))
-    return setSysErr(context,ErrFault);
-  context->writeMemFromBuf(buf,rv,realBuf);
-  return setSysRet(context,rv);
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysGetCWD(ThreadContext *context, InstDesc *inst){
+  Tpointer_t buf;
+  Tsize_t    size;
+  CallArgs(context) >> buf >> size;
+  if(!size)
+    return setSysErr(context,VEINVAL);
+  const std::string &cwd=context->getFileSys()->getCwd();
+  Tsize_t cwdLen=cwd.length()+1;
+  if(size<cwdLen)
+    return setSysErr(context,VERANGE);
+  if(!context->canWrite(buf,cwdLen))
+    return setSysErr(context,VEFAULT);
+  context->writeMemFromBuf(buf,cwdLen,cwd.c_str());
+  return setSysRet(context,Tint(cwdLen));
 }
-template<class defs>
-void LinuxSys::sysMkdir(ThreadContext *context, InstDesc *inst){
-  typedef typename defs::Tintptr_t Tintptr_t;
-  typedef typename defs::Tuint Tuint;
-  typedef typename defs::Tmode_t Tmode_t;
-  FuncArgs args(context);
-  Tstr pathname(context,args.get<Tintptr_t>());
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysMkdir(ThreadContext *context, InstDesc *inst){
+  Tpointer_t pathnamep;
+  Tmode_t    fmode;
+  CallArgs(context) >> pathnamep >> fmode;
+  Tstr     pathname(context,pathnamep);
   if(!pathname)
     return;
-  Tmode_t mode(args.get<Tuint>());
-  if(mkdir(pathname,mode)!=0)
-    return setSysErr(context,getErrCode(errno));
-  setSysRet(context,0);
+  if(mkdir(context->getFileSys()->toNative((const char *)pathname).c_str(),mode_tToNative(fmode))!=0)
+    return setSysErr(context);
+  setSysRet(context);
 }
-template<class defs>
-void LinuxSys::sysRmdir(ThreadContext *context, InstDesc *inst){
-  typedef typename defs::Tintptr_t Tintptr_t;
-  FuncArgs args(context);
-  Tstr pathname(context,args.get<Tintptr_t>());
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysRmdir(ThreadContext *context, InstDesc *inst){
+  Tpointer_t pathnamep;
+  CallArgs(context) >> pathnamep;
+  Tstr     pathname(context,pathnamep);
   if(!pathname)
     return;
-  if(rmdir(pathname)!=0)
-    return setSysErr(context,getErrCode(errno));
-  setSysRet(context,0);
+  if(rmdir(context->getFileSys()->toNative((const char *)pathname).c_str())!=0)
+    return setSysErr(context);
+  setSysRet(context);
 }
-
-template<class defs>
-void LinuxSys::sysUmask(ThreadContext *context, InstDesc *inst){
-  typedef typename defs::Tuint Tuint;
-  typedef typename defs::Tmode_t Tmode_t;
-  FuncArgs args(context);
-  Tmode_t mask(args.get<Tuint>());
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysUmask(ThreadContext *context, InstDesc *inst){
+  Tmode_t  mask;         
+  CallArgs(context) >> mask;             
   // TODO: Implement this call for non-zero mask
-  if(mask.val)
-    printf("sysUmask_(0x%08x) called\n",mask.val);
-  setSysRet(context,0);
+  if(mask)             
+    printf("sysUmask_(0x%08x) called\n",mask);
+  setSysRet(context);
 }
-template<class defs>
-void LinuxSys::sysReadLink(ThreadContext *context, InstDesc *inst){
-  typedef typename defs::Tintptr_t Tintptr_t;
-  typedef typename defs::Tsize_t Tsize_t;
-  typedef typename defs::Tssize_t Tssize_t;
-  FuncArgs args(context);
-  Tstr path(context,args.get<Tintptr_t>());
-  if(!path)
+template<ExecMode mode>  
+void RealLinuxSys<mode>::sysReadLink(ThreadContext *context, InstDesc *inst){
+  Tpointer_t pathp;
+  Tpointer_t buf;
+  Tsize_t    bufsiz;
+  CallArgs(context) >> pathp >> buf >> bufsiz;
+  Tstr path(context,pathp);
+  if(!path)             
     return;
 #ifdef DEBUG_FILES
   printf("[%d] readlink %s\n",context->gettid(),(const char *)path);
 #endif
-  Tintptr_t buf=args.get<Tintptr_t>();
-  Tsize_t bufsiz=args.get<Tsize_t>();
   char bufBuf[bufsiz];
-  Tssize_t bufLen=readlink(path,bufBuf,bufsiz);
+  Tssize_t bufLen=readlink(context->getFileSys()->toNative((const char *)path).c_str(),bufBuf,bufsiz);
   if(bufLen==-1)
-    return setSysErr(context,getErrCode(errno));
+    return setSysErr(context);
   if(!context->canWrite(buf,bufLen))
-    return setSysErr(context,ErrFault);
+    return setSysErr(context,VEFAULT);
   context->writeMemFromBuf(buf,bufLen,bufBuf);
-  setSysRet(context,bufLen);         
+  setSysRet(context,bufLen);
 }
-
-template<class defs>
-void LinuxSys::sysUname(ThreadContext *context, InstDesc *inst){
-  typedef typename defs::Tintptr_t Tintptr_t;
-  typedef typename defs::Tutsname Tutsname;
-  FuncArgs args(context);
-  Tintptr_t buf(args.get<Tintptr_t>());
-  Tutsname bufBuf;
-  if(!context->canWrite(buf,sizeof(Tutsname)))
-    return setSysErr(context,ErrFault);
-  memset(&bufBuf,0,sizeof(Tutsname));
-  strcpy(bufBuf.sysname,"GNU/Linux");
-  strcpy(bufBuf.nodename,"sesc");
-  strcpy(bufBuf.release,"2.6.22");
-  strcpy(bufBuf.version,"#1 SMP Tue Jun 4 16:05:29 CDT 2002");
-  strcpy(bufBuf.machine,"mips");
-  strcpy(bufBuf.domainname,"Sesc");
-  context->writeMemFromBuf(buf,sizeof(Tutsname),&bufBuf);
-  return setSysRet(context,0);
-}
-template<class defs>
-void LinuxSys::sysSysCtl(ThreadContext *context, InstDesc *inst){
-  typedef typename defs::Tintptr_t Tintptr_t;
-  typedef typename defs::Tint Tint;
-  typedef typename defs::Tsize_t Tsize_t;
-  typedef typename defs::T__sysctl_args T__sysctl_args;
-  typedef typename defs::SysCtl SysCtl;
-  FuncArgs args(context);
-  Tintptr_t argsptr=args.get<Tintptr_t>();
-  if(!context->canRead(argsptr,sizeof(T__sysctl_args)))
-    return setSysErr(context,ErrFault);
-  T__sysctl_args argsbuf(context,argsptr);
-  if(!context->canRead(argsbuf.name,argsbuf.nlen*sizeof(Tint)))
-    return setSysErr(context,ErrFault);        
-  SysCtl ctl(context->readMem<Tint>(argsbuf.name+0*sizeof(Tint)));
-  if(ctl.isCTL_KERN()){
-    typedef typename defs::SysCtlKern SysCtlKern;
-    if(argsbuf.nlen<=1)
-      return setSysErr(context,ErrNotDir);
-    SysCtlKern kern(context->readMem<Tint>(argsbuf.name+1*sizeof(Tint)));
-    if(kern.isKERN_VERSION()){
-      if(argsbuf.newval!=0)
-        return setSysErr(context,ErrPerm);
-      if(!context->canRead(argsbuf.oldlenp,sizeof(Tsize_t)))
-        return setSysErr(context,ErrFault);
-      Tsize_t oldlen=context->readMem<Tsize_t>(argsbuf.oldlenp);
-      char ver[]="#1 SMP Tue Jun 4 16:05:29 CDT 2002";
-      Tsize_t verlen=strlen(ver)+1;
-      if(oldlen<verlen)
-        return setSysErr(context,ErrFault);
-      if(!context->canWrite(argsbuf.oldlenp,sizeof(Tsize_t)))
-        return setSysErr(context,ErrFault);
-      if(!context->canWrite(argsbuf.oldval,verlen))
-        return setSysErr(context,ErrFault);
-      context->writeMemFromBuf(argsbuf.oldval,verlen,ver);
-      context->writeMem(argsbuf.oldlenp,verlen);
-    }else{
-      fail("sysCall32__sysctl: KERN name %d not supported\n",kern.val);
-      return setSysErr(context,ErrNotDir);
-    }
-  }else{
-    fail("sysCall32__sysctl: top-level name %d not supported\n",ctl.val);
-    return setSysErr(context,ErrNotDir);
-  }
-  return setSysRet(context,0);
-}
-template<class defs>
-void LinuxSys::sysGetUid(ThreadContext *context, InstDesc *inst){
-  // TODO: With different users, need to track simulated uid
-  return setSysRet(context,getuid());
-}
-template<class defs>
-void LinuxSys::sysGetEuid(ThreadContext *context, InstDesc *inst){
-  // TODO: With different users, need to track simulated euid
-  return setSysRet(context,geteuid());
-}
-template<class defs>
-void LinuxSys::sysGetGid(ThreadContext *context, InstDesc *inst){
-  // TODO: With different users, need to track simulated gid
-  return setSysRet(context,getgid());
-}
-template<class defs>
-void LinuxSys::sysGetEgid(ThreadContext *context, InstDesc *inst){
-  // TODO: With different users, need to track simulated egid
-  return setSysRet(context,getegid());
-}
-template<class defs>
-void LinuxSys::sysGetGroups(ThreadContext *context, InstDesc *inst){
-  typedef typename defs::Tsize_t Tsize_t;
-  typedef typename defs::Tintptr_t Tintptr_t;
-  FuncArgs args(context);
-  Tsize_t size=args.get<Tsize_t>();
-  Tintptr_t list=args.get<Tintptr_t>();
-#if (defined DEBUG_BENCH)
-  printf("sysCall32_getgroups(%ld,0x%08x)called\n",(long)size,list);
-#endif
-  setSysRet(context,0);
-}
-
-template<class defs>
-void LinuxSys::sysSocket(ThreadContext *context, InstDesc *inst){
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysSocket(ThreadContext *context, InstDesc *inst){
 #if (defined DEBUG_BENCH) || (defined DEBUG_SOCKET)
   printf("sysCall32_socket: not implemented at 0x%08x\n",context->getIAddr());
 #endif
-  setSysErr(context,ErrAfNoSupport);
+  setSysErr(context,VEAFNOSUPPORT);
 }
-template<class defs>
-void LinuxSys::sysConnect(ThreadContext *context, InstDesc *inst){
-#if (defined DEBUG_BENCH) || (defined DEBUG_SOCKET)
-  printf("sysConnect called (continuing with EAFNOSUPPORT)\n");
-#endif
-  setSysErr(context,ErrAfNoSupport);
-}
-template<class defs>
-void LinuxSys::sysSend(ThreadContext *context, InstDesc *inst){
-#if (defined DEBUG_BENCH) || (defined DEBUG_SOCKET)
-  printf("sysSend called (continuing with EAFNOSUPPORT)\n");
-#endif
-  setSysErr(context,ErrAfNoSupport);
-}
-template<class defs>
-void LinuxSys::sysBind(ThreadContext *context, InstDesc *inst){
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysBind(ThreadContext *context, InstDesc *inst){
 #if (defined DEBUG_BENCH) || (defined DEBUG_SOCKET)
   printf("sysBind called (continuing with EAFNOSUPPORT)\n");
 #endif
-  setSysErr(context,ErrAfNoSupport);
+  setSysErr(context,VEAFNOSUPPORT);
 }
-
-
-uint32_t Mips32LinuxSys::getArgI32(ThreadContext *context, size_t &pos) const{
-  I((pos%sizeof(uint32_t))==0);
-  size_t argpos=pos;
-  pos+=sizeof(uint32_t);
-  if(argpos<16)
-    return Mips::getRegAny<Mips32,uint32_t,RegTypeGpr>(context,Mips::RegA0+argpos/sizeof(uint32_t));
-  return context->readMem<uint32_t>(Mips::getRegAny<Mips32,Mips32Defs::Tintptr_t,Mips::RegSP>(context,Mips::RegSP)+argpos);
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysConnect(ThreadContext *context, InstDesc *inst){
+#if (defined DEBUG_BENCH) || (defined DEBUG_SOCKET)
+  printf("sysConnect called (continuing with EAFNOSUPPORT)\n");
+#endif
+  setSysErr(context,VEAFNOSUPPORT);
 }
-uint64_t Mips32LinuxSys::getArgI64(ThreadContext *context, size_t &pos) const{
-  I((pos%sizeof(uint32_t))==0);
-  if(pos%sizeof(uint64_t))
-    pos+=sizeof(uint32_t);
-  I((pos%sizeof(uint64_t))==0);
-  size_t argpos=pos;
-  pos+=sizeof(uint64_t);
-  if(argpos<16){
-    uint64_t rv=Mips::getRegAny<Mips32,uint32_t,RegTypeGpr>(context,Mips::RegA0+argpos/sizeof(uint32_t));
-    rv<<=32;
-    return rv|Mips::getRegAny<Mips32,uint32_t,RegTypeGpr>(context,Mips::RegA0+argpos/sizeof(uint32_t)+1);
-  }
-  return context->readMem<uint64_t>(Mips::getRegAny<Mips32,Mips32Defs::Tintptr_t,Mips::RegSP>(context,Mips::RegSP)+argpos);
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysSend(ThreadContext *context, InstDesc *inst){
+#if (defined DEBUG_BENCH) || (defined DEBUG_SOCKET)
+  printf("sysSend called (continuing with EAFNOSUPPORT)\n");
+#endif
+  setSysErr(context,VEAFNOSUPPORT);
 }
-void Mips32LinuxSys::setSysErr(ThreadContext *context, ErrCode err) const{
-  Mips::setRegAny<Mips32,int32_t,RegTypeGpr>(context,Mips::RegA3,(int32_t)1);
-  Mips::setRegAny<Mips32,int32_t,RegTypeGpr>(context,Mips::RegV0,Mips32Defs::ErrCode(err).val);
-}
-
-void Mips32LinuxSys::setSysRet(ThreadContext *context, int val) const{
-  Mips::setRegAny<Mips32,int32_t,RegTypeGpr>(context,Mips::RegA3,(int32_t)0);
-  Mips::setRegAny<Mips32,int32_t,RegTypeGpr>(context,Mips::RegV0,val);
-}
-
-void Mips32LinuxSys::setSysRet(ThreadContext *context, int val1, int val2) const{
-  Mips::setRegAny<Mips32,int32_t,RegTypeGpr>(context,Mips::RegA3,(int32_t)0);
-  Mips::setRegAny<Mips32,int32_t,RegTypeGpr>(context,Mips::RegV0,val1);
-  Mips::setRegAny<Mips32,int32_t,RegTypeGpr>(context,Mips::RegV1,val2);
-}
-void Mips32LinuxSys::setProgArgs(ThreadContext *context, int argc, char **argv, int envc, char **envp) const{
-  setProgArgs_<Mips32Defs>(context,argc,argv,envc,envp);
-}
-void Mips32LinuxSys::exitRobustList(ThreadContext *context, VAddr robust_list){
-  exitRobustList_<Mips32Defs>(context,robust_list);
-}
-void Mips32LinuxSys::setThreadArea(ThreadContext *context, VAddr addr) const{
-  Mips::setRegAny<Mips32,Mips32Defs::Tintptr_t,Mips::RegTPtr>(context,Mips::RegTPtr,addr);
-}
-bool Mips32LinuxSys::stackGrowsDown(void) const{
-  return true;
-}
-VAddr Mips32LinuxSys::getStackPointer(ThreadContext *context) const{
-  return Mips::getRegAny<Mips32,Mips32Defs::Tintptr_t,Mips::RegSP>(context,Mips::RegSP);
-}
-void Mips32LinuxSys::setStackPointer(ThreadContext *context, VAddr addr) const{
-  Mips::setRegAny<Mips32,Mips32Defs::Tintptr_t,Mips::RegSP>(context,Mips::RegSP,addr);
-}
-InstDesc *Mips32LinuxSys::sysCall(ThreadContext *context, InstDesc *inst){
-  context->updIAddr(inst->aupdate,1);
-  uint32_t sysCallNum=Mips::getRegAny<Mips32,uint32_t,Mips::RegV0>(context,Mips::RegV0);
-  LinuxSys *system=context->getSystem();
-  switch(sysCallNum){
-  case 4001: case 4003: case 4004: case 4005: case 4006: case 4007: case 4010: 
-  case 4011: case 4013: case 4019:
-  case 4020: case 4024: case 4033: case 4038: case 4041: case 4042: case 4043: case 4045: case 4047: case 4049: 
-  case 4050:
-  case 4054: case 4060:
-  case 4063: case 4064: case 4075: case 4076: case 4077: case 4080: case 4090: case 4091: case 4106: 
-  case 4108: case 4114: case 4120: case 4122: 
-  case 4125: case 4140: case 4146: case 4153: case 4166: case 4167: case 4169: case 4183: case 4194: case 4195:
-  case 4203: case 4210:
-  case 4212: case 4213: case 4214: case 4215: case 4219: case 4220: case 4238: case 4246: case 4252:
-  case 4283: case 4309:
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysSetRLimit(ThreadContext *context, InstDesc *inst){
+  Tint       resource;
+  Tpointer_t rlim;
+  CallArgs(context) >> resource >> rlim;
+  if(!context->canRead(rlim,Trlimit::getSize()))
+    return setSysErr(context,VEFAULT);
+  Trlimit buf(context,rlim);
+  switch(resource){
+  case VRLIMIT_STACK: break;
+  case VRLIMIT_DATA:
+    // Limit is already RLIM_INFINITY, so we don't care what the new size is
     break;
   default:
-    printf("Using Mips32Linuxsys::sysCall %d\n",sysCallNum);
+    fail("sysCall32_setrlimit called for resource %d at 0x%08x\n",resource,context->getIAddr());
   }
+  return setSysRet(context);
+}
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysGetRLimit(ThreadContext *context, InstDesc *inst){
+  Tint       resource;
+  Tpointer_t rlim;
+  CallArgs(context) >> resource >>rlim;
+  if(!context->canWrite(rlim,Trlimit::getSize()))
+    return setSysErr(context,VEFAULT);
+  Trlimit buf(VRLIM_INFINITY,VRLIM_INFINITY);
+  switch(resource){
+  case VRLIMIT_STACK:
+  case VRLIMIT_NOFILE:
+  case VRLIMIT_DATA:
+  case VRLIMIT_AS:
+  case VRLIMIT_CPU:
+    break;
+  case VRLIMIT_CORE:
+    buf.rlim_cur=buf.rlim_max=0;
+    break;
+  defualt:
+    printf("sysCall32_getrlimit called for unknown resource %d. Return RLIM_INFINITY.\n",resource);
+  }
+  buf.write(context,rlim);
+  return setSysRet(context);
+}
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysGetRUsage(ThreadContext *context, InstDesc *inst){
+  Tint       who;
+  Tpointer_t r_usage;
+  CallArgs(context) >> who >> r_usage;
+  if(!context->canWrite(r_usage,Trusage::getSize()))
+    return setSysErr(context,VEFAULT);
+
+  // TODO: This is a hack. See definition of these vars
+  myUsrUsecs+=100;
+  mySysUsecs+=1;
+
+  Trusage(Ttimeval(myUsrUsecs/1000000,myUsrUsecs%1000000),
+	  Ttimeval(mySysUsecs/1000000,mySysUsecs%1000000)).write(context,r_usage);
+  return setSysRet(context);
+}
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysUname(ThreadContext *context, InstDesc *inst){
+  Tpointer_t buf;
+  CallArgs(context) >> buf;
+  Tutsname   bufBuf;
+  if(!context->canWrite(buf,Tutsname::getSize()))
+    return setSysErr(context,VEFAULT);
+  strcpy((char *)(bufBuf.sysname),"GNU/Linux");
+  strcpy((char *)(bufBuf.nodename),"sesc");
+  strcpy((char *)(bufBuf.release),"2.6.22");
+  strcpy((char *)(bufBuf.version),"#1 SMP Tue Jun 4 16:05:29 CDT 2002");
+  strcpy((char *)(bufBuf.machine),"mips");
+  bufBuf.write(context,buf);
+  return setSysRet(context);
+}
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysSysCtl(ThreadContext *context, InstDesc *inst){
+  Tpointer_t argsp;
+  CallArgs(context) >> argsp;
+  if(!context->canRead(argsp,T__sysctl_args::getSize()))
+    return setSysErr(context,VEFAULT);
+  T__sysctl_args argsbuf(context,argsp);
+  if(!context->canRead(argsbuf.name,argsbuf.nlen*sizeof(Tint)))
+    return setSysErr(context,VEFAULT);
+  Tint name[argsbuf.nlen];
+  for(int i=0;i<argsbuf.nlen;i++)
+    name[i]=fixEndian(context->readMemRaw<Tint>(argsbuf.name+i*sizeof(Tint)));
+  switch(name[0]){
+  case VCTL_KERN:
+    if(argsbuf.nlen<=1)
+      return setSysErr(context,VENOTDIR);
+    switch(name[1]){
+    case VKERN_VERSION: {
+      if(argsbuf.newval!=0)
+        return setSysErr(context,VEPERM);
+      if(!context->canRead(argsbuf.oldlenp,sizeof(Tsize_t)))
+        return setSysErr(context,VEFAULT);
+      Tsize_t oldlen(fixEndian(context->readMemRaw<Tsize_t>(argsbuf.oldlenp)));
+      char ver[]="#1 SMP Tue Jun 4 16:05:29 CDT 2002";
+      Tsize_t verlen=strlen(ver)+1;
+      if(oldlen<verlen)
+        return setSysErr(context,VEFAULT);
+      if(!context->canWrite(argsbuf.oldlenp,sizeof(Tsize_t)))
+        return setSysErr(context,VEFAULT);
+      if(!context->canWrite(argsbuf.oldval,verlen))
+        return setSysErr(context,VEFAULT);
+      context->writeMemFromBuf(argsbuf.oldval,verlen,ver);
+      context->writeMemRaw(argsbuf.oldlenp,fixEndian(verlen));
+    } break;
+    default:
+      fail("sysCall32__sysctl: KERN name %d not supported\n",name[1]);
+      return setSysErr(context,VENOTDIR);
+    }
+    break;
+  default: 
+    fail("sysCall32__sysctl: top-level name %d not supported\n",name[0]);
+    return setSysErr(context,VENOTDIR);
+  }
+  return setSysRet(context);
+}
+
+
+template<>
+void RealLinuxSys<ExecModeMips32>::setThreadArea(ThreadContext *context, Tpointer_t addr){
+  setReg<Tpointer_t,RegTPtr>(context,RegTPtr,addr);
+}
+template<>
+void RealLinuxSys<ExecModeMipsel32>::setThreadArea(ThreadContext *context, Tpointer_t addr){
+  setReg<Tpointer_t,RegTPtr>(context,RegTPtr,addr);
+}
+template<>
+void RealLinuxSys<ExecModeMips64>::setThreadArea(ThreadContext *context, Tpointer_t addr){
+  setReg<Tpointer_t,RegTPtr>(context,RegTPtr,addr);
+}
+template<>
+void RealLinuxSys<ExecModeMipsel64>::setThreadArea(ThreadContext *context, Tpointer_t addr){
+  setReg<Tpointer_t,RegTPtr>(context,RegTPtr,addr);
+}
+
+// On MIPS the stack grows down
+template<> int RealLinuxSys<ExecModeMips32>::stackGrowthSign(void){ return -1; }
+template<> int RealLinuxSys<ExecModeMipsel32>::stackGrowthSign(void){ return -1; }
+template<> int RealLinuxSys<ExecModeMips64>::stackGrowthSign(void){ return -1; }
+template<> int RealLinuxSys<ExecModeMipsel64>::stackGrowthSign(void){ return -1; }
+
+template<> RealLinuxSys<ExecModeMips32>::Tint RealLinuxSys<ExecModeMips32>::getSysCallNum(const ThreadContext *context){
+  return getReg<Tint,RegV0>(context,RegV0);
+}
+template<> RealLinuxSys<ExecModeMipsel32>::Tint RealLinuxSys<ExecModeMipsel32>::getSysCallNum(const ThreadContext *context){
+  return getReg<Tint,RegV0>(context,RegV0);
+}
+template<> RealLinuxSys<ExecModeMips64>::Tint RealLinuxSys<ExecModeMips64>::getSysCallNum(const ThreadContext *context){
+  return getReg<Tint,RegV0>(context,RegV0);
+}
+template<> RealLinuxSys<ExecModeMipsel64>::Tint RealLinuxSys<ExecModeMipsel64>::getSysCallNum(const ThreadContext *context){
+  return getReg<Tint,RegV0>(context,RegV0);
+}
+
+template<ExecMode mode>
+InstDesc *RealLinuxSys<mode>::sysCall(ThreadContext *context, InstDesc *inst){
+  context->updIAddr(inst->aupdate,1);
+  Tint sysCallNum=getSysCallNum(context);
+//   switch(sysCallNum){
+//   case 4001: case 4003: case 4004: case 4005: case 4006: case 4007: case 4010: 
+//   case 4011: case 4013: case 4019:
+//   case 4020: case 4024: case 4033: case 4038: case 4041: case 4042: case 4043: case 4045: case 4047: case 4049: 
+//   case 4050:
+//   case 4054: case 4060:
+//   case 4063: case 4064: case 4075: case 4076: case 4077: case 4080: case 4090: case 4091: case 4106: 
+//   case 4108: case 4114: case 4120: case 4122: 
+//   case 4125: case 4140: case 4146: case 4153: case 4166: case 4167: case 4169: case 4183: case 4194: case 4195:
+//   case 4203: case 4210:
+//   case 4212: case 4213: case 4214: case 4215: case 4219: case 4220: case 4238: case 4246: case 4252:
+//   case 4283: case 4309:
+//     break;
+//   default:
+//     printf("Using Mips32Linuxsys::sysCall %d\n",sysCallNum);
+//   }
   switch(sysCallNum){
-//  case 4000: Mips::sysCall32_syscall(inst,context); break;
-  case 4001: return sysExit<Mips32Defs>(context,inst); break;
-  case 4002: /*Untested*/ sysFork<Mips32Defs>(context,inst); break;
-  case 4003: sysRead<Mips32Defs>(context,inst); break;
-  case 4004: sysWrite<Mips32Defs>(context,inst);  break;
-  case 4005: sysOpen<Mips32Defs>(context,inst); break;
-  case 4006: sysClose<Mips32Defs>(context,inst); break;
-  case 4007: sysWaitpid<Mips32Defs>(context,inst); break;
-//  case 4008: Mips::sysCall32_creat(inst,context); break;
-//  case 4009: Mips::sysCall32_link(inst,context); break;
-  case 4010: sysUnlink<Mips32Defs>(context,inst); break;
-  case 4011: sysExecVe<Mips32Defs>(context,inst); break;
-  case 4012: /*Untested*/ sysChdir<Mips32Defs>(context,inst); break;
-  case 4013: sysTime<Mips32Defs>(context,inst); break;
-//  case 4014: Mips::sysCall32_mknod(inst,context); break;
-  case 4015: /*Untested*/sysChMod<Mips32Defs>(context,inst); break;
-//  case 4016: Mips::sysCall32_lchown(inst,context); break;
-//  case 4017: Mips::sysCall32_break(inst,context); break;
-//  case 4018: Mips::sysCall32_oldstat(inst,context); break;
-  case 4019: sysLSeek<Mips32Defs>(context,inst); break;
-  case 4020: sysGetPid<Mips32Defs>(context,inst); break;
-//  case 4021: Mips::sysCall32_mount(inst,context); break;
-//  case 4022: Mips::sysCall32_umount(inst,context); break;
-//  case 4023: Mips::sysCall32_setuid(inst,context); break;
-  case 4024: sysGetUid<Mips32Defs>(context,inst); break;
-//  case 4025: Mips::sysCall32_stime(inst,context); break;
-//  case 4026: Mips::sysCall32_ptrace(inst,context); break;
-  case 4027: /*Untested*/ sysAlarm<Mips32Defs>(context,inst); break;
-//  case 4028: Mips::sysCall32_oldfstat(inst,context); break;
-//  case 4029: Mips::sysCall32_pause(inst,context); break;
-//  case 4030: Mips::sysCall32_utime(inst,context); break;
-//  case 4031: Mips::sysCall32_stty(inst,context); break;
-//  case 4032: Mips::sysCall32_gtty(inst,context); break;
-  case 4033: sysAccess<Mips32Defs>(context,inst); break;
-//  case 4034: Mips::sysCall32_nice(inst,context); break;
-//  case 4035: Mips::sysCall32_ftime(inst,context); break;
-//  case 4036: Mips::sysCall32_sync(inst,context); break;
-  case 4037: /*Untested*/ sysKill<Mips32Defs>(context,inst); break;
-  case 4038: sysRename<Mips32Defs>(context,inst); break;
-  case 4039: /*Untested*/ sysMkdir<Mips32Defs>(context,inst); break;
-  case 4040: /*Untested*/ sysRmdir<Mips32Defs>(context,inst); break;
-  case 4041: sysDup<Mips32Defs>(context,inst); break;
-  case 4042: sysPipe<Mips32Defs>(context,inst); break;
-  case 4043: sysTimes<Mips32Defs>(context,inst); break;
-//  case 4044: Mips::sysCall32_prof(inst,context); break;
-  case 4045: sysBrk<Mips32Defs>(context,inst); break;
-//  case 4046: Mips::sysCall32_setgid(inst,context); break;
-  case 4047: sysGetGid<Mips32Defs>(context,inst); break;
-//  case 4048: Mips::sysCall32_signal(inst,context); break;
-  case 4049: sysGetEuid<Mips32Defs>(context,inst); break;
-  case 4050: sysGetEgid<Mips32Defs>(context,inst); break;
-//  case 4051: Mips::sysCall32_acct(inst,context); break;
-//  case 4052: Mips::sysCall32_umount2(inst,context); break;
-//  case 4053: Mips::sysCall32_lock(inst,context); break;
-  case 4054: sysIOCtl<Mips32Defs>(context,inst); break;
-  case 4055: /* Untested */ sysFCntl<Mips32Defs>(context,inst); break;
-//  case 4056: Mips::sysCall32_mpx(inst,context); break;
-//  case 4057: Mips::sysCall32_setpgid(inst,context); break;
-//  case 4058: Mips::sysCall32_ulimit(inst,context); break;
-//  case 4059: Mips::sysCall32_unused59(inst,context); break;
-  case 4060: sysUmask<Mips32Defs>(context,inst); break;
-//  case 4061: Mips::sysCall32_chroot(inst,context); break;
-//  case 4062: Mips::sysCall32_ustat(inst,context); break;
-  case 4063: sysDup2<Mips32Defs>(context,inst); break;
-  case 4064: sysGetPPid<Mips32Defs>(context,inst); break;
-//  case 4065: Mips::sysCall32_getpgrp(inst,context); break;
-//  case 4066: Mips::sysCall32_setsid(inst,context); break;
-//  case 4067: Mips::sysCall32_sigaction(inst,context); break;
-//  case 4068: Mips::sysCall32_sgetmask(inst,context); break;
-//  case 4069: Mips::sysCall32_ssetmask(inst,context); break;
-//  case 4070: Mips::sysCall32_setreuid(inst,context); break;
-//  case 4071: Mips::sysCall32_setregid(inst,context); break;
-//  case 4072: Mips::sysCall32_sigsuspend(inst,context); break;
-//  case 4073: Mips::sysCall32_sigpending(inst,context); break;
-//  case 4074: Mips::sysCall32_sethostname(inst,context); break;
-  case 4075: sysSetRLimit<Mips32Defs>(context,inst); break;
-  case 4076: sysGetRLimit<Mips32Defs>(context,inst); break;
-  case 4077: sysGetRUsage<Mips32Defs>(context,inst); break;
-  case 4078: /*Untested*/ sysGetTimeOfDay<Mips32Defs>(context,inst); break;
-//  case 4079: Mips::sysCall32_settimeofday(inst,context); break;
-  case 4080: sysGetGroups<Mips32Defs>(context,inst); break;
-//  case 4081: Mips::sysCall32_setgroups(inst,context); break;
-//  case 4082: Mips::sysCall32_reserved82(inst,context); break;
-  case 4083: /* Untested*/ sysSymLink<Mips32Defs>(context,inst); break;
-//  case 4084: Mips::sysCall32_oldlstat(inst,context); break;
-  case 4085: /*Untested*/ sysReadLink<Mips32Defs>(context,inst); break;
-//  case 4086: Mips::sysCall32_uselib(inst,context); break;
-//  case 4087: Mips::sysCall32_swapon(inst,context); break;
-//  case 4088: Mips::sysCall32_reboot(inst,context); break;
-//  case 4089: Mips::sysCall32_readdir(inst,context); break;
-  case 4090: sysMMap<Mips32Defs,1>(context,inst); break;
-  case 4091: sysMUnMap<Mips32Defs>(context,inst); break;
-  case 4092: /*Untested*/ sysTruncate<Mips32Defs,Mips32Defs::Toff_t>(context,inst); break;
-  case 4093: /*Untested*/ sysFTruncate<Mips32Defs,Mips32Defs::Toff_t>(context,inst); break;
-//  case 4094: Mips::sysCall32_fchmod(inst,context); break;
-//  case 4095: Mips::sysCall32_fchown(inst,context); break;
-  case 4096: sysGetPriority<Mips32Defs>(context,inst); break;
-//  case 4097: Mips::sysCall32_setpriority(inst,context); break;
-//  case 4098: Mips::sysCall32_profil(inst,context); break;
-//  case 4099: Mips::sysCall32_statfs(inst,context); break;
-  case 4100: sysFStatFS<Mips32Defs>(context,inst); break;
-//  case 4101: Mips::sysCall32_ioperm(inst,context); break;
-//  case 4102: Mips::sysCall32_socketcall(inst,context); break;
-//  case 4103: Mips::sysCall32_syslog(inst,context); break;
-  case 4104: sysSetITimer<Mips32Defs>(context,inst); break;
-//  case 4105: Mips::sysCall32_getitimer(inst,context); break;
-  case 4106: sysStat<Mips32Defs,false,Mips32Defs::Tstat>(context,inst); break;
-  case 4107: /*Untested*/ system->sysStat<Mips32Defs,true,Mips32Defs::Tstat>(context,inst); break;
-  case 4108: sysFStat<Mips32Defs,Mips32Defs::Tstat>(context,inst); break;
-//  case 4109: Mips::sysCall32_unused109(inst,context); break;
-//  case 4110: Mips::sysCall32_iopl(inst,context); break;
-//  case 4111: Mips::sysCall32_vhangup(inst,context); break;
-//  case 4112: Mips::sysCall32_idle(inst,context); break;
-//  case 4113: Mips::sysCall32_vm86(inst,context); break;
-  case 4114: sysWait4<Mips32Defs>(context,inst); break;
-//  case 4115: Mips::sysCall32_swapoff(inst,context); break;
-//  case 4116: Mips::sysCall32_sysinfo(inst,context); break;
+  // Thread/process creation and destruction system calls
+  case V__NR_clone:           sysClone(context,inst); break;
+  case V__NR_fork:            sysFork(context,inst); break;
+  case V__NR_execve:          sysExecVe(context,inst); break;
+  case V__NR_exit:            return sysExit(context,inst); break;
+  case V__NR_exit_group:      return sysExitGroup(context,inst); break;
+  case V__NR_waitpid:         sysWaitpid(context,inst); break;
+  case V__NR_wait4:           sysWait4(context,inst); break;
+  // Thread/Process relationships system calls
+  case V__NR_getpid:          sysGetPid(context,inst); break;
+  case V__NR_gettid:          sysGetTid(context,inst); break;
+  case V__NR_getppid:         sysGetPPid(context,inst); break;
+  case V__NR_setpgid:         fail("V__NR_setpgid not implemented\n"); break;
+  case V__NR_getpgid:         fail("V__NR_getpgid not implemented\n"); break;
+  case V__NR_getpgrp:         fail("V__NR_getpgrp not implemented\n"); break;
+  case V__NR_setsid:          fail("V__NR_setsid not implemented\n"); break;
+  case V__NR_getsid:          fail("V__NR_getsid not implemented\n"); break;
+  // Synchronization system calls
+  case V__NR_futex:           sysFutex(context,inst); break;
+  case V__NR_set_robust_list: sysSetRobustList(context,inst); break;
+  case V__NR_get_robust_list: fail("V__NR_get_robust_list not implemented\n"); break;
+  case V__NR_set_tid_address: sysSetTidAddress(context,inst); break;
+  // Signal-related system calls
+  case V__NR_kill:            sysKill(context,inst); break;
+  case V__NR_tkill:           sysTKill(context,inst); break;
+  case V__NR_tgkill:          sysTgKill(context,inst); break;
+  case V__NR_rt_sigqueueinfo: fail("V__NR_rt_sigqueueinfo not implemented\n"); break;
+    //  case V__NR_sigaction:       fail("V__NR_sigaction not implemented\n"); break;
+  case V__NR_rt_sigaction:    sysRtSigAction(context,inst); break;
+    //  case V__NR_sigprocmask:     fail("V__NR_sigprocmask not implemented\n"); break;
+  case V__NR_rt_sigprocmask:  sysRtSigProcMask(context,inst); break;
+    //  case V__NR_sigpending:      fail("V__NR_sigpending not implemented\n"); break;
+  case V__NR_rt_sigpending:   fail("V__NR_rt_sigpending not implemented\n"); break;
+    //  case V__NR_sigsuspend:      fail("V__NR_sigsuspend not implemented\n"); break;
+  case V__NR_rt_sigsuspend:   sysRtSigSuspend(context,inst); break;
+    //  case V__NR_signal:          fail("V__NR_signal not implemented\n"); break;
+  case V__NR_signalfd:        fail("V__NR_signalfd not implemented\n"); break;
+  case V__NR_sigaltstack:     fail("V__NR_sigaltstack not implemented\n"); break;
+  case V__NR_rt_sigtimedwait: fail("V__NR_sigtimedwait not implemented\n"); break;
+    //  case V__NR_sigreturn:       fail("V__NR_sigreturn not implemented\n"); break;
+  case V__NR_rt_sigreturn:    sysRtSigReturn(context,inst); break;
+  // Time-related system calls
+  case V__NR_times:           sysTimes(context,inst); break;
+  case V__NR_time:            sysTime(context,inst); break;
+  case V__NR_settimeofday:    fail("V__NR_settimeofday not implemented\n"); break;
+  case V__NR_gettimeofday:    sysGetTimeOfDay(context,inst); break;
+  case V__NR_setitimer:       sysSetITimer(context,inst); break;
+  case V__NR_getitimer:       fail("V__NR_getitimer not implemented\n"); break;
+  case V__NR_clock_getres:    sysClockGetRes(context,inst); break;
+  case V__NR_clock_settime:   fail("V__NR_clock_settime not implemented\n"); break;
+  case V__NR_clock_gettime:   sysClockGetTime(context,inst); break;
+  case V__NR_alarm:           sysAlarm(context,inst); break;
+  case V__NR_nanosleep:       sysNanoSleep(context,inst); break;
+  case V__NR_clock_nanosleep: sysClockNanoSleep(context,inst); break;
+  // Process/thread scheduling calls
+  case V__NR_sched_yield:            sysSchedYield(context,inst); break;
+  case V__NR_setpriority:            fail("V__NR_setpriority not implemented\n"); break;
+  case V__NR_getpriority:            sysGetPriority(context,inst); break;
+  case V__NR_sched_getparam:         sysSchedGetParam(context,inst); break;
+  case V__NR_sched_setparam:         fail("V__NR_sched_setparam not implemented\n"); break;
+  case V__NR_sched_setscheduler:     sysSchedSetScheduler(context,inst); break;
+  case V__NR_sched_getscheduler:     sysSchedGetScheduler(context,inst); break;
+  case V__NR_sched_get_priority_max: sysSchedGetPriorityMax(context,inst); break;
+  case V__NR_sched_get_priority_min: sysSchedGetPriorityMin(context,inst); break;
+  case V__NR_sched_setaffinity:      sysSchedSetAffinity(context,inst); break;
+  case V__NR_sched_getaffinity:      sysSchedGetAffinity(context,inst); break;
+  case V__NR_sched_rr_get_interval:  fail("V__NR_sched_rr_get_interval not implemented\n"); break;
+  // User info calls
+  case V__NR_setuid:          fail("V__NR_setuid not implemented\n"); break;
+  case V__NR_getuid:          sysGetUid(context,inst); break;
+  case V__NR_setreuid:        fail("V__NR_setreuid not implemented\n"); break;
+  case V__NR_setresuid:       fail("V__NR_setresuid not implemented\n"); break;
+  case V__NR_setfsuid:        fail("V__NR_setfsuid not implemented\n"); break;
+  case V__NR_geteuid:         sysGetEuid(context,inst); break;
+  case V__NR_getresuid:       fail("V__NR_getresuid not implemented\n"); break;
+  case V__NR_setgid:          fail("V__NR_setgid not implemented\n"); break;
+  case V__NR_getgid:          sysGetGid(context,inst); break;
+  case V__NR_setregid:        fail("V__NR_setregid not implemented\n"); break;
+  case V__NR_setresgid:       fail("V__NR_setresgid not implemented\n"); break;
+  case V__NR_setfsgid:        fail("V__NR_setfsgid not implemented\n"); break;
+  case V__NR_getegid:         sysGetEgid(context,inst); break;
+  case V__NR_getresgid:       fail("V__NR_getresgid not implemented\n"); break;
+  case V__NR_setgroups:       fail("V__NR_setgroups not implemented\n"); break;
+  case V__NR_getgroups:       sysGetGroups(context,inst); break;
+  // Memory management calls
+  case V__NR_brk:             sysBrk(context,inst); break;
+  case V__NR_set_thread_area: sysSetThreadArea(context,inst); break;
+  case V__NR_mmap:            sysMMap<1>(context,inst); break;
+  case V__NR_mmap2:           sysMMap<4096>(context,inst); break;
+  case V__NR_mremap:          sysMReMap(context,inst); break;
+  case V__NR_munmap:          sysMUnMap(context,inst); break;
+  case V__NR_mprotect:        sysMProtect(context,inst); break;
+  // File-related system calls
+  case V__NR_open:            sysOpen(context,inst); break;
+  case V__NR_pipe:            sysPipe(context,inst); break;
+  case V__NR_dup:             sysDup(context,inst); break;
+  case V__NR_dup2:            sysDup2(context,inst); break;
+  case V__NR_fcntl:           sysFCntl(context,inst); break;
+  case V__NR_fcntl64:         sysFCntl(context,inst); break;
+  case V__NR_read:            sysRead(context,inst); break;
+  case V__NR_write:           sysWrite(context,inst); break;
+  case V__NR_writev:          sysWriteV(context,inst); break;
+  case V__NR_lseek:           sysLSeek(context,inst); break;
+  case V__NR__llseek:         sysLLSeek(context,inst); break;
+  case V__NR_getdents:        sysGetDEnts<Tdirent>(context,inst); break;
+  case V__NR_getdents64:      sysGetDEnts<Tdirent64>(context,inst); break;
+  case V__NR_ioctl:           sysIOCtl(context,inst); break;
+  case V__NR_poll:            sysPoll(context,inst); break;
+  case V__NR_close:           sysClose(context,inst); break;
+  case V__NR_truncate:        sysTruncate<Toff_t>(context,inst); break;
+  case V__NR_truncate64:      sysTruncate<Tloff_t>(context,inst); break;
+  case V__NR_ftruncate:       sysFTruncate<Toff_t>(context,inst); break;
+  case V__NR_ftruncate64    : sysFTruncate<Tloff_t>(context,inst); break;
+  case V__NR_chmod:           sysChMod(context,inst); break;
+  case V__NR_stat:            sysStat<false,Tstat>(context,inst); break;
+  case V__NR_stat64:          sysStat<false,Tstat64>(context,inst); break;
+  case V__NR_lstat:           sysStat<true,Tstat>(context,inst); break;
+  case V__NR_lstat64:         sysStat<true,Tstat64>(context,inst); break;
+  case V__NR_fstat:           sysFStat<Tstat>(context,inst); break;
+  case V__NR_fstat64:         sysFStat<Tstat64>(context,inst); break;
+  case V__NR_fstatfs:         sysFStatFS(context,inst); break;
+  case V__NR_fstatfs64:       fail("V__NR_fstatfs64 not implemented\n"); break;
+  case V__NR_unlink:          sysUnlink(context,inst); break;
+  case V__NR_symlink:         sysSymLink(context,inst); break;
+  case V__NR_rename:          sysRename(context,inst); break;
+  case V__NR_chdir:           sysChdir(context,inst); break;
+  case V__NR_access:          sysAccess(context,inst); break;
+  case V__NR_getcwd:          sysGetCWD(context,inst); break;
+  case V__NR_mkdir:           sysMkdir(context,inst); break;
+  case V__NR_rmdir:           sysRmdir(context,inst); break;
+  case V__NR_umask:           sysUmask(context,inst); break;
+  case V__NR_readlink:        sysReadLink(context,inst); break;
+  //#define __NR_utimes                     (__NR_Linux + 267)
+  // Network related system calls
+  case V__NR_socket:          sysSocket(context,inst); break;
+  case V__NR_socketpair:      fail("V__NR_socketpair not implemented\n"); break;
+  case V__NR_bind:            sysBind(context,inst); break;
+  case V__NR_accept:          fail("V__NR_accept not implemented\n"); break;
+  case V__NR_connect:         sysConnect(context,inst); break;
+  //  case V__NR_send:            sysSend(context,inst); break;
+    /*
+  case 4171: sysCall32_getpeername(inst,context); break;
+  case 4172: sysCall32_getsockname(inst,context); break;
+  case 4173: sysCall32_getsockopt(inst,context); break;
+  case 4174: sysCall32_listen(inst,context); break;
+  case 4175: sysCall32_recv(inst,context); break;
+  case 4176: sysCall32_recvfrom(inst,context); break;
+  case 4177: sysCall32_recvmsg(inst,context); break;
+  case 4179: sysCall32_sendmsg(inst,context); break;
+  case 4180: sysCall32_sendto(inst,context); break;
+  case 4181: sysCall32_setsockopt(inst,context); break;
+    */
+  // Process info system calls
+  case V__NR_setrlimit:       sysSetRLimit(context,inst); break;
+  case V__NR_getrlimit:       sysGetRLimit(context,inst); break;
+  case V__NR_getrusage:       sysGetRUsage(context,inst); break;
+  // System info calls
+  case V__NR_uname:           sysUname(context,inst); break;
+  case V__NR__sysctl:         sysSysCtl(context,inst); break;
+	  
+//  case 4000: sysCall32_syscall(inst,context); break;
+//  case 4008: sysCall32_creat(inst,context); break;
+//  case 4009: sysCall32_link(inst,context); break;
+//  case 4014: sysCall32_mknod(inst,context); break;
+//  case 4016: sysCall32_lchown(inst,context); break;
+//  case 4017: sysCall32_break(inst,context); break;
+//  case 4018: sysCall32_oldstat(inst,context); break;
+//  case 4021: sysCall32_mount(inst,context); break;
+//  case 4022: sysCall32_umount(inst,context); break;
+//  case 4025: sysCall32_stime(inst,context); break;
+//  case 4026: sysCall32_ptrace(inst,context); break;
+//  case 4028: sysCall32_oldfstat(inst,context); break;
+//  case 4029: sysCall32_pause(inst,context); break;
+//  case 4030: sysCall32_utime(inst,context); break;
+//  case 4031: sysCall32_stty(inst,context); break;
+//  case 4032: sysCall32_gtty(inst,context); break;
+//  case 4034: sysCall32_nice(inst,context); break;
+//  case 4035: sysCall32_ftime(inst,context); break;
+//  case 4036: sysCall32_sync(inst,context); break;
+//  case 4044: sysCall32_prof(inst,context); break;
+//  case 4051: sysCall32_acct(inst,context); break;
+//  case 4052: sysCall32_umount2(inst,context); break;
+//  case 4053: sysCall32_lock(inst,context); break;
+//  case 4056: sysCall32_mpx(inst,context); break;
+//  case 4057: sysCall32_setpgid(inst,context); break;
+//  case 4058: sysCall32_ulimit(inst,context); break;
+//  case 4059: sysCall32_unused59(inst,context); break;
+//  case 4061: sysCall32_chroot(inst,context); break;
+//  case 4062: sysCall32_ustat(inst,context); break;
+//  case 4068: sysCall32_sgetmask(inst,context); break;
+//  case 4069: sysCall32_ssetmask(inst,context); break;
+//  case 4074: sysCall32_sethostname(inst,context); break;
+//  case 4082: sysCall32_reserved82(inst,context); break;
+//  case 4084: sysCall32_oldlstat(inst,context); break;
+//  case 4086: sysCall32_uselib(inst,context); break;
+//  case 4087: sysCall32_swapon(inst,context); break;
+//  case 4088: sysCall32_reboot(inst,context); break;
+//  case 4089: sysCall32_readdir(inst,context); break;
+//  case 4094: sysCall32_fchmod(inst,context); break;
+//  case 4095: sysCall32_fchown(inst,context); break;
+//  case 4098: sysCall32_profil(inst,context); break;
+//  case 4099: sysCall32_statfs(inst,context); break;
+//  case 4101: sysCall32_ioperm(inst,context); break;
+//  case 4102: sysCall32_socketcall(inst,context); break;
+//  case 4103: sysCall32_syslog(inst,context); break;
+//  case 4109: sysCall32_unused109(inst,context); break;
+//  case 4110: sysCall32_iopl(inst,context); break;
+//  case 4111: sysCall32_vhangup(inst,context); break;
+//  case 4112: sysCall32_idle(inst,context); break;
+//  case 4113: sysCall32_vm86(inst,context); break;
+//  case 4115: sysCall32_swapoff(inst,context); break;
+//  case 4116: sysCall32_sysinfo(inst,context); break;
 // If you implement ipc() you must handle CLONE_SYSVSEM in clone()
-//  case 4117: Mips::sysCall32_ipc(inst,context); break;
-//  case 4118: Mips::sysCall32_fsync(inst,context); break;
-//  case 4119: Mips::sysCall32_sigreturn(inst,context); break;
-  case 4120: sysClone<Mips32Defs>(context,inst); break;
-//  case 4121: Mips::sysCall32_setdomainname(inst,context); break;
-  case 4122: sysUname<Mips32Defs>(context,inst); break;
-//  case 4123: Mips::sysCall32_modify_ldt(inst,context); break;
-//  case 4124: Mips::sysCall32_adjtimex(inst,context); break;
-  case 4125: sysMProtect<Mips32Defs>(context,inst); break;
-//  case 4126: Mips::sysCall32_sigprocmask(inst,context); break;
-//  case 4127: Mips::sysCall32_create_module(inst,context); break;
-//  case 4128: Mips::sysCall32_init_module(inst,context); break;
-//  case 4129: Mips::sysCall32_delete_module(inst,context); break;
-//  case 4130: Mips::sysCall32_get_kernel_syms(inst,context); break;
-//  case 4131: Mips::sysCall32_quotactl(inst,context); break;
-//  case 4132: Mips::sysCall32_getpgid(inst,context); break;
-//  case 4133: Mips::sysCall32_fchdir(inst,context); break;
-//  case 4134: Mips::sysCall32_bdflush(inst,context); break;
-//  case 4135: Mips::sysCall32_sysfs(inst,context); break;
-//  case 4136: Mips::sysCall32_personality(inst,context); break;
-//  case 4137: Mips::sysCall32_afs_syscall(inst,context); break;
-//  case 4138: Mips::sysCall32_setfsuid(inst,context); break;
-//  case 4139: Mips::sysCall32_setfsgid(inst,context); break;
-  case 4140: sysLLSeek<Mips32Defs>(context,inst); break;
-//  case 4141: Mips::sysCall32_getdents(inst,context); break;
-//  case 4142: Mips::sysCall32__newselect(inst,context); break;
-//  case 4143: Mips::sysCall32_flock(inst,context); break;
-//  case 4144: Mips::sysCall32_msync(inst,context); break;
-//  case 4145: Mips::sysCall32_readv(inst,context); break;
-  case 4146: sysWriteV<Mips32Defs>(context,inst); break;
-//  case 4147: Mips::sysCall32_cacheflush(inst,context); break;
-//  case 4148: Mips::sysCall32_cachectl(inst,context); break;
-//  case 4149: Mips::sysCall32_sysmips(inst,context); break;
-//  case 4150: Mips::sysCall32_unused150(inst,context); break;
-//  case 4151: Mips::sysCall32_getsid(inst,context); break;
-//  case 4152: Mips::sysCall32_fdatasync(inst,context); break;
-  case 4153: sysSysCtl<Mips32Defs>(context,inst); break;
-//  case 4154: Mips::sysCall32_mlock(inst,context); break;
-//  case 4155: Mips::sysCall32_munlock(inst,context); break;
-//  case 4156: Mips::sysCall32_mlockall(inst,context); break;
-//  case 4157: Mips::sysCall32_munlockall(inst,context); break;
-//  case 4158: Mips::sysCall32_sched_setparam(inst,context); break;
-  case 4159: sysSchedGetParam<Mips32Defs>(context,inst); break;
-  case 4160: sysSchedSetScheduler<Mips32Defs>(context,inst); break;
-  case 4161: sysSchedGetScheduler<Mips32Defs>(context,inst); break;
-  case 4162: sysSchedYield<Mips32Defs>(context,inst); break;
-  case 4163: sysSchedGetPriorityMax<Mips32Defs>(context,inst); break;
-  case 4164: sysSchedGetPriorityMin<Mips32Defs>(context,inst); break;
-//  case 4165: Mips::sysCall32_sched_rr_get_interval(inst,context); break;
-  case 4166: sysNanoSleep<Mips32Defs>(context,inst); break;
-  case 4167: sysMReMap<Mips32Defs>(context,inst); break;
-//  case 4168: Mips::sysCall32_accept(inst,context); break;
-  case 4169: sysBind<Mips32Defs>(context,inst); break;
-  case 4170: sysConnect<Mips32Defs>(context,inst); break;
-//  case 4171: Mips::sysCall32_getpeername(inst,context); break;
-//  case 4172: Mips::sysCall32_getsockname(inst,context); break;
-//  case 4173: Mips::sysCall32_getsockopt(inst,context); break;
-//  case 4174: Mips::sysCall32_listen(inst,context); break;
-//  case 4175: Mips::sysCall32_recv(inst,context); break;
-//  case 4176: Mips::sysCall32_recvfrom(inst,context); break;
-//  case 4177: Mips::sysCall32_recvmsg(inst,context); break;
-  case 4178: sysSend<Mips32Defs>(context,inst); break;
-//  case 4179: Mips::sysCall32_sendmsg(inst,context); break;
-//  case 4180: Mips::sysCall32_sendto(inst,context); break;
-//  case 4181: Mips::sysCall32_setsockopt(inst,context); break;
-//  case 4182: Mips::sysCall32_shutdown(inst,context); break;
-  case 4183: sysSocket<Mips32Defs>(context,inst); break;
-//  case 4184: Mips::sysCall32_socketpair(inst,context); break;
-//  case 4185: Mips::sysCall32_setresuid(inst,context); break;
-//  case 4186: Mips::sysCall32_getresuid(inst,context); break;
-//  case 4187: Mips::sysCall32_query_module(inst,context); break;
-  case 4188: /*Untested*/ sysPoll<Mips32Defs>(context,inst); break;
-//  case 4189: Mips::sysCall32_nfsservctl(inst,context); break;
-//  case 4190: Mips::sysCall32_setresgid(inst,context); break;
-//  case 4191: Mips::sysCall32_getresgid(inst,context); break;
-//  case 4192: Mips::sysCall32_prctl(inst,context); break;
-  case 4193: /*Untested*/ system->sysRtSigReturn(context,inst); break;
-  case 4194: sysRtSigAction<Mips32Defs>(context,inst); break;
-  case 4195: sysRtSigProcMask<Mips32Defs>(context,inst); break;
-//  case 4196: Mips::sysCall32_rt_sigpending(inst,context); break;
-//  case 4197: Mips::sysCall32_rt_sigtimedwait(inst,context); break;
-//  case 4198: Mips::sysCall32_rt_sigqueueinfo(inst,context); break;
-  case 4199: /*Untested*/ sysRtSigSuspend<Mips32Defs>(context,inst); break;
-//  case 4200: Mips::sysCall32_pread64(inst,context); break;
-//  case 4201: Mips::sysCall32_pwrite64(inst,context); break;
-//  case 4202: Mips::sysCall32_chown(inst,context); break;
-  case 4203: sysGetCWD<Mips32Defs>(context,inst); break;
-//  case 4204: Mips::sysCall32_capget(inst,context); break;
-//  case 4205: Mips::sysCall32_capset(inst,context); break;
-//  case 4206: Mips::sysCall32_sigaltstack(inst,context); break;
-//  case 4207: Mips::sysCall32_sendfile(inst,context); break;
-//  case 4208: Mips::sysCall32_getpmsg(inst,context); break;
-//  case 4209: Mips::sysCall32_putpmsg(inst,context); break;
-  case 4210: sysMMap<Mips32Defs,4096>(context,inst); break; // This is mmap2 (offset multiplied by 4096)
-  case 4211: /*Untested*/ sysTruncate<Mips32Defs,Mips32Defs::Tloff_t>(context,inst); break;
-  case 4212: sysFTruncate<Mips32Defs,Mips32Defs::Tloff_t>(context,inst); break;
-  case 4213: sysStat<Mips32Defs,false,Mips32Defs::Tstat64>(context,inst); break;
-  case 4214: sysStat<Mips32Defs,true,Mips32Defs::Tstat64>(context,inst); break;
-  case 4215: sysFStat<Mips32Defs,Mips32Defs::Tstat64>(context,inst); break;
-//  case 4216: Mips::sysCall32_root_pivot(inst,context); break;
-//  case 4217: Mips::sysCall32_mincore(inst,context); break;
-//  case 4218: Mips::sysCall32_madvise(inst,context); break;
-  case 4219: sysGetDEnts<Mips32Defs,Mips32Defs::Tdirent64>(context,inst); break;
-  case 4220: sysFCntl<Mips32Defs>(context,inst); break; // This is actually fcntl64
+//  case 4117: sysCall32_ipc(inst,context); break;
+//  case 4118: sysCall32_fsync(inst,context); break;
+//  case 4119: sysCall32_sigreturn(inst,context); break;
+//  case 4121: sysCall32_setdomainname(inst,context); break;
+//  case 4123: sysCall32_modify_ldt(inst,context); break;
+//  case 4124: sysCall32_adjtimex(inst,context); break;
+//  case 4127: sysCall32_create_module(inst,context); break;
+//  case 4128: sysCall32_init_module(inst,context); break;
+//  case 4129: sysCall32_delete_module(inst,context); break;
+//  case 4130: sysCall32_get_kernel_syms(inst,context); break;
+//  case 4131: sysCall32_quotactl(inst,context); break;
+//  case 4133: sysCall32_fchdir(inst,context); break;
+//  case 4134: sysCall32_bdflush(inst,context); break;
+//  case 4135: sysCall32_sysfs(inst,context); break;
+//  case 4136: sysCall32_personality(inst,context); break;
+//  case 4137: sysCall32_afs_syscall(inst,context); break;
+//  case 4142: sysCall32__newselect(inst,context); break;
+//  case 4143: sysCall32_flock(inst,context); break;
+//  case 4144: sysCall32_msync(inst,context); break;
+//  case 4145: sysCall32_readv(inst,context); break;
+//  case 4147: sysCall32_cacheflush(inst,context); break;
+//  case 4148: sysCall32_cachectl(inst,context); break;
+//  case 4149: sysCall32_sysmips(inst,context); break;
+//  case 4150: sysCall32_unused150(inst,context); break;
+//  case 4152: sysCall32_fdatasync(inst,context); break;
+//  case 4154: sysCall32_mlock(inst,context); break;
+//  case 4155: sysCall32_munlock(inst,context); break;
+//  case 4156: sysCall32_mlockall(inst,context); break;
+//  case 4157: sysCall32_munlockall(inst,context); break;
+//  case 4182: sysCall32_shutdown(inst,context); break;
+//  case 4187: sysCall32_query_module(inst,context); break;
+//  case 4189: sysCall32_nfsservctl(inst,context); break;
+//  case 4192: sysCall32_prctl(inst,context); break;
+//  case 4200: sysCall32_pread64(inst,context); break;
+//  case 4201: sysCall32_pwrite64(inst,context); break;
+//  case 4202: sysCall32_chown(inst,context); break;
+//  case 4204: sysCall32_capget(inst,context); break;
+//  case 4205: sysCall32_capset(inst,context); break;
+//  case 4207: sysCall32_sendfile(inst,context); break;
+//  case 4208: sysCall32_getpmsg(inst,context); break;
+//  case 4209: sysCall32_putpmsg(inst,context); break;
+//  case 4216: sysCall32_root_pivot(inst,context); break;
+//  case 4217: sysCall32_mincore(inst,context); break;
+//  case 4218: sysCall32_madvise(inst,context); break;
 //#define __NR_reserved221                (__NR_Linux + 221)
-  case 4222: /*Untested*/ sysGetTid<Mips32Defs>(context,inst); break;
 //#define __NR_readahead                  (__NR_Linux + 223)
 //#define __NR_setxattr                   (__NR_Linux + 224)
 //#define __NR_lsetxattr                  (__NR_Linux + 225)
@@ -2585,38 +4263,25 @@ InstDesc *Mips32LinuxSys::sysCall(ThreadContext *context, InstDesc *inst){
 //#define __NR_removexattr                (__NR_Linux + 233)
 //#define __NR_lremovexattr               (__NR_Linux + 234)
 //#define __NR_fremovexattr               (__NR_Linux + 235)
-  case 4236: sysTKill<Mips32Defs>(context,inst); break;
 //#define __NR_sendfile64                 (__NR_Linux + 237)
-  case 4238: sysFutex<Mips32Defs>(context,inst); break;
-  case 4239: sysSchedSetAffinity<Mips32Defs>(context,inst); break;
-  case 4240: sysSchedGetAffinity<Mips32Defs>(context,inst); break;
 //#define __NR_io_setup                   (__NR_Linux + 241)
 //#define __NR_io_destroy                 (__NR_Linux + 242)
 //#define __NR_io_getevents               (__NR_Linux + 243)
 //#define __NR_io_submit                  (__NR_Linux + 244)
 //#define __NR_io_cancel                  (__NR_Linux + 245)
-  case 4246: return sysExitGroup<Mips32Defs>(context,inst); break;
 //#define __NR_lookup_dcookie             (__NR_Linux + 247)
 //#define __NR_epoll_create               (__NR_Linux + 248)
 //#define __NR_epoll_ctl                  (__NR_Linux + 249)
 //#define __NR_epoll_wait                 (__NR_Linux + 250)
 //#define __NR_remap_file_pages           (__NR_Linux + 251)
-  case 4252: sysSetTidAddress<Mips32Defs>(context,inst); break;
 //#define __NR_restart_syscall            (__NR_Linux + 253)
 //#define __NR_fadvise64                  (__NR_Linux + 254)
 //#define __NR_statfs64                   (__NR_Linux + 255)
-//#define __NR_fstatfs64                  (__NR_Linux + 256)
 //#define __NR_timer_create               (__NR_Linux + 257)
 //#define __NR_timer_settime              (__NR_Linux + 258)
 //#define __NR_timer_gettime              (__NR_Linux + 259)
 //#define __NR_timer_getoverrun           (__NR_Linux + 260)
 //#define __NR_timer_delete               (__NR_Linux + 261)
-//#define __NR_clock_settime              (__NR_Linux + 262)
-  case 4263: sysClockGetTime<Mips32Defs>(context,inst); break;
-  case 4264: sysClockGetRes<Mips32Defs>(context,inst); break;
-  case 4265: /*Untested*/sysClockNanoSleep<Mips32Defs>(context,inst); break;
-  case 4266: sysTgKill<Mips32Defs>(context,inst); break;
-//#define __NR_utimes                     (__NR_Linux + 267)
 //#define __NR_mbind                      (__NR_Linux + 268)
 //#define __NR_get_mempolicy              (__NR_Linux + 269)
 //#define __NR_set_mempolicy              (__NR_Linux + 270)
@@ -2628,11 +4293,10 @@ InstDesc *Mips32LinuxSys::sysCall(ThreadContext *context, InstDesc *inst){
 //#define __NR_mq_getsetattr              (__NR_Linux + 276)
 //#define __NR_vserver                    (__NR_Linux + 277)
 //#define __NR_waitid                     (__NR_Linux + 278)
-//#define __NR_sys_setaltroot             (__NR_Linux + 279)
+//#define __NR___NR_setaltroot             (__NR_Linux + 279)
 //#define __NR_add_key                    (__NR_Linux + 280)
 //#define __NR_request_key                (__NR_Linux + 281)
 //#define __NR_keyctl                     (__NR_Linux + 282)
-  case 4283: sysSetThreadArea<Mips32Defs>(context,inst); break;
 //#define __NR_inotify_init               (__NR_Linux + 284)
 //#define __NR_inotify_add_watch          (__NR_Linux + 285)
 //#define __NR_inotify_rm_watch           (__NR_Linux + 286)
@@ -2658,28 +4322,25 @@ InstDesc *Mips32LinuxSys::sysCall(ThreadContext *context, InstDesc *inst){
 //#define __NR_tee                        (__NR_Linux + 306)
 //#define __NR_vmsplice                   (__NR_Linux + 307)
 //#define __NR_move_pages                 (__NR_Linux + 308)
-  case 4309: sysSetRobustList<Mips32Defs>(context,inst); break;
-//#define __NR_get_robust_list            (__NR_Linux + 310)
 //#define __NR_kexec_load                 (__NR_Linux + 311)
 //#define __NR_getcpu                     (__NR_Linux + 312)
 //#define __NR_epoll_pwait                (__NR_Linux + 313)
 //#define __NR_ioprio_set                 (__NR_Linux + 314)
 //#define __NR_ioprio_get                 (__NR_Linux + 315)
 //#define __NR_utimensat                  (__NR_Linux + 316)
-//#define __NR_signalfd                   (__NR_Linux + 317)
 //#define __NR_timerfd                    (__NR_Linux + 318)
 //#define __NR_eventfd                    (__NR_Linux + 319)
   default:
     fail("Unknown Mips32 syscall %d at 0x%08x\n",sysCallNum,context->getIAddr());
   }
 #if (defined DEBUG_SYSCALLS)
-  if(Mips::getRegAny<Mips32,uint32_t,RegTypeGpr>(context,Mips::RegA3)){
+  if(Mips::getRegAny<myMode,uint32_t,RegTypeGpr>(context,RegA3)){
     switch(sysCallNum){
     case 4193: // rt_sigreturn (does not return from the call)
       break;
     default:
       printf("sysCall %d returns with error %d\n",sysCallNum,
-	     Mips::getRegAny<Mips32,uint32_t,RegTypeGpr>(context,Mips::RegA3)
+	     Mips::getRegAny<myMode,uint32_t,RegTypeGpr>(context,RegA3)
 	     );
       break;
     }

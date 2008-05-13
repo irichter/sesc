@@ -3,6 +3,7 @@
 
 #include <stddef.h>
 #include <sys/types.h>
+#include <string>
 #include <vector>
 #include <map>
 #include "GCObject.h"
@@ -210,21 +211,38 @@ namespace FileSys {
       return (strcmp(first,second)<0);
     }
   };
-   
-  class FileNames{
-    static FileNames* fileNames;
-    char *cwd;
-    typedef std::map<char *,char *,strlt> StringMap;
-    StringMap simToReal;
+
+  // Name space (mount and umount) information and file name translation
+  class NameSpace : public GCObject{
   public:
-    static FileNames* getFileNames(void);
-    bool setCwd(const char *newcwd);
-    const char *getCwd(void){
+    typedef SmartPtr<NameSpace> pointer;
+  private:
+    typedef std::map<std::string,std::string,std::greater<std::string> > Mounts;
+    Mounts mounts;
+  public:
+    NameSpace(const std::string &mtlist);
+    NameSpace(const NameSpace &src);
+    const std::string toNative(const std::string &fname) const;
+  };
+
+  // File system (chroot, chdir, and umask) information and file name translation
+  class FileSys : public GCObject{
+  public:
+    typedef SmartPtr<FileSys> pointer;
+  private:
+    NameSpace::pointer nameSpace;
+    std::string cwd;
+  public:
+    FileSys(NameSpace *ns, const std::string &cwd);
+    FileSys(const FileSys &src, bool newNameSpace);
+    const std::string &getCwd(void) const{
       return cwd;
     }
-    bool mount(const char *sim, const char *real);
-    size_t getReal(const char *sim, size_t len, char *real);
+    void setCwd(const std::string &newCwd);
+    const std::string normalize(const std::string &fname) const;
+    const std::string toNative(const std::string &fname) const;
   };
+
 }
 
 #endif // FILE_SYS_H

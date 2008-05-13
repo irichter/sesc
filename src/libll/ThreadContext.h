@@ -123,8 +123,8 @@ class ThreadContext {
 #endif
 
 #if (defined MIPS_EMUL)
-  // Is the processor in 32bit or 64bit mode
-  CpuMode cpuMode;
+  // Execution mode of this thread
+  ExecMode execMode;
   // Register file(s)
   RegVal regs[NumOfRegs];
   // Address space for this thread
@@ -177,9 +177,9 @@ public:
   static inline int32_t getPidUb(void){
     return pid2context.size();
   }
-  void setMode(CpuMode newMode);
-  inline CpuMode getMode(void) const{
-    return cpuMode;
+  void setMode(ExecMode mode);
+  inline ExecMode getMode(void) const{
+    return execMode;
   }
 
   inline const void *getReg(RegName name) const{
@@ -446,8 +446,12 @@ public:
   }
 
 #if (defined MIPS_EMUL)
-  ThreadContext(void);
-  ThreadContext(ThreadContext &parent, bool cloneParent, bool cloneFiles, bool cloneSighand, bool cloneVm, bool cloneThread, SignalID sig, VAddr clearChildTid);
+  ThreadContext(FileSys::FileSys *fileSys);
+  ThreadContext(ThreadContext &parent, bool cloneParent,
+		bool cloneFileSys, bool newNameSpace,
+		bool cloneFiles, bool cloneSighand,
+		bool cloneVm, bool cloneThread,
+		SignalID sig, VAddr clearChildTid);
   ThreadContext(ChkReader &in);
   ~ThreadContext();
 
@@ -587,7 +591,7 @@ public:
       if(foundPid==(int)(pid2context.size()))
         foundPid=0;
       ThreadContext *context=pid2context[foundPid];
-      if(context&&(!context->isWaiting())&&(!context->isExited()))
+      if(context&&(!context->isSuspended())&&(!context->isExited()))
         return foundPid;
       foundPid++;
     }while(foundPid!=startPid);
@@ -650,31 +654,19 @@ public:
 //      getState(addr+i*MemState::Granularity).st=1;
     return addressSpace->writeMemRaw<T>(addr,val);
   }
-  template<class T>
-  inline T readMem(VAddr addr){
-    I(canRead(addr,sizeof(T)));
-    T tmp=readMemRaw<T>(addr);
-    cvtEndianBig(tmp);
-    return tmp;
-  }
 #if (defined DEBUG_BENCH)
   VAddr readMemWord(VAddr addr);
 #endif
-  template<class T>
-  inline bool writeMem(VAddr addr, const T &val){
-    T tmp=val;
-    cvtEndianBig(tmp);    
-    return writeMemRaw<T>(addr,tmp);
-  }
 
   //
   // File system
   //
  private:
+  FileSys::FileSys::pointer fileSys;
   FileSys::OpenFiles::pointer openFiles;
  public:
-  void setOpenFiles(FileSys::OpenFiles *newOpenFiles){
-    openFiles=newOpenFiles;
+  FileSys::FileSys *getFileSys(void) const{
+    return fileSys;
   }
   FileSys::OpenFiles *getOpenFiles(void) const{
     return openFiles;
@@ -799,7 +791,7 @@ public:
   int32_t      exitCode;
   SignalID killSignal;
  public:
-  bool isWaiting(void) const{
+  bool isSuspended(void) const{
     return suspSig;
   }
   bool isExited(void) const{

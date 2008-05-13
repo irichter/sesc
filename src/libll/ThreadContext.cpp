@@ -597,15 +597,16 @@ int64_t  MintFuncArgs::getInt64(void){
 
 #if (defined MIPS_EMUL)
 
-void ThreadContext::setMode(CpuMode newMode){
-  cpuMode=newMode;
-  mySystem=LinuxSys::create(cpuMode);
+void ThreadContext::setMode(ExecMode mode){
+  execMode=mode;
+  if(mySystem)
+    delete mySystem;
+  mySystem=LinuxSys::create(execMode);
 }
-
 
 void ThreadContext::save(ChkWriter &out) const{
   out << "ThreadContext pid " << pid;
-  out << "Mode " << cpuMode << " exited " << exited << endl;
+  out << "Mode " << execMode << " exited " << exited << endl;
   out << "AddressSpace ";
   out.writeobj(getAddressSpace());
   out << "Parent " << parentID << " exitSig " << exitSig << " clear_child_tid " << clear_child_tid << endl;
@@ -652,9 +653,9 @@ void ThreadContext::save(ChkWriter &out) const{
 ThreadContext::ThreadContext(ChkReader &in) : nDInsts(0) {
   in >> "ThreadContext pid " >> pid;
   pid2context[pid]=this;
-  size_t _cpuMode;
-  in >> "Mode " >> _cpuMode >> " exited " >> exited >> endl;
-  setMode(static_cast<CpuMode>(_cpuMode));
+  size_t _execMode;
+  in >> "Mode " >> _execMode >> " exited " >> exited >> endl;
+  setMode(static_cast<ExecMode>(_execMode));
   size_t _addressSpace;
   in >> "AddressSpace ";
   setAddressSpace(in.readobj<AddressSpace>());
@@ -731,15 +732,16 @@ ThreadContext::ThreadContext(ChkReader &in) : nDInsts(0) {
   updIDesc(upc);
 }
 
-ThreadContext::ThreadContext(void)
+ThreadContext::ThreadContext(FileSys::FileSys *fileSys)
   :
   myStackAddrLb(0),
   myStackAddrUb(0),
-  cpuMode(NoCpuMode),
+  execMode(ExecModeNone),
   iAddr(0),
   iDesc(InvalidInstDesc),
   dAddr(0),
   nDInsts(0),
+  fileSys(fileSys),
   openFiles(new FileSys::OpenFiles()),
   sigTable(new SignalTable()),
   sigMask(),
@@ -769,20 +771,23 @@ ThreadContext::ThreadContext(void)
 }
 
 ThreadContext::ThreadContext(ThreadContext &parent,
-                              bool cloneParent, bool cloneFiles, bool cloneSighand,
-                              bool cloneVm, bool cloneThread,
-                              SignalID sig, VAddr clearChildTid)
+			     bool cloneParent, bool cloneFileSys, bool newNameSpace,
+			     bool cloneFiles, bool cloneSighand,
+			     bool cloneVm, bool cloneThread,
+			     SignalID sig, VAddr clearChildTid)
   :
   myStackAddrLb(parent.myStackAddrLb),
   myStackAddrUb(parent.myStackAddrUb),
   dAddr(0),
   nDInsts(0),
+  fileSys(cloneFileSys?((FileSys::FileSys *)(parent.fileSys)):(new FileSys::FileSys(*(parent.fileSys),newNameSpace))),
   openFiles(cloneFiles?((FileSys::OpenFiles *)(parent.openFiles)):(new FileSys::OpenFiles(*(parent.openFiles)))),
   sigTable(cloneSighand?((SignalTable *)(parent.sigTable)):(new SignalTable(*(parent.sigTable)))),
   sigMask(),
   maskedSig(),
   readySig(),
   suspSig(false),
+  mySystem(0),
   parentID(cloneParent?parent.parentID:parent.pid),
   childIDs(),
   exitSig(sig),
@@ -793,7 +798,8 @@ ThreadContext::ThreadContext(ThreadContext &parent,
   killSignal(SigNone),
   callStack(parent.callStack)
 {
-  setMode(parent.cpuMode);
+  I((!newNameSpace)||(!cloneFileSys));
+  setMode(parent.execMode);
   for(tid=0;(tid<int(pid2context.size()))&&pid2context[tid];tid++);
   if(tid==int(pid2context.size()))
     pid2context.resize(pid2context.size()+1);
@@ -836,20 +842,13 @@ ThreadContext::~ThreadContext(void){
   }
   if(getAddressSpace())
     setAddressSpace(0);
+  if(mySystem)
+    delete mySystem;
 }
 
 void ThreadContext::setAddressSpace(AddressSpace *newAddressSpace){
-  if(clear_child_tid){
-    switch(cpuMode){
-    case Mips32:
-      writeMem<uint32_t>(clear_child_tid,0);
-      break;
-    default:
-      fail("setAddressSpace: clear_child_tid unsupported for cpuMode %d",cpuMode);
-    }
-    getSystem()->futexWake(this,clear_child_tid,1);
-    clear_child_tid=0;
-  }
+  if(addressSpace)
+    getSystem()->clearChildTid(this,clear_child_tid);
   addressSpace=newAddressSpace;
 }
 
@@ -865,7 +864,7 @@ int32_t ThreadContext::findZombieChild(void) const{
 }
 
 void ThreadContext::suspend(void){
-  I(!isWaiting());
+  I(!isSuspended());
   I(!isExited());
   suspSig=true;
   osSim->eventSuspend(pid,pid);
@@ -893,7 +892,7 @@ void ThreadContext::resume(void){
 bool ThreadContext::exit(int32_t code){
   I(!isExited());
   I(!isKilled());
-  I(!isWaiting());
+  I(!isSuspended());
   openFiles=0;
   sigTable=0;
   exited=true;
@@ -939,7 +938,7 @@ void ThreadContext::reap(){
 }
 
 inline bool ThreadContext::skipInst(void){
-  if(isWaiting())
+  if(isSuspended())
     return false;
   if(isExited())
     return false;
@@ -959,7 +958,7 @@ int64_t ThreadContext::skipInsts(int64_t skipCount){
         return skipped;
       ThreadContext::pointer context=pid2context[nowPid];
       I(context);
-      I(!context->isWaiting());
+      I(!context->isSuspended());
       I(!context->isExited());
       int nowSkip=(skipCount-skipped<100)?(skipCount-skipped):100;
       while(nowSkip&&context->skipInst()){
@@ -1094,7 +1093,7 @@ ssize_t ThreadContext::readMemString(VAddr stringVAddr, size_t maxSize, char *ds
   while(true){
     if(!canRead(stringVAddr+i,sizeof(char)))
       return -1;
-    char c=readMem<char>(stringVAddr+i);
+    char c=readMemRaw<char>(stringVAddr+i);
     if(i<maxSize)
       dstStr[i]=c;
     i++;
@@ -1105,7 +1104,7 @@ ssize_t ThreadContext::readMemString(VAddr stringVAddr, size_t maxSize, char *ds
 }
 #if (defined DEBUG_BENCH)
 VAddr ThreadContext::readMemWord(VAddr addr){
-  return readMem<VAddr>(addr);
+  return readMemRaw<VAddr>(addr);
 }
 #endif
 

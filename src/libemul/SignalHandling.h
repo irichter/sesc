@@ -20,7 +20,7 @@ typedef enum{
 } SignalAction;
 
 typedef enum{
-  SigNone= 0,
+  SigNone=  0,
   SigNMin=  1,
   SigNMax=128,
   SigChld,
@@ -72,6 +72,12 @@ class SignalDesc{
   VAddr         handler;
   SignalSet     mask;
   SaSigFlags flags;
+  SignalDesc(void)
+    : handler(SigActTerm), mask(), flags(SaSigFlags(0)){
+  }
+  SignalDesc(VAddr handler, const SignalSet &mask, SaSigFlags flags)
+    : handler(handler), mask(mask), flags(flags){
+  }
   SignalDesc &operator=(const SignalDesc &src){
     handler=src.handler;
     mask=src.mask;
@@ -87,10 +93,8 @@ class SignalTable : public GCObject{
   SignalDesc table[NumSignals];
  public:
   SignalTable(void) : GCObject(){
-    for(size_t i=0;i<NumSignals;i++){
+    for(size_t i=0;i<NumSignals;i++)
       table[i].handler=getDflSigAction((SignalID)i);
-      table[i].mask.reset();
-    }
   }
   SignalTable(const SignalTable &src) : GCObject(){
     for(size_t i=0;i<NumSignals;i++)
