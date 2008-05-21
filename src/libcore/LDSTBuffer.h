@@ -40,7 +40,8 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 class LDSTBuffer {
 private:
-  typedef HASH_MAP<VAddr,DInst *> EntryType;
+  
+  typedef HASH_MAP<VAddr,DInst *,VAddr_hash> EntryType;
   typedef HASH_MAP<int32_t, DInst*>   FenceEntryType;
   static EntryType stores;
   static FenceEntryType fences;

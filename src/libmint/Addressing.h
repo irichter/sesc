@@ -2,6 +2,8 @@
 #define ADDRESSING_H
 
 #include "SizedTypes.h"
+// We need size_t for VAddr_hash
+#include <stddef.h>
 
 // There are three types of addresses used in the simulator
 
@@ -15,6 +17,9 @@ typedef uint64_t VAddr;
 #else
 typedef uint32_t VAddr;
 #endif
+struct VAddr_hash{
+  size_t operator()(VAddr __x) const { return ((__x>>8)^__x); }
+};
 
 // These are the native types for the target (simulated) machine
 typedef uint16_t targUShort;

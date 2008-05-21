@@ -531,7 +531,7 @@ class ABIDefs<ExecModeMips64>{
   static const Tint VRLIMIT_NPROC = 0x00000008;
   static const Tint VRLIMIT_RSS = 0x00000007;
   static const Tint VRLIMIT_STACK = 0x00000003;
-  static const Tlong VRLIM_INFINITY = 0xffffffffffffffff;
+  static const Tlong VRLIM_INFINITY = Tlong(-1);
   static const Tint V__NR_setrlimit = 0x00001423;
   static const Tint V__NR_getrlimit = 0x000013e7;
   class Trusage{

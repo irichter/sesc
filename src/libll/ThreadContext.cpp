@@ -960,7 +960,7 @@ int64_t ThreadContext::skipInsts(int64_t skipCount){
       I(context);
       I(!context->isSuspended());
       I(!context->isExited());
-      int nowSkip=(skipCount-skipped<100)?(skipCount-skipped):100;
+      int nowSkip=(skipCount-skipped<500)?(skipCount-skipped):500;
       while(nowSkip&&context->skipInst()){
         nowSkip--;
         skipped++;
