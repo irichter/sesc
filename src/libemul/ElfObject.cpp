@@ -87,12 +87,12 @@ void cvtEndianSym(typename ElfDefs<mode>::Elf_Sym &sym){
 
 // Helper function for getExecMode
 template<ExecMode mode>
-ExecMode _getExecMode(FileSys::FileStatus *fs){
+ExecMode _getExecMode(FileSys::SeekableDescription *fdesc){
   typedef typename ElfDefs<mode>::Elf_Ehdr Elf_Ehdr;
   typedef typename ElfDefs<mode>::Elf_Phdr Elf_Phdr;
   typedef typename ElfDefs<mode>::Elf_Shdr Elf_Shdr;
   Elf_Ehdr ehdr;
-  if(pread(fs->fd,&ehdr,sizeof(Elf_Ehdr),(off_t)0)!=sizeof(Elf_Ehdr))
+  if(fdesc->pread(&ehdr,sizeof(Elf_Ehdr),(off_t)0)!=sizeof(Elf_Ehdr))
     return ExecModeNone;
   cvtEndianEhdr<mode>(ehdr);
   if(ehdr.e_version!=EV_CURRENT)
@@ -143,15 +143,15 @@ ExecMode _getExecMode(FileSys::FileStatus *fs){
     if(ehdr.e_flags&~(EF_MIPS_ARCH|EF_MIPS_ABI|EF_MIPS_ABI2|EF_MIPS_NOREORDER|EF_MIPS_PIC|EF_MIPS_CPIC|EF_MIPS_32BITMODE))
       fail("Unknown e_machine (0x%08x) for EM_MIPS\n",ehdr.e_flags);
   } break;
-  default: fail("e_machine is %d not EM_MIPS for %s\n",ehdr.e_machine,fs->name);
+  default: fail("e_machine is %d not EM_MIPS for %s\n",ehdr.e_machine,fdesc->getName().c_str());
   }
   return ExecMode(mode|mmode);
 }
 
-ExecMode getExecMode(FileSys::FileStatus *fs){
+ExecMode getExecMode(FileSys::SeekableDescription *fdesc){
   // Read the e_ident part of the ELF header
   unsigned char e_ident[EI_NIDENT];
-  if(pread(fs->fd,e_ident,EI_NIDENT,(off_t)0)!=EI_NIDENT)
+  if(fdesc->pread(e_ident,EI_NIDENT,(off_t)0)!=EI_NIDENT)
     return ExecModeNone;
   if((e_ident[0]!=ELFMAG0)||(e_ident[1]!=ELFMAG1)||
      (e_ident[2]!=ELFMAG2)||(e_ident[3]!=ELFMAG3))
@@ -180,29 +180,29 @@ ExecMode getExecMode(FileSys::FileStatus *fs){
   }
   if(wmode==ExecModeBits32)
     if(emode==ExecModeEndianLittle)
-      return _getExecMode<ExecMode(ExecModeBits32|ExecModeEndianLittle)>(fs);
+      return _getExecMode<ExecMode(ExecModeBits32|ExecModeEndianLittle)>(fdesc);
     else
-      return _getExecMode<ExecMode(ExecModeBits32|ExecModeEndianBig)>(fs);
+      return _getExecMode<ExecMode(ExecModeBits32|ExecModeEndianBig)>(fdesc);
   else
     if(emode==ExecModeEndianLittle)
-      return _getExecMode<ExecMode(ExecModeBits64|ExecModeEndianLittle)>(fs);
+      return _getExecMode<ExecMode(ExecModeBits64|ExecModeEndianLittle)>(fdesc);
     else
-      return _getExecMode<ExecMode(ExecModeBits64|ExecModeEndianBig)>(fs);
+      return _getExecMode<ExecMode(ExecModeBits64|ExecModeEndianBig)>(fdesc);
 }
 
 template<ExecMode mode>
-void _mapFuncNames(ThreadContext *context, FileSys::FileStatus *fs, VAddr addr, size_t len, off_t off){
+void _mapFuncNames(ThreadContext *context, FileSys::SeekableDescription *fdesc, VAddr addr, size_t len, off_t off){
   typedef typename ElfDefs<mode>::Elf_Ehdr Elf_Ehdr;
   typedef typename ElfDefs<mode>::Elf_Shdr Elf_Shdr;
   typedef typename ElfDefs<mode>::Elf_Sym  Elf_Sym;
   // Read in the ELF header
   Elf_Ehdr ehdr;
-  ssize_t ehdrSiz=pread(fs->fd,&ehdr,sizeof(Elf_Ehdr),0);
+  ssize_t ehdrSiz=fdesc->pread(&ehdr,sizeof(Elf_Ehdr),0);
   I(ehdrSiz==sizeof(Elf_Ehdr));
   cvtEndianEhdr<mode>(ehdr);
   // Read in section headers
   Elf_Shdr shdrs[ehdr.e_shnum];
-  ssize_t shdrsSiz=pread(fs->fd,shdrs,sizeof(Elf_Shdr)*ehdr.e_shnum,ehdr.e_shoff);
+  ssize_t shdrsSiz=fdesc->pread(shdrs,sizeof(Elf_Shdr)*ehdr.e_shnum,ehdr.e_shoff);
   I(shdrsSiz==(ssize_t)(sizeof(Elf_Shdr)*ehdr.e_shnum));
   I(shdrsSiz==(ssize_t)(sizeof(shdrs)));
   for(size_t sec=0;sec<ehdr.e_shnum;sec++)
@@ -210,7 +210,7 @@ void _mapFuncNames(ThreadContext *context, FileSys::FileStatus *fs, VAddr addr, 
   // Read in section name strings
   I((ehdr.e_shstrndx>0)&&(ehdr.e_shstrndx<ehdr.e_shnum));
   char secStrTab[shdrs[ehdr.e_shstrndx].sh_size];
-  ssize_t secStrTabSiz=pread(fs->fd,secStrTab,shdrs[ehdr.e_shstrndx].sh_size,shdrs[ehdr.e_shstrndx].sh_offset);
+  ssize_t secStrTabSiz=fdesc->pread(secStrTab,shdrs[ehdr.e_shstrndx].sh_size,shdrs[ehdr.e_shstrndx].sh_offset);
   I(secStrTabSiz==(ssize_t)(shdrs[ehdr.e_shstrndx].sh_size));
   // Iterate over all sections
   for(size_t sec=0;sec<ehdr.e_shnum;sec++){
@@ -228,7 +228,7 @@ void _mapFuncNames(ThreadContext *context, FileSys::FileStatus *fs, VAddr addr, 
         strcpy(symNam,begNam);
         strcpy(symNam+begNamLen,secNam);
         VAddr symAddr=shdrs[sec].sh_addr+loadBias;
-        context->getAddressSpace()->addFuncName(symAddr,symNam,fs->name);
+        context->getAddressSpace()->addFuncName(symAddr,symNam,fdesc->getName());
       }
       if((off_t(shdrs[sec].sh_offset+shdrs[sec].sh_size)>off)&&
          (shdrs[sec].sh_offset+shdrs[sec].sh_size<=off+len)){
@@ -238,7 +238,7 @@ void _mapFuncNames(ThreadContext *context, FileSys::FileStatus *fs, VAddr addr, 
         strcpy(symNam,endNam);
         strcpy(symNam+endNamLen,secNam);
         VAddr symAddr=shdrs[sec].sh_addr+shdrs[sec].sh_size+loadBias;
-        context->getAddressSpace()->addFuncName(symAddr,symNam,fs->name);
+        context->getAddressSpace()->addFuncName(symAddr,symNam,fdesc->getName());
       }
     } break;
     case SHT_SYMTAB:
@@ -247,14 +247,14 @@ void _mapFuncNames(ThreadContext *context, FileSys::FileStatus *fs, VAddr addr, 
       // Read in the symbols
       size_t symnum=shdrs[sec].sh_size/sizeof(Elf_Sym);
       Elf_Sym syms[symnum];
-      ssize_t symsSiz=pread(fs->fd,syms,shdrs[sec].sh_size,shdrs[sec].sh_offset);
+      ssize_t symsSiz=fdesc->pread(syms,shdrs[sec].sh_size,shdrs[sec].sh_offset);
       I(symsSiz==(ssize_t)(sizeof(Elf_Sym)*symnum));
       I(symsSiz==(ssize_t)(sizeof(syms)));
       for(size_t sym=0;sym<symnum;sym++)
         cvtEndianSym<mode>(syms[sym]);
       // Read in the symbol name strings
       char strTab[shdrs[shdrs[sec].sh_link].sh_size];
-      ssize_t strTabSiz=pread(fs->fd,strTab,shdrs[shdrs[sec].sh_link].sh_size,shdrs[shdrs[sec].sh_link].sh_offset);
+      ssize_t strTabSiz=fdesc->pread(strTab,shdrs[shdrs[sec].sh_link].sh_size,shdrs[shdrs[sec].sh_link].sh_offset);
       I(strTabSiz==(ssize_t)(shdrs[shdrs[sec].sh_link].sh_size));
       for(size_t sym=0;sym<symnum;sym++){
         I(ELF32_ST_TYPE(syms[sym].st_info)==ELF64_ST_TYPE(syms[sym].st_info));
@@ -272,7 +272,7 @@ void _mapFuncNames(ThreadContext *context, FileSys::FileStatus *fs, VAddr addr, 
           VAddr symAddr=syms[sym].st_value+loadBias;
           if((symAddr<addr)||(symAddr>=addr+len))
             break;
-	  context->getAddressSpace()->addFuncName(symAddr,symNam,fs->name);
+	  context->getAddressSpace()->addFuncName(symAddr,symNam,fdesc->getName());
         }  break;
         }
       }
@@ -281,21 +281,22 @@ void _mapFuncNames(ThreadContext *context, FileSys::FileStatus *fs, VAddr addr, 
   }
 }
 
-void mapFuncNames(ThreadContext *context, FileSys::FileStatus *fs, ExecMode mode, VAddr addr, size_t len, off_t off){
+void mapFuncNames(ThreadContext *context, FileSys::SeekableDescription *fdesc,
+		  ExecMode mode, VAddr addr, size_t len, off_t off){
   if((mode&ExecModeBitsMask)==ExecModeBits32)
     if((mode&ExecModeEndianMask)==ExecModeEndianLittle)
-      return _mapFuncNames<ExecMode(ExecModeBits32|ExecModeEndianLittle)>(context,fs,addr,len,off);
+      return _mapFuncNames<ExecMode(ExecModeBits32|ExecModeEndianLittle)>(context,fdesc,addr,len,off);
     else
-      return _mapFuncNames<ExecMode(ExecModeBits32|ExecModeEndianBig)>(context,fs,addr,len,off);
+      return _mapFuncNames<ExecMode(ExecModeBits32|ExecModeEndianBig)>(context,fdesc,addr,len,off);
   else
     if((mode&ExecModeEndianMask)==ExecModeEndianLittle)
-      return _mapFuncNames<ExecMode(ExecModeBits64|ExecModeEndianLittle)>(context,fs,addr,len,off);
+      return _mapFuncNames<ExecMode(ExecModeBits64|ExecModeEndianLittle)>(context,fdesc,addr,len,off);
     else
-      return _mapFuncNames<ExecMode(ExecModeBits64|ExecModeEndianBig)>(context,fs,addr,len,off);
+      return _mapFuncNames<ExecMode(ExecModeBits64|ExecModeEndianBig)>(context,fdesc,addr,len,off);
 }
 
 template<ExecMode mode>
-VAddr _loadElfObject(ThreadContext *context, FileSys::FileStatus *fs,
+VAddr _loadElfObject(ThreadContext *context, FileSys::SeekableDescription *fdesc,
                      VAddr addr, bool isInterpreter){
   typedef typename ElfDefs<mode>::Elf_Ehdr Elf_Ehdr;
   typedef typename ElfDefs<mode>::Elf_Phdr Elf_Phdr;
@@ -303,7 +304,7 @@ VAddr _loadElfObject(ThreadContext *context, FileSys::FileStatus *fs,
   bool hasInterpreter=false;
   // Read in the ELF header
   Elf_Ehdr ehdr;
-  ssize_t ehdrSiz=pread(fs->fd,&ehdr,sizeof(Elf_Ehdr),0);
+  ssize_t ehdrSiz=fdesc->pread(&ehdr,sizeof(Elf_Ehdr),0);
   cvtEndianEhdr<mode>(ehdr);
   I(ehdrSiz==sizeof(Elf_Ehdr));
   // Clear all the registers (this is actually needed for correct operation)
@@ -316,7 +317,7 @@ VAddr _loadElfObject(ThreadContext *context, FileSys::FileStatus *fs,
   context->setMode(mode);
   // Read in program (segment) headers
   Elf_Phdr phdrs[ehdr.e_phnum];
-  ssize_t phdrsSiz=pread(fs->fd,phdrs,sizeof(Elf_Phdr)*ehdr.e_phnum,ehdr.e_phoff);
+  ssize_t phdrsSiz=fdesc->pread(phdrs,sizeof(Elf_Phdr)*ehdr.e_phnum,ehdr.e_phoff);
   I(phdrsSiz==(ssize_t)(sizeof(Elf_Phdr)*ehdr.e_phnum));
   I(phdrsSiz==(ssize_t)(sizeof(phdrs)));
   for(size_t seg=0;seg<ehdr.e_phnum;seg++)
@@ -328,10 +329,13 @@ VAddr _loadElfObject(ThreadContext *context, FileSys::FileStatus *fs,
     switch(phdrs[seg].p_type){
     case PT_INTERP: {
       char interpName[phdrs[seg].p_filesz];
-      ssize_t interpNameSiz=pread(fs->fd,interpName,phdrs[seg].p_filesz,phdrs[seg].p_offset);
+      ssize_t interpNameSiz=fdesc->pread(interpName,phdrs[seg].p_filesz,phdrs[seg].p_offset);
       I(interpNameSiz==ssize_t(phdrs[seg].p_filesz));
-      FileSys::FileStatus::pointer ifs(FileSys::FileStatus::open(interpName,O_RDONLY,0));
-      addr=_loadElfObject<mode>(context,ifs,addr,true);
+      FileSys::Description::pointer ifdesc(FileSys::Description::open(interpName,O_RDONLY,0));
+      FileSys::SeekableDescription *isdesc=dynamic_cast<FileSys::SeekableDescription *>(static_cast<FileSys::Description *>(ifdesc));
+      if(!isdesc)
+	fail("Could not open the interpreter\n");
+      addr=_loadElfObject<mode>(context,isdesc,addr,true);
       hasInterpreter=true;
     }  break;
     case PT_LOAD:
@@ -363,14 +367,15 @@ VAddr _loadElfObject(ThreadContext *context, FileSys::FileStatus *fs,
     // Map segment into address space
     if(!context->getAddressSpace()->isNoSegment(segMapAddr,segMapLen))
       fail("Segment overlap is loadElfObject\n");
-    context->getAddressSpace()->newSegment(segMapAddr,segMapLen,false,true,false);
-    ssize_t segRdLen=context->writeMemFromFile(segFilAddr,segFilLen,fs->fd,true,true,phdrs[seg].p_offset);
-    I(segRdLen==ssize_t(segFilLen));
+    context->getAddressSpace()->newSegment(segMapAddr,segMapLen,false,true,false,false,fdesc,
+                                           context->getAddressSpace()->pageAlignDown(phdrs[seg].p_offset));
+    context->writeMemWithByte(segMapAddr,segFilAddr-segMapAddr,0);
+    context->writeMemWithByte(segFilAddr+segFilLen,(segMapAddr+segMapLen)-(segFilAddr+segFilLen),0);
     context->getAddressSpace()->protectSegment(segMapAddr,segMapLen,
 					       phdrs[seg].p_flags&PF_R,
 					       phdrs[seg].p_flags&PF_W,
 					       phdrs[seg].p_flags&PF_X);
-    _mapFuncNames<mode>(context,fs,segFilAddr,segFilLen,phdrs[seg].p_offset);
+    _mapFuncNames<mode>(context,fdesc,segFilAddr,segFilLen,phdrs[seg].p_offset);
     if((!isInterpreter)&&(phdrs[seg].p_offset<=ehdr.e_phoff)&&
        (phdrs[seg].p_offset+phdrs[seg].p_filesz>=ehdr.e_phoff+ehdr.e_phnum*sizeof(Elf_Phdr))){
       context->getAddressSpace()->addFuncName(segFilAddr+ehdr.e_phoff-phdrs[seg].p_offset,"PrgHdrAddr","");
@@ -390,30 +395,30 @@ VAddr _loadElfObject(ThreadContext *context, FileSys::FileStatus *fs,
 }
 
 template<ExecMode bmode>
-VAddr _loadElfObjectE(ThreadContext *context, FileSys::FileStatus *fs,
+VAddr _loadElfObjectE(ThreadContext *context, FileSys::SeekableDescription *fdesc,
 		      VAddr addr, ExecMode mode){
   switch(mode&ExecModeArchMask){
-  case ExecModeArchMips:    return _loadElfObject<ExecMode(bmode|ExecModeArchMips)>(context,fs,addr,false);
-  case ExecModeArchMips64:  return _loadElfObject<ExecMode(bmode|ExecModeArchMips64)>(context,fs,addr,false);
+  case ExecModeArchMips:    return _loadElfObject<ExecMode(bmode|ExecModeArchMips)>(context,fdesc,addr,false);
+  case ExecModeArchMips64:  return _loadElfObject<ExecMode(bmode|ExecModeArchMips64)>(context,fdesc,addr,false);
   defualt: fail("loadElfObject: ExecModeEndian is not Little or Big\n");
   }
   return VAddr(-1);
 }
 template<ExecMode bmode>
-VAddr _loadElfObjectB(ThreadContext *context, FileSys::FileStatus *fs,
+VAddr _loadElfObjectB(ThreadContext *context, FileSys::SeekableDescription *fdesc,
 		      VAddr addr, ExecMode mode){
   switch(mode&ExecModeEndianMask){
-  case ExecModeEndianBig:    return _loadElfObjectE<ExecMode(bmode|ExecModeEndianBig)>(context,fs,addr,mode);
-  case ExecModeEndianLittle: return _loadElfObjectE<ExecMode(bmode|ExecModeEndianLittle)>(context,fs,addr,mode);
+  case ExecModeEndianBig:    return _loadElfObjectE<ExecMode(bmode|ExecModeEndianBig)>(context,fdesc,addr,mode);
+  case ExecModeEndianLittle: return _loadElfObjectE<ExecMode(bmode|ExecModeEndianLittle)>(context,fdesc,addr,mode);
   defualt: fail("loadElfObject: ExecModeEndian is not Little or Big\n");
   }
   return VAddr(-1);
 }
-VAddr loadElfObject(ThreadContext *context, FileSys::FileStatus *fs, VAddr addr){
-  ExecMode mode=getExecMode(fs);
+VAddr loadElfObject(ThreadContext *context, FileSys::SeekableDescription *fdesc, VAddr addr){
+  ExecMode mode=getExecMode(fdesc);
   switch(mode&ExecModeBitsMask){
-  case ExecModeBits32: return _loadElfObjectB<ExecModeBits32>(context,fs,addr,mode);
-  case ExecModeBits64: return _loadElfObjectB<ExecModeBits64>(context,fs,addr,mode);
+  case ExecModeBits32: return _loadElfObjectB<ExecModeBits32>(context,fdesc,addr,mode);
+  case ExecModeBits64: return _loadElfObjectB<ExecModeBits64>(context,fdesc,addr,mode);
   defualt: fail("loadElfObject: ExecModeBits is not 32 or 64\n");
   }
   return VAddr(-1);

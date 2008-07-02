@@ -778,6 +778,17 @@ class RealLinuxSys : public LinuxSys, public ArchDefs<mode>{
       for(size_t i=0;i<(d_reclen-This::Offs_d_name);i++)
         d_name[i]=(i<namelen)?src.d_name[i]:0;
     }
+    Tdirent(const std::string &name, off_t off)
+      : d_ino(1),
+        d_off(off)
+    {
+      size_t namelen=name.length()+1;
+      if(namelen>This::Size_d_name)
+        fail("Tdirent() d_name is too long\n");
+      d_reclen=alignUp(This::Offs_d_name+This::Step_d_name*namelen,sizeof(uint64_t));
+      for(size_t i=0;i<(d_reclen-This::Offs_d_name);i++)
+        d_name[i]=(i<namelen)?name[i]:0;
+    }
     void write(ThreadContext *context, VAddr addr) const{
       context->writeMemRaw(addr+This::Offs_d_ino,fixEndian(d_ino));
       context->writeMemRaw(addr+This::Offs_d_off,fixEndian(d_off));
@@ -808,6 +819,18 @@ class RealLinuxSys : public LinuxSys, public ArchDefs<mode>{
         d_name[i]=(i<namelen)?src.d_name[i]:0;
       I(src.d_reclen%8==0);
       I(size_t(src.d_reclen-(src.d_name-(char *)&src))==d_reclen-This::Offs_d_name);
+    }
+    Tdirent64(const std::string &name, off_t off)
+      : d_ino(1),
+        d_off(off),
+	d_type(0)
+    {
+      size_t namelen=name.length()+1;
+      if(namelen>This::Size_d_name)
+        fail("Tdirent() d_name is too long\n");
+      d_reclen=alignUp(This::Offs_d_name+This::Step_d_name*namelen,sizeof(uint64_t));
+      for(size_t i=0;i<(d_reclen-This::Offs_d_name);i++)
+        d_name[i]=(i<namelen)?name[i]:0;
     }
     void write(ThreadContext *context, VAddr addr) const{
       context->writeMemRaw(addr+This::Offs_d_ino,fixEndian(d_ino));
@@ -915,6 +938,23 @@ class RealLinuxSys : public LinuxSys, public ArchDefs<mode>{
     typename This::Type_st_rdev st_rdev;
     typename This::Type_st_size st_size;
     typename This::Type_st_nlink st_nlink;
+    Tstat(void)
+      :
+      st_blksize(0),
+      st_blocks(0),
+      st_atime_sec(0),
+      st_gid(0),
+      st_uid(0),
+      st_mode(0),
+      st_ino(0),
+      st_mtime_sec(0),
+      st_ctime_sec(0),
+      st_dev(0),
+      st_rdev(0),
+      st_size(0),
+      st_nlink(0)
+    {
+    }
     Tstat(struct stat &st)
       :
       st_blksize(st.st_blksize),
@@ -966,6 +1006,23 @@ class RealLinuxSys : public LinuxSys, public ArchDefs<mode>{
     typename This::Type_st_rdev st_rdev;
     typename This::Type_st_size st_size;
     typename This::Type_st_nlink st_nlink;
+    Tstat64(void)
+      :
+      st_blksize(0),
+      st_blocks(0),
+      st_atim(0),
+      st_gid(0),
+      st_uid(0),
+      st_mode(0),
+      st_ino(0),
+      st_mtim(0),
+      st_ctim(0),
+      st_dev(0),
+      st_rdev(0),
+      st_size(0),
+      st_nlink(0)
+    {
+    }
     Tstat64(struct stat &st)
       :
       st_blksize(st.st_blksize),
@@ -1591,7 +1648,7 @@ void RealLinuxSys<ExecModeMips32>::initSystem(ThreadContext *context) const{
   AddressSpace *addrSpace=context->getAddressSpace();
   sysCodeSize=6*sizeof(uint32_t);
   sysCodeAddr=addrSpace->newSegmentAddr(sysCodeSize);
-  addrSpace->newSegment(sysCodeAddr,sysCodeSize,false,true,false,false,false);
+  addrSpace->newSegment(sysCodeAddr,alignUp(sysCodeSize,addrSpace->getPageSize()),false,true,false,false,false);
   addrSpace->addFuncName(sysCodeAddr,"sysCode","");
   addrSpace->addFuncName(sysCodeAddr+sysCodeSize,"End of sysCode","");
   // jalr t9
@@ -1606,7 +1663,7 @@ void RealLinuxSys<ExecModeMips32>::initSystem(ThreadContext *context) const{
   context->writeMemRaw(sysCodeAddr+4*sizeof(uint32_t),fixEndian(uint32_t(0x1000ffff)));
   // Delay slot nop
   context->writeMemRaw(sysCodeAddr+5*sizeof(uint32_t),fixEndian(uint32_t(0x00000000)));
-  addrSpace->protectSegment(sysCodeAddr,sysCodeSize,true,false,true);
+  addrSpace->protectSegment(sysCodeAddr,alignUp(sysCodeSize,addrSpace->getPageSize()),true,false,true);
   // Set RegSys to zero. It is used by system call functions to indicate
   // that a signal mask has been already saved to the stack and needs to be restored
   setReg<uint32_t,RegSys>(context,RegSys,0);
@@ -1672,7 +1729,7 @@ void RealLinuxSys<ExecModeMipsel32>::initSystem(ThreadContext *context) const{
   AddressSpace *addrSpace=context->getAddressSpace();
   sysCodeSize=6*sizeof(uint32_t);
   sysCodeAddr=addrSpace->newSegmentAddr(sysCodeSize);
-  addrSpace->newSegment(sysCodeAddr,sysCodeSize,false,true,false,false,false);
+  addrSpace->newSegment(sysCodeAddr,alignUp(sysCodeSize,addrSpace->getPageSize()),false,true,false,false,false);
   addrSpace->addFuncName(sysCodeAddr,"sysCode","");
   addrSpace->addFuncName(sysCodeAddr+sysCodeSize,"End of sysCode","");
   // jalr t9
@@ -1687,7 +1744,7 @@ void RealLinuxSys<ExecModeMipsel32>::initSystem(ThreadContext *context) const{
   context->writeMemRaw(sysCodeAddr+4*sizeof(uint32_t),fixEndian(uint32_t(0x1000ffff)));
   // Delay slot nop
   context->writeMemRaw(sysCodeAddr+5*sizeof(uint32_t),fixEndian(uint32_t(0x00000000)));
-  addrSpace->protectSegment(sysCodeAddr,sysCodeSize,true,false,true);
+  addrSpace->protectSegment(sysCodeAddr,alignUp(sysCodeSize,addrSpace->getPageSize()),true,false,true);
   // Set RegSys to zero. It is used by system call functions to indicate
   // that a signal mask has been already saved to the stack and needs to be restored
   setReg<uint32_t,RegSys>(context,RegSys,0);
@@ -1753,7 +1810,7 @@ void RealLinuxSys<ExecModeMips64>::initSystem(ThreadContext *context) const{
   AddressSpace *addrSpace=context->getAddressSpace();
   sysCodeSize=6*sizeof(uint32_t);
   sysCodeAddr=addrSpace->newSegmentAddr(sysCodeSize);
-  addrSpace->newSegment(sysCodeAddr,sysCodeSize,false,true,false,false,false);
+  addrSpace->newSegment(sysCodeAddr,alignUp(sysCodeSize,addrSpace->getPageSize()),false,true,false,false,false);
   addrSpace->addFuncName(sysCodeAddr,"sysCode","");
   addrSpace->addFuncName(sysCodeAddr+sysCodeSize,"End of sysCode","");
   // jalr t9
@@ -1768,7 +1825,7 @@ void RealLinuxSys<ExecModeMips64>::initSystem(ThreadContext *context) const{
   context->writeMemRaw(sysCodeAddr+4*sizeof(uint32_t),fixEndian(uint32_t(0x1000ffff)));
   // Delay slot nop
   context->writeMemRaw(sysCodeAddr+5*sizeof(uint32_t),fixEndian(uint32_t(0x00000000)));
-  addrSpace->protectSegment(sysCodeAddr,sysCodeSize,true,false,true);
+  addrSpace->protectSegment(sysCodeAddr,alignUp(sysCodeSize,addrSpace->getPageSize()),true,false,true);
   // Set RegSys to zero. It is used by system call functions to indicate
   // that a signal mask has been already saved to the stack and needs to be restored
   setReg<Tregv_t,RegSys>(context,RegSys,0);
@@ -1834,7 +1891,7 @@ void RealLinuxSys<ExecModeMipsel64>::initSystem(ThreadContext *context) const{
   AddressSpace *addrSpace=context->getAddressSpace();
   sysCodeSize=6*sizeof(uint32_t);
   sysCodeAddr=addrSpace->newSegmentAddr(sysCodeSize);
-  addrSpace->newSegment(sysCodeAddr,sysCodeSize,false,true,false,false,false);
+  addrSpace->newSegment(sysCodeAddr,alignUp(sysCodeSize,addrSpace->getPageSize()),false,true,false,false,false);
   addrSpace->addFuncName(sysCodeAddr,"sysCode","");
   addrSpace->addFuncName(sysCodeAddr+sysCodeSize,"End of sysCode","");
   // jalr t9
@@ -1849,7 +1906,7 @@ void RealLinuxSys<ExecModeMipsel64>::initSystem(ThreadContext *context) const{
   context->writeMemRaw(sysCodeAddr+4*sizeof(uint32_t),fixEndian(uint32_t(0x1000ffff)));
   // Delay slot nop
   context->writeMemRaw(sysCodeAddr+5*sizeof(uint32_t),fixEndian(uint32_t(0x00000000)));
-  addrSpace->protectSegment(sysCodeAddr,sysCodeSize,true,false,true);
+  addrSpace->protectSegment(sysCodeAddr,alignUp(sysCodeSize,addrSpace->getPageSize()),true,false,true);
   // Set RegSys to zero. It is used by system call functions to indicate
   // that a signal mask has been already saved to the stack and needs to be restored
   setReg<Tregv_t,RegSys>(context,RegSys,0);
@@ -1990,12 +2047,13 @@ InstDesc *RealLinuxSys<mode>::sysExecVe(ThreadContext *context, InstDesc *inst){
 //   size_t realNameLen=FileSys::FileNames::getFileNames()->getReal(fname,0,0);
 //   char realName[realNameLen];
 //   FileSys::FileNames::getFileNames()->getReal(fname,realNameLen,realName);
-  FileSys::FileStatus::pointer fs(FileSys::FileStatus::open(context->getFileSys()->toNative((const char *)fname).c_str(),O_RDONLY,0));
-  if(!fs){
+  FileSys::Description::pointer desc(FileSys::Description::open(context->getFileSys()->toNative((const char *)fname),O_RDONLY,0));
+  FileSys::SeekableDescription *sdesc=dynamic_cast<FileSys::SeekableDescription *>(static_cast<FileSys::Description *>(desc));
+  if(!sdesc){
     setSysErr(context);
     return inst;
   }
-  ExecMode emode=getExecMode(fs);
+  ExecMode emode=getExecMode(sdesc);
   if(emode==ExecModeNone){
     setSysErr(context,VENOEXEC);
     return inst;
@@ -2063,9 +2121,10 @@ InstDesc *RealLinuxSys<mode>::sysExecVe(ThreadContext *context, InstDesc *inst){
   // Close files that are still open and are cloexec
   context->getOpenFiles()->exec();
   // Clear up the address space and load the new object file
-  context->getAddressSpace()->clear(true);
+  context->setAddressSpace(new AddressSpace());
+//  context->getAddressSpace()->clear(true);
   // TODO: Use ELF_ET_DYN_BASE instead of a constant here
-  loadElfObject(context,fs,0x200000);
+  loadElfObject(context,sdesc,0x200000);
   // We need to go thorugh getSystem() because the execution mode may be different
   context->getSystem()->initSystem(context);
   context->getSystem()->createStack(context);
@@ -2738,7 +2797,7 @@ void RealLinuxSys<mode>::sysSchedGetParam(ThreadContext *context, InstDesc *inst
     return setSysErr(context,VESRCH);
   // TODO: Check if we can write to param
   // TODO: Return a meaningful value. for now, we just reject the call
-  setSysErr(context,VEINVAL);
+  return setSysErr(context,VEINVAL);
 }
 template<ExecMode mode>
 void RealLinuxSys<mode>::sysSchedSetScheduler(ThreadContext *context, InstDesc *inst){
@@ -2784,7 +2843,7 @@ void RealLinuxSys<mode>::sysSchedSetAffinity(ThreadContext *context, InstDesc *i
   if(!kcontext)
     return setSysErr(context,VESRCH);
   // TODO: We need to look at the affinity mask here
-  setSysRet(context);
+  return setSysRet(context);
 }
 template<ExecMode mode>
 void RealLinuxSys<mode>::sysSchedGetAffinity(ThreadContext *context, InstDesc *inst){
@@ -2867,21 +2926,21 @@ void RealLinuxSys<mode>::sysSetITimer(ThreadContext *context, InstDesc *inst){
   // TODO: Read the actual parameters
   // for now, we just reject the call
   printf("sysSetITimer called (continuing with EINVAL).\n");
-  setSysErr(context,VEINVAL);
+  return setSysErr(context,VEINVAL);
 }
 template<ExecMode mode>
 void RealLinuxSys<mode>::sysClockGetRes(ThreadContext *context, InstDesc *inst){
   // TODO: Read the actual parameters
   // for now, we just reject the call
   printf("sysClockGetRes called (continuing with EINVAL).\n");
-  setSysErr(context,VEINVAL);
+  return setSysErr(context,VEINVAL);
 }
 template<ExecMode mode>
 void RealLinuxSys<mode>::sysClockGetTime(ThreadContext *context, InstDesc *inst){
   // TODO: Read the actual parameters
   // for now, we just reject the call
   printf("sysClockGettime called (continuing with EINVAL).\n");
-  setSysErr(context,VEINVAL);
+  return setSysErr(context,VEINVAL);
 }
 template<ExecMode mode>
 void RealLinuxSys<mode>::sysAlarm(ThreadContext *context, InstDesc *inst){
@@ -2939,6 +2998,8 @@ template<ExecMode mode>
 void RealLinuxSys<mode>::sysBrk(ThreadContext *context, InstDesc *inst){
   Tpointer_t addr;
   CallArgs(context) >> addr;
+  // Page-align address
+  addr=alignUp(addr,context->getAddressSpace()->getPageSize());
   Tpointer_t brkBase(context->getAddressSpace()->getBrkBase());
   Tpointer_t segStart(context->getAddressSpace()->getSegmentAddr(brkBase-1));
   Tsize_t    oldSegSize(context->getAddressSpace()->getSegmentSize(segStart));
@@ -2967,43 +3028,59 @@ void RealLinuxSys<mode>::sysMMap(ThreadContext *context, InstDesc *inst){
   Tsize_t    length;
   Tint       prot;
   Tint       flags;
-  Tint       fd;
-  Toff_t     offset;
-  CallArgs(context) >> start >> length >> prot >> flags >> fd >> offset;
-  I((flags&VMAP_SHARED)||(flags&VMAP_PRIVATE));
-  I(!((flags&VMAP_SHARED)&&(flags&VMAP_PRIVATE)));
-  if(!(flags&VMAP_ANONYMOUS)&&!(flags&VMAP_PRIVATE)&&(prot&VPROT_WRITE))
-    fail("sysCall32Mmap: TODO: Mapping of real files supported only without PROT_WRITE or with MAP_PRIVATE\n");
-  Tpointer_t rv=0;
-  if((flags&VMAP_FIXED)&&start&&!context->getAddressSpace()->isNoSegment(start,length))
-    context->getAddressSpace()->deleteSegment(start,length);
-  if(start&&context->getAddressSpace()->isNoSegment(start,length)){
-    rv=start;
-  }else if(flags&VMAP_FIXED){
+  CallArgs args(context);
+  args >> start >> length >> prot >> flags;
+  Tpointer_t addr=start;
+  if(context->getAddressSpace()->pageAlignDown(addr)!=addr){
+    // Address is not page-aligned, error if MAP_FIXED, ignore addr otherwise
+    if(flags&VMAP_FIXED)
+      return setSysErr(context,VEINVAL);
+    addr=0;
+  }
+  // Length parameter need not be page-aligned, so we silently align it now
+  Tsize_t len=context->getAddressSpace()->pageAlignUp(length);
+  // Either MAP_SHARED or MAP_PRIVATE must be set, but not both
+  if(((flags&VMAP_SHARED)!=0)==((flags&VMAP_PRIVATE)!=0))
     return setSysErr(context,VEINVAL);
+  // Find the return value (actual address of the mapped block)
+  if(flags&VMAP_FIXED){
+    if(!addr)
+      return setSysErr(context,VEINVAL);
+    context->getAddressSpace()->deleteSegment(addr,len);
   }else{
-    rv=context->getAddressSpace()->newSegmentAddr(length);
-    if(!rv)
-      return setSysErr(context,VENOMEM);
+    if((!addr)||(!context->getAddressSpace()->isNoSegment(addr,len))){
+      addr=context->getAddressSpace()->newSegmentAddr(len);
+      if(!addr)
+        return setSysErr(context,VENOMEM);
+    }
   }
-  // Create a write-only segment and initialize memory in it
-  context->getAddressSpace()->newSegment(rv,length,false,true,false,flags&VMAP_SHARED);
-  Tsize_t initPos=0;
+  // Now figure out the file maping (if any)
+  FileSys::SeekableDescription *sdesc=0;
+  size_t             offs=0;
   if(!(flags&VMAP_ANONYMOUS)){
-    Tssize_t readRet=context->writeMemFromFile(rv,length,fd,false,true,offset*offsmul);
-    if(readRet==-1)
-      fail("MMap could not read from underlying file\n");
-    I(readRet>=0);
-    FileSys::BaseStatus *bs=context->getOpenFiles()->getDesc(fd)->getStatus();
-    FileSys::FileStatus *fs=static_cast<FileSys::FileStatus *>(bs);
-    ExecMode exmode=getExecMode(fs);
-    if(exmode)
-      mapFuncNames(context,fs,exmode,rv,readRet,offset*offsmul);
-    initPos=readRet;
+    Tint       fd;
+    Toff_t     offset;
+    args >> fd >> offset;
+    FileSys::OpenFiles *openFiles=context->getOpenFiles();
+    if(!openFiles->isOpen(fd))
+      return setSysErr(context,VEBADF);
+    sdesc=dynamic_cast<FileSys::SeekableDescription *>(openFiles->getDescription(fd));
+    if(!sdesc)
+      return setSysErr(context,VENODEV);
+    if((!sdesc->canRd())||((flags&VMAP_SHARED)&&!sdesc->canWr()))
+      return setSysErr(context,VEACCES);
+    offs=offset*offsmul;
+    if(context->getAddressSpace()->pageAlignDown(offs)!=offs)
+      return setSysErr(context,VEINVAL);      
   }
-  if(initPos!=length)
-    context->writeMemWithByte(rv+initPos,length-initPos,0);
-  context->getAddressSpace()->protectSegment(rv,length,prot&VPROT_READ,prot&VPROT_WRITE,prot&VPROT_EXEC);
+  context->getAddressSpace()->newSegment(addr,len,
+                                         prot&VPROT_READ,prot&VPROT_WRITE,prot&VPROT_EXEC,
+                                         flags&VMAP_SHARED,sdesc,offs);
+  if(sdesc){
+    ExecMode exmode=getExecMode(sdesc);
+    if(exmode)
+      mapFuncNames(context,sdesc,exmode,addr,len,offs);
+  }
 #if (defined DEBUG_MEMORY)
   printf("sysCall32_mmap addr 0x%08x len 0x%08lx R%d W%d X%d S%d\n",
 	 rv,(unsigned long)length,
@@ -3018,7 +3095,7 @@ void RealLinuxSys<mode>::sysMMap(ThreadContext *context, InstDesc *inst){
          (prot&VPROT_READ)?'R':' ',(prot&VPROT_WRITE)?'W':' ',(prot&VPROT_EXEC)?'E':' ',
 	 (uint32_t)initPos,(uint32_t)rv);
 #endif
-  return setSysRet(context,rv);
+  return setSysRet(context,addr);
 }
 template<ExecMode mode>
 void RealLinuxSys<mode>::sysMReMap(ThreadContext *context, InstDesc *inst){
@@ -3027,6 +3104,9 @@ void RealLinuxSys<mode>::sysMReMap(ThreadContext *context, InstDesc *inst){
   Tsize_t     newsize;
   Tint        flags;
   CallArgs(context) >> oldaddr >> oldsize >> newsize >> flags;
+  // Page-align oldsize and newsize
+  oldsize=alignUp(oldsize,context->getAddressSpace()->getPageSize());
+  newsize=alignUp(newsize,context->getAddressSpace()->getPageSize());
   AddressSpace *addrSpace=context->getAddressSpace();
   if(!addrSpace->isSegment(oldaddr,oldsize))
     fail("sysCall32_mremap: old range not a segment\n");
@@ -3054,6 +3134,8 @@ void RealLinuxSys<mode>::sysMUnMap(ThreadContext *context, InstDesc *inst){
   Tpointer_t addr;
   Tsize_t    len;
   CallArgs(context) >> addr >> len;
+  // Page-align length 
+  len=alignUp(len,context->getAddressSpace()->getPageSize());
   context->getAddressSpace()->deleteSegment(addr,len);
 #if (defined DEBUG_MEMORY)
   printf("sysCall32_munmap addr 0x%08x len 0x%08lx\n",             
@@ -3072,6 +3154,8 @@ void RealLinuxSys<mode>::sysMProtect(ThreadContext *context, InstDesc *inst){
   Tsize_t    len;
   Tint       prot;
   CallArgs(context) >> addr >> len >> prot;
+  // Page-align length 
+  len=alignUp(len,context->getAddressSpace()->getPageSize());
 #if (defined DEBUG_MEMORY)
   printf("sysCall32_mprotect addr 0x%08x len 0x%08lx R%d W%d X%d\n",
          (unsigned long)addr,(unsigned long)len,
@@ -3100,33 +3184,46 @@ void RealLinuxSys<mode>::sysOpen(ThreadContext *context, InstDesc *inst){
   Tstr path(context,pathp);
   if(!path)
     return;
-  // Do the actual call
-  int newfd=context->getOpenFiles()->open(context->getFileSys()->toNative((const char *)path).c_str(),openFlagsToNative(flags),mode_tToNative(fmode));
+  FileSys::Description *description=
+    FileSys::Description::open(context->getFileSys()->toNative((const char *)path),
+			       openFlagsToNative(flags),mode_tToNative(fmode));
+  if(!description)
+    return setSysErr(context);
+  FileSys::OpenFiles *openFiles=context->getOpenFiles();
+  Tint newfd=openFiles->nextFreeFd(0);
 #ifdef DEBUG_FILES
   printf("(%d) open %s as %d\n",context->gettid(),(const char *)path,newfd);
 #endif
-  if(newfd==-1)
-    return setSysErr(context);
+  openFiles->openDescriptor(newfd,description);
   setSysRet(context,newfd);
 }
 template<ExecMode mode>
 void RealLinuxSys<mode>::sysPipe(ThreadContext *context, InstDesc *inst){
-  int fds[2];
-  if(context->getOpenFiles()->pipe(fds)==-1)
-    return setSysErr(context);
+  FileSys::PipeNode *node=new FileSys::PipeNode();
+  I(node);
+  FileSys::PipeDescription *rdescription= new FileSys::PipeDescription(node,O_RDONLY);
+  I(rdescription);
+  FileSys::PipeDescription *wdescription= new FileSys::PipeDescription(node,O_WRONLY);
+  I(wdescription);
+  FileSys::OpenFiles *openFiles=context->getOpenFiles();
+  Tint rfd(openFiles->nextFreeFd(0));
+  openFiles->openDescriptor(rfd,rdescription);
+  Tint wfd(openFiles->nextFreeFd(0));
+  openFiles->openDescriptor(wfd,wdescription);
 #ifdef DEBUG_FILES
-  printf("[%d] pipe rd %d wr %d\n",context->gettid(),fds[0],fds[1]);
+  printf("[%d] pipe rd %d wr %d\n",context->gettid(),rfd,wfd);
 #endif
-  setSysRet(context,Tint(fds[0]),Tint(fds[1]));
+  setSysRet(context,rfd,wfd);
 }
 template<ExecMode mode>
 void RealLinuxSys<mode>::sysDup(ThreadContext *context, InstDesc *inst){
   Tint     oldfd;
   CallArgs(context) >> oldfd;
-  // Do the actual call
-  Tint newfd=context->getOpenFiles()->dup(oldfd);
-  if(newfd==-1)
-    return setSysErr(context);
+  FileSys::OpenFiles *openFiles=context->getOpenFiles();
+  if(!openFiles->isOpen(oldfd))
+    return setSysErr(context,VEBADF);
+  Tint newfd=openFiles->nextFreeFd(0);
+  openFiles->openDescriptor(newfd,openFiles->getDescription(oldfd));
 #ifdef DEBUG_FILES
   printf("[%d] dup %d as %d\n",context->gettid(),oldfd,newfd);
 #endif
@@ -3137,9 +3234,14 @@ void RealLinuxSys<mode>::sysDup2(ThreadContext *context, InstDesc *inst){
   Tint     oldfd;
   Tint     newfd;
   CallArgs(context) >> oldfd >> newfd;
-  // Do the actual call
-  if(context->getOpenFiles()->dup2(oldfd,newfd)==-1)
-    return setSysErr(context);
+  FileSys::OpenFiles *openFiles=context->getOpenFiles();
+  if((!openFiles->isOpen(oldfd))||(newfd<0))
+    return setSysErr(context,VEBADF);
+  if(newfd!=oldfd){
+    if(openFiles->isOpen(newfd))
+      openFiles->closeDescriptor(newfd);
+    openFiles->openDescriptor(newfd,openFiles->getDescription(oldfd));
+  }
 #ifdef DEBUG_FILES
   printf("[%d] dup2 %d as %d\n",context->gettid(),oldfd,newfd);
 #endif
@@ -3153,6 +3255,9 @@ void RealLinuxSys<mode>::sysFCntl(ThreadContext *context, InstDesc *inst){
   Tint     cmd;
   CallArgs args(context);
   args >> fd >> cmd;
+  FileSys::OpenFiles *openFiles=context->getOpenFiles();
+  if(!openFiles->isOpen(fd))
+    return setSysErr(context,VEBADF);
   switch(cmd){
   case VF_DUPFD: {
 #ifdef DEBUG_FILES
@@ -3160,26 +3265,20 @@ void RealLinuxSys<mode>::sysFCntl(ThreadContext *context, InstDesc *inst){
 #endif
     Tint minfd;
     args >> minfd;
-    int  newfd = context->getOpenFiles()->dupfd(fd,minfd);
-    if(newfd==-1)
-      return setSysErr(context);
+    if(minfd<0)
+      return setSysErr(context,VEINVAL);
+    Tint newfd=openFiles->nextFreeFd(minfd);
+    openFiles->openDescriptor(newfd,openFiles->getDescription(fd));
 #ifdef DEBUG_FILES
     printf("[%d] dupfd %d as %d\n",context->gettid(),fd,newfd);
 #endif
-    I(newfd>=minfd);
-    I(context->getOpenFiles()->isOpen(fd));
-    I(context->getOpenFiles()->isOpen(newfd));
-    I(context->getOpenFiles()->getDesc(fd)->getStatus()==
-      context->getOpenFiles()->getDesc(newfd)->getStatus());
-    return setSysRet(context,Tint(newfd));
+    return setSysRet(context,newfd);
   } break;
   case VF_GETFD: {
 #ifdef DEBUG_FILES
     printf("[%d] getfd %d called\n",context->gettid(),fd);
 #endif
-    int cloex=context->getOpenFiles()->getfd(fd);
-    if(cloex==-1)
-      return setSysErr(context);
+    bool cloex=openFiles->getCloexec(fd);
     return setSysRet(context,cloex?VFD_CLOEXEC:0);
   } break;
   case VF_SETFD: {
@@ -3188,8 +3287,7 @@ void RealLinuxSys<mode>::sysFCntl(ThreadContext *context, InstDesc *inst){
 #ifdef DEBUG_FILES
     printf("[%d] setfd %d to %d called\n",context->gettid(),fd,(int)cloex);
 #endif
-    if(context->getOpenFiles()->setfd(fd,cloex?FD_CLOEXEC:0)==-1)
-      return setSysErr(context);
+    openFiles->setCloexec(fd,(cloex&VFD_CLOEXEC)==VFD_CLOEXEC);
 #ifdef DEBUG_FILES
     printf("[%d] setfd %d to %d \n",context->gettid(),fd,cloex);
 #endif
@@ -3199,9 +3297,7 @@ void RealLinuxSys<mode>::sysFCntl(ThreadContext *context, InstDesc *inst){
 #ifdef DEBUG_FILES
     printf("[%d] getfl %d called\n",context->gettid(),fd);
 #endif
-    int flags=context->getOpenFiles()->getfl(fd);
-    if(flags==-1)
-      return setSysErr(context);
+    FileSys::flags_t flags=openFiles->getDescription(fd)->getFlags();
     return setSysRet(context,openFlagsFromNative(flags));
   } break;
   default:
@@ -3214,20 +3310,22 @@ void RealLinuxSys<mode>::sysRead(ThreadContext *context, InstDesc *inst){
   Tpointer_t buf;
   Tsize_t    count;
   CallArgs(context) >> fd >> buf >> count;
+  FileSys::OpenFiles *openFiles=context->getOpenFiles();
+  if(!openFiles->isOpen(fd))
+    return setSysErr(context,VEBADF);
+  FileSys::Description *description=openFiles->getDescription(fd);
+  if(!description->canRd())
+    return setSysErr(context,VEBADF);
   if(!context->canWrite(buf,count))
     return setSysErr(context,VEFAULT);
-  ssize_t rv=context->writeMemFromFile(buf,count,fd,false);
-  if((rv==-1)&&(errno==EAGAIN)&&!(context->getOpenFiles()->getfl(fd)&O_NONBLOCK)){
-    // Enable SigIO
-    SignalSet newMask=context->getSignalMask();
-    if(newMask.test(SigIO))
-      fail("LinuxSys::sysRead_(): SigIO masked out, not supported\n");
-//       newMask.reset(SigIO);
-//       sstate->pushMask(newMask);
+  FileSys::StreamDescription *sdescription=dynamic_cast<FileSys::StreamDescription *>(description);
+  if(sdescription&&sdescription->willRdBlock()){
+    if(sdescription->isNonBlock())
+      return setSysErr(context,VEAGAIN);
+    I(!context->getSignalMask().test(SigIO));
     if(context->hasReadySignal()){
       setSysErr(context,VEINTR);
       SigInfo *sigInfo=context->nextReadySignal();
-//      sstate->popMask();
       handleSignal(context,sigInfo);
       delete sigInfo;
       return;
@@ -3235,8 +3333,7 @@ void RealLinuxSys<mode>::sysRead(ThreadContext *context, InstDesc *inst){
     context->updIAddr(-inst->aupdate,-1);
     I(inst==context->getIDesc());
     I(inst==context->virt2inst(context->getIAddr()));
-    context->getOpenFiles()->addReadBlock(fd,context->gettid());
-//    sstate->setWakeup(new SigCallBack(context->gettid(),true));
+    sdescription->rdBlock(context->gettid());
 #if (defined DEBUG_SIGNALS)
     printf("Suspend %d in sysCall32_read(fd=%d)\n",context->gettid(),fd);
     context->dumpCallStack();
@@ -3247,14 +3344,18 @@ void RealLinuxSys<mode>::sysRead(ThreadContext *context, InstDesc *inst){
     suspSet.insert(context->gettid());
 #endif
     context->suspend();
-    return;
+    return;    
   }
+  uint8_t rbuf[count];
+  ssize_t rcount=description->read(rbuf,count);
+  I(rcount>=0);
 #ifdef DEBUG_FILES
-  printf("[%d] read %d wants %ld gets %ld bytes\n",context->gettid(),fd,(long)count,(long)rv);
+  printf("[%d] read %d wants %ld gets %ld bytes\n",context->gettid(),fd,(long)count,(long)rcount);
 #endif
-  if(rv==-1)
+  if(rcount==-1)
     return setSysErr(context);
-  return setSysRet(context,Tssize_t(rv));
+  context->writeMemFromBuf(buf,(size_t)rcount,rbuf);
+  return setSysRet(context,Tssize_t(rcount));
 }
 template<ExecMode mode>
 void RealLinuxSys<mode>::sysWrite(ThreadContext *context, InstDesc *inst){
@@ -3262,14 +3363,19 @@ void RealLinuxSys<mode>::sysWrite(ThreadContext *context, InstDesc *inst){
   Tpointer_t buf;
   Tsize_t    count;
   CallArgs(context) >> fd >> buf >> count;
+  FileSys::OpenFiles *openFiles=context->getOpenFiles();
+  if(!openFiles->isOpen(fd))
+    return setSysErr(context,VEBADF);
+  FileSys::Description *description=openFiles->getDescription(fd);
+  if(!description->canWr())
+    return setSysErr(context,VEBADF);
   if(!context->canRead(buf,count))
     return setSysErr(context,VEFAULT);
-  ssize_t rv=context->readMemToFile(buf,count,fd,false);
-  if((rv==-1)&&(errno==EAGAIN)&&!(context->getOpenFiles()->getfl(fd)&O_NONBLOCK)){
-    // Enable SigIO
-    SignalSet newMask=context->getSignalMask();
-    if(newMask.test(SigIO))
-      fail("LinuxSys::sysWrite_(): SigIO masked out, not supported\n");
+  FileSys::StreamDescription *sdescription=dynamic_cast<FileSys::StreamDescription *>(description);
+  if(sdescription&&sdescription->willWrBlock()){
+    if(sdescription->isNonBlock())
+      return setSysErr(context,VEAGAIN);
+    I(!context->getSignalMask().test(SigIO));
     if(context->hasReadySignal()){
       setSysErr(context,VEINTR);
       SigInfo *sigInfo=context->nextReadySignal();
@@ -3280,7 +3386,6 @@ void RealLinuxSys<mode>::sysWrite(ThreadContext *context, InstDesc *inst){
     context->updIAddr(-inst->aupdate,-1);
     I(inst==context->getIDesc());
     I(inst==context->virt2inst(context->getIAddr()));
-    context->getOpenFiles()->addWriteBlock(fd,context->gettid());
 #if (defined DEBUG_SIGNALS)
     printf("Suspend %d in sysCall32_write(fd=%d)\n",context->gettid(),fd);
     context->dumpCallStack();
@@ -3290,38 +3395,67 @@ void RealLinuxSys<mode>::sysWrite(ThreadContext *context, InstDesc *inst){
     printf("\n");
     suspSet.insert(context->gettid());
 #endif
+    sdescription->wrBlock(context->gettid());
     context->suspend();
     return;
   }
+  uint8_t rbuf[count];
+  context->readMemToBuf(buf,(size_t)count,rbuf);
+  ssize_t wcount=description->write(rbuf,count);
+  I(wcount>=0);
 #ifdef DEBUG_FILES
-  printf("[%d] write %d wants %ld gets %ld bytes\n",context->gettid(),fd,(long)count,(long)rv);
+  printf("[%d] write %d wants %ld gets %ld bytes\n",context->gettid(),fd,(long)count,(long)wcount);
 #endif
-  if(rv==-1)
+  if(wcount==-1)
     return setSysErr(context);
-  return setSysRet(context,Tssize_t(rv));
+  return setSysRet(context,Tssize_t(wcount));
 }
 template<ExecMode mode>
 void RealLinuxSys<mode>::sysWriteV(ThreadContext *context, InstDesc *inst){
-  I(0);
   Tint       fd;
   Tpointer_t vector;
-  Tsize_t    count;
-  CallArgs(context) >> fd >> vector >> count;
-  if(!context->canRead(vector,count*Tiovec::getSize()))
+  Tint       iovcnt;
+  CallArgs(context) >> fd >> vector >> iovcnt;
+  if(iovcnt<=0)
+    return setSysErr(context,VEINVAL);
+  FileSys::OpenFiles *openFiles=context->getOpenFiles();
+  if(!openFiles->isOpen(fd))
+    return setSysErr(context,VEBADF);
+  if(!context->canRead(vector,iovcnt*Tiovec::getSize()))
     return setSysErr(context,VEFAULT);
-  Tssize_t rv=0;
-  for(Tssize_t i=0;i<Tssize_t(count);i++){
+  Tssize_t count=0;
+  for(Tint i=0;i<iovcnt;i++){
     Tiovec iov(context,vector+i*Tiovec::getSize());
     if(!context->canRead(iov.iov_base,iov.iov_len))
       return setSysErr(context,VEFAULT);
-    ssize_t nowBytes=context->readMemToFile(iov.iov_base,iov.iov_len,fd,false);
-    if(nowBytes==-1)
-      return setSysErr(context);
-    rv+=nowBytes;
-    if((size_t)nowBytes<iov.iov_len)
-      break;
+    count+=iov.iov_len;
   }
-  setSysRet(context,rv);
+  if(!count)
+    return setSysRet(context,0);
+  FileSys::Description *description=openFiles->getDescription(fd);
+  if(!description->canWr())
+    return setSysErr(context,VEBADF);
+  uint8_t wbuf[count];
+  size_t  pos=0;
+  for(Tint i=0;i<iovcnt;i++){
+    Tiovec iov(context,vector+i*Tiovec::getSize());
+    I(context->canRead(iov.iov_base,iov.iov_len));
+    context->readMemToBuf(iov.iov_base,iov.iov_len,wbuf+pos);
+    pos+=iov.iov_len;
+  }
+  FileSys::StreamDescription *sdescription=dynamic_cast<FileSys::StreamDescription *>(description);
+  if(sdescription&&sdescription->willWrBlock()){
+    fail("writev would block!\n");
+  }
+  ssize_t wcount=description->write(wbuf,count);
+#ifdef DEBUG_FILES
+  int e=errno;
+  printf("[%d] writev %d wants %ld gets %ld bytes\n",context->gettid(),fd,(long)count,(long)wcount);
+  errno=e;
+#endif
+  if(wcount==-1)
+    return setSysErr(context);
+  return setSysRet(context,Tssize_t(wcount));
 }
 template<ExecMode mode>
 void RealLinuxSys<mode>::sysLSeek(ThreadContext *context, InstDesc *inst){
@@ -3329,13 +3463,27 @@ void RealLinuxSys<mode>::sysLSeek(ThreadContext *context, InstDesc *inst){
   Toff_t   offset;
   Tint     whence;
   CallArgs(context) >> fd >> offset >> whence;
-  off_t rv=context->getOpenFiles()->seek(fd,offset,whenceToNative(whence));
+  FileSys::OpenFiles *openFiles=context->getOpenFiles();
+  if(!openFiles->isOpen(fd))
+    return setSysErr(context,VEBADF);
+  FileSys::SeekableDescription *description=dynamic_cast<FileSys::SeekableDescription *>(openFiles->getDescription(fd));
+  if(!description)
+    return setSysErr(context,VESPIPE);
+  off_t newOffset=offset;
+  switch(whence){
+  case VSEEK_SET: break;
+  case VSEEK_CUR: newOffset+=description->getPos(); break;
+  case VSEEK_END: newOffset+=description->getSize(); break;
+  default:
+    return setSysErr(context,VEINVAL);
+  }
+  if(newOffset<0)
+    return setSysErr(context,VEINVAL);
+  description->setPos(newOffset);
 #ifdef DEBUG_FILES
-  printf("[%d] lseek %d to %ld whence %d returns %ld\n",context->gettid(),fd,(long)offset,(int)whence,(long)rv);
+  printf("[%d] lseek %d to %ld whence %d returns %ld\n",context->gettid(),fd,(long)offset,(int)whence,(long)newPos);
 #endif
-  if(rv==(off_t)-1)
-    return setSysErr(context);
-  setSysRet(context,Toff_t(rv));
+  return setSysRet(context,Toff_t(newOffset));
 }
 template<ExecMode mode>
 void RealLinuxSys<mode>::sysLLSeek(ThreadContext *context, InstDesc *inst){
@@ -3345,16 +3493,29 @@ void RealLinuxSys<mode>::sysLLSeek(ThreadContext *context, InstDesc *inst){
   Tpointer_t result;
   Tint       whence;
   CallArgs(context) >> fd >> offset_high >> offset_low >> result >> whence;
+  FileSys::OpenFiles *openFiles=context->getOpenFiles();
+  if(!openFiles->isOpen(fd))
+    return setSysErr(context,VEBADF);
   if(!context->canWrite(result,sizeof(Tloff_t)))
     return setSysErr(context,VEFAULT);
-  off_t offset=(off_t)((((uint64_t)offset_high)<<32)|((uint64_t)offset_low));
-  off_t rv=context->getOpenFiles()->seek(fd,offset,whenceToNative(whence));
+  FileSys::SeekableDescription *description=dynamic_cast<FileSys::SeekableDescription *>(openFiles->getDescription(fd));
+  if(!description)
+    return setSysErr(context,VESPIPE);
+  off_t newOffset=(off_t)((((uint64_t)offset_high)<<32)|((uint64_t)offset_low));
+  switch(whence){
+  case VSEEK_SET: break;
+  case VSEEK_CUR: newOffset+=description->getPos(); break;
+  case VSEEK_END: newOffset+=description->getSize(); break;
+  default:
+    return setSysErr(context,VEINVAL);
+  }
+  if(newOffset<0)
+    return setSysErr(context,VEINVAL);
+  description->setPos(newOffset);
 #ifdef DEBUG_FILES
-  printf("[%d] llseek %d to %ld whence %d returns %ld\n",context->gettid(),fd,(long)offset,(int)whence,(long)rv);
+  printf("[%d] llseek %d to %ld whence %d returns %ld\n",context->gettid(),fd,(long)offset,(int)whence,(long)newOffset);
 #endif
-  if(rv==(off_t)-1)
-    return setSysErr(context);
-  context->writeMemRaw(result,fixEndian(Tloff_t(rv)));
+  context->writeMemRaw(result,fixEndian(Tloff_t(newOffset)));
   setSysRet(context);
 }
 template<ExecMode mode>
@@ -3364,43 +3525,34 @@ void RealLinuxSys<mode>::sysGetDEnts(ThreadContext *context, InstDesc *inst){
   Tpointer_t dirp;
   Tsize_t    count;
   CallArgs(context) >> fd >> dirp >> count;
-  if(!context->getOpenFiles()->isOpen(fd))
+  FileSys::OpenFiles *openFiles=context->getOpenFiles();
+  if(!openFiles->isOpen(fd))
     return setSysErr(context,VEBADF);
+  if(!context->canWrite(dirp,count))
+    return setSysErr(context,VEFAULT);
 #ifdef DEBUG_FILES 
   printf("[%d] getdents from %d (%d entries to 0x%08x)\n",context->gettid(),fd,count,dirp);
 #endif
-  FileSys::FileDesc *desc=context->getOpenFiles()->getDesc(fd);
-  int realfd=desc->getStatus()->fd;
-  // How many bytes have been read so far
-  Tsize_t rv=0;
-  // Get the current position in the directory file
-  off_t dirPos=lseek(realfd,0,SEEK_CUR);
-  I(dirPos!=(off_t)-1);
+  FileSys::DirectoryDescription *desc=dynamic_cast<FileSys::DirectoryDescription *>(openFiles->getDescription(fd));
+  if(!desc)
+    return setSysErr(context,VENOTDIR);
+  // How many bytes at dirp have been read so far
+  Tsize_t rcount=0;
   while(true){
-    struct dirent64 natDent;
-    __off64_t dummyDirPos=dirPos;
-    ssize_t rdBytes=getdirentries64(realfd,(char *)(&natDent),sizeof(natDent),&dummyDirPos);
-    if(rdBytes==-1)
-      return setSysErr(context);
-    if(rdBytes==0)
+    off_t cpos=desc->getPos();
+    if(cpos>=desc->getSize())
       break;
-#ifdef DEBUG_FILES
-    printf("  d_type %d d_name %s\n",natDent.d_type,natDent.d_name);
-#endif
-    Tdirent_t simDent(natDent);
-    if(rv+simDent.d_reclen>count){
-      lseek(realfd,dirPos,SEEK_SET);
-      if(rv==0)
-        return setSysErr(context,VEINVAL);
+    Tdirent_t simDent(desc->readDir(),cpos+1);
+    if(rcount+simDent.d_reclen>count){
+      desc->setPos(cpos);
       break;
     }
-    if(!context->canWrite(dirp+rv,simDent.d_reclen))
-      return setSysErr(context,VEFAULT);
-    simDent.write(context,dirp+rv);
-    dirPos=lseek(realfd,natDent.d_off,SEEK_SET);
-    rv+=simDent.d_reclen;
+    simDent.write(context,dirp+rcount);
+    rcount+=simDent.d_reclen;
   }
-  setSysRet(context,rv);
+  if(rcount==0)
+    return setSysErr(context,VEINVAL);
+  return setSysRet(context,rcount);
 }
 template<ExecMode mode>
 void RealLinuxSys<mode>::sysIOCtl(ThreadContext *context, InstDesc *inst){
@@ -3408,35 +3560,17 @@ void RealLinuxSys<mode>::sysIOCtl(ThreadContext *context, InstDesc *inst){
   Tint     cmd;
   CallArgs args(context);
   args >> fd >> cmd;
-  if(!context->getOpenFiles()->isOpen(fd))
+  FileSys::OpenFiles *openFiles=context->getOpenFiles();
+  if(!openFiles->isOpen(fd))
     return setSysErr(context,VEBADF);
-  FileSys::FileDesc *desc=context->getOpenFiles()->getDesc(fd);
-  int realfd=desc->getStatus()->fd;
+  FileSys::Description *description=openFiles->getDescription(fd);
   switch(cmd){
-  case VTCGETS: {
-    struct Mips32_kernel_termios{
-      uint32_t c_iflag; // Input mode flags
-      uint32_t c_oflag; // Output mode flags
-      uint32_t c_cflag; // Control mode flags
-      uint32_t c_lflag; // Local mode flags
-      unsigned char c_line;      // Line discipline
-      unsigned char c_cc[19]; // Control characters
-    };
-    // TODO: For now, it never succeeds (assume no file is a terminal)
-    return setSysErr(context,VENOTTY);
-  } break;
-  case VTIOCGWINSZ: {
-    Tpointer_t wsiz;
-    args >> wsiz;
-    if(!context->canWrite(wsiz,Twinsize::getSize()))
-      return setSysErr(context,VEFAULT);
-    struct winsize natWinsize;
-    int retVal=ioctl(realfd,TIOCGWINSZ,&natWinsize);
-    if(retVal==-1)
-      return setSysErr(context);
-    Twinsize(natWinsize).write(context,wsiz);
-  } break;
+  case VTCGETS:
+  case VTIOCGWINSZ:
   case VTCSETSW: {
+    FileSys::TtyDescription *ttydescription=dynamic_cast<FileSys::TtyDescription *>(description);
+    if(!ttydescription)
+      return setSysErr(context,VENOTTY);
     // TODO: For now, it never succeeds (assume no file is a terminal)
     return setSysErr(context,VENOTTY);
   } break;
@@ -3444,10 +3578,22 @@ void RealLinuxSys<mode>::sysIOCtl(ThreadContext *context, InstDesc *inst){
     fail("sysCall32_ioctl called with fd %d and req 0x%x at 0x%08x\n",
          fd,cmd,context->getIAddr());
   }
-  setSysRet(context);
+  return setSysRet(context);
+//   case VTIOCGWINSZ: {
+//     Tpointer_t wsiz;
+//     args >> wsiz;
+//     if(!context->canWrite(wsiz,Twinsize::getSize()))
+//       return setSysErr(context,VEFAULT);
+//     struct winsize natWinsize;
+//     int retVal=ioctl(realfd,TIOCGWINSZ,&natWinsize);
+//     if(retVal==-1)
+//       return setSysErr(context);
+//     Twinsize(natWinsize).write(context,wsiz);
+//   } break;
 }
 template<ExecMode mode>
 void RealLinuxSys<mode>::sysPoll(ThreadContext *context, InstDesc *inst){
+  fail("sysPoll called\n");
   Tpointer_t fds;
   Tuint      nfds;
   Tlong      timeout;
@@ -3455,23 +3601,38 @@ void RealLinuxSys<mode>::sysPoll(ThreadContext *context, InstDesc *inst){
   if((!context->canRead(fds,nfds*Tpollfd::getSize()))||
      (!context->canWrite(fds,nfds*Tpollfd::getSize())))
     return setSysErr(context,VEFAULT);
-  int fdList[nfds];
+  FileSys::OpenFiles *openFiles=context->getOpenFiles();
+  std::vector<FileSys::StreamDescription *> rdList;
+  std::vector<FileSys::StreamDescription *> wrList;
   Tlong rv=0;
   for(size_t i=0;i<nfds;i++){
     Tpollfd myFd(context,fds+i*Tpollfd::getSize());
-    fdList[i]=myFd.fd;
     myFd.revents=0;
-    if(!context->getOpenFiles()->isOpen(myFd.fd)){
+    if(myFd.fd<0){
+      // Do nothing, revents is 0
+    }else if(!openFiles->isOpen(myFd.fd)){
       myFd.revents|=VPOLLNVAL;
-    }else if((myFd.events&VPOLLIN)&&(!context->getOpenFiles()->willReadBlock(myFd.fd))){
-      myFd.revents|=VPOLLIN;
-    }else
-      continue;
+    }else{
+      FileSys::StreamDescription *sdesc=dynamic_cast<FileSys::StreamDescription *>(openFiles->getDescription(myFd.fd));
+      if(myFd.events&VPOLLIN){
+	if((!sdesc)||(!sdesc->willRdBlock()))
+	  myFd.revents|=VPOLLIN;
+	else
+	  rdList.push_back(sdesc);
+      }
+      if(myFd.events&VPOLLOUT){
+	if((!sdesc)||(!sdesc->willWrBlock()))
+	  myFd.revents|=VPOLLOUT;
+	else
+	  wrList.push_back(sdesc);
+      }
+    }
+    if(myFd.revents)
+      rv++;
     myFd.write(context,fds+i*Tpollfd::getSize());
-    rv++;
   }
   // If any of the files could be read withut blocking, we're done
-  if(rv!=0)
+  if(rv)
     return setSysRet(context,rv);
   // We need to block and wait
   // Enable SigIO
@@ -3488,21 +3649,12 @@ void RealLinuxSys<mode>::sysPoll(ThreadContext *context, InstDesc *inst){
     delete sigInfo;
     return;
   }
-  // Set up a callback, add a read block on each file, and suspend
-  //     sstate->setWakeup(new SigCallBack(context->gettid(),true));
+  for(size_t ri=0;ri<rdList.size();ri++)
+    rdList[ri]->rdBlock(context->gettid());
+  for(size_t wi=0;wi<wrList.size();wi++)
+    wrList[wi]->wrBlock(context->gettid());
 #if (defined DEBUG_SIGNALS)
-  printf("Suspend %d in sysCall32_poll(fds=",context->gettid());
-#endif
-  for(size_t i=0;i<nfds;i++){
-#if (defined DEBUG_SIGNALS)
-    printf(" %d",fdList[i]);
-#endif
-    context->getOpenFiles()->addReadBlock(fdList[i],context->gettid());
-  }
-#if (defined DEBUG_SIGNALS)
-  printf(")\n");
-  context->dumpCallStack();
-  printf("Also suspended:");
+  printf("Suspending %d in sysPoll. Also suspended:",context->gettid());
   for(PidSet::iterator suspIt=suspSet.begin();suspIt!=suspSet.end();suspIt++)
     printf(" %d",*suspIt);
   printf("\n");
@@ -3514,9 +3666,11 @@ template<ExecMode mode>
 void RealLinuxSys<mode>::sysClose(ThreadContext *context, InstDesc *inst){
   Tint     fd;
   CallArgs(context) >> fd;
+  FileSys::OpenFiles *openFiles=context->getOpenFiles();
+  if(!openFiles->isOpen(fd))
+    return setSysErr(context,VEBADF);
   // Do the actual call
-  if(context->getOpenFiles()->close(fd)==-1)
-    return setSysErr(context);
+  openFiles->closeDescriptor(fd);
 #ifdef DEBUG_FILES
   printf("[%d] close %d\n",context->gettid(),fd);
 #endif
@@ -3547,13 +3701,14 @@ void RealLinuxSys<mode>::sysFTruncate(ThreadContext *context, InstDesc *inst){
 #ifdef DEBUG_FILES
   printf("[%d] ftruncate %d to %ld\n",context->gettid(),fd,(long)length);
 #endif
-  if(!context->getOpenFiles()->isOpen(fd))
+  FileSys::OpenFiles *openFiles=context->getOpenFiles();
+  if(!openFiles->isOpen(fd))
     return setSysErr(context,VEBADF);
-  FileSys::FileDesc *desc=context->getOpenFiles()->getDesc(fd);
-  int realfd=desc->getStatus()->fd;
-  if(ftruncate(realfd,(off_t)length)==-1)
-    return setSysErr(context);
-  setSysRet(context);
+  FileSys::SeekableDescription *desc=dynamic_cast<FileSys::SeekableDescription *>(openFiles->getDescription(fd));
+  if(!desc)
+    return setSysErr(context,VESPIPE);
+  desc->setSize(length);
+  return setSysRet(context);
 }
 template<ExecMode mode>
 void RealLinuxSys<mode>::sysChMod(ThreadContext *context, InstDesc *inst){    
@@ -3599,25 +3754,25 @@ void RealLinuxSys<mode>::sysFStat(ThreadContext *context, InstDesc *inst){
   CallArgs(context) >> fd >> buf;
   if(!context->canWrite(buf,Tstat_t::getSize()))
     return setSysErr(context,VEFAULT);
-  if(!context->getOpenFiles()->isOpen(fd))
+  FileSys::OpenFiles *openFiles=context->getOpenFiles();
+  if(!openFiles->isOpen(fd))
     return setSysErr(context,VEBADF);
-  FileSys::FileDesc *desc=context->getOpenFiles()->getDesc(fd);             
-  int realfd=desc->getStatus()->fd;
-  struct stat natStat;            
-  if(fstat(realfd,&natStat)==-1)         
-    return setSysErr(context);
-  // Make standard in, out, and err look like TTY devices
-  if(fd<3){
-    // Change format to character device
-    natStat.st_mode&=(~S_IFMT);
-    natStat.st_mode|=S_IFCHR;
-    // Change device to a TTY device type
-    // DEV_TTY_LOW_MAJOR is 136, DEV_TTY_HIGH_MAJOR is 143
-    // We use a major number of 136 (0x88)
-    natStat.st_rdev=0x8800;
-  }
-  Tstat_t(natStat).write(context,buf);
-  setSysRet(context);
+  const FileSys::Node *node=openFiles->getDescription(fd)->getNode();
+  Tstat_t simStat;
+  simStat.st_dev=node->getDev();
+  simStat.st_ino=node->getIno();
+  simStat.st_uid=node->getUid();
+  simStat.st_gid=node->getGid();
+  simStat.st_mode=node->getMode();
+  simStat.st_nlink=1;
+  simStat.st_blksize=context->getAddressSpace()->getPageSize();
+  const FileSys::SeekableNode *seeknode=dynamic_cast<const FileSys::SeekableNode *>(node);
+  simStat.st_size=seeknode?seeknode->getSize():0;
+  simStat.st_blocks=context->getAddressSpace()->pageAlignUp(simStat.st_size);
+  const FileSys::StreamNode *streamnode=dynamic_cast<const FileSys::StreamNode *>(node);
+  simStat.st_rdev=streamnode?streamnode->getRdev():0;
+  simStat.write(context,buf);
+  return setSysRet(context);
 }
 template<ExecMode mode>
 void RealLinuxSys<mode>::sysFStatFS(ThreadContext *context, InstDesc *inst){

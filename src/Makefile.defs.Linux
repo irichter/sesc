@@ -37,8 +37,8 @@ CXX	=g++
 CC	=gcc
 
 ifdef PERFORMANCE
-COPTS	:=-O2 -pg
-LOPTS   :=-O2 -pg 
+COPTS	:=-O2 -pg -fno-inline-functions
+LOPTS   :=-O2 -pg -fno-inline-functions
 else
 ifdef DEBUG
 # Profiling and coverage analysis options

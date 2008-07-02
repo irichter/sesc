@@ -431,17 +431,15 @@ public:
   static ThreadContext *newActual(Pid_t pid);
   static ThreadContext *newCloned(void);
   void free(void);
-#endif // else of (defined MIPS_EMUL)
-
-
   static uint64_t getMemValue(RAddr p, unsigned dsize); 
+#endif // else of (defined MIPS_EMUL)
 
   // BEGIN Memory Mapping
   bool isValidDataVAddr(VAddr vaddr) const{
 #if !(defined MIPS_EMUL)
     return (vaddr>=dataVAddrLb)&&(vaddr<dataVAddrUb);
 #else
-    return (addressSpace->virtToReal(vaddr)!=0);
+    return canRead(vaddr,1)||canWrite(vaddr,1);
 #endif
   }
 
@@ -485,8 +483,6 @@ public:
 #if !(defined MIPS_EMUL)
   void initAddressing(VAddr dataVAddrLb, VAddr dataVAddrUb,
 		      MINTAddrType rMap, MINTAddrType mMap, MINTAddrType sTop);
-#endif // !(defined MIPS_EMUL)
-
   RAddr virt2real(VAddr vaddr, short opflags=E_READ | E_BYTE) const{
 #ifdef TASKSCALAR
     if(checkSpecThread(vaddr, opflags))
@@ -496,22 +492,16 @@ public:
     if(!isValidDataVAddr(vaddr))
       return 0;    
 #endif
-#if !(defined MIPS_EMUL)
     I(isValidDataVAddr(vaddr));
     return virtToRealOffset+vaddr;
-#else // (defined MIPS_EMUL)
-    return addressSpace->virtToReal(vaddr);
-#endif // (defined MIPS_EMUL)
   }
   VAddr real2virt(RAddr raddr) const{
-#if !(defined MIPS_EMUL)
     VAddr vaddr=raddr-virtToRealOffset;
     I(isValidDataVAddr(vaddr));
     return vaddr;
-#else // For (defined MIPS_EMUL)
-    return 0;
-#endif // For else of (defined MIPS_EMUL)
   }
+#endif // !(defined MIPS_EMUL)
+
 #if (defined MIPS_EMUL)
   inline InstDesc *virt2inst(VAddr vaddr){
     InstDesc *inst=addressSpace->virtToInst(vaddr);
@@ -520,9 +510,6 @@ public:
       inst=addressSpace->virtToInst(vaddr);
     }
     return inst;
-  }
-  inline PAddr virt2phys(VAddr vaddr) const{
-    return addressSpace->virtToPhys(vaddr);
   }
 #else // For (defined MIPS_EMUL)
   bool isHeapData(VAddr addr) const{
@@ -614,26 +601,27 @@ public:
     return addressSpace->canWrite(addr,len);
   }
   void    writeMemFromBuf(VAddr addr, size_t len, const void *buf);
-  ssize_t writeMemFromFile(VAddr addr, size_t len, int32_t fd, bool natFile, bool usePread=false, off_t offs=0);
+//  ssize_t writeMemFromFile(VAddr addr, size_t len, int32_t fd, bool natFile, bool usePread=false, off_t offs=0);
   void    writeMemWithByte(VAddr addr, size_t len, uint8_t c);  
   void    readMemToBuf(VAddr addr, size_t len, void *buf);
-  ssize_t readMemToFile(VAddr addr, size_t len, int32_t fd, bool natFile);
+//  ssize_t readMemToFile(VAddr addr, size_t len, int32_t fd, bool natFile);
   ssize_t readMemString(VAddr stringVAddr, size_t maxSize, char *dstStr);
   template<class T>
   inline T readMemRaw(VAddr addr){
     if(sizeof(T)>sizeof(MemAlignType)){
-      T tmp;
-      I(canRead(addr,sizeof(T)));
-      readMemToBuf(addr,sizeof(T),&tmp);
-      return tmp;
+      fail("ThreadContext:writeMemRaw with a too-large type\n");
+//      T tmp;
+//      I(canRead(addr,sizeof(T)));
+//      readMemToBuf(addr,sizeof(T),&tmp);
+//      return tmp;
     }
 //    for(size_t i=0;i<(sizeof(T)+MemState::Granularity-1)/MemState::Granularity;i++)
 //      if(getState(addr+i*MemState::Granularity).st==0)
 //        fail("Uninitialized read found\n");
-    return addressSpace->readMemRaw<T>(addr);
+    return addressSpace->read<T>(addr);
   }
   template<class T>
-  inline bool writeMemRaw(VAddr addr, const T &val){
+  inline void writeMemRaw(VAddr addr, const T &val){
     //   if((addr>=0x4d565c)&&(addr<0x4d565c+12)){
     //     I(0);
     //     I(iAddr!=0x004bb428);
@@ -644,15 +632,16 @@ public:
     //     printf("Write 0x%08x to 0x%08x at 0x%08x in %s\n",
     //       val,addr,iAddr,fname);
     //   }
-   if(sizeof(T)>sizeof(MemAlignType)){
-      if(!canWrite(addr,sizeof(val)))
-	return false;
-      writeMemFromBuf(addr,sizeof(val),&val);
-      return true;
+    if(sizeof(T)>sizeof(MemAlignType)){
+     fail("ThreadContext:writeMemRaw with a too-large type\n");
+//      if(!canWrite(addr,sizeof(val)))
+//	return false;
+//      writeMemFromBuf(addr,sizeof(val),&val);
+//      return true;
     }
 //    for(size_t i=0;i<(sizeof(T)+MemState::Granularity-1)/MemState::Granularity;i++)
 //      getState(addr+i*MemState::Granularity).st=1;
-    return addressSpace->writeMemRaw<T>(addr,val);
+    addressSpace->write<T>(addr,val);
   }
 #if (defined DEBUG_BENCH)
   VAddr readMemWord(VAddr addr);

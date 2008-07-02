@@ -3,213 +3,272 @@
 
 #include <stddef.h>
 #include <sys/types.h>
+#include <sys/stat.h>
+#include <dirent.h>
+#include <deque>
 #include <string>
 #include <vector>
 #include <map>
 #include "GCObject.h"
 #include "Checkpoint.h"
+#include "SignalHandling.h"
+
+#define OLD_FDESC
 
 namespace MemSys{
   class FrameDesc;
 }
 
+// Included only for "struct pollfd"
+#include <poll.h>
 namespace FileSys {
+  // Type of a file descriptor
+  typedef typeof(((struct pollfd *)0)->fd) fd_t;
+}
+namespace FileSys {
+
+  // Type of flags (O_RDONLY, etc.) 
+  typedef int32_t flags_t;
 
   typedef enum {
     Disk,
     Pipe,
     Stream,
   } FileType;
-  
-  class BaseStatus : public GCObject {
-  public:
-    typedef SmartPtr<BaseStatus> pointer;
-    // Type of this file
-    FileType type;
-    // Native file descriptor 
-    int32_t      fd;
-    // Simulated flags
-    int32_t      flags;
-    // IDs of threads blocked on reads from this file
-    class PidSet : public std::vector<int>{};
-    //    typedef std::vector<int> PidSet;
-    PidSet readBlockPids;
-    PidSet writeBlockPids;
-  protected:
-    BaseStatus(FileType type, int32_t fd, int32_t flags);
-    virtual ~BaseStatus(void);
-  public:
-    virtual void addReadBlock(int32_t pid){
-      readBlockPids.push_back(pid);
-    }
-    virtual void addWriteBlock(int32_t pid){
-      writeBlockPids.push_back(pid);
-    }
-    virtual void endReadBlock(void){
-    }
-    virtual void endWriteBlock(void){
-    }
-    virtual void save(ChkWriter &out) const;
-    static BaseStatus *create(ChkReader &in);
-    BaseStatus(FileType type, ChkReader &in);
-    FileType getType(void) const{ return type; }
-    virtual void mmap(MemSys::FrameDesc *frame, void *data, size_t size, off_t offs){
-      printf("BaseStatus::mmap should never be called"); exit(1);
-    }
-    virtual void munmap(MemSys::FrameDesc *frame, void *data, size_t size, off_t offs){
-      printf("BaseStatus::munmap should never be called"); exit(1);
-    }
-    virtual void msync(MemSys::FrameDesc *frame, void *data, size_t size, off_t offs){
-      printf("BaseStatus::msync should never be called"); exit(1);
-    }
-  };
 
-  class FileStatus : public BaseStatus{
-  public:
-    typedef SmartPtr<FileStatus> pointer;
-    // Name of the file that was **intended** to be opened
-    const char *name;
-    // Mode with which the file was **intended** to be opened
-    mode_t      mode;
-  protected:
-    FileStatus(const char *name, int32_t fd, int32_t flags, mode_t mode);
-    virtual ~FileStatus(void);
-  public:
-    static FileStatus *open(const char *name, int32_t flags, mode_t mode);
-    virtual void save(ChkWriter &out) const;
-    FileStatus(ChkReader &in);
-    virtual void mmap(MemSys::FrameDesc *frame, void *data, size_t size, off_t offs);
-    virtual void munmap(MemSys::FrameDesc *frame, void *data, size_t size, off_t offs);
-    virtual void msync(MemSys::FrameDesc *frame, void *data, size_t size, off_t offs);
-  };
-  class PipeStatus : public BaseStatus{
-  public:
-    // Is this the write or the read end of the pipe
-    bool        isWrite;
-    // The other end of the pipe
-    PipeStatus *otherEnd;
-    // Native descriptor of the other end
-    int32_t otherFd;
-  protected:
-    PipeStatus(int32_t fd, int32_t otherFd, int32_t flags, bool isWrite)
-      : BaseStatus(Pipe,fd,flags), isWrite(isWrite), otherEnd(0), otherFd(otherFd){
-    }
-    ~PipeStatus(void){
-      if(otherEnd)
-	otherEnd->otherEnd=0;
-    }
-  public:
-    static PipeStatus *pipe(void);
-    void setOtherEnd(PipeStatus *oe);
-    virtual void endReadBlock(void);
-    virtual void endWriteBlock(void);
-    virtual void save(ChkWriter &out) const;
-    PipeStatus(ChkReader &in);
-  };
-  class StreamStatus : public BaseStatus{
-  protected:
-    StreamStatus(int32_t fd, int32_t flags);
-    ~StreamStatus(void);
-  public:
-    static StreamStatus *wrap(int32_t fd);
-    virtual void save(ChkWriter &out) const;
-    StreamStatus(ChkReader &in);
-  };
-  class FileDesc {
+  class Node{
   private:
-    // The underlying file status
-    BaseStatus::pointer st;
-    // Cloexec flag
-    bool cloexec;
+    dev_t  dev;
+    ino_t  ino;
+    uid_t  uid;
+    gid_t  gid;
+    mode_t mode;
+  protected:
+    Node(dev_t dev, ino_t ino, uid_t uid, gid_t gid, mode_t mode);
   public:
-    FileDesc(void);
-    FileDesc(const FileDesc &src);
-    ~FileDesc(void);
-    FileDesc &operator=(const FileDesc &src);
-    BaseStatus *getStatus(void) const{
-      return st;
-    }
-    // Sets a new status for this file descriptor
-    // The new status can be 0 (closed) and the old status need not be 0
-    void setStatus(BaseStatus *newSt);
-    bool getCloexec(void) const{
-      return cloexec;
-    }
-    void setCloexec(bool cloex){
-      cloexec=cloex;
-    }
-    void exec(void){
-      if(st&&cloexec)
-	setStatus(0);
-    }
-    void save(ChkWriter &out) const;
-    FileDesc(ChkReader &in);
+    virtual ~Node(void);
+    dev_t getDev(void) const{ return dev; }
+    ino_t getIno(void) const{ return ino; }
+    uid_t getUid(void) const{ return uid; }
+    gid_t getGid(void) const{ return gid; }
+    mode_t getMode(void) const{ return mode; }
+    virtual std::string getName(void) const = 0;
+  };
+  class Description : public GCObject{
+  public:
+    typedef SmartPtr<Description> pointer;
+  protected:
+    Node *node;
+    flags_t flags;
+    Description(Node *node, flags_t flags);
+  public:
+    static Description *open(const std::string &name, flags_t flags, mode_t mode);
+    virtual ~Description(void);
+    const Node *getNode(void) const{ return node; }
+    virtual std::string getName(void) const;
+    virtual bool canRd(void) const;
+    virtual bool canWr(void) const;
+    virtual bool isNonBlock(void) const;
+    virtual flags_t getFlags(void) const;
+    virtual ssize_t read(void *buf, size_t count) = 0;
+    virtual ssize_t write(const void *buf, size_t count) = 0;
+  };
+  class NullNode : public Node{
+  protected:
+    NullNode(void);
+    static NullNode node;
+  public:
+    static NullNode *create(void);
+    virtual std::string getName(void) const;
+  };
+  class NullDescription : public Description{
+  public:
+    NullDescription(flags_t flags);
+    virtual ssize_t read(void *buf, size_t count);
+    virtual ssize_t write(const void *buf, size_t count);
+  };
+  class SeekableNode : public Node{
+  private:
+    off_t       len;
+  protected:
+    SeekableNode(dev_t dev, ino_t ino, uid_t uid, gid_t gid, mode_t mode, off_t len);
+  public:
+    virtual off_t getSize(void) const;
+    virtual void  setSize(off_t nlen);
+    virtual ssize_t pread(void *buf, size_t count, off_t offs) = 0;
+    virtual ssize_t pwrite(const void *buf, size_t count, off_t offs) = 0;
+  };
+  class SeekableDescription : public Description{
+  public:
+    typedef SmartPtr<SeekableDescription> pointer;
+  private:
+    off_t pos;
+  protected:
+    SeekableDescription(Node *node, flags_t flags);
+  public:
+    virtual off_t getSize(void) const;
+    virtual void  setSize(off_t nlen);
+    virtual off_t getPos(void) const;
+    virtual void  setPos(off_t npos);
+    virtual ssize_t read(void *buf, size_t count);
+    virtual ssize_t write(const void *buf, size_t count);
+    virtual ssize_t pread(void *buf, size_t count, off_t offs);
+    virtual ssize_t pwrite(const void *buf, size_t count, off_t offs);
+    virtual void mmap(void *data, size_t size, off_t offs);
+    virtual void msync(void *data, size_t size, off_t offs);
+  };
+  class FileNode : public SeekableNode, public GCObject{
+  private:
+    std::string name;
+    fd_t fd;
+  public:
+    FileNode(const std::string &name, fd_t fd, struct stat &buf);
+    virtual ~FileNode(void);
+    virtual std::string getName(void) const;
+    virtual void setSize(off_t nlen);
+    virtual ssize_t pread(void *buf, size_t count, off_t offs);
+    virtual ssize_t pwrite(const void *buf, size_t count, off_t offs);
+  };
+  class FileDescription : public SeekableDescription{
+  public:
+    FileDescription(FileNode *node, flags_t flags);
+    virtual ~FileDescription(void);
+  };
+  class DirectoryNode : public SeekableNode, public GCObject{
+  private:
+    std::string name;
+    DIR *dirp;
+    typedef std::vector<std::string> Entries;
+    Entries entries;
+  public:
+    DirectoryNode(const std::string &name, fd_t fd, struct stat &buf);
+    virtual ~DirectoryNode(void);
+    virtual std::string getName(void) const;
+    virtual void  setSize(off_t nlen);
+    virtual ssize_t pread(void *buf, size_t count, off_t offs);
+    virtual ssize_t pwrite(const void *buf, size_t count, off_t offs);
+    virtual void refresh(void);
+    virtual std::string getEntry(off_t index);
+  };
+  class DirectoryDescription : public SeekableDescription{
+  public:
+    DirectoryDescription(DirectoryNode *node, flags_t flags);
+    virtual ~DirectoryDescription(void);
+    virtual void setPos(off_t npos);
+    virtual std::string readDir(void);
+  };
+  class StreamNode : public Node{
+  protected:
+    dev_t rdev;
+    class PidSet : public std::vector<int>{};
+    // Threads blocked on a read from this file
+    PidSet rdBlocked;
+    // Threads blocked on a write from this file 
+    PidSet wrBlocked;
+    void unblock(PidSet &pids, SigCode sigCode);
+  public:
+    StreamNode(dev_t dev, dev_t rdev, ino_t ino, uid_t uid, gid_t gid, mode_t mode);
+    virtual ~StreamNode(void);
+    dev_t getRdev(void) const{ return rdev; }
+    virtual bool willRdBlock(void) const = 0;
+    virtual bool willWrBlock(void) const = 0;
+    void rdBlock(pid_t pid);
+    void wrBlock(pid_t pid);
+    void rdUnblock(void);
+    void wrUnblock(void);
+    virtual ssize_t read(void *buf, size_t count) = 0;
+    virtual ssize_t write(const void *buf, size_t count) = 0;
+  };
+  class StreamDescription : public Description{
+  protected:
+    StreamDescription(StreamNode *node, flags_t flags);
+  public:
+    bool willRdBlock(void) const;
+    bool willWrBlock(void) const;
+    void rdBlock(pid_t pid);
+    void wrBlock(pid_t pid);
+    virtual ssize_t read(void *buf, size_t count);
+    virtual ssize_t write(const void *buf, size_t count);
+  };
+  class PipeNode : public StreamNode{
+    typedef std::deque<uint8_t> Data;
+    Data data;
+    size_t readers;
+    size_t writers;
+  public:
+    PipeNode(void);
+    virtual ~PipeNode(void);
+    virtual std::string getName(void) const;
+    virtual void addReader(void);
+    virtual void delReader(void);
+    virtual void addWriter(void);
+    virtual void delWriter(void);
+    virtual ssize_t read(void *buf, size_t count);
+    virtual ssize_t write(const void *buf, size_t count);
+    virtual bool willRdBlock(void) const;
+    virtual bool willWrBlock(void) const;    
+  };
+  class PipeDescription : public StreamDescription{
+  public:
+    PipeDescription(PipeNode *node, flags_t flags);
+    virtual ~PipeDescription(void);
+  };
+  class TtyNode : public StreamNode, public GCObject{
+  private:
+    fd_t fd;
+  public:
+    TtyNode(fd_t srcfd);
+    ~TtyNode(void);
+    virtual std::string getName(void) const;
+    virtual ssize_t read(void *buf, size_t count);
+    virtual ssize_t write(const void *buf, size_t count);
+    virtual bool willRdBlock(void) const;
+    virtual bool willWrBlock(void) const;    
+  };
+  class TtyDescription : public StreamDescription{
+  protected:
+    TtyDescription(TtyNode *node, flags_t flags);
+    virtual ~TtyDescription(void);
+  public:
+    static TtyDescription *wrap(fd_t fd);
   };
 
   class OpenFiles : public GCObject{
   public:
     typedef SmartPtr<OpenFiles> pointer;
   private:
-    typedef std::vector<FileDesc> FdArray;
-    FdArray fds;
-    static int32_t error(int32_t err);
+    struct FileDescriptor{
+      // The underlying file description
+      Description::pointer description;
+      // Cloexec flag for this descriptor
+      bool                cloexec;
+      FileDescriptor(void);
+    };
+    typedef std::map<fd_t,FileDescriptor> FileDescriptors;
+    FileDescriptors fileDescriptors;
   public:
     OpenFiles(void);
     OpenFiles(const OpenFiles &src);
-    virtual ~OpenFiles(void);
-    bool isOpen(int32_t fd) const;
-    FileDesc *getDesc(int32_t fd);
-    int32_t findNextFree(int32_t start){
-      int32_t retVal=start;
-      while(isOpen(retVal))
-	retVal++;
-      return retVal;
-    }
-    /*
-    int32_t findFirstUsed(int32_t start){
-      for(size_t retVal=start;retVal<fds.size();retVal++)
-	if(isOpen(retVal))
-	  return (int)retVal;
-      return -1;
-    }
-    */
-    void exec(void){
-      for(size_t i=0;i<fds.size();i++)
-	fds[i].exec();
-    }
-    int32_t open(const char *name, int32_t flags, mode_t mode);
-    int32_t dup(int32_t oldfd);
-    int32_t dup2(int32_t oldfd, int32_t newfd);
-    int32_t dupfd(int32_t oldfd, int32_t minfd);
-    int32_t pipe(int32_t fds[2]);
-    // Returns true if this file is open and there are no more open duplicates
-    // When the last copy is closed, we may need to take additional action
-    // For example, when the write end of a pipe is closed we need to wake up any blocked readers
-    bool isLastOpen(int32_t oldfd);
-    int32_t close(int32_t oldfd);
-    int32_t getfd(int32_t fd);
-    int32_t setfd(int32_t fd, int32_t cloex);
-    int32_t getfl(int32_t fd);
-    ssize_t read(int32_t fd, void *buf, size_t count);
-    ssize_t pread(int32_t fd, void *buf, size_t count, off_t offs);
-    ssize_t write(int32_t fd, const void *buf, size_t count);
-    ssize_t pwrite(int32_t fd, void *buf, size_t count, off_t offs);
-    bool willReadBlock(int32_t fd);
-    bool willWriteBlock(int32_t fd);
-    void addReadBlock(int32_t fd, int32_t pid);
-    void addWriteBlock(int32_t fd, int32_t pid);
-    //    int32_t popReadBlock(int32_t fd);
-    //    int32_t popWriteBlock(int32_t fd);
-    off_t seek(int32_t fd, off_t offset, int32_t whence);
+    ~OpenFiles(void);
+    // Returns the first available (non-open) fd whose number is at least minfd
+    fd_t nextFreeFd(fd_t minfd) const;
+    // Opens fd and associates it with the given description
+    void openDescriptor(fd_t fd, Description *description);
+    // Closes fd
+    void closeDescriptor(fd_t fd);
+    // Returns true iff the fd is open
+    bool isOpen(fd_t fd) const;
+    // Returns the file description that corresponds to fd
+    Description *getDescription(fd_t fd);
+    // Sets the cloexec flag associated with fd
+    void setCloexec(fd_t fd, bool cloex);
+    // Returns the cloexec flag associated with fd
+    bool getCloexec(fd_t fd) const;
+    // Closes all file descriptors whose cloexec flag is set
+    void exec(void);
+    // Checkpointing save/restore 
     void save(ChkWriter &out) const;
     OpenFiles(ChkReader &in);
-  };
-  
-  class strlt{
-  public:
-    bool operator()(const char *first, const char *second) const{
-      return (strcmp(first,second)<0);
-    }
   };
 
   // Name space (mount and umount) information and file name translation

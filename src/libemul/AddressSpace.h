@@ -17,9 +17,6 @@
 #include "FileSys.h"
 #include "MemState.h"
 
-#define MAP_PAGE_TABLE
-//#define NEW_PAGE_TABLE
-
 typedef size_t PageNum;
 
 #define AddrSpacPageOffsBits (12)
@@ -30,7 +27,7 @@ typedef uint64_t MemAlignType;
 
 namespace MemSys{
 
- // Information about pages of physical memory
+  // Information about a page of physical memory
   class FrameDesc : public GCObject{
   public:
     typedef SmartPtr<FrameDesc> pointer;
@@ -55,32 +52,50 @@ namespace MemSys{
     PAddr    basePAddr;
     bool     shared;
     bool     dirty;
-    FileSys::FileStatus::pointer filePtr;
-    off_t               fileOff;
+    FileSys::SeekableDescription::pointer  fileDesc;
+    off_t                          fileOff;
+    struct FileMapKey{
+      FileSys::SeekableDescription *fileDesc;
+      off_t                fileOff;
+      FileMapKey(FileSys::SeekableDescription *fileDesc, off_t fileOff) : fileDesc(fileDesc), fileOff(fileOff){
+      }
+      inline bool operator<(const FileMapKey &other) const{
+	if(fileDesc<other.fileDesc)
+	  return true;
+	if(fileDesc>other.fileDesc)
+	  return false;
+	return (fileOff<other.fileOff);
+      }
+    };
+    typedef  std::map<FileMapKey,FrameDesc *> FileToFrame;
+    static FileToFrame fileToFrame;
+    // Private constructor, used by the public create(fs,offs) method
+    FrameDesc(FileSys::SeekableDescription *fdesc, off_t offs);
+    
     MemAlignType data[AddrSpacPageSize/sizeof(MemAlignType)];
 #if (defined HAS_MEM_STATE)
     MemState state[AddrSpacPageSize/MemState::Granularity];
 #endif
   public:
+    template<class T>
+    inline T read(VAddr addr) const{
+      size_t offs=(addr&AddrSpacPageOffsMask);
+      return *(reinterpret_cast<const T *>(&(reinterpret_cast<const int8_t *>(data)[offs])));
+    }
+    template<class T>
+    inline void write(VAddr addr, T val){
+      dirty=true;
+      size_t offs=(addr&AddrSpacPageOffsMask);
+      *(reinterpret_cast<T *>(&(reinterpret_cast<int8_t *>(data)[offs])))=val;
+    }
+    inline bool isShared(void) const{
+      return shared;
+    }
     FrameDesc();
-    FrameDesc(FileSys::FileStatus *fs, off_t ofs);
     FrameDesc(FrameDesc &src);
     ~FrameDesc();
     int8_t *getData(VAddr addr){
-      size_t offs=(addr&AddrSpacPageOffsMask);
-      int8_t *retVal=&(reinterpret_cast<int8_t *>(data)[offs]);
-      I(reinterpret_cast<unsigned long int>(retVal)>=reinterpret_cast<unsigned long int>(data));
-      I(AddrSpacPageSize==sizeof(data));
-      I(reinterpret_cast<unsigned long int>(retVal)<reinterpret_cast<unsigned long int>(data)+AddrSpacPageSize);
-      return retVal;
-    }
-    const int8_t *getData(VAddr addr) const{
-      size_t offs=(addr&AddrSpacPageOffsMask);
-      const int8_t *retVal=&(reinterpret_cast<const int8_t *>(data)[offs]);
-      I(reinterpret_cast<unsigned long int>(retVal)>=reinterpret_cast<unsigned long int>(data));
-      I(AddrSpacPageSize==sizeof(data));
-      I(reinterpret_cast<unsigned long int>(retVal)<reinterpret_cast<unsigned long int>(data)+AddrSpacPageSize);
-      return retVal;
+      return reinterpret_cast<int8_t *>(data)+(addr&AddrSpacPageOffsMask);
     }
     PAddr getPAddr(VAddr addr) const{
       return basePAddr+(addr&AddrSpacPageOffsMask);
@@ -99,8 +114,12 @@ namespace MemSys{
 #endif
     void save(ChkWriter &out) const;
     FrameDesc(ChkReader &in);
+    // Returns a frame that has a shared mapping to the given file and offset 
+    static FrameDesc *create(FileSys::SeekableDescription *fdesc, off_t offs);
+    void sync(void);
   };
 
+  
 }
 
 class AddressSpace : public GCObject{
@@ -121,8 +140,8 @@ class AddressSpace : public GCObject{
     bool growDown;
     // Does this segment correspond to a shared mapping
     bool shared;
-    // Points to the FileStatus from which this segment is mapped
-    FileSys::FileStatus::pointer fileStatus;
+    // Points to the file from which this segment is mapped
+    FileSys::SeekableDescription::pointer fileDesc;
     // If mapped from a file, this is the offset in the file from which the mapping came
     off_t fileOffset;
     SegmentDesc &operator=(const SegmentDesc &src){
@@ -134,7 +153,7 @@ class AddressSpace : public GCObject{
       autoGrow=src.autoGrow;
       growDown=src.growDown;
       shared=src.shared;
-      fileStatus=src.fileStatus;
+      fileDesc=src.fileDesc;
       fileOffset=src.fileOffset;
       return *this;
     }
@@ -152,75 +171,63 @@ class AddressSpace : public GCObject{
   };
   typedef std::map<VAddr, SegmentDesc, std::greater<VAddr> > SegmentMap;
   SegmentMap segmentMap;
-  // Information about decoded instructions for a page of virtual memory
-  class TraceDesc{
-  public:
-    InstDesc *binst;
-    InstDesc *einst;
-    VAddr     baddr;
-    VAddr     eaddr;
-  };
-  typedef std::map<VAddr, TraceDesc, std::greater<VAddr> > TraceMap;
-  TraceMap traceMap;
-  // The InstMap is sorted by virtual address from lowest to highest
-  typedef std::map<VAddr, InstDesc *> InstMap;
-  InstMap  instMap;
   // Information about pages of virtual memory (in each AddressSpace)
   class PageDesc
 #if (defined DEBUG_PageDesc)
  : public DbgObject<PageDesc>
 #endif
   {
+    typedef enum{
+      CanRead =  1,
+      CanWrite=  2,
+      CanExec =  4,
+      Shared  =  8,
+      // WrCopy is set if a copy-on-write check is needed before we write
+      WrCopy  = 16
+    } Flags;
+    Flags flags;
+    void copyFrame(void);
+    void doWrCopy(void);
   public:
     MemSys::FrameDesc::pointer frame;
-//    TraceDesc *insts;
-    // Number of mapped segments that overlap with this page
-    size_t     mapCount;
-    // Number of can-read segments that overlap with this page
-    size_t     canRead;
-    // Number of can-write segments that overlap with this page
-    size_t     canWrite;
-    // Number of can-exec segments that overlap with this page
-    size_t     canExec;
-    // Is this page shared
-    bool shared;
-    // This page needs a copy-on-write
-    bool copyOnWrite;
+    template<class T>
+    inline T read(VAddr addr) const{
+      if(!(flags&CanRead))
+        fail("PageDesc::read from non-readable page\n");
+      return frame->read<T>(addr);
+    }
+    template<class T>
+    inline void write(VAddr addr, T val){
+      if(!(flags&CanWrite))
+        fail("PageDesc::write from non-writeable page\n");
+      if(flags&WrCopy)
+	doWrCopy();
+      return frame->write<T>(addr,val);
+    }
+    template<class T>
+    inline T fetch(VAddr addr) const{
+      if(!(flags&CanExec))
+        fail("PageDesc::read from non-readable page\n");
+      return frame->read<T>(addr);
+    }
+    void map(bool r, bool w, bool x, bool s, FileSys::SeekableDescription *fdesc, off_t offs){
+      I(!frame);
+      I(!flags);
+      frame=fdesc?(MemSys::FrameDesc::create(fdesc,offs)):(new MemSys::FrameDesc());
+      frameTable.insert(FrameTableEntry(frame,this));
+      flags=static_cast<Flags>((r?CanRead:0)|(w?CanWrite:0)|(x?CanExec:0)|(s?Shared:(frame->isShared()?WrCopy:0)));
+    }
+    void protect(bool r, bool w, bool x){
+      flags=static_cast<Flags>((r?CanRead:0)|(w?CanWrite:0)|(x?CanExec:0)|(flags&~(CanRead|CanWrite|CanExec)));
+    }
+    bool canRead(void) const{ return (flags&CanRead); }
+    bool canWrite(void) const{ return (flags&CanWrite); }
+    bool canExec(void) const{ return (flags&CanExec); }
     PageDesc(void);
     PageDesc(PageDesc &src);
     PageDesc(const PageDesc &src);
     PageDesc &operator=(PageDesc &src);
-    void map(bool r, bool w, bool x){
-      if(!mapCount){
-	frame=new MemSys::FrameDesc();
-      }
-      mapCount++;
-      canRead+=r;
-      canWrite+=w;
-      canExec+=x;
-    }
-    void unmap(bool r, bool w, bool x){
-      canRead-=r;
-      canWrite-=w;
-      canExec-=x;
-      mapCount--;
-      if(mapCount)
-	return;
-      // Last mapping removed, free memory
-      I((!canRead)&&(!canWrite)&&(!canExec));
-      if(frame)
-	frame=0;
-    }
-    void allow(bool r, bool w, bool x){
-      canRead+=r;
-      canWrite+=w;
-      canExec+=x;
-    }
-    void deny(bool r, bool w, bool x){
-      canRead-=r;
-      canWrite-=w;
-      canExec-=x;
-    }      
+    ~PageDesc(void);
     MemSys::FrameDesc *getFrame(void) const{
       return frame;
     }
@@ -228,18 +235,8 @@ class AddressSpace : public GCObject{
     ChkReader &operator=(ChkReader &in);
   };
   class PageTable{
-#if (defined MAP_PAGE_TABLE)
     typedef std::map<size_t,PageDesc> PageMap;
-    PageMap map;
-#endif
-#if (defined NEW_PAGE_TABLE)
-    static const PageNum PageBlockBits=16;
-    static const PageNum PageBlockSize=1<<PageBlockBits;
-    static const PageNum PageBlockMask=PageBlockSize-1;
-    typedef PageDesc *PageBlock;
-    typedef std::vector<PageBlock> PageBlocks;
-    PageBlocks pageBlocks;
-#endif
+    PageMap pageMap;
     class Cache{
     public:
       struct Entry{
@@ -252,89 +249,67 @@ class AddressSpace : public GCObject{
       static const PageNum AddrSpaceCacheSize=(1<<16);
       Entry cache[AddrSpaceCacheSize];
     public:
+      Cache(void);
       inline Entry &operator[](PageNum pageNum){
 	return cache[pageNum%AddrSpaceCacheSize];
       }
-      inline void clear(void){
-	for(size_t i=0;i<AddrSpaceCacheSize;i++)
-	  cache[i].pageNum=0;
-      }
+      void unmap(PageNum pageNumLb, PageNum pageNumUb);
     };
     Cache cache;
   public:
-    PageTable(void){
-    }
-    PageTable(PageTable &src){
-#if (defined MAP_PAGE_TABLE)
-      for(PageMap::iterator it=src.map.begin();it!=src.map.end();it++)
-	map[it->first]=it->second;
-#endif
-#if (defined NEW_PAGE_TABLE)
-      for(PageNum b=0;b<src.pageBlocks.size();b++){
-	if(src.pageBlocks[b]){
-	  pageBlocks.push_back(new PageDesc[PageBlockSize]);
-	  for(PageNum p=0;p<PageBlockSize;p++)
-	    pageBlocks[b][p]=src.pageBlocks[b][p];
-	}else{
-	  pageBlocks.push_back(0);
-	}
-      }
-#endif
-    }
+    PageTable(void);
+    PageTable(PageTable &src);
     inline PageDesc &operator[](PageNum pageNum){
       Cache::Entry &centry=cache[pageNum];
       if(centry.pageNum==pageNum)
 	return *(centry.pageDesc);
-#if (defined MAP_PAGE_TABLE)
-      PageDesc &entry=map[pageNum];
-#endif
-#if (defined NEW_PAGE_TABLE)
-      PageNum block=(pageNum&PageBlockMask);
-      PageNum bitem=(pageNum>>PageBlockBits);
-      while(pageBlocks.size()<=block)
-	pageBlocks.push_back(0);
-      if(!pageBlocks[block])
-	pageBlocks[block]=new PageDesc[PageBlockSize];
-      PageDesc &entry=pageBlock[block][bitem];
-#endif
+      PageDesc &entry=pageMap[pageNum];
       centry.pageNum=pageNum;
       centry.pageDesc=&entry;
       return entry;
     }
-    inline MemSys::FrameDesc *getFrameDesc(PageNum pageNum) const{
-#if (defined MAP_PAGE_TABLE)
-      PageMap::const_iterator it=map.find(pageNum);
-      I(it!=map.begin());
-      return it->second.frame;
-#endif
-#if (defined NEW_PAGE_TABLE)
-      PageNum block=(pageNum&PageBlockMask);
-      PageNum bitem=(pageNum>>PageBlockBits);
-      if(pageBlocks.size()<=block)
-	return 0;
-      if(!pageBlocks[block])
-	return 0;
-      return pageBlocks[block][bitem].frame;
-#endif
+    inline bool isMapped(PageNum pageNum) const{
+      return (pageMap.find(pageNum)!=pageMap.end());
     }
-    inline void clear(void){
-#if (defined MAP_PAGE_TABLE)
-      map.clear();
-#endif
-#if (defined NEW_PAGE_TABLE)
-      for(PageNum b=0;b<pageBlocks.size();b++)
-	if(pageBlocks[b])
-	  delete [] pageBlocks[b];
-#endif
-      cache.clear();
+    inline const PageDesc &operator[](PageNum pageNum) const{
+      I(isMapped(pageNum));
+      PageMap::const_iterator it=pageMap.find(pageNum);
+      return it->second;
     }
+    void map(PageNum pageNumLb, PageNum pageNumUb,
+             bool r, bool w, bool x, bool s,
+             FileSys::SeekableDescription *fdesc, off_t offs);
+    void unmap(PageNum pageNumLb, PageNum pageNumUb);
   };
   PageTable pageTable;
+  // For each frame, the frame table says which pages map to it
+  struct FrameTableEntry{
+    MemSys::FrameDesc *frame;
+    PageDesc          *page;
+    FrameTableEntry(MemSys::FrameDesc *frame, PageDesc *page) : frame(frame), page(page){
+    }
+    inline bool operator<(const FrameTableEntry &other) const{
+      if(frame<other.frame)
+        return true;
+      if(frame>other.frame)
+        return false;
+      return (page<other.page);
+    }
+  };
+  typedef std::set<FrameTableEntry> FrameTable;
+  static FrameTable frameTable;
+
   static inline size_t getPageNum(VAddr addr){
     return (addr>>AddrSpacPageOffsBits);
   }
   static inline size_t getPageOff(VAddr addr){
     return (addr&AddrSpacPageOffsMask);
+  }
+  static inline size_t getPageNumLb(VAddr addr){
+    return (addr>>AddrSpacPageOffsBits);
+  }
+  static inline size_t getPageNumUb(VAddr addr){
+    return ((addr+AddrSpacPageSize-1)>>AddrSpacPageOffsBits);
   }
   VAddr brkBase;
  public:
@@ -369,23 +344,6 @@ class AddressSpace : public GCObject{
     SegmentMap::const_iterator segIt=segmentMap.find(addr);
     return (segIt!=segmentMap.end())&&(segIt->second.len==len);
   }
-  // Returns true iff the entire specified block is mapped
-  bool isMapped(VAddr addr, size_t len) const{
-    if(addr+len<addr)
-      return false;
-    while(true){
-      SegmentMap::const_iterator segIt=segmentMap.lower_bound(addr);
-      if(segIt==segmentMap.end())
-	return false;
-      VAddr endAddr=segIt->second.addr+segIt->second.len;
-      if(endAddr<=addr)
-        return false;
-      if(endAddr>=addr+len)
-	return true;
-      len-=(endAddr-addr);
-      addr=endAddr;
-    }
-  }
   void setBrkBase(VAddr addr){
     brkBase=addr;
   }
@@ -405,7 +363,8 @@ class AddressSpace : public GCObject{
   // Splits a segment into two, one that ends at the pivot and one that begins there
   // The pivot must be within an existing segment
   void splitSegment(VAddr pivot);
-  void newSegment(VAddr addr, size_t len, bool canRead, bool canWrite, bool canExec, bool shared=false, FileSys::FileStatus *fs=0, off_t offs=0);
+  void newSegment(VAddr addr, size_t len, bool canRead, bool canWrite, bool canExec, bool shared=false,
+		  FileSys::SeekableDescription *fdesc=0, off_t offs=0);
   void protectSegment(VAddr addr, size_t len, bool canRead, bool canWrite, bool canExec);
   VAddr newSegmentAddr(size_t len);
   void deleteSegment(VAddr addr, size_t len);
@@ -423,131 +382,177 @@ class AddressSpace : public GCObject{
     I(segIt!=segmentMap.end());
     return segIt->second.len;
   }
-  inline bool canRead(VAddr addr, size_t len) const{
-    SegmentMap::const_iterator segIt=segmentMap.lower_bound(addr);
-    if(segIt==segmentMap.end())
-      return false;
-    const SegmentDesc &mySeg=segIt->second;
-    return (mySeg.addr+mySeg.len>=addr+len)&&mySeg.canRead;
-  }
-  inline bool canWrite(VAddr addr, size_t len) const{
-    SegmentMap::const_iterator segIt=segmentMap.lower_bound(addr);
-    if(segIt==segmentMap.end())
-      return false;
-    const SegmentDesc &mySeg=segIt->second;
-    return (mySeg.addr+mySeg.len>=addr+len)&&mySeg.canWrite;
-  }
-  inline bool canExec(VAddr addr, size_t len) const{
-    SegmentMap::const_iterator segIt=segmentMap.lower_bound(addr);
-    if(segIt==segmentMap.end())
-      return false;
-    const SegmentDesc &mySeg=segIt->second;
-    return (mySeg.addr+mySeg.len>=addr+len)&&mySeg.canExec;
-  }
-  inline RAddr virtToReal(VAddr addr) const{
-    I(0);
-    size_t pageOffs=(addr&AddrSpacPageOffsMask);
-    size_t pageNum=(addr>>AddrSpacPageOffsBits);
-    MemSys::FrameDesc *frame=pageTable.getFrameDesc(pageNum);
-    if(!frame)
-      return 0;
-    return (RAddr)(frame->getData(addr));
-  }
-  inline PAddr virtToPhys(VAddr addr) const{
-    I(0);
-    size_t pageOffs=(addr&AddrSpacPageOffsMask);
-    size_t pageNum=(addr>>AddrSpacPageOffsBits);
-    MemSys::FrameDesc *frame=pageTable.getFrameDesc(pageNum);
-    if(!frame)
-      return 0;
-    return frame->getPAddr(addr);
-  }
-  void createTrace(ThreadContext *context, VAddr addr);
-  void delMapInsts(VAddr begAddr, VAddr endAddr);
-  bool reqMapInst(VAddr addr){
-    if(instMap.find(addr)!=instMap.end())
-      return false;
-    instMap[addr]=0;
+  // Returns true iff the entire specified block is mapped
+  bool isMapped(VAddr addr, size_t len) const{
+    for(PageNum pageNum=getPageNumLb(addr);pageNum<getPageNumUb(addr+len);pageNum++)
+      if(!pageTable.isMapped(pageNum))
+        return false;
     return true;
   }
-  void mapInst(VAddr addr,InstDesc *inst){
-    I(inst);
-    I(addr);
-    I(!isMappedInst(addr));
-    instMap[addr]=inst;
+  // Returns true iff the entire specified block is readable
+  bool canRead(VAddr addr, size_t len) const{
+    for(PageNum pageNum=getPageNumLb(addr);pageNum<getPageNumUb(addr+len);pageNum++)
+      if((!pageTable.isMapped(pageNum))||(!pageTable[pageNum].canRead()))
+        return false;
+    return true;
   }
-  bool isMappedInst(VAddr addr) const{
-    InstMap::const_iterator it=instMap.find(addr);
-    return (it!=instMap.end())&&(it->second!=0);
+  // Returns true iff the entire specified block is writeable
+  bool canWrite(VAddr addr, size_t len) const{
+    for(PageNum pageNum=getPageNumLb(addr);pageNum<getPageNumUb(addr+len);pageNum++)
+      if((!pageTable.isMapped(pageNum))||(!pageTable[pageNum].canWrite()))
+        return false;
+    return true;
   }
-  bool needMapInst(VAddr addr) const{
-    InstMap::const_iterator it=instMap.find(addr);
-    return (it!=instMap.end())&&(it->second==0);
+  // Returns true iff the entire specified block is executable
+  bool canExec(VAddr addr, size_t len) const{
+    for(PageNum pageNum=getPageNumLb(addr);pageNum<getPageNumUb(addr+len);pageNum++)
+      if((!pageTable.isMapped(pageNum))||(!pageTable[pageNum].canExec()))
+        return false;
+    return true;
   }
+private:
+  // Information about decoded instructions for a page of virtual memory
+  class TraceDesc{
+  public:
+    InstDesc *binst;
+    InstDesc *einst;
+    VAddr     baddr;
+    VAddr     eaddr;
+  };
+  typedef std::map<VAddr, TraceDesc, std::greater<VAddr> > TraceMap;
+  TraceMap traceMap;
+  class InstTable{
+    typedef std::map<VAddr, InstDesc *> InstMap;
+    InstMap  instMap;
+    class Cache{
+    public:
+      struct Entry{
+	VAddr     instAddr;
+	InstDesc *instDesc;
+	Entry(void) : instAddr(0), instDesc(0){
+	}
+      };
+    private:
+      static const size_t AddrSpaceCacheSize=(1<<16);
+      Entry cache[AddrSpaceCacheSize];
+    public:
+      Cache(void);
+      inline Entry &operator[](VAddr instAddr){
+	return cache[instAddr%AddrSpaceCacheSize];
+      }
+      void unmap(VAddr instAddrLb, VAddr instAddrUb);
+    };
+    Cache cache;
+  public:
+    InstTable(void);
+    inline InstDesc *operator[](VAddr instAddr){
+      Cache::Entry &centry=cache[instAddr];
+      if(centry.instAddr==instAddr)
+	return centry.instDesc;
+      InstMap::iterator it=instMap.find(instAddr);
+      if(it==instMap.end())
+	return 0;
+      centry.instAddr=instAddr;
+      centry.instDesc=it->second;
+      return it->second;
+    }
+    inline void map(VAddr instAddr, InstDesc *instDesc){
+      I(instMap.find(instAddr)==instMap.end());
+      instMap[instAddr]=instDesc;
+    }
+    void unmap(VAddr instAddrLb, VAddr instAddrUb);
+  };
+  InstTable instTable;
+  // The InstMap is sorted by virtual address from lowest to highest
+  typedef std::map<VAddr, InstDesc *> InstMap;
+  InstMap  instMap;
+public:
+  void createTrace(ThreadContext *context, VAddr addr);
   void mapTrace(InstDesc *binst, InstDesc *einst, VAddr baddr, VAddr eaddr);
-  inline InstDesc *virtToInst(VAddr addr) const{
-    InstMap::const_iterator it=instMap.find(addr);
-    if(it==instMap.end())
-      return 0;
-    return it->second;
+  void delInsts(VAddr begAddr, VAddr endAddr);
+  inline void mapInst(VAddr addr,InstDesc *inst){
+    instTable.map(addr,inst);
+  }
+  inline InstDesc *virtToInst(VAddr addr){
+    return instTable[addr];
   }
  public:
   AddressSpace(void);
   AddressSpace(AddressSpace &src);
-  void clear(bool isExec);
   ~AddressSpace(void);
   // Saves this address space to a stream
   void save(ChkWriter &out) const;
   AddressSpace(ChkReader &in);
-
   template<class T>
-  inline T readMemRaw(VAddr addr){
-    size_t pageNum=getPageNum(addr);
-    I(addr+sizeof(T)<=(pageNum+1)*AddrSpacPageSize);
-    PageDesc &myPage=pageTable[pageNum];
-    I(myPage.canRead);
-#if (defined EMUL_VALGRIND)
-    if(*(reinterpret_cast<T *>(myPage.frame->getData(addr)))==0)
-      if(addr==0)
-	printf("Never\n");
-#endif
-    return *(reinterpret_cast<T *>(myPage.frame->getData(addr)));
+  inline T read(VAddr addr){
+    I(pageTable[getPageNum(addr)].canRead());
+    I(canRead(addr,sizeof(T)));
+    return pageTable[getPageNum(addr)].read<T>(addr);
   }
   template<class T>
-  inline bool readMemRaw(VAddr addr, T &val){
-    size_t pageNum=getPageNum(addr);
-    I(addr+sizeof(T)<=(pageNum+1)*AddrSpacPageSize);
-    PageDesc &myPage=pageTable[pageNum];
-    if(!myPage.canRead)
-      return false;
-#if (defined EMUL_VALGRIND)
-    if(*(reinterpret_cast<T *>(myPage.frame->getData(addr)))==0)
-      if(addr==0)
-	printf("Never\n");
-#endif
-    val=*(reinterpret_cast<T *>(myPage.frame->getData(addr)));
-    return true;
+  inline void write(VAddr addr, T val){
+    I(pageTable[getPageNum(addr)].canWrite());
+    I(canWrite(addr,sizeof(T)));
+    return pageTable[getPageNum(addr)].write<T>(addr,val);
   }
   template<class T>
-  inline bool writeMemRaw(VAddr addr, T val){
-    size_t pageNum=getPageNum(addr);
-    I(addr+sizeof(T)<=(pageNum+1)*AddrSpacPageSize);
-    PageDesc &myPage=pageTable[pageNum];
-    if(!myPage.canWrite)
-      return false;
-    if(myPage.copyOnWrite){
-      myPage.copyOnWrite=false;
-      if(myPage.frame->getRefCount()>1)
-	myPage.frame=new MemSys::FrameDesc(*myPage.frame);
-    }
-#if (defined EMUL_VALGRIND)
-    if(val==0)
-      if(addr==0)
-	printf("Never\n");
-#endif
-    *(reinterpret_cast<T *>(myPage.frame->getData(addr)))=val;
-    return true;
+  inline T fetch(VAddr addr){
+    I(pageTable[getPageNum(addr)].canExec());
+    I(canExec(addr,sizeof(T)));
+    return pageTable[getPageNum(addr)].fetch<T>(addr);
   }
+//  template<class T>
+//  inline T readMemRaw(VAddr addr){
+//    size_t pageNum=getPageNum(addr);
+//    I(addr+sizeof(T)<=(pageNum+1)*AddrSpacPageSize);
+//    PageDesc &myPage=pageTable[pageNum];
+//    I(myPage.canRead);
+//#if (defined EMUL_VALGRIND)
+//    if(*(reinterpret_cast<T *>(myPage.frame->getData(addr)))==0)
+//      if(addr==0)
+//	printf("Never\n");
+//#endif
+//    return *(reinterpret_cast<T *>(myPage.frame->getData(addr)));
+//  }
+//  template<class T>
+//  inline bool readMemRaw(VAddr addr, T &val){
+//    size_t pageNum=getPageNum(addr);
+//    I(addr+sizeof(T)<=(pageNum+1)*AddrSpacPageSize);
+//    PageDesc &myPage=pageTable[pageNum];
+//    if(!myPage.canRead)
+//      return false;
+//#if (defined EMUL_VALGRIND)
+//    if(*(reinterpret_cast<T *>(myPage.frame->getData(addr)))==0)
+//      if(addr==0)
+//	printf("Never\n");
+//#endif
+//    val=*(reinterpret_cast<T *>(myPage.frame->getData(addr)));
+//    return true;
+//  }
+//  template<class T>
+//  inline bool writeMemRaw(VAddr addr, T val){
+//    size_t pageNum=getPageNum(addr);
+//    I(addr+sizeof(T)<=(pageNum+1)*AddrSpacPageSize);
+//    PageDesc &myPage=pageTable[pageNum];
+//    if(!myPage.canWrite)
+//      return false;
+//    if(myPage.copyOnWrite){
+//      myPage.copyOnWrite=false;
+//      if(myPage.frame->getRefCount()>1){
+//        MemSys::FrameDesc *frame=new MemSys::FrameDesc(*myPage.frame);
+//        frameTable.erase(FrameTableEntry(myPage.frame,&myPage));
+//	myPage.frame=frame;
+//        frameTable.insert(FrameTableEntry(frame,&myPage));
+//      }
+//    }
+//#if (defined EMUL_VALGRIND)
+//    if(val==0)
+//      if(addr==0)
+//	printf("Never\n");
+//#endif
+//    *(reinterpret_cast<T *>(myPage.frame->getData(addr)))=val;
+//    return true;
+//  }
 #if (defined HAS_MEM_STATE)
 /*   inline const MemState &getState(VAddr addr) const{ */
 /*     size_t pageNum=getPageNum(addr); */

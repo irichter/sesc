@@ -30,7 +30,7 @@ typedef enum{
   SigDetached,
 } SignalID;
 
-typedef enum {SigCodeIn, SigCodeChldExit, SigCodeUser} SigCode;
+typedef enum {SigCodeIn, SigCodeOut, SigCodeChldExit, SigCodeUser} SigCode;
 
 class SigInfo{
  public:

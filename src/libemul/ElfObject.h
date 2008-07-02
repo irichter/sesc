@@ -116,6 +116,7 @@ class ThreadContext;
 
 namespace FileSys{
   class FileStatus;
+  class SeekableDescription;
 }
 
 template<ExecMode mode>
@@ -154,10 +155,10 @@ class ElfDefs<ExecModeBits64>{
   };
 };
 
-ExecMode getExecMode(FileSys::FileStatus *fs);
+ExecMode getExecMode(FileSys::SeekableDescription *fdesc);
 
-void mapFuncNames(ThreadContext *context, FileSys::FileStatus *fs, ExecMode mode, VAddr addr, size_t len, off_t off);
+void mapFuncNames(ThreadContext *context, FileSys::SeekableDescription *fdesc, ExecMode mode, VAddr addr, size_t len, off_t off);
 
-VAddr loadElfObject(ThreadContext *context, FileSys::FileStatus *fs, VAddr addr);
+VAddr loadElfObject(ThreadContext *context, FileSys::SeekableDescription *fdesc, VAddr addr);
 
 #endif

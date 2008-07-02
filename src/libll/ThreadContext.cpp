@@ -646,7 +646,6 @@ void ThreadContext::save(ChkWriter &out) const{
     if(r%4==3)
       out << endl;
   }
-  I(getAddressSpace()->isMappedInst(getIAddr()));
   out << "PC " << getIAddr() << " / " << getIDesc()-getAddressSpace()->virtToInst(getIAddr()) << dec << endl;
 }
 
@@ -999,6 +998,7 @@ void ThreadContext::writeMemFromBuf(VAddr addr, size_t len, const void *buf){
     }
   }
 }
+/*
 ssize_t ThreadContext::writeMemFromFile(VAddr addr, size_t len, int32_t fd, bool natFile, bool usePread, off_t offs){
   I(canWrite(addr,len));
   ssize_t retVal=0;
@@ -1024,6 +1024,7 @@ ssize_t ThreadContext::writeMemFromFile(VAddr addr, size_t len, int32_t fd, bool
   }
   return retVal;
 }
+*/
 void ThreadContext::writeMemWithByte(VAddr addr, size_t len, uint8_t c){
   I(canWrite(addr,len));
   uint8_t buf[AddressSpace::getPageSize()];
@@ -1065,6 +1066,7 @@ void ThreadContext::readMemToBuf(VAddr addr, size_t len, void *buf){
     }
   }
 }
+/*
 ssize_t ThreadContext::readMemToFile(VAddr addr, size_t len, int32_t fd, bool natFile){
   I(canRead(addr,len));
   ssize_t retVal=0;
@@ -1088,6 +1090,7 @@ ssize_t ThreadContext::readMemToFile(VAddr addr, size_t len, int32_t fd, bool na
   }
   return retVal;
 }
+*/
 ssize_t ThreadContext::readMemString(VAddr stringVAddr, size_t maxSize, char *dstStr){
   size_t i=0;
   while(true){
@@ -1149,10 +1152,11 @@ void ThreadContext::execRet(VAddr entry, VAddr ra, VAddr sp){
 void ThreadContext::dumpCallStack(void){
   printf("Call stack dump for thread %d begins\n",pid);
   for(size_t i=0;i<callStack.size();i++)
-    printf("  Entry 0x%08x from 0x%08x with sp 0x%08x tail %d Name %s File %s\n",
-	   callStack[i].entry,callStack[i].ra,callStack[i].sp,callStack[i].tailr,
-	   addressSpace->getFuncName(callStack[i].entry),
-	   addressSpace->getFuncFile(callStack[i].entry));
+    printf("  Entry 0x%08llx from 0x%08llx with sp 0x%08llx tail %d Name %s File %s\n",
+	   (unsigned long long)(callStack[i].entry),(unsigned long long)(callStack[i].ra),
+	   (unsigned long long)(callStack[i].sp),callStack[i].tailr,
+	   addressSpace->getFuncName(callStack[i].entry).c_str(),
+	   addressSpace->getFuncFile(callStack[i].entry).c_str());
   printf("Call stack dump for thread %d ends\n",pid);
 }
 

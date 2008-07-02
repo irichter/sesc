@@ -65,6 +65,7 @@ AddressPrefetcher::AddressPrefetcher(MemorySystem* current
 
 void AddressPrefetcher::tryPrefetch(MemRequest *mreq)
 {
+#if 0
   // NOTE: This prefetcher works because PAddr and VAddr are the
   // same. If they were different, there should be a translation layer
   // in the middle
@@ -86,14 +87,13 @@ void AddressPrefetcher::tryPrefetch(MemRequest *mreq)
   for(RAddr addr = start ; addr < end ; addr+=4) {
 	 int32_t *pos = (int32_t *)addr;
     VAddr val = SWAP_WORD(*pos);
-#if 0
     // FIXME: val is a virtual address, it must be translated
     if(ThreadContext::getMainThreadContext()->isValidDataVAddr(val)){
       cache->fillLine(val); // FIXME
       MSG("prefetch [0x%x]",(uint) val);
     }
-#endif
   }
+#endif
 }
 
 void AddressPrefetcher::access(MemRequest *mreq)

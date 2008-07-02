@@ -39,530 +39,509 @@ using std::cout;
 using std::endl;
 
 namespace FileSys {
-
-  BaseStatus::BaseStatus(FileType type, int32_t fd, int32_t flags)
-    : type(type), fd(fd), flags(flags){
+  Node::Node(dev_t dev, ino_t ino, uid_t uid, gid_t gid, mode_t mode)
+    : dev(dev), ino(ino), uid(uid), gid(gid), mode(mode){
   }
-  BaseStatus::~BaseStatus(void){
-    close(fd);
+  Node::~Node(void){
   }
-  void BaseStatus::save(ChkWriter &out) const{
-    out << "Type " << type;
-    out << " Flags " << flags << " RdBlocked " << readBlockPids.size() << " WrBlocked " << writeBlockPids.size();
-    for(PidSet::const_iterator i=readBlockPids.begin();i!=readBlockPids.end();i++)
-      out << " " << *i;
-    for(PidSet::const_iterator i=writeBlockPids.begin();i!=writeBlockPids.end();i++)
-      out << " " << *i;
-    out << endl;
-  }
-  BaseStatus *BaseStatus::create(ChkReader &in){
-    size_t _type;
-    in >> "Type " >> _type;
-    switch(static_cast<FileType>(_type)){
-    case Disk:   return new FileStatus(in);
-    case Pipe:   return new PipeStatus(in);
-    case Stream: return new StreamStatus(in);
+  Description *Description::open(const std::string &name, flags_t flags, mode_t mode){
+    if(name.compare("/dev/null")==0)
+      return new NullDescription(flags);
+    if(name.find("/dev/")==0){
+      errno=ENOENT;
+      return 0;
     }
-    return 0;
-  }
-  BaseStatus::BaseStatus(FileType type, ChkReader &in)
-    : type(type), fd(-1){
-    size_t _readBlockPids, _writeBlockPids;
-    in >> " Flags " >> flags >> " Rd Blocked " >> _readBlockPids >> " WrBlocked " >> _writeBlockPids;
-    while(_readBlockPids){
-      int32_t _pid;
-      in >> " " >> _pid;
-      readBlockPids.push_back(_pid);
-      _readBlockPids--;
-    }
-    while(_writeBlockPids){
-      int32_t _pid;
-      in >> " " >> _pid;
-      writeBlockPids.push_back(_pid);
-      _writeBlockPids--;
-    }
-    in >> endl;
-  }
-  FileStatus::FileStatus(const char *name, int32_t fd, int32_t flags, mode_t mode)
-    : BaseStatus(Disk,fd,flags), name(strdup(name)), mode(mode){
-  }
-  FileStatus::~FileStatus(void){
-    free(const_cast<char *>(name));
-  }
-  FileStatus *FileStatus::open(const char *name, int32_t flags, mode_t mode){
-    int32_t fd=::open(name,flags,mode);
+    fd_t fd=::open(name.c_str(),flags,mode);
     if(fd==-1)
       return 0;
-    FileStatus *retVal=new FileStatus(name,fd,flags,mode);
-    if(!retVal)
-      fail("FileSys::FileStatus::open can not create a new FileStatus\n");
-    return retVal;
-  }
-  FileStatus::FileStatus(ChkReader &in)
-    : BaseStatus(Disk,in){
-    off_t _pos;
-    size_t _nameLen;
-    in >> "Mode " >> mode >> " Pos " >> _pos >> " NameLen " >> _nameLen;
-    name=static_cast<char *>(malloc(_nameLen+1));
-    in >> name >> endl;
-    int32_t fd=::open(name,flags,mode);
-    I(fd!=-1);
-    ::lseek(fd,_pos,SEEK_SET);
-  }
-  void FileStatus::save(ChkWriter &out) const{
-    BaseStatus::save(out);
-    out << "Mode " << mode << " Pos " << ::lseek(fd,0,SEEK_CUR) << " NameLen " << strlen(name) << " Name " << name << endl;
-  }
-  void FileStatus::mmap(MemSys::FrameDesc *frame, void *data, size_t size, off_t offs){
-    I(0);
-    off_t curoff=::lseek(fd,0,SEEK_CUR);
-    I(curoff!=(off_t)-1);
-    off_t endoff=::lseek(fd,0,SEEK_END);
-    I(endoff!=(off_t)-1);
-    off_t finoff=::lseek(fd,curoff,SEEK_SET);
-    I(finoff==curoff);
-    if(offs>=endoff){
-      memset(data,0,size);
-    }else if(offs+(ssize_t)size<=endoff){
-      ssize_t nbytes=::pread(fd,data,size,offs);
-      I(nbytes==(ssize_t)size);
-    }else{
-      ssize_t nbytes=::pread(fd,data,endoff-offs,offs);
-      I(nbytes==endoff-offs);
-      memset((void *)((char *)data+nbytes),0,size-nbytes);
+    struct stat stbuf;
+    if(fstat(fd,&stbuf)!=0)
+      fail("Description::open could not stat %s\n",name.c_str());
+    switch(stbuf.st_mode&S_IFMT){
+    case S_IFREG: {
+      FileNode *fnode=new FileNode(name,fd,stbuf);
+      I(fnode);
+      FileDescription *desc=new FileDescription(fnode,flags);
+      I(desc);
+      return desc;
+    } break;
+    case S_IFDIR: {
+      DirectoryNode *dnode=new DirectoryNode(name,fd,stbuf);
+      I(dnode);
+      DirectoryDescription *desc=new DirectoryDescription(dnode,flags);
+      I(desc);
+      return desc;
+    } break;
     }
-    // TODO: Remember the mapping
+    fail("Description::open for unknown st_mode\n");
   }
-  void FileStatus::munmap(MemSys::FrameDesc *frame, void *data, size_t size, off_t offs){
-    // TODO: Remove the mapping
+  Description::Description(Node *node, flags_t flags)
+    : node(node), flags(flags){
   }
-  void FileStatus::msync(MemSys::FrameDesc *frame, void *data, size_t size, off_t offs){
-    off_t curoff=::lseek(fd,0,SEEK_CUR);
-    I(curoff!=(off_t)-1);
-    off_t endoff=::lseek(fd,0,SEEK_END);
-    I(endoff!=(off_t)-1);
-    off_t finoff=::lseek(fd,curoff,SEEK_SET);
-    I(finoff==curoff);
-    if(offs>=endoff){
-      // Do nothing
-    }else if(offs+(ssize_t)size<=endoff){
-      ssize_t nbytes=::pwrite(fd,data,size,offs);
-      I(nbytes==(ssize_t)size);
-    }else{
-      ssize_t nbytes=::pwrite(fd,data,endoff-offs,offs);
-      I(nbytes==endoff-offs);
-    }    
+  Description::~Description(void){
   }
- 
-  void PipeStatus::setOtherEnd(PipeStatus *oe){
-    I(!otherEnd);
-    I((!oe->otherEnd)||(oe->otherEnd==this));
-    otherEnd=oe;
+  std::string Description::getName(void) const{
+    return node->getName();
   }
-  PipeStatus *PipeStatus::pipe(void){
-    int32_t fdescs[2];
-    if(::pipe(fdescs))
-      return 0;
-    int32_t fflags[2];
-    fflags[0]=fcntl(fdescs[0],F_GETFL);
-    fcntl(fdescs[0],F_SETFL,fflags[0]|O_NONBLOCK);
-    fflags[1]=fcntl(fdescs[1],F_GETFL);
-    fcntl(fdescs[1],F_SETFL,fflags[1]|O_NONBLOCK);
-    if((fflags[0]==-1)||(fflags[1]==-1))
-      fail("FileSys::PipeStatus::open could not fcntl F_GETFL\n");
-    PipeStatus *rdPipe=new PipeStatus(fdescs[0],fdescs[1],fflags[0],false);
-    PipeStatus *wrPipe=new PipeStatus(fdescs[1],fdescs[0],fflags[1],true);
-    if((!rdPipe)||(!wrPipe))
-      fail("FileSys::PipeStatus::pipe can not create a new PipeStatus\n");
-    wrPipe->setOtherEnd(rdPipe);
-    rdPipe->setOtherEnd(wrPipe);
-    return rdPipe;
+  bool Description::canRd(void) const{
+    return ((flags&O_ACCMODE)!=O_WRONLY);
   }
-  void PipeStatus::endReadBlock(void){
-    if(!otherEnd)
+  bool Description::canWr(void) const{
+    return ((flags&O_ACCMODE)!=O_RDONLY);
+  }
+  bool Description::isNonBlock(void) const{
+    return ((flags&O_NONBLOCK)==O_NONBLOCK);
+  }
+  flags_t Description::getFlags(void) const{
+    return flags;
+  }
+  NullNode::NullNode()
+    : Node(0x000d,0,0,0,S_IFCHR|S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH|S_IWOTH){
+  }
+  NullNode NullNode::node;
+  NullNode *NullNode::create(void){
+    return &node;
+  }
+  std::string NullNode::getName(void) const{
+    return "NullDevice";
+  }
+  NullDescription::NullDescription(flags_t flags)
+    : Description(NullNode::create(),flags){
+  }
+  ssize_t NullDescription::read(void *buf, size_t count){
+    return 0;
+  }
+  ssize_t NullDescription::write(const void *buf, size_t count){
+    return count;
+  }
+  SeekableNode::SeekableNode(dev_t dev, ino_t ino, uid_t uid, gid_t gid, mode_t mode, off_t len)
+    : Node(dev,ino,uid,gid,mode), len(len){
+  }
+  off_t SeekableNode::getSize(void) const{
+    return len;
+  }
+  void  SeekableNode::setSize(off_t nlen){
+    len=nlen;
+  }
+  SeekableDescription::SeekableDescription(Node *node, flags_t flags)
+    : Description(node,flags), pos(0){
+  }
+  off_t SeekableDescription::getSize(void) const{
+    return dynamic_cast<SeekableNode *>(node)->getSize();
+  }
+  void  SeekableDescription::setSize(off_t nlen){
+    dynamic_cast<SeekableNode *>(node)->setSize(nlen);
+  }
+  off_t SeekableDescription::getPos(void) const{
+    return pos;
+  }
+  void  SeekableDescription::setPos(off_t npos){
+    pos=npos;
+  }
+  ssize_t SeekableDescription::read(void *buf, size_t count){
+    ssize_t rcount=pread(buf,count,pos);
+    if(rcount>0){
+      pos+=rcount;
+      I(pos<=getSize());
+    }
+    return rcount;
+  }
+  ssize_t SeekableDescription::write(const void *buf, size_t count){
+    ssize_t wcount=pwrite(buf,count,pos);
+    if(wcount>0){
+      pos+=wcount;
+      I(pos<=getSize());
+    }
+    return wcount;
+  }
+  ssize_t SeekableDescription::pread(void *buf, size_t count, off_t offs){
+    return dynamic_cast<SeekableNode *>(node)->pread(buf,count,offs);
+  }
+  ssize_t SeekableDescription::pwrite(const void *buf, size_t count, off_t offs){
+    return dynamic_cast<SeekableNode *>(node)->pwrite(buf,count,offs);
+  }
+  void SeekableDescription::mmap(void *data, size_t size, off_t offs){
+    ssize_t rsize=pread(data,size,offs);
+    if(rsize<0)
+      fail("FileStatus::mmap failed with error %d\n",errno);
+    memset((void *)((char *)data+rsize),0,size-rsize);
+  }
+  void SeekableDescription::msync(void *data, size_t size, off_t offs){
+    off_t endoff=getSize();
+    if(offs>=endoff)
       return;
-    while(!otherEnd->readBlockPids.empty()){
-      int32_t pid=otherEnd->readBlockPids.back();
-      otherEnd->readBlockPids.pop_back();
+    size_t wsize=(size_t)(endoff-offs);
+    if(size<wsize)
+      wsize=size;
+    ssize_t nbytes=pwrite(data,wsize,offs);
+    I(getSize()==endoff);
+    I(nbytes==(ssize_t)wsize);
+  }
+  FileNode::FileNode(const std::string &name, fd_t fd, struct stat &buf)
+    : SeekableNode(buf.st_dev,buf.st_ino,buf.st_uid,buf.st_gid,buf.st_mode,buf.st_size), name(name), fd(fd) {
+  }
+  FileNode::~FileNode(void){
+    if(close(fd)!=0)
+      fail("FileSys::FileNode destructor could not close file %s\n",name.c_str());
+  }
+  std::string FileNode::getName(void) const{
+    return name;
+  }
+  void FileNode::setSize(off_t nlen){
+    if(ftruncate(fd,nlen)==-1)
+      fail("FileNode::setSize ftruncate failed\n");
+    SeekableNode::setSize(nlen);
+  }
+  ssize_t FileNode::pread(void *buf, size_t count, off_t offs){
+    return ::pread(fd,buf,count,offs);
+  }
+  ssize_t FileNode::pwrite(const void *buf, size_t count, off_t offs){
+    off_t olen=getSize();
+    ssize_t ncount=::pwrite(fd,buf,count,offs);
+    if((ncount>0)&&(offs+ncount>olen))
+      SeekableNode::setSize(offs+ncount);
+    return ncount;
+  }
+  FileDescription::FileDescription(FileNode *node, flags_t flags)
+    : SeekableDescription(node,flags){
+    node->addRef();
+  }
+  FileDescription::~FileDescription(void){
+    dynamic_cast<FileNode *>(node)->delRef();
+  }
+  DirectoryNode::DirectoryNode(const std::string &name, fd_t fd, struct stat &buf)
+    : SeekableNode(buf.st_dev,buf.st_ino,buf.st_uid,buf.st_gid,buf.st_mode,0), name(name), dirp(opendir(name.c_str())){
+    if(!dirp)
+      fail("FileSys::DirectoryNode constructor could not opendir %s\n",name.c_str());
+    if(close(fd)!=0)
+      fail("FileSys::DirectoryNode constructor could not close fd %d for %s\n",fd,name.c_str());
+    refresh();
+  }
+  DirectoryNode::~DirectoryNode(void){
+    if(closedir(dirp)!=0)
+      fail("FileSys::DirectoryNode destructor could not closedir %s\n",name.c_str());
+  }
+  std::string DirectoryNode::getName(void) const{
+    return name;
+  }
+  void DirectoryNode::setSize(off_t nlen){
+    fail("DirectoryNode::setSize called\n");
+  }
+  ssize_t DirectoryNode::pread(void *buf, size_t count, off_t offs){
+    fail("DirectoryNode::pread called\n");
+  }
+  ssize_t DirectoryNode::pwrite(const void *buf, size_t count, off_t offs){
+    fail("DirectoryNode::pwrite called\n");
+  }
+  void DirectoryNode::refresh(void){
+    entries.clear();
+    rewinddir(dirp);
+    for(size_t i=0;true;i++){
+      struct dirent *dent=readdir(dirp);
+      if(!dent)
+	break;
+      entries.push_back(dent->d_name);
+    }
+    SeekableNode::setSize(entries.size());
+  }
+  std::string DirectoryNode::getEntry(off_t index){
+    I((index>=0)&&(entries.size()>(size_t)index));
+    return entries[index];
+  }
+  DirectoryDescription::DirectoryDescription(DirectoryNode *node, flags_t flags)
+    : SeekableDescription(node,flags){
+  }
+  DirectoryDescription::~DirectoryDescription(void){
+  }
+  void DirectoryDescription::setPos(off_t npos){
+    dynamic_cast<DirectoryNode *>(node)->refresh();
+    SeekableDescription::setPos(npos);
+  }
+  std::string DirectoryDescription::readDir(void){
+    off_t opos=SeekableDescription::getPos();
+    if(opos>=getSize())
+      fail("DirectoryDescription::readDir past the end\n");
+    SeekableDescription::setPos(opos+1);
+    return dynamic_cast<DirectoryNode *>(node)->getEntry(opos);
+  }
+  void StreamNode::unblock(PidSet &pids, SigCode sigCode){
+    for(PidSet::iterator it=pids.begin();it!=pids.end();it++){
+      pid_t pid=*it;
       ThreadContext *context=osSim->getContext(pid);
-      if(context){
-	SigInfo *sigInfo=new SigInfo(SigIO,SigCodeIn);
-	sigInfo->pid=pid;
-	sigInfo->data=fd;
-	context->signal(sigInfo);
+      if(context){   
+        SigInfo *sigInfo=new SigInfo(SigIO,sigCode);
+	//        sigInfo->pid=pid;
+	//        sigInfo->data=fd;     
+        context->signal(sigInfo);
       }
     }
+    pids.clear();
   }
-  void PipeStatus::endWriteBlock(void){
-    if(!otherEnd)
-      return;
-    while(!otherEnd->writeBlockPids.empty()){
-      int32_t pid=otherEnd->writeBlockPids.back();
-      otherEnd->writeBlockPids.pop_back();
-      ThreadContext *context=osSim->getContext(pid);
-      if(context){
-	SigInfo *sigInfo=new SigInfo(SigIO,SigCodeIn);
-	sigInfo->pid=pid;
-	sigInfo->data=fd;
-	context->signal(sigInfo);
-      }
-    }
+  StreamNode::StreamNode(dev_t dev, dev_t rdev, ino_t ino, uid_t uid, gid_t gid, mode_t mode)
+    : Node(dev,ino,uid,gid,mode), rdev(rdev), rdBlocked(), wrBlocked(){
   }
-  void PipeStatus::save(ChkWriter &out) const{
-    BaseStatus::save(out);
-    out << "IsWrite " << (isWrite?'+':'-');
-    out << " OtherEnd " << (out.hasIndex(otherEnd)?'+':'-');
-    if(out.hasIndex(otherEnd))
-      out << out.getIndex(otherEnd);
-    out << endl;
-    if(!isWrite){
-      I(otherEnd);
-      std::vector<uint8_t> cv;
-      while(true){
-	uint8_t c;
-	ssize_t rdRet=::read(fd,&c,sizeof(c));
-	if(rdRet==-1)
-	  break;
-	I(rdRet==1);
-	cv.push_back(c);
-      }
-      out << "Data size " << cv.size();
-      if(cv.size()){
-	out << " Data";
-	for(size_t i=0;i<cv.size();i++){
-	  out << " " << cv[i];
-	  ssize_t wrRet=::write(otherFd,&(cv[i]),sizeof(cv[i]));
-	  I(wrRet==1);
-	}
-      }
-      out << endl;
-    }
+  StreamNode::~StreamNode(void){
+    I(rdBlocked.empty());
+    I(wrBlocked.empty());
   }
-  PipeStatus::PipeStatus(ChkReader &in)
-    : BaseStatus(Pipe,in){
-    char _isWrite;
-    in >> "IsWrite " >> _isWrite;
-    isWrite=(_isWrite=='+');
-    char _hasIndex;
-    in >> " OtherEnd " >> _hasIndex;
-    if(_hasIndex=='+'){
-      size_t _index;
-      in >> _index;
-      otherEnd=static_cast<PipeStatus *>(in.getObject(_index));
-      if(otherEnd){
-        otherEnd->otherEnd=this;
-        fd=otherEnd->otherFd;
-        otherFd=otherEnd->fd;
-      }
-    }else{
-      int32_t fdescs[2];
-      ::pipe(fdescs);
-      if(isWrite){
-        fd=fdescs[1];
-        otherFd=fdescs[0];
-      }else{
-        fd=fdescs[0];
-        otherFd=fdescs[1];
-      }
-    }
-    I(flags==fcntl(fd,F_GETFL));
-    fcntl(fd,F_SETFL,flags|O_NONBLOCK);
-    in >> endl;
-    if(!isWrite){
-      size_t _dataSize;
-      in >> "Data size " >> _dataSize;
-      if(_dataSize){
-        in >> " Data";
-        while(_dataSize){
-          char _c;
-	  in >> " " >> _c;
-	  ssize_t wrRet=::write(otherFd,&_c,sizeof(_c));
-	  I(wrRet==1);
-          _dataSize--;
-        }
-      }
-      in >> endl;
-    }
+  void StreamNode::rdBlock(pid_t pid){
+    I(willRdBlock());
+    rdBlocked.push_back(pid);    
   }
-
-  StreamStatus::StreamStatus(int32_t fd, int32_t flags)
-    : BaseStatus(Stream,fd,flags){
+  void StreamNode::wrBlock(pid_t pid){
+    I(willWrBlock());
+    wrBlocked.push_back(pid);
   }
-  StreamStatus::~StreamStatus(void){
+  void StreamNode::rdUnblock(void){
+    I(!willRdBlock());
+    if(!rdBlocked.empty())
+      unblock(rdBlocked,SigCodeIn);
+    I(rdBlocked.empty());
   }
-  StreamStatus *StreamStatus::wrap(int32_t fd){
-    int32_t newfd=dup(fd);
-    if(newfd==-1)
-      return 0;
-    int32_t flags=fcntl(newfd,F_GETFL);
-    if(flags==-1){
-      close(fd);
+  void StreamNode::wrUnblock(void){
+    I(!willWrBlock());
+    if(!wrBlocked.empty())
+      unblock(wrBlocked,SigCodeOut);
+    I(wrBlocked.empty());
+  }
+  bool StreamDescription::willRdBlock(void) const{
+    return dynamic_cast<const StreamNode *>(node)->willRdBlock();
+  }
+  bool StreamDescription::willWrBlock(void) const{
+    return dynamic_cast<const StreamNode *>(node)->willWrBlock();
+  }
+  void StreamDescription::rdBlock(pid_t pid){
+    dynamic_cast<StreamNode *>(node)->rdBlock(pid);
+  }
+  void StreamDescription::wrBlock(pid_t pid){
+    dynamic_cast<StreamNode *>(node)->wrBlock(pid);
+  }
+  StreamDescription::StreamDescription(StreamNode *node, flags_t flags)
+    : Description(node,flags){
+  }
+  ssize_t StreamDescription::read(void *buf, size_t count){
+    return dynamic_cast<StreamNode *>(node)->read(buf,count);
+  }
+  ssize_t StreamDescription::write(const void *buf, size_t count){
+    return dynamic_cast<StreamNode *>(node)->write(buf,count);
+  }
+  
+  PipeNode::PipeNode(void)
+    : StreamNode(0x0007,0x0000,1,getuid(),getgid(),S_IFIFO|S_IREAD|S_IWRITE), data(), readers(0), writers(0){
+  }
+  PipeNode::~PipeNode(void){
+    I(!readers);
+    I(!writers);
+  }
+  void PipeNode::addReader(void){
+    readers++;
+  }
+  void PipeNode::delReader(void){
+    I(readers);
+    readers--;
+    if((readers==0)&&(writers==0))
+      delete this;
+  }
+  void PipeNode::addWriter(void){
+    writers++;
+  }
+  void PipeNode::delWriter(void){
+    I(writers);
+    writers--;
+    if((readers==0)&&(writers==0))
+      delete this;
+  }
+  ssize_t PipeNode::read(void *buf, size_t count){
+    I(readers);
+    if(data.empty()){
+      I(!writers);
       return 0;
     }
-    int32_t rest=flags^(flags&(O_ACCMODE|O_CREAT|O_EXCL|O_NOCTTY|O_TRUNC|O_APPEND|
-			   O_NONBLOCK|O_SYNC|O_NOFOLLOW|O_DIRECT
-#ifdef O_DIRECTORY
-			   |O_DIRECTORY
-#endif
-#ifdef O_ASYNC
-			   |O_ASYNC
-#endif
-#ifdef O_LARGEFILE
-			   |O_LARGEFILE
-#endif
-			   ));
-    if(rest){
-      printf("StreamStatus::wrap of fd %d removed extra file flags 0x%08x\n",fd,rest);
-      flags-=rest;
-    }
-    return new StreamStatus(newfd,flags);
+    size_t ncount=count;
+    if(data.size()<ncount)
+      ncount=data.size();
+    Data::iterator begIt=data.begin();
+    Data::iterator endIt=begIt+ncount;
+    copy(begIt,endIt,(uint8_t *)buf);
+    data.erase(begIt,endIt);
+    I(ncount>0);
+    wrUnblock();
+    return ncount;
   }
-  void StreamStatus::save(ChkWriter &out) const{
-    BaseStatus::save(out);    
+  ssize_t PipeNode::write(const void *buf, size_t count){
+    I(writers);
+    const uint8_t *ptr=(const uint8_t *)buf;
+    data.resize(data.size()+count);
+    copy(ptr,ptr+count,data.end()-count);
+    rdUnblock();
+    return count;
   }
-  StreamStatus::StreamStatus(ChkReader &in)
-    : BaseStatus(Stream,in){
+  bool PipeNode::willRdBlock(void) const{
+    return data.empty()&&writers;
   }
-  FileDesc::FileDesc(void)
-    : st(0){
-  }
-  FileDesc::FileDesc(const FileDesc &src)
-    : st(src.st), cloexec(src.cloexec){
-  }
-  FileDesc::~FileDesc(void){
-  }
-  FileDesc &FileDesc::operator=(const FileDesc &src){
-    setStatus(src.st);
-    setCloexec(src.cloexec);
-    return *this;
-  }
-  void FileDesc::setStatus(BaseStatus *newSt){
-    st=newSt;
-  }
-  void FileDesc::save(ChkWriter &out) const{
-    out << "Cloexec " << (cloexec?'+':'-');
-    bool hasIndex=out.hasIndex(getStatus());
-    out << " Status " << out.getIndex(getStatus()) << endl;
-    if(!hasIndex)
-      st->save(out);
-  }
-  FileDesc::FileDesc(ChkReader &in){
-    char _cloexec;
-    in >> "Cloexec " >> _cloexec;
-    cloexec=(_cloexec=='+');
-    size_t _st;
-    in >> " Status " >> _st >> endl;
-    if(!in.hasObject(_st)){
-      in.newObject(_st);
-      st=BaseStatus::create(in);
-      in.setObject(_st,getStatus());
-    }
-  }
-
-  OpenFiles::OpenFiles(void)
-    : fds(){ 
-  }
-  OpenFiles::OpenFiles(const OpenFiles &src)
-    : GCObject(), fds(src.fds){
-  }
-  OpenFiles::~OpenFiles(void){
-    for(size_t i=0;i<fds.size();i++)
-      fds[i].setStatus(0);
-  }
-  int32_t OpenFiles::error(int32_t err){
-    errno=err;
-    return -1;
-  }
-  bool OpenFiles::isOpen(int32_t fd) const{
-    I(fd>=0);
-    if(fds.size()<=(size_t)fd)
-      return false;
-    if(!fds[fd].getStatus())
-      return false;
-    return true;      
-  }
-  FileDesc *OpenFiles::getDesc(int32_t fd){
-    I(fd>=0);
-    if(fds.size()<=(size_t)fd)
-      fds.resize(fd+1);
-    return &(fds[fd]);
-  }
-  int32_t OpenFiles::open(const char *name, int32_t flags, mode_t mode){
-    int32_t newfd=findNextFree(0);
-    FileDesc *fileDesc=getDesc(newfd);
-    FileStatus *fileStat=FileStatus::open(name,flags,mode);
-    if(!fileStat)
-      return -1;
-    fileDesc->setStatus(fileStat);
-    fileDesc->setCloexec(false);
-    return newfd;
-  }
-  int32_t OpenFiles::dup(int32_t oldfd){
-    int32_t newfd=findNextFree(0);
-    return dup2(oldfd,newfd);
-  }
-  int32_t OpenFiles::dup2(int32_t oldfd, int32_t newfd){
-    if(!isOpen(oldfd))
-      return error(EBADF);
-    if(newfd==oldfd)
-      return newfd;
-    // Must first get the newDesc becasue it may resize the
-    // vector, which can move oldDesc elesewhere
-    FileDesc *newDesc=getDesc(newfd);
-    FileDesc *oldDesc=getDesc(oldfd);
-    I(oldDesc->getStatus());
-    newDesc->setStatus(oldDesc->getStatus());
-    I(newDesc->getStatus());
-    I(newDesc->getStatus()==oldDesc->getStatus());
-    newDesc->setCloexec(false);
-    I(isOpen(newfd));
-    return newfd;
-  }
-  int32_t OpenFiles::dupfd(int32_t oldfd, int32_t minfd){
-    int32_t newfd=findNextFree(minfd);
-    return dup2(oldfd,newfd);
-  }
-  int32_t OpenFiles::pipe(int32_t fds[2]){
-    PipeStatus *newStat[2];
-    newStat[0]=PipeStatus::pipe();
-    if(!newStat[0])
-      return -1;
-    newStat[1]=newStat[0]->otherEnd;
-    I(newStat[1]&&(newStat[1]->otherEnd==newStat[0]));
-    for(int32_t i=0;i<2;i++){
-      fds[i]=findNextFree(3);
-      FileDesc *desc=getDesc(fds[i]);
-      desc->setStatus(newStat[i]);
-      desc->setCloexec(false);
-    }
-    return 0;
-  }
-  bool OpenFiles::isLastOpen(int32_t oldfd){
-    if(!isOpen(oldfd))
-      return false;
-    return (getDesc(oldfd)->getStatus()->getRefCount()==1);
-  }
-  int32_t OpenFiles::close(int32_t oldfd){
-    if(!isOpen(oldfd))
-      return error(EBADF);
-    getDesc(oldfd)->setStatus(0);
-    return 0;
-  }
-  int32_t OpenFiles::getfd(int32_t fd){
-    if(!isOpen(fd))
-      return error(EBADF);
-    FileDesc *desc=getDesc(fd);
-    return desc->getCloexec()?FD_CLOEXEC:0;
-  }
-  int32_t OpenFiles::setfd(int32_t fd, int32_t cloex){
-    if(!isOpen(fd))
-      return error(EBADF);
-    FileDesc *desc=getDesc(fd);
-    desc->setCloexec((cloex&FD_CLOEXEC)==FD_CLOEXEC);
-    return 0;
-  }
-  int32_t OpenFiles::getfl(int32_t fd){
-    if(!isOpen(fd))
-      return error(EBADF);
-    FileDesc *desc=getDesc(fd);
-    return desc->getStatus()->flags;
-  }
-  ssize_t OpenFiles::read(int32_t fd, void *buf, size_t count){
-    if(!isOpen(fd))
-      return error(EBADF);
-    FileDesc *desc=getDesc(fd);
-    BaseStatus *status=desc->getStatus();
-    ssize_t retVal=::read(status->fd,buf,count);
-    if(retVal>0)
-      status->endWriteBlock();
-    return retVal;
-  }
-  ssize_t OpenFiles::pread(int32_t fd, void *buf, size_t count, off_t offs){
-    if(!isOpen(fd))
-      return error(EBADF);
-    FileDesc *desc=getDesc(fd);
-    BaseStatus *status=desc->getStatus();
-    ssize_t retVal=::pread(status->fd,buf,count,offs);
-    if(retVal>0)
-      status->endWriteBlock();
-    return retVal;
-  }
-  ssize_t OpenFiles::write(int32_t fd, const void *buf, size_t count){
-    if(!isOpen(fd))
-      return error(EBADF);
-    FileDesc *desc=getDesc(fd);
-    BaseStatus *status=desc->getStatus();
-    ssize_t retVal=::write(status->fd,buf,count);
-    if(retVal>0)
-      status->endReadBlock();
-    return retVal;
-  }
-  ssize_t OpenFiles::pwrite(int32_t fd, void *buf, size_t count, off_t offs){
-    if(!isOpen(fd))
-      return error(EBADF);
-    FileDesc *desc=getDesc(fd);
-    BaseStatus *status=desc->getStatus();
-    ssize_t retVal=::pwrite(status->fd,buf,count,offs);
-    if(retVal>0)
-      status->endReadBlock();
-    return retVal;
-  }
-  bool OpenFiles::willReadBlock(int32_t fd){
-    I(isOpen(fd));
-    FileDesc *desc=getDesc(fd);
-    BaseStatus *status=desc->getStatus();
-    struct pollfd pollFd;
-    pollFd.fd=status->fd;
-    pollFd.events=POLLIN;
-    int32_t res=poll(&pollFd,1,0);
-//    I((res<=0)==((::read(status->fd,0,1)==-1)&&(errno==EAGAIN)));
-    return (res<=0);
-//    if((::read(status->fd,0,1)==-1)&&(errno==EAGAIN)){
-//      I((::read(status->fd,&fd,1)==-1)&&(errno==EAGAIN));
-//      return true;
-//    }
-//    return false;
-  }
-  bool OpenFiles::willWriteBlock(int32_t fd){
-    I(isOpen(fd));
-    FileDesc *desc=getDesc(fd);
-    BaseStatus *status=desc->getStatus();
-    if((::write(status->fd,0,1)==-1)&&(errno==EAGAIN)){
-      I((::write(status->fd,&fd,1)==-1)&&(errno==EAGAIN));
-      return true;
-    }
+  bool PipeNode::willWrBlock(void) const{
     return false;
   }
-  void OpenFiles::addReadBlock(int32_t fd, int32_t pid){
-    I(isOpen(fd));
-    FileDesc *desc=getDesc(fd);
-    BaseStatus *status=desc->getStatus();
-    status->addReadBlock(pid);
+  std::string PipeNode::getName(void) const{
+    return "AnonymousPipe";
   }
-  void OpenFiles::addWriteBlock(int32_t fd, int32_t pid){
-    I(isOpen(fd));
-    FileDesc *desc=getDesc(fd);
-    BaseStatus *status=desc->getStatus();
-    status->addWriteBlock(pid);
+  PipeDescription::PipeDescription(PipeNode *node, flags_t flags)
+    : StreamDescription(node,flags){
+    if(canRd())
+      dynamic_cast<PipeNode *>(node)->addReader();
+    if(canWr())
+      dynamic_cast<PipeNode *>(node)->addWriter();
   }
-  off_t OpenFiles::seek(int32_t fd, off_t offset, int32_t whence){
-    if(!isOpen(fd))
-      return (off_t)(error(EBADF));
-    FileDesc *desc=getDesc(fd);
-    BaseStatus *status=desc->getStatus();
-    return ::lseek(status->fd,offset,whence);    
+  PipeDescription::~PipeDescription(void){
+    if(canRd())
+      dynamic_cast<PipeNode *>(node)->delReader();
+    if(canWr())
+      dynamic_cast<PipeNode *>(node)->delWriter();
+  }
+  TtyDescription::TtyDescription(TtyNode *node, flags_t flags)
+    : StreamDescription(node,flags){
+    node->addRef();
+  }
+  TtyDescription::~TtyDescription(void){
+    dynamic_cast<TtyNode *>(node)->delRef();
+  }
+  TtyNode::TtyNode(fd_t srcfd)
+    : StreamNode(0x009,0x8803,(ino_t)1,getuid(),getgid(),S_IFCHR|S_IRUSR|S_IWUSR), fd(dup(srcfd)){
+    if(fd==-1)
+      fail("TtyNode constructor cannot dup()\n");
+  }
+  TtyNode::~TtyNode(void){
+    close(fd);
+  }
+  ssize_t TtyNode::read(void *buf, size_t count){
+    return ::read(fd,buf,count);
+  }
+  ssize_t TtyNode::write(const void *buf, size_t count){
+    return ::write(fd,buf,count);
+  }
+  bool TtyNode::willRdBlock(void) const{
+    struct pollfd pollFd;
+    pollFd.fd=fd;
+    pollFd.events=POLLIN;
+    int32_t res=poll(&pollFd,1,0);
+    return (res<=0);    
+  }
+  bool TtyNode::willWrBlock(void) const{
+    struct pollfd pollFd;
+    pollFd.fd=fd;
+    pollFd.events=POLLOUT;
+    int32_t res=poll(&pollFd,1,0);
+    return (res<=0);
+  }
+  std::string TtyNode::getName(void) const{
+    return "TtyDevice";
+  }
+  TtyDescription *TtyDescription::wrap(fd_t fd){
+    flags_t flags=fcntl(fd,F_GETFL);
+    if(flags==-1)
+      return 0;
+    TtyNode *node=new TtyNode(fd);
+    return new TtyDescription(node,flags);
   }
 
+  OpenFiles::FileDescriptor::FileDescriptor(void)
+    : description(0), cloexec(false){
+  }
+  OpenFiles::OpenFiles(void)
+    : GCObject(), fileDescriptors(){ 
+  }
+  OpenFiles::OpenFiles(const OpenFiles &src)
+    : GCObject(), fileDescriptors(src.fileDescriptors){
+  }
+  OpenFiles::~OpenFiles(void){
+  }
+  fd_t OpenFiles::nextFreeFd(fd_t minfd) const{
+    for(FileDescriptors::const_iterator it=fileDescriptors.lower_bound(minfd);
+        (it!=fileDescriptors.end())&&(it->first==minfd);minfd++,it++);
+    return minfd;
+  }
+  void OpenFiles::openDescriptor(fd_t fd, Description *description){
+    I(fd>=0);
+    std::pair<FileDescriptors::iterator,bool> res=fileDescriptors.insert(FileDescriptors::value_type(fd,FileDescriptor()));
+    I(res.second&&(res.first->first==fd));
+    res.first->second.description=description;
+    res.first->second.cloexec=false;
+  }
+  void OpenFiles::closeDescriptor(fd_t fd){
+    I(fileDescriptors.count(fd)==1);
+    fileDescriptors.erase(fd);
+    I(!isOpen(fd));
+  }
+  bool OpenFiles::isOpen(fd_t fd) const{
+    I(fd>=0);
+    I((fileDescriptors.count(fd)==0)||fileDescriptors.find(fd)->second.description);
+    return fileDescriptors.count(fd);
+  }
+  Description *OpenFiles::getDescription(fd_t fd){
+    FileDescriptors::iterator it=fileDescriptors.find(fd);
+    I(it!=fileDescriptors.end());
+    I(it->second.description);
+    return it->second.description;
+  }
+  void OpenFiles::setCloexec(fd_t fd, bool cloex){
+    FileDescriptors::iterator it=fileDescriptors.find(fd);
+    I(it!=fileDescriptors.end());
+    I(it->second.description);
+    it->second.cloexec=cloex;
+  }
+  bool OpenFiles::getCloexec(fd_t fd) const{
+    FileDescriptors::const_iterator it=fileDescriptors.find(fd);
+    I(it!=fileDescriptors.end());
+    I(it->second.description);
+    return it->second.cloexec;
+  }
+  void OpenFiles::exec(void){
+    FileDescriptors::iterator it=fileDescriptors.begin();
+    while(it!=fileDescriptors.end()){
+      FileDescriptors::iterator nxit=it;
+      nxit++;
+      I(it->second.description);
+      if(it->second.cloexec)
+	fileDescriptors.erase(it);
+      it=nxit;
+    }
+  }
   void OpenFiles::save(ChkWriter &out) const{
-    out << "Descriptors: " << fds.size() << endl;
-    for(size_t f=0;f<fds.size();f++)
-      fds[f].save(out);
+    out << "Descriptors: " << fileDescriptors.size() << endl;
+    for(FileDescriptors::const_iterator it=fileDescriptors.begin();
+        it!=fileDescriptors.end();it++){
+      out << "Desc " << it->first << " Cloex " << (it->second.cloexec?'+':'-');
+      /*
+      BaseStatus *st=it->second.description_old;
+      bool hasIndex=out.hasIndex(st);
+      out << " Status " << out.getIndex(st) << endl;
+      if(!hasIndex)
+        st->save(out);
+      */
+    }
   }
   OpenFiles::OpenFiles(ChkReader &in){
-    size_t _fds;
-    in >> "Descriptors: " >> _fds >> endl;
-    for(size_t f=0;f<_fds;f++)
-      fds.push_back(FileDesc(in));
+    size_t _size;
+    in >> "Descriptors: " >> _size >> endl;
+    for(size_t i=0;i<_size;i++){
+      fd_t _fd;
+      char _cloex;
+      in >> "Desc " >> _fd >> " Cloex " >> _cloex;
+      /*
+      size_t _st;
+      in >> " Status " >> _st >> endl;
+      BaseStatus *st;
+      if(!in.hasObject(_st)){
+        in.newObject(_st);
+        st=BaseStatus::create(in);
+        in.setObject(_st,st);
+      }else{
+        st=reinterpret_cast<BaseStatus *>(in.getObject(_st));
+      }
+      fileDescriptors[_fd].description_old=st;
+      fileDescriptors[_fd].cloexec=(_cloex=='+');
+      */
+    }
   }
 
   NameSpace::NameSpace(const string &mtlist) : GCObject(), mounts() {

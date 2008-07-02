@@ -8,17 +8,37 @@ namespace MemSys{
 
   FrameDesc::PAddrSet FrameDesc::freePAddrs;
 
-  FrameDesc::FrameDesc() : GCObject(), basePAddr(newPAddr()), shared(false), dirty(false){
+  FrameDesc::FileToFrame FrameDesc::fileToFrame;
+  
+  FrameDesc *FrameDesc::create(FileSys::SeekableDescription *fdesc, off_t offs){
+    FileMapKey key(fdesc,offs);
+    FileToFrame::iterator it=fileToFrame.find(key);
+    if(it!=fileToFrame.end())
+      return it->second;
+    FrameDesc *ptr=new FrameDesc(fdesc,offs);
+    fileToFrame[key]=ptr;
+    return ptr;
+  }
+  void FrameDesc::sync(void){
+    if(dirty){
+      if(fileDesc)
+	fileDesc->msync(data,AddrSpacPageSize,fileOff);
+      dirty=false;
+    }
+  }
+  FrameDesc::FrameDesc() : GCObject(), basePAddr(newPAddr()), shared(false), dirty(false), fileDesc(0){
     memset(data,0,AddrSpacPageSize);
   }
-  FrameDesc::FrameDesc(FileSys::FileStatus *fs, off_t offs)
+  FrameDesc::FrameDesc(FileSys::SeekableDescription *fdesc, off_t offs)
     : GCObject()
     , basePAddr(newPAddr())
     , shared(true)
     , dirty(false)
-    , filePtr(fs)
+    , fileDesc(fdesc)
     , fileOff(offs){
-    filePtr->mmap(this,data,AddrSpacPageSize,fileOff);
+    if(offs%AddrSpacPageSize)
+      fail("FrameDesc file mapping offset is not page-aligned\n");
+    fileDesc->mmap(data,AddrSpacPageSize,fileOff);
 #if (defined HAS_MEM_STATE)
     for(size_t s=0;s<AddrSpacPageSize/MemState::Granularity;s++)
       state[s]=src.state[s];
@@ -37,12 +57,9 @@ namespace MemSys{
 #endif
   }
   FrameDesc::~FrameDesc(){
-    if(filePtr){
-      if(dirty&&shared)
-	filePtr->msync(this,data,AddrSpacPageSize,fileOff);
-      filePtr->munmap(this,data,AddrSpacPageSize,fileOff);
-      filePtr=0;
-    }
+    sync();
+    if(fileDesc)
+      fileToFrame.erase(FileMapKey(fileDesc,fileOff));
     I(freePAddrs.find(basePAddr)==freePAddrs.end());
     freePAddrs.insert(basePAddr);
     memset(data,0xCC,AddrSpacPageSize);
@@ -63,7 +80,50 @@ namespace MemSys{
 #endif
     in>>endl;
   }
+
 }
+
+AddressSpace::PageTable::Cache::Cache(void){
+  for(size_t i=0;i<AddrSpaceCacheSize;i++)
+    cache[i].pageNum=0;  
+}
+void AddressSpace::PageTable::Cache::unmap(PageNum pageNumLb, PageNum pageNumUb){
+  if(AddrSpaceCacheSize<(pageNumUb-pageNumLb)){
+    for(size_t i=0;i<AddrSpaceCacheSize;i++){
+      if((cache[i].pageNum>=pageNumLb)&&(cache[i].pageNum<pageNumUb))
+	cache[i].pageNum=0;
+    }
+  }else{
+    for(PageNum pageNum=pageNumLb;pageNum<pageNumUb;pageNum++){
+      Entry &entry=cache[pageNum%AddrSpaceCacheSize];
+      if(entry.pageNum==pageNum)
+	entry.pageNum=0;
+    }
+  }
+}
+AddressSpace::PageTable::PageTable(void)
+  : pageMap(), cache(){
+}
+AddressSpace::PageTable::PageTable(PageTable &src)
+  : pageMap(), cache(){
+  for(PageMap::iterator it=src.pageMap.begin();it!=src.pageMap.end();it++)
+    pageMap[it->first]=it->second;
+}
+void AddressSpace::PageTable::map(PageNum pageNumLb, PageNum pageNumUb,
+                                  bool r, bool w, bool x, bool s,
+                                  FileSys::SeekableDescription *fdesc, off_t offs){
+  for(PageNum pageNum=pageNumLb;pageNum<pageNumUb;pageNum++){
+    I(pageMap.find(pageNum)==pageMap.end());
+    pageMap[pageNum].map(r,w,x,s,fdesc,offs+AddrSpacPageSize*(pageNum-pageNumLb));
+  }
+}
+void AddressSpace::PageTable::unmap(PageNum pageNumLb, PageNum pageNumUb){
+  pageMap.erase(pageMap.lower_bound(pageNumLb),pageMap.lower_bound(pageNumUb));
+  cache.unmap(pageNumLb,pageNumUb);
+}
+
+AddressSpace::FrameTable AddressSpace::frameTable;
+
 void AddressSpace::SegmentDesc::save(ChkWriter &out) const{
   out << "Addr " << addr << " Len " << len;
   out << "R" << canRead;
@@ -72,7 +132,7 @@ void AddressSpace::SegmentDesc::save(ChkWriter &out) const{
   out << "G" << autoGrow;
   out << "D" << growDown;
   out << "S" << shared;
-  fileStatus->save(out);
+//  fileStatus->save(out);
   out << "Offs " << fileOffset;
   out << endl;
 }
@@ -84,85 +144,110 @@ ChkReader &AddressSpace::SegmentDesc::operator=(ChkReader &in){
   in >> "G" >> autoGrow;
   in >> "D" >> growDown;  
   in >> "S" >> shared;
-  fileStatus=new FileSys::FileStatus(in);
+//  fileStatus=new FileSys::FileStatus(in);
   in >> "Offs " >> fileOffset;
   in >> endl;
   return in;
 }
 
 AddressSpace::PageDesc::PageDesc(void)
-  : frame(0),
-    mapCount(0),
-    canRead(0),
-    canWrite(0),
-    canExec(0),
-    shared(false),
-    copyOnWrite(false){
+  : flags(static_cast<Flags>(0)),
+    frame(0){
 }
-AddressSpace::PageDesc::PageDesc(PageDesc &src)
-  : frame(src.frame),
-    mapCount(src.mapCount),
-    canRead(src.canRead),
-    canWrite(src.canWrite),
-    canExec(src.canExec),
-    shared(src.shared),
-    copyOnWrite(false)
-{
-  fail("copy constructor\n");
-  if(frame&&(!shared)){
-    copyOnWrite=true;
-    src.copyOnWrite=true;
-  }
+AddressSpace::PageDesc::PageDesc(PageDesc &src){
+  fail("Copy constructor called\n");
 }
 AddressSpace::PageDesc::PageDesc(const PageDesc &src)
-  : frame(src.frame),
-    mapCount(src.mapCount),
-    canRead(src.canRead),
-    canWrite(src.canWrite),
-    canExec(src.canExec),
-    shared(src.shared),
-    copyOnWrite(src.copyOnWrite)
+  : flags(src.flags),
+    frame(src.frame)
 {
-  if(frame&&(!shared))
-    fail("const copy constructor needs to modify src\n");
+  if(frame||flags)
+    fail("Const copy constructor called!\n");
+}
+AddressSpace::PageDesc::~PageDesc(void){
+  if(frame)
+    frameTable.erase(FrameTableEntry(frame,this));
+}
+void AddressSpace::PageDesc::copyFrame(void){
+//  if(frame->getRefCount()<=1)
+//    fail("Copying uniquely-mapped frame\n");
+  frameTable.erase(FrameTableEntry(frame,this));
+  frame=new MemSys::FrameDesc(*frame);
+  frameTable.insert(FrameTableEntry(frame,this));
+}
+void AddressSpace::PageDesc::doWrCopy(void){
+  flags=static_cast<Flags>(flags&~WrCopy);
+  if(frame->isShared())
+    return copyFrame();
+  FrameTable::iterator it=frameTable.lower_bound(FrameTableEntry(frame,0));
+  if(it->page!=this)
+    return copyFrame();
+  it++;
+  if((it!=frameTable.end())&&(it->frame==frame))
+    return copyFrame();
 }
 AddressSpace::PageDesc::PageDesc &AddressSpace::PageDesc::operator=(PageDesc &src){
-  shared=src.shared;
+  flags=src.flags;
+  if(frame)
+    fail("PageDesc::operator= dst already has a frame!\n");
   frame=src.frame;
-  if(frame&&(!shared)){
-    copyOnWrite=true;
-    src.copyOnWrite=true;
-  }else{
-    copyOnWrite=false;
+  if(!frame)
+    fail("PageDesc::operator= src has no frame!\n");
+  if(frame)
+    frameTable.insert(FrameTableEntry(frame,this));
+  if(!(flags&Shared)){
+    FrameTable::iterator it=frameTable.lower_bound(FrameTableEntry(frame,0));
+    while((it!=frameTable.end())&&(it->frame==frame)){
+      PageDesc *pg=it->page;
+      if(!(pg->flags&Shared))
+	pg->flags=static_cast<Flags>(pg->flags|WrCopy);
+      it++;
+    }
   }
-  mapCount=src.mapCount;
-  canRead =src.canRead;
-  canWrite=src.canWrite;
-  canExec =src.canExec;
-//  insts=0;
   return *this;
 }
 void AddressSpace::PageDesc::save(ChkWriter &out) const{
-  out << "S" << shared << " C" << copyOnWrite << " ";
+//  out << "S" << shared << " C" << copyOnWrite << " ";
   out.writeobj(getFrame());
 }
 ChkReader &AddressSpace::PageDesc::operator=(ChkReader &in){
 //  insts=0;
-  mapCount=0;
-  canRead=0;
-  canWrite=0;
-  canExec=0;
-  in >> "S" >> shared >> " C" >> copyOnWrite >> " ";
+//  canRead=0;
+//  canWrite=0;
+//  canExec=0;
+//  in >> "S" >> shared >> " C" >> copyOnWrite >> " ";
   frame=in.readobj<MemSys::FrameDesc>();
   return in;
 }
 
+AddressSpace::InstTable::Cache::Cache(void){
+  for(size_t i=0;i<AddrSpaceCacheSize;i++)
+    cache[i].instAddr=0;
+}
+void AddressSpace::InstTable::Cache::unmap(VAddr instAddrLb, VAddr instAddrUb){
+  if(AddrSpaceCacheSize<(instAddrUb-instAddrLb)){
+    for(size_t i=0;i<AddrSpaceCacheSize;i++){
+      if((cache[i].instAddr>=instAddrLb)&&(cache[i].instAddr<instAddrUb))
+	cache[i].instAddr=0;
+    }
+  }else{
+    for(VAddr instAddr=instAddrLb;instAddr<instAddrUb;instAddr++){
+      Entry &entry=cache[instAddr%AddrSpaceCacheSize];
+      if(entry.instAddr==instAddr)
+	entry.instAddr=0;
+    }
+  }
+}
+AddressSpace::InstTable::InstTable(void)
+  : instMap(), cache(){
+}
+void AddressSpace::InstTable::unmap(VAddr instAddrLb, VAddr instAddrUb){
+  InstMap::iterator instItLb=instMap.lower_bound(instAddrLb);
+  InstMap::iterator instItUb=instMap.lower_bound(instAddrUb);
+  instMap.erase(instItLb,instItUb);
+  cache.unmap(instAddrLb,instAddrUb);
+}
 void AddressSpace::createTrace(ThreadContext *context, VAddr addr){
-  I((!isMappedInst(addr))||!instMap[addr]);
-  //  instMap[addr]=0;
-  //    TraceMap::iterator cur=traceMap.upper_bound(addr);
-  //    if((cur!=traceMap.end())&&(cur->second.eaddr>addr))
-  //      addr=cur->second.baddr;
   VAddr segAddr=getSegmentAddr(addr);
   VAddr segSize=getSegmentSize(segAddr);
   VAddr funcAddr=getFuncAddr(addr);
@@ -181,43 +266,35 @@ void AddressSpace::createTrace(ThreadContext *context, VAddr addr){
     fail("createTrace: addr not within its segment\n");
   decodeTrace(context,funcAddr,funcSize);
 }
-void AddressSpace::delMapInsts(VAddr begAddr, VAddr endAddr){
-  // TODO: Check if any thread is pointing to one of these insts (should never happen, but we should check)
-  InstMap::iterator begIt=instMap.lower_bound(begAddr);
-  InstMap::iterator endIt=instMap.lower_bound(endAddr);
-  instMap.erase(begIt,endIt);
-}
 void AddressSpace::mapTrace(InstDesc *binst, InstDesc *einst, VAddr baddr, VAddr eaddr){
-  while(true){              
-    TraceMap::iterator cur=traceMap.upper_bound(eaddr);
-    if(cur==traceMap.end())                 
-      break;
-    I(cur->second.baddr!=0);                
-    I(cur->second.eaddr!=0);               
-    if(cur->second.eaddr<=baddr)
-      break;
-    I(cur->second.baddr>=baddr);
-    I(cur->second.eaddr<=eaddr);
-    ID(cur->second.baddr=0);       
-    ID(cur->second.eaddr=0);
-//     printf("Deleting a trace to map another!\n");
-//     exit(1);
-    delete [] cur->second.binst;       
-    traceMap.erase(cur);
-  }               
-  InstMap::iterator begit=instMap.upper_bound(eaddr);
-  InstMap::iterator endit=instMap.lower_bound(baddr);
-  InstMap::iterator begit1=instMap.begin();
-  InstMap::iterator endit1=instMap.end();
-  for(InstMap::iterator instit=instMap.lower_bound(baddr);instit!=instMap.lower_bound(eaddr);instit++)
-    I((instit->second>=binst)&&(instit->second<einst));
+  I((traceMap.upper_bound(eaddr)==traceMap.end())||(traceMap.upper_bound(eaddr)->second.eaddr<=baddr));
   TraceDesc &tdesc=traceMap[baddr];
   tdesc.binst=binst;
   tdesc.einst=einst;
   tdesc.baddr=baddr;
   tdesc.eaddr=eaddr;
 }
-
+void AddressSpace::delInsts(VAddr begAddr, VAddr endAddr){
+  // We erase all traces that overlap and extend bounds to cover these traces
+  TraceMap::iterator trcItLb=traceMap.upper_bound(endAddr);
+  if(trcItLb==traceMap.end())
+    return;
+  if(trcItLb->second.eaddr<=begAddr)
+    return;
+  if(trcItLb->second.eaddr>endAddr)
+    endAddr=trcItLb->second.eaddr;
+  TraceMap::iterator trcItUb=trcItLb;
+  while((trcItUb!=traceMap.end())&&(trcItUb->second.eaddr>begAddr)){
+    if(trcItUb->second.baddr<begAddr)
+      begAddr=trcItUb->second.baddr;
+    delete [] trcItUb->second.binst;
+    trcItUb++;
+  }
+  traceMap.erase(trcItLb,trcItUb);
+  // TODO: Check if any thread is pointing to one of these insts (should never happen, but we should check)
+  // Delete mapped instructions from traces we erased
+  instTable.unmap(begAddr,endAddr);
+}
 
 AddressSpace::AddressSpace(void) :
   GCObject(),
@@ -235,34 +312,9 @@ AddressSpace::AddressSpace(AddressSpace &src) :
     addFuncName(it->addr,it->func,it->file);
 }
 
-void AddressSpace::clear(bool isExec){
-  // Clear function name mappings
-  namesByAddr.clear();
-  namesByName.clear();
-  // Clear instruction decodings
-  instMap.clear();
+AddressSpace::~AddressSpace(void){
   for(TraceMap::iterator traceit=traceMap.begin();traceit!=traceMap.end();traceit++)
     delete [] traceit->second.binst;
-  traceMap.clear();
-  // Remove all memory segments
-  VAddr lastAddr=segmentMap.begin()->second.addr+segmentMap.begin()->second.len;
-  while(!segmentMap.empty()){
-    SegmentDesc &mySeg=segmentMap.begin()->second;
-    I(mySeg.addr+mySeg.len<=lastAddr);
-    I(mySeg.len>0);
-    I(mySeg.addr==segmentMap.begin()->first);
-    lastAddr=mySeg.addr;
-    for(size_t pageNum=mySeg.pageNumLb();pageNum<mySeg.pageNumUb();pageNum++)
-      pageTable[pageNum].unmap(mySeg.canRead,mySeg.canWrite,mySeg.canExec);
-    segmentMap.erase(mySeg.addr);
-  }
-  // Remove all pages
-  pageTable.clear();
-}
-
-AddressSpace::~AddressSpace(void){
-//  printf("Destroying an address space\n");
-  clear(false);
 }
 
 void AddressSpace::save(ChkWriter &out) const{
@@ -308,7 +360,7 @@ AddressSpace::AddressSpace(ChkReader &in){
   for(size_t i=0;i<_segCount;i++){
     SegmentDesc seg;
     seg=in;
-    newSegment(seg.addr,seg.len,seg.canRead,seg.canWrite,seg.canExec,seg.shared,seg.fileStatus,seg.fileOffset);
+    newSegment(seg.addr,seg.len,seg.canRead,seg.canWrite,seg.canExec,seg.shared,seg.fileDesc,seg.fileOffset);
     setGrowth(seg.addr,seg.autoGrow,seg.growDown);
   }
   // Load function name mappings
@@ -471,7 +523,6 @@ bool AddressSpace::getRetHandlers(VAddr addr, HandlerSet &set) const{
 }
 
 VAddr AddressSpace::newSegmentAddr(size_t len){
-  //  VAddr retVal=alignDown((VAddr)-1,AddrSpacPageSize);
   VAddr retVal=alignDown((VAddr)0x7fffffff,AddrSpacPageSize);
   retVal=alignDown(retVal-len,AddrSpacPageSize);
   for(SegmentMap::const_iterator segIt=segmentMap.begin();segIt!=segmentMap.end();segIt++){
@@ -487,6 +538,8 @@ VAddr AddressSpace::newSegmentAddr(size_t len){
   return retVal;
 }
 void AddressSpace::splitSegment(VAddr pivot){
+  if(pivot%AddrSpacPageSize)
+    fail("AddressSpace::splitSegment with non-aligned pivot\n");
   // Find segment that begins below pivot - this will be the one to split
   SegmentMap::iterator segIt=segmentMap.upper_bound(pivot);
   // Return if no such segment
@@ -502,50 +555,53 @@ void AddressSpace::splitSegment(VAddr pivot){
   newSeg.addr=pivot;
   newSeg.len=oldSeg.addr+oldSeg.len-newSeg.addr;
   oldSeg.len=oldSeg.len-newSeg.len;
-  if(oldSeg.fileStatus)
+  if(oldSeg.fileDesc)
     newSeg.fileOffset=oldSeg.fileOffset+oldSeg.len;
   I((newSeg.pageNumLb()+1==oldSeg.pageNumUb())||(newSeg.pageNumLb()==oldSeg.pageNumUb()));
   if(newSeg.pageNumLb()!=oldSeg.pageNumUb())
-    pageTable[newSeg.pageNumLb()].map(newSeg.canRead,newSeg.canWrite,newSeg.canExec);
+    fail("AddressSpace::splitSegment pageNumLb and pageNumUb disagree\n");
 }
 void AddressSpace::growSegmentDown(VAddr oldaddr, VAddr newaddr){
+  if(newaddr%AddrSpacPageSize)
+    fail("AddressSpace::resizeSegment with non-aligned newlen\n");
   I(!(newaddr%AddrSpacPageSize));
   I(segmentMap.find(oldaddr)!=segmentMap.end());
   I(newaddr<oldaddr);
   SegmentDesc &oldSeg=segmentMap[oldaddr];
+  if(oldSeg.fileDesc)
+    fail("Growing a file-mapped segment down\n");
   I(isNoSegment(newaddr,oldaddr-newaddr));
   SegmentDesc &newSeg=segmentMap[newaddr];
   newSeg=oldSeg;
   newSeg.addr=newaddr;
   newSeg.len=oldaddr+oldSeg.len-newaddr;
-  I(!oldSeg.fileStatus);
   I(newSeg.pageNumUb()==oldSeg.pageNumUb());
-  for(size_t pageNum=newSeg.pageNumLb();pageNum<oldSeg.pageNumLb();pageNum++)
-    pageTable[pageNum].map(newSeg.canRead,newSeg.canWrite,newSeg.canExec);
+  pageTable.map(newSeg.pageNumLb(),oldSeg.pageNumLb(),newSeg.canRead,newSeg.canWrite,newSeg.canExec,newSeg.shared,0,0);
   segmentMap.erase(oldaddr);
 }
 void AddressSpace::resizeSegment(VAddr addr, size_t newlen){
+  if(newlen%AddrSpacPageSize)
+    fail("AddressSpace::resizeSegment with non-aligned newlen\n");
   I(segmentMap.find(addr)!=segmentMap.end());
   I(newlen>0);
   SegmentDesc &mySeg=segmentMap[addr];
+  if(mySeg.fileDesc)
+    fail("Resizing a file-mapped segment\n");
   I(mySeg.addr==addr);
-  I(!mySeg.fileStatus);
   size_t oldPageNumUb=mySeg.pageNumUb();
   mySeg.len=newlen;
   size_t newPageNumUb=mySeg.pageNumUb();
   if(oldPageNumUb<newPageNumUb){
-    for(size_t pageNum=oldPageNumUb;pageNum<newPageNumUb;pageNum++)
-      pageTable[pageNum].map(mySeg.canRead,mySeg.canWrite,mySeg.canExec);
+    pageTable.map(oldPageNumUb,newPageNumUb,mySeg.canRead,mySeg.canWrite,mySeg.canExec,mySeg.shared,0,0);
   }else if(oldPageNumUb>newPageNumUb){
-    for(size_t pageNum=newPageNumUb;pageNum<oldPageNumUb;pageNum++)
-      pageTable[pageNum].unmap(mySeg.canRead,mySeg.canWrite,mySeg.canExec);
+    pageTable.unmap(newPageNumUb,oldPageNumUb);
   }
 }
 void AddressSpace::moveSegment(VAddr oldaddr, VAddr newaddr){
   I(!(newaddr%AddrSpacPageSize));
   I(segmentMap.find(oldaddr)!=segmentMap.end());
   SegmentDesc &oldSeg=segmentMap[oldaddr];
-  I(!oldSeg.fileStatus);
+  I(!oldSeg.fileDesc);
   I(isNoSegment(newaddr,oldSeg.len));
   SegmentDesc &newSeg=segmentMap[newaddr];
   newSeg=oldSeg;
@@ -556,33 +612,19 @@ void AddressSpace::moveSegment(VAddr oldaddr, VAddr newaddr){
     I(newPg<newSeg.pageNumUb());
     PageDesc &oldPageDesc=pageTable[oldPg];
     PageDesc &newPageDesc=pageTable[newPg];
-    newPageDesc.frame=oldPageDesc.frame;
-    oldPageDesc.frame=0;
-    I(newPageDesc.mapCount==0);
-    I(oldPageDesc.mapCount==1);
-    newPageDesc.mapCount=oldPageDesc.mapCount;
-    oldPageDesc.mapCount=0;
-    I(newPageDesc.canRead==0);
-    I(oldPageDesc.canRead==(oldSeg.canRead?1:0));
-    newPageDesc.canRead=oldPageDesc.canRead;
-    oldPageDesc.canRead=0;
-    I(newPageDesc.canWrite==0);
-    I(oldPageDesc.canWrite==(oldSeg.canWrite?1:0));
-    newPageDesc.canWrite=oldPageDesc.canWrite;
-    oldPageDesc.canWrite=0;
-//    I(!oldPageDesc.insts);
-    I(oldPageDesc.canExec==0);
-    I(newPageDesc.canExec==0);
-    I(oldPageDesc.canExec==(oldSeg.canExec?1:0));
-    newPageDesc.canExec=oldPageDesc.canExec;
-    oldPageDesc.canExec=0;
+    newPageDesc=oldPageDesc;
     oldPg++;
     newPg++;
   }
   I(newPg==newSeg.pageNumUb());
+  pageTable.unmap(oldSeg.pageNumLb(),oldSeg.pageNumUb());
   segmentMap.erase(oldaddr);
 }
 void AddressSpace::deleteSegment(VAddr addr, size_t len){
+  if(addr%AddrSpacPageSize)
+    fail("AddressSpace::deleteSegment with non-aligned addr\n");
+  if(len%AddrSpacPageSize)
+    fail("AddressSpace::deleteSegment with non-aligned len\n");
   splitSegment(addr);
   splitSegment(addr+len);
   // Find the segment that begins before the end of deletion region
@@ -598,10 +640,8 @@ void AddressSpace::deleteSegment(VAddr addr, size_t len){
   I((endIt==segmentMap.end())||(endIt->second.addr+endIt->second.len<=addr));
   for(SegmentMap::iterator segIt=begIt;segIt!=endIt;segIt++){
     SegmentDesc &seg=segIt->second;
-    I(!seg.fileStatus);
     I((seg.addr>=addr)&&(seg.addr+seg.len<=addr+len));
-    for(size_t pageNum=seg.pageNumLb();pageNum<seg.pageNumUb();pageNum++)
-      pageTable[pageNum].unmap(seg.canRead,seg.canWrite,seg.canExec);
+    pageTable.unmap(seg.pageNumLb(),seg.pageNumUb());
   }
   segmentMap.erase(begIt,endIt);
 #if (defined DEBUG)
@@ -612,53 +652,14 @@ void AddressSpace::deleteSegment(VAddr addr, size_t len){
 #endif
   // Remove function name mappings for this segment
   delFuncNames(addr,addr+len);
-//   while(true){
-//     // Find the segment that begins before the end of deletion
-//     SegmentMap::iterator segIt=segmentMap.upper_bound(addr+len);
-//     // If no segment begins before end of deletion, no deletion is needed
-//     if(segIt==segmentMap.end())
-//       break;
-//     SegmentDesc &oldSeg=segIt->second;
-//     // If the segment end before the start of deletion, no deletion is needed
-//     if(oldSeg.addr+oldSeg.len<=addr)
-//       break;
-//     // If the segment ends after the end of deletion, we must split it
-//     if(oldSeg.addr+oldSeg.len>addr+len){
-//       I(0);
-//       SegmentDesc &newSeg=segmentMap[addr+len];
-//       newSeg=oldSeg;
-//       newSeg.addr=addr+len;
-//       newSeg.len=oldSeg.addr+oldSeg.len-newSeg.addr;
-//       oldSeg.len=oldSeg.len-newSeg.len;
-//       if(newSeg.pageNumLb()<oldSeg.pageNumUb()){
-// 	I(newSeg.pageNumLb()+1==oldSeg.pageNumUb());
-// 	addPages(newSeg.pageNumLb(),newSeg.pageNumUb(),newSeg.canRead,newSeg.canWrite,newSeg.canExec);
-//       }
-//       continue;
-//     }
-//     // If we got here, the segment ends in the deletion region
-//     // If it begins before the deletion region, we must truncate it
-//     if(oldSeg.addr<addr){
-//       size_t oldPageNumUb=oldSeg.pageNumUb();
-//       oldSeg.len=addr-oldSeg.addr;
-//       if(oldSeg.pageNumUb()<oldPageNumUb)
-// 	for(size_t pageNum=oldSeg.pageNumUb();pageNum<oldPageNumUb;pageNum++)
-// 	  getPageDesc(pageNum).unmap(oldSeg.canRead,oldSeg.canWrite,oldSeg.canExec);
-//       continue;
-//     }
-//     // If we got here, the segment is within the deletion region and is deleted
-//     I(oldSeg.addr>=addr);
-//     I(oldSeg.addr+oldSeg.len<=addr+len);
-//     I(oldSeg.pageNumLb()<=oldSeg.pageNumUb());
-//     for(size_t pageNum=oldSeg.pageNumLb();pageNum<oldSeg.PageNumUb();pageNum++)
-//       getPageDesc(pageNum).unmap(oldSeg.canRead,oldSeg.canWrite,oldSeg.canExec);
-//     segmentMap.erase(segIt);
-//   }
 }
-void AddressSpace::newSegment(VAddr addr, size_t len, bool canRead, bool canWrite, bool canExec, bool shared, FileSys::FileStatus *fs, off_t offs){
-  I(!(addr%AddrSpacPageSize));
+void AddressSpace::newSegment(VAddr addr, size_t len, bool canRead, bool canWrite, bool canExec, bool shared,
+			      FileSys::SeekableDescription *fdesc, off_t offs){
+  if(addr%AddrSpacPageSize)
+    fail("AddressSpace::newSegment with non-aligned addr\n");
   I(len>0);
-  I(isNoSegment(addr,len));
+  if(!isNoSegment(addr,alignUp(len,AddrSpacPageSize)))
+    fail("AddressSpace::newSegment end-overlap with another segment\n");
   SegmentDesc &newSeg=segmentMap[addr];
   newSeg.addr=addr;
   newSeg.len=len;
@@ -667,12 +668,10 @@ void AddressSpace::newSegment(VAddr addr, size_t len, bool canRead, bool canWrit
   newSeg.canExec=canExec;
   newSeg.autoGrow=false;
   newSeg.growDown=false;
-  I(!shared);
   newSeg.shared=shared;
-  newSeg.fileStatus=fs;
-  newSeg.fileOffset=offs;
-  for(size_t pageNum=newSeg.pageNumLb();pageNum<newSeg.pageNumUb();pageNum++)
-    pageTable[pageNum].map(canRead,canWrite,canExec);
+  newSeg.fileDesc=shared?fdesc:0;
+  newSeg.fileOffset=shared?offs:0;
+  pageTable.map(newSeg.pageNumLb(),newSeg.pageNumUb(),canRead,canWrite,canExec,shared,fdesc,offs);
 }
 void AddressSpace::protectSegment(VAddr addr, size_t len, bool canRead, bool canWrite, bool canExec){
   splitSegment(addr);
@@ -681,11 +680,9 @@ void AddressSpace::protectSegment(VAddr addr, size_t len, bool canRead, bool can
   SegmentDesc &mySeg=segmentMap[addr];
   I(mySeg.addr==addr);
   I(mySeg.len==len);
-  I(!mySeg.fileStatus);
-  for(size_t pageNum=mySeg.pageNumLb();pageNum<mySeg.pageNumUb();pageNum++){
-    pageTable[pageNum].allow(canRead&&!mySeg.canRead,canWrite&&!mySeg.canWrite,canExec&&!mySeg.canExec);
-    pageTable[pageNum].deny(mySeg.canRead&&!canRead,mySeg.canWrite&&!canWrite,mySeg.canExec&&!canExec);
-  }
+  I(!mySeg.fileDesc);
+  for(size_t pageNum=mySeg.pageNumLb();pageNum<mySeg.pageNumUb();pageNum++)
+    pageTable[pageNum].protect(canRead,canWrite,canExec);
   mySeg.canRead=canRead;
   mySeg.canWrite=canWrite;
   mySeg.canExec=canExec;

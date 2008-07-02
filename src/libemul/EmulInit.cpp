@@ -22,27 +22,27 @@ void fail(const char *fmt, ...){
 }
 
 void emulInit(int32_t argc, char **argv, char **envp){
-  FileSys::BaseStatus *inStatus=0;
-  FileSys::BaseStatus *outStatus=0;
-  FileSys::BaseStatus *errStatus=0;
+  FileSys::Description *inDescription=0;
+  FileSys::Description *outDescription=0;
+  FileSys::Description *errDescription=0;
 
   extern char *optarg;
   int32_t opt;
   while((opt=getopt(argc, argv, "+hi:o:e:"))!=-1){
     switch(opt){
     case 'i':
-      inStatus=FileSys::FileStatus::open(optarg,O_RDONLY,S_IRUSR);
-      if(!inStatus)
+      inDescription=FileSys::Description::open(optarg,O_RDONLY,S_IRUSR);
+      if(!inDescription)
 	fail("Could not open `%s' as simulated stdin file\n",optarg);
       break;
     case 'o':
-      outStatus=FileSys::FileStatus::open(optarg,O_WRONLY|O_CREAT,S_IRUSR|S_IWUSR);
-      if(!outStatus)
+      outDescription=FileSys::Description::open(optarg,O_WRONLY|O_CREAT,S_IRUSR|S_IWUSR);
+      if(!outDescription)
 	fail("Could not open `%s' as simulated stdout file\n",optarg);
       break;
     case 'e':
-      errStatus=FileSys::FileStatus::open(optarg,O_WRONLY|O_CREAT,S_IRUSR|S_IWUSR);
-      if(!errStatus)
+      errDescription=FileSys::Description::open(optarg,O_WRONLY|O_CREAT,S_IRUSR|S_IWUSR);
+      if(!errDescription)
 	fail("Could not open `%s' as simulated stderr file %s\n",optarg);
       break;
     case 'h':
@@ -56,19 +56,19 @@ void emulInit(int32_t argc, char **argv, char **envp){
 	   argv[0]);
     }
   }
-  if(!inStatus){
-    inStatus=FileSys::StreamStatus::wrap(STDIN_FILENO);
-    if(!inStatus)
+  if(!inDescription){
+    inDescription=FileSys::TtyDescription::wrap(STDIN_FILENO);
+    if(!inDescription)
       fail("Could not wrap stdin\n");
   }
-  if(!outStatus){
-    outStatus=FileSys::StreamStatus::wrap(STDOUT_FILENO);
-    if(!outStatus)
+  if(!outDescription){
+    outDescription=FileSys::TtyDescription::wrap(STDOUT_FILENO);
+    if(!outDescription)
       fail("Could not wrap stdout\n");
   }
-  if(!errStatus){
-    errStatus=FileSys::StreamStatus::wrap(STDERR_FILENO);
-    if(!errStatus)
+  if(!errDescription){
+    errDescription=FileSys::TtyDescription::wrap(STDERR_FILENO);
+    if(!errDescription)
       fail("Could not wrap stderr\n");
   }
   int32_t    appArgc=argc-optind;
@@ -79,25 +79,21 @@ void emulInit(int32_t argc, char **argv, char **envp){
   while(appEnvp[appEnvc])
     appEnvc++;
 
-  
   FileSys::NameSpace::pointer nameSpace(new FileSys::NameSpace(SescConf->getCharPtr("FileSys","mount")));
   char cwd[PATH_MAX];
   FileSys::FileSys::pointer fileSys(new FileSys::FileSys(nameSpace,getcwd(cwd,PATH_MAX)));
   const string exeRealName(fileSys->toNative(appArgv[0]));
-  FileSys::FileStatus::pointer fs(FileSys::FileStatus::open(exeRealName.c_str(),O_RDONLY,0));
-  if(!fs)
+  FileSys::SeekableDescription *sdesc=dynamic_cast<FileSys::SeekableDescription *>(FileSys::Description::open(exeRealName,O_RDONLY,0));
+  if(!sdesc)
     fail("Could not open executable %s\n",appArgv[0]);
   ThreadContext *mainThread=new ThreadContext(fileSys);
   // TODO: Use ELF_ET_DYN_BASE instead of a constant here
-  loadElfObject(mainThread,fs,0x200000);
+  loadElfObject(mainThread,sdesc,0x200000);
   mainThread->getSystem()->initSystem(mainThread);
   mainThread->getSystem()->createStack(mainThread);
   mainThread->getSystem()->setProgArgs(mainThread,appArgc,appArgv,appEnvc,appEnvp);
   FileSys::OpenFiles *openFiles=mainThread->getOpenFiles();
-  openFiles->getDesc(STDIN_FILENO )->setStatus(inStatus);
-  openFiles->getDesc(STDIN_FILENO )->setCloexec(false);
-  openFiles->getDesc(STDOUT_FILENO)->setStatus(outStatus);
-  openFiles->getDesc(STDOUT_FILENO)->setCloexec(false);
-  openFiles->getDesc(STDERR_FILENO)->setStatus(errStatus);
-  openFiles->getDesc(STDERR_FILENO)->setCloexec(false);
+  openFiles->openDescriptor(STDIN_FILENO,inDescription);
+  openFiles->openDescriptor(STDOUT_FILENO,outDescription);
+  openFiles->openDescriptor(STDERR_FILENO,errDescription);
 }

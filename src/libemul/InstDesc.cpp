@@ -668,14 +668,10 @@ namespace Mips {
   public:
     template<typename T>
     static inline T readMem(ThreadContext *context, Taddr_t addr){
-      if(!context->canRead(addr,sizeof(T)))
-	fail("readMem: segmentation fault\n");
       return fixEndian(context->readMemRaw<T>(addr));
     }
     template<typename T>
     static inline void writeMem(ThreadContext *context, Taddr_t addr, const T &val){
-      if(!context->canWrite(addr,sizeof(T)))
-	fail("writeMem: segmentation fault\n");
       context->writeMemRaw(addr,fixEndian(val));
       if(!linkset.empty()){
 	PidSet::iterator pidIt=linkset.begin();
@@ -750,7 +746,6 @@ namespace Mips {
         tsize+=hset.size();
 	hset.clear();
       }
-      //      I(!context->getAddressSpace()->isMappedInst(curAddr));
       RawInst raw=readMem<RawInst>(context,curAddr);
       curAddr+=sizeof(RawInst);
       const OpEntry &entry=opMap[raw];
@@ -804,7 +799,6 @@ namespace Mips {
     static void decodeInst(ThreadContext *context, VAddr funcAddr, VAddr &curAddr, VAddr endAddr, InstDesc *&trace, bool domap){
       // This is a handler set for calls/returns 
       AddressSpace::HandlerSet hset;
-      I(!context->getAddressSpace()->isMappedInst(curAddr));
       if(domap)
 	context->getAddressSpace()->mapInst(curAddr,trace);
       // Add function entry handlers if this is a function entry point
@@ -1904,7 +1898,7 @@ void decodeTrace(ThreadContext *context, VAddr addr, size_t len){
   }
   while(sizaddr<endAddr)
     decodeInstSize<mode>(context,funcAddr,sizaddr,endAddr,tsize,true);
-  context->getAddressSpace()->delMapInsts(addr,endAddr);
+  context->getAddressSpace()->delInsts(addr,endAddr);
   InstDesc *trace=new InstDesc[tsize];
   InstDesc *curtrace=trace;
   VAddr trcaddr=addr;
