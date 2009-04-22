@@ -30,29 +30,45 @@ namespace FileSys {
   // Type of flags (O_RDONLY, etc.) 
   typedef int32_t flags_t;
 
-  typedef enum {
-    Disk,
-    Pipe,
-    Stream,
-  } FileType;
-
   class Node{
   private:
+    ino_t  natInode;
     dev_t  dev;
-    ino_t  ino;
+    size_t simInode;
+    static size_t simInodeCounter;
     uid_t  uid;
     gid_t  gid;
     mode_t mode;
+    off_t  size;
+    typedef std::map<ino_t, Node *> ByNatInode;
+    static ByNatInode byNatInode;
+    typedef std::map<std::string,Node *> ByNatName;
+    static ByNatName  byNatName;
+    typedef std::multimap<Node *,std::string> ToNatName;
+    static ToNatName toNatName;
   protected:
-    Node(dev_t dev, ino_t ino, uid_t uid, gid_t gid, mode_t mode);
+    virtual void setSize(off_t nsize){ size=nsize; }
+    Node(dev_t dev, uid_t uid, gid_t gid, mode_t mode, ino_t natInode);
   public:
+    static Node *lookup(const std::string &name);
+    static std::string resolve(const std::string &name);
+    static void insert(const std::string &name, Node *node);
+    static void remove(const std::string &name, Node *node);
+    virtual const std::string *getName(void);
     virtual ~Node(void);
     dev_t getDev(void) const{ return dev; }
-    ino_t getIno(void) const{ return ino; }
+    size_t getIno(void) const{ return simInode; }
     uid_t getUid(void) const{ return uid; }
     gid_t getGid(void) const{ return gid; }
     mode_t getMode(void) const{ return mode; }
-    virtual std::string getName(void) const = 0;
+    off_t getSize(void) const{ return size; }
+  };
+  class LinkNode : public Node{
+  private:
+    std::string link;
+  public:
+    LinkNode(const std::string &link, struct stat &buf);
+    const std::string &read(void) const{ return link; }
   };
   class Description : public GCObject{
   public:
@@ -62,10 +78,11 @@ namespace FileSys {
     flags_t flags;
     Description(Node *node, flags_t flags);
   public:
+    static Description *create(Node *node, flags_t flags);
     static Description *open(const std::string &name, flags_t flags, mode_t mode);
     virtual ~Description(void);
-    const Node *getNode(void) const{ return node; }
-    virtual std::string getName(void) const;
+    Node *getNode(void) const{ return node; }
+    virtual const std::string getName(void) const;
     virtual bool canRd(void) const;
     virtual bool canWr(void) const;
     virtual bool isNonBlock(void) const;
@@ -75,26 +92,22 @@ namespace FileSys {
   };
   class NullNode : public Node{
   protected:
-    NullNode(void);
     static NullNode node;
   public:
+    NullNode(void);
     static NullNode *create(void);
-    virtual std::string getName(void) const;
   };
   class NullDescription : public Description{
   public:
+    NullDescription(NullNode *nnode, flags_t flags);
     NullDescription(flags_t flags);
     virtual ssize_t read(void *buf, size_t count);
     virtual ssize_t write(const void *buf, size_t count);
   };
   class SeekableNode : public Node{
-  private:
-    off_t       len;
   protected:
-    SeekableNode(dev_t dev, ino_t ino, uid_t uid, gid_t gid, mode_t mode, off_t len);
+    SeekableNode(dev_t dev, uid_t uid, gid_t gid, mode_t mode, off_t len, ino_t natInode);
   public:
-    virtual off_t getSize(void) const;
-    virtual void  setSize(off_t nlen);
     virtual ssize_t pread(void *buf, size_t count, off_t offs) = 0;
     virtual ssize_t pwrite(const void *buf, size_t count, off_t offs) = 0;
   };
@@ -107,7 +120,6 @@ namespace FileSys {
     SeekableDescription(Node *node, flags_t flags);
   public:
     virtual off_t getSize(void) const;
-    virtual void  setSize(off_t nlen);
     virtual off_t getPos(void) const;
     virtual void  setPos(off_t npos);
     virtual ssize_t read(void *buf, size_t count);
@@ -117,14 +129,12 @@ namespace FileSys {
     virtual void mmap(void *data, size_t size, off_t offs);
     virtual void msync(void *data, size_t size, off_t offs);
   };
-  class FileNode : public SeekableNode, public GCObject{
+  class FileNode : public SeekableNode{
   private:
-    std::string name;
     fd_t fd;
   public:
-    FileNode(const std::string &name, fd_t fd, struct stat &buf);
+    FileNode(struct stat &buf);
     virtual ~FileNode(void);
-    virtual std::string getName(void) const;
     virtual void setSize(off_t nlen);
     virtual ssize_t pread(void *buf, size_t count, off_t offs);
     virtual ssize_t pwrite(const void *buf, size_t count, off_t offs);
@@ -134,16 +144,14 @@ namespace FileSys {
     FileDescription(FileNode *node, flags_t flags);
     virtual ~FileDescription(void);
   };
-  class DirectoryNode : public SeekableNode, public GCObject{
+  class DirectoryNode : public SeekableNode{
   private:
-    std::string name;
     DIR *dirp;
     typedef std::vector<std::string> Entries;
     Entries entries;
   public:
-    DirectoryNode(const std::string &name, fd_t fd, struct stat &buf);
+    DirectoryNode(struct stat &buf);
     virtual ~DirectoryNode(void);
-    virtual std::string getName(void) const;
     virtual void  setSize(off_t nlen);
     virtual ssize_t pread(void *buf, size_t count, off_t offs);
     virtual ssize_t pwrite(const void *buf, size_t count, off_t offs);
@@ -167,7 +175,7 @@ namespace FileSys {
     PidSet wrBlocked;
     void unblock(PidSet &pids, SigCode sigCode);
   public:
-    StreamNode(dev_t dev, dev_t rdev, ino_t ino, uid_t uid, gid_t gid, mode_t mode);
+    StreamNode(dev_t dev, dev_t rdev, uid_t uid, gid_t gid, mode_t mode);
     virtual ~StreamNode(void);
     dev_t getRdev(void) const{ return rdev; }
     virtual bool willRdBlock(void) const = 0;
@@ -198,7 +206,6 @@ namespace FileSys {
   public:
     PipeNode(void);
     virtual ~PipeNode(void);
-    virtual std::string getName(void) const;
     virtual void addReader(void);
     virtual void delReader(void);
     virtual void addWriter(void);
@@ -213,13 +220,12 @@ namespace FileSys {
     PipeDescription(PipeNode *node, flags_t flags);
     virtual ~PipeDescription(void);
   };
-  class TtyNode : public StreamNode, public GCObject{
+  class TtyNode : public StreamNode{
   private:
     fd_t fd;
   public:
     TtyNode(fd_t srcfd);
     ~TtyNode(void);
-    virtual std::string getName(void) const;
     virtual ssize_t read(void *buf, size_t count);
     virtual ssize_t write(const void *buf, size_t count);
     virtual bool willRdBlock(void) const;
@@ -298,7 +304,7 @@ namespace FileSys {
       return cwd;
     }
     void setCwd(const std::string &newCwd);
-    const std::string normalize(const std::string &fname) const;
+    static std::string normalize(const std::string &base, const std::string &fname);
     const std::string toNative(const std::string &fname) const;
   };
 

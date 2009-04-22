@@ -22,6 +22,9 @@ void fail(const char *fmt, ...){
 }
 
 void emulInit(int32_t argc, char **argv, char **envp){
+  FileSys::Node::insert("/dev/null",new FileSys::NullNode());
+  FileSys::Node::insert("/dev/tty",0);
+
   FileSys::Description *inDescription=0;
   FileSys::Description *outDescription=0;
   FileSys::Description *errDescription=0;
@@ -82,13 +85,21 @@ void emulInit(int32_t argc, char **argv, char **envp){
   FileSys::NameSpace::pointer nameSpace(new FileSys::NameSpace(SescConf->getCharPtr("FileSys","mount")));
   char cwd[PATH_MAX];
   FileSys::FileSys::pointer fileSys(new FileSys::FileSys(nameSpace,getcwd(cwd,PATH_MAX)));
-  const string exeRealName(fileSys->toNative(appArgv[0]));
-  FileSys::SeekableDescription *sdesc=dynamic_cast<FileSys::SeekableDescription *>(FileSys::Description::open(exeRealName,O_RDONLY,0));
-  if(!sdesc)
-    fail("Could not open executable %s\n",appArgv[0]);
+  const string exeLinkName(fileSys->toNative(appArgv[0]));
+  const string exeRealName(FileSys::Node::resolve(exeLinkName));
+  if(exeRealName.empty())
+    fail("emulInit: Link loop when executable %s\n",exeLinkName.c_str());
+  FileSys::Node *node=FileSys::Node::lookup(exeRealName);
+  if(!node)
+    fail("emulInit: Executable %s does not exist\n",exeLinkName.c_str());
+  FileSys::FileNode *fnode=dynamic_cast<FileSys::FileNode *>(node);
+  if(!fnode)
+    fail("emulInit: Executable %s is not a regular file\n",exeLinkName.c_str());
+  FileSys::FileDescription *fdesc=new FileSys::FileDescription(fnode,O_RDONLY);
+  FileSys::Description::pointer pdesc(fdesc);
   ThreadContext *mainThread=new ThreadContext(fileSys);
   // TODO: Use ELF_ET_DYN_BASE instead of a constant here
-  loadElfObject(mainThread,sdesc,0x200000);
+  loadElfObject(mainThread,fdesc,0x200000);
   mainThread->getSystem()->initSystem(mainThread);
   mainThread->getSystem()->createStack(mainThread);
   mainThread->getSystem()->setProgArgs(mainThread,appArgc,appArgv,appEnvc,appEnvp);

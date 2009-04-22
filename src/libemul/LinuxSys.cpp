@@ -118,6 +118,7 @@ class RealLinuxSys : public LinuxSys, public ArchDefs<mode>{
   const static typeof(Base::VEDOM        ) VEDOM         = Base::VEDOM;
   const static typeof(Base::VERANGE      ) VERANGE       = Base::VERANGE;
   const static typeof(Base::VENOSYS      ) VENOSYS       = Base::VENOSYS;
+  const static typeof(Base::VELOOP       ) VELOOP        = Base::VELOOP;
   const static typeof(Base::VEAFNOSUPPORT) VEAFNOSUPPORT = Base::VEAFNOSUPPORT;
   static Tint errorFromNative(int err=errno){
     switch(err){
@@ -2045,17 +2046,25 @@ InstDesc *RealLinuxSys<mode>::sysExecVe(ThreadContext *context, InstDesc *inst){
   Tstr fname(context,fnamep);
   if(!fname)
     return inst;
-  // Check file for errors
-//   size_t realNameLen=FileSys::FileNames::getFileNames()->getReal(fname,0,0);
-//   char realName[realNameLen];
-//   FileSys::FileNames::getFileNames()->getReal(fname,realNameLen,realName);
-  FileSys::Description::pointer desc(FileSys::Description::open(context->getFileSys()->toNative((const char *)fname),O_RDONLY,0));
-  FileSys::SeekableDescription *sdesc=dynamic_cast<FileSys::SeekableDescription *>(static_cast<FileSys::Description *>(desc));
-  if(!sdesc){
-    setSysErr(context);
+  const std::string exeLinkName(context->getFileSys()->toNative((const char *)fname));
+  const std::string exeRealName(FileSys::Node::resolve(exeLinkName));
+  if(exeRealName.empty()){
+    setSysErr(context,VELOOP);
     return inst;
   }
-  ExecMode emode=getExecMode(sdesc);
+  FileSys::Node *node=FileSys::Node::lookup(exeRealName);
+  if(!node){
+    setSysErr(context,VENOENT);
+    return inst;
+  }
+  FileSys::FileNode *fnode=dynamic_cast<FileSys::FileNode *>(node);
+  if(!fnode){
+    setSysErr(context,VEACCES);
+    return inst;
+  }
+  FileSys::FileDescription *fdesc=new FileSys::FileDescription(fnode,O_RDONLY);
+  FileSys::Description::pointer pdesc(fdesc);
+  ExecMode emode=getExecMode(fdesc);
   if(emode==ExecModeNone){
     setSysErr(context,VENOEXEC);
     return inst;
@@ -2126,7 +2135,7 @@ InstDesc *RealLinuxSys<mode>::sysExecVe(ThreadContext *context, InstDesc *inst){
   context->setAddressSpace(new AddressSpace());
 //  context->getAddressSpace()->clear(true);
   // TODO: Use ELF_ET_DYN_BASE instead of a constant here
-  loadElfObject(context,sdesc,0x200000);
+  loadElfObject(context,fdesc,0x200000);
   // We need to go thorugh getSystem() because the execution mode may be different
   context->getSystem()->initSystem(context);
   context->getSystem()->createStack(context);
@@ -3192,15 +3201,44 @@ void RealLinuxSys<mode>::sysMProtect(ThreadContext *context, InstDesc *inst){
 template<ExecMode mode>
 void RealLinuxSys<mode>::sysOpen(ThreadContext *context, InstDesc *inst){
   Tpointer_t pathp;
-  Tuint      flags;
+  Tint       flags;
   Tmode_t    fmode;
   CallArgs(context) >> pathp >> flags >> fmode;
   Tstr path(context,pathp);
   if(!path)
     return;
-  FileSys::Description *description=
-    FileSys::Description::open(context->getFileSys()->toNative((const char *)path),
-			       openFlagsToNative(flags),mode_tToNative(fmode));
+  std::string natPath(context->getFileSys()->toNative((const char *)path));
+  if(flags&VO_NOFOLLOW){
+    if(FileSys::Node::resolve(natPath)!=natPath)
+      return setSysErr(context,VELOOP);
+  }else{
+    natPath=FileSys::Node::resolve(natPath);
+  }
+  FileSys::Node *node=FileSys::Node::lookup(natPath);
+  if(node){
+    if(flags&VO_EXCL)
+      return setSysErr(context,VEEXIST);
+    if(dynamic_cast<FileSys::DirectoryNode *>(node)){
+      if((flags&VO_ACCMODE)!=VO_RDONLY)
+        return setSysErr(context,VEACCES);        
+    }else{
+      if(flags&VO_DIRECTORY)
+        return setSysErr(context,VENOTDIR);
+    }
+  }else{
+    if(!(flags&VO_CREAT))
+      return setSysErr(context,VENOENT);
+    FileSys::fd_t fd=::open(natPath.c_str(),O_RDWR|O_CREAT|O_EXCL|O_NOFOLLOW,mode_tToNative(fmode));           
+    if(fd==-1)
+      fail("sysOpen can't create %s\n",natPath.c_str());
+    struct stat stbuf;           
+    if(fstat(fd,&stbuf)!=0)
+      fail("sysOpen could not fstat %s\n",natPath.c_str());
+    node=new FileSys::FileNode(stbuf);
+    FileSys::Node::insert(natPath,node);
+    close(fd);
+  }
+  FileSys::Description *description=FileSys::Description::create(node,openFlagsToNative(flags));
   if(!description)
     return setSysErr(context);
   FileSys::OpenFiles *openFiles=context->getOpenFiles();
@@ -3699,12 +3737,26 @@ void RealLinuxSys<mode>::sysTruncate(ThreadContext *context, InstDesc *inst){
   Tstr path(context,pathp);
   if(!path)
     return;
+  if(length<0)
+    return setSysErr(context,VEINVAL);
 #ifdef DEBUG_FILES
   printf("[%d] truncate %s to %ld\n",context->gettid(),(const char *)path,(long)length);
 #endif
-  if(truncate(context->getFileSys()->toNative((const char *)path).c_str(),(off_t)length)==-1)
-    return setSysErr(context);
-  setSysRet(context);
+  const std::string linkName(context->getFileSys()->toNative((const char *)path));
+  const std::string realName(FileSys::Node::resolve(linkName));
+  if(realName.empty())
+    return setSysErr(context,VELOOP);
+  FileSys::Node *node=FileSys::Node::lookup(realName);
+  if(!node)
+    return setSysErr(context,VENOENT);
+  FileSys::FileNode *fnode=dynamic_cast<FileSys::FileNode *>(node);
+  if(!fnode){
+    if(dynamic_cast<FileSys::DirectoryNode *>(node))
+      return setSysErr(context,VEISDIR);
+    return setSysErr(context,VEINVAL);
+  }
+  fnode->setSize(length);
+  return setSysRet(context);
 }
 template<ExecMode mode>
 template<class Toffs>
@@ -3712,16 +3764,21 @@ void RealLinuxSys<mode>::sysFTruncate(ThreadContext *context, InstDesc *inst){
   Tint  fd;
   Toffs length;
   CallArgs(context) >> fd >> length;
+  if(length<0) 
+    return setSysErr(context,VEINVAL);
 #ifdef DEBUG_FILES
   printf("[%d] ftruncate %d to %ld\n",context->gettid(),fd,(long)length);
 #endif
   FileSys::OpenFiles *openFiles=context->getOpenFiles();
   if(!openFiles->isOpen(fd))
     return setSysErr(context,VEBADF);
-  FileSys::SeekableDescription *desc=dynamic_cast<FileSys::SeekableDescription *>(openFiles->getDescription(fd));
-  if(!desc)
-    return setSysErr(context,VESPIPE);
-  desc->setSize(length);
+  FileSys::Description *desc=openFiles->getDescription(fd);
+  if(!desc->canWr())
+    return setSysErr(context,VEBADF);
+  FileSys::FileNode *node=dynamic_cast<FileSys::FileNode *>(desc->getNode());
+  if(!node)
+    return setSysErr(context,VEINVAL);
+  node->setSize(length);
   return setSysRet(context);
 }
 template<ExecMode mode>
@@ -3806,9 +3863,14 @@ void RealLinuxSys<mode>::sysUnlink(ThreadContext *context, InstDesc *inst){
 #ifdef DEBUG_FILES
   printf("[%d] unlink %s\n",context->gettid(),(const char *)pathname);
 #endif
-  if(unlink(context->getFileSys()->toNative((const char *)pathname).c_str())==-1)
+  std::string natName(context->getFileSys()->toNative((const char *)pathname));
+  FileSys::Node *node=FileSys::Node::lookup(natName);
+  if(!node)
     return setSysErr(context);
-  setSysRet(context);
+  if(unlink(natName.c_str())!=0)
+    fail("sysUnlink could not unlink %s\n",natName.c_str());
+  FileSys::Node::remove(natName,node);
+  return setSysRet(context);
 }
 template<ExecMode mode>
 void RealLinuxSys<mode>::sysSymLink(ThreadContext *context, InstDesc *inst){
@@ -3839,13 +3901,19 @@ void RealLinuxSys<mode>::sysRename(ThreadContext *context, InstDesc *inst){
   Tstr     newpath(context,newpathp);
   if(!oldpath)
     return;
+  std::string natOldName(context->getFileSys()->toNative((const char *)oldpath));
+  std::string natNewName(context->getFileSys()->toNative((const char *)newpath));
+  FileSys::Node *node=FileSys::Node::lookup(natOldName);
+  if(!node)
+    return setSysErr(context);
 #ifdef DEBUG_FILES
   printf("[%d] rename %s to %s\n",context->gettid(),(const char *)oldpath,(const char *)newpath);
 #endif
-  if(rename(context->getFileSys()->toNative((const char *)oldpath).c_str(),
-	    context->getFileSys()->toNative((const char *)newpath).c_str())==-1)
-    return setSysErr(context);
-  setSysRet(context);
+  if(rename(natOldName.c_str(),natNewName.c_str())!=0)
+    fail("sysRename could not rename %s to %s\n",natOldName.c_str(),natNewName.c_str());
+  FileSys::Node::insert(natNewName,node);
+  FileSys::Node::remove(natOldName,node);
+  return setSysRet(context);
 }
 template<ExecMode mode>
 void RealLinuxSys<mode>::sysChdir(ThreadContext *context, InstDesc *inst){

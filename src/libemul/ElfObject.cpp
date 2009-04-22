@@ -331,11 +331,19 @@ VAddr _loadElfObject(ThreadContext *context, FileSys::SeekableDescription *fdesc
       char interpName[phdrs[seg].p_filesz];
       ssize_t interpNameSiz=fdesc->pread(interpName,phdrs[seg].p_filesz,phdrs[seg].p_offset);
       I(interpNameSiz==ssize_t(phdrs[seg].p_filesz));
-      FileSys::Description::pointer ifdesc(FileSys::Description::open(interpName,O_RDONLY,0));
-      FileSys::SeekableDescription *isdesc=dynamic_cast<FileSys::SeekableDescription *>(static_cast<FileSys::Description *>(ifdesc));
-      if(!isdesc)
-	fail("Could not open the interpreter %s\n",interpName);
-      addr=_loadElfObject<mode>(context,isdesc,addr,true);
+      const std::string exeLinkName(context->getFileSys()->toNative(interpName));
+      const std::string exeRealName(FileSys::Node::resolve(exeLinkName));
+      if(exeRealName.empty())
+        fail("loadElfObject: Link loop when executable %s\n",exeLinkName.c_str());
+      FileSys::Node *node=FileSys::Node::lookup(exeRealName);
+      if(!node)
+        fail("loadElfObject: Executable %s does not exist\n",exeLinkName.c_str());
+      FileSys::FileNode *fnode=dynamic_cast<FileSys::FileNode *>(node);
+      if(!fnode)
+        fail("loadElfObject: Executable %s is not a regular file\n",exeLinkName.c_str());
+      FileSys::FileDescription *fdesc=new FileSys::FileDescription(fnode,O_RDONLY);
+      FileSys::Description::pointer pdesc(fdesc);
+      addr=_loadElfObject<mode>(context,fdesc,addr,true);
       hasInterpreter=true;
     }  break;
     case PT_LOAD:

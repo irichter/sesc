@@ -39,49 +39,143 @@ using std::cout;
 using std::endl;
 
 namespace FileSys {
-  Node::Node(dev_t dev, ino_t ino, uid_t uid, gid_t gid, mode_t mode)
-    : dev(dev), ino(ino), uid(uid), gid(gid), mode(mode){
+  size_t Node::simInodeCounter=1;
+  Node::ByNatInode Node::byNatInode;
+  Node::ByNatName  Node::byNatName;
+  Node::ToNatName  Node::toNatName;
+  Node::Node(dev_t dev, uid_t uid, gid_t gid, mode_t mode, ino_t natInode)
+    : natInode(natInode), dev(dev), simInode(simInodeCounter++), uid(uid), gid(gid), mode(mode), size(0){
   }
   Node::~Node(void){
   }
-  Description *Description::open(const std::string &name, flags_t flags, mode_t mode){
-    if(name.compare("/dev/null")==0)
-      return new NullDescription(flags);
-    if(name.find("/dev/")==0){
-      errno=ENOENT;
-      return 0;
-    }
-    fd_t fd=::open(name.c_str(),flags,mode);
-    if(fd==-1)
-      return 0;
+  Node *Node::lookup(const std::string &name){
+    ByNatName::iterator nameIt=byNatName.find(name);
+    if(nameIt!=byNatName.end())
+      return nameIt->second;
+    Node *node=0;
     struct stat stbuf;
-    if(fstat(fd,&stbuf)!=0)
-      fail("Description::open could not stat %s\n",name.c_str());
-    switch(stbuf.st_mode&S_IFMT){
-    case S_IFREG: {
-      FileNode *fnode=new FileNode(name,fd,stbuf);
-      I(fnode);
-      FileDescription *desc=new FileDescription(fnode,flags);
-      I(desc);
-      return desc;
-    } break;
-    case S_IFDIR: {
-      DirectoryNode *dnode=new DirectoryNode(name,fd,stbuf);
-      I(dnode);
-      DirectoryDescription *desc=new DirectoryDescription(dnode,flags);
-      I(desc);
-      return desc;
-    } break;
+    if(lstat(name.c_str(),&stbuf)!=0)
+      return node;
+    ByNatInode::iterator inodeIt=byNatInode.find(stbuf.st_ino);
+    if(inodeIt==byNatInode.end()){
+      switch(stbuf.st_mode&S_IFMT){
+      case S_IFLNK: {
+        char lbuf[stbuf.st_size+1];
+        if(readlink(name.c_str(),lbuf,stbuf.st_size+1)!=stbuf.st_size)
+          fail("Node::lookup realink failed for %s\n",name.c_str());
+        lbuf[stbuf.st_size]=(char)0;
+        node=new LinkNode(lbuf,stbuf);
+      } break;
+      case S_IFREG: node=new FileNode(stbuf); break;
+      case S_IFDIR: node=new DirectoryNode(stbuf); break;
+      default: fail("Node::lookup(%s) for unknown st_mode %x\n",name.c_str(),stbuf.st_mode);
+      }
+      I(node->natInode!=(ino_t)-1);
+      byNatInode[node->natInode]=node;
+    }else{
+      node=inodeIt->second;
     }
-    fail("Description::open for unknown st_mode\n");
+    byNatName.insert(ByNatName::value_type(name,node));
+    toNatName.insert(ToNatName::value_type(node,name));
+    return node;
+  }
+  std::string Node::resolve(const std::string &name){
+    std::string res(name);
+    for(size_t i=0;i<1024;i++){
+      LinkNode *lnode=dynamic_cast<LinkNode *>(lookup(res));
+      if(!lnode)
+        return res;
+      const std::string &lnk=lnode->read();
+      if(lnk[0]=='/'){
+        res=lnk;
+      }else{
+        res.resize(res.rfind('/'));
+        res=FileSys::normalize(res,lnk);
+      }
+    }
+    return "";
+  }
+  void Node::insert(const std::string &name, Node *node){
+    I(!byNatName.count(name));
+    byNatName.insert(ByNatName::value_type(name,node));
+    if(node){
+      if(node->natInode!=(ino_t)-1){
+	I(!byNatInode.count(node->natInode));
+	byNatInode[node->natInode]=node;
+      }
+      I(!toNatName.count(node));
+      toNatName.insert(ToNatName::value_type(node,name));
+    }
+  }
+  void Node::remove(const std::string &name, Node *node){
+    I(byNatName.count(name)==1);
+    byNatName.erase(name);
+    ToNatName::iterator nodeIt=toNatName.lower_bound(node);
+    I(nodeIt!=toNatName.end());
+    I(nodeIt->first==node);
+    while(nodeIt->second!=name){
+      nodeIt++;
+      I(nodeIt!=toNatName.end());
+      I(nodeIt->first==node);
+    }
+    toNatName.erase(nodeIt);
+  }
+  const std::string *Node::getName(void){
+    ToNatName::const_iterator it=toNatName.lower_bound(this);
+    if(it==toNatName.upper_bound(this))
+      return 0;
+    return &(it->second);
+  }
+  LinkNode::LinkNode(const std::string &link, struct stat &buf)
+   : Node(buf.st_dev,buf.st_uid,buf.st_gid,S_IFLNK|S_IRWXU|S_IRWXG|S_IRWXO,buf.st_ino), link(link){
+      setSize(link.length());
+  }
+
+  Description *Description::create(Node *node, flags_t flags){
+    NullNode *nnode=dynamic_cast<NullNode *>(node);
+    if(nnode)
+      return new NullDescription(nnode,flags);
+    FileNode *fnode=dynamic_cast<FileNode *>(node);
+    if(fnode)
+      return new FileDescription(fnode,flags);
+    DirectoryNode *dnode=dynamic_cast<DirectoryNode *>(node);
+    if(dnode)
+      return new DirectoryDescription(dnode,flags);
+    fail("Description::create for unknown node type\n");
+  }
+
+  Description *Description::open(const std::string &name, flags_t flags, mode_t mode){
+    Node *node=Node::lookup(name);
+    if(!node){
+      if(!(flags&O_CREAT)){
+        errno=ENOENT;
+        return 0;
+      }
+      fd_t fd=::open(name.c_str(),flags,mode);
+      if(fd==-1)
+        fail("Description::open could not open %s\n",name.c_str());
+      struct stat stbuf;
+      if(fstat(fd,&stbuf)!=0)
+        fail("Description::open could not fstat %s\n",name.c_str());
+      node=new FileNode(stbuf);
+      Node::insert(name,node);
+      close(fd);
+    }else{
+      if((flags&O_CREAT)&&(flags&O_EXCL)){
+        errno=EEXIST;
+        return 0;
+      }
+    }
+    return create(node,flags);
   }
   Description::Description(Node *node, flags_t flags)
     : node(node), flags(flags){
   }
   Description::~Description(void){
   }
-  std::string Description::getName(void) const{
-    return node->getName();
+  const std::string Description::getName(void) const{
+    const std::string *str=node->getName();
+    return str?*str:std::string("Anonymous");
   }
   bool Description::canRd(void) const{
     return ((flags&O_ACCMODE)!=O_WRONLY);
@@ -96,14 +190,14 @@ namespace FileSys {
     return flags;
   }
   NullNode::NullNode()
-    : Node(0x000d,0,0,0,S_IFCHR|S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH|S_IWOTH){
+    : Node(0x000d,0,0,S_IFCHR|S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH|S_IWOTH,(ino_t)-1){
   }
   NullNode NullNode::node;
   NullNode *NullNode::create(void){
     return &node;
   }
-  std::string NullNode::getName(void) const{
-    return "NullDevice";
+  NullDescription::NullDescription(NullNode *nnode, flags_t flags)
+    : Description(nnode,flags){
   }
   NullDescription::NullDescription(flags_t flags)
     : Description(NullNode::create(),flags){
@@ -114,23 +208,15 @@ namespace FileSys {
   ssize_t NullDescription::write(const void *buf, size_t count){
     return count;
   }
-  SeekableNode::SeekableNode(dev_t dev, ino_t ino, uid_t uid, gid_t gid, mode_t mode, off_t len)
-    : Node(dev,ino,uid,gid,mode), len(len){
-  }
-  off_t SeekableNode::getSize(void) const{
-    return len;
-  }
-  void  SeekableNode::setSize(off_t nlen){
-    len=nlen;
+  SeekableNode::SeekableNode(dev_t dev, uid_t uid, gid_t gid, mode_t mode, off_t len, ino_t natInode)
+    : Node(dev,uid,gid,mode,natInode){
+    Node::setSize(len);
   }
   SeekableDescription::SeekableDescription(Node *node, flags_t flags)
     : Description(node,flags), pos(0){
   }
   off_t SeekableDescription::getSize(void) const{
-    return dynamic_cast<SeekableNode *>(node)->getSize();
-  }
-  void  SeekableDescription::setSize(off_t nlen){
-    dynamic_cast<SeekableNode *>(node)->setSize(nlen);
+    return node->getSize();
   }
   off_t SeekableDescription::getPos(void) const{
     return pos;
@@ -177,52 +263,53 @@ namespace FileSys {
     I(getSize()==endoff);
     I(nbytes==(ssize_t)wsize);
   }
-  FileNode::FileNode(const std::string &name, fd_t fd, struct stat &buf)
-    : SeekableNode(buf.st_dev,buf.st_ino,buf.st_uid,buf.st_gid,buf.st_mode,buf.st_size), name(name), fd(fd) {
+  FileNode::FileNode(struct stat &buf)
+    : SeekableNode(buf.st_dev,buf.st_uid,buf.st_gid,buf.st_mode,buf.st_size,buf.st_ino), fd(-1) {
+    close(fd);
   }
   FileNode::~FileNode(void){
-    if(close(fd)!=0)
-      fail("FileSys::FileNode destructor could not close file %s\n",name.c_str());
-  }
-  std::string FileNode::getName(void) const{
-    return name;
+//    if(close(fd)!=0)
+//      fail("FileSys::FileNode destructor could not close file %s\n",name.c_str());
   }
   void FileNode::setSize(off_t nlen){
-    if(ftruncate(fd,nlen)==-1)
-      fail("FileNode::setSize ftruncate failed\n");
-    SeekableNode::setSize(nlen);
+    if(truncate(getName()->c_str(),nlen)==-1)
+      fail("FileNode::setSize truncate failed\n");
+    Node::setSize(nlen);
   }
   ssize_t FileNode::pread(void *buf, size_t count, off_t offs){
-    return ::pread(fd,buf,count,offs);
+    fd_t rfd=open(getName()->c_str(),O_RDONLY);
+    if(rfd==-1)
+      fail("FileNode::pread could not open %s\n",getName()->c_str());
+    ssize_t rcount=::pread(rfd,buf,count,offs);
+    int     rerror=errno;
+    if(close(rfd)!=0)
+      fail("FileNode::pread could not close %s\n",getName()->c_str());
+    errno=rerror;
+    return rcount;
   }
   ssize_t FileNode::pwrite(const void *buf, size_t count, off_t offs){
+    fd_t wfd=open(getName()->c_str(),O_WRONLY);
+    if(wfd==-1)
+      fail("FileNode::pwrite could not open %s\n",getName()->c_str());
     off_t olen=getSize();
-    ssize_t ncount=::pwrite(fd,buf,count,offs);
-    if((ncount>0)&&(offs+ncount>olen))
-      SeekableNode::setSize(offs+ncount);
-    return ncount;
+    ssize_t wcount=::pwrite(wfd,buf,count,offs);
+    int     werror=errno;
+    if(close(wfd)!=0)
+      fail("FileNode::pwrite could not close %s\n",getName()->c_str());
+    if((wcount>0)&&(offs+wcount>olen))
+      SeekableNode::setSize(offs+wcount);
+    errno=werror;
+    return wcount;
   }
   FileDescription::FileDescription(FileNode *node, flags_t flags)
     : SeekableDescription(node,flags){
-    node->addRef();
   }
   FileDescription::~FileDescription(void){
-    dynamic_cast<FileNode *>(node)->delRef();
   }
-  DirectoryNode::DirectoryNode(const std::string &name, fd_t fd, struct stat &buf)
-    : SeekableNode(buf.st_dev,buf.st_ino,buf.st_uid,buf.st_gid,buf.st_mode,0), name(name), dirp(opendir(name.c_str())){
-    if(!dirp)
-      fail("FileSys::DirectoryNode constructor could not opendir %s\n",name.c_str());
-    if(close(fd)!=0)
-      fail("FileSys::DirectoryNode constructor could not close fd %d for %s\n",fd,name.c_str());
-    refresh();
+  DirectoryNode::DirectoryNode(struct stat &buf)
+    : SeekableNode(buf.st_dev,buf.st_uid,buf.st_gid,buf.st_mode,0,buf.st_ino), dirp(0), entries(){
   }
   DirectoryNode::~DirectoryNode(void){
-    if(closedir(dirp)!=0)
-      fail("FileSys::DirectoryNode destructor could not closedir %s\n",name.c_str());
-  }
-  std::string DirectoryNode::getName(void) const{
-    return name;
   }
   void DirectoryNode::setSize(off_t nlen){
     fail("DirectoryNode::setSize called\n");
@@ -234,17 +321,20 @@ namespace FileSys {
     fail("DirectoryNode::pwrite called\n");
   }
   void DirectoryNode::refresh(void){
+    DIR *dir=opendir(getName()->c_str());
     entries.clear();
-    rewinddir(dirp);
     for(size_t i=0;true;i++){
-      struct dirent *dent=readdir(dirp);
+      struct dirent *dent=readdir(dir);
       if(!dent)
 	break;
       entries.push_back(dent->d_name);
     }
     SeekableNode::setSize(entries.size());
+    closedir(dir);
   }
   std::string DirectoryNode::getEntry(off_t index){
+    if(getSize()==0)
+      refresh();
     I((index>=0)&&(entries.size()>(size_t)index));
     return entries[index];
   }
@@ -277,8 +367,8 @@ namespace FileSys {
     }
     pids.clear();
   }
-  StreamNode::StreamNode(dev_t dev, dev_t rdev, ino_t ino, uid_t uid, gid_t gid, mode_t mode)
-    : Node(dev,ino,uid,gid,mode), rdev(rdev), rdBlocked(), wrBlocked(){
+  StreamNode::StreamNode(dev_t dev, dev_t rdev, uid_t uid, gid_t gid, mode_t mode)
+    : Node(dev,uid,gid,mode,(ino_t)-1), rdev(rdev), rdBlocked(), wrBlocked(){
   }
   StreamNode::~StreamNode(void){
     I(rdBlocked.empty());
@@ -327,7 +417,7 @@ namespace FileSys {
   }
   
   PipeNode::PipeNode(void)
-    : StreamNode(0x0007,0x0000,1,getuid(),getgid(),S_IFIFO|S_IREAD|S_IWRITE), data(), readers(0), writers(0){
+    : StreamNode(0x0007,0x0000,getuid(),getgid(),S_IFIFO|S_IREAD|S_IWRITE), data(), readers(0), writers(0){
   }
   PipeNode::~PipeNode(void){
     I(!readers);
@@ -382,9 +472,6 @@ namespace FileSys {
   bool PipeNode::willWrBlock(void) const{
     return false;
   }
-  std::string PipeNode::getName(void) const{
-    return "AnonymousPipe";
-  }
   PipeDescription::PipeDescription(PipeNode *node, flags_t flags)
     : StreamDescription(node,flags){
     if(canRd())
@@ -400,13 +487,11 @@ namespace FileSys {
   }
   TtyDescription::TtyDescription(TtyNode *node, flags_t flags)
     : StreamDescription(node,flags){
-    node->addRef();
   }
   TtyDescription::~TtyDescription(void){
-    dynamic_cast<TtyNode *>(node)->delRef();
   }
   TtyNode::TtyNode(fd_t srcfd)
-    : StreamNode(0x009,0x8803,(ino_t)1,getuid(),getgid(),S_IFCHR|S_IRUSR|S_IWUSR), fd(dup(srcfd)){
+    : StreamNode(0x009,0x8803,getuid(),getgid(),S_IFCHR|S_IRUSR|S_IWUSR), fd(dup(srcfd)){
     if(fd==-1)
       fail("TtyNode constructor cannot dup()\n");
   }
@@ -432,9 +517,6 @@ namespace FileSys {
     pollFd.events=POLLOUT;
     int32_t res=poll(&pollFd,1,0);
     return (res<=0);
-  }
-  std::string TtyNode::getName(void) const{
-    return "TtyDevice";
   }
   TtyDescription *TtyDescription::wrap(fd_t fd){
     flags_t flags=fcntl(fd,F_GETFL);
@@ -580,12 +662,12 @@ namespace FileSys {
     , cwd(src.cwd){
   }
   void FileSys::setCwd(const string &newCwd){
-    cwd=normalize(newCwd);
+    cwd=normalize(cwd,newCwd);
   }
-  const string FileSys::normalize(const string &fname) const{
+  string FileSys::normalize(const string &base, const string &fname){
     string rv(fname);
     if(string(fname,0,1)!="/")
-      rv=cwd+"/"+rv;
+      rv=base+"/"+rv;
     while(true){
       string::size_type pos=rv.find("//");
       if(pos==string::npos)
@@ -610,7 +692,7 @@ namespace FileSys {
     return rv;
   }
   const string FileSys::toNative(const string &fname) const{
-    return nameSpace->toNative(normalize(fname));
+    return nameSpace->toNative(normalize(cwd,fname));
   }
 
 }

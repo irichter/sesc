@@ -53,6 +53,7 @@ class ABIDefs<ExecModeMipsel32>{
   static const Tint VEDOM = 0x00000021;
   static const Tint VERANGE = 0x00000022;
   static const Tint VENOSYS = 0x00000059;
+  static const Tint VELOOP = 0x0000005a;
   static const Tint VEAFNOSUPPORT = 0x0000007c;
   static const Tint VSIGHUP = 0x00000001;
   static const Tint VSIGINT = 0x00000002;
@@ -108,7 +109,7 @@ class ABIDefs<ExecModeMipsel32>{
   static const Tint V__NR_setsid = 0x00000fe2;
   static const Tint V__NR_getsid = 0x00001037;
   static const Tint VFUTEX_PRIVATE_FLAG = 0x00000080;
-  static const Tint VFUTEX_CMD_MASK = 0xffffff7f;
+  static const Tint VFUTEX_CMD_MASK = ~Tint(0x00000080);
   static const Tint VFUTEX_WAIT = 0x00000000;
   static const Tint VFUTEX_WAKE = 0x00000001;
   static const Tint VFUTEX_FD = 0x00000002;
@@ -153,7 +154,7 @@ class ABIDefs<ExecModeMipsel32>{
   static const Tint V__NR_rt_sigqueueinfo = 0x00001066;
   static const Tint VSA_NOCLDSTOP = 0x00000001;
   static const Tint VSA_NOCLDWAIT = 0x00010000;
-  static const Tuint VSA_RESETHAND = 0x80000000;
+  static const Tuint VSA_RESETHAND = ~Tuint(0x7fffffff);
   static const Tint VSA_ONSTACK = 0x08000000;
   static const Tint VSA_SIGINFO = 0x00000008;
   static const Tint VSA_RESTART = 0x10000000;
@@ -531,7 +532,7 @@ class ABIDefs<ExecModeMipsel32>{
   static const Tint VRLIMIT_NPROC = 0x00000008;
   static const Tint VRLIMIT_RSS = 0x00000007;
   static const Tint VRLIMIT_STACK = 0x00000003;
-  static const Tlong VRLIM_INFINITY = 0x7fffffff;
+  static const Trlim_t VRLIM_INFINITY = 0x7fffffff;
   static const Tint V__NR_setrlimit = 0x00000feb;
   static const Tint V__NR_getrlimit = 0x00000fec;
   class Trusage{
@@ -571,7 +572,7 @@ class ABIDefs<ExecModeMipsel32>{
     static const size_t Offs_ru_nivcsw=68;
   };
   static const Tint VRUSAGE_SELF = 0x00000000;
-  static const Tint VRUSAGE_CHILDREN = 0xffffffff;
+  static const Tint VRUSAGE_CHILDREN = ~Tint(0x00000000);
   static const Tint V__NR_getrusage = 0x00000fed;
   class Tutsname{
    public:
