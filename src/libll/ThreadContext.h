@@ -732,6 +732,9 @@ public:
   // In a thread group leader, this set contains the other members of the thread group
   IntSet tgtids;
 
+  // Process group Id is the PId of the process group leader
+  int32_t pgid;
+
   int parentID;
   IntSet childIDs;
   // Signal sent to parent when this thread dies/exits
@@ -752,6 +755,9 @@ public:
   }
   int32_t gettid(void) const{
     return tid;
+  }
+  int32_t getpgid(void) const{
+    return pgid;
   }
   int getppid(void) const{
     return parentID;

@@ -259,7 +259,9 @@ class RealLinuxSys : public LinuxSys, public ArchDefs<mode>{
   void sysGetPPid(ThreadContext *context, InstDesc *inst);
   const static typeof(Base::V__NR_setpgid) V__NR_setpgid = Base::V__NR_setpgid;
   const static typeof(Base::V__NR_getpgid) V__NR_getpgid = Base::V__NR_getpgid;
+  void sysGetPGid(ThreadContext *context, InstDesc *inst);
   const static typeof(Base::V__NR_getpgrp) V__NR_getpgrp = Base::V__NR_getpgrp;
+  void sysGetPGrp(ThreadContext *context, InstDesc *inst);
   const static typeof(Base::V__NR_setsid) V__NR_setsid = Base::V__NR_setsid;
   const static typeof(Base::V__NR_getsid) V__NR_getsid = Base::V__NR_getsid;
   // Futex functionality
@@ -2184,7 +2186,19 @@ template<ExecMode mode>
 void RealLinuxSys<mode>::sysGetPPid(ThreadContext *context, InstDesc *inst){
   setSysRet(context,context->getppid()+BaseSimTid);
 }
-
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysGetPGid(ThreadContext *context, InstDesc *inst){
+  Tpid_t pid;
+  CallArgs(context) >> pid;
+  ThreadContext *ccontext=(pid==0)?context:osSim->getContext(pid-BaseSimTid);
+  if(!ccontext)
+    return setSysErr(context,VESRCH);
+  setSysRet(context,Tpid_t(ccontext->getpgid()+BaseSimTid));
+}
+template<ExecMode mode>
+void RealLinuxSys<mode>::sysGetPGrp(ThreadContext *context, InstDesc *inst){
+  setSysRet(context,context->getpgid()+BaseSimTid);
+}
 template<ExecMode mode>
 void RealLinuxSys<mode>::sysFutex(ThreadContext *context, InstDesc *inst){
   Tpointer_t futex;
@@ -4160,8 +4174,8 @@ InstDesc *RealLinuxSys<mode>::sysCall(ThreadContext *context, InstDesc *inst){
   case V__NR_gettid:          sysGetTid(context,inst); break;
   case V__NR_getppid:         sysGetPPid(context,inst); break;
   case V__NR_setpgid:         fail("V__NR_setpgid not implemented\n"); break;
-  case V__NR_getpgid:         fail("V__NR_getpgid not implemented\n"); break;
-  case V__NR_getpgrp:         fail("V__NR_getpgrp not implemented\n"); break;
+  case V__NR_getpgid:         sysGetPGid(context,inst); break;
+  case V__NR_getpgrp:         sysGetPGrp(context,inst); break;
   case V__NR_setsid:          fail("V__NR_setsid not implemented\n"); break;
   case V__NR_getsid:          fail("V__NR_getsid not implemented\n"); break;
   // Synchronization system calls

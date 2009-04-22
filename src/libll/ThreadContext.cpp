@@ -764,6 +764,7 @@ ThreadContext::ThreadContext(FileSys::FileSys *fileSys)
   pid2context[tid]=this;
   pid=tid;
   tgid=tid;
+  pgid=tid;
 
   memset(regs,0,sizeof(regs));
   setAddressSpace(new AddressSpace());
@@ -812,6 +813,7 @@ ThreadContext::ThreadContext(ThreadContext &parent,
   }else{
     tgid=tid;
   }
+  pgid=parent.pgid;
   if(parentID!=-1)
     pid2context[parentID]->childIDs.insert(pid);
   memcpy(regs,parent.regs,sizeof(regs));
@@ -901,6 +903,9 @@ bool ThreadContext::exit(int32_t code){
     I(pid2context[tgid]);
     pid2context[tgid]->tgtids.erase(tid);
     tgid=-1;
+  }
+  if(pgid==tid){
+    // TODO: Send SIGHUP to each process in the process group
   }
   osSim->eventExit(pid,exitCode);
   while(!childIDs.empty()){

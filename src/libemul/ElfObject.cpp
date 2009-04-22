@@ -334,7 +334,7 @@ VAddr _loadElfObject(ThreadContext *context, FileSys::SeekableDescription *fdesc
       FileSys::Description::pointer ifdesc(FileSys::Description::open(interpName,O_RDONLY,0));
       FileSys::SeekableDescription *isdesc=dynamic_cast<FileSys::SeekableDescription *>(static_cast<FileSys::Description *>(ifdesc));
       if(!isdesc)
-	fail("Could not open the interpreter\n");
+	fail("Could not open the interpreter %s\n",interpName);
       addr=_loadElfObject<mode>(context,isdesc,addr,true);
       hasInterpreter=true;
     }  break;
