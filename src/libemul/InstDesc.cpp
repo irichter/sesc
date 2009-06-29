@@ -1929,10 +1929,18 @@ void decodeTrace(ThreadContext *context, VAddr addr, size_t len){
     didThis=true;
   }
   switch(context->getMode()){
+#if (defined SUPPORT_MIPS32)
   case ExecModeMips32:   return decodeTrace<ExecModeMips32>(context,addr,len);
+#endif
+#if (defined SUPPORT_MIPSEL32)
   case ExecModeMipsel32: return decodeTrace<ExecModeMipsel32>(context,addr,len);
+#endif
+#if (defined SUPPORT_MIPS64)
   case ExecModeMips64:   return decodeTrace<ExecModeMips64>(context,addr,len);
+#endif
+#if (defined SUPPORT_MIPSEL64)
   case ExecModeMipsel64: return decodeTrace<ExecModeMipsel64>(context,addr,len);
+#endif
   default:
     fail("decodeTrace called in unsupported CPU mode\n");
   }

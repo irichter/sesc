@@ -6,7 +6,7 @@
 template<ExecMode mode>
 class ArchRegSizes : public ArchRegSizes<ExecMode(mode&ExecModeArchMask)>{
 };
-
+#if (defined SUPPORT_MIPS32) || (defined SUPPORT_MIPSEL32)
 template<>
 class ArchRegSizes<ExecModeArchMips>{
  public:
@@ -17,7 +17,8 @@ class ArchRegSizes<ExecModeArchMips>{
   typedef uint32_t Turegv_t;
   typedef int32_t  Tsregv_t;
 };
-
+#endif
+#if (defined SUPPORT_MIPS64) || (defined SUPPORT_MIPSEL64)
 template<>
 class ArchRegSizes<ExecModeArchMips64>{
  public:
@@ -28,7 +29,7 @@ class ArchRegSizes<ExecModeArchMips64>{
   typedef uint64_t Turegv_t;
   typedef int64_t  Tsregv_t;
 };
-
+#endif
 template<ExecMode mode>
 class ArchRegNames : public ArchRegNames<ExecMode(mode&ExecModeArchMask)>{
 };
@@ -104,13 +105,16 @@ class ArchMipsRegNames{
   };
 };
 
+#if (defined SUPPORT_MIPS32) || (defined SUPPORT_MIPSEL32)
 template<>
 class ArchRegNames<ExecModeArchMips> : public ArchMipsRegNames{
 };
+#endif
+#if (defined SUPPORT_MIPS64) || (defined SUPPORT_MIPSEL64)
 template<>
 class ArchRegNames<ExecModeArchMips64> : public ArchMipsRegNames{
 };
-
+#endif
 template<ExecMode mode>
 class ArchDefs{
 };
@@ -166,6 +170,7 @@ class MipsRegAccess<mode,T,RegTypeGpr>{
   }
 };
 
+#if (defined SUPPORT_MIPS32)
 template<typename T>
 class MipsRegAccess<ExecModeMips32,T,RegTypeFpr>{
  public:
@@ -198,6 +203,8 @@ class MipsRegAccess<ExecModeMips32,T,RegTypeFpr>{
     }
   }
 };
+#endif
+#if (defined SUPPORT_MIPSEL32)
 template<typename T>
 class MipsRegAccess<ExecModeMipsel32,T,RegTypeFpr>{
  public:
@@ -208,7 +215,7 @@ class MipsRegAccess<ExecModeMipsel32,T,RegTypeFpr>{
     return MipsRegAccess<ExecModeMips32,T,RegTypeFpr>::setReg(context,name,val);
   }
 };
-
+#endif
 template<ExecMode mode,typename T>
 class MipsRegAccess<mode,T,RegName(ArchMipsRegNames::RegFCSR)>{
  public:
@@ -231,7 +238,7 @@ class MipsRegAccess<mode,T,RegName(ArchMipsRegNames::RegFCSR)>{
     MipsRegAccess<mode,uint8_t,RegTypeGpr>::setReg(context,RegName(ArchMipsRegNames::FpRMode),uint8_t(val)&3);
   }
 };
-
+#if (defined SUPPORT_MIPS32)
 template<>
 class ArchDefs<ExecModeMips32> : public ArchRegNames<ExecModeMips32>, public ArchRegSizes<ExecModeMips32>{
  public:
@@ -247,7 +254,8 @@ class ArchDefs<ExecModeMips32> : public ArchRegNames<ExecModeMips32>, public Arc
     return MipsRegAccess<ExecModeMips32,T,RTyp>::setReg(context,name,val);
   }
 };
-
+#endif
+#if (defined SUPPORT_MIPSEL32)
 template<>
 class ArchDefs<ExecModeMipsel32> : public ArchRegNames<ExecModeMipsel32>, public ArchRegSizes<ExecModeMipsel32>{
  public:
@@ -263,7 +271,8 @@ class ArchDefs<ExecModeMipsel32> : public ArchRegNames<ExecModeMipsel32>, public
     return MipsRegAccess<ExecModeMipsel32,T,RTyp>::setReg(context,name,val);
   }
 };
-
+#endif
+#if (defined SUPPORT_MIPS64)
 template<>
 class ArchDefs<ExecModeMips64> : public ArchRegNames<ExecModeMips64>, public ArchRegSizes<ExecModeMips64>{
  public:
@@ -276,7 +285,8 @@ class ArchDefs<ExecModeMips64> : public ArchRegNames<ExecModeMips64>, public Arc
     return MipsRegAccess<ExecModeMips64,T,RTyp>::setReg(context,name,val);
   }
 };
-
+#endif
+#if (defined SUPPORT_MIPSEL64)
 template<>
 class ArchDefs<ExecModeMipsel64> : public ArchRegNames<ExecModeMipsel64>, public ArchRegSizes<ExecModeMipsel64>{
  public:
@@ -289,5 +299,6 @@ class ArchDefs<ExecModeMipsel64> : public ArchRegNames<ExecModeMipsel64>, public
     return MipsRegAccess<ExecModeMipsel64,T,RTyp>::setReg(context,name,val);
   }
 };
+#endif
 
 #endif // !(defined ArchDefs_H)

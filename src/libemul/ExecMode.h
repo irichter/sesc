@@ -1,6 +1,11 @@
 #if !(defined ExecMode_H)
 #define ExecMode_H
 
+#define SUPPORT_MIPS32
+//#define SUPPORT_MIPSEL32
+#define SUPPORT_MIPS64
+//#define SUPPORT_MIPSEL64
+
 typedef enum{
   ExecModeNone=0,
   ExecModeArchMask=0xf,

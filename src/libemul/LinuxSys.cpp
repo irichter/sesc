@@ -30,6 +30,7 @@
 //#define DEBUG_FILES
 //#define DEBUG_VMEM
 //#define DEBUG_SOCKET
+//#define DEBUG_SYSCALLS
 
 template<ExecMode mode>
 class RealLinuxSys : public LinuxSys, public ArchDefs<mode>{
@@ -267,6 +268,7 @@ class RealLinuxSys : public LinuxSys, public ArchDefs<mode>{
   const static typeof(Base::V__NR_getsid) V__NR_getsid = Base::V__NR_getsid;
   // Futex functionality
   const static typeof(Base::VFUTEX_PRIVATE_FLAG) VFUTEX_PRIVATE_FLAG = Base::VFUTEX_PRIVATE_FLAG;
+  const static typeof(Base::VFUTEX_CLOCK_REALTIME) VFUTEX_CLOCK_REALTIME = Base::VFUTEX_CLOCK_REALTIME;
   const static typeof(Base::VFUTEX_CMD_MASK) VFUTEX_CMD_MASK = Base::VFUTEX_CMD_MASK;
   const static typeof(Base::VFUTEX_WAIT) VFUTEX_WAIT = Base::VFUTEX_WAIT;
   const static typeof(Base::VFUTEX_WAKE) VFUTEX_WAKE = Base::VFUTEX_WAKE;
@@ -274,6 +276,12 @@ class RealLinuxSys : public LinuxSys, public ArchDefs<mode>{
   const static typeof(Base::VFUTEX_REQUEUE) VFUTEX_REQUEUE = Base::VFUTEX_REQUEUE;
   const static typeof(Base::VFUTEX_CMP_REQUEUE) VFUTEX_CMP_REQUEUE = Base::VFUTEX_CMP_REQUEUE;
   const static typeof(Base::VFUTEX_WAKE_OP) VFUTEX_WAKE_OP = Base::VFUTEX_WAKE_OP;
+  const static typeof(Base::VFUTEX_LOCK_PI) VFUTEX_LOCK_PI = Base::VFUTEX_LOCK_PI;
+  const static typeof(Base::VFUTEX_UNLOCK_PI) VFUTEX_UNLOCK_PI = Base::VFUTEX_UNLOCK_PI;
+  const static typeof(Base::VFUTEX_TRYLOCK_PI) VFUTEX_TRYLOCK_PI = Base::VFUTEX_TRYLOCK_PI;
+  const static typeof(Base::VFUTEX_WAIT_BITSET) VFUTEX_WAIT_BITSET = Base::VFUTEX_WAIT_BITSET;
+  const static typeof(Base::VFUTEX_WAKE_BITSET) VFUTEX_WAKE_BITSET = Base::VFUTEX_WAKE_BITSET;
+  const static typeof(Base::VFUTEX_BITSET_MATCH_ANY) VFUTEX_BITSET_MATCH_ANY = Base::VFUTEX_BITSET_MATCH_ANY;
   const static typeof(Base::VFUTEX_OP_OPARG_SHIFT) VFUTEX_OP_OPARG_SHIFT = Base::VFUTEX_OP_OPARG_SHIFT;
   const static typeof(Base::VFUTEX_OP_SET) VFUTEX_OP_SET = Base::VFUTEX_OP_SET;
   const static typeof(Base::VFUTEX_OP_ADD) VFUTEX_OP_ADD = Base::VFUTEX_OP_ADD;
@@ -1310,6 +1318,7 @@ protected:
   virtual void clearChildTid(ThreadContext *context, VAddr &clear_child_tid);
 };
 
+#if (defined SUPPORT_MIPS32)
 template<>
 RealLinuxSys<ExecModeMips32>::Tpointer_t RealLinuxSys<ExecModeMips32>::getStackPointer(const ThreadContext *context){
   return getReg<Tpointer_t,RegSP>(context,RegSP);
@@ -1360,7 +1369,8 @@ void RealLinuxSys<ExecModeMips32>::setSysRet(ThreadContext *context, Tint val1, 
   setReg<Tregv_t,RegTypeGpr>(context,RegV0,Tregv_t(val1));
   setReg<Tregv_t,RegTypeGpr>(context,RegV1,Tregv_t(val2));
 }
-
+#endif
+#if (defined SUPPORT_MIPSEL32)
 template<>
 RealLinuxSys<ExecModeMipsel32>::Tpointer_t RealLinuxSys<ExecModeMipsel32>::getStackPointer(const ThreadContext *context){
   return getReg<Tpointer_t,RegSP>(context,RegSP);
@@ -1411,7 +1421,8 @@ void RealLinuxSys<ExecModeMipsel32>::setSysRet(ThreadContext *context, Tint val1
   setReg<Tregv_t,RegTypeGpr>(context,RegV0,Tregv_t(val1));
   setReg<Tregv_t,RegTypeGpr>(context,RegV1,Tregv_t(val2));
 }
-
+#endif
+#if (defined SUPPORT_MIPS64)
 template<>
 RealLinuxSys<ExecModeMips64>::Tpointer_t RealLinuxSys<ExecModeMips64>::getStackPointer(const ThreadContext *context){
   return getReg<Tpointer_t,RegSP>(context,RegSP);
@@ -1449,7 +1460,8 @@ void RealLinuxSys<ExecModeMips64>::setSysRet(ThreadContext *context, Tint val1, 
   setReg<Tregv_t,RegTypeGpr>(context,RegV0,Tregv_t(val1));
   setReg<Tregv_t,RegTypeGpr>(context,RegV1,Tregv_t(val2));
 }
-
+#endif
+#if (defined SUPPORT_MIPSEL64)
 template<>
 RealLinuxSys<ExecModeMipsel64>::Tpointer_t RealLinuxSys<ExecModeMipsel64>::getStackPointer(const ThreadContext *context){
   return getReg<Tpointer_t,RegSP>(context,RegSP);
@@ -1487,6 +1499,7 @@ void RealLinuxSys<ExecModeMipsel64>::setSysRet(ThreadContext *context, Tint val1
   setReg<Tregv_t,RegTypeGpr>(context,RegV0,Tregv_t(val1));
   setReg<Tregv_t,RegTypeGpr>(context,RegV1,Tregv_t(val2));
 }
+#endif
 enum{
   BaseSimTid = 1000
 };
@@ -1496,10 +1509,18 @@ static size_t sysCodeSize=6*sizeof(uint32_t);
 
 LinuxSys *LinuxSys::create(ExecMode mode){
   switch(mode){
+#if (defined SUPPORT_MIPS32)
   case ExecModeMips32:   return new RealLinuxSys<ExecModeMips32>();
+#endif
+#if (defined SUPPORT_MIPSEL32)
   case ExecModeMipsel32: return new RealLinuxSys<ExecModeMipsel32>();
+#endif
+#if (defined SUPPORT_MIPS64)
   case ExecModeMips64:   return new RealLinuxSys<ExecModeMips64>();
+#endif
+#if (defined SUPPORT_MIPSEL64)
   case ExecModeMipsel64: return new RealLinuxSys<ExecModeMipsel64>();
+#endif
   default:
     fail("LinuxSys::create with unsupported ExecMode=%d\n",mode);
   }
@@ -1590,7 +1611,7 @@ bool LinuxSys::handleSignals(ThreadContext *context) const{
   }
   return false;
 }
-
+#if (defined SUPPORT_MIPS32)
 template<>
 SignalAction RealLinuxSys<ExecModeMips32>::handleSignal(ThreadContext *context, SigInfo *sigInfo) const{
   // Pop signal mask if it's been saved
@@ -1671,7 +1692,8 @@ void RealLinuxSys<ExecModeMips32>::initSystem(ThreadContext *context) const{
   // that a signal mask has been already saved to the stack and needs to be restored
   setReg<uint32_t,RegSys>(context,RegSys,0);
 }
-
+#endif
+#if (defined SUPPORT_MIPSEL32)
 template<>
 SignalAction RealLinuxSys<ExecModeMipsel32>::handleSignal(ThreadContext *context, SigInfo *sigInfo) const{
   // Pop signal mask if it's been saved
@@ -1752,7 +1774,8 @@ void RealLinuxSys<ExecModeMipsel32>::initSystem(ThreadContext *context) const{
   // that a signal mask has been already saved to the stack and needs to be restored
   setReg<uint32_t,RegSys>(context,RegSys,0);
 }
-
+#endif
+#if (defined SUPPORT_MIPS64)
 template<>
 SignalAction RealLinuxSys<ExecModeMips64>::handleSignal(ThreadContext *context, SigInfo *sigInfo) const{
   // Pop signal mask if it's been saved
@@ -1833,7 +1856,8 @@ void RealLinuxSys<ExecModeMips64>::initSystem(ThreadContext *context) const{
   // that a signal mask has been already saved to the stack and needs to be restored
   setReg<Tregv_t,RegSys>(context,RegSys,0);
 }
-
+#endif
+#if (defined SUPPORT_MIPSEL64)
 template<>
 SignalAction RealLinuxSys<ExecModeMipsel64>::handleSignal(ThreadContext *context, SigInfo *sigInfo) const{
   // Pop signal mask if it's been saved
@@ -1914,7 +1938,7 @@ void RealLinuxSys<ExecModeMipsel64>::initSystem(ThreadContext *context) const{
   // that a signal mask has been already saved to the stack and needs to be restored
   setReg<Tregv_t,RegSys>(context,RegSys,0);
 }
-
+#endif
 template<ExecMode mode>
 void RealLinuxSys<mode>::createStack(ThreadContext *context) const{
   AddressSpace *addrSpace=context->getAddressSpace();
@@ -2214,8 +2238,9 @@ void RealLinuxSys<mode>::sysFutex(ThreadContext *context, InstDesc *inst){
   Tuint      op;
   CallArgs   args(context);
   args >> futex>> op;
-  // Ignore FUTEX_PRIVATE_FLAG
+  // Ignore FUTEX_PRIVATE_FLAG and FUTEX_CLOCK_REALTIME
   switch(op&VFUTEX_CMD_MASK){
+  case VFUTEX_WAIT_BITSET:
   case VFUTEX_WAIT: {
     Tint       val;
     Tpointer_t timeout;
@@ -2225,6 +2250,7 @@ void RealLinuxSys<mode>::sysFutex(ThreadContext *context, InstDesc *inst){
     if(futexCheck(context,futex,val))
       futexWait(context,futex);
   } break;
+  case VFUTEX_WAKE_BITSET:
   case VFUTEX_WAKE: {
     Tint       nr_wake;
     Tpointer_t timeout;
@@ -2546,6 +2572,7 @@ void RealLinuxSys<mode>::sysRtSigProcMask(ThreadContext *context, InstDesc *inst
   }
   setSysRet(context);
 }
+#if (defined SUPPORT_MIPS32)
 template<>
 void RealLinuxSys<ExecModeMips32>::sysRtSigSuspend(ThreadContext *context, InstDesc *inst){
   // If this is a suspend following a wakeup, we need to pop the already-saved mask
@@ -2608,6 +2635,8 @@ void RealLinuxSys<ExecModeMips32>::sysRtSigReturn(ThreadContext *context, InstDe
   context->setIAddr(popScalar<Tpointer_t>(context));
   context->setSignalMask(oldMask);
 }
+#endif
+#if (defined SUPPORT_MIPSEL32)
 template<>
 void RealLinuxSys<ExecModeMipsel32>::sysRtSigSuspend(ThreadContext *context, InstDesc *inst){
   // If this is a suspend following a wakeup, we need to pop the already-saved mask
@@ -2670,6 +2699,8 @@ void RealLinuxSys<ExecModeMipsel32>::sysRtSigReturn(ThreadContext *context, Inst
   context->setIAddr(popScalar<Tpointer_t>(context));
   context->setSignalMask(oldMask);
 }
+#endif
+#if (defined SUPPORT_MIPS64)
 template<>
 void RealLinuxSys<ExecModeMips64>::sysRtSigSuspend(ThreadContext *context, InstDesc *inst){
   // If this is a suspend following a wakeup, we need to pop the already-saved mask
@@ -2732,7 +2763,8 @@ void RealLinuxSys<ExecModeMips64>::sysRtSigReturn(ThreadContext *context, InstDe
   context->setIAddr(popScalar<Tpointer_t>(context));
   context->setSignalMask(oldMask);
 }
-
+#endif
+#if (defined SUPPORT_MIPSEL64)
 template<>
 void RealLinuxSys<ExecModeMipsel64>::sysRtSigSuspend(ThreadContext *context, InstDesc *inst){
   // If this is a suspend following a wakeup, we need to pop the already-saved mask
@@ -2795,6 +2827,7 @@ void RealLinuxSys<ExecModeMipsel64>::sysRtSigReturn(ThreadContext *context, Inst
   context->setIAddr(popScalar<Tpointer_t>(context));
   context->setSignalMask(oldMask);
 }
+#endif
 
 template<ExecMode mode>
 void RealLinuxSys<mode>::sysSchedYield(ThreadContext *context, InstDesc *inst){
@@ -3053,6 +3086,14 @@ void RealLinuxSys<mode>::sysMMap(ThreadContext *context, InstDesc *inst){
   Tint       flags;
   CallArgs args(context);
   args >> start >> length >> prot >> flags;
+  Tint       fd;
+  Toff_t     offset;
+  if(!(flags&VMAP_ANONYMOUS)){
+    args >> fd >> offset;
+  }else{
+    fd=-1;
+    offset=0;
+  }
   Tpointer_t addr=start;
   if(context->getAddressSpace()->pageAlignDown(addr)!=addr){
     // Address is not page-aligned, error if MAP_FIXED, ignore addr otherwise
@@ -3081,9 +3122,6 @@ void RealLinuxSys<mode>::sysMMap(ThreadContext *context, InstDesc *inst){
   FileSys::SeekableDescription *sdesc=0;
   size_t             offs=0;
   if(!(flags&VMAP_ANONYMOUS)){
-    Tint       fd;
-    Toff_t     offset;
-    args >> fd >> offset;
     FileSys::OpenFiles *openFiles=context->getOpenFiles();
     if(!openFiles->isOpen(fd))
       return setSysErr(context,VEBADF);
@@ -3113,10 +3151,10 @@ void RealLinuxSys<mode>::sysMMap(ThreadContext *context, InstDesc *inst){
 	 flags&VMAP_SHARED);
 #endif
 #if (defined DEBUG_FILES) || (defined DEBUG_VMEM)
-  printf("[%d] mmap %d start 0x%08x len 0x%08x offset 0x%08x prot %c%c%c load 0x%08x to 0x%08x\n",
+  printf("[%d] mmap %d start 0x%08x len 0x%08x offset 0x%08x prot %c%c%c return 0x%08x\n",
 	 context->gettid(),fd,(uint32_t)start,(uint32_t)length,(uint32_t)offset,
          (prot&VPROT_READ)?'R':' ',(prot&VPROT_WRITE)?'W':' ',(prot&VPROT_EXEC)?'E':' ',
-	 (uint32_t)initPos,(uint32_t)rv);
+	 (uint32_t)addr);
 #endif
   return setSysRet(context,addr);
 }
@@ -3533,7 +3571,7 @@ void RealLinuxSys<mode>::sysLSeek(ThreadContext *context, InstDesc *inst){
     return setSysErr(context,VEINVAL);
   description->setPos(newOffset);
 #ifdef DEBUG_FILES
-  printf("[%d] lseek %d to %ld whence %d returns %ld\n",context->gettid(),fd,(long)offset,(int)whence,(long)newPos);
+  printf("[%d] lseek %d to %ld whence %d returns %ld\n",context->gettid(),fd,(long)offset,(int)whence,(long)newOffset);
 #endif
   return setSysRet(context,Toff_t(newOffset));
 }
@@ -3565,7 +3603,7 @@ void RealLinuxSys<mode>::sysLLSeek(ThreadContext *context, InstDesc *inst){
     return setSysErr(context,VEINVAL);
   description->setPos(newOffset);
 #ifdef DEBUG_FILES
-  printf("[%d] llseek %d to %ld whence %d returns %ld\n",context->gettid(),fd,(long)offset,(int)whence,(long)newOffset);
+  printf("[%d] llseek %d to %ld whence %d returns %ld\n",context->gettid(),fd,(long)((off_t)((((uint64_t)offset_high)<<32)|((uint64_t)offset_low))),(int)whence,(long)newOffset);
 #endif
   context->writeMemRaw(result,fixEndian(Tloff_t(newOffset)));
   setSysRet(context);
@@ -3583,7 +3621,7 @@ void RealLinuxSys<mode>::sysGetDEnts(ThreadContext *context, InstDesc *inst){
   if(!context->canWrite(dirp,count))
     return setSysErr(context,VEFAULT);
 #ifdef DEBUG_FILES 
-  printf("[%d] getdents from %d (%d entries to 0x%08x)\n",context->gettid(),fd,count,dirp);
+  printf("[%d] getdents from %d (%ld entries to 0x%08lx)\n",context->gettid(),fd,(long)count,(long unsigned)dirp);
 #endif
   FileSys::DirectoryDescription *desc=dynamic_cast<FileSys::DirectoryDescription *>(openFiles->getDescription(fd));
   if(!desc)
@@ -4171,42 +4209,65 @@ void RealLinuxSys<mode>::sysSysCtl(ThreadContext *context, InstDesc *inst){
   return setSysRet(context);
 }
 
-
+#if (defined SUPPORT_MIPS32)
 template<>
 void RealLinuxSys<ExecModeMips32>::setThreadArea(ThreadContext *context, Tpointer_t addr){
   setReg<Tpointer_t,RegTPtr>(context,RegTPtr,addr);
 }
+#endif
+#if (defined SUPPORT_MIPSEL32)
 template<>
 void RealLinuxSys<ExecModeMipsel32>::setThreadArea(ThreadContext *context, Tpointer_t addr){
   setReg<Tpointer_t,RegTPtr>(context,RegTPtr,addr);
 }
+#endif
+#if (defined SUPPORT_MIPS64)
 template<>
 void RealLinuxSys<ExecModeMips64>::setThreadArea(ThreadContext *context, Tpointer_t addr){
   setReg<Tpointer_t,RegTPtr>(context,RegTPtr,addr);
 }
+#endif
+#if (defined SUPPORT_MIPSEL64)
 template<>
 void RealLinuxSys<ExecModeMipsel64>::setThreadArea(ThreadContext *context, Tpointer_t addr){
   setReg<Tpointer_t,RegTPtr>(context,RegTPtr,addr);
 }
+#endif
 
 // On MIPS the stack grows down
+#if (defined SUPPORT_MIPS32)
 template<> int RealLinuxSys<ExecModeMips32>::stackGrowthSign(void){ return -1; }
+#endif
+#if (defined SUPPORT_MIPSEL32)
 template<> int RealLinuxSys<ExecModeMipsel32>::stackGrowthSign(void){ return -1; }
+#endif
+#if (defined SUPPORT_MIPS64)
 template<> int RealLinuxSys<ExecModeMips64>::stackGrowthSign(void){ return -1; }
+#endif
+#if (defined SUPPORT_MIPSEL64)
 template<> int RealLinuxSys<ExecModeMipsel64>::stackGrowthSign(void){ return -1; }
+#endif
 
+#if (defined SUPPORT_MIPS32)
 template<> RealLinuxSys<ExecModeMips32>::Tint RealLinuxSys<ExecModeMips32>::getSysCallNum(const ThreadContext *context){
   return getReg<Tint,RegV0>(context,RegV0);
 }
+#endif
+#if (defined SUPPORT_MIPSEL32)
 template<> RealLinuxSys<ExecModeMipsel32>::Tint RealLinuxSys<ExecModeMipsel32>::getSysCallNum(const ThreadContext *context){
   return getReg<Tint,RegV0>(context,RegV0);
 }
+#endif
+#if (defined SUPPORT_MIPS64)
 template<> RealLinuxSys<ExecModeMips64>::Tint RealLinuxSys<ExecModeMips64>::getSysCallNum(const ThreadContext *context){
   return getReg<Tint,RegV0>(context,RegV0);
 }
+#endif
+#if (defined SUPPORT_MIPSEL64)
 template<> RealLinuxSys<ExecModeMipsel64>::Tint RealLinuxSys<ExecModeMipsel64>::getSysCallNum(const ThreadContext *context){
   return getReg<Tint,RegV0>(context,RegV0);
 }
+#endif
 
 template<ExecMode mode>
 InstDesc *RealLinuxSys<mode>::sysCall(ThreadContext *context, InstDesc *inst){
@@ -4571,17 +4632,7 @@ InstDesc *RealLinuxSys<mode>::sysCall(ThreadContext *context, InstDesc *inst){
     fail("Unknown Mips32 syscall %d at 0x%08x\n",sysCallNum,context->getIAddr());
   }
 #if (defined DEBUG_SYSCALLS)
-  if(Mips::getRegAny<myMode,uint32_t,RegTypeGpr>(context,RegA3)){
-    switch(sysCallNum){
-    case 4193: // rt_sigreturn (does not return from the call)
-      break;
-    default:
-      printf("sysCall %d returns with error %d\n",sysCallNum,
-	     Mips::getRegAny<myMode,uint32_t,RegTypeGpr>(context,RegA3)
-	     );
-      break;
-    }
-  }
+  printf("[%d] sysCall %d\n",context->gettid(),sysCallNum);
 #endif
   return inst;
 }
