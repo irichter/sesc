@@ -863,7 +863,7 @@ if [[ $TARG_LIBS == "64" ]]; then
 else
   SPECSNM="specs"
 fi
-FILES=( "${FILES_gcc[*]}" )
+FILES=( "${FILES_gcc[@]}" )
 PATCHES=(
   "[[ $BUPDATE != \"N\" ]]"
   "patch -Np1 -i ../${PACKAGE}-${VERSION}-branch_update-${BUPDATE}.patch >& branch-update-patch.log"
