@@ -35,12 +35,18 @@ Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 // Need to access config info for mount points
 #include "SescConf.h"
 
+//#define DEBUG_MOUNTS
+
 using std::cout;
 using std::endl;
 
+#include <algorithm>
+using std::min;
+using std::max;
+
 namespace FileSys {
   size_t Node::simInodeCounter=1;
-  Node::ByNatInode Node::byNatInode;
+  Node::ByNatKey   Node::byNatKey;
   Node::ByNatName  Node::byNatName;
   Node::ToNatName  Node::toNatName;
   Node::Node(dev_t dev, uid_t uid, gid_t gid, mode_t mode, ino_t natInode)
@@ -56,8 +62,8 @@ namespace FileSys {
     struct stat stbuf;
     if(lstat(name.c_str(),&stbuf)!=0)
       return node;
-    ByNatInode::iterator inodeIt=byNatInode.find(stbuf.st_ino);
-    if(inodeIt==byNatInode.end()){
+    ByNatKey::iterator keyIt=byNatKey.find(NatKey(stbuf.st_dev,stbuf.st_ino));
+    if(keyIt==byNatKey.end()){
       switch(stbuf.st_mode&S_IFMT){
       case S_IFLNK: {
         char lbuf[stbuf.st_size+1];
@@ -71,9 +77,9 @@ namespace FileSys {
       default: fail("Node::lookup(%s) for unknown st_mode %x\n",name.c_str(),stbuf.st_mode);
       }
       I(node->natInode!=(ino_t)-1);
-      byNatInode[node->natInode]=node;
+      byNatKey[NatKey(node->dev,node->natInode)]=node;
     }else{
-      node=inodeIt->second;
+      node=keyIt->second;
     }
     byNatName.insert(ByNatName::value_type(name,node));
     toNatName.insert(ToNatName::value_type(node,name));
@@ -100,8 +106,8 @@ namespace FileSys {
     byNatName.insert(ByNatName::value_type(name,node));
     if(node){
       if(node->natInode!=(ino_t)-1){
-	I(!byNatInode.count(node->natInode));
-	byNatInode[node->natInode]=node;
+	I(!byNatKey.count(NatKey(node->dev,node->natInode)));
+	byNatKey[NatKey(node->dev,node->natInode)]=node;
       }
       I(!toNatName.count(node));
       toNatName.insert(ToNatName::value_type(node,name));
@@ -307,7 +313,7 @@ namespace FileSys {
   FileDescription::~FileDescription(void){
   }
   DirectoryNode::DirectoryNode(struct stat &buf)
-    : SeekableNode(buf.st_dev,buf.st_uid,buf.st_gid,buf.st_mode,0,buf.st_ino), dirp(0), entries(){
+    : SeekableNode(buf.st_dev,buf.st_uid,buf.st_gid,buf.st_mode,-1,buf.st_ino), dirp(0), entries(){
   }
   DirectoryNode::~DirectoryNode(void){
   }
@@ -342,6 +348,11 @@ namespace FileSys {
     : SeekableDescription(node,flags){
   }
   DirectoryDescription::~DirectoryDescription(void){
+  }
+  off_t DirectoryDescription::getSize(void) const{
+    if(node->getSize()==-1)
+      dynamic_cast<DirectoryNode *>(node)->refresh();
+    return node->getSize();
   }
   void DirectoryDescription::setPos(off_t npos){
     dynamic_cast<DirectoryNode *>(node)->refresh();
@@ -631,25 +642,125 @@ namespace FileSys {
     while(bpos!=string::npos){
       string::size_type mpos=mtlist.find('=',bpos);
       string::size_type epos=mtlist.find(':',bpos);
-      mounts[string(mtlist,bpos,mpos-bpos)]=string(mtlist,mpos+1,epos-mpos-1);
+      string targpath(mtlist,bpos,mpos-bpos);
+      string hostpath(mtlist,mpos+1,epos-mpos-1);
+      mounts[normalize("",targpath)]=normalize("",hostpath);
       bpos=epos+((epos==string::npos)?0:1);
     }
+    if(mounts.find("/")==mounts.end())
+      mounts["/"]="/";
+#if (defined DEBUG_MOUNTS)
+    for(Mounts::const_iterator it=mounts.begin();it!=mounts.end();it++){
+      cout << "Target " << it->first <<
+	" mounted at " << it->second << endl;
+    }
+#endif
   }
   NameSpace::NameSpace(const NameSpace &src) : GCObject(), mounts() {
     fail("FileSys::NameSpace copying not supported!\n");
   }
-  const string NameSpace::toNative(const string &fname) const{
-    Mounts::const_iterator it=mounts.lower_bound(fname);
-    if(it==mounts.end())
-      return fname;
-    const string &simmap=it->first;
-    if(fname.compare(0,simmap.length(),simmap)!=0)
-      return fname;
-    if(fname.length()==simmap.length())
-      return it->second;
-    if(string(fname,simmap.length(),1)!="/")
-      return fname;
-    return it->second + string(fname,simmap.length());
+  const string NameSpace::toTarget(const string &fname) const{
+#if (defined DEBUG_MOUNTS)
+    cout << "toTarget called with " << fname << endl;
+#endif
+    Mounts::const_iterator found=mounts.end();
+    for(Mounts::const_iterator it=mounts.begin();it!=mounts.end();it++){
+      // If exact match, no need to look for a better one
+      if(fname.compare(it->second)==0)
+	return it->first;
+      // Root match is good only if no other match found
+      if((it->second=="/")&&(found==mounts.end())){
+	found=it;
+	continue;
+      }
+      // Host path is not a substring of fname
+      if(fname.compare(0,it->second.length(),it->second)!=0)
+	continue;
+      // Host path is not a sub-path of fname
+      if(fname.at(it->second.length())!='/')
+	continue;
+      // If prior match non-extant or root, now we have a new match
+      if((found==mounts.end())||(found->second=="/")){
+	found=it;
+	continue;
+      }
+      // If this a better match than the previous one?
+      if(fname.length()-it->second.length()+it->first.length()<
+	 fname.length()-found->second.length()+found->first.length())
+	found=it;
+    }
+    if(found==mounts.end())
+      fail("NameSpace::toTarget could not find mapping for %s\n",fname.c_str());
+    string rv;
+    if((found->second=="/")&&(found->first!="/"))
+      rv=found->first+fname;
+    else
+      rv=found->first+string(fname,found->second.length(),string::npos);
+    if(toHost(rv)!=fname)
+      fail("NameSpace::toTarget %s -> %s maps back to %s\n",
+	   fname.c_str(),rv.c_str(),toHost(rv).c_str());
+    return rv;
+  }
+  const string NameSpace::toHost(const string &fname) const{
+#if (defined DEBUG_MOUNTS)
+    cout << "toHost called with " << fname << endl;
+#endif
+    I(fname[0]=='/');
+    string::size_type fnameLen=fname.length();
+    string lookStr=fname;
+    string::size_type lookLen=fnameLen;
+    while(true){
+      Mounts::const_iterator it=mounts.lower_bound(lookStr);
+      if(it==mounts.end())
+	fail("Namespace::toHost: Cannot find the mapping for %s\n",fname.c_str());
+      const string &targFound=it->first;
+      const string &hostFound=it->second;
+#if (defined DEBUG_MOUNTS)
+      cout << "Checking " << targFound << " -> " << hostFound <<
+	" for " << lookStr << endl;
+#endif
+      string::size_type foundLen=targFound.length();
+      string::size_type bothLen=min(foundLen,lookLen);
+      string::size_type matchPos=0;
+      string::size_type checkPos=0;
+      while(checkPos<bothLen){
+	char c=targFound[checkPos];
+	// Char differs in two strings, the longest path match between
+	// the two is in matchPos already, just exit the comparison loop
+	if(c!=lookStr[checkPos])
+	  break;
+	// Same char and it's a slash, the new longest path match is
+	// what we found so far, including the slash
+	if(c=='/')
+	  matchPos=checkPos+1;
+	// Strings are still the same, keep comparing them 
+	checkPos++;
+      }
+      // If we ran out of targFound characters without finding a difference,
+      // see if the entire targFound path is a match
+      if(checkPos==foundLen){
+	// We have a match 1) if we are also out of lookStr chars 
+	// (in which case targFound and lookStr are exactly the same),
+	// 2) if targFound ends with '/' (in which case matchPos is
+	// already equal to checkPos), or 3) if the next char in lookStr
+	// is '/' (in which case targFound is part of the lookStr path)
+	if((checkPos==lookLen)||(lookStr[checkPos]=='/'))
+	  matchPos=checkPos;
+      }
+      // If we have a full match, we can complete the mapping and return
+      if(matchPos==foundLen){
+	bool addSlash=
+	  (targFound.at(targFound.length()-1)=='/')&&
+	  (hostFound.at(hostFound.length()-1)!='/');
+#if (defined DEBUG_MOUNTS)
+	cout << "toHost returns " << hostFound+(addSlash?"/":"")+string(fname,targFound.length()) << endl;
+#endif
+	return hostFound+(addSlash?"/":"")+string(fname,targFound.length());
+      }
+      // We have just a partial match, so we truncate lookStr to only
+      // contain that longest path match and look for the mounting again
+      lookStr.erase(matchPos);
+    }
   }
   FileSys::FileSys(NameSpace *ns, const string &cwd)
     : GCObject()
@@ -664,8 +775,8 @@ namespace FileSys {
   void FileSys::setCwd(const string &newCwd){
     cwd=normalize(cwd,newCwd);
   }
-  string FileSys::normalize(const string &base, const string &fname){
-    string rv(fname);
+  const string NameSpace::normalize(const string &base, const string &fname){
+    string rv(fname+"/");
     if(string(fname,0,1)!="/")
       rv=base+"/"+rv;
     while(true){
@@ -689,10 +800,15 @@ namespace FileSys {
         fail("Found /../ with no /dir before it\n"); 
       rv.erase(bpos,epos-bpos+3);
     }
+    if(rv!="/")
+      rv.erase(rv.length()-1);
+#if (defined DEBUG_MOUNTS)
+    cout << "NameSpace::normalize (" << base << "," << fname <<") to " << rv << endl;
+#endif
     return rv;
   }
-  const string FileSys::toNative(const string &fname) const{
-    return nameSpace->toNative(normalize(cwd,fname));
+  const string FileSys::toHost(const string &fname) const{
+    return nameSpace->toHost(normalize(cwd,fname));
   }
 
 }

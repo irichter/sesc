@@ -83,9 +83,12 @@ void emulInit(int32_t argc, char **argv, char **envp){
     appEnvc++;
 
   FileSys::NameSpace::pointer nameSpace(new FileSys::NameSpace(SescConf->getCharPtr("FileSys","mount")));
-  char cwd[PATH_MAX];
-  FileSys::FileSys::pointer fileSys(new FileSys::FileSys(nameSpace,getcwd(cwd,PATH_MAX)));
-  const string exeLinkName(fileSys->toNative(appArgv[0]));
+  char hostCwd[PATH_MAX];
+  if(getcwd(hostCwd,PATH_MAX)==0)
+    fail("emulInit: Failed to get host current directory (getcwd)\n");
+  const string targetCwd(nameSpace->toTarget(nameSpace->normalize("/",hostCwd)));
+  FileSys::FileSys::pointer fileSys(new FileSys::FileSys(nameSpace,targetCwd));
+  const string exeLinkName(fileSys->toHost(appArgv[0]));
   const string exeRealName(FileSys::Node::resolve(exeLinkName));
   if(exeRealName.empty())
     fail("emulInit: Link loop when executable %s\n",exeLinkName.c_str());

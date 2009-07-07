@@ -789,8 +789,8 @@ class RealLinuxSys : public LinuxSys, public ArchDefs<mode>{
       for(size_t i=0;i<(d_reclen-This::Offs_d_name);i++)
         d_name[i]=(i<namelen)?src.d_name[i]:0;
     }
-    Tdirent(const std::string &name, off_t off)
-      : d_ino(1),
+    Tdirent(const std::string &name, off_t off, ino_t ino)
+      : d_ino(ino),
         d_off(off)
     {
       size_t namelen=name.length()+1;
@@ -831,8 +831,8 @@ class RealLinuxSys : public LinuxSys, public ArchDefs<mode>{
       I(src.d_reclen%8==0);
       I(size_t(src.d_reclen-(src.d_name-(char *)&src))==d_reclen-This::Offs_d_name);
     }
-    Tdirent64(const std::string &name, off_t off)
-      : d_ino(1),
+    Tdirent64(const std::string &name, off_t off, ino_t ino)
+      : d_ino(ino),
         d_off(off),
 	d_type(0)
     {
@@ -2070,7 +2070,7 @@ InstDesc *RealLinuxSys<mode>::sysExecVe(ThreadContext *context, InstDesc *inst){
   Tstr fname(context,fnamep);
   if(!fname)
     return inst;
-  const std::string exeLinkName(context->getFileSys()->toNative((const char *)fname));
+  const std::string exeLinkName(context->getFileSys()->toHost((const char *)fname));
   const std::string exeRealName(FileSys::Node::resolve(exeLinkName));
   if(exeRealName.empty()){
     setSysErr(context,VELOOP);
@@ -3245,7 +3245,7 @@ void RealLinuxSys<mode>::sysOpen(ThreadContext *context, InstDesc *inst){
   Tstr path(context,pathp);
   if(!path)
     return;
-  std::string natPath(context->getFileSys()->toNative((const char *)path));
+  std::string natPath(context->getFileSys()->toHost((const char *)path));
   if(flags&VO_NOFOLLOW){
     if(FileSys::Node::resolve(natPath)!=natPath)
       return setSysErr(context,VELOOP);
@@ -3624,24 +3624,43 @@ void RealLinuxSys<mode>::sysGetDEnts(ThreadContext *context, InstDesc *inst){
   printf("[%d] getdents from %d (%ld entries to 0x%08lx)\n",context->gettid(),fd,(long)count,(long unsigned)dirp);
 #endif
   FileSys::DirectoryDescription *desc=dynamic_cast<FileSys::DirectoryDescription *>(openFiles->getDescription(fd));
-  if(!desc)
+  if(!desc){
+#ifdef DEBUG_FILES 
+    printf("Returning ENOTDIR\n");
+#endif
     return setSysErr(context,VENOTDIR);
+  }
+  // If at the end of the directory, just return zero
+  if(desc->getPos()==desc->getSize())
+    return setSysRet(context,0);
   // How many bytes at dirp have been read so far
   Tsize_t rcount=0;
   while(true){
     off_t cpos=desc->getPos();
     if(cpos>=desc->getSize())
       break;
-    Tdirent_t simDent(desc->readDir(),cpos+1);
+    std::string fname=desc->readDir();
+    ino_t ino;
+    std::string pname=desc->getName() + "/" + fname;
+    FileSys::Node *fnode=FileSys::Node::lookup(pname);
+    if(!fnode)
+      continue;
+    Tdirent_t simDent(fname,cpos+1,fnode->getIno());
     if(rcount+simDent.d_reclen>count){
       desc->setPos(cpos);
       break;
     }
+    //    printf("Dirent off %d ino %d nam %s\n",
+    //	   (int)(simDent.d_off),(int)(simDent.d_ino),simDent.d_name);
     simDent.write(context,dirp+rcount);
     rcount+=simDent.d_reclen;
   }
-  if(rcount==0)
+  if(rcount==0){
+#ifdef DEBUG_FILES 
+    printf("Returning EINVAL\n");
+#endif
     return setSysErr(context,VEINVAL);
+  }
   return setSysRet(context,rcount);
 }
 template<ExecMode mode>
@@ -3780,7 +3799,7 @@ void RealLinuxSys<mode>::sysTruncate(ThreadContext *context, InstDesc *inst){
 #ifdef DEBUG_FILES
   printf("[%d] truncate %s to %ld\n",context->gettid(),(const char *)path,(long)length);
 #endif
-  const std::string linkName(context->getFileSys()->toNative((const char *)path));
+  const std::string linkName(context->getFileSys()->toHost((const char *)path));
   const std::string realName(FileSys::Node::resolve(linkName));
   if(realName.empty())
     return setSysErr(context,VELOOP);
@@ -3830,7 +3849,7 @@ void RealLinuxSys<mode>::sysChMod(ThreadContext *context, InstDesc *inst){
 #ifdef DEBUG_FILES
   printf("[%d] chmod %s to %d\n",context->gettid(),(const char *)path,fmode);
 #endif
-  if(chmod(context->getFileSys()->toNative((const char *)path).c_str(),mode_tToNative(fmode))==-1)
+  if(chmod(context->getFileSys()->toHost((const char *)path).c_str(),mode_tToNative(fmode))==-1)
     return setSysErr(context);               
   setSysRet(context);
 }
@@ -3849,10 +3868,16 @@ void RealLinuxSys<mode>::sysStat(ThreadContext *context, InstDesc *inst){
   if(!context->canWrite(buf,Tstat_t::getSize()))
     return setSysErr(context,VEFAULT);
   struct stat natStat;
-  const std::string natPath=context->getFileSys()->toNative((const char *)path);
+  const std::string natPath=context->getFileSys()->toHost((const char *)path);
+  FileSys::Node *node=FileSys::Node::lookup(natPath);
   if(link?lstat(natPath.c_str(),&natStat):stat(natPath.c_str(),&natStat))
     return setSysErr(context);
-  Tstat_t(natStat).write(context,buf);
+  Tstat_t targStat(natStat);
+  targStat.st_ino=node->getIno();
+  targStat.write(context,buf);
+#ifdef DEBUG_FILES
+  printf("Dev %d Ino %d\n\n",(int)(natStat.st_dev),(int)(targStat.st_ino));
+#endif
   setSysRet(context);
 }
 template<ExecMode mode>      
@@ -3901,7 +3926,7 @@ void RealLinuxSys<mode>::sysUnlink(ThreadContext *context, InstDesc *inst){
 #ifdef DEBUG_FILES
   printf("[%d] unlink %s\n",context->gettid(),(const char *)pathname);
 #endif
-  std::string natName(context->getFileSys()->toNative((const char *)pathname));
+  std::string natName(context->getFileSys()->toHost((const char *)pathname));
   FileSys::Node *node=FileSys::Node::lookup(natName);
   if(!node)
     return setSysErr(context);
@@ -3924,7 +3949,7 @@ void RealLinuxSys<mode>::sysSymLink(ThreadContext *context, InstDesc *inst){
 #ifdef DEBUG_FILES
   printf("[%d] symlink %s to %s\n",context->gettid(),(const char *)path2,(const char *)path1);
 #endif
-  if(symlink(path1,context->getFileSys()->toNative((const char *)path2).c_str())==-1)
+  if(symlink(path1,context->getFileSys()->toHost((const char *)path2).c_str())==-1)
     return setSysErr(context);
   setSysRet(context);
 }
@@ -3939,8 +3964,8 @@ void RealLinuxSys<mode>::sysRename(ThreadContext *context, InstDesc *inst){
   Tstr     newpath(context,newpathp);
   if(!oldpath)
     return;
-  std::string natOldName(context->getFileSys()->toNative((const char *)oldpath));
-  std::string natNewName(context->getFileSys()->toNative((const char *)newpath));
+  std::string natOldName(context->getFileSys()->toHost((const char *)oldpath));
+  std::string natNewName(context->getFileSys()->toHost((const char *)newpath));
   FileSys::Node *node=FileSys::Node::lookup(natOldName);
   if(!node)
     return setSysErr(context);
@@ -3966,8 +3991,8 @@ void RealLinuxSys<mode>::sysChdir(ThreadContext *context, InstDesc *inst){
   // Remember current working directory of the simulator
   char cwd[PATH_MAX];
   getcwd(cwd,PATH_MAX);
-  // Change to the simulated workign directory to check for errors
-  int res=chdir(context->getFileSys()->toNative((const char *)path).c_str());
+  // Change to the simulated working directory to check for errors
+  int res=chdir(context->getFileSys()->toHost((const char *)path).c_str());
   if(res){
     setSysErr(context);
   }else{
@@ -3989,7 +4014,7 @@ void RealLinuxSys<mode>::sysAccess(ThreadContext *context, InstDesc *inst){
 #ifdef DEBUG_FILES
   printf("[%d] access %s\n",context->gettid(),(const char *)fname);
 #endif
-  if(access(context->getFileSys()->toNative((const char *)fname).c_str(),accessModeToNative(amode))==-1)
+  if(access(context->getFileSys()->toHost((const char *)fname).c_str(),accessModeToNative(amode))==-1)
     return setSysErr(context);
   setSysRet(context);
 }
@@ -4017,7 +4042,7 @@ void RealLinuxSys<mode>::sysMkdir(ThreadContext *context, InstDesc *inst){
   Tstr     pathname(context,pathnamep);
   if(!pathname)
     return;
-  if(mkdir(context->getFileSys()->toNative((const char *)pathname).c_str(),mode_tToNative(fmode))!=0)
+  if(mkdir(context->getFileSys()->toHost((const char *)pathname).c_str(),mode_tToNative(fmode))!=0)
     return setSysErr(context);
   setSysRet(context);
 }
@@ -4028,7 +4053,7 @@ void RealLinuxSys<mode>::sysRmdir(ThreadContext *context, InstDesc *inst){
   Tstr     pathname(context,pathnamep);
   if(!pathname)
     return;
-  if(rmdir(context->getFileSys()->toNative((const char *)pathname).c_str())!=0)
+  if(rmdir(context->getFileSys()->toHost((const char *)pathname).c_str())!=0)
     return setSysErr(context);
   setSysRet(context);
 }
@@ -4054,7 +4079,7 @@ void RealLinuxSys<mode>::sysReadLink(ThreadContext *context, InstDesc *inst){
   printf("[%d] readlink %s\n",context->gettid(),(const char *)path);
 #endif
   char bufBuf[bufsiz];
-  Tssize_t bufLen=readlink(context->getFileSys()->toNative((const char *)path).c_str(),bufBuf,bufsiz);
+  Tssize_t bufLen=readlink(context->getFileSys()->toHost((const char *)path).c_str(),bufBuf,bufsiz);
   if(bufLen==-1)
     return setSysErr(context);
   if(!context->canWrite(buf,bufLen))
@@ -4102,6 +4127,12 @@ void RealLinuxSys<mode>::sysSetRLimit(ThreadContext *context, InstDesc *inst){
   case VRLIMIT_STACK: break;
   case VRLIMIT_DATA:
     // Limit is already RLIM_INFINITY, so we don't care what the new size is
+    break;
+  case VRLIMIT_CORE:
+    if(buf.rlim_cur!=buf.rlim_max)
+      fail("sysSetRLimit for RLIMIT_CORE with rlim_cur != rlim_max\n");
+    if(buf.rlim_cur!=0)
+      fail("sysSetRLimit for RLIMIT_CORE with non-zero rlim_cur\n");      
     break;
   default:
     fail("sysCall32_setrlimit called for resource %d at 0x%08x\n",resource,context->getIAddr());

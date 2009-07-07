@@ -331,7 +331,7 @@ VAddr _loadElfObject(ThreadContext *context, FileSys::SeekableDescription *fdesc
       char interpName[phdrs[seg].p_filesz];
       ssize_t interpNameSiz=fdesc->pread(interpName,phdrs[seg].p_filesz,phdrs[seg].p_offset);
       I(interpNameSiz==ssize_t(phdrs[seg].p_filesz));
-      const std::string exeLinkName(context->getFileSys()->toNative(interpName));
+      const std::string exeLinkName(context->getFileSys()->toHost(interpName));
       const std::string exeRealName(FileSys::Node::resolve(exeLinkName));
       if(exeRealName.empty())
         fail("loadElfObject: Link loop when executable %s\n",exeLinkName.c_str());

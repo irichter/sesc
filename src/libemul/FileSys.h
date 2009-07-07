@@ -40,8 +40,23 @@ namespace FileSys {
     gid_t  gid;
     mode_t mode;
     off_t  size;
-    typedef std::map<ino_t, Node *> ByNatInode;
-    static ByNatInode byNatInode;
+    class NatKey{
+    private:
+      dev_t dev;
+      ino_t ino;
+    public:
+      NatKey(dev_t dev, ino_t ino) : dev(dev), ino(ino){
+      }
+      bool operator<(const NatKey &other) const{
+	if(dev<other.dev)
+	  return true;
+	if(dev>other.dev)
+	  return false;
+	return (ino<other.ino);
+      }
+    };
+    typedef std::map<NatKey, Node *> ByNatKey;
+    static ByNatKey byNatKey;
     typedef std::map<std::string,Node *> ByNatName;
     static ByNatName  byNatName;
     typedef std::multimap<Node *,std::string> ToNatName;
@@ -160,6 +175,7 @@ namespace FileSys {
   };
   class DirectoryDescription : public SeekableDescription{
   public:
+    virtual off_t getSize(void) const;
     DirectoryDescription(DirectoryNode *node, flags_t flags);
     virtual ~DirectoryDescription(void);
     virtual void setPos(off_t npos);
@@ -287,7 +303,9 @@ namespace FileSys {
   public:
     NameSpace(const std::string &mtlist);
     NameSpace(const NameSpace &src);
-    const std::string toNative(const std::string &fname) const;
+    const std::string toHost(const std::string &fname) const;
+    const std::string toTarget(const std::string &fname) const;
+    static const std::string normalize(const std::string &base, const std::string &fname);
   };
 
   // File system (chroot, chdir, and umask) information and file name translation
@@ -304,8 +322,11 @@ namespace FileSys {
       return cwd;
     }
     void setCwd(const std::string &newCwd);
-    static std::string normalize(const std::string &base, const std::string &fname);
-    const std::string toNative(const std::string &fname) const;
+    static const std::string normalize(const std::string &base, const std::string &fname){
+      return NameSpace::normalize(base,fname);
+    }
+    const std::string toHost(const std::string &fname) const;
+    const std::string toTarget(const std::string &fname) const;
   };
 
 }
